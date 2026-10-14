@@ -58,7 +58,7 @@
   }
   function localPorts(component,legacy=false){
     const terminals=component.params.terminals??2;
-    const local=component.type==='rheostat'?(terminals===2?two:terminals===3?rheostatPorts.filter(p=>p.key!=='d'):rheostatPorts):dualMeter(component)?legacy===true?polar:legacy==='v4'?v4MeterPorts:meterPorts:(get(component.type).portsFor?.(component)??get(component.type).ports);
+    const local=component.type==='rheostat'?(terminals===2?two:terminals===3?rheostatPorts.filter(p=>p.key!=='d'):rheostatPorts):dualMeter(component)?legacy===true?polar:legacy==='v4'?v4MeterPorts:meterPorts:get(component.type).ports;
     return legacy!==true&&dualMeter(component)&&component.mirrored?local.map(p=>({...p,x:-p.x,dx:-(p.dx??Math.sign(p.x))})):local;
   }
   function ports(component, legacy=false) {

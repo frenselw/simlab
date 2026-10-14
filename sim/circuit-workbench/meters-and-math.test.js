@@ -68,5 +68,3 @@ for(const view of ['real','schematic'])for(const angle of [0,90,180,270])for(con
   }
 }
 console.log(`Meters and LaTeX: ${cases} signed/range/boundary fixtures, offset zero and calibrated negative ticks, mechanical travel, true signed values, restore/range continuation, actual self-contained TeX vector glyphs, wattmeter terminal glyph bounds and scientific notation passed.`);
-
-assert(Q.html(Q.quantity(1/3,'kWh')).includes('<path'));assert.equal(Q.unit('kWh').text,'kWh');

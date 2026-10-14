@@ -138,7 +138,7 @@
     }
     const heading=content.content.querySelector('.brand h1');
     heading.replaceChildren(document.createTextNode(profile.title+' '));
-    const badge=document.createElement('span'); badge.className='badge'; badge.textContent=profile.analysis==='household-rms'?'交流有效值':profile.analysis==='transient'?'交流':'直流'; heading.append(badge);
+    const badge=document.createElement('span'); badge.className='badge'; badge.textContent=profile.analysis==='transient'?'交流':'直流'; heading.append(badge);
     content.content.querySelector('.brand p').textContent=profile.subtitle;
     if (!ui.header) {
       const actions=document.createElement('div'); actions.className='embedded-actions'; actions.setAttribute('role','group'); actions.setAttribute('aria-label','復原與操作面板');

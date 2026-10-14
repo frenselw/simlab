@@ -36,7 +36,7 @@
 
 ## 後續維護與交流版本邊界
 
-2026-10-07 的後續路線見 [DC 共用核心與 SCORM 架構計劃](../plans/29-circuit-platform-dc-scorm.md)。D1／D2 已加入無內部頂欄的嵌入配置、學生工具箱款式歧義檢查，並把短路／過載判斷集中到 solver。2026-10-08 按使用者要求延續 D3–D5，新增[兩燈串聯](../plans/30-circuit-dc-series-build.md)及[滑片調參](../plans/31-circuit-dc-rheostat-adjust.md)兩個評量入口，各自擁有評分及保存，共用 `circuit-activity-runtime.js`／`circuit-activity-page.js` 接合 SCORM。`wirePointLimit` 讓活動以有限的實際線形保存，教師預設不變；`runtime-assets.json` 與 `package:circuit-platform` 當時實證一份核心供三個DC包重建；加入AC後目前統一重建四包。真 Moodle／實機證據獨立於 package-ready，不能由本地瀏覽器推定。AC非評量工作台及兩個教學示例已實作；正式AC評分、高壓輸電活動仍未定案。家庭非評分有效值入口已接入 v8／HH-teaching-1，見[家庭作者指引](circuit-household-workbench.md)；其驗收以第33號計劃的當前證據為準。
+2026-10-07 的後續路線見 [DC 共用核心與 SCORM 架構計劃](../plans/29-circuit-platform-dc-scorm.md)。D1／D2 已加入無內部頂欄的嵌入配置、學生工具箱款式歧義檢查，並把短路／過載判斷集中到 solver。2026-10-08 按使用者要求延續 D3–D5，新增[兩燈串聯](../plans/30-circuit-dc-series-build.md)及[滑片調參](../plans/31-circuit-dc-rheostat-adjust.md)兩個評量入口，各自擁有評分及保存，共用 `circuit-activity-runtime.js`／`circuit-activity-page.js` 接合 SCORM。`wirePointLimit` 讓活動以有限的實際線形保存，教師預設不變；`runtime-assets.json` 與 `package:circuit-platform` 當時實證一份核心供三個DC包重建；加入AC後目前統一重建四包。真 Moodle／實機證據獨立於 package-ready，不能由本地瀏覽器推定。AC非評量工作台及兩個教學示例已實作；正式AC評分、家庭及高壓輸電活動仍未定案，未實作接口不能當成可用API。
 
 目前 DC 依賴與責任如下：
 
@@ -78,7 +78,3 @@ DC穩態方程及v6文件語義保持自己的邊界；AC明確選時間後端�
 四種技術示例沒有成績、提交或 standalone 答案持久化。精準測試覆蓋拓撲／參數／滑片效果正反例、配置限制、合法部分答案恢復、source 與解壓 ZIP 的桌面／手機模擬操作、只讀、全螢幕、活動卸載／多 instance，以及教師原有關鍵操作。實際證據及範圍見[計劃第 48 節](../plans/28-circuit-workbench.md#48-可配置活動編輯器與檢查接口2026-10-04)；不把這些結果當作實機手機或真 Moodle 驗收。
 
 [三位 reviewer 的整合報告](circuit-workbench-audit-2026-10-04.md)對應其記錄的最終 runtime 指紋；其後微電流動畫及示例整理的精準證據見[計劃第 52 節](../plans/28-circuit-workbench.md#52-微電流動畫自適應及移除重複示例2026-10-04)。不能把歷史審核當作未來改動的自動通過。
-
-## 家庭有效值第三後端
-
-家庭以 `household-rms` 接入同一 editor，optional household 模組使用共用電阻網絡；沒有複製 editor 或使用 AC 高頻積分。DC／AC 保留原文件與量測語義。熱量、觸點事件與 kWh 由家庭 session 擁有，預覽、歷史、只讀、匯入及卸載接合同一 instance 邊界；完整責任和限制見[家庭作者指引](circuit-household-workbench.md)。統一 builder 現在產生三個 standalone 工作台與兩個 DC 評量包；歷史四包驗證不能代表第五包已通過。

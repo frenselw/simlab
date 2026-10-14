@@ -17,8 +17,6 @@ const args = Object.fromEntries(process.argv.slice(2).map(arg => {
 const A = require('./mobile-scroll-cases.js');
 const O = require('./mobile-scroll-operations.js');
 const mode = args.mode || 'source';
-const packagedEntry=mode==='package'||args.entry==='package';
-if(args.entry&&!['source','package'].includes(args.entry))throw Error('Unknown entry source');
 const topology = args.host || 'T2';
 if (!['source','package','standalone'].includes(mode)) throw new Error('Unknown launch mode');
 if (!['T0','T1','T2','T3'].includes(topology)) throw new Error('Unknown host topology');
@@ -30,14 +28,14 @@ if (viewports.some(([width,height])=>!Number.isFinite(width)||!Number.isFinite(h
 const selected = args.slugs ? new Set(String(args.slugs).split(',')) : null;
 const catalogue = require(path.join(root, 'sim/config.js')).simulationList.filter(s => !selected || selected.has(s.folder));
 const stageSelector = '.sim-stage,.stage-region,.freefall-stage,section.stage';
-const panelSelector = '.sim-panel,.control-panel,.controls-panel,.freefall-panel,.circuit-editor .panel';
+const panelSelector = '.sim-panel,.control-panel,.controls-panel,.freefall-panel';
 const report = { baseCommit: null, mode, engine: null, host: 'neutral same-origin iframe; no parent touch handlers or panel-lock message bridge', input: 'CDP Input.dispatchTouchEvent (trusted touch)', errors: [], cases: [], packages: [] };
 report.followup={nested:Boolean(args.nested),parts:String(args.parts||''),visualBlank:Boolean(args['visual-blank']),fast:Boolean(args.fast),renderer:args.renderer||'default',documentNativeProbe:Boolean(args['document-native-probe'])};
 if(args.nested)report.host='same-origin scrollable outer page; bounded non-scrolling wrapper iframe; bounded activity iframe; no touch handlers or panel-lock bridge in either host';
 report.topology=topology;
 if (!catalogue.length || (selected && [...selected].some(slug => !catalogue.some(s => s.folder === slug)))) throw new Error('Missing activity coverage');
 function selectedProfiles(slug) {
-  return args.phases==='all' ? A.profiles(slug) : slug==='circuit-household-workbench' ? [A.profiles(slug).find(p=>p.id==='initial')] : slug==='centre-of-mass-investigation-lab' ? String(args.parts||'1,2,3').split(',').map(part=>({id:'part-'+part,part:Number(part)})) : [{id:'initial'}];
+  return args.phases==='all' ? A.profiles(slug) : slug==='centre-of-mass-investigation-lab' ? String(args.parts||'1,2,3').split(',').map(part=>({id:'part-'+part,part:Number(part)})) : [{id:'initial'}];
 }
 if(args.profiles){
   const available=new Set(catalogue.flatMap(sim=>selectedProfiles(sim.folder).map(profile=>profile.id)));
@@ -45,7 +43,7 @@ if(args.profiles){
 }
 report.completed=false;
 function persistReport() {
-  const prefix='mobile-scroll-acceptance-'+topology+'-'+(packagedEntry?'package-':'source-')+(args.phases==='all'?'phases-':'');
+  const prefix='mobile-scroll-acceptance-'+topology+'-'+(args.phases==='all'?'phases-':'');
   const output=args.output||path.join(root,'output/playwright/'+prefix+mode+'.json');
   fs.mkdirSync(path.dirname(output),{recursive:true});fs.writeFileSync(output,JSON.stringify(report,null,2)+'\n');
 }
@@ -57,22 +55,16 @@ function hostHtml(src, height) {
   return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="data:,"><style>html,body{margin:0;scroll-behavior:auto}${topology === "T3" ? "html,body{height:100%;overflow:hidden}#scrollOwner{height:100dvh;overflow-y:auto}" : ""}.before{height:300px}iframe{display:block;width:100%;height:${height}px;border:0}.after{height:1500px}</style></head><body><main id="scrollOwner"><div class="before"></div><iframe id="activity" title="手機滾動測試"></iframe><div class="after"></div></main><script>window.__auditValues={"cmi.core.lesson_status":"not attempted"};window.API={LMSInitialize:()=>{if(window.__auditNextValues){Object.assign(window.__auditValues,window.__auditNextValues);window.__auditNextValues=null;}return "true";},LMSGetValue:k=>window.__auditValues[k]||"",LMSSetValue:(k,v)=>{if(window.__failFinal&&k==="cmi.core.score.raw"){window.__auditError="351";return "false";}window.__auditError="0";window.__auditValues[k]=String(v);return "true";},LMSCommit:()=>"true",LMSFinish:()=>"true",LMSGetLastError:()=>window.__auditError||"0",LMSGetErrorString:()=>"",LMSGetDiagnostic:()=>""};document.getElementById("activity").src=${JSON.stringify(args.nested?'/__scroll-audit-wrapper?src='+encodeURIComponent(src):src)};<\/script></body></html>`;
 }
 
-function runtimeDigest(slugs=catalogue.map(s=>s.folder),directory=path.resolve(args['scene-root']||root),packageDirectory=null) {
-  const files=new Map();
-  for(const slug of slugs){
-    const list=require('./test-registry').assetLists.find(a=>a.scope===slug);
-    if(list){const declaration=JSON.parse(fs.readFileSync(path.join(directory,list.file),'utf8'));if(declaration.kind!=='standalone'||!declaration.files.includes(declaration.entry))throw Error('Invalid standalone resources: '+slug);
-      for(const file of declaration.files){if(file.includes('..')||path.isAbsolute(file))throw Error('Unsafe standalone resource');files.set('sim/'+file,path.join(packageDirectory||path.join(directory,'sim'),file));}
-    }else{const manifest=path.join(directory,'sim/manifests',slug+'.xml');files.set('sim/manifests/'+slug+'.xml',packageDirectory?path.join(packageDirectory,'imsmanifest.xml'):manifest);const parsed=new XMLParser({ignoreAttributes:false}).parse(fs.readFileSync(manifest,'utf8'));for(const resource of [].concat(parsed.manifest.resources.resource))for(const file of [].concat(resource.file||[]))files.set('sim/'+file['@_href'],path.join(packageDirectory||path.join(directory,'sim'),file['@_href']));}
+function runtimeDigest() {
+  const files=new Set(),digestRoot=mode==='package'?root:path.resolve(args['scene-root']||root);
+  for(const sim of catalogue){
+    const manifest=path.join(digestRoot,'sim/manifests',sim.folder+'.xml');files.add(manifest);
+    const parsed=new XMLParser({ignoreAttributes:false}).parse(fs.readFileSync(manifest,'utf8'));
+    for(const resource of [].concat(parsed.manifest.resources.resource))for(const file of [].concat(resource.file||[]))files.add(path.join(digestRoot,'sim',file['@_href']));
   }
-  const hash=crypto.createHash('sha256');for(const [name,file]of [...files].sort(([a],[b])=>a.localeCompare(b))){hash.update(name+'\0');hash.update(fs.readFileSync(file));}
-  return {sha256:hash.digest('hex'),files:files.size,sourceRoot:packageDirectory||directory};
-}
-function extractStandalone(slug,directory=root){
-  const list=require('./test-registry').assetLists.find(a=>a.scope===slug);if(!list)throw Error('Missing standalone resource declaration');
-  require('./package-circuit-platform').build();const zip=path.join(directory,'output',slug+'-standalone.zip'),declaration=JSON.parse(fs.readFileSync(path.join(directory,list.file),'utf8'));
-  const packageDirectory=fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),'simlab-scroll-audit-package-'));new (require('adm-zip'))(zip).extractAllTo(packageDirectory);const digest=runtimeDigest([slug],directory,packageDirectory),source=runtimeDigest([slug],directory);if(digest.sha256!==source.sha256)throw Error('Standalone ZIP differs from source');
-  if(!fs.existsSync(path.join(packageDirectory,declaration.entry)))throw Error('Standalone launch missing');return {packageDirectory,activityPath:'/'+declaration.entry,zip,runtime:digest,zipSha256:crypto.createHash('sha256').update(fs.readFileSync(zip)).digest('hex')};
+  const hash=crypto.createHash('sha256');
+  for(const file of [...files].sort()){hash.update(path.relative(digestRoot,file)+'\0');hash.update(fs.readFileSync(file));}
+  return {sha256:hash.digest('hex'),files:files.size,sourceRoot:digestRoot};
 }
 
 async function childEval(expression) {
@@ -88,7 +80,6 @@ async function observation() {
     const scrollers=[...document.querySelectorAll('*')].filter(e=>{const c=window.getComputedStyle(e);return /auto|scroll/.test(c.overflowY)&&e.scrollHeight>e.clientHeight+1;}).map(e=>({id:e.id,class:e.className?.baseVal||e.className,top:e.scrollTop,range:e.scrollHeight-e.clientHeight,height:e.clientHeight}));
     const hooks=['__forceCompositionApp','__forceOrthogonalApp','__equilibriumApp','__advancedEquilibriumApp','__reactionApp','__newtonApp','__kinematicsGraphDebug','__centreMassDebug','__hookesLawApp','__staticKineticFrictionApp','__motionComposition'];
     const state={};for(const name of hooks){const app=window[name];if(app?.getState)state[name]=app.getState();}
-    if(window.CircuitHouseholdWorkbench)state.household=window.CircuitHouseholdWorkbench.captureSession();
     if(window.__freeFallDebug?.state)state.freeFall=window.__freeFallDebug.state();
     if(window.__kinematicsQuantitativeDebug?.state)state.quantitative=window.__kinematicsQuantitativeDebug.state();
     const forms=[...document.querySelectorAll('input,select')].map(e=>({id:e.id,name:e.name,value:e.value,checked:e.checked}));
@@ -273,7 +264,7 @@ function gestureIssues(before,after,samples,test) {
   if(test.region==='panel'&&after.events.some(e=>e.type==='click'&&e.isTrusted))issues.push('panel swipe activated a control');
   return [...new Set(issues)];
 }
-module.exports={runtimeDigest,extractStandalone,gestureIssues,layoutIssues,panelTraceIssues};
+module.exports={gestureIssues,layoutIssues,panelTraceIssues};
 
 async function load(base, launch, width, height) {
   await cdp.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:true});
@@ -330,10 +321,9 @@ async function main() {
   report.engine=await cdp.send('Browser.getVersion');
   for(const sim of catalogue){
     let launch='/sim/'+sim.folder+'/index.html';
-    if(packagedEntry){
-      const standalone=require('./test-registry').assetLists.some(a=>a.scope===sim.folder);
-      const packaged=standalone?extractStandalone(sim.folder):H.buildAndExtractPackage(fs.realpathSync(os.tmpdir()),{slug:sim.folder,packagePrefix:'simlab-scroll-audit-package-',packageNamePattern:/^simlab-scroll-audit-package-[A-Za-z0-9]+$/});
-      currentRoot=packaged.packageDirectory;packageRoots.push(currentRoot);launch=packaged.activityPath;report.packages.push({slug:sim.folder,zip:packaged.zip||path.join(root,'output',sim.folder+'-scorm.zip'),launch,runtime:packaged.runtime||runtimeDigest([sim.folder],root,currentRoot),zipSha256:packaged.zipSha256||crypto.createHash('sha256').update(fs.readFileSync(path.join(root,'output',sim.folder+'-scorm.zip'))).digest('hex')});
+    if(mode==='package'){
+      const packaged=H.buildAndExtractPackage(fs.realpathSync(os.tmpdir()),{slug:sim.folder,packagePrefix:'simlab-scroll-audit-package-',packageNamePattern:/^simlab-scroll-audit-package-[A-Za-z0-9]+$/});
+      currentRoot=packaged.packageDirectory;packageRoots.push(currentRoot);launch=packaged.activityPath;report.packages.push({slug:sim.folder,zip:path.join(root,'output',sim.folder+'-scorm.zip'),launch});
     }
     const profiles=selectedProfiles(sim.folder).filter(p=>!args.profiles||String(args.profiles).split(',').includes(p.id));
     if(!profiles.length)throw new Error('Missing requested phase coverage: '+sim.folder);
@@ -341,7 +331,6 @@ async function main() {
       const part=spec.part||null;
       const renderer=spec.renderer||args.renderer;
       await load(base,launch+(renderer?'?renderer='+encodeURIComponent(renderer):''),width,height);
-      if(sim.folder==='circuit-household-workbench'){for(let i=0;i<120;i++){if(await childEval('Boolean(window.CircuitHouseholdWorkbench)'))break;if(i===119)throw Error('Household failed to initialize');await H.delay(40);}}
       const hooks={'static-kinetic-friction-investigation-lab':'__staticKineticFrictionApp','force-composition-construction-lab':'__forceCompositionApp','force-orthogonal-decomposition':'__forceOrthogonalApp','force-equilibrium-diagram-lab':'__equilibriumApp','force-equilibrium-advanced-diagram-lab':'__advancedEquilibriumApp','newtons-second-law-investigation-lab':'__newtonApp','newtons-third-law-reaction-force-lab':'__reactionApp','newtons-third-law-fullscreen-test':'__reactionApp','centre-of-mass-investigation-lab':'__centreMassDebug'};
       if(hooks[sim.folder]&&!await childEval(`Boolean(window[${JSON.stringify(hooks[sim.folder])}]?.getState?.())`))throw new Error('Activity failed to initialize: '+sim.folder);
       if(spec.prepare){if(mode==='standalone'&&spec.prepare.includes('restore('))throw new Error('Restore profiles require a mocked LMS host');const outcome=await childEval(`(()=>{const click=selector=>{const e=document.querySelector(selector);if(!e||e.disabled)throw new Error('Required UI continuation unavailable: '+selector);e.click();};const restore=(activity,answer)=>{auditHost.__auditNextValues={'cmi.core.lesson_status':'incomplete','cmi.suspend_data':JSON.stringify(window.SimScorm.makeSnapshot(activity,'draft',answer))};window.location.reload();return {reload:true,answer};};${spec.prepare};return true;})()`);if(outcome?.reload){await H.delay(200);for(let i=0;i<100;i++){try{if(await childEval(`document.readyState==='complete'&&Boolean(document.querySelector(${JSON.stringify(stageSelector)}))`))break;}catch{}if(i===99)throw new Error('Production fixture failed to restore');await H.delay(50);}if(outcome.answer&&!await childEval(`JSON.stringify(JSON.parse(auditHost.__auditValues['cmi.suspend_data']).answer)===${JSON.stringify(JSON.stringify(outcome.answer))}`))throw new Error('Restored canonical fixture was overwritten: '+spec.id);}}
@@ -375,10 +364,6 @@ async function main() {
         entry.gestures.push({...test,point,before,after,samples,...(trace?{trace}:{}),issues});
       }
       if(args['panel-sequence'])for(const surface of ['text','button','cancel','after-cancel']){
-        if(surface==='button'&&spec.noPanelButtonReason){
-          if(await childEval('[...document.querySelector('+JSON.stringify(panelSelector)+').querySelectorAll("button")].some(b=>b.getClientRects().length)'))throw Error('Panel-button exemption no longer matches the visible UI');
-          entry.gestures.push({case:'panel-button',notApplicable:spec.noPanelButtonReason,issues:[]});continue;
-        }
         await prepare('panel','middle');
         const point=['text','button'].includes(surface)?await panelContentPoint(surface):await blankPoint('panel','up');
         if(point.unavailable)throw new Error('Panel interruption point is unavailable');
@@ -416,7 +401,6 @@ async function main() {
         entry.gestures.push({...test,...result,before,after,issues});
       }
       if(args.operations&&sim.folder==='plane-mirror-pencil-ray-diagram')entry.gestures.push(...await O.runMirrorOperations({cdp,childEval,observation,prepare,swipe,delay:H.delay},spec));
-      if(args.operations&&sim.folder==='circuit-household-workbench')entry.gestures.push(...await O.runHouseholdOperations({cdp,childEval,observation,prepare,delay:H.delay},spec));
       report.cases.push(entry);
       if(entry.gestures.some(g=>g.issues.length)){process.exitCode=1;const shot=await cdp.send('Page.captureScreenshot',{format:'png'});const dir=path.join(root,'output/playwright/mobile-scroll-failures');fs.mkdirSync(dir,{recursive:true});fs.writeFileSync(path.join(dir,sim.folder+'-'+spec.id+'-'+topology+'-'+width+'.png'),Buffer.from(shot.data,'base64'));}
       console.log(JSON.stringify({slug:sim.folder,profile:spec.id,part,viewport:width+'x'+height,issues:entry.gestures.filter(g=>g.issues.length).map(g=>({gesture:g.case||g.region+'-'+g.direction+'-'+(g.position||''),issues:[...new Set(g.issues)]}))}));
@@ -431,8 +415,7 @@ async function main() {
 if(require.main===module)main().catch(error=>{report.errors.push(error.message);console.error(error.stack);process.exitCode=1;}).finally(async()=>{
   try{await H.stopChrome(chrome,null);}catch(error){console.error(error.message);process.exitCode=1;}cdp?.close();
   if(server)await H.closeServer(server);
-  // Windows Chrome children may release profile handles after the parent exits.
-  if(profile&&fs.existsSync(profile)){const temp=fs.realpathSync(os.tmpdir());H.validateOwnedDirectory(profile,temp,/^simlab-scroll-audit-chrome-[A-Za-z0-9]+$/,'audit profile');fs.rmSync(profile,{recursive:true,force:true,maxRetries:10,retryDelay:300});}
+  if(profile&&fs.existsSync(profile)){const temp=fs.realpathSync(os.tmpdir());H.validateOwnedDirectory(profile,temp,/^simlab-scroll-audit-chrome-[A-Za-z0-9]+$/,'audit profile');fs.rmSync(profile,{recursive:true,force:true,maxRetries:5,retryDelay:250});}
   for(const dir of packageRoots){H.validateOwnedDirectory(dir,fs.realpathSync(os.tmpdir()),/^simlab-scroll-audit-package-[A-Za-z0-9]+$/,'audit package');fs.rmSync(dir,{recursive:true,force:true,maxRetries:5,retryDelay:250});}
   report.status=process.exitCode?'failed':report.completed?'passed':'incomplete';persistReport();
 });

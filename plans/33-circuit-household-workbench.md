@@ -1,6 +1,6 @@
 # 家庭電路工作台實施計劃草案
 
-初稿：2026-10-13。更新：2026-10-14。狀態：實施中；H0決策見文末。採有效值模型；未執行的驗收仍保持未勾選。
+初稿：2026-10-13。更新：2026-10-14。狀態：僅保留計劃；本輪實作已取消。採有效值模型，待重新審閱教學及畫面方向。
 
 建議新增「家庭電路工作台」，沿用 DC／AC 的共用編輯器，以有效值求解家庭電路，再加入保護及電能的時間狀態。首版不逐點求解50 Hz波形；市電仍明確標示為交流，家電採等效電阻。第一個完整交付是可自由操作的非評分工作台；之後再從同一核心製作分題 SCORM 活動。
 
@@ -21,7 +21,7 @@
 | 共用核心 | `CircuitEditor.mount(host, config)`；重用電阻網絡求解，新增明確的家庭有效值語義與保護事件；保留 DC 和一般 AC 入口 |
 | 技術 | 原生 HTML／CSS／JavaScript／SVG；沿用已有本地數學字形與儀表，不新增框架 |
 | 評量風險 | 工作台屬 formative，不評分；日後學生包限形成性／低風險評分，高風險用途另需可信伺服器驗證 |
-| 本輪交付 | H0–H5非評分工作台；H6後續學生評量包另立活動計劃 |
+| 本輪交付 | 本計劃；本輪實作已撤回，沒有家庭 runtime、目錄或套件變更 |
 
 澳電目前列明用戶單相供電為 230 V、50 Hz，因此採此預設；220 V 是可選課本設定，所有功率與電流均隨設定重新計算。[澳電供電資料](https://www.cem-macau.com/en/about-cem/company-profile/operation/)
 
@@ -555,74 +555,8 @@ Standalone包沒有評量manifest。`package:all`現時只建SCORM，不能假�
 | 已提交selection preview及GitHub run | 未執行；本輪未提交且家庭runtime／registry entry尚未建立，不能用其他commit的選取結果冒充本輪或家庭功能證據 |
 
 本輪不新增runtime、測試程式、registry條目或CI配置。上述registry通過只代表現有登記有效；家庭接入及正式測試仍按實施階段完成。
+## 實作取消（2026-10-14）
 
-## H0 實施規格（2026-10-14）
+使用者已取消本輪全部實作，回到計劃階段。程式、元件、測試接合、目錄入口及實作驗收紀錄均已撤回；原先的計劃與測試規劃保留。
 
-分支 `codex/circuit-household-workbench`。本節把原先候選項定案為可驗證的教學模型；不使用B／C／D或實物型號名稱。電路原理沿用上述OpenStax有效值公式及RCCB／RCBO功能界限。曲線特意加快，UI固定說明「教學時間尺度，秒數不是實物規格」。預設230 V／50 Hz；220 V只改源，不改既有家電銘牌。評分、rubric、attempt phase、SCORM為N/A。
-
-### 具名曲線 HH-teaching-1
-
-所有電流為共同正弦基準的有效值係數。熱量θ無量綱，`dθ/dt=((I/In)²-θ)/τ`，解析更新 `θ(t)=q+(θ0-q)exp(-t/τ)`，q=(I/In)²。保護門檻θtrip=2，冷卻使用同一τ，非攝氏溫度。
-
-| 裝置 | 額定值／時間常數 | 快速條件 | 初態基準及復位 |
-|---|---|---|---|
-| 熔絲 | 3／5／13／60 A；τ=20 s | 無獨立磁動作，熱動作自然加快 | 1In不熔斷；2In從冷態在20ln2=13.862944 s熔斷；更換才清零θ |
-| MCB／RCBO過流 | 6／16／20／32 A（自由設定1–100 A）；τ=30 s | I≥5In連續0.02 s | 2In冷態在30ln2=20.794415 s熱跳掣；復位保留θ，故障未排除可再跳 |
-| RCCB／RCBO剩餘電流 | 正常載流額定與IΔn分開；預設30 mA | IΔ≥IΔn連續0.04 s | 23 mA在本模型不動作；30 mA動作；低於條件清動作計時；非人體安全判定 |
-| 導線熱量 | 每線In，τ=60 s | 無自行斷路 | θ≥2顯示累熱警告；I>In即顯示超載；實際電阻和畫布長度分開 |
-
-TEST限流支路：R=230/0.06 Ω，從L輸入跨到N輸出；以真實差流觸發，無PE依賴。觸點閉合電阻0.001 Ω；源回路0.2 Ω；一般線段0.02 Ω、環形兩側各0.04／0.08 Ω，允許電流依分路、插頭及拖板分別指定。故障低阻0.1 Ω、漏電預設10 kΩ、接觸等效1 kΩ、接觸不良2 Ω。這些都是可見教學配置。
-
-最早候選事件解析定位；相差≤1 ns的事件一起切斷，原因固定優先剩餘電流、快速過流、熱過流，ID排序只用於事件展示。先結算舊狀態電能與热量，再改觸點及重算。電能單位kWh、積分分母3,600,000。未知／失敗結果不積分，技術暫停不設成跳掣。
-
-### 文件及session精確邊界
-
-家庭文件為`simlab-circuit` v8、`analysis:'household-rms'`、`modelRevision:1`。原v6欄位保留；新增`earthReference:null|合法端點ID`（空白合法）；每線增加`role:'L'|'N'|'PE'|'signal'`、`rating`有限0.1–1000 A、`open:boolean`。元件參數由registry嚴格白名單驗證，僅准單一家庭源、純電阻／開關／A V W表及家庭元件，拒絕AC瞬態元件、電池及非線性燈。供電端N與PE連結是可見電氣支路，地參考不得取代電氣接線。
-
-實驗封套：`{kind:'simlab-household-session',schemaVersion:1,modelRevision:1,scenarioId:string|null,scenarioRevision:1,document:<v8>,physics:{time,devices,wires,energy,events}}`。封套及各層禁止未知欄位；上限1 MiB UTF-8。time有限0–1e9 s。devices以保護器ID索引，每值`{status:'closed'|'tripped'|'blown',heat:0..1e15,fast:0..0.02,residual:0..0.04,reason:null|'thermal'|'magnetic'|'residual'}`；型別與原因須一致，未跳狀態不可留原因，MCB不可blown，RCCB不可有熱量／磁計時。wires以文件線ID索引θ=0..1e15。energy以正式電能計／家電ID索引有限0–1e12 kWh。devices／wires／energy集合精確等於文件需要的集合。events最多100筆`{time,id,reason,current,residual}`，時間非遞減且≤physics.time，ID指向文件保護器，數值有限非負。不保存UI、波形、相位、derived讀值或播放意圖。scenarioId最多40字符，只標記示例來源、不授權能力。
-
-配置檔只含v8 document，開啟建立冷態；實驗檔保存全部權威physics，驗證成功才原子替換且暫停。空白、部分線路、未供電、正常、暫停、累熱、單／多掣跳、熔斷及錯接各自round-trip並執行一次接線／開關／排故／復位／步進續作。故障與開關變更保留時間；幾何／視圖不改physics；undo／redo恢復命令邊界並暫停；預覽僅用副本且凍結本instance時鐘。只讀及destroy停止推進。
-
-### 驗證矩陣及完成口徑
-
-物理H01–H18使用正式presets；每一示例記錄核心比較及可調參數。解析容差U／I／P相對0.5%，近零1e-7 V／1e-8 A／1e-6 W；差流0.1 mA；解析事件時間1 μs。測試按上文registry名稱登記，家庭browser同時實際使用source與ZIP；既有DC／AC及兩學生包保持回歸。family加入第五包，新增registry／catalogue／selection首次full。
-
-手機矩陣：320×500、390×500、390×600、390×844、844×390、短iframe、鍵盤、200%縮放；T0–T3各source／ZIP。覆蓋空白、正常、故障、跳掣、熔斷、只讀；實物／符號、三尺度、繪線／選線／平移／探頭。逐案量測32 px側條、元件／孔／線端／彎點／滑塊的捕獲與取消、面板頂底／快滑、全螢幕。runner缺案例須失敗。真手機、真Moodle、GitHub Full run未執行不能記為通過。階段檢視依原計劃H1／H2原型進行，不以原型冒充H5成品。
-
-## H1–H4 實作與開發驗證（2026-10-14）
-
-已實作家庭 v8 有效值入口、可選家庭元件／保護／session 模組及四分路／環形配置，沒有複製 editor 或啟用 AC 高頻後端。H01–H18 可直接載入；全屋、分路與原理共用同一文件／session。插拔及拓撲編輯須先關市電；故障／開關保留時鐘，預覽、只讀、撤銷及失敗匯入保持隔離。家庭作者與維護接口見[家庭指引](../docs/circuit-household-workbench.md)。
-
-本節是開發證據，未以尚在運行的全量／宿主矩陣宣稱 H5 完成。
-
-| 已執行 | 結果及限制 |
-|---|---|
-| 家庭四個 Node 檔 | 解析有效值／並聯／不等環流、供電與銘牌、固定接地、I／II／非導電節點、保護曲線／TEST／差流、複合故障及同時事件、每個保存狀態的正式 round-trip＋續作通過；容量 522512 bytes（240 線×96 點＋100事件），1 MiB 上限不刪權威資料 |
-| `npm run test:fast` | 初輪 208/208 通過；輸出 `output/household-implementation/fast-tests.txt`。其後的家庭精密讀表／數值穩定性修正另跑家庭檔；最後完整驗證與提交 SHA 另記 |
-| 家庭 browser owner | `node tools/circuit-household-browser-regression.js` 初輪 source／ZIP 56 cases 通過，包含18示例、真 ZIP 指紋、restore＋續作、history、只讀、失敗匯入、TEST、多instance／destroy、手機尺寸、可信 body／線端拖曳／取消、預覽及 fullscreen；`output/household-implementation/browser/report.json`；修正後最終報告另重建 |
-| Registry／打包 | 240 entries（208 Node、32 browser），48 helpers、2 manual gates；`registry.txt`。統一 builder 實建五個電路包；全部 SCORM package 驗證通過；`platform-packages.txt`、`packages.txt`、`output/circuit-platform-build.json` |
-| 語法／manifest／文件 | `npm run check` 通過，`check.txt`；文件連結及 `git diff --check` 通過 |
-| 全屋效能 | Node 本機25元件／58線，20次求解平均44.6 ms；只代表此桌面環境，不代表真手機100 ms gate |
-| T2嵌套宿主 | source、320×500及390×500、9個正式狀態，各舞台／側條與面板頂底／快滑／取消通過，`touch-T2-source.json`。其它T0–T3／ZIP及每類owned操作仍在運行，最終同SHA證據另記 |
-
-### 實施定案補充
-
-- 家庭源參數加入 `closed:boolean`，預設 true；新增源時接地參考自動指向該源 PE。`earthReference` 可為 null（未知），有源的非空參考只能是其 `:e`。任意 UI 0 V 不改對地值，探頭明示有效值大小。
-- 熱更新用 expm1／log1p 保持巨大故障電流下的數值精度；θ保存界限1e15，仍不顯示攝氏溫度。冷卻後尚熱的線段可保留熱警告。
-- 配電箱上游教學線額定60 A；環形20 A／插頭與軟線13 A。拖板本體只顯示總載流限制，熔絲由插頭擁有，不虛構第二條拖板內熔絲。
-- 控制列移至獨立面板，家庭手機畫布保留≥100 px實際精密操作高度。一般空白 pan-y，兩侧全高32 px native捲頁條；面板關閉自動捲動錨定，避免更換選取物件時改變捲動位置。DC／AC自己的CSS不修改。
-- `tools/mobile-scroll-operations.js` 以合法冷態部分接線 fixture 補家庭owned body、port、free end、attached end與wire body／bend完成及取消，量每次移動與放手的host／document／panel／time，線端必須有預覽且釋放清除。這些共用目標在initial正式狀態執行；其它state仍獨立跑blank／strip／panel，read-only另由browser owner驗證凍結與拒絕變更。
-- H4 standalone runner接入已完成資產宣告、真ZIP入口與資源／ZIP指紋；T0宿主與 source／package entry 分開指定。registered shared-touch helper沿用原owner與consumer，沒有另設虛構SCORM manifest。
-- H6 不在本輪，rubric／評分／attempt為N/A；真手機及真Moodle未驗，維持未勾選。新增registry／catalogue／selection本輪採full，不把單一家庭browser取代family回歸。
-
-## 使用者試看後的教學介面修訂（2026-10-14）
-
-使用者指出初版像專業器材搭建工具、畫面分成太多塊，要求參照家居接線圖，以中學生概念為主，且一個畫面只保留最重要的內容。此指示取代本計劃原先把完整工具箱／全屋四分路放在預設畫面的安排；物理核心、十八示例、儲存邊界及既有驗證要求保留。
-
-- 預設只畫市電→電能表→總開關，以及三線、一個插座和一盞燈；水壺以簡單圖形表示接在插座上的家電。
-- 一次選 L／N／E 一條線，只給短解釋；點插座才放大三孔、保險絲及外殼；地線故障示範只在放大的地線主題出現。沒有曲線、額定值、kW／kWh摘要、MCB／RCCB工具箱或繪線模式擠在學生主畫面。
-- 燈開關設在 L；簡化模型的燈與插座並聯。選線、放大與全螢幕不改權威狀態；燈開關與漏電仍由同一正式 session 求解。漏電後的斷電不是固定動畫。
-- 頁首「⋯」進教師工具；原 H01–H18、自由搭建及配置／實驗文件功能繼續可用。兩個入口共用一個 editor，回到概念圖前保留未保存變更確認。
-- browser owner 的概念圖、教師工具與入口切換共 source／ZIP 90 案已通過；四種概念狀態（家居、插座、地線、漏電後）加入 T0–T3 runner，T2 source 320×500 開發檢查已通過。說明區只有文字的家居／插座狀態，面板按鈕手勢記為不適用，且 runner 會核對真的沒有可見按鈕；其餘文字、邊界、取消及快滑照跑。
-
-前面舊介面的全量／手勢報告不作新版成品證據；舊 CI 已取消。新版需在最終提交重新重建 source／ZIP 與 Full gate。真手機、真 Moodle 及 H6 仍未完成。
+後續若重新規劃，先重審教學目標與畫面：以中學生概念為主，用連貫圖形說明火線、零線、地線和插座、家電的關係；每個畫面只放最重要的內容。本輪兩個原型均不視為已採納設計，不繼續實作。

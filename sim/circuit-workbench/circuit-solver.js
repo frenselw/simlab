@@ -43,9 +43,9 @@
     const roundoff=Array(n).fill(0);pivots.forEach((col,i)=>roundoff[col]=32*n*Number.EPSILON*rhsScales[i]);
     return { x, nullspace, roundoff };
   }
-  function solveResistive(input,relayStates=null) {
+  function solve(input,relayStates=null) {
     if(input?.version===7)throw new Error('DC 求解器不支援交流時間模型');
-    const doc = M.validate(input), ports = M.endpoints(doc), uf = union([...ports.keys()]); doc.wires.filter(w=>!w.open&&w.resistance===0).forEach((w) => uf.join(w.from, w.to));
+    const doc = M.validate(input), ports = M.endpoints(doc), uf = union([...ports.keys()]); doc.wires.filter(w=>w.resistance===0).forEach((w) => uf.join(w.from, w.to));
     const netOf = Object.fromEntries([...ports.keys()].map((p) => [p, uf.find(p)])), netKeys = [...new Set(Object.values(netOf))], conductive = union(netKeys);
     const edges = [], branches = new Map();
     function edge(c, a, b, kind, resistance, emf = 0, law = null, wire = false) {
@@ -54,7 +54,7 @@
       edges.push(e); conductive.join(e.a, e.b); if (!branches.has(c.id)) branches.set(c.id, e);
     }
     doc.components.forEach(c => R.dc(c,relayStates?.get(c.id)).forEach(b => edge(c,b.from,b.to,b.kind,b.resistance,b.emf||0,b.law)));
-    doc.wires.filter(w=>!w.open&&w.resistance>0).forEach(w=>edge(w,w.from,w.to,'resistor',w.resistance,0,null,true));
+    doc.wires.filter(w=>w.resistance>0).forEach(w=>edge(w,w.from,w.to,'resistor',w.resistance,0,null,true));
     const groups = new Map();
     netKeys.forEach((net) => { const key = conductive.find(net); if (!groups.has(key)) groups.set(key, { key, nets: [], edges: [] }); groups.get(key).nets.push(net); });
     edges.forEach((e) => groups.get(conductive.find(e.a)).edges.push(e));
@@ -152,9 +152,8 @@
     const adjacency = new Map([...ports.keys()].map((p) => [p, []]));
     const netPorts = new Map(netKeys.map(net => [net, []]));
     for (const p of ports.keys()) netPorts.get(netOf[p]).push(p);
-    doc.wires.filter(w=>!w.open&&w.resistance===0).forEach((w) => { adjacency.get(w.from).push({ to: w.to, id: w.id }); adjacency.get(w.to).push({ to: w.from, id: w.id }); });
+    doc.wires.filter(w=>w.resistance===0).forEach((w) => { adjacency.get(w.from).push({ to: w.to, id: w.id }); adjacency.get(w.to).push({ to: w.from, id: w.id }); });
     doc.wires.forEach((w) => {
-      if(w.open){wires[w.id]={current:0,voltage:voltage(w.from,w.to),power:0,resistance:w.resistance,potential:potential(w.from),potentialTo:potential(w.to),cyclic:false};return;}
       if(w.resistance>0){wires[w.id]={...branches.get(w.id).result,potential:potential(w.from),potentialTo:potential(w.to),cyclic:false};return;}
       const seen = new Set([w.from]), pending = [w.from];
       while (pending.length) { const p = pending.pop(); for (const e of adjacency.get(p)) if (e.id !== w.id && !seen.has(e.to)) { seen.add(e.to); pending.push(e.to); } }
@@ -187,6 +186,5 @@
     doc.components.forEach(c=>{const r=result.components[c.id],hot=c.type==='battery'?Number.isFinite(r?.current)&&Math.abs(r.current)>hazardLimits.current:c.type==='ammeter'?Number.isFinite(r?.reading)&&Math.abs(r.reading)>hazardLimits.meterRatio*r.range:c.type==='lamp'?Number.isFinite(r?.power)&&Math.max(0,r.power)/(c.params.ratedVoltage**2/c.params.resistance)>hazardLimits.lampRatio:false;if(hot&&!components[c.id])components[c.id]='overload';});
     return{wires,components,short:Object.values(components).includes('short'),overload:Object.values(components).includes('overload')||Object.values(wires).includes('overload')};
   }
-  const solve=(input,states=null)=>{if(input?.version===8)throw new Error('DC 求解器不接受家庭有效值；請使用 CircuitHousehold');return solveResistive(input,states);};
-  return { solve, solveResistive, linear, estimateLinear, reading, cutExpressions, bestCut, hazards, hazardLimits };
+  return { solve, linear, estimateLinear, reading, cutExpressions, bestCut, hazards, hazardLimits };
 });

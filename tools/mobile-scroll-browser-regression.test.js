@@ -30,13 +30,3 @@ assert.ok(panelTraceIssues(before,{...panelTrace,samples:[{host:0,outerWindow:0,
 assert.ok(gestureIssues(before,{...before,panel:70,events:[...after.events,{type:"click",isTrusted:true}]},[{...sample(200),panel:70}],{region:"panel",direction:"up",position:"middle"}).includes("panel swipe activated a control"),"a drag from a button must not activate it");
 
 console.log("Mobile scroll acceptance rejects reversals, wrong owners, host style locks, control activation, state edits and missing trusted coverage.");
-
-const fs=require('node:fs'),os=require('node:os'),{runtimeDigest,extractStandalone}=require('./mobile-scroll-browser-regression');
-const extracted=extractStandalone('circuit-household-workbench');
-try{
-  const source=runtimeDigest(['circuit-household-workbench']);assert.equal(extracted.runtime.sha256,source.sha256);assert(extracted.runtime.files>20);assert.equal(extracted.activityPath,'/circuit-household-workbench/index.html');assert.match(extracted.zipSha256,/^[a-f0-9]{64}$/);
-  assert(runtimeDigest(['fbd-horizontal-block']).files>3,'SCORM manifest resources still load');
-  assert.throws(()=>runtimeDigest(['unknown-resource-slug']),/ENOENT/);
-  fs.unlinkSync(path.join(extracted.packageDirectory,'circuit-household-workbench/main.js'));assert.throws(()=>runtimeDigest(['circuit-household-workbench'],path.resolve(__dirname,'..'),extracted.packageDirectory),/ENOENT/,'missing extracted resources fail closed');
-}finally{assert(path.resolve(extracted.packageDirectory).startsWith(fs.realpathSync(os.tmpdir())+path.sep));fs.rmSync(extracted.packageDirectory,{recursive:true,force:true,maxRetries:5,retryDelay:100});}
-console.log('Standalone ZIP resources, actual digest, launch and existing SCORM path passed.');

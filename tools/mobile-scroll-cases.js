@@ -35,11 +35,6 @@ function mirror(id,kinds,extra={}) {
 function activityProfiles(slug) {
   if(slug==="newtons-third-law-fullscreen-test")slug="newtons-third-law-reaction-force-lab";
   const initial={id:"initial"};
-  if(slug==='circuit-household-workbench'){
-    const advanced='window.CircuitHouseholdConcept.setMode("advanced");';
-    const openSocket='window.document.querySelector("[data-open-socket]").dispatchEvent(new window.MouseEvent("click",{bubbles:true}));';
-    return [{...initial,prepare:advanced},...['house','socket','earth','fault'].map(view=>({id:'concept-'+view,prepare:(view!=='house'?openSocket:'')+(['earth','fault'].includes(view)?"click('[data-topic=PE]');":'')+(view==='fault'?"click('[data-fault]');":'')})),...['blank','H01','H07','H08','H05','H12','H18'].map(id=>({id:'household-'+id,prepare:advanced+'window.CircuitHouseholdPage.load('+JSON.stringify(id)+',"grouped",false);'+(['H07','H08','H05'].includes(id)?(id==='H05'?'window.CircuitHouseholdWorkbench.advanceTime(10);window.CircuitHouseholdWorkbench.advanceTime(10);window.CircuitHouseholdWorkbench.advanceTime(10);':'window.CircuitHouseholdWorkbench.advanceTime(.1);'):'')})),{id:'household-readonly',prepare:advanced+'window.CircuitHouseholdWorkbench.setReadOnly(true);'}];
-  }
   if(slug.startsWith("force-equilibrium"))return [initial,...Array.from({length:5},(_,i)=>click(`question-${i+1}`,[`#questionNav button:nth-child(${i+1})`])),...Array.from({length:5},(_,i)=>({id:`question-${i+1}-partial`,prepare:`click('#questionNav button:nth-child(${i+1})');click('[data-add-kind]:not(:disabled)');`,handoffTarget:".origin-hit:not([hidden])"})),...submit("#checkButton","#submitButton")];
   if(slug==="newtons-third-law-reaction-force-lab")return [initial,...Array.from({length:5},(_,i)=>click(`question-${i+1}`,[`#questionNav button:nth-child(${i+1})`])),...Array.from({length:5},(_,i)=>({id:`question-${i+1}-partial`,prepare:`click('#questionNav button:nth-child(${i+1})');click('#bodyChoices button:not(:disabled)');click('#anchorChoices button:not(:disabled)');`,handoffTarget:'.anchor-hit:not([hidden])'})),...submit("#checkButton","#submitButton")];
   if(slug==="newtons-second-law-investigation-lab") {
@@ -84,8 +79,7 @@ function profiles(slug) {
   return activityProfiles(slug).map(profile => {
     const checkOnly=profile.id==='check'&&(slug.startsWith('force-equilibrium')||slug==='newtons-third-law-reaction-force-lab'||slug==='newtons-third-law-fullscreen-test'||slug==='newtons-second-law-investigation-lab');
     const conclude=slug==='newtons-second-law-investigation-lab'&&profile.id==='conclude';
-    const conceptTextOnly=slug==='circuit-household-workbench'&&['concept-house','concept-socket'].includes(profile.id);
-    return {...profile,...(conceptTextOnly?{noPanelButtonReason:'此概念圖狀態的說明區只有文字；選線在頁首，插座及開關在舞台，沒有面板按鈕。'}:{}),...(checkOnly||conclude?{noStageReason:'此正式 phase 使用全高控制面板；production layout 隱藏舞台，G1/G4 舞台手勢不適用。'}:{})};
+    return {...profile,...(checkOnly||conclude?{noStageReason:'此正式 phase 使用全高控制面板；production layout 隱藏舞台，G1/G4 舞台手勢不適用。'}:{})};
   });
 }
 module.exports={profiles};
