@@ -383,3 +383,5 @@ Quality Full 在各測試組全部通過後，因 GitHub runner 映像不同而�
 - 四個家庭 Node tests、36 個存檔往返／續作、舊市電固定存檔遷移、DC 共用平台／旋轉／導線電阻及 AC 平台檢查已通過。`check`／`check:tests` 通過，登記仍為 240 entries。
 - 最終 source／解壓 ZIP 通過 **61 browser checks**，新增工具箱等寬等高／可讀名稱，以及可信滑鼠從市電端拔開（負載停止）、再接回（恢復供電）。圖鑑和九個示例截圖已檢視，另以 200% 重新渲染圖案細節。證據：`output/playwright/circuit-household/results.json` 及同資料夾截圖。
 - 最終 standalone ZIP 在 T2 host 的 320×500、390×600 通過 **2 cases／34 trusted touch gestures**，包含原生捲頁、工具箱捲動／拖取與畫布局部操作；證據：`output/playwright/circuit-household/visual-mobile-final.json`。此輪沒有重做全部 T0–T3 場景，真手機／Moodle／T4 仍未驗收。
+- committed selection-preview：`3bf7cc6 → 1ebf7ed` 的 13 個變更檔選出 full／240 entries／all packages；fixture JSON 沒有 deployable asset consumer，按既有保守政策回退全量，沒有縮減選取。輸出在 `output/ci-tests/household-visual-selection.json`。
+- 實作提交 `1ebf7ed` 已推送；[Quality Full run 38599832228](https://github.com/frenselw/simlab/actions/runs/38599832228) 已啟動，目前仍在執行，不計作通過證據。
