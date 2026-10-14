@@ -10,7 +10,7 @@
   function validate(doc){const d=M.validate(doc);if(d.version!==8)throw new Error('需要家庭有效值 v8 文件');return d;}
   function solve(doc,devices={}){
     const result=S.solveResistive(doc,new Map(Object.entries(devices))),signedVoltage=result.voltage;
-    const earth=p=>doc.earthReference===null?null:signedVoltage(p,doc.earthReference);
+    const earth=p=>{const v=doc.earthReference===null?null:signedVoltage(p,doc.earthReference);return v===null?null:Math.abs(v);};
     const hazards={wires:{},components:{},short:false,overload:false};
     for(const c of doc.components){
       const r=result.components[c.id],edges=r.branches,first=edges.find(b=>b.from===c.id+':a'&&b.to===c.id+':b');

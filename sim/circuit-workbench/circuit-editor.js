@@ -274,7 +274,7 @@
   function selectionReadings(){
     const d=current(),c=selectedComponent(),wire=selectedWire(),probe=probeResult?readings([[household?"兩點電壓（有效值）":"第一點 − 第二點",analysis.voltage(probeResult.from,probeResult.to),"V"]]):'';
     if(c)return componentReadings(c.id);
-    if(wire){const r=analysis.wires[wire.id];return readings([["A → B 電流",V.displayCurrent(d,analysis,wire.from,r?.current,labelOptions.currentReferences,r?.currentPeak),"A"],["A 端相對電勢",r?.potential,"V"],["B 端相對電勢",r?.potentialTo,"V"],["A − B 電壓",r?.voltage,"V"],["導線耗散功率",r?.power,"W"]])+referenceNote(wire.from)+(r?.cyclic?'<p class="note">理想導線環路中，此段電流不能唯一確定。</p>':'')+(analysis.reliable===false?'<p class="diagnostic">讀數未能可靠確定，模擬已暫停。</p>':'');}
+    if(wire){const r=analysis.wires[wire.id];return readings([[household?"電流（有效值）":"A → B 電流",household?(Number.isFinite(r?.current)?Math.abs(r.current):null):V.displayCurrent(d,analysis,wire.from,r?.current,labelOptions.currentReferences,r?.currentPeak),"A"],["A 端相對電勢",r?.potential,"V"],["B 端相對電勢",r?.potentialTo,"V"],[household?"A–B 電壓（有效值）":"A − B 電壓",household?(Number.isFinite(r?.voltage)?Math.abs(r.voltage):null):r?.voltage,"V"],["導線耗散功率",r?.power,"W"]])+referenceNote(wire.from)+(r?.cyclic?'<p class="note">理想導線環路中，此段電流不能唯一確定。</p>':'')+(analysis.reliable===false?'<p class="diagnostic">讀數未能可靠確定，模擬已暫停。</p>':'');}
     if(selection?.kind==='port'||selection?.kind==='junction'){const endpoint=selection.kind==='junction'?selection.id+':p':selection.id;return readings([["相對電勢",analysis.potentials[endpoint],"V"]])+referenceNote(endpoint)+probe;}
     return probe;
   }
