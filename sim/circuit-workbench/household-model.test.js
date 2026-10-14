@@ -16,3 +16,5 @@ console.log('Household RMS: formula, ring, fixed earth, strict document and prof
 const wrongEarth=circuit();wrongEarth.earthReference='c1:a';assert.throws(()=>M.validate(wrongEarth),/供電端 PE/);const nonconductive=M.empty('household-rms'),plastic=M.add(nonconductive,'hh-appliance',0,0,{insulation:'nonconductive'});assert.deepEqual([...M.endpoints(nonconductive).keys()],[plastic.id+':a',plastic.id+':b']);
 
 const faultDoc=require('../circuit-household-workbench/presets').create('H08'),fault=H.solve(faultDoc);assert(fault.signedVoltage('c1:b','c1:e')<0);close(fault.potentials['c1:b'],Math.abs(fault.signedVoltage('c1:b','c1:e')));
+
+const V=require('./circuit-renderer'),pictureDoc=require('../circuit-household-workbench/presets').create('H01');pictureDoc.display.potential=true;const picture=V.scene(pictureDoc,H.solve(pictureDoc),1,{});assert(picture.includes('data-pe-band='));assert(picture.includes('data-household-potential='));assert(picture.includes('stroke="#95603b"'));assert(picture.includes('stroke="#2563eb"'));
