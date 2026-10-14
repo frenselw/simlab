@@ -75,7 +75,7 @@
     if(isAppliance(c)){const metal=c.type==='house-metal';return lead('M-86-26H-28V-12','L')+lead('M-86 0H-28V12','N')+(metal?lead('M-86 26H-45V40H41','E'):'')+rect(-27,-12,54,24,'#fff',0)+path('M-23-8L23 8 M-23 8L23-8','#788c9b',1)+(metal?rect(-43,-40,86,83,'none',5):rect(-39,-36,78,72,'none',4)+rect(-44,-41,88,82,'none',4))+text(0,64,power(c)+' W',14);}
     if(c.type==='house-switch')return path('M-58 0H-20 M20 0H58')+path(`M-20 0L20 ${c.params.closed?0:-24}`,'#617f95',2.5)+`<circle cx="-20" r="3" fill="#fff" stroke="#607b91"/><circle cx="20" r="3" fill="#fff" stroke="#607b91"/>`;
     if(c.type==='house-fuse')return lead('M-64 0H-28 M28 0H64','L')+rect(-28,-12,56,24,'#fff',0)+path(r?.status==='blown'?'M-28 0H-5 M6 0H28':'M-28 0H28','#a97d54',2)+text(0,35,c.params.rating+' A');
-    return channelLeads()+caseBox(id)+text(0,-27,c.type==='house-meter'?'kWh':c.type==='house-rcd'?'30 mA':c.params.rating+' A',14)+path(`M-38-22H-14L14 ${r?.status==='closed'||c.type==='house-meter'?-22:-36} M14-22H38 M-38 22H-14L14 ${r?.status==='closed'||c.type==='house-meter'?22:8} M14 22H38`,'#738da0',2)+text(0,45,r?.status==='tripped'?'跳掣':r?.status==='open'?'斷開':'',14);
+    return channelLeads()+caseBox(id)+text(0,-38,c.type==='house-meter'?'kWh':c.type==='house-rcd'?'30 mA':c.params.rating+' A',14)+path(`M-38-22H-14L14 ${(r?.status?r.status==='closed':c.params.closed)||c.type==='house-meter'?-22:-8} M14-22H38 M-38 22H-14L14 ${(r?.status?r.status==='closed':c.params.closed)||c.type==='house-meter'?22:8} M14 22H38`,'#738da0',2)+text(0,45,r?.status==='tripped'?'跳掣':r?.status==='open'?'斷開':'',14);
   }
   function render(c,r={},d={}){
     r=r||{};
