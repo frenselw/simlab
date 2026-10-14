@@ -7,3 +7,7 @@ for(const type of ['house-metal','house-insulated'])for(const kind of Object.key
 console.log('Household: eight compact concepts / fuse variant, all apparatus and artwork namespaces passed');
 
 {const c=M.add(M.empty('household'),'house-socket',0,0),body=C.render(c);assert.match(body,/data-house-socket-hole="e"[^>]*width="10" height="16"/);for(const k of ['n','l'])assert.match(body,new RegExp('data-house-socket-hole="'+k+'"[^>]*width="16" height="10"'));}
+for(const kind of Object.keys(C.applianceKinds.metal)){
+ const c=M.add(M.empty('household'),'house-metal',0,0,{kind,fault:true}),body=C.render(c),bond=body.match(/data-house-earth-bond="true" cx="([\d.-]+)" cy="([\d.-]+)"/),fault=body.match(/d="M([\d.-]+) ([\d.-]+)L[^" ]+ [^" ]+L([\d.-]+) ([\d.-]+)"[^>]*data-house-fault-path/),input=body.match(/d="M-86-26[^" ]*V([\d.-]+)H([\d.-]+)"/);
+ assert(bond&&fault&&input);assert.deepEqual(fault.slice(1,3),[input[2],input[1]],'fault begins on the live internal lead');assert.deepEqual(fault.slice(3,5),bond.slice(1,3),'fault ends on the metal shell');assert(C.render(c,{}, {view:'schematic'}).includes('data-house-fault-path'));
+}
