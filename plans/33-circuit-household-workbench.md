@@ -385,3 +385,4 @@ Quality Full 在各測試組全部通過後，因 GitHub runner 映像不同而�
 - 最終 standalone ZIP 在 T2 host 的 320×500、390×600 通過 **2 cases／34 trusted touch gestures**，包含原生捲頁、工具箱捲動／拖取與畫布局部操作；證據：`output/playwright/circuit-household/visual-mobile-final.json`。此輪沒有重做全部 T0–T3 場景，真手機／Moodle／T4 仍未驗收。
 - committed selection-preview：`3bf7cc6 → 1ebf7ed` 的 13 個變更檔選出 full／240 entries／all packages；fixture JSON 沒有 deployable asset consumer，按既有保守政策回退全量，沒有縮減選取。輸出在 `output/ci-tests/household-visual-selection.json`。
 - 實作提交 `1ebf7ed` 已推送；[Quality Full run 38599832228](https://github.com/frenselw/simlab/actions/runs/38599832228) 已啟動，目前仍在執行，不計作通過證據。
+- 額外本機全量 Node sweep：207／208 通過；既有 `protection-continuation.test.js` 斷言完成但耗時 122.75 s，被 120 s 限時標成 timeout。隔離直接重跑已以 exit 0 通過 25 組延續檢查；原全量報告仍保留 failed 狀態，未修改門檻。報告：`output/ci-tests/household-visual-node/report.json`。
