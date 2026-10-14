@@ -103,6 +103,21 @@ async function runHouseholdOperations({cdp,childEval,observation,prepare,delay},
     if(await childEval('!document.querySelector("[data-circuit-id=preview]").hidden'))issues.push('preview survived release');
     results.push({case:'household-owned-'+kind+(typeof cancel==='string'?'-'+cancel:cancel?'-cancel':'-complete'),point,before,after,during,issues:[...new Set(issues)]});
   }
+  for(const cancel of [false,true]){
+    await fixture('body');
+    const point=await childEval(`(()=>{const slider=document.querySelector('[data-circuit-id="properties"] [data-param="ratedPower"]').closest('label').nextElementSibling;if(slider.type!=='range')throw Error('Missing household range');slider.scrollIntoView({block:'nearest'});const r=slider.getBoundingClientRect(),f=frameOffset(),style=window.getComputedStyle(slider),left=parseFloat(style.paddingLeft)+parseFloat(style.borderLeftWidth),right=parseFloat(style.paddingRight)+parseFloat(style.borderRightWidth),ratio=(Number(slider.value)-Number(slider.min))/(Number(slider.max)-Number(slider.min)),x=r.left+left+8+(r.width-left-right-16)*ratio,y=r.top+r.height/2;if(document.elementFromPoint(x,y)!==slider)throw Error('Household range is occluded');return {x:x+f.left,y:y+f.top};})()`);
+    await delay(60);const before=await observation(),snapshot=await childEval('window.CircuitHouseholdWorkbench.captureSession()'),during=[],pointer=id++,touch=dx=>({x:point.x+dx,y:point.y,id:pointer,radiusX:4,radiusY:4});
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[touch(0)]});
+    for(const distance of [-8,-16,-24,-32]){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[touch(distance)]});await delay(20);during.push(await observation());}
+    await cdp.send('Input.dispatchTouchEvent',{type:cancel?'touchCancel':'touchEnd',touchPoints:[]});await delay(60);
+    const after=await observation(),accepted=await childEval('window.CircuitHouseholdWorkbench.captureSession()'),issues=[];
+    for(const sample of [...during,after])for(const key of ['host','outerWindow','document','panel'])if(Math.abs(sample[key]-before[key])>1.1)issues.push('slider moved '+key);
+    if(!after.events.some(e=>e.type==='pointerdown'&&e.isTrusted&&e.pointerType==='touch'))issues.push('slider lacks trusted touch');
+    if(JSON.stringify(accepted.physics)!==JSON.stringify(snapshot.physics))issues.push('slider changed time/heat/energy');
+    if(cancel&&JSON.stringify(accepted)!==JSON.stringify(snapshot))issues.push('cancelled slider changed accepted state');
+    if(!cancel&&accepted.document.components[0].params.ratedPower===snapshot.document.components[0].params.ratedPower)issues.push('slider did not commit changed power');
+    results.push({case:'household-owned-slider-'+(cancel?'cancel':'complete'),point,before,after,during,issues:[...new Set(issues)]});
+  }
   await childEval('window.CircuitHouseholdWorkbench.restoreSession('+JSON.stringify(original)+')');
   return results;
 }
