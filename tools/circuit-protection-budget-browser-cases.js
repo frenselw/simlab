@@ -51,6 +51,8 @@ async function controlRepaintCases(h,source){
  await h.send('Emulation.setTouchEmulationEnabled',{enabled:false});await h.call('setPlayback({paused:true})');
  await h.inside('document.fonts.ready');await h.inside('new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))');
  const documentBefore=await h.call('exportDocument()'),physicsBefore=(await h.call('captureSession()')).physics;let checks=0;
+  assert.equal((await h.call('getDocument()')).display.potential,false);
+  await h.inside('window.__hiddenLegendWrites=0;window.__legendElement=document.querySelector("[data-circuit-id=potentialLegend]");window.__legendObserver=new MutationObserver(records=>{__hiddenLegendWrites+=records.filter(r=>r.target!==__legendElement).length;});__legendObserver.observe(__legendElement,{subtree:true,childList:true,characterData:true,attributes:true});');
  assert.equal((await h.call('getObservationTools()')).length,0);
  await h.inside('(()=>{const e=document.querySelector("[data-circuit-id=surface]");window.__emptyScopeRects=0;e.__controlRectBase=e.getBoundingClientRect;e.getBoundingClientRect=function(...args){__emptyScopeRects++;return this.__controlRectBase.apply(this,args);};return null;})()');
  try{await h.inside('new Promise(r=>{let left=3;function tick(){if(--left===0)r();else requestAnimationFrame(tick);}requestAnimationFrame(tick);})');assert.equal(await h.inside('__emptyScopeRects'),0,'an empty scope does not read surface geometry on animation frames');checks++;}
@@ -63,9 +65,12 @@ async function controlRepaintCases(h,source){
    assert.equal(await h.inside('__controlScenePaints'),before+1,button+' native click repaints once');
    assert.equal((await h.call('getInteraction()'))[flag],expected,button+' retains its toggle');checks+=2;
   }
+  assert.equal(await h.inside('__hiddenLegendWrites'),0,'hidden potential legend must not rebuild on every control repaint');checks++;
+  await h.click('[data-circuit-id=potential]');assert.equal((await h.call('getDocument()')).display.potential,true);assert(await h.inside('!__legendElement.hidden&&__hiddenLegendWrites>0'),'showing potential still refreshes the legend');checks++;
+  await h.click('[data-circuit-id=potential]');assert.equal((await h.call('getDocument()')).display.potential,false);checks++;
   assert.equal(await h.call('exportDocument()'),documentBefore);assert.deepEqual((await h.call('captureSession()')).physics,physicsBefore);checks+=2;
  }catch(error){await h.screenshot(source+'-control-repaint-failure');throw error;}
- finally{await h.inside('CircuitRenderer.scene=__controlSceneBase;delete window.__controlSceneBase;');}
+ finally{await h.inside('CircuitRenderer.scene=__controlSceneBase;delete window.__controlSceneBase;__legendObserver.disconnect();delete window.__legendObserver;delete window.__legendElement;');}
  console.log(source+' single control repaint:',checks,'checks passed');return checks;
 }
 module.exports={protectionBudgetCases,sessionCapacityCases,controlRepaintCases};

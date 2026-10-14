@@ -404,3 +404,11 @@ Reviewer：本次唯一審核 sub-agent「ci_plan_reviewer」。第一輪只讀�
 家庭工作台 Quality Full run 38599832228 的 208 個 Node、32 個 browser 入口及 5 個 checks 全部成功，aggregate 因混用 `20261004.327.1`／`20261012.334.1` 而失敗；實際 OS、架構、Node、Chrome 及 CJK 字體指紋相同。依使用者要求修正環境判定，規則由[生產指南](../docs/simulation-scorm-production-guide.md#ci-gates-and-maintenance-commands)所在的 CI 契約維護：映像 build 標籤保留作來源紀錄，彙總比較實際測試 runtime。
 
 `ci-results.test.js` 已覆蓋映像版本不同而 runtime 相同的正例、兩版本完整保留，以及 OS／架構／Node／Chrome／字體差異、缺失環境欄位、失敗／過期／不完整報告的拒絕。相關 CI collector／environment／prepare／worker 測試及 `check:tests` 通過。原 run 的 245 個完成項目以真實 reports／jobs 作診斷重播通過，輸出在 `output/ci-tests/env-rollout-replay/diagnostic.json`；此診斷不改寫原 run 的 failure，也不取代新版完整 CI。
+
+### 同輪發現的 AC 控制重畫開銷
+
+修正提交 `0491ceb` 的 run 38650843158 完成 208 個 Node、31 個 browser 及 5 個 checks；AC browser entry 的一次手機輸入延遲為 102.1 ms，超過原 100 ms 上限，整輪保留 failure。先前短 SHA 啟動的 run 38650719207 在 checkout 停止，沒有執行測試。
+
+針對性診斷發現，共用 editor 每次控制重畫仍會重建已隱藏的電勢圖例；新增實際 DOM mutation 檢查在原碼錄得 28 次隱藏內容更新並失敗。最終只在圖例顯示時更新色階／數學標籤，保留原 10 ms 物理計算預算、求解精度、物理時間與 80／100 ms 門檻。新增正例驗證開啟圖例仍更新，顯示／隱藏後電路文件與權威狀態保留。
+
+source／實際 ZIP 的 `--protection-budget-smoke` 通過 134 checks（12 個 L／尺寸預算窗口及控制重畫／圖例）；原碼與修正後數據在 `output/ci-tests/ac-budget-before.log`／`ac-budget-hidden-legend-fixed.log`。修正後最大 advance 31.5 ms、最大原生輸入延遲 77.3 ms、最大 long task 91 ms，全部在原界限內。共用平台及 budget helper 的拒絕測試通過；完整 CI 需用包含此次 runtime 修正的新提交重新執行，不以失敗 run 的局部重跑拼成通過。
