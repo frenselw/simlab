@@ -31,6 +31,14 @@ RC及無法表示時間仍觸發既有診斷。`check:tests` 通過（235入口�
 `output/circuit-platform-build.json` 及 `output/playwright/circuit-ac/*live-drag*`。
 未跑全倉庫完整CI、真手機或Moodle，未發布Sites。
 
+已提交選測證據：修正提交 `7a94dc7`，base `9ccc42f`。
+`node tools/run-tests.js --affected --base=9ccc42f --head=7a94dc7 --plan`
+（當時 checkout 為該 head）回傳 `affected`，選204個 node及12個 circuit
+browser入口，含AC、DC source／package四組、接線、評量活動及platform。
+四個套件consumer全部選入；既有registry及CI排程沒有改動。
+原始preview在 `output/ac-playback-time-selection.json`；這是選測證據，
+不是全選測範圍已執行通過的聲明。
+
 ## 拖動期間持續運行及接線預覽（2026-10-13）
 
 元件／導線幾何、移圖、縮放及接孔吸附預覽不暫停播放。預覽用已接受電路的
