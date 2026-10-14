@@ -1,7 +1,7 @@
 # SimLab 測試與 GitHub CI 改善計劃
 
 日期：2026-10-13。
-狀態：P0–P3 完成；P4 渲染修正已通過 Linux 全量，使用者已批准八片候選，後續測試補強及八片時間驗收待完成。
+狀態：P0–P4 實作與首輪自動驗收通過；正式採用以 main 的 check 及相同實作版本的獨立 full-check 結果為準。
 規劃分支：codex/improve-ci-testing。
 盤點基準：a8be3a5dc738421ea5824cb83dff597263434cfe。
 
@@ -337,7 +337,7 @@ P2 先在幾個代表改動上比較選擇結果：文件、單活動、電路�
 - [x] 主作者處理第一輪審核意見，記錄採納／不採納理由。
 - [x] 同一位 reviewer 覆核修訂。
 - [x] 使用者審閱並批准按交接條件連續實作。
-- [ ] P0–P4 實施及逐批驗收。
+- [x] P0–P4 實施及逐批首輪自動驗收；正式採用仍須遵守 main／獨立全量 gate。
 
 實施證據見 [P0／P1 基準盤點](../docs/ci-test-baseline-2026-10-13.md)及 [P2 分組驗證](../docs/ci-test-split-2026-10-13.md)。P0 已完成；P1 固定 Ubuntu／Node／Chrome 的完整 GitHub run 38401477675（fd2e3d0）全部成功，218 個正式入口、語法／manifest 及兩類打包均通過。先前啟動與 unload 失敗及修復證據保留，未放寬 diagnostics gate。
 
@@ -360,6 +360,16 @@ P4 校準見 [量測記錄](../docs/ci-test-optimization-2026-10-13.md)。普通
 渲染修正 a1c7b51 的 run 38479817006 首次完整成功：234 正式入口及五個 checks、九份報告、最終 gate／receipt 的 SHA、plan、policy 與 job 身份均已核對；八份實際 ledger 的 74 個唯一 source／ZIP case／mode 全部成功，ID 集合與 P2 相同。原 AC 12 個預算窗口成功，最大 integration 18.5ms、可信輸入 46.4ms、long task 55ms，80／100ms 上限不變；32 個控制重繪 checks 亦成功。
 
 該輪實測 2251 秒（37 分 31 秒）、151.28 runner 分鐘；main 同口徑基準為 2635 秒、174.88 runner 分鐘，分別減少 14.6% 及 13.5%。四片純 browser 工作合計 8482.49 秒，最慢一片 2173.07 秒；此結果達到首輪全量 45 分鐘目標，仍未達共享核心 15–25 分鐘目標。後續前景／三 RAF 的 fixture 補強尚須其自身 GitHub 驗收；P4 未標完成，亦未合併 main。
+
+### 最終首輪驗收與正式採用規則
+
+上述待驗證描述為當時狀態。前景／三 RAF 補強 a401848 的 run 38484137054 首次完整成功，239 項結果及 74 個實際 case／mode 核對通過，37 分 42 秒、154.23 runner 分鐘。使用者批准的八片版本 6a35bd4，run 38488012824 首次完整成功：四個 Node、八個 browser、一個 checks 共十三份報告，234 正式入口及五個 checks、receipt／SHA／plan／policy／actual job 身份均已核對。
+
+八片實测 1172 秒（19 分 32 秒）、154.65 runner 分鐘；相較四片 a401848，等待減少 48.2%，用量增加 0.3%；相較 main 33ebdd2 基準，等待減少 55.5%，用量減少 11.6%。固定 Node／Chrome、Ubuntu image 與 CJK 字體指紋一致。八份實際 ledger 的 74 個 source／ZIP case／mode 與 P2 相同，全部成功；原 12 個 AC 預算窗口與 32 個控制 checks 成功，原 80／100ms 上限保留。全平台完整範圍的首輪 19 分 32 秒同時符合共享核心 15–25 分鐘及全量 45 分鐘目標。
+
+文件、單活動及全量的首輪代表性證據已具備；正常開發二十次的 median／P95／首次失敗率仍按第 13 節累積，不把這些初輪樣本冒稱長期統計。T4 真機／真 Moodle 及未納入 CI 的人工矩陣維持獨立部署 gate。首次失敗、回退順序與完整命令全部保留。
+
+正式採用將此已驗證實作及驗收文件一起 fast-forward 到 main，並以實際 main push 的合格完整 receipt 建立新政策基準；獨立 Quality Full 必須另對精確相同版本完成自己的 full-check。這兩個來源的實際 metadata／報告／receipt 另存於 output/ci-tests，不能用 feature branch 綠燈或 YAML 解析冒充。每日排程已配置，實際 schedule 事件尚未觀察到。
 
 ## 15. 獨立審核記錄
 

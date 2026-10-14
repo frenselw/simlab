@@ -251,3 +251,27 @@ long task 55ms；原 80／100ms 上限不變。此為修正後新版本的首次
 output/ci-tests/motion-command-profile/command-costs.json 及 report.json。
 原 sandbox Chrome 啟動失敗發生在 CDP／案例開始前，首次 log／報告
 另存，之後正常啟動的診斷成功；不是以重跑掩蓋產品 assertion。
+
+## 八片首次完整驗收
+
+6a35bd4 的 run 38488012824 首次完整成功。十三份報告覆蓋 234 正式
+入口與五個 checks，SHA／不可變 plan／policy／actual job 及最終 receipt
+已核對；八份實際 ledger 共 74 個唯一 source／ZIP case／mode，全部
+passed，ID 與 P2 完整相同。Node／Chrome、Ubuntu image 及 CJK 字體
+指紋與 main 基準相同。證據為 output/ci-tests/p4-eight-final 及
+p4-eight-evidence；八片是實際執行結果，已取代先前估算。
+
+實測 1172 秒（19 分 32 秒）、154.65 runner 分鐘。四片 a401848 的
+run 38484137054 亦完成相同覆蓋，實測 2262 秒、154.23 runner 分鐘；
+八片等待減少 48.2%，用量只增加 0.3%。相較 main 基準的 2635 秒、
+174.88 runner 分鐘，等待減少 55.5%、用量減少 11.6%。這是初輪同
+固定環境對照，不代表二十次正常開發的 median／P95 或長期失敗率。
+
+原 12 個 AC budget 窗口與 32 個控制重繪 checks 全數通過，最大
+integration 26.5ms、可信輸入 52.1ms，沒有錄到 long task；保留原
+80／100ms 上限。19 分 32 秒的完整範圍同時達到 shared 15–25 分鐘
+及全量 45 分鐘首輪目標，沒有刪去入口、source／ZIP 或人工部署 gate。
+
+正式採用需另外核對 main push 的完整 receipt 與精確相同版本的獨立
+full-check，實際證據另存；feature run 的成功不能冒充這兩個來源。
+T4 真機／真 Moodle 驗收及正常開發長期統計保持原有分界。
