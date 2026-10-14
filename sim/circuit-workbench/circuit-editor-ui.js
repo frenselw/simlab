@@ -84,6 +84,7 @@
 `;
   function build(host, profile, prefix) {
     host.classList.add('sim-app','workbench','circuit-editor');
+    host.classList.toggle('household-workbench',profile.analysis==='household');
     if (profile.ui.header) host.setAttribute('data-sim-fullscreen-target','');
     else host.removeAttribute('data-sim-fullscreen-target');
     host.tabIndex = -1;
