@@ -1,0 +1,27 @@
+@import url("../circuit-workbench/circuit-editor.css");
+html,body{height:100%;height:100dvh;min-height:0;overflow:hidden}
+#app{width:100%;height:100%;max-width:none;margin:0;padding:0}
+.household-tools{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.household-tools select{max-width:210px;font-size:1rem;min-height:44px}
+.household-panel{font-size:1rem;line-height:1.55}
+.household-panel p{margin:6px 0;font-size:.875rem}
+.household-panel button,.household-panel select{min-height:44px;font-size:1rem}
+.hh-summary{font-variant-numeric:tabular-nums;border-bottom:1px solid #d6dee8;padding-bottom:8px}
+.hh-devices{display:grid;gap:6px}.hh-device{border-bottom:1px solid #d6dee8;padding:5px 0}
+.hh-device>div{display:flex;gap:4px;flex-wrap:wrap}.hh-device button{padding:4px 8px}
+.household-panel details{margin:8px 0}.household-panel summary{min-height:44px;display:flex;align-items:center}
+.hh-map{position:absolute;inset:0 32px;background:#f8fafc;z-index:3;padding:8px;overflow:auto;touch-action:pan-y}
+.hh-map[hidden]{display:none}.hh-map svg{width:100%;height:180px;min-height:100px}.hh-map button{min-height:44px;margin:4px;font-size:1rem}
+.hh-wire-fields{display:flex;gap:5px;flex-wrap:wrap}.hh-wire-fields select{max-width:150px}
+.hh-status{color:#8a4b0c}.hh-legend{font-size:.875rem;line-height:1.5}
+.circuit-editor .panel>.stage-bottom{display:flex;flex-wrap:wrap;padding:6px 0;gap:4px}.circuit-editor .panel>.stage-bottom .camera-tools{display:flex;flex-wrap:wrap;justify-content:flex-start;gap:4px;width:100%}.circuit-editor .panel>.stage-bottom .context-actions{margin-left:auto}.circuit-editor .panel>.stage-bottom .quick-parameters{max-width:100%}
+.household-tools button{min-width:44px;min-height:44px;font-size:1rem;padding:4px 8px}
+.circuit-editor .sim-header>.household-tools{grid-column:1/-1;grid-row:3;min-width:0;flex-basis:100%}
+.circuit-editor .stage-tools .playback-controls{display:none}.circuit-editor .stage-tools:has(.playback-controls) .segmented{flex:0 0 auto}.circuit-editor .stage-tools{flex-wrap:nowrap;gap:4px}
+.circuit-editor .surface:not(.panning):not(.wiring){touch-action:pan-y}.circuit-editor .scroll-strip{top:0;bottom:0;height:100%;max-height:none}
+.circuit-editor .panel{overflow-anchor:none}
+@media(max-width:759px){.circuit-editor .brand p{display:block}.household-tools{width:100%}.household-tools select{max-width:180px}.circuit-editor .workspace{grid-template-rows:minmax(170px,45%) minmax(0,1fr)}.circuit-editor .sim-header{padding-bottom:4px}.household-panel{padding:0 2px}}
+@media(max-height:500px) and (min-width:760px){.circuit-editor .workspace{min-height:0}.circuit-editor .sim-header{padding-top:2px;padding-bottom:2px}}
+@media(max-width:759px){.circuit-editor .sim-header{grid-template-columns:minmax(0,1fr) repeat(3,44px)}.circuit-editor .header-actions [data-circuit-id="settings"]{grid-row:1;grid-column:4}.circuit-editor .household-tools{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));width:100%}.circuit-editor .household-tools select{min-width:0;max-width:100%;width:100%}.circuit-editor .household-tools [data-hh-preset]{grid-column:1/3}.circuit-editor .sim-header .brand h1{font-size:1rem}.circuit-editor .brand .badge{display:none}.circuit-editor .brand p{font-size:.75rem}.circuit-editor .sim-header{padding-right:54px!important}.circuit-editor [data-sim-fullscreen].sim-fullscreen-header.sim-fullscreen-header-row{padding-right:54px!important}.circuit-editor .sim-fullscreen-button{position:absolute!important;right:4px!important;top:4px!important}}
+
+.circuit-editor .palette.household-palette{display:block}.household-palette details{border-top:1px solid #d6dee8}.hh-map [role=button]{cursor:pointer}.hh-map [role=button]:focus{stroke:#2563eb;stroke-width:3}

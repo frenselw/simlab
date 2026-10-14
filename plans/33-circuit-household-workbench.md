@@ -1,6 +1,6 @@
 # 家庭電路工作台實施計劃草案
 
-日期：2026-10-13。狀態：供教學及實施方向審閱，尚未實作。已按教科書教學取向，修訂為有效值模型。
+初稿：2026-10-13。更新：2026-10-14。狀態：實施中；H0決策見文末。採有效值模型；未執行的驗收仍保持未勾選。
 
 建議新增「家庭電路工作台」，沿用 DC／AC 的共用編輯器，以有效值求解家庭電路，再加入保護及電能的時間狀態。首版不逐點求解50 Hz波形；市電仍明確標示為交流，家電採等效電阻。第一個完整交付是可自由操作的非評分工作台；之後再從同一核心製作分題 SCORM 活動。
 
@@ -21,7 +21,7 @@
 | 共用核心 | `CircuitEditor.mount(host, config)`；重用電阻網絡求解，新增明確的家庭有效值語義與保護事件；保留 DC 和一般 AC 入口 |
 | 技術 | 原生 HTML／CSS／JavaScript／SVG；沿用已有本地數學字形與儀表，不新增框架 |
 | 評量風險 | 工作台屬 formative，不評分；日後學生包限形成性／低風險評分，高風險用途另需可信伺服器驗證 |
-| 本輪交付 | 本計劃，沒有 runtime、目錄、套件或部署變更 |
+| 本輪交付 | H0–H5非評分工作台；H6後續學生評量包另立活動計劃 |
 
 澳電目前列明用戶單相供電為 230 V、50 Hz，因此採此預設；220 V 是可選課本設定，所有功率與電流均隨設定重新計算。[澳電供電資料](https://www.cem-macau.com/en/about-cem/company-profile/operation/)
 
@@ -33,7 +33,7 @@
 
 ## 現有 AC 和 DC 可重用的部分
 
-以下按本地 `9c0a691` 的原始碼與現行文件盤點；它是設計依據，不代表重新執行了既有測試。
+以下電路能力按2026-10-13本地`9c0a691`原始碼盤點，屬設計依據，不代表重新執行既有測試。2026-10-14另以`a2ec9db66e260d6d55a067e3be356231dce63bad`的項目指引、registry、選取器及打包工具更新測試規劃；實施時仍須核對當時版本。
 
 | 現有能力 | 家庭工作台的用法 | 需要補足的部分 |
 |---|---|---|
@@ -382,15 +382,17 @@ H17可先顯示接頭耗散及風險，不要求燃燒動畫。教學示例預�
 
 | 階段 | 工作與依賴 | 可審閱成果及完成條件 | 粗估有效工作天 |
 |---|---|---|---:|
-| H0 模型及教材定案 | 確定單源純電阻假設、RMS讀值及有號係數語義、230／220 V、接地等效圖、負載額定、保險絲／MCB／RCD教學曲線；完成危險情境預期表、精確snapshot schema及測試決策 | 一份有公式、參數單位及基準答案的模型規格；保護時間不留無標示的臨時常數 | 1–2 |
-| H1 最小家庭回路 | 接入家庭有效值分析及新入口；市電、L／N／PE、英式插座、I類負載與W計；補內部支路及文件邊界 | 單負載直接得有效值與平均功率，無AC逐週期依賴；前後視角及配置保存一致；DC／AC基本回歸通過 | 3–5 |
+| H0 模型及教材定案 | 確定單源純電阻假設、RMS讀值及有號係數語義、230／220 V、接地等效圖、負載額定及保護曲線；完成危險情境預期表、精確snapshot schema、測試檔案／browser owner及source／package／手勢矩陣 | 一份有公式、參數單位及基準答案的模型規格；保護時間不留無標示的臨時常數；測試登記及選取預期明確 | 1–2 |
+| H1 最小家庭回路 | 接入家庭有效值分析及新入口；市電、L／N／PE、英式插座、I類負載與W計；補內部支路、文件邊界、registry、資產清單、電路family選取及最小打包支援 | 單負載直接得有效值與平均功率；配置保存一致；`check:tests`通過，最小回路source／ZIP及DC／AC基本回歸有證據；首次整合提交按full範圍驗證 | 3–5 |
 | H2 保護與故障核心 | 以慢變時鐘及事件整合保險絲、MCB、RCD、RCBO；短路、漏電、斷地、復位及熱記憶 | 一條插座支路完整演示正常→故障→保護→排故→恢復；數值及保存基準通過 | 4–6 |
 | H3 全屋及環形分路 | 四分路配電箱、N群組、環形／放射式、拖板、固定大功率家電、總W及kWh | 開關及故障只影響實際保護範圍；分流／斷環／局部過熱案例可驗證 | 3–5 |
-| H4 教學操作與手機 | 三尺度、原理放大、十八個示例、端子預覽、快捷設定、鍵盤及無障礙 | 每項概念有可直接開啟的示例；320 px上仍能接端子、讀表和操作最後控制 | 3–5 |
-| H5 成品驗收 | source與解壓包；完整物理／狀態／觸控矩陣；共用核心回歸；打包器整合 | standalone package-ready，另列真手機／Moodle部署證據 | 4–6 |
+| H4 教學操作與手機 | 三尺度、原理放大、十八個示例、端子預覽、快捷設定、鍵盤及無障礙；擴充現有mobile-scroll runner，支援家庭standalone資源清單、ZIP打包／解壓、資源指紋及家庭手勢案例 | 每項概念有可直接開啟的示例；320 px上仍能接端子、讀表和操作最後控制；家庭T0–T3適用手勢矩陣在source與解壓standalone ZIP兩種來源均實際通過 | 3–5 |
+| H5 成品驗收 | 在同一已提交SHA重建source／ZIP；執行完整物理／狀態／觸控矩陣及規定的全量自動驗證；核對registry、selection plan、資產消費者與打包指紋 | standalone package-ready；記錄base／head、GitHub run與實際scope，所有必需job及artifact齊備；真手機／Moodle另驗 | 4–6 |
 | H6 學生評量包 | 工作台模型穩定後，再為各短活動定案並實作rubric、codec及SCORM | 每個活動各自通過package-ready與Moodle-ready；不繼承工作台的合格聲明 | 另估 |
 
 H0–H5暫保留約18–29個有效工作天的一人開發粗估。有效值方案省去高頻積分、波形收集及相位保存，但家庭元件、保護事件、恢復與手機操作仍須完成；H1驗證共用求解接入後再縮窄估算，不把模型簡化直接換算成承諾工期。H1結束先看單回路原型，H2結束先看保護原型，再擴充全屋；每一階段都保留可獨立驗收的成果。
+
+H0的精確schema、保護曲線及案例矩陣完成後，才進入H1實作。手勢runner的standalone接入及兩種來源的實測是H4完成條件，不能留到H5才補接測試工具。
 
 ## 測試計劃與數值基準
 
@@ -434,16 +436,54 @@ H0–H5暫保留約18–29個有效工作天的一人開發粗估。有效值方
 
 T0直接開啟、T1直接iframe、T2嵌套player及T3元素捲動宿主沿用[完整手勢契約](../docs/simulation-scorm-production-guide.md#selective-touch-gesture-ownership)。T4真Moodle與真手機另記，包含實際origin／sandbox／捲動owner；本地模擬不能代替。Windows上的Playwright CLI按AGENTS指定Git Bash路徑執行；輸出含`### Error`一律視為失敗。
 
+### 測試登記與CI選取
+
+依[測試登記程序](../docs/simulation-scorm-production-guide.md#test-registration-for-new-simulations)及[CI驗收規則](../docs/simulation-scorm-production-guide.md#ci-gates-and-maintenance-commands)，`tools/test-registry.js`是唯一登記來源；`tools/run-tests.js`只執行該清單，不另加測試列表，也不修改歷史baseline JSON來登記新測試。以下是家庭工作台的實施決策；新檔案須隨實作建立及登記，本輪沒有預先登記不存在的檔案。
+
+| 項目 | 家庭工作台的安排 |
+|---|---|
+| Runtime資產 | 在registry的`assetLists`加入`{scope:'circuit-household-workbench', file:'sim/circuit-household-workbench/assets.json'}`；清單`files`相對於`sim/`，列齊入口及實際共用依賴；首版沒有SCORM manifest |
+| 物理與保護Node測試 | 擬用`sim/circuit-workbench/household-model.test.js`、`household-protection.test.js`、`household-session.test.js`，覆蓋上列數值、曲線、事件、文件及恢復基準；各檔加入`registeredTests`，kind為`node`、預設scope為`circuit-workbench` |
+| 家庭情境Node測試 | 擬用`sim/circuit-household-workbench/presets.test.js`核對H01–H18配置及預期模型條件；登記於`registeredTests`，kind為`node`、預設scope為`circuit-household-workbench` |
+| Browser owner | 擬登記`{file:'tools/circuit-household-browser-regression.js', kind:'browser', scope:'circuit-family', args:[]}`；同一entry內執行source與實際解壓家庭ZIP，逐案記錄兩種來源，缺任一模式或必需案例即失敗 |
+| Browser case helpers | 首版不為登記而拆檔；若案例需拆成`tools/circuit-household-browser-cases.js`，同步在`helpers`登記`scope:'circuit-family'`與實際`consumers`，由已登記driver以literal relative CommonJS import引用；helper不當成獨立test執行 |
+| 獨立部署矩陣 | 擴充已在`manualBrowserTests`登記的`tools/mobile-scroll-browser-regression.js`（`shared-touch`）；H4接入家庭standalone `assets.json`、實際ZIP打包／解壓與入口定位、source／ZIP資源指紋，以及家庭案例／操作adapter；T0–T3適用矩陣在兩種來源均須實際通過並保留證據；若新增獨立driver，另列file、scope及非空reason |
+| 後續SCORM包 | H6按各自slug登記manifest與Node tests，browser依電路消費者規則歸`circuit-family`；同步加入family套件對應及反向資產消費者驗收 |
+
+現有mobile-scroll runner的`runtimeDigest()`仍讀`sim/manifests/<slug>.xml`，package分支亦走SCORM打包；單純加入家庭slug會因首版沒有manifest而失敗。H4須按資源類型讀取已登記的standalone清單，使用統一電路打包器產生並解壓家庭ZIP，從實際被測來源計算資源指紋，記錄ZIP指紋及入口，並確認套件資源與同一SHA的來源一致。現有`--mode=standalone`表示直接頁面啟動，不能視為已支援standalone ZIP；宿主T0–T3與source／ZIP來源須能分別指定及記錄。同步補standalone接入回歸與既有SCORM路徑回歸，缺資源、入口或案例均須失敗；不以新增虛構manifest繞過接入工作。
+
+最小回路即須有已登記的browser entry；後續階段在同一driver補齊案例，H5核對完整矩陣。預設一次entry涵蓋source／package，避免再登記重複呼叫；若實測後需要獨立分組執行，須逐一登記不同`args`，並確認所有組合都在選取結果中。保留現有DC四組source／package及其他電路browser entries，不以家庭entry取代它們。跨不同活動scope共用的helper按指南使用`shared-` scope。
+
+**電路family仍需明確接入。** 核對時`tools/test-selection.js`的`circuitScopes`及family package集合只列DC、AC、兩個DC活動。H1須加入`circuit-household-workbench`，使家庭runtime、家庭driver/helper、共用電路資產及其反向消費者都能選到正確browser entries與五個電路套件。`tools/ci-plan.js`已把`circuit-`套件交給`circuit-platform-packages`，因此`tools/package-circuit-platform.js`亦須實際建出家庭ZIP並記錄其指紋；只在registry加入asset list並不足夠。
+
+同時擴充既有`tools/test-selection.test.js`的選取斷言：家庭入口、共用電路檔及家庭helper均選到家庭browser與全部電路消費者；新家庭資產的反向依賴可追蹤；registry／catalogue／選取器改動為full；未知資產或缺browser owner仍保守回退full。現行以`sim/circuit-household-workbench/main.js`作未登記反例的測試，在家庭接入後改成正例，另留真正未知路徑的反例。這些是測試基礎設施接入工作，須和家庭runtime一同完成。
+
+首次新增registry、catalogue及依賴／選取器的提交採**全量驗證**。日後已有同一policy下合格的main基線，且只改活動內容時，才採正式plan選出的affected範圍；家庭屬`circuit-family`，不能自行縮成只測家庭頁。共用行為改動依生產指南擴大驗收；現有電路核心的family選取也不能豁免指南要求的全量gate。登記錯誤須先失敗，未知映射回退full不能證明漏登記的測試已執行。
+
+### 選取與執行證據
+
+實作提交後，以`npm run test:affected -- --base=<main-sha> --head=<head-sha> --plan`檢查選取；兩個SHA均須已提交，checkout對應head。預覽不執行測試，也不涵蓋未提交修改；本地指定range與GitHub累積main／PR merge-candidate驗證分開記錄。
+
+| 證據 | 須保存的內容與目前狀態 |
+|---|---|
+| Registry檢查 | 指令、被檢查版本、exit code及輸出路徑；本輪對現有registry的實際結果見文末2026-10-14記錄，家庭接入後須重跑 |
+| 已提交selection preview | base／head完整SHA、輸出檔、mode／reason、每個browser的file及args、packages；初次應為full，後續須包含家庭與所有反向資產消費者；尚待實作提交 |
+| 實際自動驗證 | 測試SHA、workflow版本、GitHub run連結、policy、選取scope、各必要job／entry結果及報告；full時包括全部已登記測試、全部SCORM套件及standalone電路平台；尚待實作 |
+| 產品驗收 | 同一SHA的source／解壓ZIP、套件指紋、H01–H18、session及手機矩陣的執行結果與artifact路徑；CI成功不能代替未執行案例；尚待實作 |
+| 獨立部署證據 | H4完成家庭standalone runner接入；T0–T3完整host／phase／mode矩陣在source及解壓ZIP各有實際報告、資源／ZIP指紋與入口；T4實機／Moodle另記，保留未完成項目；尚待實作 |
+
+H5按[package-ready規則](../docs/simulation-scorm-production-guide.md#package-ready-checks)執行`npm run check:tests`、`npm run check`、`npm test`、`npm run package:all`、`npm run package:circuit-platform`及`git diff --check <base>...HEAD`。`test:fast`供開發時跑非browser測試；`test:affected`供合格range的選取與執行，均不代替首次整合或交付所需全量驗收。自動產生的assets／manifest先更新並提交，再在該SHA重建，確保CI的tracked-checkout守衛通過。獨立Quality Full、手機及Moodle驗收各自保留；必需job或artifact缺失不能記作通過。
+
 ## 打包與目錄規劃
 
 | 項目 | 實施時的修改 |
 |---|---|
-| 工作台入口 | 新增`sim/circuit-household-workbench/`及其`assets.json` |
+| 工作台入口 | 新增`sim/circuit-household-workbench/`及其`assets.json`；同步在registry的`assetLists`登記，建立反向資產消費者 |
 | 可選家庭依賴 | 按實際共用檔建立`household-runtime-assets.json`；DC入口不額外載入家庭模組；家庭包不因交流標示而自動包含完整AC時間後端 |
-| 統一builder | 擴充現有`tools/package-circuit-platform.js`，核對家庭包與引用來源的逐檔指紋 |
+| 統一builder | 擴充現有`tools/package-circuit-platform.js`產生家庭ZIP，納入`circuit-platform-packages`及五個電路套件指紋；assets／manifest重建後不能留下未提交差異 |
 | 既有套件 | 共用核心改動後重建DC、AC及兩個DC活動；按受影響邊界執行回歸 |
 | 目錄metadata | title「家庭電路工作台」；folder同slug；categories「Electricity」；description「探索家庭分路、英式插座、接地與保護裝置，模擬過載、短路及漏電。」；tags為physics、electricity、household、safety、workbench；可部署前status為planned |
-| 測試 | 新Node測試登記`tools/run-tests.js`；家庭browser案例接回正式runner，缺覆蓋必須失敗 |
+| 測試 | 新Node／browser測試登記`tools/test-registry.js`的`registeredTests`；helpers及manual gates亦按類別登記；family與套件映射、選取斷言見上節，缺覆蓋必須失敗 |
 | 文件 | 家庭作者／維護指引記錄模型、接口、故障、保存及已驗證範圍；本計劃維持教學決策與里程碑 |
 | 學生包 | 日後各自`sim/manifests/<slug>.xml`，根有`imsmanifest.xml`，列齊實際共用依賴 |
 
@@ -460,7 +500,11 @@ Standalone包沒有評量manifest。`package:all`現時只建SCORM，不能假�
 - [ ] 固定對地參考、懸浮未知及I／II類絕緣故障基準通過；家庭session操作隔離各列均有正式測試。
 - [ ] 原有DC／AC關鍵操作、文件及正式DC活動回歸通過，無家庭依賴洩漏到DC入口。
 - [ ] source與解壓ZIP的手機、可信觸控T0–T3、鍵盤與全螢幕通過。
-- [ ] `npm run check`、`npm test`、更新後統一打包、受影響SCORM包及`git diff --check`按交付gate通過。
+- [ ] H4已完成mobile-scroll runner的standalone資源、打包／解壓、指紋及家庭案例接入；source與ZIP的適用矩陣均有實際通過證據，沒有依賴不存在的SCORM manifest。
+- [ ] 家庭Node／browser／helper／manual owner及standalone資產清單已登記；`npm run check:tests`通過且有輸出證據。
+- [ ] 已提交base／head的selection preview符合預期；首次full、後續scope與反向消費者完整，沒有漏掉source／package參數組合。
+- [ ] `npm run check`、`npm test`、`npm run package:all`、`npm run package:circuit-platform`及指定range的`git diff --check`按交付gate通過；重建沒有tracked差異。
+- [ ] 記錄實際GitHub測試SHA、workflow／policy、run及scope；所有必需job／entry與artifact齊備，獨立Full gate按生產指南驗證。
 - [ ] 目錄、資產、指紋、入口及離線依賴吻合；所有證據記錄實際版本與執行範圍。
 
 ## Moodle及真手機驗收清單
@@ -472,11 +516,13 @@ Standalone包沒有評量manifest。`package:all`現時只建SCORM，不能假�
 
 ## 本次規劃證據與實施前決策
 
-已檢視共享規範、DC／AC計劃與作者文件、元件／時間模型／文件／打包相關原始碼，並核對供電、插頭保險絲、環形分路與保護裝置的原理來源。本輪只新增本計劃；runtime測試、真手機及Moodle驗收留待相應實施階段。
+2026-10-13已檢視共享規範、DC／AC計劃與作者文件、元件／時間模型／文件／打包原始碼及電學原理來源；2026-10-14再核對最新測試指引、registry、選取器及CI打包責任。兩輪均只建立或修訂本計劃；已執行的文件／登記檢查與待實作的runtime、真手機及Moodle驗收分開記錄。
 
 目前採用的建議是：先完成非評分工作台；以230 V／50 Hz交流標示、有效值求解、英式插座、明示接地等效模型與電阻型家電開始；保留保護及電能的時間效果，交流波形只作按需原理解說。四分路及環形／放射式比較列入完整首版，再拆出學生評量。課本需否以220 V作預設，以及保護曲線採教學模型還是指定實物型號仍可在H0定案；不再把完整交流暫態求解列作首版前提。
 
 ## 2026-10-13 獨立審核與跟進
+
+以下是當日物理及架構版本的審核記錄；2026-10-14的測試指引修訂另記於下一節，未套用當日覆核結論作新版測試證據。
 
 兩位sub-agent先分別審核同一份未修改草案：一位核對物理及教學，另一位對照現有原始碼、架構及驗收。兩位均認為有效值方案成立，沒有提出P0／P1問題；第一輪找到下列需修訂事項。主審另補毫安級容差及銘牌語義。
 
@@ -496,3 +542,75 @@ Standalone包沒有評量manifest。`package:all`現時只建SCORM，不能假�
 | 架構及驗收 | 原有電勢語義問題及操作驗收缺口已關閉，未發現新的未解決實質問題；可進入原定H0階段 |
 
 本次審核結案；有效值方案保留，未增加新的產品階段。審核範圍是計劃、原始碼接合可行性及原理來源；本輪未實作或執行runtime測試。H0曲線校準、精確schema及H1／H2原型與數值驗證仍是原定實施關卡，不代表已完成，也不構成真手機或Moodle驗收。文件本地連結及空白格式檢查通過。
+
+## 2026-10-14 測試指引對齊記錄
+
+對照版本為`a2ec9db66e260d6d55a067e3be356231dce63bad`。已重讀更新的AGENTS、production guide及計劃模板；與初次盤點版本比較，共享樣式規則、電路作者指引及架構說明沒有改動。此次更新測試登記、browser ownership、standalone資產、family選取、首次全量驗證、SHA／artifact證據，以及H0／H1／H5和交付清單；有效值物理模型及十八個示例保持原範圍。
+
+| 本輪檢查 | 實際結果 |
+|---|---|
+| `npm run check:tests` | exit 0；現有235個entries（204 Node、31 browser）、48個helpers、2個manual gates；輸出：[registry檢查記錄](../output/household-plan-review/2026-10-14-check-tests.txt) |
+| 文件檢查 | `node tools/check-docs.js plans/33-circuit-household-workbench.md`及`git diff --check`均exit 0；本地連結／anchors通過，生成證據檔另核對存在；輸出：[文件檢查記錄](../output/household-plan-review/2026-10-14-docs-check.txt) |
+| 手勢runner接合覆核 | 核對現有`runtimeDigest()`及package分支，確認仍依賴SCORM manifest／打包路徑；已把standalone清單、ZIP、指紋及家庭案例接入列為H4工作與雙來源實測完成條件；本輪沒有執行手勢測試 |
+| 已提交selection preview及GitHub run | 未執行；本輪未提交且家庭runtime／registry entry尚未建立，不能用其他commit的選取結果冒充本輪或家庭功能證據 |
+
+本輪不新增runtime、測試程式、registry條目或CI配置。上述registry通過只代表現有登記有效；家庭接入及正式測試仍按實施階段完成。
+
+## H0 實施規格（2026-10-14）
+
+分支 `codex/circuit-household-workbench`。本節把原先候選項定案為可驗證的教學模型；不使用B／C／D或實物型號名稱。電路原理沿用上述OpenStax有效值公式及RCCB／RCBO功能界限。曲線特意加快，UI固定說明「教學時間尺度，秒數不是實物規格」。預設230 V／50 Hz；220 V只改源，不改既有家電銘牌。評分、rubric、attempt phase、SCORM為N/A。
+
+### 具名曲線 HH-teaching-1
+
+所有電流為共同正弦基準的有效值係數。熱量θ無量綱，`dθ/dt=((I/In)²-θ)/τ`，解析更新 `θ(t)=q+(θ0-q)exp(-t/τ)`，q=(I/In)²。保護門檻θtrip=2，冷卻使用同一τ，非攝氏溫度。
+
+| 裝置 | 額定值／時間常數 | 快速條件 | 初態基準及復位 |
+|---|---|---|---|
+| 熔絲 | 3／5／13／60 A；τ=20 s | 無獨立磁動作，熱動作自然加快 | 1In不熔斷；2In從冷態在20ln2=13.862944 s熔斷；更換才清零θ |
+| MCB／RCBO過流 | 6／16／20／32 A（自由設定1–100 A）；τ=30 s | I≥5In連續0.02 s | 2In冷態在30ln2=20.794415 s熱跳掣；復位保留θ，故障未排除可再跳 |
+| RCCB／RCBO剩餘電流 | 正常載流額定與IΔn分開；預設30 mA | IΔ≥IΔn連續0.04 s | 23 mA在本模型不動作；30 mA動作；低於條件清動作計時；非人體安全判定 |
+| 導線熱量 | 每線In，τ=60 s | 無自行斷路 | θ≥2顯示累熱警告；I>In即顯示超載；實際電阻和畫布長度分開 |
+
+TEST限流支路：R=230/0.06 Ω，從L輸入跨到N輸出；以真實差流觸發，無PE依賴。觸點閉合電阻0.001 Ω；源回路0.2 Ω；一般線段0.02 Ω、環形兩側各0.04／0.08 Ω，允許電流依分路、插頭及拖板分別指定。故障低阻0.1 Ω、漏電預設10 kΩ、接觸等效1 kΩ、接觸不良2 Ω。這些都是可見教學配置。
+
+最早候選事件解析定位；相差≤1 ns的事件一起切斷，原因固定優先剩餘電流、快速過流、熱過流，ID排序只用於事件展示。先結算舊狀態電能與热量，再改觸點及重算。電能單位kWh、積分分母3,600,000。未知／失敗結果不積分，技術暫停不設成跳掣。
+
+### 文件及session精確邊界
+
+家庭文件為`simlab-circuit` v8、`analysis:'household-rms'`、`modelRevision:1`。原v6欄位保留；新增`earthReference:null|合法端點ID`（空白合法）；每線增加`role:'L'|'N'|'PE'|'signal'`、`rating`有限0.1–1000 A、`open:boolean`。元件參數由registry嚴格白名單驗證，僅准單一家庭源、純電阻／開關／A V W表及家庭元件，拒絕AC瞬態元件、電池及非線性燈。供電端N與PE連結是可見電氣支路，地參考不得取代電氣接線。
+
+實驗封套：`{kind:'simlab-household-session',schemaVersion:1,modelRevision:1,scenarioId:string|null,scenarioRevision:1,document:<v8>,physics:{time,devices,wires,energy,events}}`。封套及各層禁止未知欄位；上限1 MiB UTF-8。time有限0–1e9 s。devices以保護器ID索引，每值`{status:'closed'|'tripped'|'blown',heat:0..1e15,fast:0..0.02,residual:0..0.04,reason:null|'thermal'|'magnetic'|'residual'}`；型別與原因須一致，未跳狀態不可留原因，MCB不可blown，RCCB不可有熱量／磁計時。wires以文件線ID索引θ=0..1e15。energy以正式電能計／家電ID索引有限0–1e12 kWh。devices／wires／energy集合精確等於文件需要的集合。events最多100筆`{time,id,reason,current,residual}`，時間非遞減且≤physics.time，ID指向文件保護器，數值有限非負。不保存UI、波形、相位、derived讀值或播放意圖。scenarioId最多40字符，只標記示例來源、不授權能力。
+
+配置檔只含v8 document，開啟建立冷態；實驗檔保存全部權威physics，驗證成功才原子替換且暫停。空白、部分線路、未供電、正常、暫停、累熱、單／多掣跳、熔斷及錯接各自round-trip並執行一次接線／開關／排故／復位／步進續作。故障與開關變更保留時間；幾何／視圖不改physics；undo／redo恢復命令邊界並暫停；預覽僅用副本且凍結本instance時鐘。只讀及destroy停止推進。
+
+### 驗證矩陣及完成口徑
+
+物理H01–H18使用正式presets；每一示例記錄核心比較及可調參數。解析容差U／I／P相對0.5%，近零1e-7 V／1e-8 A／1e-6 W；差流0.1 mA；解析事件時間1 μs。測試按上文registry名稱登記，家庭browser同時實際使用source與ZIP；既有DC／AC及兩學生包保持回歸。family加入第五包，新增registry／catalogue／selection首次full。
+
+手機矩陣：320×500、390×500、390×600、390×844、844×390、短iframe、鍵盤、200%縮放；T0–T3各source／ZIP。覆蓋空白、正常、故障、跳掣、熔斷、只讀；實物／符號、三尺度、繪線／選線／平移／探頭。逐案量測32 px側條、元件／孔／線端／彎點／滑塊的捕獲與取消、面板頂底／快滑、全螢幕。runner缺案例須失敗。真手機、真Moodle、GitHub Full run未執行不能記為通過。階段檢視依原計劃H1／H2原型進行，不以原型冒充H5成品。
+
+## H1–H4 實作與開發驗證（2026-10-14）
+
+已實作家庭 v8 有效值入口、可選家庭元件／保護／session 模組及四分路／環形配置，沒有複製 editor 或啟用 AC 高頻後端。H01–H18 可直接載入；全屋、分路與原理共用同一文件／session。插拔及拓撲編輯須先關市電；故障／開關保留時鐘，預覽、只讀、撤銷及失敗匯入保持隔離。家庭作者與維護接口見[家庭指引](../docs/circuit-household-workbench.md)。
+
+本節是開發證據，未以尚在運行的全量／宿主矩陣宣稱 H5 完成。
+
+| 已執行 | 結果及限制 |
+|---|---|
+| 家庭四個 Node 檔 | 解析有效值／並聯／不等環流、供電與銘牌、固定接地、I／II／非導電節點、保護曲線／TEST／差流、複合故障及同時事件、每個保存狀態的正式 round-trip＋續作通過；容量 522512 bytes（240 線×96 點＋100事件），1 MiB 上限不刪權威資料 |
+| `npm run test:fast` | 初輪 208/208 通過；輸出 `output/household-implementation/fast-tests.txt`。其後的家庭精密讀表／數值穩定性修正另跑家庭檔；最後完整驗證與提交 SHA 另記 |
+| 家庭 browser owner | `node tools/circuit-household-browser-regression.js` 初輪 source／ZIP 56 cases 通過，包含18示例、真 ZIP 指紋、restore＋續作、history、只讀、失敗匯入、TEST、多instance／destroy、手機尺寸、可信 body／線端拖曳／取消、預覽及 fullscreen；`output/household-implementation/browser/report.json`；修正後最終報告另重建 |
+| Registry／打包 | 240 entries（208 Node、32 browser），48 helpers、2 manual gates；`registry.txt`。統一 builder 實建五個電路包；全部 SCORM package 驗證通過；`platform-packages.txt`、`packages.txt`、`output/circuit-platform-build.json` |
+| 語法／manifest／文件 | `npm run check` 通過，`check.txt`；文件連結及 `git diff --check` 通過 |
+| 全屋效能 | Node 本機25元件／58線，20次求解平均44.6 ms；只代表此桌面環境，不代表真手機100 ms gate |
+| T2嵌套宿主 | source、320×500及390×500、9個正式狀態，各舞台／側條與面板頂底／快滑／取消通過，`touch-T2-source.json`。其它T0–T3／ZIP及每類owned操作仍在運行，最終同SHA證據另記 |
+
+### 實施定案補充
+
+- 家庭源參數加入 `closed:boolean`，預設 true；新增源時接地參考自動指向該源 PE。`earthReference` 可為 null（未知），有源的非空參考只能是其 `:e`。任意 UI 0 V 不改對地值，探頭明示有效值大小。
+- 熱更新用 expm1／log1p 保持巨大故障電流下的數值精度；θ保存界限1e15，仍不顯示攝氏溫度。冷卻後尚熱的線段可保留熱警告。
+- 配電箱上游教學線額定60 A；環形20 A／插頭與軟線13 A。拖板本體只顯示總載流限制，熔絲由插頭擁有，不虛構第二條拖板內熔絲。
+- 控制列移至獨立面板，家庭手機畫布保留≥100 px實際精密操作高度。一般空白 pan-y，兩侧全高32 px native捲頁條；面板關閉自動捲動錨定，避免更換選取物件時改變捲動位置。DC／AC自己的CSS不修改。
+- `tools/mobile-scroll-operations.js` 以合法冷態部分接線 fixture 補家庭owned body、port、free end、attached end與wire body／bend完成及取消，量每次移動與放手的host／document／panel／time，線端必須有預覽且釋放清除。這些共用目標在initial正式狀態執行；其它state仍獨立跑blank／strip／panel，read-only另由browser owner驗證凍結與拒絕變更。
+- H4 standalone runner接入已完成資產宣告、真ZIP入口與資源／ZIP指紋；T0宿主與 source／package entry 分開指定。registered shared-touch helper沿用原owner與consumer，沒有另設虛構SCORM manifest。
+- H6 不在本輪，rubric／評分／attempt為N/A；真手機及真Moodle未驗，維持未勾選。新增registry／catalogue／selection本輪採full，不把單一家庭browser取代family回歸。

@@ -228,3 +228,5 @@ A／V 接孔於 2026-10-05 內移，接孔變更使用 v5；2026-10-06 導線電
 ### 波形工具數量及測點
 
 交流可配置 `observationLimit:0..4`（一般教師預設2），配合 `observationChannels:[{id,quantity}]` 限定觀察元件。UI、鍵盤選點及 `setObservationTools` 共用限制；電壓兩端必須是同一個已開放通道的 a/b，不接受任意混合兩個通道。`getObservationTools`／`setObservationTools` 只處理獨立UI版面及探頭配置，不改電路／物理快照；正式活動仍自行擁有觀測答案、版本及保存封套，見[小型波形儀器](circuit-ac-workbench.md#小型波形儀器)。
+
+家庭非評分有效值配置與 v8/session 邊界見[家庭作者指引](circuit-household-workbench.md)，不使用本文 DC 靜態檢查作為家庭保護事件證據。

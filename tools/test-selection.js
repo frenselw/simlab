@@ -3,7 +3,7 @@ const fs = require('node:fs'), path = require('node:path'), {spawnSync} = requir
 const {info,tests:registered,helpers,assetLists} = require('./test-registry');
 const {XMLParser} = require('fast-xml-parser');
 const evidenceDocs = new Set(['docs/ci-test-baseline-2026-10-13.md','docs/ci-test-split-2026-10-13.md','docs/ci-test-optimization-2026-10-13.md']);
-const circuitScopes = new Set(['circuit-workbench','circuit-ac-workbench','circuit-dc-series-build','circuit-dc-rheostat-adjust']);
+const circuitScopes = new Set(['circuit-workbench','circuit-ac-workbench','circuit-dc-series-build','circuit-dc-rheostat-adjust','circuit-household-workbench']);
 const circuitInputs = new Set([...registered.map(info).filter(e=>e.scope==='circuit-family'),...helpers.filter(e=>e.scope==='circuit-family')].map(e=>e.file));
 
 function assetOwners(root = path.resolve(__dirname,'..')) {
@@ -71,7 +71,7 @@ function selectAffected(tests, paths, {trustedEmpty = false, forceFullReason = n
     const matches = browser.filter(e => e.scope === scope);
     if (!matches.length) return false;
     matches.forEach(e => selected.add(e.id));
-    if (scope === 'circuit-family') ['circuit-workbench','circuit-ac-workbench','circuit-dc-series-build','circuit-dc-rheostat-adjust'].forEach(p => packages.add(p));
+    if (scope === 'circuit-family') ['circuit-workbench','circuit-ac-workbench','circuit-dc-series-build','circuit-dc-rheostat-adjust','circuit-household-workbench'].forEach(p => packages.add(p));
     else packages.add(scope);
     return true;
   };
