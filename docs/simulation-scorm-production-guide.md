@@ -931,7 +931,14 @@ a completed job as carried only when it predates the current attempt and its
 start, finish and conclusion exactly match an earlier execution of that job.
 The original execution and artifact remain the evidence source. A genuinely
 new execution, a changed conclusion or unmatched timestamps cannot fall back
-to an older success; browser environment equality remains required.
+to an older success; browser environment equality remains required for the
+runner OS family, actual OS release, architecture, Node, Chrome and CJK font
+fingerprint. GitHub's runner `imageVersion` describes the whole hosted image,
+including tools outside this test runtime. Record it in every report and retain
+each source version in the aggregate, but do not require identical image build
+labels when the actual compared runtime is identical. Missing image metadata
+still fails validation; this exception does not allow runtime-version or font
+drift, missing entries, failed tests, dirty checkouts or stale reports.
 
 ### Test registration for new simulations
 

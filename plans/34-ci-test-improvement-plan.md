@@ -398,3 +398,9 @@ Reviewer：本次唯一審核 sub-agent「ci_plan_reviewer」。第一輪只讀�
 - [Playwright best practices](https://playwright.dev/docs/best-practices)：以可觀察條件等待，減少沒有條件的固定等待。
 
 外部資料於 2026-10-13 規劃討論時核對。具體 GitHub Action／瀏覽器版本在實施時重新核對官方來源，再選定驗證版本。
+
+## 2026-10-15 GitHub image rollout 修正
+
+家庭工作台 Quality Full run 38599832228 的 208 個 Node、32 個 browser 入口及 5 個 checks 全部成功，aggregate 因混用 `20261004.327.1`／`20261012.334.1` 而失敗；實際 OS、架構、Node、Chrome 及 CJK 字體指紋相同。依使用者要求修正環境判定，規則由[生產指南](../docs/simulation-scorm-production-guide.md#ci-gates-and-maintenance-commands)所在的 CI 契約維護：映像 build 標籤保留作來源紀錄，彙總比較實際測試 runtime。
+
+`ci-results.test.js` 已覆蓋映像版本不同而 runtime 相同的正例、兩版本完整保留，以及 OS／架構／Node／Chrome／字體差異、缺失環境欄位、失敗／過期／不完整報告的拒絕。相關 CI collector／environment／prepare／worker 測試及 `check:tests` 通過。原 run 的 245 個完成項目以真實 reports／jobs 作診斷重播通過，輸出在 `output/ci-tests/env-rollout-replay/diagnostic.json`；此診斷不改寫原 run 的 failure，也不取代新版完整 CI。

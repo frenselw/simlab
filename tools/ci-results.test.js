@@ -4,7 +4,7 @@ const {validateResults}=require('./ci-results');
 const plan={hash:'plan-1',sha:'sha-1',runId:'10',scope:'full',environment:{node:'22.23.3',chrome:'154.0.8037.92'},
  jobs:[{key:'node-1',kind:'node',expected:['logic']},{key:'browser-1',kind:'browser',expected:['source','package']}]};
 const make=(key,expected,attempt=1)=>({jobKey:key,runId:'10',sha:'sha-1',ciPlanHash:'plan-1',attempt,status:'passed',worktreeDirty:false,
- environment:{node:'22.23.3',chrome:'154.0.8037.92',platform:'linux',image:'ubuntu24',imageVersion:'image-1',sha:'sha-1',runId:'10',attempt,jobKey:key,fontSha256:'a'.repeat(64),display:':99'},expected,entries:expected.map(id=>({id,status:'passed'})),errors:[],completedAt:new Date().toISOString(),artifactId:100+attempt});
+ environment:{node:'22.23.3',chrome:'154.0.8037.92',platform:'linux',image:'ubuntu24',imageVersion:'image-1',os:'Ubuntu 24.04.5 LTS',arch:'x64',sha:'sha-1',runId:'10',attempt,jobKey:key,fontSha256:'a'.repeat(64),display:':99'},expected,entries:expected.map(id=>({id,status:'passed'})),errors:[],completedAt:new Date().toISOString(),artifactId:100+attempt});
 const reports=[make('node-1',['logic']),make('browser-1',['source','package'],2)];
 const executions=[{jobKey:'node-1',attempt:1,conclusion:'success',jobId:1},
  {jobKey:'browser-1',attempt:1,conclusion:'failure',jobId:2},{jobKey:'browser-1',attempt:2,conclusion:'success',jobId:3}];
@@ -12,7 +12,7 @@ assert.equal(validateResults(plan,reports,executions).status,'passed','a failed-
 for(const change of [
  r=>r.pop(),r=>r[1].sha='other',r=>r[1].ciPlanHash='smaller-plan',
  r=>r[1].entries.pop(),r=>r[1].entries[0].status='not-run',r=>r[1].worktreeDirty=true,
- r=>r[1].environment.chrome='different',r=>r[1].environment.fontSha256=null,r=>r[1].environment.attempt=99,r=>r[1].environment.jobKey='other',r=>r[1].environment.imageVersion=null,r=>r[1].completedAt=null,
+ r=>r[1].environment.chrome='different',r=>r[1].environment.fontSha256=null,r=>r[1].environment.os=null,r=>r[1].environment.arch='',r=>r[1].environment.attempt=99,r=>r[1].environment.jobKey='other',r=>r[1].environment.imageVersion=null,r=>r[1].completedAt=null,
  r=>r[1].entries.push(r[1].entries[0])
 ]){const clone=structuredClone(reports);change(clone);assert.throws(()=>validateResults(plan,clone,executions));}
 assert.throws(()=>validateResults(plan,reports,[...executions,{jobKey:'node-1',attempt:2,conclusion:'failure',jobId:4}]),/Latest job/,'an older success cannot hide the latest failure');
@@ -29,7 +29,14 @@ assert.equal(validateResults(docsPlan,[docsReport],[docsExecution]).status,'pass
 assert.throws(()=>validateResults(docsPlan,[{...docsReport,entries:docsReport.entries.slice(0,1)}],[docsExecution]),/deep-equal/,'document formatting cannot be omitted');
 const secondBrowser={key:'browser-2',kind:'browser',expected:['peer']};
 const peer=make('browser-2',['peer'],2);peer.environment.imageVersion='different-image';
-assert.throws(()=>validateResults({...plan,jobs:[...plan.jobs,secondBrowser]},[...reports,peer],[...executions,{jobKey:'browser-2',attempt:2,conclusion:'success',jobId:21}]),/different actual environments/);
+const browserPlan={...plan,jobs:[...plan.jobs,secondBrowser]},browserReports=[...reports,peer],browserExecutions=[...executions,{jobKey:'browser-2',attempt:2,conclusion:'success',jobId:21}];
+const rollout=validateResults(browserPlan,browserReports,browserExecutions);
+assert.equal(rollout.status,'passed','runner image metadata may differ when the actual tested runtime is identical');
+assert.deepEqual(rollout.sources.filter(s=>s.jobKey.startsWith('browser')).map(s=>s.environment.imageVersion),['image-1','different-image'],'retain both image versions in the audit evidence');
+for(const key of ['image','os','arch','node','chrome','fontSha256']){
+ const changed=structuredClone(browserReports);changed[2].environment[key]=key==='fontSha256'?'b'.repeat(64):'different';
+ assert.throws(()=>validateResults(browserPlan,changed,browserExecutions),undefined,'reject actual runtime drift: '+key);
+}
 const workflowPlan={...plan,workflowSHA:'workflow-code'};
 const workflowReports=structuredClone(reports);for(const report of workflowReports)report.environment.workflowSHA='workflow-code';
 assert.equal(validateResults(workflowPlan,workflowReports,executions).status,'passed');

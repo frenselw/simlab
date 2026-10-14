@@ -27,6 +27,8 @@ function validateReport(plan,job,report){
  assert.equal(report.environment.jobKey,job.key,'Environment job mismatch');
  if(plan.workflowSHA)assert.equal(report.environment.workflowSHA,plan.workflowSHA,'Executed workflow revision mismatch');
  if(job.kind==='browser'){
+  assert(typeof report.environment.os==='string'&&report.environment.os.trim(),'Missing OS release');
+  assert(typeof report.environment.arch==='string'&&report.environment.arch.trim(),'Missing runtime architecture');
   assert.equal(report.environment.chrome,plan.environment.chrome,'Chrome environment mismatch');
   assert.match(report.environment.fontSha256||'',/^[a-f0-9]{64}$/,'Missing CJK font fingerprint');
   assert(report.environment.display,'Native browser display is missing');
@@ -53,7 +55,8 @@ function validateResults(plan,reports,executions){
   }
   validateReport(plan,job,report);
   if(job.kind==='browser'){
-   const current=JSON.stringify(['image','imageVersion','os','arch','node','chrome','fontSha256'].map(key=>report.environment[key]));
+   // GitHub image rollouts may change unrelated tools while the tested runtime stays identical.
+   const current=JSON.stringify(['image','os','arch','node','chrome','fontSha256'].map(key=>report.environment[key]));
    if(browserFingerprint!==null)assert.equal(current,browserFingerprint,'Browser jobs used different actual environments');
    browserFingerprint=current;
   }

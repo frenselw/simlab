@@ -384,5 +384,5 @@ Quality Full 在各測試組全部通過後，因 GitHub runner 映像不同而�
 - 最終 source／解壓 ZIP 通過 **61 browser checks**，新增工具箱等寬等高／可讀名稱，以及可信滑鼠從市電端拔開（負載停止）、再接回（恢復供電）。圖鑑和九個示例截圖已檢視，另以 200% 重新渲染圖案細節。證據：`output/playwright/circuit-household/results.json` 及同資料夾截圖。
 - 最終 standalone ZIP 在 T2 host 的 320×500、390×600 通過 **2 cases／34 trusted touch gestures**，包含原生捲頁、工具箱捲動／拖取與畫布局部操作；證據：`output/playwright/circuit-household/visual-mobile-final.json`。此輪沒有重做全部 T0–T3 場景，真手機／Moodle／T4 仍未驗收。
 - committed selection-preview：`3bf7cc6 → 1ebf7ed` 的 13 個變更檔選出 full／240 entries／all packages；fixture JSON 沒有 deployable asset consumer，按既有保守政策回退全量，沒有縮減選取。輸出在 `output/ci-tests/household-visual-selection.json`。
-- 實作提交 `1ebf7ed` 已推送；[Quality Full run 38599832228](https://github.com/frenselw/simlab/actions/runs/38599832228) 已啟動，目前仍在執行，不計作通過證據。
+- 實作提交 `1ebf7ed` 已推送；[Quality Full run 38599832228](https://github.com/frenselw/simlab/actions/runs/38599832228) 已完成：208 個 Node、32 個 browser 及 checks 全部成功，aggregate 因 GitHub 執行機映像版本不同而 failure，不能計作整體 CI 通過。2026-10-15 依使用者指示修正 CI 的 runtime 一致性判定，修正與驗證由[CI 計劃](34-ci-test-improvement-plan.md#2026-10-15-github-image-rollout-修正)記錄。
 - 額外本機全量 Node sweep：207／208 通過；既有 `protection-continuation.test.js` 斷言完成但耗時 122.75 s，被 120 s 限時標成 timeout。隔離直接重跑已以 exit 0 通過 25 組延續檢查；原全量報告仍保留 failed 狀態，未修改門檻。報告：`output/ci-tests/household-visual-node/report.json`。
