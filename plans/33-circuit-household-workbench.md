@@ -365,3 +365,9 @@ P0–P2 已實作：十一類高品質 SVG 元件、全部家電款式／主要�
 - 五包重建已通過，每個 ZIP 條目與原始碼逐一核對；完整 build 指紋在 `output/circuit-platform-build.json`。家庭包不含 SCORM manifest。
 
 後續在本節補上已完成的 T0–T3、完整 npm test／package:all、已提交選取預覽及 Quality Full run。真手機、Moodle File resource 與 T4 尚未驗收；分數／提交／attempt 檢查 N/A。
+
+### 驗收工具修正
+
+本機全量初跑的 AC 效能門檻在並行觸控負載下超額，待隔離重跑；沒有放寬門檻。DC package instruments 另發現既有 fixture 在測試「減少動態」後維持暫停，下一輪卻把暫停按鈕當作從播放開始。fixture 現先明確設定播放，再驗證暫停；原效果及可信輸入斷言保留。
+
+Quality Full 在各測試組全部通過後，因 GitHub runner 映像不同而拒絕彙總。部分重跑又揭示 GitHub 給沿用工作新 job ID／attempt 編號，但保留舊執行時間；原 collector 誤判為新執行並要求不存在的新報告。已按生產指南修正：只有在重跑開始前完成且時間／結論完全匹配前次實際執行，才識別為沿用；真正的新失敗／無報告及不同環境仍失敗。相應正例、偽造時間／結論及新失敗測試已通過。

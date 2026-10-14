@@ -12,11 +12,20 @@ function resultSummary(receipt){
 async function collect(api,plan,attempt){
  const executions=[];
  for(let a=1;a<=attempt;a++){
+  const run=await api.json('actions/runs/'+plan.runId+'/attempts/'+a),started=Date.parse(run.run_started_at);
+  if(!Number.isFinite(started))throw Error('Missing attempt start time');
   const jobs=await api.pages('actions/runs/'+plan.runId+'/attempts/'+a+'/jobs','jobs');
   for(const j of jobs){
    const key=j.name.split(' / ').at(-1);
    if(!plan.jobs.some(p=>p.key===key))continue;
+   // GitHub assigns new IDs to carried jobs, while retaining their original execution times.
+   if(a>1&&j.status==='completed'&&Date.parse(j.completed_at)<started){
+    const prior=executions.find(e=>e.jobKey===key&&e.startedAt===j.started_at&&e.completedAt===j.completed_at&&e.conclusion===j.conclusion);
+    if(!prior)throw Error('Unmatched carried job execution: '+key);
+    continue;
+   }
    executions.push({jobKey:key,attempt:j.run_attempt||a,conclusion:j.conclusion,jobId:j.id,
+    startedAt:j.started_at,completedAt:j.completed_at,
     testStarted:j.steps?.some(s=>s.name==='Run immutable planned tests'&&s.conclusion!=='skipped')||false});
   }
  }

@@ -925,6 +925,14 @@ pieces of failed attempts. An unexplained assertion failure followed by success
 still fails stability verification; a recorded prerequisite failure before tests
 may receive a bounded diagnostic rerun.
 
+GitHub can assign fresh job IDs and the current attempt number to carried
+results while preserving their original execution timestamps. Collection treats
+a completed job as carried only when it predates the current attempt and its
+start, finish and conclusion exactly match an earlier execution of that job.
+The original execution and artifact remain the evidence source. A genuinely
+new execution, a changed conclusion or unmatched timestamps cannot fall back
+to an older success; browser environment equality remains required.
+
 ### Test registration for new simulations
 
 `tools/test-registry.js` is the current source of test entries, browser ownership,
