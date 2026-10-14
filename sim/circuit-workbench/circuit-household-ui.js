@@ -26,8 +26,8 @@
     }
     function resultText(doc,result){
       const entries=Object.entries(result.components),trip=entries.find(([,r])=>['tripped','blown'].includes(r.status));
-      if(trip)return trip[1].protection.bodyCurrentBeforeTrip?'曾有電流通過人體，現已切斷。':trip[1].status==='blown'?'電流超額，保險絲已熔斷。':trip[1].protection.reason==='residual'?'回流繞過零線，漏電保護器已切斷。':'電流超額，斷路器已切斷。';
       if(doc.components.some(c=>c.type==='house-person'&&Math.abs(result.components[c.id].current)>1e-9))return '有電流經外殼、人體和地回到電源。';
+      if(trip)return trip[1].protection.bodyCurrentBeforeTrip?'曾有電流通過人體，現已切斷。':trip[1].status==='blown'?'電流超額，保險絲已熔斷。':trip[1].protection.reason==='residual'?'回流繞過零線，漏電保護器已切斷。':'電流超額，斷路器已切斷。';
       const c=doc.components.find(c=>c.id==='load')||doc.components.find(C.isAppliance);if(!c)return doc.components.length?'接上兩條工作線，觀察回路。':'從工具箱取出元件和導線。';const r=result.components[c.id],a=r.connections.l,b=r.connections.n;
       if(a&&a===b&&Number.isFinite(r.voltage)&&abs(r.voltage)<1e-8){const live=['l','n'].some(k=>Math.abs(result.potentials[c.id+':'+k]||0)>25);return `同接${({L:'火線',N:'零線',E:'地線'})[a]}：電器不工作。${live?'引線仍對地帶電。':''}`;}
       if((a==='L'&&b==='E'||a==='E'&&b==='L'))return r.working?'電器可工作，但工作電流錯經地線回流。':'火線–地線接法，目前沒有工作電流。';

@@ -11,6 +11,10 @@ assert.throws(()=>H.decode('not JSON'));assert.throws(()=>H.decode(' '.repeat(H.
 }
 for(const mutate of [s=>s.protection.protector.bodyCurrentSeen=true,s=>{s.protection.protector.status='open';s.circuit.components.find(c=>c.id==='protector').params.closed=false;s.protection.protector.elapsed=.01;}]){const bad=M.clone(valid);mutate(bad);assert.throws(()=>H.Session.restore(bad));}
 {
+ const s=new H.Session(P.create('C03'));s.contact('person','load');const next=M.clone(s.doc);next.components.find(c=>c.id==='load').params.kind='heater';s.update(next);assert.equal(s.state.contacts.person,null);assert.doesNotThrow(()=>H.encode(s.capture()));assert.deepEqual(s.doc.wires,next.wires);
+ const p=new H.Session(P.create('C07'));p.doc.components.find(c=>c.id==='protector').params.rating=5;p.update(p.doc);p.advance(1);const changed=M.clone(p.doc),c=changed.components.find(c=>c.id==='protector');c.type='house-rcd';c.params={closed:true};p.update(changed);assert.equal(p.state.protection.protector.elapsed,0);assert.doesNotThrow(()=>H.encode(p.capture()));
+}
+{
  const s=new H.Session(P.create('C04')),before=s.capture(),preview=s.fork();preview.doc.components.find(c=>c.id==='load').params.fault=true;preview.update(preview.doc);preview.advance(.1);assert.equal(preview.read().components.protector.status,'tripped');assert.deepEqual(s.capture(),before);preview.destroy();const copy=H.Session.restore(before);copy.advance(.05);assert.equal(s.state.time,0);copy.destroy();s.destroy();assert.throws(()=>s.advance(.1),/卸載/);
 }
 console.log('Household: '+fixtures.length+' production fixture round-trips / continuation, strict invalid states and preview isolation passed');

@@ -26,6 +26,11 @@ for(const neutral of [false,true])for(const fault of [false,true])for(const touc
 for(const key of ['C07','C07fuse']){const d=P.create(key);d.components.find(c=>c.id==='protector').params.rating=5;const s=new H.Session(d);s.advance(1.999);assert(!['tripped','blown'].includes(s.read().components.protector.status));s.advance(.001);assert.equal(s.read().components.protector.status,key==='C07'?'tripped':'blown');near(s.read().components.load.power,0);assert(s.resetProtection('protector'));s.advance(2);assert(['tripped','blown'].includes(s.read().components.protector.status));}
 for(const step of [.1,.01,.003]){const d=P.create('C04');d.components.find(c=>c.id==='load').params.fault=true;const s=new H.Session(d);for(let t=0;t<.12-1e-10;t+=step)s.advance(Math.min(step,.12-t));assert.equal(s.read().components.protector.status,'tripped');near(s.state.time,.12,1e-9);}
 {
+ const d=P.create('C04');d.components.find(c=>c.id==='load').params.kind='heater';const balanced=new H.Session(d);balanced.advance(2);assert.equal(balanced.read().components.protector.status,'closed');assert(balanced.read().components.protector.current>8);near(balanced.read().components.protector.residualCurrent,0);
+ d.components.find(c=>c.id==='load').params.fault=true;const a=new H.Session(d),b=new H.Session({...M.clone(d),components:[...d.components].reverse(),wires:[...d.wires].reverse()});a.advance(.1);b.advance(.1);assert.deepEqual(a.state.protection,b.state.protection);near(a.state.time,b.state.time,1e-9);
+ const other=P.create('C04');other.wires=other.wires.filter(w=>w.to!=='load:e');const c=other.components.find(c=>c.id==='load');c.type='house-insulated';c.params={kind:'lamp',fault:false};other.wires.find(w=>w.to==='load:n').from='socket:e';const s=new H.Session(other);s.advance(.1);assert.equal(s.read().components.protector.status,'tripped','intact double insulation does not prevent residual current from L–E miswiring');
+}
+{
  const d=P.create('C04');d.components.find(c=>c.id==='load').params.fault=true;const w=d.wires.find(w=>w.to==='load:e');M.detach(d,w.id,'from');const s=new H.Session(d);s.advance(.2);assert.equal(s.read().components.protector.status,'closed');s.contact('person','load');s.advance(.1);assert.equal(s.read().components.protector.status,'tripped');assert(s.state.protection.protector.bodyCurrentBeforeTrip);
 }
 {

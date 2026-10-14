@@ -255,7 +255,7 @@ C08 專注兩條工作線，不加入人物、電表或保護器，也不新增�
 |---|---|
 | `circuit` | 沿用共用幾何結構的元件、接點、導線、ID、位置及線形；只接受本版十一類元件、枚舉款式／額定值及存在的端子。保存實際接到哪一孔，包括錯接、同孔多線及留空；只按第 4 節拒絕超出模型範圍的接法，不因家電標示與目標不同而拒絕。幾何文件為 `kind: simlab-household-circuit`、`version: 8`、`analysis: household`、`modelRevision: 1`，不能冒充 DC v6／AC v7；市電／接地引線以 `anchor` 固定器件端，自由端可拔接，導線隨器件移除 |
 | 元件參數 | 家電款式、故障枚舉、所選規格及人的 `grounded / insulated` 站立狀態；普通開關開合亦保存 |
-| `contacts` | 每個人對應 `null` 或一個可觸家電 ID；目標必須存在，且手部位置與家電外殼相符。切換站立狀態保留手部位置，移動人物或家電解除接觸，選擇離開把手移離外殼。沒有接觸合法；不能指向插座、電源或普通接點 |
+| `contacts` | 每個人對應 `null` 或一個可觸家電 ID；目標必須存在，且手部位置與家電外殼相符。切換站立狀態保留手部位置，移動人物或家電、換外殼款式時解除接觸，選擇離開把手移離外殼。沒有接觸合法；不能指向插座、電源或普通接點 |
 | `timeSeconds` | 有限、非負的模擬時間 |
 | `protection` | 按元件 ID 保存斷路器／漏電保護器的 `closed / open / tripped`、熔絲的 `intact / blown`，以及相應超額／差流累計秒數；類型、範圍和狀態須相符。`bodyCurrentSeen` 記本次合資格計時區間曾有人體電流；動作時轉存 `bodyCurrentBeforeTrip` 並記原因，不能因跳掣後電流變零而隱去曾有人體電流。低於門檻／手動斷開清空區間，復位清空事件 |
 | `energyKWh` | 只為現存電能表保存有限非負累計值；不能把派生的即時功率當作權威答案 |
@@ -361,7 +361,7 @@ P0–P2 已實作：十一類高品質 SVG 元件、全部家電款式／主要�
 - 一行觀察固定 32 px，避免拖動時重排；窄手機展開工具面板為 112 px，初始收合與 DC 一致。兩側完整 32 px 原生捲頁區、空白 `pan-y`、雙指相機及局部操作捕獲。最窄工具列收起探頭／手掌按鈕；讀值檢視器、雙指導航及鍵盤仍可用。
 - 檔案、復原／重做載入後暫停；選小型示例恢復播放（減少動態偏好時保持暫停）。預覽凍結正式時間，取消不改權威狀態。
 - 四個家庭 Node tests 已通過，36 個 production fixtures 實際 encode／decode／restore 及合法續作；包含接線矩陣、供電邊界／吸附、接地／人體、斷零線條件矩陣、20／30／40 mA 門檻、2 s／0.10 s 事件、電能、錯接文件及接觸位置。
-- source／實際 ZIP browser runner 已通過 53 checks（每包九個示例／變式及錯接、保護恢復、接觸／歷史、失敗匯入原子性、五種畫面、可信滑鼠／鍵盤／全螢幕、只讀、多 instance／destroy及圖鑑）。完整資產 SHA-256 與 ZIP 指紋在 `output/playwright/circuit-household/results.json`，不只計 main.js。
+- source／實際 ZIP browser runner 已通過 57 checks（每包九個示例／變式及錯接、保護恢復、接觸／歷史、失敗匯入原子性、五種畫面、可信滑鼠／鍵盤／全螢幕、只讀、多 instance／destroy及圖鑑）。完整資產 SHA-256 與 ZIP 指紋在 `output/playwright/circuit-household/results.json`，不只計 main.js。
 - 五包重建已通過，每個 ZIP 條目與原始碼逐一核對；完整 build 指紋在 `output/circuit-platform-build.json`。家庭包不含 SCORM manifest。
 
 後續在本節補上已完成的 T0–T3、完整 npm test／package:all、已提交選取預覽及 Quality Full run。真手機、Moodle File resource 與 T4 尚未驗收；分數／提交／attempt 檢查 N/A。
