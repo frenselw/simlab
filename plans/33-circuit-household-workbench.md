@@ -386,3 +386,11 @@ Quality Full 在各測試組全部通過後，因 GitHub runner 映像不同而�
 - committed selection-preview：`3bf7cc6 → 1ebf7ed` 的 13 個變更檔選出 full／240 entries／all packages；fixture JSON 沒有 deployable asset consumer，按既有保守政策回退全量，沒有縮減選取。輸出在 `output/ci-tests/household-visual-selection.json`。
 - 實作提交 `1ebf7ed` 已推送；[Quality Full run 38599832228](https://github.com/frenselw/simlab/actions/runs/38599832228) 已完成：208 個 Node、32 個 browser 及 checks 全部成功，aggregate 因 GitHub 執行機映像版本不同而 failure，不能計作整體 CI 通過。2026-10-15 依使用者指示修正 CI 的 runtime 一致性判定，修正與驗證由[CI 計劃](34-ci-test-improvement-plan.md#2026-10-15-github-image-rollout-修正)記錄。
 - 額外本機全量 Node sweep：207／208 通過；既有 `protection-continuation.test.js` 斷言完成但耗時 122.75 s，被 120 s 限時標成 timeout。隔離直接重跑已以 exit 0 通過 25 組延續檢查；原全量報告仍保留 failed 狀態，未修改門檻。報告：`output/ci-tests/household-visual-node/report.json`。
+
+### CI 修正後正式驗收（2026-10-15）
+
+[Quality Full run 38654012198](https://github.com/frenselw/simlab/actions/runs/38654012198) 對程式及 workflow 提交 `84baa77d81ae287179b365a482c7da507d15b1be` **全部成功**：208 個 Node、32 個 browser、5 個 checks、aggregate 及 full-check 均通過，正式 receipt 為 `scope: full`、`complete: true`，所有報告的 checkout 乾淨。受測 runtime 同時包含 CI 環境判定修正及隱藏電勢圖例重畫修正；原 80／100 ms 效能門檻保留。
+
+此輪八組 browser 實際混用 GitHub image `20261004.327.1`／`20261012.334.1`；Node `22.23.3`、Chrome `154.0.8037.92`、OS／架構及 CJK 字體 SHA-256 完全一致。兩個 image build 標籤均保留在 receipt 來源紀錄，證實修正已處理實際 rollout。原失敗 runs 保留原狀，未拼接不同 run 的測試結果。正式 receipt／plan／13 份報告另存於 `output/ci-tests/env-rollout-final/`；兩個 committed selection-preview 分別在 `env-rollout-selection.json`／`hidden-legend-selection.json`，均選出 full／240 tests。
+
+本紀錄只補充 CI 證據；真手機／Moodle／T4 驗收維持前述狀態。
