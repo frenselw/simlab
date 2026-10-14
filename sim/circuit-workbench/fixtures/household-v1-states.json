@@ -142,8 +142,7 @@
             "via": [],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:l"
+            "length": 900
           },
           {
             "id": "w2",
@@ -152,8 +151,7 @@
             "via": [],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:n"
+            "length": 900
           },
           {
             "id": "w3",
@@ -445,8 +443,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:l"
+            "length": 900
           },
           {
             "id": "w2",
@@ -472,8 +469,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:n"
+            "length": 900
           },
           {
             "id": "w3",
@@ -674,8 +670,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:l"
+            "length": 900
           },
           {
             "id": "w2",
@@ -701,8 +696,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:n"
+            "length": 900
           },
           {
             "id": "w3",
@@ -918,8 +912,7 @@
             "via": [],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:l"
+            "length": 900
           },
           {
             "id": "w2",
@@ -928,8 +921,7 @@
             "via": [],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:n"
+            "length": 900
           },
           {
             "id": "w3",
@@ -1190,8 +1182,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:l"
+            "length": 900
           },
           {
             "id": "w2",
@@ -1217,8 +1208,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:n"
+            "length": 900
           },
           {
             "id": "w3",
@@ -1394,8 +1384,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:l"
+            "length": 900
           },
           {
             "id": "w2",
@@ -1421,8 +1410,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:n"
+            "length": 900
           },
           {
             "id": "w3",
@@ -1659,8 +1647,7 @@
             "via": [],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:l"
+            "length": 900
           },
           {
             "id": "w2",
@@ -1669,8 +1656,7 @@
             "via": [],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:n"
+            "length": 900
           },
           {
             "id": "w3",
@@ -1927,8 +1913,7 @@
             "via": [],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:l"
+            "length": 900
           },
           {
             "id": "w2",
@@ -1976,8 +1961,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:n"
+            "length": 900
           },
           {
             "id": "w4",
@@ -2190,8 +2174,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:l"
+            "length": 900
           },
           {
             "id": "w2",
@@ -2200,8 +2183,7 @@
             "via": [],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:n"
+            "length": 900
           },
           {
             "id": "w3",
@@ -2397,8 +2379,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:l"
+            "length": 900
           },
           {
             "id": "w2",
@@ -2424,8 +2405,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:n"
+            "length": 900
           },
           {
             "id": "w3",
@@ -2641,8 +2621,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:l"
+            "length": 900
           },
           {
             "id": "w2",
@@ -2668,8 +2647,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:n"
+            "length": 900
           },
           {
             "id": "w3",
@@ -2885,8 +2863,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:l"
+            "length": 900
           },
           {
             "id": "w2",
@@ -2912,8 +2889,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:n"
+            "length": 900
           },
           {
             "id": "w3",
@@ -3129,8 +3105,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:l"
+            "length": 900
           },
           {
             "id": "w2",
@@ -3156,8 +3131,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:n"
+            "length": 900
           },
           {
             "id": "w3",
@@ -3373,8 +3347,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:l"
+            "length": 900
           },
           {
             "id": "w2",
@@ -3400,8 +3373,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:n"
+            "length": 900
           },
           {
             "id": "w3",
@@ -3617,8 +3589,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:l"
+            "length": 900
           },
           {
             "id": "w2",
@@ -3644,8 +3615,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:n"
+            "length": 900
           },
           {
             "id": "w3",
@@ -3861,8 +3831,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:l"
+            "length": 900
           },
           {
             "id": "w2",
@@ -3888,8 +3857,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:n"
+            "length": 900
           },
           {
             "id": "w3",
@@ -4105,8 +4073,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:l"
+            "length": 900
           },
           {
             "id": "w2",
@@ -4132,8 +4099,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:n"
+            "length": 900
           },
           {
             "id": "w3",
@@ -4349,8 +4315,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:l"
+            "length": 900
           },
           {
             "id": "w2",
@@ -4376,8 +4341,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:n"
+            "length": 900
           },
           {
             "id": "w3",
@@ -4584,8 +4548,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:l"
+            "length": 900
           },
           {
             "id": "w2",
@@ -4594,8 +4557,7 @@
             "via": [],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:n"
+            "length": 900
           },
           {
             "id": "w3",
@@ -4782,8 +4744,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:l"
+            "length": 900
           },
           {
             "id": "w2",
@@ -4792,8 +4753,7 @@
             "via": [],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:n"
+            "length": 900
           },
           {
             "id": "w3",
@@ -4980,8 +4940,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:l"
+            "length": 900
           },
           {
             "id": "w2",
@@ -4990,8 +4949,7 @@
             "via": [],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:n"
+            "length": 900
           },
           {
             "id": "w3",
@@ -5178,8 +5136,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:l"
+            "length": 900
           },
           {
             "id": "w2",
@@ -5188,8 +5145,7 @@
             "via": [],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:n"
+            "length": 900
           },
           {
             "id": "w3",
@@ -5376,8 +5332,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:l"
+            "length": 900
           },
           {
             "id": "w2",
@@ -5386,8 +5341,7 @@
             "via": [],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:n"
+            "length": 900
           },
           {
             "id": "w3",
@@ -5574,8 +5528,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:l"
+            "length": 900
           },
           {
             "id": "w2",
@@ -5584,8 +5537,7 @@
             "via": [],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:n"
+            "length": 900
           },
           {
             "id": "w3",
@@ -5772,8 +5724,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:l"
+            "length": 900
           },
           {
             "id": "w2",
@@ -5782,8 +5733,7 @@
             "via": [],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:n"
+            "length": 900
           },
           {
             "id": "w3",
@@ -5970,8 +5920,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:l"
+            "length": 900
           },
           {
             "id": "w2",
@@ -5980,8 +5929,7 @@
             "via": [],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:n"
+            "length": 900
           },
           {
             "id": "w3",
@@ -6168,8 +6116,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:l"
+            "length": 900
           },
           {
             "id": "w2",
@@ -6178,8 +6125,7 @@
             "via": [],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:n"
+            "length": 900
           },
           {
             "id": "w3",
@@ -6381,8 +6327,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:l"
+            "length": 900
           },
           {
             "id": "w2",
@@ -6408,8 +6353,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:n"
+            "length": 900
           },
           {
             "id": "w3",
@@ -6635,8 +6579,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:l"
+            "length": 900
           },
           {
             "id": "w2",
@@ -6662,8 +6605,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:n"
+            "length": 900
           },
           {
             "id": "w3",
@@ -6889,8 +6831,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:l"
+            "length": 900
           },
           {
             "id": "w2",
@@ -6916,8 +6857,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:n"
+            "length": 900
           },
           {
             "id": "w3",
@@ -7137,8 +7077,7 @@
             "via": [],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:l"
+            "length": 900
           },
           {
             "id": "w2",
@@ -7147,8 +7086,7 @@
             "via": [],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:n"
+            "length": 900
           },
           {
             "id": "w3",
@@ -7420,8 +7358,7 @@
             "via": [],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:l"
+            "length": 900
           },
           {
             "id": "w2",
@@ -7430,8 +7367,7 @@
             "via": [],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:n"
+            "length": 900
           },
           {
             "id": "w3",
@@ -7690,8 +7626,7 @@
             "via": [],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:l"
+            "length": 900
           },
           {
             "id": "w2",
@@ -7739,8 +7674,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:n"
+            "length": 900
           },
           {
             "id": "w4",
@@ -7961,8 +7895,7 @@
             "via": [],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:l"
+            "length": 900
           },
           {
             "id": "w2",
@@ -7971,8 +7904,7 @@
             "via": [],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:n"
+            "length": 900
           },
           {
             "id": "w3",
@@ -8259,8 +8191,7 @@
             ],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:l"
+            "length": 900
           },
           {
             "id": "w2",
@@ -8269,8 +8200,7 @@
             "via": [],
             "shape": "auto",
             "resistance": 0,
-            "length": 900,
-            "anchor": "source:n"
+            "length": 900
           },
           {
             "id": "w3",

@@ -14,7 +14,7 @@
     if(doc.components.some(c=>!C.definitions[c.type]))throw new Error('家庭工作台只接受家庭元件');
     if(doc.components.filter(c=>c.type==='house-mains').length>1)throw new Error('只可使用一個市電電纜');
     if(doc.wires.some(w=>w.resistance!==0)||doc.cables.resistance!==0)throw new Error('家庭導線採理想導體，電阻固定為零');
-    for(const w of doc.wires){const fixed=[w.from,w.to].find(p=>doc.components.some(c=>['house-mains','house-earth'].includes(c.type)&&R.ports(c).some(port=>port.id===p)));if(fixed&&w.anchor!==fixed)throw new Error('市電與接地引線的一端須固定在器件內');if(w.anchor&&w.from===w.to)throw new Error('固定引線不能接回自身錨點');}
+    for(const w of doc.wires){const fixed=[w.from,w.to].find(p=>doc.components.some(c=>c.type==='house-earth'&&R.ports(c).some(port=>port.id===p)));if(fixed&&w.anchor!==fixed)throw new Error('接地引線的一端須固定在器件內');if(w.anchor&&w.from===w.to)throw new Error('固定引線不能接回自身錨點');}
     const topology=inspect(doc);
     if([...topology.roles.values()].some(set=>set.size>1))throw new Error('供電端 L／N／E 不能直接合併；家電兩條工作線仍可接錯');
     for(const c of doc.components){

@@ -727,7 +727,11 @@
   if(profile.ui.palette)for (const entry of profile.palette) {
     const {type}=entry, b=document.createElement('button');b.type='button';b.dataset.add=entry.key;b.entry=entry;
     const sample={id:'palette-'+entry.key,type,params:entry.params};
-    b.innerHTML=`<span class="icon"><svg viewBox="${household?'-100 -90 190 185':sample.type==='transformer'?'-82 -83 164 132':sample.type==='relay'?'-84 -64 188 154':R.dualMeter(sample)?'-84 -90 168 180':sample.type.startsWith('ac-')&&R.isMeter(sample)?'-66 -47 132 92':'-64 -68 128 124'}" aria-hidden="true">${V.body(sample,null,{view:'real',meters:'analog',values:false,fields:sample.type==='transformer'?false:undefined,idPrefix:prefix+'palette-'+entry.key+'-'})}</svg></span><span>${V.esc(entry.label)}</span>`;
+    const bounds=household?R.get(type).bounds:null,ports=household?R.ports({...sample,x:0,y:0,angle:0}):[];
+    const left=bounds?Math.min(bounds.left,...ports.map(p=>p.x))-8:0,right=bounds?Math.max(bounds.right,...ports.map(p=>p.x))+8:0;
+    const paletteBox=household&&type==='house-metal'?'-42 -58 84 124':household&&type==='house-insulated'?'-36 -50 92 116':bounds?`${left} ${bounds.top-10} ${right-left} ${bounds.bottom-bounds.top+20}`:null;
+    if(household){b.title=R.get(type).name;b.setAttribute('aria-label',R.get(type).name);}
+    b.innerHTML=`<span class="icon"><svg viewBox="${paletteBox|| (sample.type==='transformer'?'-82 -83 164 132':sample.type==='relay'?'-84 -64 188 154':R.dualMeter(sample)?'-84 -90 168 180':sample.type.startsWith('ac-')&&R.isMeter(sample)?'-66 -47 132 92':'-64 -68 128 124')}" aria-hidden="true">${V.body(sample,null,{view:'real',palette:household,meters:'analog',values:false,fields:sample.type==='transformer'?false:undefined,idPrefix:prefix+'palette-'+entry.key+'-'})}</svg></span><span>${V.esc(entry.label)}</span>`;
     bindToolDrag(b,entry);
     on(b,'click',e=>{if(suppressedToolClick(b,e))return;if(!profile.canAdd(entry,history.get(),readOnly))return;cancel();const succeeded=change(d=>{
       const x=snapGrid(camera.x+surface.clientWidth/(2*camera.scale)),y=snapGrid(camera.y+surface.clientHeight/(2*camera.scale));let offset=0;

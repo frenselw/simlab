@@ -40,30 +40,42 @@
   function caseBox(id,x=-46,y=-52,w=92,h=104){return rect(x+3,y+3,w,h,'#c0ced8',7)+rect(x,y,w,h,`url(#${id}-plastic)`,7,'#446482',2)+path(`M${x+7} ${y+7}H${x+w-7}`,'#fff',2);}
   function channelLeads(){return lead('M-58-22H-40 M40-22H58','L')+lead('M-58 22H-40 M40 22H58','N');}
   function socketHoles(c){return definitions['house-socket'].ports.map(p=>{const w=p.key==='e'?10:16,h=p.key==='e'?16:10;return `<rect data-house-socket-hole="${p.key}" data-port="${c.id}:${p.key}" x="${p.x-w/2}" y="${p.y-h/2}" width="${w}" height="${h}" rx="1" fill="#526676" stroke="#9eb3c0" stroke-width="1.5"/><path d="M${p.x-w/2+2} ${p.y+h/2-2}V${p.y-h/2+2}H${p.x+w/2-2}" fill="none" stroke="#334c5e" stroke-width="2"/>`;}).join('');}
-  function fan(id,on,plastic=false){const material=`url(#${id}-${plastic?'plastic':'metal'})`;let out=rect(-22,46,44,14,material,7)+rect(-6,15,12,33,plastic?'#c2d5df':'#abbfc9',4)+`<circle cy="-17" r="38" fill="${material}" stroke="#667f90" stroke-width="2"/><circle cy="-17" r="33" fill="#edf4f5" stroke="#91a5b2"/>`;
-    out+=`<g transform="translate(0 -17)" data-house-fan="${on?'running':'stopped'}">`;
-    for(let n=0;n<3;n++)out+=`<path d="M0 0C-5-12-28-28-15-29C5-36 21-15 0 0Z" transform="rotate(${n*120})" fill="${on?'#92b8bb':'#9aafb7'}" stroke="#6d929b"/>`;
-    out+='</g>';
-    for(let x=-28;x<=28;x+=7){const dy=Math.sqrt(33*33-x*x);out+=path(`M${x} ${-17-dy}V${-17+dy}`,'#78939e',.8);}
-    for(let n=0;n<4;n++)out+=`<ellipse cy="-17" rx="${8+n*7}" ry="33" fill="none" stroke="#78939e" stroke-width=".7"/>`;
-    return out+'<circle cy="-17" r="6" fill="#7599a7" stroke="#517285"/>';
+  function fan(id,on,plastic=false){
+    const material=`url(#${id}-${plastic?'plastic':'metal'})`;
+    let out=`<ellipse cy="59" rx="29" ry="5" fill="#5b778b" opacity=".12"/><path d="M-27 53Q-24 45-10 44H10Q24 45 27 53V57Q0 64-27 57Z" fill="${material}" stroke="#617f91" stroke-width="1.5"/>`+rect(-5,13,10,34,material,3)+path('M-2 24V44','#f5fafc',1.5)+`<circle cy="-17" r="38" fill="${material}" stroke="#58788b" stroke-width="1.6"/><circle cy="-17" r="34.5" fill="#e8f0f2" stroke="#a5b8c2" stroke-width="1"/><g transform="translate(0 -17)" data-house-fan="${on?'running':'stopped'}">`;
+    for(let n=0;n<3;n++)out+=`<path d="M-3-4C-13-10-22-28-8-30C10-33 25-20 19-11C14-4 7-1 1 3Z" transform="rotate(${n*120})" fill="${on?'#96bec4':'#afc5cf'}" stroke="#6a8f9e" stroke-width=".8"/>`;
+    for(let n=0;n<24;n++){const angle=n*Math.PI/12;out+=path(`M${(7*Math.cos(angle)).toFixed(2)} ${(7*Math.sin(angle)).toFixed(2)}L${(34*Math.cos(angle)).toFixed(2)} ${(34*Math.sin(angle)).toFixed(2)}`,'#75919d',.6);}
+    for(const radius of [15,24,32])out+=`<circle r="${radius}" fill="none" stroke="#7d98a3" stroke-width=".7"/>`;
+    return out+`<circle r="6" fill="${material}" stroke="#68889a" stroke-width="1"/></g>`+path('M-25-42Q-5-57 20-44','#fff',1.3)+rect(12,50,7,3,'#71929f',1,'none');
   }
   function applianceOutline(c,id,on){
     switch(c.params.kind){
-      case 'heater':return rect(-33,-62,66,123,`url(#${id}-metal)`,22)+`<ellipse cy="-50" rx="27" ry="10" fill="#eaf1f4" stroke="#98adb9"/>`+rect(-22,-1,44,30,'#d8e4eb',6)+`<circle cy="9" r="6" fill="#e8f0f5" stroke="#7893a4"/>`+path('M0 9l3-3','#4d7e9a')+path('M-13 59v7 M13 59v7','#7694a6',5)+`<circle cx="14" cy="23" r="2" fill="${on?'#d4a650':'#9cb2bf'}"/>`;
-      case 'aircon':return rect(-58,-38,122,79,'#b3c6d2',7)+rect(-61,-41,122,79,`url(#${id}-metal)`,7,'#446482',2)+rect(-51,-30,102,18,'#f5f9fb',3)+path('M-51 6H51 M-51 13H51 M-49 20H49 M-46 27H46','#8ca6b5',2)+`<circle cx="44" cy="-20" r="2" fill="${on?'#71a478':'#a1b5c1'}"/>`;
+      case 'heater':return `<ellipse cy="66" rx="29" ry="4" fill="#5b778b" opacity=".1"/><path d="M-33-51C-33-66 33-66 33-51V49C33 65-33 65-33 49Z" fill="url(#${id}-metal)" stroke="#648293" stroke-width="1.6"/><ellipse cy="-51" rx="33" ry="11" fill="url(#${id}-plastic)" stroke="#87a0ad" stroke-width="1"/>`+path('M-29-45Q0-33 29-45 M-29 46Q0 57 29 46','#b5c5cd',1)+path('M-23-35V38','#fff',1.8)+rect(-17,26,34,20,'#e9f0f3',5,'#a1b5c0',1)+`<circle cy="36" r="6" fill="url(#${id}-plastic)" stroke="#7d98a7" stroke-width="1"/>`+path('M0 36l3-3','#577d94',1.5)+`<circle cx="11" cy="36" r="1.7" fill="${on?'#d5a657':'#a4b8c2'}"/>`+path('M-13 58V67 M13 58V67','#8ea6b1',5)+path('M-13 64V67',colours.N,4)+path('M13 64V67',colours.L,4);
+      case 'aircon':return `<path d="M-61-31Q-61-41-51-41H51Q61-41 61-31V22Q60 38 48 38H-48Q-60 38-61 22Z" fill="url(#${id}-plastic)" stroke="#648293" stroke-width="1.6"/>`+path('M-55-31H55 M-55-27H55','#c0ced6',1)+path('M-54 14Q0 20 54 14L50 29Q0 35-50 29Z','#7896a6',1.2)+`<path d="M-53 15Q0 22 53 15L50 28Q0 32-50 28Z" fill="#65808f"/>`+path('M-50 20Q0 26 50 20 M-48 25Q0 30 48 25','#b9cbd4',1.3)+`<circle cx="45" cy="-29" r="1.7" fill="${on?'#79ac91':'#a4b7c0'}"/>`+path('M-54-35H40','#fff',1.5);
       case 'fan':return fan(id,on,c.type==='house-insulated');
-      case 'lamp':return rect(-31,48,62,13,`url(#${id}-plastic)`,7)+path('M0 48V17L22-20','#7796a9',7)+path('M0 48V17L22-20','#d7e6ec',2)+`<path d="M-17-28Q2-47 28-32L40-4H-24Z" fill="url(#${id}-plastic)" stroke="#668998" stroke-width="2"/><ellipse cx="8" cy="-4" rx="32" ry="6" fill="${on?'#f5dc89':'#c4d2db'}" stroke="#89a1b1"/><path d="M-1 1Q8 12 17 1" fill="${on?'#ffed9d':'#e5ebef'}" stroke="#acb6b9"/>`;
-      case 'dryer':return `<path d="M-24-34Q-34-13-16 5L-8 9-7 51Q4 58 14 47L7 9Q19 8 29 0L55-3V-30L31-33Q7-48-24-34Z" fill="url(#${id}-plastic)" stroke="#64869e" stroke-width="2"/>`+rect(42,-28,13,22,'#a6bdca',2)+path('M45-23H51 M45-17H51 M45-11H51','#4f7287')+rect(-4,20,8,13,'#7fa0b4',3)+`<circle cx="-14" cy="-17" r="13" fill="#b9cedb" stroke="#7896aa"/>`+path('M-22-20H-6 M-22-15H-6 M-20-10H-8','#7795a8',1);
-      case 'vacuum':return path('M32 28C67 26 66-51 45-48H28','#829eab',9)+path('M28-48L12-11','#8ca7b5',5)+path('M8-7H29','#6d8b9d',8)+`<path d="M-36 34Q-41-2-20-10H19Q42-1 43 33Z" fill="url(#${id}-plastic)" stroke="#5f8299" stroke-width="2"/>`+rect(-16,-2,35,15,'#bfd4de',5)+`<circle cx="-23" cy="34" r="13" fill="#6a8495" stroke="#465f71"/><circle cx="-23" cy="34" r="6" fill="#c4d4dd"/><circle cx="31" cy="34" r="10" fill="#6a8495" stroke="#465f71"/>`;
+      case 'lamp':return `<ellipse cy="62" rx="32" ry="3" fill="#5b778b" opacity=".1"/>`+rect(-31,48,62,13,`url(#${id}-plastic)`,7,'#7291a3',1.2)+path('M-25 52H23','#fff',1.5)+path('M0 48V17L22-20','#7796a9',6)+path('M-1 46V17L21-20','#e2eef3',1.5)+`<circle cy="17" r="4" fill="url(#${id}-metal)" stroke="#7692a2"/><path d="M-17-28Q2-47 28-32L40-4Q8 5-24-4Z" fill="url(#${id}-plastic)" stroke="#668998" stroke-width="1.5"/><path d="M-14-28Q3-39 24-30" fill="none" stroke="#fff" stroke-width="1.3"/><ellipse cx="8" cy="-4" rx="32" ry="6" fill="${on?'#f5dc89':'#c4d2db'}" stroke="#89a1b1" stroke-width="1"/><path d="M-1 1Q8 12 17 1" fill="${on?'#ffed9d':'#e5ebef'}" stroke="#acb6b9" stroke-width="1"/>`+rect(15,51,7,3,'#89a9b8',1,'none');
+      case 'dryer':return `<path d="M-24-34Q-34-13-16 5L-8 9-7 51Q4 58 14 47L7 9Q19 8 29 0L55-3V-30L31-33Q7-48-24-34Z" fill="url(#${id}-plastic)" stroke="#64869e" stroke-width="1.5"/>`+path('M-20-31Q6-41 28-29L43-27 M-3 12L-2 46','#fff',1.6)+path('M6 12L12 44Q6 50-4 49','#a8bdc9',1)+rect(42,-28,13,22,'#a6bdca',2,'#7996a6',1)+path('M45-23H51 M45-17H51 M45-11H51','#4f7287',1.3)+rect(-4,20,8,13,'#7fa0b4',3,'#688d9f',1)+path('M-2 24H2','#cde2ea',1)+`<circle cx="-14" cy="-17" r="13" fill="#b9cedb" stroke="#7896aa" stroke-width="1"/><circle cx="-14" cy="-17" r="10" fill="#dce8ed" stroke="#8ba7b6" stroke-width=".7"/>`+path('M-22-20H-6 M-22-15H-6 M-20-10H-8','#7795a8',1);
+      case 'vacuum':return `<ellipse cy="48" rx="44" ry="4" fill="#5b778b" opacity=".1"/>`+path('M32 28C67 26 66-51 45-48H28','#829eab',8)+path('M33 27C65 25 64-49 45-49H29','#c6d9e1',1.3)+path('M28-48L12-11','#8ca7b5',5)+path('M27-47L13-13','#e0edf2',1)+path('M8-7H29','#6d8b9d',7)+`<path d="M-36 34Q-41-2-20-10H19Q42-1 43 33Z" fill="url(#${id}-plastic)" stroke="#5f8299" stroke-width="1.5"/>`+path('M-31 27Q0 21 37 27','#b0c3cd',1)+path('M-24-5Q-11-10 14-6','#fff',1.5)+rect(-16,-2,35,15,'#bfd4de',5,'#90adbc',1)+path('M-11 2H13 M-11 6H13','#86a5b5',.8)+`<circle cx="-23" cy="34" r="13" fill="#6a8495" stroke="#465f71" stroke-width="1"/><circle cx="-23" cy="34" r="8" fill="url(#${id}-metal)" stroke="#92acba" stroke-width="1"/><circle cx="-23" cy="34" r="3" fill="#809bab"/><circle cx="31" cy="34" r="10" fill="#6a8495" stroke="#465f71" stroke-width="1"/><circle cx="31" cy="34" r="5" fill="url(#${id}-metal)"/>`;
       default:return '';
     }
   }
   function person(c,r,id){
     const stool=c.params.stance==='insulated',offset=stool?-22:0;
     let out=path(`M-40 ${stool?77:75}H46`,'#b8c7c8',2);
-    if(stool)out+=rect(-28,53,56,10,`url(#${id}-plastic)`,3)+path('M-22 63L-26 77 M22 63L26 77 M-21 70H21','#91a6b0',4);
-    out+=`<g transform="translate(0 ${offset})"><path d="M-9 20L-13 58-27 72H-10L2 51 13 71H29L19 58 12 20Z" fill="#607c94" stroke="#3e5d75" stroke-width="1.5"/><path d="M-10-27Q0-34 11-26L17 9 12 25H-12L-17 7Z" fill="#88aebc" stroke="#567e91" stroke-width="1.5"/><path d="M-13-21L-22-4-34-8" fill="none" stroke="#88aebc" stroke-width="12" stroke-linecap="round"/><path d="M12-20L24-3 38-12" fill="none" stroke="#88aebc" stroke-width="12" stroke-linecap="round"/><path d="M34-10l8-4" stroke="#dfb79c" stroke-width="8" stroke-linecap="round"/><circle cy="-49" r="15" fill="#e3bfa5" stroke="#b58f78"/><path d="M-14-49Q-18-65-1-65Q15-65 14-49L7-56-6-55Z" fill="#627987"/><path d="M-25 72H-10 M14 72H29" stroke="#425b6b" stroke-width="5" stroke-linecap="round"/></g>`;
+    if(stool)out+=`<path d="M-27 53H29V60H-27Z" fill="url(#${id}-plastic)" stroke="#819da9"/><path d="M-22 60L-26 77H-20L-16 60 M21 60L25 77H31L27 60" fill="#b9ccd6" stroke="#819da9" stroke-width="1.2"/>`+path('M-20 69H25','#9fb5c0',2);
+    out+=`<g transform="translate(0 ${offset})">
+      <path d="M-11 19H13L15 44 20 67 11 69 2 43-1 34-5 46-9 68-18 67-14 42Z" fill="#617c94" stroke="#48667c" stroke-width="1.2"/>
+      <path d="M1 26V38 M-10 30L-12 54 M12 30L15 54" fill="none" stroke="#89a0b2" stroke-width="1"/>
+      <path d="M-18 65L-8 66-6 72H-25Q-27 67-18 65 M11 66L20 65 29 70Q30 74 24 74H10Z" fill="#3e596b" stroke="#2e4c60" stroke-width="1"/>
+      <path d="M-5-37H5V-27H-5Z" fill="#e0b79c" stroke="#bc957d" stroke-width=".8"/>
+      <path d="M-6-30L-15-25-12 2-11 22H13L15-4 14-25 6-30Q0-24-6-30Z" fill="#91b8c8" stroke="#5f879c" stroke-width="1.2"/>
+      <path d="M-14-25Q-20-20-21-8L-26 10-19 13-12-6-9-17 M12-25Q18-25 23-12L27-5 34-10 38-4 26 4Q22 5 19 0L10-15" fill="#91b8c8" stroke="#5f879c" stroke-width="1.2"/>
+      <path d="M-26 10L-29 18Q-30 23-26 23L-22 20-19 13Z M34-10L38-15Q42-18 44-14L43-9 38-4Z" fill="#e8c3a9" stroke="#ba947c" stroke-width=".9"/>
+      <path d="M-6-29L0-23 6-29 M-7 5H9 M-7 18H9" fill="none" stroke="#c3dce5" stroke-width="1"/>
+      <path d="M-11-51Q-11-64 1-64Q13-64 13-50L11-41Q6-34 0-36Q-9-38-10-47Z" fill="#e8c3a9" stroke="#b9947f" stroke-width="1"/>
+      <path d="M-11-49Q-16-61-5-66Q5-70 13-61L14-49 9-55 3-57-5-54-8-46Z" fill="#4e6776"/>
+      <path d="M2-48h2 M9-48h1 M7-46l1 4H5 M3-39Q6-37 9-40" fill="none" stroke="#8b6c5b" stroke-width=".9" stroke-linecap="round"/>
+    </g>`;
     if(r?.contact)out+=`<circle data-house-hand="true" cx="40" cy="${-13+offset}" r="5" fill="#e3bfa5" stroke="${Math.abs(r.current||0)>.000001?'#c17845':'#80a18c'}" stroke-width="2"/>`;
     return out;
   }
@@ -81,8 +93,9 @@
     r=r||{};
     const id=esc((d.idPrefix||'')+'family-art-'+(c.id||c.type)+'-'+(d.view||'real')),metal=`url(#${id}-metal)`,plastic=`url(#${id}-plastic)`,on=Math.abs(r.power||0)>.01;
     let out=gradients(id);
+    if(d.palette&&isAppliance(c))return out+applianceOutline(c,id,false)+(c.type==='house-insulated'?rect(39,37,14,14,'none',0,'#557d90',1.5)+rect(43,41,6,6,'none',0,'#557d90',1.3):'');
     if(d.view==='schematic'){let drawing=out+symbol(c,r,d,id);if(Number.isFinite(d.renderScale))drawing=drawing.replace(/font-size="([\d.]+)"/g,(_,size)=>`font-size="${Math.max(Number(size),14/d.renderScale)}"`);if(c.angle)drawing=drawing.replace(/<text x="([\d.-]+)" y="([\d.-]+)"/g,(_,x,y)=>`<text x="${x}" y="${y}" transform="rotate(${-c.angle} ${x} ${y})"`);return `<g data-house-apparatus="${c.type}" data-house-view="schematic">${drawing}</g>`;}
-    if(c.type==='house-mains')out+=`<path d="M-57-20H-25Q-18-20-18 0Q-18 20-25 20H-57" fill="${metal}" stroke="#7b8d98" stroke-width="2"/><ellipse cx="-22" ry="20" rx="7" fill="#dae2e4" stroke="#77929e"/>`+lead('M-21-7C16-7 13-22 40-22H76','L',4)+lead('M-21 7C16 7 13 22 40 22H76','N',4)+text(10,-37,'230 V～',14);
+    if(c.type==='house-mains')out+=`<path d="M-58-20H-24C-14-20-14 20-24 20H-58Z" fill="${metal}" stroke="#657e8e" stroke-width="1.5"/><path d="M-58-12H-27 M-58 13H-27" stroke="#eff5f7" stroke-width="1" opacity=".8"/><ellipse cx="-24" rx="7" ry="20" fill="#526b7b" stroke="#8198a6" stroke-width="1.2"/><ellipse cx="-24" rx="4.7" ry="17" fill="#d6e0e5"/><ellipse cx="-24" cy="-7" rx="2.5" ry="4" fill="#a56535"/><ellipse cx="-24" cy="7" rx="2.5" ry="4" fill="#2583b5"/>`+lead('M-24-7H-8C12-7 12-22 32-22H76','L',4)+lead('M-24 7H-8C12 7 12 22 32 22H76','N',4)+path('M-8-8C12-8 12-23 32-23H67','#dab58e',.8)+path('M-8 6C12 6 12 21 32 21H67','#8fc5df',.8)+text(10,-37,'230 V～',14);
     else if(c.type==='house-meter')out+=channelLeads()+caseBox(id)+rect(-34,-37,68,27,'#b5c6cc',3)+rect(-30,-33,60,19,'#eef6ed',2,'#809888',1)+text(0,-19,Number.isFinite(d.renderScale)&&d.renderScale<.75?'電能':(r.energyKWh||0).toFixed(4),11,'font-variant-numeric="tabular-nums"')+text(0,7,'kWh',14)+rect(-25,19,50,19,'#d9e3e9',3)+Array.from({length:5},(_,n)=>path(`M${-20+n*10} 23V33`,'#94a9b8',1)).join('');
     else if(['house-breaker','house-rcd'].includes(c.type)){
       const shut=r.status?r.status==='closed':c.params.closed,y=shut?5:21;
@@ -96,11 +109,11 @@
     else if(isAppliance(c)){
       out+=applianceOutline(c,id,on);
       const lamp=c.params.kind==='lamp',heater=c.params.kind==='heater',center=c.params.kind==='dryer'?{x:-14,y:-17}:c.params.kind==='vacuum'?{x:0,y:12}:lamp?{x:8,y:0}:heater?{x:-4,y:0}:{x:0,y:-17};
-      out+=lead(`M-86-26H-72Q-67-26-67-17V${center.y-7}H${center.x-15}`,'L')+lead(`M-86 0H-73Q-67 0-67 8V${center.y+7}H${center.x-15}`,'N');
+      out+=lead(`M-86-26H-57L-45 ${center.y-7}H${center.x-15}`,'L')+lead(`M-86 0H-60L-45 ${center.y+7}H${center.x-15}`,'N');
       if(heater)out+=rect(-31,-15,54,31,'#ffffffde',4,'#8da6b5',1)+path('M-21-8L-15 8-9-8-3 8 3-8 9 8 15-8','#9b7c59',1.8);
       else if(lamp)out+=`<ellipse cx="8" cy="0" rx="13" ry="12" fill="${on?'#fff1c8':'#eef4f6'}" stroke="#90a8b4"/>`+path('M-7-7H2L4-3 7-7 10-3 13-7H17V7H-7','#b78a57',1.4);
       else out+=`<g transform="translate(${center.x} ${center.y})"><circle r="16" fill="url(#${id}-glass)" stroke="#748d9d" stroke-width="1.4"/><path d="M-15-7H-8Q-13-12-2-12Q10-12 9-5Q-1-1-8-4 M-15 7H-8Q-13 12-2 12Q10 12 9 5Q-1 1-8 4" fill="none" stroke="#b48352" stroke-width="2"/><rect x="-5" y="-7" width="11" height="14" rx="3" fill="#b6c9d1" stroke="#688592"/><path d="M-2-6V6 M2-6V6" stroke="#e3edf1" stroke-width="1"/></g>`;
-      if(c.type==='house-metal'){const bond=c.params.kind==='fan'?{x:28,y:9}:c.params.kind==='heater'?{x:30,y:33}:{x:50,y:30};out+=lead(`M-86 26H-71Q-65 26-65 42H${bond.x}V${bond.y}`,'E')+`<circle data-house-earth-bond="true" cx="${bond.x}" cy="${bond.y}" r="4" fill="#e2dbad" stroke="#7d9a66"/>`+path(`M${bond.x-3} ${bond.y}H${bond.x+3}`,'#769266',1)+ (c.params.fault?path(`M${center.x-15} ${center.y-7}L${center.x-8} ${center.y-12}L${bond.x} ${bond.y}`,'#c27b54',2,'stroke-dasharray="3 3" data-house-fault-path="true"'):'');}
+      if(c.type==='house-metal'){const bond=c.params.kind==='fan'?{x:28,y:9}:c.params.kind==='heater'?{x:30,y:33}:{x:50,y:30};out+=lead(`M-86 26H-57L-43 42H${bond.x-8}L${bond.x} ${bond.y}`,'E')+`<circle data-house-earth-bond="true" cx="${bond.x}" cy="${bond.y}" r="4" fill="#e2dbad" stroke="#7d9a66"/>`+path(`M${bond.x-3} ${bond.y}H${bond.x+3}`,'#769266',1)+ (c.params.fault?path(`M${center.x-15} ${center.y-7}L${center.x-8} ${center.y-12}L${bond.x} ${bond.y}`,'#c27b54',2,'stroke-dasharray="3 3" data-house-fault-path="true"'):'');}
       else out+=rect(center.x-20,center.y-20,40,40,'none',7,'#83a99c',1.6)+rect(center.x-24,center.y-24,48,48,'none',9,'#6b94ad',1.6)+(c.params.fault?path(`M${center.x-20} ${center.y-14}l5 6-5 5 5 6`,'#bd825f',2):'')+rect(39,37,14,14,'none',0,'#557d90',1.5)+rect(43,41,6,6,'none',0,'#557d90',1.3);
       out+=text(0,82,power(c)+' W',14);
       if(Number.isFinite(r.casePotential)&&Math.abs(r.casePotential)>25)out+=path('M50-47l-6 12h9l-6 12','#b87841',2,'data-house-case-live="true"');
@@ -117,5 +130,5 @@
     return{x:c.x+q.x*a.cos-q.y*a.sin,y:c.y+q.x*a.sin+q.y*a.cos};
   }
   function placeHand(person,point){const h=hand(person);person.x+=point.x-h.x;person.y+=point.y-h.y;}
-  return Object.freeze({definitions,colours,applianceKinds,power,isAppliance,isProtection,hand,contactPoint,placeHand,render,palette:Object.keys(definitions).map(type=>({type,...(type==='house-mains'?{limit:1}:{})}))});
+  return Object.freeze({definitions,colours,applianceKinds,power,isAppliance,isProtection,hand,contactPoint,placeHand,render,palette:Object.keys(definitions).map(type=>({type,label:({'house-socket':'三孔插座','house-metal':'金屬家電','house-insulated':'雙重絕緣'})[type]||definitions[type].name,...(type==='house-mains'?{limit:1}:{})}))});
 });

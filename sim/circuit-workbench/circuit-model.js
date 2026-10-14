@@ -43,7 +43,7 @@
     const ports = endpoints(input), pairs = new Set();
     input.wires.forEach((w) => {
       object(w, input.version === 1 ? ["id", "from", "to", "via"] : ["id", "from", "to", "via", "shape", ...(input.version>=3?["length"]:[]), ...(input.version>=6?["resistance"]:[]),...(household?['anchor']:[])]); id(w.id);
-      if(Object.hasOwn(w,'anchor')&&(![w.from,w.to].includes(w.anchor)||!leadPort(input,w.anchor)))throw new Error('固定引線的錨點無效');
+      if(Object.hasOwn(w,'anchor')&&(![w.from,w.to].includes(w.anchor)||!(leadPort(input,w.anchor)||household&&input.components.some(c=>c.type==='house-mains'&&R.ports(c).some(p=>p.id===w.anchor)))))throw new Error('固定引線的錨點無效');
       if(input.version>=6)numeric(w.resistance,0,limits.resistance);
       if (!ports.has(w.from) || !ports.has(w.to) || (input.version<3 && w.from === w.to)) throw new Error("導線端點不存在或自接");
       const pair = [w.from, w.to].sort().join("|"); if (input.version<3 && pairs.has(pair)) throw new Error("有重複的導線"); pairs.add(pair);
@@ -61,6 +61,8 @@
     if(Object.hasOwn(input.display,'quantities')){object(input.display.quantities,Object.keys(quantityDefaults));Object.keys(quantityDefaults).forEach(k=>bool(input.display.quantities[k]));}
     if (input.display.reference !== null && !ports.has(input.display.reference)) throw new Error("參考端點不存在");
     const valid = clone(input);
+    // Older household files pinned mains cables; release only the metadata, preserving their wiring.
+    if(household)valid.wires.forEach(w=>{if(w.anchor&&valid.components.some(c=>c.type==='house-mains'&&R.ports(c).some(p=>p.id===w.anchor)))delete w.anchor;});
     valid.components.forEach(c=>{for(const [key,spec]of Object.entries(R.get(c.type).params))if(spec.optional&&!Object.hasOwn(c.params,key))c.params[key]=spec.value;});
     valid.components.forEach(c=>{if(c.type==='rheostat'&&!Object.hasOwn(c.params,'terminals'))c.params.terminals=2;if(c.type==='lamp'){if(!Object.hasOwn(c.params,'coldRatio'))c.params.coldRatio=10;if(!Object.hasOwn(c.params,'linearLoss'))c.params.linearLoss=0;}});
     if(!Object.hasOwn(valid.display,"names"))valid.display.names=true;
@@ -98,7 +100,7 @@
     doc.wires.push(w);return w;
   }
   const degree=(doc,endpoint)=>doc.wires.reduce((n,w)=>n+(w.from===endpoint)+(w.to===endpoint),0);
-  const leadPort=(doc,endpoint)=>doc.analysis==='household'&&doc.components.some(c=>['house-mains','house-earth'].includes(c.type)&&R.ports(c).some(p=>p.id===endpoint));
+  const leadPort=(doc,endpoint)=>doc.analysis==='household'&&doc.components.some(c=>c.type==='house-earth'&&R.ports(c).some(p=>p.id===endpoint));
   function addLeads(doc,c){if(!['house-mains','house-earth'].includes(c.type)||doc.analysis!=='household')return;for(const p of R.ports(c)){const endpoint=freeEnd(doc,{x:p.x+70*p.dx,y:p.y+70*p.dy});connect(doc,p.id,endpoint,[],'free');}}
   const attached=(doc,w,key)=>!doc.junctions.some(j=>j.id+":p"===w[key])||degree(doc,w[key])>1;
   function cleanup(doc){const used=new Set(doc.wires.flatMap(w=>[w.from,w.to]));doc.junctions=doc.junctions.filter(j=>used.has(j.id+":p")||doc.display.reference===j.id+":p");}

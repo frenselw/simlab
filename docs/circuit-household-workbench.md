@@ -25,7 +25,7 @@
 
 匯出封套為 `kind: 'simlab-household-concepts'`、`version: 1`、`model: 'concept-rms-1'`。其 `circuit` 使用獨立的 `simlab-household-circuit` v8／`analysis: 'household'`／`modelRevision: 1` 幾何文件；不是 DC 或 AC 文件的冒用。
 
-封套保存實際接線（含錯接及自由端）、元件參數、`contacts`、`timeSeconds`、`protection` 及 `energyKWh`。市電／接地器件自帶導線以 `anchor` 標明固定端，另一端可拖接／拔開；這些線隨器件移除，接地線不經中間共接點繞道。
+封套保存實際接線（含錯接及自由端）、元件參數、`contacts`、`timeSeconds`、`protection` 及 `energyKWh`。市電圖案自帶 L／N 線芯，外接導線兩端均可拖接、拔開及刪除；舊檔的市電 `anchor` 只移除固定標記，保留接線和幾何。只有接地器件引線以 `anchor` 固定器件端，隨器件移除，且不經中間共接點繞道。
 
 每個保護紀錄含狀態、累計秒數、原因，以及 `bodyCurrentSeen`／`bodyCurrentBeforeTrip`。前者保留本次動作計時區間曾有人體電流的事實，後者在跳掣時保存該事件；回到門檻以下、手動斷開或復位清空相應區間。不能因跳掣後電流變零而隱去曾有人體電流。
 

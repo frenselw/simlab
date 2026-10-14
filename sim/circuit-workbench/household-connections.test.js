@@ -18,7 +18,13 @@ for(const target of ['source:l','socket:n','load:e']){const d=P.create('C03');d.
 assert.throws(()=>Profile.compile({role:'teacher',initialDocument:P.create('C01')}),/分析種類/);
 assert.throws(()=>M.validate({...P.create('C01'),kind:'simlab-circuit',version:6}),/欄位|家庭/);
 assert.equal(Object.keys(C.definitions).length,11);
-for(const type of ['house-mains','house-earth']){
- const d=M.empty('household'),c=M.add(d,type,0,0);M.addLeads(d,c);assert.equal(d.wires.length,type==='house-mains'?2:1);assert.doesNotThrow(()=>M.validate(d));const w=d.wires[0],before=JSON.stringify(d);assert.throws(()=>M.detach(d,w.id,'from'),/固定/);assert.throws(()=>M.remove(d,w.id),/固定/);assert.equal(JSON.stringify(d),before);const template=require('./circuit-document').template(d);assert.equal(template.wires.length,d.wires.length);assert.doesNotThrow(()=>M.validate(template));M.remove(d,c.id);assert.equal(d.wires.length,0);assert.doesNotThrow(()=>M.validate(d));
+{
+ const d=M.empty('household'),c=M.add(d,'house-earth',0,0);M.addLeads(d,c);assert.equal(d.wires.length,1);assert.doesNotThrow(()=>M.validate(d));const w=d.wires[0],before=JSON.stringify(d);assert.throws(()=>M.detach(d,w.id,'from'),/固定/);assert.throws(()=>M.remove(d,w.id),/固定/);assert.equal(JSON.stringify(d),before);const template=require('./circuit-document').template(d);assert.equal(template.wires.length,d.wires.length);assert.doesNotThrow(()=>M.validate(template));M.remove(d,c.id);assert.equal(d.wires.length,0);assert.doesNotThrow(()=>M.validate(d));
+}
+{
+ const d=M.empty('household'),c=M.add(d,'house-mains',0,0);M.addLeads(d,c);assert.equal(d.wires.length,2);
+ const w=d.wires[0];assert.equal(w.anchor,undefined);M.detach(d,w.id,'from');assert(M.attach(d,w.id,'from',c.id+':l'));assert.doesNotThrow(()=>M.validate(d));
+ const legacy=M.clone(d);legacy.wires[0].anchor=c.id+':l';const restored=M.validate(legacy);assert.deepEqual(restored,d,'legacy pinned source preserves geometry and connections');M.detach(restored,w.id,'from');assert.doesNotThrow(()=>M.validate(restored));
+ assert.equal(require('./circuit-document').template(d).wires.length,0);M.remove(d,w.id);assert.equal(d.wires.length,1);M.remove(d,c.id);assert.equal(d.wires.length,1);assert.doesNotThrow(()=>M.validate(d));
 }
 console.log('Household: 36 working-lead combinations / order, supply boundaries, atomic attach and component snapping passed');

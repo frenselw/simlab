@@ -6,7 +6,7 @@
     if(!Object.hasOwn(names,key))throw new Error('不存在的家庭示例');
     const doc=M.empty('household');doc.cables={count:40,length:900,resistance:0};doc.display.fontSize='s';doc.display.values=false;
     const add=(id,type,x,y,params={},label)=>{const c=M.add(doc,type,x,y,params);c.id=id;c.label=label||C.definitions[type].name;return c;};
-    const wire=(from,to,via=[])=>M.connect(doc,from,to,via,'auto');
+    const wire=(from,to,via=[])=>{const ends=M.endpoints(doc),a=ends.get(from),b=ends.get(to);return M.connect(doc,from,to,via,via.length||a.x===b.x||a.y===b.y?'free':'auto');};
     if(key==='empty')return M.validate(doc);
     if(key==='C08'){
       add('source','house-mains',-170,-30,{},'市電');add('socket','house-socket',10,-30,{},'插座');add('load','house-insulated',250,-15,{kind:'lamp'},'台燈');add('earth','house-earth',-160,95);
