@@ -32,6 +32,7 @@
       }
       if (w.from === endpoint) w.from = portId;
       if (w.to === endpoint) w.to = portId;
+      if(M.leadPort(next,portId))w.anchor=portId;
     }
     if (!wires.length) return null;
     if (next.display.reference === endpoint) next.display.reference = portId;

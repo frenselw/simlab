@@ -9,6 +9,7 @@ const os = require('node:os');
 const crypto = require('node:crypto');
 const { XMLParser } = require('fast-xml-parser');
 const { spawn, spawnSync } = require('node:child_process');
+const AdmZip=require('adm-zip');
 const root = path.resolve(__dirname, '..');
 const H = require(path.join(root, 'tools/position-time-browser-regression.js'));
 const args = Object.fromEntries(process.argv.slice(2).map(arg => {
@@ -28,13 +29,14 @@ if (viewports.some(([width,height])=>!Number.isFinite(width)||!Number.isFinite(h
 const selected = args.slugs ? new Set(String(args.slugs).split(',')) : null;
 const catalogue = require(path.join(root, 'sim/config.js')).simulationList.filter(s => !selected || selected.has(s.folder));
 const stageSelector = '.sim-stage,.stage-region,.freefall-stage,section.stage';
-const panelSelector = '.sim-panel,.control-panel,.controls-panel,.freefall-panel';
+const panelSelector = '.sim-panel,.control-panel,.controls-panel,.freefall-panel,.circuit-editor .panel';
 const report = { baseCommit: null, mode, engine: null, host: 'neutral same-origin iframe; no parent touch handlers or panel-lock message bridge', input: 'CDP Input.dispatchTouchEvent (trusted touch)', errors: [], cases: [], packages: [] };
 report.followup={nested:Boolean(args.nested),parts:String(args.parts||''),visualBlank:Boolean(args['visual-blank']),fast:Boolean(args.fast),renderer:args.renderer||'default',documentNativeProbe:Boolean(args['document-native-probe'])};
 if(args.nested)report.host='same-origin scrollable outer page; bounded non-scrolling wrapper iframe; bounded activity iframe; no touch handlers or panel-lock bridge in either host';
 report.topology=topology;
 if (!catalogue.length || (selected && [...selected].some(slug => !catalogue.some(s => s.folder === slug)))) throw new Error('Missing activity coverage');
 function selectedProfiles(slug) {
+  if(slug==='circuit-household-workbench'){const profiles=A.profiles(slug);return args.phases==='all'?profiles:profiles.filter(p=>p.id==='initial');}
   return args.phases==='all' ? A.profiles(slug) : slug==='centre-of-mass-investigation-lab' ? String(args.parts||'1,2,3').split(',').map(part=>({id:'part-'+part,part:Number(part)})) : [{id:'initial'}];
 }
 if(args.profiles){
@@ -58,6 +60,8 @@ function hostHtml(src, height) {
 function runtimeDigest() {
   const files=new Set(),digestRoot=mode==='package'?root:path.resolve(args['scene-root']||root);
   for(const sim of catalogue){
+    const standalone=path.join(digestRoot,'sim',sim.folder,'assets.json');
+    if(fs.existsSync(standalone)){const assets=JSON.parse(fs.readFileSync(standalone,'utf8'));if(assets.kind==='standalone'){files.add(standalone);for(const name of assets.files)files.add(path.join(digestRoot,'sim',name));continue;}}
     const manifest=path.join(digestRoot,'sim/manifests',sim.folder+'.xml');files.add(manifest);
     const parsed=new XMLParser({ignoreAttributes:false}).parse(fs.readFileSync(manifest,'utf8'));
     for(const resource of [].concat(parsed.manifest.resources.resource))for(const file of [].concat(resource.file||[]))files.add(path.join(digestRoot,'sim',file['@_href']));
@@ -80,6 +84,7 @@ async function observation() {
     const scrollers=[...document.querySelectorAll('*')].filter(e=>{const c=window.getComputedStyle(e);return /auto|scroll/.test(c.overflowY)&&e.scrollHeight>e.clientHeight+1;}).map(e=>({id:e.id,class:e.className?.baseVal||e.className,top:e.scrollTop,range:e.scrollHeight-e.clientHeight,height:e.clientHeight}));
     const hooks=['__forceCompositionApp','__forceOrthogonalApp','__equilibriumApp','__advancedEquilibriumApp','__reactionApp','__newtonApp','__kinematicsGraphDebug','__centreMassDebug','__hookesLawApp','__staticKineticFrictionApp','__motionComposition'];
     const state={};for(const name of hooks){const app=window[name];if(app?.getState)state[name]=app.getState();}
+    if(window.CircuitHouseholdWorkbench)state.household=window.CircuitHouseholdWorkbench.captureSession();
     if(window.__freeFallDebug?.state)state.freeFall=window.__freeFallDebug.state();
     if(window.__kinematicsQuantitativeDebug?.state)state.quantitative=window.__kinematicsQuantitativeDebug.state();
     const forms=[...document.querySelectorAll('input,select')].map(e=>({id:e.id,name:e.name,value:e.value,checked:e.checked}));
@@ -321,9 +326,11 @@ async function main() {
   report.engine=await cdp.send('Browser.getVersion');
   for(const sim of catalogue){
     let launch='/sim/'+sim.folder+'/index.html';
-    if(mode==='package'){
-      const packaged=H.buildAndExtractPackage(fs.realpathSync(os.tmpdir()),{slug:sim.folder,packagePrefix:'simlab-scroll-audit-package-',packageNamePattern:/^simlab-scroll-audit-package-[A-Za-z0-9]+$/});
-      currentRoot=packaged.packageDirectory;packageRoots.push(currentRoot);launch=packaged.activityPath;report.packages.push({slug:sim.folder,zip:path.join(root,'output',sim.folder+'-scorm.zip'),launch});
+    if(mode==='package'||mode==='standalone'&&args['standalone-package']){
+      const assetFile=path.join(root,'sim',sim.folder,'assets.json');
+      if(fs.existsSync(assetFile)&&JSON.parse(fs.readFileSync(assetFile,'utf8')).kind==='standalone'){
+        const assets=JSON.parse(fs.readFileSync(assetFile,'utf8')),zip=args['prebuilt-standalone']?path.join(root,'output',sim.folder+'-standalone.zip'):require('./package-circuit-workbench').build(assets,sim.folder+'-standalone.zip');if(args['prebuilt-standalone']){const archive=new AdmZip(zip);for(const name of assets.files){if(!archive.getEntry(name)||!archive.readFile(name).equals(fs.readFileSync(path.join(root,'sim',name))))throw new Error('Stale standalone asset: '+name);}}currentRoot=fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),'simlab-scroll-audit-package-'));new AdmZip(zip).extractAllTo(currentRoot);packageRoots.push(currentRoot);launch='/'+assets.entry;report.packages.push({slug:sim.folder,zip,launch,sha256:crypto.createHash('sha256').update(fs.readFileSync(zip)).digest('hex')});
+      }else{const packaged=H.buildAndExtractPackage(fs.realpathSync(os.tmpdir()),{slug:sim.folder,packagePrefix:'simlab-scroll-audit-package-',packageNamePattern:/^simlab-scroll-audit-package-[A-Za-z0-9]+$/});currentRoot=packaged.packageDirectory;packageRoots.push(currentRoot);launch=packaged.activityPath;report.packages.push({slug:sim.folder,zip:path.join(root,'output',sim.folder+'-scorm.zip'),launch});}
     }
     const profiles=selectedProfiles(sim.folder).filter(p=>!args.profiles||String(args.profiles).split(',').includes(p.id));
     if(!profiles.length)throw new Error('Missing requested phase coverage: '+sim.folder);
@@ -341,6 +348,7 @@ async function main() {
       if(spec.expectReady&&!await childEval(spec.expectReady))throw new Error('Wrong renderer or variant: '+spec.id);
       await childEval(`(()=>{window.__auditEvents=[];for(const type of ['pointerdown','pointermove','pointerup','pointercancel','touchstart','touchmove','touchend','touchcancel','click'])document.addEventListener(type,e=>window.__auditEvents.push({type,isTrusted:e.isTrusted,pointerType:e.pointerType||'',pointerId:e.pointerId,target:e.target.id||e.target.tagName,clientY:e.clientY??null,screenY:e.screenY??null,defaultPrevented:e.defaultPrevented}),true);return true;})()`);
       const entry={slug:sim.folder,title:sim.title,profile:spec.id,part,viewport:{width,height,iframeHeight:mode==='standalone'?null:Number(args['iframe-height']||500)},initial:await observation(),gestures:[]};
+      if(sim.folder==='circuit-household-workbench'&&spec.id==='initial')entry.gestures.push(...await O.runHouseholdOperations({cdp,childEval,observation,prepare,delay:H.delay}));
       const tests=[{region:'stage',direction:'up',edge:'left'}, {region:'stage',direction:'down',edge:'left'}, {region:'stage',direction:'up',edge:'right'}, {region:'stage',direction:'down',edge:'right'}, {region:'panel',direction:'up',position:'middle'}, {region:'panel',direction:'down',position:'middle'}, {region:'panel',direction:'down',position:'top'}, {region:'panel',direction:'up',position:'bottom'}];
       if(part===3)for(const edge of ['top','bottom'])for(const direction of ['up','down'])tests.push({region:'stage',direction,edge});
       if(spec.noStageReason&&entry.initial.stageBounds.width>1.1&&entry.initial.stageBounds.height>1.1)throw new Error('N/A declaration contradicts visible stage: '+spec.id);

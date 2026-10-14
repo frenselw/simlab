@@ -1,0 +1,16 @@
+'use strict';
+const assert=require('node:assert/strict'),M=require('./circuit-model'),H=require('./household-model'),P=require('../circuit-household-workbench/presets');
+const fixtures=require('./fixtures/household-v1-states.json');
+for(const {label,snapshot}of fixtures){const restored=H.Session.restore(H.decode(H.encode(snapshot)));assert.deepEqual(restored.capture(),snapshot,label);const before=restored.state.time;restored.advance(.01);assert(restored.state.time>=before);const d=M.clone(restored.doc),c=d.components.find(c=>c.id==='load');if(c){c.params.fault=!c.params.fault;restored.update(d);}else{M.add(d,'house-socket',0,0);restored.update(d);}assert.doesNotThrow(()=>H.encode(restored.capture()));restored.destroy();}
+const valid=new H.Session(P.create('C04')).capture();
+for(const mutate of [s=>s.version=2,s=>s.model='unknown',s=>s.contacts.person='socket',s=>s.timeSeconds=-1,s=>s.timeSeconds=Infinity,s=>s.protection.protector.elapsed=1,s=>s.protection.protector.reason='invented',s=>s.protection.protector.bodyCurrentBeforeTrip=true,s=>s.energyKWh.fake=1,s=>s.circuit.components[0].params.fake=1,s=>s.circuit.wires[0].to='no-such-port',s=>s.circuit.wires[0].to='socket:n',s=>s.circuit.display.reference='missing:l',s=>s.physics={}]){const bad=M.clone(valid);mutate(bad);assert.throws(()=>H.Session.restore(bad));}
+assert.throws(()=>H.decode('not JSON'));assert.throws(()=>H.decode(' '.repeat(H.byteLimit+1)));assert.throws(()=>H.Session.restore({...valid,circuit:M.empty()}));
+{
+ const s=new H.Session(P.create('C03'));s.contact('person','load');const contacted=s.capture();assert.doesNotThrow(()=>H.Session.restore(contacted));const bad=M.clone(contacted);bad.circuit.components.find(c=>c.id==='person').x+=1;assert.throws(()=>H.Session.restore(bad),/手部位置/);
+ const oldHand=require('./circuit-household-components').hand(s.doc.components.find(c=>c.id==='person')),next=M.clone(s.doc);next.components.find(c=>c.id==='person').params.stance='insulated';s.update(next);assert.equal(s.state.contacts.person,'load');assert.deepEqual(require('./circuit-household-components').hand(s.doc.components.find(c=>c.id==='person')),oldHand);s.contact('person',null);assert.equal(s.state.contacts.person,null);assert.notDeepEqual(require('./circuit-household-components').hand(s.doc.components.find(c=>c.id==='person')),oldHand);
+}
+for(const mutate of [s=>s.protection.protector.bodyCurrentSeen=true,s=>{s.protection.protector.status='open';s.circuit.components.find(c=>c.id==='protector').params.closed=false;s.protection.protector.elapsed=.01;}]){const bad=M.clone(valid);mutate(bad);assert.throws(()=>H.Session.restore(bad));}
+{
+ const s=new H.Session(P.create('C04')),before=s.capture(),preview=s.fork();preview.doc.components.find(c=>c.id==='load').params.fault=true;preview.update(preview.doc);preview.advance(.1);assert.equal(preview.read().components.protector.status,'tripped');assert.deepEqual(s.capture(),before);preview.destroy();const copy=H.Session.restore(before);copy.advance(.05);assert.equal(s.state.time,0);copy.destroy();s.destroy();assert.throws(()=>s.advance(.1),/卸載/);
+}
+console.log('Household: '+fixtures.length+' production fixture round-trips / continuation, strict invalid states and preview isolation passed');

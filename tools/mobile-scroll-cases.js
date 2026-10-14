@@ -76,6 +76,18 @@ function activityProfiles(slug) {
   return [initial];
 }
 function profiles(slug) {
+  if(slug==='circuit-household-workbench'){
+    const prepare="const app=window.CircuitHouseholdWorkbench;app.setPlayback({paused:true});if(document.getElementById('app').classList.contains('panel-hidden'))click('[data-circuit-id=\"panelToggle\"]');";
+    return [
+      {id:'initial',prepare},
+      {id:'empty',prepare:prepare+"app.loadDocument(window.CircuitHouseholdPresets.create('empty'));"},
+      {id:'wrong-wiring',prepare:prepare+"const d=window.CircuitHouseholdPresets.create('C08');d.wires.find(w=>w.to==='load:n').from='socket:l';app.loadDocument(d);"},
+      {id:'tripped',prepare:prepare+"app.loadDocument(window.CircuitHouseholdPresets.create('C04'));app.execute({type:'setParam',id:'load',key:'fault',value:true});app.advanceTime(.1);"},
+      {id:'contact',prepare:prepare+"app.loadDocument(window.CircuitHouseholdPresets.create('C03'));app.execute({type:'setParam',id:'load',key:'fault',value:true});app.execute({type:'setContact',id:'person',target:'load'});"},
+      {id:'schematic',prepare:prepare+"app.loadDocument(window.CircuitHouseholdPresets.create('C08'));click('[data-circuit-id=\"schematicView\"]');"},
+      {id:'read-only',prepare:prepare+"app.loadDocument(window.CircuitHouseholdPresets.create('C08'));app.setReadOnly(true);"}
+    ];
+  }
   return activityProfiles(slug).map(profile => {
     const checkOnly=profile.id==='check'&&(slug.startsWith('force-equilibrium')||slug==='newtons-third-law-reaction-force-lab'||slug==='newtons-third-law-fullscreen-test'||slug==='newtons-second-law-investigation-lab');
     const conclude=slug==='newtons-second-law-investigation-lab'&&profile.id==='conclude';

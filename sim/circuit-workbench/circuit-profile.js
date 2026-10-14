@@ -34,14 +34,14 @@
   }
   function compile(config = {}) {
     keys(config, ['role','title','subtitle','initialDocument','palette','components','ui','wires','wireResistance','wirePointLimit','undo','check','idPrefix','analysis','simulation','observationChannels','observationLimit','panelContent'], '活動');
-    const analysis=config.analysis??'dc';if(!['dc','transient'].includes(analysis))throw new Error('不支援的分析種類');
+    const analysis=config.analysis??'dc';if(!['dc','transient','household'].includes(analysis))throw new Error('不支援的分析種類');
     const wirePointLimit=config.wirePointLimit??M.limits.stroke;
     if(!Number.isInteger(wirePointLimit)||wirePointLimit<1||wirePointLimit>M.limits.stroke)throw new Error('導線線形容量無效');
     const prepare=doc=>M.limitWirePoints(doc,wirePointLimit);
     const role = config.role || 'student';
     if (!['teacher','student'].includes(role)) throw new Error('活動角色無效');
     const teacher = role === 'teacher', initial = M.validate(config.initialDocument || M.empty(analysis));
-    const assertModel=doc=>{if((doc.version===7)!==(analysis==='transient'))throw new Error('電路文件與分析種類不符');if(analysis==='transient'){const AC=typeof module==='object'&&module.exports?require('./circuit-ac-components'):globalThis.CircuitAC;if(!AC)throw new Error('缺少交流元件依賴');AC.toAC(doc);}};
+    const assertModel=doc=>{if((doc.version===7)!==(analysis==='transient')||(doc.version===8)!==(analysis==='household'))throw new Error('電路文件與分析種類不符');if(analysis==='transient'){const AC=typeof module==='object'&&module.exports?require('./circuit-ac-components'):globalThis.CircuitAC;if(!AC)throw new Error('缺少交流元件依賴');AC.toAC(doc);}};
     assertModel(initial);
     const components = config.components || {};
     keys(components, ['default','byType','byId'], '元件');

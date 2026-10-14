@@ -16,6 +16,6 @@
     return {document:M.validate(data),removedMeasurements};
   }
   function decode(text) { if(typeof text!=='string')throw new Error("電路檔過大或無效");return importDocument(text).document; }
-  function template(doc) { const copy = M.validate(doc); copy.wires = []; copy.junctions = []; copy.display.reference = null; copy.policy.mode = "wiring"; return copy; }
+  function template(doc) { const copy = M.validate(doc);if(copy.analysis==='household'){copy.wires=copy.wires.filter(w=>w.anchor);for(const w of copy.wires)M.detach(copy,w.id,w.from===w.anchor?'to':'from',false);M.cleanup(copy);}else{copy.wires = []; copy.junctions = [];}copy.display.reference = null; copy.policy.mode = "wiring"; return copy; }
   return { encode, decode, importDocument, template, bytes };
 });

@@ -74,4 +74,44 @@ async function runMirrorOperations({ cdp, childEval, observation, prepare, swipe
   }
   return results;
 }
-module.exports={runMirrorOperations};
+async function runHouseholdOperations({cdp,childEval,observation,prepare,delay}){
+  const saved=await childEval('window.CircuitHouseholdWorkbench.captureSession()'),results=[];let touchId=10000;
+  const actor='window.CircuitHouseholdWorkbench';
+  const capture=()=>childEval(actor+'.captureSession()');
+  async function load(code){await childEval(`(()=>{const app=${actor};app.setReadOnly(false);${code};app.setPlayback({paused:true});return true;})()`);await delay(100);await prepare('stage','middle');}
+  async function locate(selector){return childEval(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});if(!e)throw Error('Missing household target '+${JSON.stringify(selector)});const r=e.getBoundingClientRect(),f=frameOffset();let p=null;for(const x of [.5,.25,.75,.1,.9])for(const y of [.5,.25,.75,.1,.9]){const q={x:r.left+r.width*x,y:r.top+r.height*y};if(!p&&document.elementFromPoint(q.x,q.y)===e)p=q;}if(!p)throw Error('No exposed household target '+${JSON.stringify(selector)});return{x:p.x+f.left,y:p.y+f.top,action:window.getComputedStyle(e).touchAction};})()`);}
+  async function worldPoint(expression){return childEval(`(()=>{const p=${expression},r=document.querySelector('[data-circuit-id="surface"]').getBoundingClientRect(),c=${actor}.getInteraction().camera,f=frameOffset();return{x:f.left+r.left+(p.x-c.x)*c.scale,y:f.top+r.top+(p.y-c.y)*c.scale};})()`);}
+  async function gesture(name,selector,delta,end='touchEnd',check){
+    const point=await locate(selector),destination=typeof delta==='string'?await worldPoint(delta):{x:point.x+(delta?.x||0),y:point.y+(delta?.y||0)},before=await observation(),authority=await capture(),id=touchId++,during=[],issues=[];
+    if(point.action!=='none')issues.push('owned target is not touch-action none');
+    const touch=p=>({...p,id,radiusX:1,radiusY:1,force:1});await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[touch(point)]});
+    if(delta)for(let i=1;i<=8;i++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[touch({x:point.x+(destination.x-point.x)*i/8,y:point.y+(destination.y-point.y)*i/8})]});await delay(18);during.push(await observation());}
+    const preview=await childEval(`(()=>{const e=document.querySelector('[data-circuit-id="preview"]');return{shown:!e.hidden,pointerEvents:window.getComputedStyle(e).pointerEvents,html:e.innerHTML};})()`);
+    await cdp.send('Input.dispatchTouchEvent',{type:end,touchPoints:[]});await delay(90);const after=await observation(),current=await capture();
+    for(const sample of [...during,after])for(const key of ['host','outerWindow','document','panel'])if(Math.abs(sample[key]-before[key])>1.1)issues.push('owned touch moved '+key);
+    if(!after.events.some(e=>e.type==='pointerdown'&&e.isTrusted&&e.pointerType==='touch'))issues.push('missing trusted owned pointer');
+    if(end==='touchEnd'&&(!after.events.some(e=>e.type==='pointerup'&&e.isTrusted)||after.events.some(e=>e.type==='pointercancel')))issues.push('owned completion cancelled or lost pointerup');
+    if(delta&&end==='touchEnd'&&JSON.stringify(authority)===JSON.stringify(current))issues.push('owned operation did not commit');
+    if(end==='touchCancel'&&JSON.stringify(authority)!==JSON.stringify(current))issues.push('cancel changed authoritative state');
+    if(['wire-end','hand'].includes(name)&&(!preview.shown||preview.pointerEvents!=='none'))issues.push('precision preview missing or intercepting');
+    if(await childEval(`!document.querySelector('[data-circuit-id="preview"]').hidden`))issues.push('preview not cleaned');
+    if(check&&!await childEval(check))issues.push('wrong household continuation');
+    results.push({case:'G5/G6-household-'+name+'-'+end,selector,point,destination,preview,before,after,during,issues:[...new Set(issues)]});
+  }
+  try{
+    await load("app.loadDocument(window.CircuitHouseholdPresets.create('C08'))");await gesture('body','[data-hit="body:load"]',{x:26,y:12});
+    const loose="const d=window.CircuitHouseholdPresets.create('C08'),w=d.wires.find(w=>w.to==='load:n');window.CircuitModel.moveWireEnd(d,w.id,'from',{x:-67,y:49});app.loadDocument(d)";
+    await load(loose);const end=await childEval(`${actor}.getDocument().wires.find(w=>w.to==='load:n').id`);await gesture('wire-end',`[data-hit="wireend:${end}:from"]`,`window.CircuitModel.endpoints(${actor}.getDocument()).get('socket:l')`,'touchEnd',`${actor}.getDocument().wires.find(w=>w.to==='load:n').from==='socket:l'`);
+    await load(loose);await gesture('wire-end',`[data-hit="wireend:${end}:from"]`,{x:32,y:12},'touchCancel');
+    await load("const d=window.CircuitModel.empty('household');window.CircuitModel.add(d,'house-insulated',160,0).id='load';d.junctions.push({id:'j1',x:-180,y:-26});window.CircuitModel.connect(d,'load:l','j1:p');app.loadDocument(d)");await gesture('wire-body','[data-hit="wire:w1:0"]',{x:0,y:-24});
+    await load("const d=window.CircuitHouseholdPresets.create('C08'),w=d.wires.find(w=>w.to==='load:l'),route=window.CircuitRouting.route(d,w);window.CircuitModel.splitWire(d,w.id,{x:(route[0].x+route[1].x)/2,y:(route[0].y+route[1].y)/2,segment:0},route);app.loadDocument(d)");const junction=await childEval(`${actor}.getDocument().junctions.find(j=>window.CircuitModel.degree(${actor}.getDocument(),j.id+':p')>1).id`);await gesture('junction',`[data-hit="junction:${junction}"]`,{x:30,y:16});
+    await load("app.loadDocument(window.CircuitHouseholdPresets.create('C03'))");await gesture('hand','[data-hit="hand:person"]',`window.CircuitHouseholdComponents.contactPoint(${actor}.getDocument().components.find(c=>c.id==='load'))`,'touchEnd',`${actor}.captureSession().contacts.person==='load'`);
+    await load("app.loadDocument(window.CircuitHouseholdPresets.create('C03'))");await gesture('hand','[data-hit="hand:person"]',{x:-32,y:0},'touchCancel');
+    await load("app.loadDocument(window.CircuitHouseholdPresets.create('C02'))");await gesture('switch','[data-hit="body:switch"]',null,'touchEnd',`${actor}.getDocument().components.find(c=>c.id==='switch').params.closed===false`);
+    await load("app.loadDocument(window.CircuitHouseholdPresets.create('C08'))");
+    const before=await observation(),beforeState=await capture(),camera=await childEval(actor+'.getInteraction().camera'),p=await worldPoint(`({x:0,y:160})`),one=touchId++,two=touchId++;
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:p.x-24,y:p.y,id:one},{x:p.x+24,y:p.y,id:two}]});const during=[];for(let i=1;i<=6;i++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:p.x-24-i*2,y:p.y-i*2,id:one},{x:p.x+24+i*2,y:p.y-i*2,id:two}]});await delay(20);during.push(await observation());}await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await delay(80);const after=await observation(),issues=[];if(JSON.stringify(beforeState)!==JSON.stringify(await capture()))issues.push('camera changed work');if(JSON.stringify(camera)===JSON.stringify(await childEval(actor+'.getInteraction().camera')))issues.push('camera did not move');for(const sample of [...during,after])for(const key of ['host','outerWindow','document','panel'])if(Math.abs(sample[key]-before[key])>1.1)issues.push('camera moved '+key);results.push({case:'G5-household-two-finger-camera',before,after,during,issues});
+  }finally{await childEval(`(()=>{${actor}.setReadOnly(false);${actor}.restoreSession(${JSON.stringify(saved)});return true;})()`);}
+  return results;
+}
+module.exports={runMirrorOperations,runHouseholdOperations};

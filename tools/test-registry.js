@@ -5,6 +5,11 @@ const {groups:dcGroups}=require('./circuit-test-groups');
 const root=path.resolve(__dirname,'..');
 
 const registeredTests = [
+  'sim/circuit-workbench/household-connections.test.js',
+  'sim/circuit-workbench/household-model.test.js',
+  'sim/circuit-workbench/household-state.test.js',
+  'sim/circuit-household-workbench/presets.test.js',
+  {file:'tools/circuit-household-browser-regression.js',kind:'browser',scope:'circuit-family'},
   "sim/circuit-workbench/transient.test.js",
   "sim/circuit-workbench/ac-source-protection.test.js",
   "sim/circuit-workbench/protection-continuation.test.js",
@@ -301,7 +306,8 @@ const manualBrowserTests = [
 
 const assetLists = [
   {scope:'circuit-workbench',file:'sim/circuit-workbench/assets.json'},
-  {scope:'circuit-ac-workbench',file:'sim/circuit-ac-workbench/assets.json'}
+  {scope:'circuit-ac-workbench',file:'sim/circuit-ac-workbench/assets.json'},
+  {scope:'circuit-household-workbench',file:'sim/circuit-household-workbench/assets.json'}
 ];
 
 function info(test) {

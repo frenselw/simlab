@@ -45,6 +45,7 @@
   }
   function solve(input,relayStates=null) {
     if(input?.version===7)throw new Error('DC 求解器不支援交流時間模型');
+    if(input?.version===8)throw new Error('DC 求解器不支援家庭有效值模型');
     const doc = M.validate(input), ports = M.endpoints(doc), uf = union([...ports.keys()]); doc.wires.filter(w=>w.resistance===0).forEach((w) => uf.join(w.from, w.to));
     const netOf = Object.fromEntries([...ports.keys()].map((p) => [p, uf.find(p)])), netKeys = [...new Set(Object.values(netOf))], conductive = union(netKeys);
     const edges = [], branches = new Map();

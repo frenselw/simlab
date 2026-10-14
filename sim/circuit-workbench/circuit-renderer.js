@@ -33,7 +33,7 @@
     return{known,power,ratedPower,ratio,brightness:Math.pow(Math.min(1,ratio),.6),overloaded:known&&ratio>S.hazardLimits.lampRatio};
   }
   const blend=(a,b,t)=>'#'+a.map((v,i)=>Math.round(v+(b[i]-v)*t).toString(16).padStart(2,'0')).join('');
-  const hazardLimits=S.hazardLimits, visualState=(doc,result)=>result.mode==='transient'?result.hazards:S.hazards(doc,result);
+  const hazardLimits=S.hazardLimits, visualState=(doc,result)=>result.mode==='household'?{wires:{},components:{},short:false,overload:doc.components.some(c=>['house-breaker','house-fuse'].includes(c.type)&&Math.abs(result.components[c.id]?.current)>c.params.rating)}:result.mode==='transient'?result.hazards:S.hazards(doc,result);
   function heatEffect(x,y,scale,attrs='') {
     return `<g class="heat-effect" ${attrs} transform="translate(${x} ${y}) scale(${1/scale})" pointer-events="none"><title>短路／過載發熱示意</title><circle cy="-8" r="23" fill="#ff9e3744"/><path class="heat-flame" d="M-13 0C-24-18-7-23-8-40C0-33 3-27 2-19C9-22 10-28 12-30C24-10 19 1 5 4C-3 7-9 4-13 0Z" fill="#ed6728" stroke="#c94a24" stroke-width="1.5"/><path d="M-5 1C-13-9-2-15-1-23C8-14 13-4 6 1C3 4-2 4-5 1Z" fill="#ffe681"/><path class="heat-sparks" d="M-22-25l-6-7 M22-16l7-4 M15-38l4-7" fill="none" stroke="#e78b20" stroke-width="2.5" stroke-linecap="round"/><path d="M-2-46q-8-7 1-13t-2-12" fill="none" stroke="#82919b" stroke-width="3" stroke-linecap="round" opacity=".45"/></g>`;
   }
@@ -181,7 +181,7 @@
   }
   function labels(doc,result,scale=1,routes={},viewport=null,options=null){
     if(options)options.crowded=false;
-    if(viewport&&scale<.4)return [];
+    if(doc.analysis!=='household'&&viewport&&scale<.4)return [];
     const items=[],details=[...(options?.exclusions||[])],font=M.fontSizes[M.fontSize(doc.display)],nameSize=font.name,valueSize=font.value;
     doc.components.forEach(c=>{
       const r=result.components[c.id],isMeter=R.isMeter(c),estimated=doc.display.values&&r?.meterStatus==='collecting'&&Number.isFinite(r?.estimatedReading),lines=[];
@@ -193,6 +193,7 @@
           if(c.type==='battery'){parts.push(Q.assignment('E',c.params.voltage,'V'));if(show.sourceResistance!==false)parts.push(Q.assignment('r',c.params.resistance,'Ω'));}
           else if(c.type==='switch')parts.push({text:c.params.closed?'閉合':'斷開'});
           else if(c.type==='transformer'){/* Ratio is displayed once, above the core. */}
+          else if(R.get(c.type).analysis==='household'){if(c.params.rating)parts.push(Q.quantity(c.params.rating,'A'));else if(c.type==='house-rcd')parts.push(Q.quantity(30,'mA'));}
           else if(R.get(c.type).analysis==='transient'){const primary=R.primaryParameter(c);if(primary)parts.push(Q.quantity(primary.value*primary.factor,primary.unit));else if(c.type==='spdt')parts.push({text:c.params.closed==='b'?'接充電側':'接放電側'});}
           else if(c.type==='relay')parts.push({text:r?.contact==='e'?'已吸合':r?.contact===null?'切換中':'未吸合'});
           else{if(c.type==='rheostat'?show.loadResistance===true:show.loadResistance!==false){if(c.type==='rheostat')lines.push({kind:'value',text:'最大電阻',size:valueSize});parts.push(Q.quantity(c.type==='rheostat'?c.params.resistance:resistance,'Ω'));}if(show.loadPower!==false)parts.push(Q.quantity(r?.power,'W'));}
@@ -203,6 +204,7 @@
       if(lines.length)items.push({id:c.id,lines,maxWidth:font.maxWidth});
       if(c.type==='transformer'&&doc.display.values){const edge=c.y-R.bodyBounds(c).top;items.push({id:'ratio-'+c.id,componentId:c.id,anchor:{x:c.x,y:Math.max(c.y-edge-50/scale,viewport?viewport.y+5/scale:-Infinity)},lines:[{kind:'transformerRatio',componentId:c.id,...Q.turnsRatio(c.params.primaryTurns,c.params.secondaryTurns),size:valueSize}],maxWidth:font.maxWidth});}
       if(options?.selection===c.id){const b=R.bodyBounds(c);details.push({left:b.left-6,right:b.right+6,top:b.top-6,bottom:b.bottom+6});}
+      if(R.get(c.type).analysis==='household')R.ports(c).forEach(p=>details.push(householdPortLabel(p,scale).box));
       if((isMeter||c.type==='rheostat')&&(!R.dualMeter(c)||scale>=(doc.display.view==='real'?.4:.7)))R.ports(c).filter(p=>p.labelVisible!==false).forEach(p=>{const label=portLabel(c,p,scale,doc.display.view);details.push(label.box);});
       if(options?.potentialDirections?.has(c.id)){const direction=potentialDirection(c,result);items.push({id:'potential-'+c.id,componentId:c.id,paddingLeft:direction.angle===null?0:32,lines:[{...direction,size:font.direction}]});}
     });
@@ -250,24 +252,27 @@
     }
     return{x,y,spec,size:size/scale,box:{left:x-(m.width/2+2)/scale,right:x+(m.width/2+2)/scale,top:y-(m.ascent+2)/scale,bottom:y+(m.descent+2)/scale}};
   }
+  function householdPortLabel(p,scale){const size=14/scale,label=p.key.startsWith('l')?'L':p.key.startsWith('n')?'N':p.key==='e'?'E':p.role||'',x=p.x,y=p.y-12/scale;return{x,y,size,label,box:{left:x-6/scale,right:x+6/scale,top:y-14/scale,bottom:y+3/scale}};}
+  const householdPortText=(p,scale)=>{const a=householdPortLabel(p,scale);return a.label?text(a.x,a.y,a.label,a.size,`data-house-port-label="${p.id}" fill="#36546c" paint-order="stroke" stroke="#ffffff" stroke-width="${3/scale}" stroke-linejoin="round"`):'';};
   function scene(doc, result, scale = 1, routes = {}, selection = null, wireMode = false, viewport = null, labelOptions = null) {
     const {max} = potentialRange(result);
     if(labelOptions)labelOptions.selection=selection;
     const placed=labels(doc,result,scale,routes,viewport,labelOptions),hazards=visualState(doc,result);
-    const tiny=viewport&&(scale<.4||labelOptions?.crowded)&&(doc.components.length>0||labelOptions?.wireCurrents?.size);
+    const tiny=doc.analysis!=='household'&&viewport&&(scale<.4||labelOptions?.crowded)&&(doc.components.length>0||labelOptions?.wireCurrents?.size);
     let out = '';
     placed.filter(p=>p.leader).forEach(p=>{const a=p.leader.from,b=p.leader.to;out+=`<path data-label-leader="${p.id}" d="M${a.x} ${a.y}L${b.x} ${b.y}" fill="none" stroke="#a9bdcb" stroke-width="${1/scale}" stroke-dasharray="${3/scale} ${3/scale}"/>`;});
     doc.components.forEach((c) => {
       const r = result.components[c.id];
-      const size=R.meterBodyScale(c),box=c.type==='relay'?'x="-78" y="-42" width="158" height="112"':R.dualMeter(c)?doc.display.view==='real'?`x="-80" y="${-86*size-6}" width="160" height="${78+86*size+12}"`:'x="-72" y="-44" width="144" height="116"':'x="-46" y="-47" width="92" height="98"';
-      out += `<g data-component="${c.id}" transform="translate(${c.x} ${c.y}) rotate(${c.angle})">${selection === c.id ? `<rect ${box} rx="10" fill="none" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="5 3"/>` : ""}${body(c, result.mode==='transient'?displayComponent(doc,result,c,labelOptions?.currentReferences):r, result.mode==='transient'?{...doc.display,fields:labelOptions?.fields??true,idPrefix:(labelOptions?.idPrefix||'')+'scene-'}:doc.display)}</g>`;
+      const size=R.meterBodyScale(c),box=R.get(c.type).analysis==='household'?`x="${R.get(c.type).bounds.left-5}" y="${R.get(c.type).bounds.top-5}" width="${R.get(c.type).bounds.right-R.get(c.type).bounds.left+10}" height="${R.get(c.type).bounds.bottom-R.get(c.type).bounds.top+10}"`:c.type==='relay'?'x="-78" y="-42" width="158" height="112"':R.dualMeter(c)?doc.display.view==='real'?`x="-80" y="${-86*size-6}" width="160" height="${78+86*size+12}"`:'x="-72" y="-44" width="144" height="116"':'x="-46" y="-47" width="92" height="98"';
+      out += `<g data-component="${c.id}" transform="translate(${c.x} ${c.y}) rotate(${c.angle})">${selection === c.id ? `<rect ${box} rx="10" fill="none" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="5 3"/>` : ""}${body(c, result.mode==='transient'?displayComponent(doc,result,c,labelOptions?.currentReferences):r, {...doc.display,...(result.mode==='transient'?{fields:labelOptions?.fields??true}:{}),renderScale:scale,idPrefix:(labelOptions?.idPrefix||'')+'scene-'})}</g>`;
     });
     // Cables lie on top of components; terminals and labels stay legible above them.
     doc.wires.forEach((w) => {
-      const points = routes[w.id] || Routing.route(doc, w), colourValue = doc.display.potential ? colour(result.wires[w.id]?.potential, max) : "#50677e", d = Routing.path(points);
+      const points = routes[w.id] || Routing.route(doc, w), colourValue = result.mode==='household'?({L:'#a56535',N:'#2583b5',E:'#5d9b49'}[result.wires[w.id]?.role]||'#738698'):doc.display.potential ? colour(result.wires[w.id]?.potential, max) : "#50677e", d = Routing.path(points);
       const reading=result.wires[w.id],gradient=doc.display.potential&&w.resistance>0&&selection!==w.id&&Number.isFinite(reading?.potential)&&Number.isFinite(reading?.potentialTo);
       if(hazards.wires[w.id])out+=`<path data-wire-heat="${w.id}" d="${d}" fill="none" stroke="#f09b50" opacity=".5" stroke-width="${12/scale}" stroke-linejoin="round" stroke-linecap="round" pointer-events="none"/>`;
       out += `<path d="${d}" fill="none" stroke="#fff" stroke-width="${9 / scale}" stroke-linejoin="round"/><path ${hazards.wires[w.id]?`data-wire-hazard="${hazards.wires[w.id]}"`:''} ${selection===w.id?`data-raised-wire="${w.id}"`:""} data-wire="${w.id}" d="${d}" fill="none" stroke="${selection === w.id ? "#2563eb" : gradient?'transparent':colourValue}" stroke-width="${(selection === w.id ? 5 : 4) / scale}" stroke-linejoin="round" stroke-linecap="round"/>`;
+      if(result.mode==='household'&&result.wires[w.id]?.role==='E')out+=`<path data-house-earth-wire="${w.id}" d="${d}" fill="none" stroke="#edcd4d" stroke-width="${2/scale}" stroke-dasharray="${7/scale} ${6/scale}" pointer-events="none"/>`;
       if(gradient){const total=Routing.length(points)||1,drop=reading.potentialTo-reading.potential;let at=0;
         for(let i=1;i<points.length;i++){const a=points[i-1],b=points[i],distance=Math.hypot(b.x-a.x,b.y-a.y);if(!distance)continue;const id=esc((labelOptions?.idPrefix||'')+'wire-potential-'+w.id+'-'+i),from=reading.potential+drop*at/total,to=reading.potential+drop*(at+distance)/total;at+=distance;
           out+=`<defs><linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"><stop offset="0" stop-color="${colour(from,max)}"/><stop offset="1" stop-color="${colour(to,max)}"/></linearGradient></defs><path data-wire-potential="${w.id}" d="M${a.x} ${a.y}L${b.x} ${b.y}" fill="none" stroke="url(#${id})" stroke-width="${4/scale}" stroke-linecap="round" pointer-events="none"/>`;
@@ -277,7 +282,8 @@
     doc.junctions.filter(j=>doc.wires.reduce((n,w)=>n+(w.from===j.id+":p")+(w.to===j.id+":p"),0)>1).forEach((j) => { const v = result.potentials[j.id + ":p"]; out += `<circle cx="${j.x}" cy="${j.y}" r="${5 / scale}" fill="${doc.display.potential ? colour(v, max) : "#334155"}"/>`; });
     doc.components.forEach(c=>{const isMeter=R.isMeter(c)||c.type==='rheostat';
       R.ports(c).forEach((p) => {
-        const v = result.potentials[p.id]; out += `<circle data-port="${p.id}" cx="${p.x}" cy="${p.y}" r="${5 / scale}" fill="#fff" stroke="${doc.display.potential ? colour(v, max) : "#57728b"}" stroke-width="${2 / scale}"/>`;
+        const v = result.potentials[p.id]; if(R.get(c.type).portStyle==='hole'){out+=householdPortText(p,scale);return;}out += `<circle data-port="${p.id}" cx="${p.x}" cy="${p.y}" r="${5 / scale}" fill="#fff" stroke="${doc.display.potential ? colour(v, max) : "#57728b"}" stroke-width="${2 / scale}"/>`;
+        if(R.get(c.type).analysis==='household')out+=householdPortText(p,scale);
         if(isMeter&&p.labelVisible!==false&&!tiny&&(!R.dualMeter(c)||scale>=(doc.display.view==='real'?.4:.7))){const a=portLabel(c,p,scale,doc.display.view),attrs=`data-port-label="${p.id}"`;if(!R.dualMeter(c)||doc.display.view!=='real')out+=`<rect x="${a.box.left}" y="${a.box.top}" width="${a.box.right-a.box.left}" height="${a.box.bottom-a.box.top}" rx="${2/scale}" fill="#ffffffee" pointer-events="none"/>`;out+=(a.spec.tex?Q.svg(a.x,a.y,a.spec,a.size,attrs):text(a.x,a.y,a.spec.text,a.size,attrs));}
       });
     });
@@ -458,10 +464,10 @@
     return out;
   }
   function flow(doc, result, routes, time, scale, offsets=null,baselines=null) {
-    if (doc.display.flow === "off") return ""; let out = '';const electron=doc.display.flow==='electron',references=flowReferences(doc,result,baselines);
+    if (doc.display.flow === "off") return ""; let out = '';const electron=doc.display.flow==='electron',references=flowReferences(doc,result,baselines),household=doc.analysis==='household',swing=Math.cos(time*2*Math.PI*.7);
     doc.wires.forEach((w) => {
       const current = result.wires[w.id]?.current,reference=referenceAt(references,result,w.from),speed=flowSpeed(displayCurrent(doc,result,w.from,current,references,result.wires[w.id]?.currentPeak),reference);if(!speed)return;
-      const points=routes[w.id]||Routing.route(doc,w),reverse=(current<0)!==electron,phase=modulo(offsets?offsets.get(w.id)||0:time*speed*(reverse?-1:1),flowSpacing);
+      const points=routes[w.id]||Routing.route(doc,w),reverse=(current*(household?swing:1)<0)!==electron,phase=modulo(household?Math.sin(time*2*Math.PI*.7)*flowSpacing*.4*(current<0?-1:1):offsets?offsets.get(w.id)||0:time*speed*(reverse?-1:1),flowSpacing);
       out+=`<g data-flow-wire="${w.id}" data-current="${current}" data-reference-current="${reference}" data-speed="${speed}" data-phase="${phase}" data-direction="${reverse?-1:1}">`;
       out+=flowParticles(points,phase,flowSpacing,scale,electron,reverse,1/scale);
       out+='</g>';
