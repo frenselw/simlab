@@ -478,3 +478,11 @@ Quality Full 在各測試組全部通過後，因 GitHub runner 映像不同而�
 - 舊檔的市電／接地 `anchor` 先驗證來源及端點，再只移除固定標記；接線、幾何、接觸、電能及保護狀態保留。36 個歷史 production fixtures 仍用原檔測試遷移、往返及合法續作，不重寫歷史樣本以避開相容性。接線範本清空所有導線及共接點。
 - 最終 source／重建實際 ZIP 共 **125 browser checks** 通過。新增工具箱取件／複製／命令不附線、實物與符號兩種視圖的導線 A／B 端可信拖接地（離中心 12 CSS px 仍吸附）、拔線／刪線／復原／存檔，以及 320×500、390×500、390×600 的可信觸控接地。手機測試在切換場景與選線後等待版面重排，再取得拖曳座標。已檢視 `output/playwright/circuit-household/source-source-earth-no-extra-wires.png` 及接地拖線手機圖；同資料夾 `results.json` 記錄最終 source／ZIP 指紋。
 - 四個家庭 Node tests、共用 core（含 7299 個有限導線軌跡 frame）、DC／AC 八方向接線、22 項旋轉測試、19 組 activity core、8 組文件匯入、`check`、`check:tests`、修改文件連結及 diff 檢查通過。沿用既有測試 owner，未新增入口或依賴。本輪未重跑完整 CI、DC／AC 瀏覽器或真手機驗收。
+
+### 拖動期間維持家電示意動畫（2026-10-15）
+
+修正拖動元件時家電停轉：原本幾何／觸控／參數預覽會凍結家庭模型，其推進秒數為零，家電動畫因此一併停止。共用 frame 現在以同一個家庭預覽判斷維持原物理凍結，僅在此期間讓家電示意動畫按經過時間、慢動作倍率及播放速率更新；一般播放繼續跟隨實際模型推進。動畫仍受當前 `working`、明確暫停、只讀及頁面可見性控制，沒有新增 RAF、修改電氣求解或保存示意角度。
+
+最終 source／重建實際 ZIP 共 **159 browser checks** 通過。新增金屬風扇、塑膠風扇、冷氣、吹風機、攪拌機、吸塵機，分別可信拖住電源及家電本體，驗證靜止握住與再次移動重畫後均持續轉動；每段握住期間比對完整權威 session 不變，取消只丟棄幾何預覽。另驗證暫停／未通電的風扇在拖動時仍不轉，並在 320×500、390×500、390×600 執行可信觸控拖動風扇、期間動畫持續而權威時間凍結、放手後移動提交。證據及 source／ZIP 指紋在 `output/playwright/circuit-household/results.json`。
+
+四個家庭 Node tests（含 36 個歷史 production fixture 往返／續作）、共用 platform core、`check`、`check:tests`、修改文件連結及 diff 檢查通過；沿用既有測試 owner，沒有新增入口或依賴。本輪未重跑完整 CI、DC／AC 瀏覽器或真手機驗收。

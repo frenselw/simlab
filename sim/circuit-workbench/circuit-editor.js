@@ -834,14 +834,14 @@
   if(transient){if(!root.CircuitACUI)throw new Error('缺少交流介面依賴');acUI=root.CircuitACUI.mount({host,refs,profile,controller,viewDocument:current,routes:()=>routes,readouts:reactiveReadouts,currentReferences:()=>labelOptions.currentReferences});}
   render();function animate(time){if(destroyed)return;
     const rate=slowMotion?.25:1,rawElapsed=lastTime?Math.max(0,(time-lastTime)/1000):0,elapsed=Math.min(timed?.25:.05,rawElapsed)*rate;lastTime=time;
-    let acAdvanced=0;const active=!paused&&!document.hidden;if(active)animationTime+=elapsed;
+    let acAdvanced=0;const active=!paused&&!document.hidden,householdPreview=household&&!!(drag||previewDoc||cameraGesture||touches.size);if(active)animationTime+=elapsed;
     const relayEligible=active&&!drag&&!previewDoc&&!cameraGesture&&!touches.size,relayElapsed=relayEligible?Math.max(0,(time-relayLastTime)/1000)*rate:0;relayLastTime=time;
-    // Geometry and snap previews leave the accepted electrical circuit running.
+    // Household gestures freeze physics while their illustrative motors keep moving.
     // A completed request can leave a rounding remainder that is not another physics step.
-    if(timed&&active&&!readOnly&&(!household||!drag&&!previewDoc&&!cameraGesture&&!touches.size)){acLag+=elapsed*timeRate;const live=paramSession||session,progress=live.advance(acLag,{budget:10});acAdvanced=progress.advanced;acLag=progress.complete?0:Math.max(0,acLag-progress.advanced);actualRate=rawElapsed?progress.advanced/rawElapsed:0;analysis=progress.result;animationTime=live.state.time;if(live.fault&&!paramSession)paused=true;if(live.fault||time-lastACPaint>=200){lastACPaint=time;render(false);}}
+    if(timed&&active&&!readOnly&&!householdPreview){acLag+=elapsed*timeRate;const live=paramSession||session,progress=live.advance(acLag,{budget:10});acAdvanced=progress.advanced;acLag=progress.complete?0:Math.max(0,acLag-progress.advanced);actualRate=rawElapsed?progress.advanced/rawElapsed:0;analysis=progress.result;animationTime=live.state.time;if(live.fault&&!paramSession)paused=true;if(live.fault||time-lastACPaint>=200){lastACPaint=time;render(false);}}
     if(transient&&active&&!readOnly)for(const c of current().components)if(['lamp','capacitor','inductor','generator','transformer'].includes(c.type)){const node=$('scene').querySelector('[data-component="'+c.id+'"] '+(c.type==='lamp'?'[data-lamp]':c.type==='generator'?'[data-generator-model]':'[data-ac-apparatus]'));if(node){if(c.type==='generator')root.CircuitGeneratorGraphics.update(node,c,analysis.components[c.id],labelOptions.fields??true);else if(c.type==='transformer'){const slot=node.querySelector('[data-transformer-field-slot]');if(slot){if(labelOptions.fields===false)slot.innerHTML='';else root.CircuitFieldGraphics.updateTransformer(slot,c,V.displayComponent(current(),analysis,c,labelOptions.currentReferences),current().display.view==='schematic',slot.dataset.transformerFieldId);}}else node.outerHTML=V.body(c,V.displayComponent(current(),analysis,c,labelOptions.currentReferences),{...current().display,fields:labelOptions.fields??true});}}
-    if(timed&&(!active||household&&(drag||previewDoc||cameraGesture||touches.size)))acLag=0;
-    familyUI?.animate(analysis,active&&!readOnly?acAdvanced:0);
+    if(timed&&(!active||householdPreview))acLag=0;
+    familyUI?.animate(analysis,active&&!readOnly?(householdPreview?elapsed*timeRate:acAdvanced):0);
     if(!timed&&relayEligible&&relayStates.size){
       const progress=H.advanceFrame(relayStates,history.get(),analysis,relayElapsed,solve);analysis=progress.result;
       if(progress.switched){render(false);const c=selectedComponent(),reading=$('properties').querySelector('.reading-host');if(c&&reading)reading.innerHTML=componentReadings(c.id);else if(selectedWire()&&!$('properties').contains(document.activeElement))renderProperties();}
