@@ -36,7 +36,7 @@
       for (const [k, spec] of Object.entries(specs)) {
         if(spec.optional&&!Object.hasOwn(c.params,k))continue;
         if(!Object.hasOwn(c.params,k)&&((c.type==='rheostat'&&k==='terminals')||(c.type==='lamp'&&['coldRatio','linearLoss'].includes(k))))continue;
-        if(spec.choices)choice(c.params[k],spec.choices);else numeric(c.params[k],spec.min,spec.max);
+        if(spec.choices)choice(c.params[k],spec.legacyChoices?[...spec.choices,...spec.legacyChoices]:spec.choices);else numeric(c.params[k],spec.min,spec.max);
       }
     });
     input.junctions.forEach((j) => { object(j, ["id", "x", "y"]); id(j.id); numeric(j.x, -limits.coordinate, limits.coordinate); numeric(j.y, -limits.coordinate, limits.coordinate); });

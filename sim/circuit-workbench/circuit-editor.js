@@ -303,6 +303,7 @@
       }
       for (const key of Object.keys(R.get(c.type).params)) {
         const spec={...profile.parameterSpec(c,key),...(c.type==='ac-source'&&key==='voltage'&&c.params.protectionEnabled?{label:'電動勢有效值（調節前）'}:{})};
+        if(spec.legacyChoices?.includes(c.params[key]))spec.choices=[c.params[key],...spec.choices];
         if (key === "polarity") continue;
         if(c.type==='ac-source'&&['protectionEnabled','maxCurrent','maxPower'].includes(key))continue;
         if(c.type==='lamp'&&c.params.model==='ideal'&&['coldRatio','linearLoss'].includes(key))continue;
@@ -732,7 +733,7 @@
     const sample={id:'palette-'+entry.key,type,params:entry.params};
     const bounds=household?R.get(type).bounds:null,ports=household?R.ports({...sample,x:0,y:0,angle:0}):[];
     const left=bounds?Math.min(bounds.left,...ports.map(p=>p.x))-8:0,right=bounds?Math.max(bounds.right,...ports.map(p=>p.x))+8:0;
-    const paletteBox=household&&type==='house-metal'?'-42 -58 84 124':household&&type==='house-insulated'?'-36 -50 92 116':bounds?`${left} ${bounds.top-10} ${right-left} ${bounds.bottom-bounds.top+20}`:null;
+    const paletteBox=household&&type==='house-metal'?'-42 -58 84 124':household&&type==='house-insulated'?'-42 -68 96 140':bounds?`${left} ${bounds.top-10} ${right-left} ${bounds.bottom-bounds.top+20}`:null;
     if(household){b.title=R.get(type).name;b.setAttribute('aria-label',R.get(type).name);}
     b.innerHTML=`<span class="icon"><svg viewBox="${paletteBox|| (sample.type==='transformer'?'-82 -83 164 132':sample.type==='relay'?'-84 -64 188 154':R.dualMeter(sample)?'-84 -90 168 180':sample.type.startsWith('ac-')&&R.isMeter(sample)?'-66 -47 132 92':'-64 -68 128 124')}" aria-hidden="true">${V.body(sample,null,{view:'real',palette:household,meters:'analog',values:false,fields:sample.type==='transformer'?false:undefined,idPrefix:prefix+'palette-'+entry.key+'-'})}</svg></span><span>${V.esc(entry.label)}</span>`;
     bindToolDrag(b,entry);

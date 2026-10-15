@@ -41,6 +41,8 @@
 
 ## 打包與驗證
 
+雙重絕緣家電目前提供攪拌機 400 W、風扇 60 W、吹風機 1200 W、吸塵機 700 W；新元件及 C05／C06／C08 使用攪拌機。舊台燈只供舊文件相容讀取，保留 40 W、原外形及接觸座標，不出現在新元件的種類選單；載入舊台燈時才顯示目前的舊選項。吸塵機文件按目前選定的 700 W 教學款式重新計算負載。
+
 資產由 [assets.json](../sim/circuit-household-workbench/assets.json)列出。`npm run package:circuit-platform` 同時重建 DC、AC、家庭工作台及兩個 DC 活動共五包，核對所有 ZIP 檔案與實際原始碼。家庭 ZIP 為 `output/circuit-household-workbench-standalone.zip`，沒有 SCORM manifest。
 
 Node 驗證：`household-connections.test.js`、`household-model.test.js`、`household-state.test.js` 及 `presets.test.js`；[production fixtures](../sim/circuit-workbench/fixtures/household-v1-states.json)涵蓋合法錯接、部分接線、故障、人物及保護／電能狀態。

@@ -9,7 +9,7 @@
     const wire=(from,to,via=[])=>{const ends=M.endpoints(doc),a=ends.get(from),b=ends.get(to);return M.connect(doc,from,to,via,via.length||a.x===b.x||a.y===b.y?'free':'auto');};
     if(key==='empty')return M.validate(doc);
     if(key==='C08'){
-      add('source','house-mains',-170,-30,{},'市電');add('socket','house-socket',10,-30,{},'插座');add('load','house-insulated',250,-15,{kind:'lamp'},'台燈');add('earth','house-earth',-160,95);
+      add('source','house-mains',-170,-30,{},'市電');add('socket','house-socket',10,-30,{},'插座');add('load','house-insulated',250,-15,{kind:'blender'},'攪拌機');add('earth','house-earth',-160,95);
       wire('source:l','socket:l',[{x:-52,y:-52},{x:-52,y:-100},{x:66,y:-100},{x:66,y:-6}]);wire('source:n','socket:n');
       wire('earth:e','socket:e',[{x:-72,y:95},{x:-72,y:55},{x:10,y:55}]);
       wire('socket:l','load:l',[{x:108,y:-6},{x:108,y:-41}]);wire('socket:n','load:n',[{x:-17,y:105},{x:140,y:105},{x:140,y:-15}]);return M.validate(doc);
@@ -34,7 +34,7 @@
         else wire('source:l','socket:l',[{x:40,y:-132},{x:40,y:-28},{x:-33,y:-28}]);
         wire('source:n','socket:n',[{x:12,y:-88},{x:12,y:5},{x:-120,y:5},{x:-120,y:socketY+24}]);
       }
-      const insulated=['C05','C06','C08'].includes(key),kind=key==='C07'||key==='C07fuse'?'heater':insulated?'lamp':'fan';
+      const insulated=['C05','C06','C08'].includes(key),kind=key==='C07'||key==='C07fuse'?'heater':insulated?'blender':'fan';
       add('load',insulated?'house-insulated':'house-metal',180,100,{kind},C.applianceKinds[insulated?'insulated':'metal'][kind].label);
       if(['C03','C04','C07','C07fuse','C08'].includes(key)){add('earth','house-earth',-190,110);wire('earth:e','socket:e',[{x:-132,y:30},{x:-60,y:30}]);}
       if(['C02','C03','C04','C05'].includes(key))add('person','house-person',340,125,{},'人');

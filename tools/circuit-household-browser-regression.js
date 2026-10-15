@@ -21,6 +21,14 @@ async function main(){
       server=H.createServer(directory);await H.listenServer(server);await cdp.send('Emulation.setDeviceMetricsOverride',{width:1280,height:900,deviceScaleFactor:1,mobile:false});await load();
       for(const key of ['C01','C02','C03','C04','C05','C06','C07','C07fuse','C08']){await preset(key);assert.equal((await call('getAnalysis()')).diagnostics.length,0);await screenshot(mode+'-'+key);checks.push(mode+'-'+key);}
       await preset('C08');
+      await click('[data-hit="body:load"]');
+      const kinds=await inside(`Array.from(document.querySelectorAll('select[data-param="kind"] option'),o=>({value:o.value,label:o.textContent}))`);
+      assert(!kinds.some(o=>o.value==='lamp'));assert(kinds.some(o=>o.value==='blender'&&o.label.includes('400 W')));assert(kinds.some(o=>o.value==='vacuum'&&o.label.includes('700 W')));
+      const applianceWires=(await call('getDocument()')).wires;
+      for(const [kind,watts]of [['vacuum',700],['blender',400]]){assert(await call(`execute({type:'setParam',id:'load',key:'kind',value:'${kind}'})`));assert(Math.abs((await call('getAnalysis()')).components.load.power-watts)<watts*.005);assert.deepEqual((await call('getDocument()')).wires,applianceWires);assert(await inside('!!document.querySelector("[data-house-motor]")'));}
+      await inside(`(()=>{const d=CircuitHouseholdPresets.create('C05');d.components.find(c=>c.id==='load').params.kind='lamp';CircuitHouseholdWorkbench.loadDocument(d);})()`);await click('[data-hit="body:load"]');assert(await inside(`!!document.querySelector('select[data-param="kind"] option[value="lamp"]')`));assert((await call('getAnalysis()')).components.load.power>39);
+      assert(await call(`execute({type:'setParam',id:'load',key:'kind',value:'blender'})`));assert.equal(await inside(`!!document.querySelector('select[data-param="kind"] option[value="lamp"]')`),false);
+      checks.push(mode+'-midrange-appliances-and-visible-kinds');await preset('C08');
       const palette=await inside(`Array.from(document.querySelectorAll('.palette button'),b=>{const r=b.getBoundingClientRect(),s=b.querySelector('svg').getBoundingClientRect();return{width:r.width,height:r.height,iconHeight:s.height,label:b.lastElementChild.textContent,accessible:b.getAttribute('aria-label')};})`);
       assert.equal(palette.length,11);assert.equal(new Set(palette.map(p=>p.height)).size,1);assert.equal(new Set(palette.map(p=>p.width)).size,1);assert(palette.every(p=>p.iconHeight>=64&&p.label.length<=6&&p.accessible));checks.push(mode+'-uniform-readable-palette');
       await click('[data-circuit-id="pickWire"]');
