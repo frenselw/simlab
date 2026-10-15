@@ -41,6 +41,8 @@
 
 ## 打包與驗證
 
+風扇兩類共用正面剖視圖：馬達及轉軸與扇葉輪轂同軸，馬達半透明並位於扇葉後方；雙重絕緣以馬達外兩層圓形邊界表達，金屬款維持可見 E–外殼接點。動畫接入共用 editor 的既有 frame，以實際推進的模擬時間及 `working` 結果旋轉扇葉；護網不轉，暫停、斷電、保護切斷及只讀時停止。葉片角度只是顯示狀態，不寫入存檔；轉速為教學示意。沒有另啟動畫迴圈或改動求解器。
+
 雙重絕緣家電目前提供攪拌機 400 W、風扇 60 W、吹風機 1200 W、吸塵機 700 W；新元件及 C05／C06／C08 使用攪拌機。舊台燈只供舊文件相容讀取，保留 40 W、原外形及接觸座標，不出現在新元件的種類選單；載入舊台燈時才顯示目前的舊選項。吸塵機文件按目前選定的 700 W 教學款式重新計算負載。
 
 資產由 [assets.json](../sim/circuit-household-workbench/assets.json)列出。`npm run package:circuit-platform` 同時重建 DC、AC、家庭工作台及兩個 DC 活動共五包，核對所有 ZIP 檔案與實際原始碼。家庭 ZIP 為 `output/circuit-household-workbench-standalone.zip`，沒有 SCORM manifest。

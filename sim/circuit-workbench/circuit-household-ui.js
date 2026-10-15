@@ -3,6 +3,8 @@
   const C=root.CircuitHouseholdComponents,V=root.CircuitRenderer,Q=root.CircuitMath,P=root.CircuitHouseholdPresets;
   const abs=value=>Number.isFinite(value)?Math.abs(value):null;
   function mount({host,refs,controller}){
+    const fanAngles=new Map();let fans=[];
+    function animate(result,elapsed){for(const {id,node}of fans){const previous=fanAngles.get(id)||0,angle=(previous+(result.components[id]?.working?elapsed*240:0))%360;fanAngles.set(id,angle);const transform='rotate('+angle.toFixed(3)+')';if(node.getAttribute('transform')!==transform)node.setAttribute('transform',transform);}}
     const observation=document.createElement('output');observation.className='household-observation';observation.setAttribute('aria-live','polite');observation.dataset.householdObservation='true';refs.stage.insertBefore(observation,refs.canvasArea);
     refs.diagramLabels.replaceChildren();const legend=document.createElement('div');legend.className='household-legend';legend.innerHTML='<span><i></i>火線 L</span><span><i class="neutral"></i>零線 N</span><span><i class="earth"></i>地線 E</span>';refs.diagramLabels.append(legend);
     for(const strip of host.querySelectorAll('.scroll-strip'))strip.setAttribute('aria-label',(strip.classList.contains('left')?'左':'右')+'側捲頁區：上下滑動可捲動頁面');
@@ -39,8 +41,11 @@
       if(r.working)return c.type==='house-metal'&&!r.earthed?'電器正在工作，外殼尚未正確接地。':'兩條工作線之間有電壓，形成工作回路。';
       return '電器不工作，查看兩條線和開關。';
     }
-    function render(doc,result){const key=refs.preset.value;const question=P.questions[key]||P.questions.empty;host.querySelector('.brand p').textContent=question;const message=resultText(doc,result);if(observation.textContent!==message)observation.textContent=message;observation.dataset.alert=String(doc.components.some(c=>c.type==='house-person'&&Math.abs(result.components[c.id].current)>1e-9));}
-    return {readings:reading,properties,render,destroy(){observation.remove();}};
+    function render(doc,result){const key=refs.preset.value;const question=P.questions[key]||P.questions.empty;host.querySelector('.brand p').textContent=question;const message=resultText(doc,result);if(observation.textContent!==message)observation.textContent=message;observation.dataset.alert=String(doc.components.some(c=>c.type==='house-person'&&Math.abs(result.components[c.id].current)>1e-9));
+      const ids=new Set(doc.components.filter(c=>C.isAppliance(c)&&c.params.kind==='fan').map(c=>c.id));for(const id of fanAngles.keys())if(!ids.has(id))fanAngles.delete(id);
+      fans=Array.from(refs.scene.querySelectorAll('[data-house-fan-rotor]'),node=>({id:node.closest('[data-component]').dataset.component,node}));animate(result,0);
+    }
+    return {readings:reading,properties,render,animate,destroy(){fans=[];fanAngles.clear();observation.remove();}};
   }
   root.CircuitHouseholdUI=Object.freeze({mount});
 })(window);

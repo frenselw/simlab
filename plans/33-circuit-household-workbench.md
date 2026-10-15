@@ -406,3 +406,12 @@ Quality Full 在各測試組全部通過後，因 GitHub runner 映像不同而�
 - 新取出的雙重絕緣家電及 C05／C06／C08 改用攪拌機，選單移除台燈。舊台燈存檔仍按原 40 W、輪廓及接觸位置讀取；只在已載入舊台燈時顯示舊選項，不靜默替換既有元件。36 個舊 production fixtures 保留作相容性驗證。
 - 新款式驗證功率、內層破損／外層完整且有人接觸時的零人體電流，以及實際 encode／decode／restore 後續作。原始碼與實際 ZIP 共 63 browser checks 通過，包括新選單、切換家電仍保留接線、錯接及保護。已檢視全部款式的放大圖，以及 665×604 C05 畫面；證據在 `output/playwright/circuit-household/appliances-motor-detail.png`、`appliances-blender-workbench.png` 與 `results.json`。
 - 四個家庭 Node tests、DC 共用核心及 AC 平台測試通過；DC source／ZIP `--handling-smoke` 亦通過（`output/playwright/circuit-workbench/cable-handling.json`）。所有目前雙重絕緣款式在八個旋轉角度下的接觸及 codec 自檢通過，`check`／`check:tests`／修改文件連結與 diff 檢查通過。此輪未重跑完整 CI 或真手機驗收，前述正式 CI receipt 仍對應其原提交。
+
+### 逐件重畫：風扇（2026-10-15）
+
+使用者否定前述風扇的橫向泛用馬達；該次測試通過不代表外觀已獲接受。本輪只重畫兩類風扇，其餘用電器留待逐件修訂。
+
+- 風扇改用正面同軸剖視：馬達端面、轉軸及扇葉輪轂中心一致，半透明馬達置於扇葉後方，前方為固定護網。雙重絕緣邊界改為圍繞內部馬達的兩層圓形輪廓，移除蓋在風扇前面的方框；外殼破損及 E–外殼接點仍可辨識。端口、接觸輪廓、功率及電氣模型維持原值。
+- 只有扇葉旋轉；共用 frame 把實際推進的模擬時間傳給家庭 UI。暫停、斷電、漏電保護切斷及只讀後停止；慢速跟隨模擬時間，減少動態偏好沿用既有暫停。角度不保存為權威狀態，重畫／適應畫面時保留當前角度，刪除元件或 destroy 時清理暫態資料。旋轉只表示風扇工作，不是實際轉速模型。
+- 已檢視兩類風扇、內層破損放大圖及 665×604 小電路；證據為 `output/playwright/circuit-household/fan-redesign-detail.png`／`fan-redesign-workbench.png`。瀏覽器驗收核對軸心對齊、半透明馬達、實際角度變化、固定護網、通斷電／再接通、暫停／重畫、只讀、減少動態及漏電保護跳掣後停轉，不能只查 `running` 標記。
+- 最終 source／實際 ZIP 共 **69 browser checks** 通過；四個家庭 Node tests（含 36 個舊文件續作）、DC 共用核心、`check`／`check:tests`、修改文件連結及 diff 檢查通過。沿用既有 registry owner，沒有新增測試入口。此輪未重跑完整 CI、AC 瀏覽器或真手機驗收。
