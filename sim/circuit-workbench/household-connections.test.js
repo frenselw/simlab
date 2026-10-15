@@ -27,4 +27,21 @@ assert.equal(Object.keys(C.definitions).length,11);
  const legacy=M.clone(d);legacy.wires[0].anchor=c.id+':l';const restored=M.validate(legacy);assert.deepEqual(restored,d,'legacy pinned source preserves geometry and connections');M.detach(restored,w.id,'from');assert.doesNotThrow(()=>M.validate(restored));
  assert.equal(require('./circuit-document').template(d).wires.length,0);M.remove(d,w.id);assert.equal(d.wires.length,1);M.remove(d,c.id);assert.equal(d.wires.length,1);assert.doesNotThrow(()=>M.validate(d));
 }
-console.log('Household: 36 working-lead combinations / order, supply boundaries, atomic attach and component snapping passed');
+// Component capabilities cannot be overridden by teacher mode or wiring permissions.
+for(const mode of ['free','wiring'])for(const role of ['teacher','student']){
+ const d=P.create('C03'),insulated=M.add(d,'house-insulated',500,200);d.policy.mode=mode;d.policy.allowRotate=true;
+ const profile=Profile.compile({role,analysis:'household',initialDocument:d,palette:[],components:{default:{rotate:true}}});
+ for(const c of [d.components.find(c=>c.id==='load'),insulated,d.components.find(c=>c.id==='person')]){
+  assert.equal(profile.allows(d,c,'rotate'),false,c.type+' '+role+' '+mode);
+  for(const direction of [1,-1]){const before=M.clone(d);assert.throws(()=>M.rotateComponent(d,c.id,direction),/不能旋轉/);assert.deepEqual(d,before);}
+  const changed=M.clone(d);changed.components.find(p=>p.id===c.id).angle=45;assert.throws(()=>profile.assertTransition(d,changed));
+ }
+ assert(profile.allows(d,d.components.find(c=>c.id==='socket'),'rotate'));
+}
+{
+ const d=P.create('C05');d.components.find(c=>c.id==='load').angle=45;d.components.find(c=>c.id==='person').angle=90;
+ const profile=Profile.compile({role:'teacher',analysis:'household',initialDocument:d,palette:[]});
+ assert.deepEqual(profile.assertSnapshot(M.validate(d)),d,'old orientations load without moving wires or people');
+ const next=M.clone(d);next.components.find(c=>c.id==='load').x+=20;assert.doesNotThrow(()=>profile.assertTransition(d,next));
+}
+console.log('Household: working-lead combinations, supply boundaries, atomic attach, snapping and fixed appliance/person orientations passed');

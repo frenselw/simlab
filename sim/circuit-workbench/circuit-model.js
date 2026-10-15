@@ -82,6 +82,7 @@
   function nextId(doc, prefix) { const ids = new Set([...doc.components, ...doc.junctions, ...doc.wires].map((x) => x.id)); let n = 1; while (ids.has(prefix + n)) n++; return prefix + n; }
   function component(doc, type, x, y, params = {}) { R.get(type); return { id: nextId(doc, "c"), type, label: R.get(type).name, x, y, angle: 0, locked: false, editable: false, ...(R.dualMeter({type})?{mirrored:false}:{}), params: { ...R.defaults(type), ...params } }; }
   function permission(doc, c, operation) {
+    if (operation === "rotate" && R.get(c.type).rotatable === false) return false;
     if (operation === "switch") return doc.policy.allowSwitch;
     if (doc.policy.mode === "wiring") return operation === "rotate" ? doc.policy.allowRotate : operation === "params" ? doc.policy.allowParams || c.editable : false;
     return !c.locked;

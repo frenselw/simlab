@@ -446,3 +446,11 @@ Quality Full 在各測試組全部通過後，因 GitHub runner 映像不同而�
 將馬達內四條孤立銅色直線改為沿軸延伸、上下端部繞回的三組連續線圈，並補上鐵芯與端部高光；保留半透明機殼、原豎直轉軸、刀片及端口座標。已檢視放大及窄畫面（`output/playwright/circuit-household/blender-winding-detail.png`／`blender-winding-workbench.png`），既有示例／元件渲染與語法檢查通過。這是局部繪圖修正，不新增馬達模型或狀態欄位。
 
 最終 source／實際 ZIP 的 81 browser checks 通過，包含攪拌機連軸對齊、轉動、暫停及通斷電；修改文件連結及 diff 檢查通過。本輪未重跑完整 CI 或真手機驗收。
+
+### 用電器及人物禁止整件旋轉（2026-10-15）
+
+依使用者要求，金屬外殼家電、雙重絕緣家電及人物的 registry 定義設為 `rotatable:false`，共用 model 權限統一拒絕旋轉。教師／學生、自由／接線模式（即使開放旋轉）、R／Shift+R 及公開命令均受限制；選取工具列及手機「更多」不提供這些元件的旋轉按鈕。其他元件仍沿用原旋轉功能，內部扇葉、滾筒及刀片動畫不受限制。
+
+保留舊檔既有方向及接線／人物接觸座標，不在載入時強行轉正；載入後不能再旋轉這些元件。拒絕的操作不改文件、接觸、模擬狀態或復原步數。
+
+最終 source／重建實際 ZIP 共 **89 browser checks** 通過，新增三類元件的工具列、可信鍵盤雙方向、命令雙方向、完整 session 不變及單步復原驗證，另驗證普通開關仍可旋轉；既有內部動畫通斷電／暫停檢查保留。證據為 `output/playwright/circuit-household/results.json`，記錄 source／ZIP 指紋。四個家庭 Node tests（含 36 個 production fixture 往返／續作）、共用 platform core、22 項旋轉測試及 DC／AC 八方向接孔幾何測試通過；`check`、`check:tests`、修改文件連結及 diff 檢查通過。沿用既有測試 owner，未新增入口或依賴；本輪未重跑完整 CI、DC／AC 瀏覽器或真手機驗收。
