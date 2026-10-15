@@ -156,9 +156,9 @@
       const acBounds=R.get(c.type).analysis?R.bodyBounds(c):null;
       put("body:"+c.id,{kind:"body",id:c.id,label:c.label+"，拖動本體或用方向鍵移動"},screen(acBounds?{x:(acBounds.left+acBounds.right)/2,y:(acBounds.top+acBounds.bottom)/2}:center),(acBounds?acBounds.right-acBounds.left:Math.abs(Math.cos(angle))*w+Math.abs(Math.sin(angle))*h)*camera.scale,(acBounds?acBounds.bottom-acBounds.top:Math.abs(Math.sin(angle))*w+Math.abs(Math.cos(angle))*h)*camera.scale,allow(d,c,"move")||readableMeter(d,c)?"none":"pan-y");
       targets.get('body:'+c.id).classList.toggle('overview',camera.scale<(dual?.7:.55));
-      if(household&&c.type==='house-person')put('hand:'+c.id,{kind:'hand',id:c.id,endpoint:c.id+':hand',label:'右手接線點：拖導線端到此吸附；拖手可接觸家電外殼'},screen(Family.hand(c)),44,44,readOnly?'pan-y':'none').classList.add('port');
+      if(household&&c.type==='house-person')for(const p of R.ports(c))put(p.key==='hand'?'hand:'+c.id:'port:'+p.id,{kind:'hand',id:c.id,endpoint:p.id,label:p.label+'：可拖到導線端點吸附'+(p.key==='hand'?'，或接觸家電外殼':'')},screen(p),44,44,readOnly?'pan-y':'none').classList.add('port');
       if(c.type==="rheostat"){const angle=c.angle*Math.PI/180,x=-30+c.params.position*60,y=(c.params.terminals??2)>2?-34:38;put("slider:"+c.id,{kind:"slider",id:c.id,label:c.label+"滑片，拖動調整電阻"},screen({x:c.x+x*Math.cos(angle)-y*Math.sin(angle),y:c.y+x*Math.sin(angle)+y*Math.cos(angle)}),44,44,allow(d,c,"params","position")?"none":"pan-y");}
-      R.ports(c).filter(p=>!(household&&c.type==='house-person'&&p.key==='hand')&&(household&&c.type==='house-person'||(dual?camera.scale>=.7:camera.scale>=.55)||probeMode||drag?.kind==="wireend"||M.degree(d,p.id)>0)).forEach(p=>{const t=put("port:"+p.id,{kind:"port",id:p.id,label:c.label+" "+p.label+"端子，拖導線端點到這裏接好"},screen(p),44,44,!probeMode&&allow(d,c,"move")?"none":"pan-y");t.classList.toggle("overview",!(household&&c.type==='house-person')&&camera.scale<(dual?.7:.55));});
+      R.ports(c).filter(p=>!(household&&c.type==='house-person')&&((dual?camera.scale>=.7:camera.scale>=.55)||probeMode||drag?.kind==="wireend"||M.degree(d,p.id)>0)).forEach(p=>{const t=put("port:"+p.id,{kind:"port",id:p.id,label:c.label+" "+p.label+"端子，拖導線端點到這裏接好"},screen(p),44,44,!probeMode&&allow(d,c,"move")?"none":"pan-y");t.classList.toggle("overview",camera.scale<(dual?.7:.55));});
     });
     d.junctions.filter(j=>M.degree(d,j.id+":p")>1).forEach(j=>put("junction:"+j.id,{kind:"junction",id:j.id,label:"共接點，點選量測或拖動"},screen(j)));
     d.wires.forEach(w=>{const points=G.simplify(routes[w.id],1.2/camera.scale);
@@ -537,7 +537,7 @@
     }else if(meta?.kind==='port'){const p=world(e.clientX,e.clientY),ports=R.ports(owner).filter(p=>targets.has('port:'+p.id));ports.sort((a,b)=>Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y));if(ports[0])meta=tapMeta={...meta,id:ports[0].id};}
     if(!t&&e.pointerType==="mouse")blankMouseDown=e;
     if(!meta||meta.kind==='detachConnection')return;
-    if(meta.kind==='hand'&&(!household||!allow(d,d.components.find(c=>c.id===meta.id),'params','stance')))return;
+    if(meta.kind==='hand'&&(probeMode||!household||!allow(d,d.components.find(c=>c.id===meta.id),'move')||!allow(d,d.components.find(c=>c.id===meta.id),'params','stance')))return;
     if(meta.kind==='port'){if(probeMode)return;const w=selectedWire(),key=w&&['from','to'].find(k=>w[k]===meta.id);meta=key?{kind:'wireend',id:w.id,end:key,endpoint:meta.id}:{kind:'body',id:meta.id.split(':')[0]};}if(["wire","wireend","junction"].includes(meta.kind)&&!wireAllowed())return;if(probeMode&&meta.kind==="wireend")return;
     let readOnly=false;if(meta.kind==="body"||meta.kind==="slider"){const c=d.components.find(c=>c.id===meta.id);if(!allow(d,c,meta.kind==="slider"?"params":"move",meta.kind==="slider"?"position":undefined)){if(meta.kind!=="body"||e.pointerType!=="touch"||!readableMeter(d,c))return;readOnly=true;}}
     const before=selection&&M.clone(selection);selection={...meta};drag={...meta,pointerId:e.pointerId,pointerType:e.pointerType,target:t,down:world(e.clientX,e.clientY),x:e.clientX,y:e.clientY,lastX:e.clientX,lastY:e.clientY,baseDoc:M.clone(d),selectionBefore:before,tapMeta,connectionBefore:selectedConnection,moved:false,snap:null,limited:false};
@@ -556,10 +556,14 @@
     if(drag.kind==="pan"){autoFit=false;camera.x=drag.base.x-(e.clientX-drag.x)/camera.scale;camera.y=drag.base.y-(e.clientY-drag.y)/camera.scale;render(false);return;}if(!drag.moved)return;selectedConnection=null;
     if(drag.kind==="meterread"){render(false);return;}
     if(drag.kind==='hand'){
-      const original=drag.baseDoc.components.find(c=>c.id===drag.id),start=Family.hand(original),wanted={x:start.x+p.x-drag.down.x,y:start.y+p.y-drag.down.y};let contact=null,distance=24/camera.scale;
-      for(const c of drag.baseDoc.components.filter(Family.isAppliance)){const point=Family.contactPoint(c,wanted),gap=Math.hypot(point.x-wanted.x,point.y-wanted.y);if(gap<distance){distance=gap;contact={id:c.id,...point};}}
-      drag.focus=contact||wanted;drag.snap=contact;drag.contactTarget=contact?.id||null;const moved=moveObject(drag.baseDoc,'body',drag.id,drag.focus.x-start.x,drag.focus.y-start.y);previewDoc=moved.doc;if(moved.limited){drag.focus=Family.hand(previewDoc.components.find(c=>c.id===drag.id));drag.snap=null;drag.contactTarget=null;drag.limited=true;}
-      try{profile.assertTransition(history.get(),previewDoc,readOnly);if(!paramSession)paramSession=session.fork();paramSession.update(previewDoc);paramSession.contact(drag.id,drag.contactTarget);analysis=paramSession.read();render(false);}catch{cancel();}return;
+      const original=drag.baseDoc.components.find(c=>c.id===drag.id),start=R.ports(original).find(q=>q.id===drag.endpoint),wanted={x:start.x+p.x-drag.down.x,y:start.y+p.y-drag.down.y},position={x:original.x+wanted.x-start.x,y:original.y+wanted.y-start.y};let contact=null,distance=24/camera.scale;
+      const snapped=wireAllowed()?J.component(drag.baseDoc,drag.id,position,distance,drag.endpoint):null;
+      if(!snapped&&drag.endpoint===drag.id+':hand')for(const c of drag.baseDoc.components.filter(Family.isAppliance)){const point=Family.contactPoint(c,wanted),gap=Math.hypot(point.x-wanted.x,point.y-wanted.y);if(gap<distance){distance=gap;contact={id:c.id,...point};}}
+      drag.snap=snapped?.snap||contact;drag.contactTarget=contact?.id||null;drag.limited=false;
+      if(snapped)previewDoc=snapped.doc;
+      else{const focus=contact||wanted,moved=moveObject(drag.baseDoc,'body',drag.id,focus.x-start.x,focus.y-start.y);previewDoc=moved.doc;if(moved.limited){drag.snap=null;drag.contactTarget=null;drag.limited=true;}}
+      drag.focus=R.ports(previewDoc.components.find(c=>c.id===drag.id)).find(q=>q.id===drag.endpoint);
+      try{profile.assertTransition(history.get(),previewDoc,readOnly);if(!paramSession)paramSession=session.fork();paramSession.update(previewDoc);if(drag.endpoint===drag.id+':hand')paramSession.contact(drag.id,drag.contactTarget);analysis=paramSession.read();render(false);}catch{cancel();}return;
     }
     drag.discardZone=discardZoneAt(drag,e.clientX,e.clientY);drag.discard=drag.discardZone&&canDiscard(drag)?drag.discardZone:null;
     if(drag.discardZone){drag.snap=null;drag.limited=false;renderGhost();return;}
@@ -586,7 +590,7 @@
     // Keep the original tap target rather than reselecting whatever moved under it.
     releasedMeta=!done.moved&&!done.quick&&done.kind!=="pan"?M.clone(done.tapMeta||selection):null;
     if(done.target.hasPointerCapture(e.pointerId))done.target.releasePointerCapture(e.pointerId);
-    if(done.kind==='hand'){if(done.moved)setContact(done.id,done.contactTarget||null,done.focus);else{discardParamPreview();previewDoc=null;analysis=solve(history.get());render();}return;}
+    if(done.kind==='hand'){if(done.moved&&done.contactTarget)setContact(done.id,done.contactTarget,done.focus);else if(done.moved&&preview){if(change(doc=>Object.assign(doc,preview)))notify(done.snap?'手部已接上導線端點。':done.limited?'導線已拉盡，接線保持不變。':'人物位置已更新。');}else{discardParamPreview();previewDoc=null;analysis=solve(history.get());render();}return;}
     if(discardZone){
       $('canvasNotice').hidden=true;analysis=solve(history.get());
       if(canDiscard(done,history.get())){if(change(doc=>{if(!canDiscard(done,doc))throw new Error('此物件不能拖放刪除');M.remove(doc,done.id);}))notify('已刪除；復原可還原，刪線歸還庫存。');}

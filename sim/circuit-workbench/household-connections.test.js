@@ -57,6 +57,24 @@ for(const mode of ['free','wiring'])for(const role of ['teacher','student']){
 }
 console.log('Household: working-lead combinations, supply boundaries, atomic attach, snapping and fixed appliance/person orientations passed');
 
+for(const stance of ['grounded','insulated'])for(const hand of ['hand','hand-left'])for(const end of ['from','to'])for(const role of ['l','n','e']){
+ const d=P.create('C03'),person=d.components.find(c=>c.id==='person');person.params.stance=stance;
+ const w=M.addWire(d,person.x+140,person.y+120),other=end==='from'?'to':'from';assert(M.attach(d,w.id,other,'socket:'+role));const p=M.endpoints(d).get(w[end]),h=M.endpoints(d).get('person:'+hand),before=M.clone(d);
+ const snapped=J.component(d,'person',{x:person.x+p.x-h.x+4,y:person.y+p.y-h.y-3},24,'person:'+hand);assert(snapped);assert.deepEqual(d,before);assert.equal(snapped.snap.id,'person:'+hand);assert.equal(snapped.snap.connections.length,1);assert.equal(snapped.doc.wires.find(v=>v.id===w.id)[end],'person:'+hand);assert.equal(snapped.doc.wires.find(v=>v.id===w.id)[other],'socket:'+role);
+ const point=M.endpoints(snapped.doc).get('person:'+hand);assert.equal(point.x,p.x);assert.equal(point.y,p.y);
+ const H=require('./household-model'),s=new H.Session(snapped.doc),r=s.read().components.person;assert(Math.abs(r.current-(stance==='grounded'&&role==='l'?.115:0))<1e-5);const restored=H.Session.restore(H.decode(H.encode(s.capture())));assert.deepEqual(restored.capture(),s.capture());restored.advance(.01);assert(restored.read().reliable);restored.destroy();s.destroy();
+}
+{
+ const d=M.empty('household'),person=M.add(d,'house-person',0,0);person.id='person';const ports=M.endpoints(d),left=ports.get('person:hand-left'),right=ports.get('person:hand'),w=M.addWire(d,left.x+90,left.y);assert.equal(J.component(d,'person',{x:0,y:0},10,'person:hand'),null,'a right-hand grip cannot dock the left hand');
+ const v=M.addWire(d,right.x+90,right.y),next=J.component(d,'person',{x:1,y:1},10,'person:hand');assert(next);assert.equal(next.doc.wires.find(x=>x.id===v.id).from,'person:hand');assert.equal(next.doc.wires.find(x=>x.id===w.id).from,w.from,'the other hand stays disconnected');assert.equal(J.component(d,'person',{x:0,y:0},24,'person:missing'),null);
+}
+{
+ const d=M.empty('household');M.add(d,'house-mains',-200,0).id='source';M.add(d,'house-person',0,0).id='person';const fixed=M.connect(d,'source:n','person:hand-left'),ends=M.endpoints(d),a=ends.get(fixed.from),b=ends.get(fixed.to);fixed.length=Math.hypot(b.x-a.x,b.y-a.y);const w=M.addWire(d,100,-13);assert(M.attach(d,w.id,'from','source:l'));const before=M.clone(d);assert.equal(J.component(d,'person',{x:150,y:0},24,'person:hand'),null,'the other wired hand cannot stretch past its cable length');assert.deepEqual(d,before);
+}
+for(const role of ['l','n']){
+ const d=P.create('C03'),person=d.components.find(c=>c.id==='person');M.connect(d,'socket:l','person:hand');const w=M.addWire(d,person.x+20,person.y);assert(M.attach(d,w.id,'from','socket:'+role));const ends=M.endpoints(d),h=ends.get('person:hand'),p=ends.get(w.to),before=M.clone(d),next=J.component(d,'person',{x:person.x+p.x-h.x,y:person.y+p.y-h.y},24,'person:hand');assert.equal(!!next,role==='l','one hand cannot merge L and N supply nets');assert.deepEqual(d,before);
+}
+
 for(const stance of ['grounded','insulated'])for(const end of ['from','to']){
  const d=P.create('C03'),person=d.components.find(c=>c.id==='person');person.params.stance=stance;
  const left=M.endpoints(d).get('person:hand-left');assert.equal(left.x,person.x-25);assert.equal(left.y,person.y+(stance==='insulated'?-2:20));

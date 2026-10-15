@@ -7,9 +7,9 @@
 })(globalThis, function (M, R, G) {
   'use strict';
 
-  function candidates(doc, component, radius) {
+  function candidates(doc, component, radius, portId) {
     const loose = doc.junctions.filter(j => M.degree(doc, j.id + ':p') > 0), pairs = [];
-    for (const port of R.ports(component)) for (const j of loose) {
+    for (const port of R.ports(component).filter(p => !portId || p.id === portId)) for (const j of loose) {
       const distance = Math.hypot(port.x - j.x, port.y - j.y);
       if (distance < radius) pairs.push({ port, endpoint: j.id + ':p', x: j.x, y: j.y, distance });
     }
@@ -42,11 +42,11 @@
 
   // Pure drag preview. Callers own activity permissions, release and history;
   // every pointer sample starts from the committed document, never this result.
-  function component(doc, id, position, radius) {
+  function component(doc, id, position, radius, portId) {
     const c = doc.components.find(c => c.id === id);
     if (!c || !M.permission(doc, c, 'move') || !Number.isFinite(position.x) ||
         !Number.isFinite(position.y) || !Number.isFinite(radius) || radius <= 0) return null;
-    for (const candidate of candidates(doc, { ...c, ...position }, radius)) {
+    for (const candidate of candidates(doc, { ...c, ...position }, radius, portId)) {
       let next = M.clone(doc);
       const moved = next.components.find(c => c.id === id);
       moved.x = candidate.x - (candidate.port.x - position.x);
@@ -60,6 +60,7 @@
       const used = new Set([candidate.endpoint]);
       // A junction is indivisible: all of its wire ends dock to one nearest port.
       for (const other of candidates(next, next.components.find(c => c.id === id), radius)) {
+        if (portId) break;
         if (used.has(other.endpoint)) continue;
         joined = join(next, other.endpoint, other.port.id);
         if (!joined) continue;

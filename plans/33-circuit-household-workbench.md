@@ -556,3 +556,17 @@ CI 補充：推送後讀取 [916f06f 的 Quality 失敗紀錄](https://github.co
 最終原始碼／實際 ZIP 共 **235 browser checks** 通過，全部 20 筆示例流程記錄保留；已檢視 `output/playwright/circuit-household/source-C04-tripped-close-control.png`、`source-rcd-tripped-control-phone-320x500.png` 及 `source-rcd-tripped-control-phone-390x600.png`。完整結果、資產雜湊及 source／ZIP 指紋見同目錄 `results.json`；五包已重建，家庭 ZIP 全部 30 個 runtime assets 與來源逐檔一致。過程曾在手機接地拖線 fixture 得到自由端，最小可信輸入重現可正常吸附；補上選取後兩幀版面等待、最後 touchMove 完成一幀後才 touchEnd，保留原接地吸附斷言，最終全套通過。
 
 四個家庭 Node tests、8 組 platform core、`check`、`check:tests`、修改文件連結及 diff 檢查通過。沿用原 registry owner，沒有新增依賴或入口；提交選取預覽 `node tools/run-tests.js --base=85f53ed --head=HEAD --plan` 為 affected、221 項、五個 circuit packages，並非全部 221 項已在本輪執行。未做真手機、實際 Moodle 或本機完整 Quality Full；新提交遠端 CI 另看最新 run。
+
+### 拖手部接上導線端點（2026-10-15）
+
+依使用者要求，左右手的 44 px 圓形目標均可拖動人物，以 24 CSS px 距離吸附導線未接端／共接點；原有「拖線端到手」及右手拖碰家電外殼保留。重用共用 component snapping，增加指定單一端口的內部呼叫方式，避免拖右手卻接左手，或兩手同時誤接鄰近線端；未指定端口的 DC／AC／家庭元件搬動維持原有多端吸附。線端優先於外殼，導線中段不接通，也不取代已屬其他元件的端子。
+
+預覽沿既有 session 副本凍結權威時間，放手提交既有 wires 接法及人物位置，沒有新增存檔格式；取消不接線，單步復原／重做及 production 往返保留。兩手仍經有限人體電阻分開；已有另一手接線時不得超出該導線長度，同一手不能直接合併 L／N。拖手使用移動及既有接觸權限，接線另受 wireAllowed 限制，量電勢模式及只讀不啟動手部拖曳。
+
+手機驗證同時發現 320 px 共用 container rule 把實物／符號組擴闊，與家庭版不換行規則疊加令右側工具擠出；以家庭 CSS 修正該組 flex，可信觸控檢查明確核對六個工具按鈕均在視窗內且至少 44 px。獨立面板測試在上一個拖曳結束後等待 350 ms，讓瀏覽器的原生點按抑制結束；最小事件紀錄核對同一按鈕的 pointerdown／up 後能產生 click，沒有以程式 click 代替可信輸入或降低接線斷言。
+
+最終原始碼／重建實際 ZIP 共 **263 browser checks** 通過，保留 20 筆示例流程。新增兩手 × 兩站姿 × 實物／符號的可信滑鼠拖手吸附，核對取消、權威預覽隔離、復原重做、production 往返／續作及只讀；320×500、390×500、390×600 各以可信觸控拖右手接火線、拖站椅左手接火線且右手保持零線，核對約 115 mA 人體電流、站椅腳支路為零及手機工具列。已檢視 `output/playwright/circuit-household/source-hand-grip-hand-grounded-real.png` 及 `source-hand-grip-hand-left-phone-320x500.png`；完整結果、資產雜湊及 source／ZIP 指紋在同目錄 `results.json`。五包重建，家庭 ZIP 全部 30 個 runtime assets 與最終來源逐檔一致。
+
+原有手機接地 fixture 曾在 ZIP 回歸得到未吸附自由端；獨立可信輸入重現顯示過快連續 touchMove 時，最後吸附預覽尚未更新。該段改為每步等兩幀，新增放手前 `snap === earth:e` 斷言，保留放手後的真實端點斷言；最終全套通過，沒有修改接地吸附規則。
+
+家庭接線 Node tests 新增兩站姿 × 兩手 × 兩線端 × L／N／E 共 24 組單手吸附、模型電流及保存往返／合法續作，以及錯手不得吸附、不順帶接另一手、另一手導線拉盡及同手 L／N 拒絕對照；原有共用 component-snapping 8 組通過。四個家庭 Node tests、platform core、`check`、`check:tests`、修改文件連結及 diff 檢查通過。沿用原 registry owner，沒有新增依賴或入口；提交選取預覽 `node tools/run-tests.js --base=8dd0891 --head=HEAD --plan` 為 affected、221 項、五個 circuit packages，並非本輪已執行全部 221 項。未做真手機、實際 Moodle 或本機完整 Quality Full；新提交遠端 CI 另看最新 run。
