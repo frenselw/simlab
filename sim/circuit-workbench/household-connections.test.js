@@ -5,7 +5,7 @@ for(const type of ['house-metal','house-insulated'])for(const a of ['l','n','e']
 }
 for(const role of ['l','n','e']){const d=P.create('C03'),w=d.wires.find(w=>w.to==='load:e');w.from='socket:'+role;assert.doesNotThrow(()=>M.validate(d));}
 for(const [a,b]of [['source:l','socket:n'],['socket:l','socket:e'],['socket:n','socket:e']]){const d=P.create('C03'),before=JSON.stringify(d);assert.throws(()=>M.connect(d,a,b),/不能直接合併/);assert.equal(JSON.stringify(d),before);}
-for(const target of ['source:l','socket:n','load:e']){const d=P.create('C03');d.wires=d.wires.filter(w=>w.from!=='earth:e');assert.throws(()=>M.connect(d,'earth:e',target));}
+for(const target of ['source:l','socket:n']){const d=P.create('C03');d.wires=d.wires.filter(w=>w.from!=='earth:e');assert.throws(()=>M.connect(d,'earth:e',target));}
 {
  const d=P.create('C08');const w=d.wires.find(w=>w.to==='load:n');M.detach(d,w.id,'from');assert(M.attach(d,w.id,'from','socket:l'));assert.equal(w.from,'socket:l');const before=JSON.stringify(d);assert.throws(()=>M.attach(d,d.wires.find(w=>w.from==='source:l').id,'to','socket:n'));assert.equal(JSON.stringify(d),before);
 }
@@ -25,14 +25,18 @@ for(const stance of ['grounded','insulated']){
  const snapped=J.component(d,'person',{x:person.x+end.x-h.x+4,y:person.y+end.y-h.y+3},24);assert(snapped);assert.equal(snapped.doc.wires.find(w=>w.id===wire.id).to,'person:hand');assert.doesNotThrow(()=>M.validate(snapped.doc));
  M.connect(d,'socket:l','person:hand');const before=M.clone(d);assert.throws(()=>M.connect(d,'socket:n','person:hand'),/不能直接合併/);assert.deepEqual(d,before);
 }
-{
- const d=M.empty('household'),c=M.add(d,'house-earth',0,0);M.addLeads(d,c);assert.equal(d.wires.length,1);assert.doesNotThrow(()=>M.validate(d));const w=d.wires[0],before=JSON.stringify(d);assert.throws(()=>M.detach(d,w.id,'from'),/固定/);assert.throws(()=>M.remove(d,w.id),/固定/);assert.equal(JSON.stringify(d),before);const template=require('./circuit-document').template(d);assert.equal(template.wires.length,d.wires.length);assert.doesNotThrow(()=>M.validate(template));M.remove(d,c.id);assert.equal(d.wires.length,0);assert.doesNotThrow(()=>M.validate(d));
+for(const type of ['house-mains','house-earth'])for(const end of ['from','to']){
+ const d=M.empty('household'),c=M.add(d,type,0,0);assert.equal(d.wires.length,0);const endpoint=c.id+':'+(type==='house-mains'?'l':'e'),w=M.addWire(d,140,70);assert(M.attach(d,w.id,end,endpoint));assert.equal(w.anchor,undefined);assert.doesNotThrow(()=>M.validate(d));
+ const legacy=M.clone(d);legacy.wires[0].anchor=endpoint;const original=M.clone(legacy);assert.deepEqual(M.validate(legacy),d,'legacy pins release without changing the circuit');assert.deepEqual(legacy,original);
+ const template=require('./circuit-document').template(d);assert.equal(template.wires.length,0);assert.equal(template.junctions.length,0);
+ M.detach(d,w.id,end);assert(M.attach(d,w.id,end,endpoint));const G=require('./circuit-routing'),route=G.route(d,w),point=G.nearest(route,G.along(route,G.length(route)/2));M.splitWire(d,w.id,point,route);assert.doesNotThrow(()=>M.validate(d));
+ M.remove(d,c.id);assert.equal(d.wires.length,2,'removing a component unplugs ordinary cables');assert.doesNotThrow(()=>M.validate(d));M.remove(d,d.wires[0].id);assert.equal(d.wires.length,1);
 }
-{
- const d=M.empty('household'),c=M.add(d,'house-mains',0,0);M.addLeads(d,c);assert.equal(d.wires.length,2);
- const w=d.wires[0];assert.equal(w.anchor,undefined);M.detach(d,w.id,'from');assert(M.attach(d,w.id,'from',c.id+':l'));assert.doesNotThrow(()=>M.validate(d));
- const legacy=M.clone(d);legacy.wires[0].anchor=c.id+':l';const restored=M.validate(legacy);assert.deepEqual(restored,d,'legacy pinned source preserves geometry and connections');M.detach(restored,w.id,'from');assert.doesNotThrow(()=>M.validate(restored));
- assert.equal(require('./circuit-document').template(d).wires.length,0);M.remove(d,w.id);assert.equal(d.wires.length,1);M.remove(d,c.id);assert.equal(d.wires.length,1);assert.doesNotThrow(()=>M.validate(d));
+for(const target of ['load:e','person:hand']){
+ const d=P.create('C03');d.wires=d.wires.filter(w=>w.from!=='earth:e');const w=M.connect(d,'earth:e',target);assert.equal(w.anchor,undefined);assert.doesNotThrow(()=>M.validate(d));M.detach(d,w.id,'from');assert(M.attach(d,w.id,'from','earth:e'));
+}
+for(const end of ['from','to']){
+ const d=M.empty('household'),earth=M.add(d,'house-earth',0,0),w=M.addWire(d,190,90),p=M.endpoints(d).get(w[end]);const snap=J.component(d,earth.id,{x:p.x-58+5,y:p.y-4},24);assert(snap);assert.equal(snap.doc.wires[0][end],earth.id+':e');assert.equal(snap.doc.wires[0].anchor,undefined);
 }
 // Component capabilities cannot be overridden by teacher mode or wiring permissions.
 for(const mode of ['free','wiring'])for(const role of ['teacher','student']){

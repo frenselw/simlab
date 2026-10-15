@@ -21,6 +21,10 @@ for(const stance of ['grounded','insulated'])for(const terminal of ['l','n','e']
  assert.throws(()=>s.contact('person',far.id),/導線太短/);assert.deepEqual(s.capture(),before,'contact rejected by cable length is atomic');s.destroy();
 }
 for(const value of [.02,.03,.04])assert.equal(H.threshold({id:'r',type:'house-rcd'},{components:{r:{residualCurrent:value}}}),value>=.03);
+{
+ const d=P.create('C03');d.wires=d.wires.filter(w=>w.from!=='earth:e');d.components.find(c=>c.id==='load').params.fault=true;const w=M.connect(d,'earth:e','load:e'),s=new H.Session(d);s.contact('person','load');near(s.read().components.person.current,0);near(s.read().components.load.casePotential,0);
+ const next=M.clone(s.doc);M.detach(next,w.id,'from');s.update(next);near(s.read().components.person.current,230/4000);s.destroy();
+}
 for(const value of [4.99,5,5.01,-5.01])assert.equal(H.threshold({id:'r',type:'house-breaker',params:{rating:5}},{components:{r:{current:value}}}),Math.abs(value)>5);
 for(const key of ['C01','C02','C03','C04','C05','C06','C07','C07fuse','C08']){const d=P.create(key),s=new H.Session(d),r=s.read();assert(r.reliable);assert(!r.diagnostics.length);near(r.components.load.power,d.components.find(c=>c.id==='load').params.kind==='heater'?2000:d.components.find(c=>c.id==='load').params.kind==='fan'?60:400);assert.equal(V.visualState(d,r).overload,false);s.destroy();}
 for(const metal of [false,true])for(const a of ['l','n','e'])for(const b of ['l','n','e']){

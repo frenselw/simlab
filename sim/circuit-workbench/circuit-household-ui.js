@@ -19,7 +19,7 @@
       if(C.isProtection(c))return readings([['通過電流',abs(r.current),'A'],...(c.type==='house-rcd'?[['漏電差流',r.residualCurrent*1000,'mA']]:[])])+`<p class="note" data-family-protection="${V.esc(c.id)}">${r.status==='tripped'?'已跳掣':r.status==='blown'?'已熔斷':r.status==='open'?'手動斷開':'合上'}${r.protection?.elapsed?' · 動作計時 '+r.protection.elapsed.toFixed(2)+' s':''}</p>`;
       if(C.isAppliance(c))return readings([['兩端電壓（有效值）',abs(r.voltage),'V'],['工作電流（有效值）',abs(r.current),'A'],['工作功率',r.power,'W'],['外殼對地電壓',r.casePotential,'V']]);
       if(c.type==='house-meter')return readings([['累積電能',r.energyKWh,'kWh'],['供出功率',r.power,'W']]);
-      if(c.type==='house-earth')return '<p class="note">只接插座 E 孔，表示連回供電系統的地。</p>';
+      if(c.type==='house-earth')return '<p class="note">拖普通導線到 E 接線點，表示連回供電系統的地。</p>';
       if(c.type==='house-socket')return '<p class="note">正面：上 E、左 N、右 L；家電兩條線可接同一孔。</p>';
       if(c.type==='house-switch')return readings([['開關兩端電壓',abs(r.voltage),'V']])+`<p class="note">${r.role==='N'?'開關接在零線':r.role==='L'?'開關接在火線':'尚未接入 L／N 線路'}</p>`;
       return readings([['供電電壓（有效值）',r.voltage,'V'],['頻率',50,'Hz'],['供出電流',r.current,'A']]);

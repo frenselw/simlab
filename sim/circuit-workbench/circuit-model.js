@@ -43,7 +43,7 @@
     const ports = endpoints(input), pairs = new Set();
     input.wires.forEach((w) => {
       object(w, input.version === 1 ? ["id", "from", "to", "via"] : ["id", "from", "to", "via", "shape", ...(input.version>=3?["length"]:[]), ...(input.version>=6?["resistance"]:[]),...(household?['anchor']:[])]); id(w.id);
-      if(Object.hasOwn(w,'anchor')&&(![w.from,w.to].includes(w.anchor)||!(leadPort(input,w.anchor)||household&&input.components.some(c=>c.type==='house-mains'&&R.ports(c).some(p=>p.id===w.anchor)))))throw new Error('固定引線的錨點無效');
+      if(Object.hasOwn(w,'anchor')&&(![w.from,w.to].includes(w.anchor)||!(household&&input.components.some(c=>['house-mains','house-earth'].includes(c.type)&&R.ports(c).some(p=>p.id===w.anchor)))||w.from===w.to))throw new Error('固定引線的錨點無效');
       if(input.version>=6)numeric(w.resistance,0,limits.resistance);
       if (!ports.has(w.from) || !ports.has(w.to) || (input.version<3 && w.from === w.to)) throw new Error("導線端點不存在或自接");
       const pair = [w.from, w.to].sort().join("|"); if (input.version<3 && pairs.has(pair)) throw new Error("有重複的導線"); pairs.add(pair);
@@ -61,8 +61,8 @@
     if(Object.hasOwn(input.display,'quantities')){object(input.display.quantities,Object.keys(quantityDefaults));Object.keys(quantityDefaults).forEach(k=>bool(input.display.quantities[k]));}
     if (input.display.reference !== null && !ports.has(input.display.reference)) throw new Error("參考端點不存在");
     const valid = clone(input);
-    // Older household files pinned mains cables; release only the metadata, preserving their wiring.
-    if(household)valid.wires.forEach(w=>{if(w.anchor&&valid.components.some(c=>c.type==='house-mains'&&R.ports(c).some(p=>p.id===w.anchor)))delete w.anchor;});
+    // Release legacy household anchors without changing saved wiring or geometry.
+    if(household)valid.wires.forEach(w=>{delete w.anchor;});
     valid.components.forEach(c=>{for(const [key,spec]of Object.entries(R.get(c.type).params))if(spec.optional&&!Object.hasOwn(c.params,key))c.params[key]=spec.value;});
     valid.components.forEach(c=>{if(c.type==='rheostat'&&!Object.hasOwn(c.params,'terminals'))c.params.terminals=2;if(c.type==='lamp'){if(!Object.hasOwn(c.params,'coldRatio'))c.params.coldRatio=10;if(!Object.hasOwn(c.params,'linearLoss'))c.params.linearLoss=0;}});
     if(!Object.hasOwn(valid.display,"names"))valid.display.names=true;
@@ -93,7 +93,6 @@
     if (doc.wires.some((w) => (w.from === from && w.to === to) || (w.from === to && w.to === from))) throw new Error("這兩個端點已接好");
     if(doc.wires.length>=doc.cables.count)throw new Error("導線已用完；刪除一條可放回工具箱");
     const w = { id: nextId(doc, "w"), from, to, via: clone(via), shape, resistance:doc.cables.resistance??0 };
-    const anchor=[from,to].find(p=>leadPort(doc,p));if(anchor)w.anchor=anchor;
     // Connected constructors are for teacher presets/netlists. Interactive
     // cables always receive the exact toolbox budget in addWire().
     w.length=Math.max(doc.cables.length,Math.ceil(G.length(G.route(doc,w)))+160);
@@ -101,8 +100,6 @@
     doc.wires.push(w);return w;
   }
   const degree=(doc,endpoint)=>doc.wires.reduce((n,w)=>n+(w.from===endpoint)+(w.to===endpoint),0);
-  const leadPort=(doc,endpoint)=>doc.analysis==='household'&&doc.components.some(c=>c.type==='house-earth'&&R.ports(c).some(p=>p.id===endpoint));
-  function addLeads(doc,c){if(!['house-mains','house-earth'].includes(c.type)||doc.analysis!=='household')return;for(const p of R.ports(c)){const endpoint=freeEnd(doc,{x:p.x+70*p.dx,y:p.y+70*p.dy});connect(doc,p.id,endpoint,[],'free');}}
   const attached=(doc,w,key)=>!doc.junctions.some(j=>j.id+":p"===w[key])||degree(doc,w[key])>1;
   function cleanup(doc){const used=new Set(doc.wires.flatMap(w=>[w.from,w.to]));doc.junctions=doc.junctions.filter(j=>used.has(j.id+":p")||doc.display.reference===j.id+":p");}
   function freeEnd(doc,p){const j={id:nextId(doc,"j"),x:p.x,y:p.y};doc.junctions.push(j);return j.id+":p";}
@@ -113,7 +110,7 @@
   }
   function setWireResistance(doc,id,value){numeric(value,0,limits.resistance);const w=doc.wires.find(w=>w.id===id);if(!w)throw new Error("找不到導線");w.resistance=value;}
   function pose(doc,w,points){if(!points)return false;const fitted=G.fitLength(points,w.length);if(!fitted)return false;w.shape="free";w.via=(fitted.length>limits.stroke+2?G.resample(fitted,10):fitted).slice(1,-1).map(p=>({x:p.x,y:p.y}));return true;}
-  function detach(doc,id,key,prune=true){const w=doc.wires.find(w=>w.id===id);if(!w||!["from","to"].includes(key))throw new Error("導線端點無效");if(w.anchor===w[key])throw new Error('這一端固定在器件內；請拖另一端接線');if(!attached(doc,w,key))return w[key];const points=G.route(doc,w),p=endpoints(doc).get(w[key]);w[key]=freeEnd(doc,p);pose(doc,w,points);if(prune)cleanup(doc);return w[key];}
+  function detach(doc,id,key,prune=true){const w=doc.wires.find(w=>w.id===id);if(!w||!["from","to"].includes(key))throw new Error("導線端點無效");if(!attached(doc,w,key))return w[key];const points=G.route(doc,w),p=endpoints(doc).get(w[key]);w[key]=freeEnd(doc,p);pose(doc,w,points);if(prune)cleanup(doc);return w[key];}
   function detachConnection(doc,endpoint,distance=32){
     const origin=endpoints(doc).get(endpoint);if(!origin)throw new Error('接點不存在');numeric(distance,.1,limits.coordinate*2);
     const ends=doc.wires.flatMap(w=>['from','to'].filter(key=>w[key]===endpoint).map(key=>[w.id,key]));
@@ -149,9 +146,8 @@
   }
   function attach(doc,id,key,endpoint){
     const w=doc.wires.find(w=>w.id===id),target=endpoints(doc).get(endpoint);if(!w||!target||w[key]===endpoint)return false;
-    if(w.anchor===w[key])throw new Error('這一端固定在器件內；請拖另一端接線');
-    if(w.anchor===endpoint)return false;
-    if(doc.analysis==='household'){const candidate=clone(doc),next=candidate.wires.find(v=>v.id===id);next[key]=endpoint;if(leadPort(doc,endpoint))next.anchor=endpoint;householdRules().validate(candidate);}
+
+    if(doc.analysis==='household'){const candidate=clone(doc),next=candidate.wires.find(v=>v.id===id);next[key]=endpoint;householdRules().validate(candidate);}
     const followReference=!attached(doc,w,key)&&doc.display.reference===w[key];
     const other=key==="from"?"to":"from",before=G.route(doc,w),otherFixed=attached(doc,w,other);
     if(endpoint===w[other]&&!otherFixed)return false;
@@ -159,7 +155,7 @@
     detach(doc,id,key,false);
     const a=key==="from"?target:anchor,b=key==="to"?target:anchor;
     pose(doc,w,otherFixed?G.deform(before,a,b,w.length):[a,b]);
-    w[key]=endpoint;if(leadPort(doc,endpoint))w.anchor=endpoint;if(followReference)doc.display.reference=endpoint;cleanup(doc);return true;
+    w[key]=endpoint;if(followReference)doc.display.reference=endpoint;cleanup(doc);return true;
   }
   function bendWire(doc,id,at,dx,dy,radius=140){const w=doc.wires.find(w=>w.id===id);if(!attached(doc,w,"from")&&!attached(doc,w,"to"))return translateWire(doc,id,dx,dy);
     const bent=G.bend(G.route(doc,w),at,dx,dy,w.length,radius);pose(doc,w,bent.points);return {limited:bent.limited};
@@ -174,20 +170,18 @@
   function remove(doc, id) {
     const c = doc.components.find((x) => x.id === id); if (c && !permission(doc, c, "remove")) throw new Error("這個元件已固定");
     const cable=doc.wires.find(w=>w.id===id);
-    if(cable?.anchor)throw new Error('固定引線隨器件保留；請拔開自由端，或移除器件');
     const removedPorts = new Set(c ? R.ports(c).map((p) => p.id) : cable ? [cable.from,cable.to].filter(endpoint=>doc.junctions.some(j=>j.id+":p"===endpoint)&&degree(doc,endpoint)===1) : [id + ":p"]);
     const ends=endpoints(doc),paths=new Map(doc.wires.filter(w=>removedPorts.has(w.from)||removedPorts.has(w.to)).map(w=>[w.id,G.route(doc,w)]));
     // Removing an object unplugs its cables; the physical cables stay on the table.
     doc.wires.forEach(w=>{if(w.id!==id)for(const key of ["from","to"])if(removedPorts.has(w[key]))w[key]=freeEnd(doc,ends.get(w[key]));});
     doc.components = doc.components.filter((x) => x.id !== id); doc.junctions = doc.junctions.filter((x) => x.id !== id);
-    doc.wires = doc.wires.filter((w) => w.id !== id&&!removedPorts.has(w.anchor));
+    doc.wires = doc.wires.filter((w) => w.id !== id);
     doc.wires.forEach(w=>{if(paths.has(w.id))pose(doc,w,paths.get(w.id));});
     if (removedPorts.has(doc.display.reference)) doc.display.reference = null;
     cleanup(doc);
   }
   function splitWire(doc, wireId, p, route) {
     const w = doc.wires.find((x) => x.id === wireId); if (!w) throw new Error("導線不存在");
-    if(w.anchor&&doc.components.find(c=>c.id===w.anchor.split(':')[0])?.type==='house-earth')throw new Error('接地引線只直接接插座 E，不新增中間共接點');
     const j = { id: nextId(doc, "j"), x: p.x, y: p.y }; doc.junctions.push(j);
     const i = p.segment, left = route.slice(1, i + 1), right = route.slice(i + 1, -1);
     // A cut follows the displayed curve. Re-interpolating the two halves would move it.
@@ -244,5 +238,5 @@
       w.shape='free';
     }
   }
-  return { limits, quantityDefaults, fontSizes, fontSize, clone, empty, validate, endpoints, nextId, component, permission, add, addLeads, leadPort, connect, remove, splitWire, history, degree, attached, cleanup, addWire, setWireResistance, detachConnection, detach, attach, moveWireEnd, translateWire, bendWire, straightenWire, rotateComponent, setTerminals, flipMeter, reconcile, limitWirePoints };
+  return { limits, quantityDefaults, fontSizes, fontSize, clone, empty, validate, endpoints, nextId, component, permission, add, connect, remove, splitWire, history, degree, attached, cleanup, addWire, setWireResistance, detachConnection, detach, attach, moveWireEnd, translateWire, bendWire, straightenWire, rotateComponent, setTerminals, flipMeter, reconcile, limitWirePoints };
 });
