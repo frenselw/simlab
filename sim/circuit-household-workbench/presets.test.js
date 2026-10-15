@@ -28,6 +28,10 @@ for(const key of Object.keys(P.names).filter(k=>k!=='empty')){
  }
 }
 assert(!C.definitions['house-insulated'].params.kind.choices.includes('lamp'));
+assert(C.definitions['house-metal'].params.kind.choices.includes('washer'));assert(!C.definitions['house-metal'].params.kind.choices.includes('aircon'));
+for(const [kind,rated]of [['washer',500],['aircon',1000]]){
+ const d=P.create('C03'),load=d.components.find(c=>c.id==='load');load.params.kind=kind;const s=new H.Session(d);assert.equal(C.power(load),rated);assert(Math.abs(s.read().components.load.power-rated)<rated*.005);s.contact('person','load');const next=M.clone(s.doc);next.components.find(c=>c.id==='load').params.fault=true;s.update(next);assert(Math.abs(s.read().components.person.current)<1e-6);M.detach(next,next.wires.find(w=>w.to==='load:e').id,'from');s.update(next);assert(s.read().components.person.current>.05);const saved=s.capture(),restored=H.Session.restore(H.decode(H.encode(saved)));assert.deepEqual(restored.capture(),saved);restored.advance(.01);assert.equal(restored.doc.components.find(c=>c.id==='load').params.kind,kind);assert(restored.read().components.person.current>.05);restored.destroy();s.destroy();
+}
 assert.equal(C.definitions['house-insulated'].params.kind.value,'blender');
 for(const [kind,rated]of [['blender',400],['vacuum',700]]){
  const d=P.create('C05'),load=d.components.find(c=>c.id==='load');load.params.kind=kind;

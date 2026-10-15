@@ -662,3 +662,13 @@ Sites version 3 原生發布 succeeded，來源／版本／deployment ID 見維�
 驗收：同一 household runner 的 --artwork-only 重建五包，source／實際 ZIP 共 **38 checks** 通過（含各 11 個既有示例載入及 1280／390 px 開關／三家電圖像專項），沒有 runtime errors。可信點按核對開關兩視圖開合；DOM 路徑末端與左側螺絲重合，冷氣螺絲位於機架及外罩之內；風扇扇葉／冷氣滾筒在正常播放繼續轉動。已檢視 source-real-switch-false-390.png 及 source-left-earth-{fan,heater,aircon}-1280.png。Node presets 核對三款故障路徑仍由 L 接到新的金屬接點、符號視圖保留故障及開關符號；household-model、check、check:tests（240 entries）、文件連結及 diff 檢查通過。沿用既有 registry owner，提交選取預覽存 output/playwright/circuit-household/earth-art-selection.json，不宣稱本輪執行全套物理回歸。
 
 最終 runtime／ZIP 指紋在 output/playwright/circuit-household/results.json；Sites 30 個 runtime assets 與來源逐 byte／SHA-256 一致，證據在 output/sites/household-earth-art-assets.json。部署目錄 1280／320／390 px 入口、視圖、無水平溢出及短把手尺寸亦通過。Sites version 4 原生發布 succeeded，身份見維護指引。未做真手機、實際 Moodle 或本機完整 Quality Full。
+
+### 金屬外殼例子改為洗衣機（2026-10-15）
+
+依使用者要求，新金屬家電種類以洗衣機取代冷氣，避免塑膠外罩與「金屬外殼」類別的教學混淆。提供熱水器 2000 W、洗衣機 500 W（洗衣運轉的教學等效值，非所有機型／模式的規格）及金屬風扇 60 W；維持原三端子與接地／漏電模型。洗衣機以白色搪瓷金屬機身、操作面板、圓形玻璃門及內部滾筒表達，E 螺絲在左側金屬機身；正常供電時滾筒緩轉，停電／暫停時停止，沿用共用 frame 及暫態轉角，不增加物理或存檔狀態。
+
+舊 aircon 僅作 legacy choice，保留 1000 W、圖像、接觸座標及所有冷氣動畫，不出現在新元件選單；載入舊冷氣才顯示其當前舊選項。舊檔不自動變洗衣機，不改已存保護／電能事件；文件版本不變。新／舊種類切換、功率、接地、漏電、兩種視圖、保存恢復及續作由既有 Node owner 驗證；browser 圖像專項覆蓋手機／桌面選單、滾筒播放／暫停／斷電／拖動、左側接地及舊冷氣往返。完成後更新同一 Sites，真手機另驗。
+
+驗收：source／實際重建 ZIP 的 --artwork-only 共 **42 checks** 通過，無 runtime errors。1280／390 px 均核對新種類有 washer、沒有 aircon；洗衣機約 500 W、左側接地末端重合、滾筒正常播放／暫停／斷電停轉，實際按住／拖動本體時仍轉動且權威 session 凍結；production 保存往返後可斷線及接續。舊冷氣的既有圖像、接地及滾筒動作仍通過。Node presets 另對洗衣機／舊冷氣核對額定功率、接地故障時人體近零、拔 E 後人體電流及完整保存恢復／合法續作；四個家庭 Node suites、check、check:tests（240 entries）、文件連結及 diff 檢查通過。已檢視 source-left-earth-washer-1280.png、source-left-earth-washer-390.png，圖像為白色機身及圓門滾筒。
+
+最終 runtime／ZIP 指紋在 output/playwright/circuit-household/results.json；部署 30 個 runtime assets 與來源逐 byte／SHA-256 一致，證據在 output/sites/household-washer-assets.json。部署目錄 1280／320／390 px 的入口、視圖、無水平溢出及短把手檢查亦通過。沿用 registry owner，提交選取預覽另存 output/playwright/circuit-household/washer-selection.json；本輪未重跑完整物理回歸、真手機、實際 Moodle 或本機完整 Quality Full。Sites 發布身份見維護指引。

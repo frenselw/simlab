@@ -75,6 +75,8 @@ C09「站在絕緣椅上也會觸電嗎」只有市電與人物，兩手分接 L
 
 雙重絕緣家電目前提供攪拌機 400 W、風扇 60 W、吹風機 1200 W、吸塵機 700 W；新元件及 C05／C06／C08 使用攪拌機。舊台燈只供舊文件相容讀取，保留 40 W、原外形及接觸座標，不出現在新元件的種類選單；載入舊台燈時才顯示目前的舊選項。吸塵機文件按目前選定的 700 W 教學款式重新計算負載。
 
+新金屬家電提供熱水器 2000 W、洗衣機 500 W、金屬風扇 60 W。洗衣機取代新選單中的冷氣，以金屬機身、左側接地螺絲、操作面板及圓形玻璃門清楚表達接地概念；500 W 是洗衣運轉的教學等效值，不代表所有機型或加熱模式。滾筒沿用既有 frame／轉角更新緩轉，通電、拖曳、暫停、斷電及只讀規則與原家電一致，轉角不入存檔。舊冷氣只作 `legacyChoices: ['aircon']`，保留 1000 W、圖像、接觸座標及動畫；新選單不提供冷氣，載入舊檔才顯示其舊選項，接線及模擬狀態不自動轉成洗衣機。
+
 資產由 [assets.json](../sim/circuit-household-workbench/assets.json)列出。`npm run package:circuit-platform` 同時重建 DC、AC、家庭工作台及兩個 DC 活動共五包，核對所有 ZIP 檔案與實際原始碼。家庭 ZIP 為 `output/circuit-household-workbench-standalone.zip`，沒有 SCORM manifest。
 
 Node 驗證：`household-connections.test.js`、`household-model.test.js`、`household-state.test.js` 及 `presets.test.js`；[production fixtures](../sim/circuit-workbench/fixtures/household-v1-states.json)涵蓋合法錯接、部分接線、故障、人物及保護／電能狀態。
@@ -105,3 +107,7 @@ Node 驗證：`household-connections.test.js`、`household-model.test.js`、`hou
 ### Version 4：開關及左側接地圖像
 
 移除實物開關下方的重複符號，三款家電接地螺絲移左；冷氣的機架及接地點畫在半透明塑膠罩內，檢視器明示接觸對象代表導電金屬部位。Sites source：`c695ce930602d702b6437519389064e64280f482`；saved version：`appgprj_6ad0b88108c08191a7568eda54a1f36c~appgver_2687c148cdb08191a01e28026d494c4f`；deployment：`appgdep_6ad0daa483948191a356aff03ea7f63c`，原生回傳 `succeeded`，原網址及私人存取保持。官方 archive：`output/sites/circuit-household-workbench-earth-art.tar.gz`。Source／ZIP 圖像專項 38 checks、Node 相關套件及部署目錄檢查通過，詳見計劃；未重跑完整物理回歸、真手機或 Moodle。
+
+### Version 5：以洗衣機取代新選單的冷氣
+
+新金屬家電選單改用 500 W 教學洗衣機，保留舊冷氣文件相容。Sites source：`cdc93a3761316f6ea9fcf9d8f18708f1be56d48b`；saved version：`appgprj_6ad0b88108c08191a7568eda54a1f36c~appgver_ec1e21e282308191bb1acac0ee7951a1`；deployment：`appgdep_6ad0e0ac7e2c8191a0999f274cac13d5`，原生回傳 `succeeded`，原網址及私人存取保持。官方 archive：`output/sites/circuit-household-workbench-washer.tar.gz`。Source／ZIP 圖像專項 42 checks、四個家庭 Node suites 及部署目錄檢查通過；30 個 runtime assets 與來源一致，詳見計劃。未重跑完整物理回歸、真手機或 Moodle。

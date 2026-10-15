@@ -6,7 +6,7 @@
   'use strict';
   const colours=Object.freeze({L:'#a56535',N:'#2583b5',E:'#5d9b49',unknown:'#738698'});
   const applianceKinds=Object.freeze({
-    metal:{heater:{label:'熱水器',power:2000},aircon:{label:'冷氣機',power:1000},fan:{label:'金屬外殼風扇',power:60}},
+    metal:{heater:{label:'熱水器',power:2000},washer:{label:'洗衣機',power:500},fan:{label:'金屬外殼風扇',power:60}},
     insulated:{blender:{label:'攪拌機',power:400},fan:{label:'風扇',power:60},dryer:{label:'吹風機',power:1200},vacuum:{label:'吸塵機',power:700}}
   });
   const choice=(label,value,choices,labels)=>({label,value,choices,labels});
@@ -23,7 +23,7 @@
     'house-switch':{name:'普通開關',icon:'S',ports:[port('a',-58,0,'一端'),port('b',58,0,'另一端')],bounds:{left:-45,right:45,top:-43,bottom:43},params:{closed:closed()}},
     'house-fuse':{name:'保險絲',icon:'熔絲',ports:[port('a',-64,0,'火線一端','L'),port('b',64,0,'火線另一端','L')],bounds:{left:-50,right:50,top:-22,bottom:22},primaryParameter:'rating',params:{rating:choice('額定電流',13,[3,5,13],{3:'3 A',5:'5 A',13:'13 A'})}},
     'house-earth':{name:'接地',icon:'⏚',ports:[port('e',58,0,'接地引線','E')],bounds:{left:-32,right:60,top:-32,bottom:32},params:{}},
-    'house-metal':{rotatable:false,name:'金屬外殼用電器',icon:'家電',ports:[...workPorts,port('e',-86,26,'外殼接地 E')],bounds:{left:-64,right:64,top:-69,bottom:101},primaryParameter:'kind',params:{kind:choice('家電種類','fan',Object.keys(applianceKinds.metal),Object.fromEntries(Object.entries(applianceKinds.metal).map(([k,v])=>[k,v.label+' · '+v.power+' W']))),fault:choice('絕緣狀態',false,[false,true],{false:'正常',true:'絕緣破損（外殼漏電）'})}},
+    'house-metal':{rotatable:false,name:'金屬外殼用電器',icon:'家電',ports:[...workPorts,port('e',-86,26,'外殼接地 E')],bounds:{left:-64,right:64,top:-69,bottom:101},primaryParameter:'kind',params:{kind:{...choice('家電種類','fan',Object.keys(applianceKinds.metal),{...Object.fromEntries(Object.entries(applianceKinds.metal).map(([k,v])=>[k,v.label+' · '+v.power+' W'])),aircon:'冷氣機 · 1000 W（舊文件）'}),legacyChoices:['aircon']},fault:choice('絕緣狀態',false,[false,true],{false:'正常',true:'絕緣破損（外殼漏電）'})}},
     'house-insulated':{rotatable:false,name:'雙重絕緣用電器',icon:'雙重',ports:workPorts,bounds:{left:-64,right:64,top:-69,bottom:101},primaryParameter:'kind',params:{kind:{...choice('家電種類','blender',Object.keys(applianceKinds.insulated),{...Object.fromEntries(Object.entries(applianceKinds.insulated).map(([k,v])=>[k,v.label+' · '+v.power+' W'])),lamp:'台燈 · 40 W（舊文件）'}),legacyChoices:['lamp']},fault:choice('絕緣狀態',false,[false,true],{false:'正常',true:'內層破損（外層完整）'})}},
     'house-person':{rotatable:false,name:'人',icon:'人',ports:[port('hand',40,-13,'右手接線點'),port('hand-left',-25,20,'左手接線點')],portsFor:c=>[port('hand',40,c.params.stance==='insulated'?-35:-13,'右手接線點'),port('hand-left',-25,c.params.stance==='insulated'?-2:20,'左手接線點')],bounds:{left:-42,right:47,top:-94,bottom:81},primaryParameter:'stance',params:{stance:choice('站立狀態','grounded',['grounded','insulated'],{grounded:'站在地上',insulated:'站在絕緣椅上'})}},
     'house-rcd':{name:'漏電保護器',icon:'30mA',ports:channelPorts,bounds:box,params:{closed:closed()}}
@@ -33,7 +33,7 @@
   const path=(d,colour='#718797',width=2,attrs='')=>`<path d="${d}" fill="none" stroke="${colour}" stroke-width="${width}" stroke-linecap="round" stroke-linejoin="round" ${attrs}/>`;
   const rect=(x,y,w,h,fill,rx=5,stroke='#6f879b',width=1.5)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${fill}" stroke="${stroke}" stroke-width="${width}"/>`;
   function lead(d,role,width=3){return path(d,colours[role],width)+(role==='E'?path(d,'#edcd4d',width/2,'stroke-dasharray="6 5"'):'');}
-  const power=c=>applianceKinds[c.type==='house-metal'?'metal':'insulated']?.[c.params.kind]?.power??(c.type==='house-insulated'&&c.params.kind==='lamp'?40:0);
+  const power=c=>applianceKinds[c.type==='house-metal'?'metal':'insulated']?.[c.params.kind]?.power??(c.type==='house-insulated'&&c.params.kind==='lamp'?40:c.type==='house-metal'&&c.params.kind==='aircon'?1000:0);
   const isAppliance=c=>['house-metal','house-insulated'].includes(c.type);
   const isProtection=c=>['house-breaker','house-fuse','house-rcd'].includes(c.type);
   function gradients(id){return `<defs><linearGradient id="${id}-plastic" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff"/><stop offset=".48" stop-color="#edf3f7"/><stop offset="1" stop-color="#cad7e1"/></linearGradient><linearGradient id="${id}-metal"><stop stop-color="#859aa7"/><stop offset=".2" stop-color="#dfe8ed"/><stop offset=".48" stop-color="#f7fafb"/><stop offset=".75" stop-color="#bdcdd6"/><stop offset="1" stop-color="#8fa5b2"/></linearGradient><linearGradient id="${id}-glass" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#e7f4f7" stop-opacity=".8"/><stop offset=".5" stop-color="#fff" stop-opacity=".4"/><stop offset="1" stop-color="#adcad4" stop-opacity=".8"/></linearGradient></defs>`;}
@@ -109,6 +109,16 @@
     for(const radius of [24,32])out+=`<circle r="${radius}" fill="none" stroke="#8aa5af" stroke-width=".65"/>`;
     return out+`</g><circle data-house-fan-hub="true" r="6.5" fill="url(#${id}-glass)" fill-opacity=".5" stroke="#7b99a8" stroke-width="1"/><circle r="2.8" fill="${material}" fill-opacity=".6" stroke="#9db4c0" stroke-width=".7"/></g>`+path('M-25-42Q-5-57 20-44','#fff',1.3)+rect(12,50,7,3,'#71929f',1,'none');
   }
+  function washer(c,id,on,palette=false){
+    let out='<g data-house-washer="true"><ellipse cy="68" rx="53" ry="4" fill="#5b778b" opacity=".1"/><path d="M-49-58H49L56-51V59L49 65H-49Z" fill="#bccbd3" stroke="#718e9f" stroke-width="1.2"/>'+rect(-52,-55,104,119,'url(#'+id+'-plastic)',5,'#628296',1.6)+path('M-49-53H48 M-49-52V59','#fff',1.5)+rect(-48,-51,96,24,'#e5edf1',3,'#a8bdc8',.8)+rect(-43,-46,33,13,'#f8fafb',2,'#a4bac6',.8)+path('M-38-42H-16 M-32-35H-25','#9bb0bc',1)+'<circle cx="8" cy="-39" r="7" fill="url(#'+id+'-metal)" stroke="#7e9aaa" stroke-width="1"/>'+path('M8-44V-41','#608499',1.3)+rect(24,-44,17,9,'#536f7c',1,'#77909c',.6)+'<circle data-house-washer-indicator="'+(on?'on':'off')+'" cx="42" cy="-30" r="1.8" fill="'+(on?'#59b889':'#aebfc9')+'"/><circle cy="13" r="37" fill="url(#'+id+'-metal)" stroke="#7693a4" stroke-width="1.4"/><circle cy="13" r="32" fill="#708b99" stroke="#bacbd3" stroke-width="2"/>';
+    if(!palette)out+=lead('M-86-26H-57L-45 -22H-42','L')+lead('M-86 0H-60L-45 -8H-42','N')+lead('M-86 26H-62L-48 30','E');
+    out+='<g transform="translate(0 13)"><circle r="29" fill="#b0c5ce"/><g data-house-rotor="true" data-house-washer-drum="true" transform="rotate(0)">';
+    for(let n=0;n<18;n++){const a=n*Math.PI/9;out+='<circle cx="'+(25*Math.cos(a)).toFixed(2)+'" cy="'+(25*Math.sin(a)).toFixed(2)+'" r=".9" fill="#6f919e"/>';}
+    for(let n=0;n<3;n++)out+='<path d="M-2-25L-4-12Q0-9 4-12L2-25Z" transform="rotate('+n*120+')" fill="#dce7ec" stroke="#8aa7b5" stroke-width=".7"/>';
+    out+='<path d="M-19-6Q-9-17 2-9L8 1Q0 14-13 9Z" fill="#a3c6d2" stroke="#7eacbf" stroke-width=".7"/><path d="M3-3Q16-12 22 0L16 15Q3 20-3 9Z" fill="#dce3d3" stroke="#b2c3ba" stroke-width=".7"/></g><circle r="29" fill="url(#'+id+'-glass)" fill-opacity=".35" stroke="#b8d0da" stroke-width="1"/><path d="M-22-8Q-20-22-8-24 M-24-3V3" fill="none" stroke="#fff" stroke-width="2" opacity=".75"/></g><path d="M27 2Q35 2 35 13T27 24" fill="none" stroke="#577c91" stroke-width="4"/>'+path('M-44 54H44','#a2b9c5',1)+rect(23,48,18,10,'#e8eff3',2,'#a2b8c5',.8)+path('M-37 64V68 M37 64V68','#6d8797',5);
+    if(!palette)out+='<circle data-house-earth-bond="true" cx="-48" cy="30" r="4" fill="#e2dbad" stroke="#7d9a66"/>'+path('M-51 30H-45','#769266',1)+(c.params.fault?path('M-42 -22L-35 -27L-48 30','#c27b54',2,'stroke-dasharray="3 3" data-house-fault-path="true"'):'');
+    return out+'</g>';
+  }
   function aircon(c,id,on,palette=false){
     const shell='M-61-31Q-61-41-51-41H51Q61-41 61-31V22Q60 38 48 38H-48Q-60 38-61 22Z';
     let out=`<path d="${shell}" fill="url(#${id}-plastic)" stroke="#648293" stroke-width="1.6"/>`;
@@ -132,6 +142,7 @@
     switch(c.params.kind){
       case 'heater':return `<ellipse cy="66" rx="29" ry="4" fill="#5b778b" opacity=".1"/><path d="M-33-51C-33-66 33-66 33-51V49C33 65-33 65-33 49Z" fill="url(#${id}-metal)" stroke="#648293" stroke-width="1.6"/><ellipse cy="-51" rx="33" ry="11" fill="url(#${id}-plastic)" stroke="#87a0ad" stroke-width="1"/>`+path('M-29-45Q0-33 29-45 M-29 46Q0 57 29 46','#b5c5cd',1)+path('M-23-35V38','#fff',1.8)+rect(-17,26,34,20,'#e9f0f3',5,'#a1b5c0',1)+`<circle cy="36" r="6" fill="url(#${id}-plastic)" stroke="#7d98a7" stroke-width="1"/>`+path('M0 36l3-3','#577d94',1.5)+`<circle cx="11" cy="36" r="1.7" fill="${on?'#d5a657':'#a4b8c2'}"/>`+path('M-13 58V67 M13 58V67','#8ea6b1',5)+path('M-13 64V67',colours.N,4)+path('M13 64V67',colours.L,4);
       case 'aircon':return aircon(c,id,on,palette);
+      case 'washer':return washer(c,id,on,palette);
       case 'fan':return c.type==='house-insulated'?plasticFan(c,id,on,palette):fan(c,id,on,palette);
       case 'blender':return `<ellipse cy="68" rx="36" ry="4" fill="#5b778b" opacity=".1"/><path d="M25-45H35Q48-45 47-29L44-9Q42 1 28-2" fill="none" stroke="#7e9caa" stroke-width="6"/><path d="M26-45H35Q44-45 43-29L40-11Q38-5 29-6" fill="none" stroke="#e7f0f4" stroke-width="2"/><path d="M-28-53H28L22 7H-21Z" fill="url(#${id}-glass)" stroke="#7f9dab" stroke-width="1.5"/>`+path('M-21-46L-17-1 M-9-47V-2','#fff',1.5)+path('M9-38H22 M12-26H21 M14-14H20','#9bb4bf',1)+`<ellipse cy="6" rx="22" ry="5" fill="#c4d7df" stroke="#8da9b7"/><path d="M-31-56Q0-62 31-56V-51H-31Z" fill="url(#${id}-plastic)" stroke="#7c98a7"/>`+rect(-9,-64,18,7,`url(#${id}-plastic)`,3,'#90a8b5',1)+`<path d="M-23 10H23Q32 12 33 24L36 59Q36 65 29 65H-29Q-36 65-36 59L-33 24Q-32 12-23 10Z" fill="url(#${id}-plastic)" stroke="#648293" stroke-width="1.6"/>`+path('M-28 20L-30 55','#fff',1.5)+rect(-13,58,26,4,'#829fac',2,'#6d8d9f',.8)+path('M-24 65V68 M24 65V68','#718997',4);
       case 'lamp':return `<ellipse cy="62" rx="32" ry="3" fill="#5b778b" opacity=".1"/>`+rect(-31,48,62,13,`url(#${id}-plastic)`,7,'#7291a3',1.2)+path('M-25 52H23','#fff',1.5)+path('M0 48V17L22-20','#7796a9',6)+path('M-1 46V17L21-20','#e2eef3',1.5)+`<circle cy="17" r="4" fill="url(#${id}-metal)" stroke="#7692a2"/><path d="M-17-28Q2-47 28-32L40-4Q8 5-24-4Z" fill="url(#${id}-plastic)" stroke="#668998" stroke-width="1.5"/><path d="M-14-28Q3-39 24-30" fill="none" stroke="#fff" stroke-width="1.3"/><ellipse cx="8" cy="-4" rx="32" ry="6" fill="${on?'#f5dc89':'#c4d2db'}" stroke="#89a1b1" stroke-width="1"/><path d="M-1 1Q8 12 17 1" fill="${on?'#ffed9d':'#e5ebef'}" stroke="#acb6b9" stroke-width="1"/>`+rect(15,51,7,3,'#89a9b8',1,'none');
@@ -207,7 +218,7 @@
       if(c.params.kind==='heater')out+=heaterInterior(c,id,on);
       if(c.params.kind==='blender')out+=blenderInterior(c,id,on);
       if(c.params.kind==='vacuum')out+=vacuumInterior(c,id,on);
-      if(!['fan','aircon','heater','dryer','blender','vacuum'].includes(c.params.kind)){
+      if(!['fan','aircon','washer','heater','dryer','blender','vacuum'].includes(c.params.kind)){
       const lamp=c.params.kind==='lamp',center=c.params.kind==='dryer'?{x:-14,y:-17}:c.params.kind==='vacuum'?{x:0,y:12}:lamp?{x:8,y:0}:c.params.kind==='blender'?{x:0,y:32}:{x:0,y:-17};
       out+=lead(`M-86-26H-57L-45 ${center.y-7}H${center.x-15}`,'L')+lead(`M-86 0H-60L-45 ${center.y+7}H${center.x-15}`,'N');
       if(lamp)out+=`<ellipse cx="8" cy="0" rx="13" ry="12" fill="${on?'#fff1c8':'#eef4f6'}" stroke="#90a8b4"/>`+path('M-7-7H2L4-3 7-7 10-3 13-7H17V7H-7','#b78a57',1.4);
@@ -225,7 +236,7 @@
   const hand=c=>{const p=R.ports(c).find(p=>p.key==='hand');return{x:p.x,y:p.y};};
   function contactPoint(c,point=null){const a=R.rotation(c.angle),local=point?{x:(point.x-c.x)*a.cos+(point.y-c.y)*a.sin,y:-(point.x-c.x)*a.sin+(point.y-c.y)*a.cos}:null;let q;
     if(c.params.kind==='fan'){const dx=(local?.x??-38),dy=(local?.y??-17)+17,length=Math.hypot(dx,dy)||1;q={x:dx*38/length,y:-17+dy*38/length};}
-    else{const [left,top,right,bottom]=({heater:[-33,-62,33,61],aircon:[-61,-41,61,38],blender:[-35,10,35,65],lamp:[-24,-28,40,-4],dryer:[-29,-34,55,9],vacuum:[-38,-10,43,34]})[c.params.kind];const p=local||{x:left,y:(top+bottom)/2},x=Math.max(left,Math.min(right,p.x)),y=Math.max(top,Math.min(bottom,p.y));q=[{x:left,y},{x:right,y},{x,y:top},{x,y:bottom}].sort((u,v)=>Math.hypot(u.x-p.x,u.y-p.y)-Math.hypot(v.x-p.x,v.y-p.y))[0];}
+    else{const [left,top,right,bottom]=({heater:[-33,-62,33,61],aircon:[-61,-41,61,38],washer:[-52,-55,52,64],blender:[-35,10,35,65],lamp:[-24,-28,40,-4],dryer:[-29,-34,55,9],vacuum:[-38,-10,43,34]})[c.params.kind];const p=local||{x:left,y:(top+bottom)/2},x=Math.max(left,Math.min(right,p.x)),y=Math.max(top,Math.min(bottom,p.y));q=[{x:left,y},{x:right,y},{x,y:top},{x,y:bottom}].sort((u,v)=>Math.hypot(u.x-p.x,u.y-p.y)-Math.hypot(v.x-p.x,v.y-p.y))[0];}
     return{x:c.x+q.x*a.cos-q.y*a.sin,y:c.y+q.x*a.sin+q.y*a.cos};
   }
   function placeHand(person,point){const h=hand(person);person.x+=point.x-h.x;person.y+=point.y-h.y;}
