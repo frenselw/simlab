@@ -71,51 +71,5 @@
     }
     return null;
   }
-  function hand(doc, id, position, radius, portId) {
-    const person = doc.components.find(c => c.id === id);
-    if (doc.analysis !== 'household' || person?.type !== 'house-person' ||
-        !R.ports(person).some(p => p.id === portId) || !M.permission(doc, person, 'move')) return null;
-    const loose = component(doc, id, position, radius, portId);
-    if (loose) return loose;
-    if (![position.x, position.y, radius].every(Number.isFinite) || radius <= 0) return null;
-    const grip = R.ports({ ...person, ...position }).find(p => p.id === portId), targets = [];
-    for (const c of doc.components.filter(c => c.id !== id)) for (const p of R.ports(c)) {
-      const distance = Math.hypot(p.x - grip.x, p.y - grip.y);
-      if (distance < radius) targets.push({ ...p, endpoint: p.id, distance });
-    }
-    const own = new Set(R.ports(person).map(p => p.id));
-    for (const w of doc.wires.filter(w => !own.has(w.from) && !own.has(w.to))) {
-      const route = G.route(doc, w), point = G.nearest(route, grip);
-      if (point?.distance < radius) targets.push({ ...point, wire: w.id, route });
-    }
-    // Give fixed terminals a small grip area before choosing the adjacent wire body.
-    const priority = t => t.endpoint && t.distance < radius / 2 ? 0 : 1;
-    for (const target of targets.sort((a, b) => priority(a) - priority(b) || a.distance - b.distance)) {
-      const next = M.clone(doc), moved = next.components.find(c => c.id === id);
-      moved.x = position.x + target.x - grip.x; moved.y = position.y + target.y - grip.y;
-      if (!M.reconcile(next, doc)) continue;
-      try {
-        let endpoint = target.endpoint, wires;
-        if (target.wire) {
-          const w = next.wires.find(w => w.id === target.wire), budget = w.length, length = G.length(target.route);
-          // Split the visible cable at the palm; keep both original ends connected.
-          w.shape = 'free'; w.via = target.route.slice(1, -1).map(p => ({ x: p.x, y: p.y }));
-          endpoint = M.splitWire(next, w.id, target, target.route);
-          for (const half of next.wires.filter(w => w.from === endpoint || w.to === endpoint))
-            half.length = Math.max(60, budget * G.length(G.route(next, half)) / (length || 1));
-          const joined = join(next, endpoint, portId);
-          if (!joined) continue;
-          Object.assign(next, joined.doc); wires = joined.wires;
-        } else {
-          // A fixed terminal stays owned by its component, including its earth bond.
-          const existing = next.wires.find(w => w.from === portId && w.to === endpoint || w.to === portId && w.from === endpoint);
-          wires = [(existing || M.connect(next, portId, endpoint, [], 'free')).id];
-        }
-        const snap = { id: portId, x: target.x, y: target.y, endpoint, wires };
-        return { doc: M.validate(next), snap: { ...snap, connections: [snap] } };
-      } catch { /* A full toolbox or invalid cable leaves the original circuit intact. */ }
-    }
-    return null;
-  }
-  return { component, hand };
+  return { component };
 });

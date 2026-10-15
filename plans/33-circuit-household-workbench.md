@@ -69,7 +69,7 @@
 | 7 | **接地圖案**：帶 E 接線點的接地符號 | 取件不自動附加導線；普通導線任一端均可吸附 E 接線點 | 可直接或經共接點接插座 E、家電地線或手部，導線兩端均可拔接、刪除及分支；供電 L／N／E 直接短接也接受並計算故障電流 |
 | 8 | **金屬外殼用電器**：外殼、內部用電部分及三芯線 | 標示 L／N 的兩條工作引線接內部負載；標示 E 的引線以可見導線及螺絲接外殼。標示表示預定用途，不限制實際接入哪條供電線 | 選熱水器 2000 W、冷氣機 1000 W、金屬外殼風扇 60 W；切換「正常／絕緣破損（外殼漏電）」。三條引線都可錯接或不接；外殼有可供人接觸的區域 |
 | 9 | **雙重絕緣用電器**：可見兩層絕緣及雙方框標記 | 只有預定接 L／N 的兩條工作引線，沒有 E 引線；內部用電部分與可觸外表之間有兩層隔離 | 兩條引線均可接 L／N／E 任一節點或不接。選雙重絕緣攪拌機 400 W、風扇 60 W、吹風機 1200 W 或吸塵機 700 W；切換「正常／內層絕緣破損」，第二層仍完整，不形成外殼漏電支路 |
-| 10 | **人**：清楚的手、身體及腳 | 左右手各有可吸附導線的接線點，右手也可接觸用電器外殼；兩手經人體電阻相連，腳的對地通路由站立狀態決定 | 選「站在地上／站在絕緣椅上」；拖線端到手掌、拖雙手到導線線身／接線點、拖右手到外殼，或在面板選擇接觸對象／離開。接地、接線、接觸及電壓條件共同決定人體電流；有電流時人物表情繃緊及顫動，顯示實際人體電流路徑，電流歸零即恢復 |
+| 10 | **人**：清楚的手、身體及腳 | 左右手各有可吸附導線的接線點，右手也可接觸用電器外殼；兩手經人體電阻相連，腳的對地通路由站立狀態決定 | 選「站在地上／站在絕緣椅上」；拖線端到手掌、拖雙手到未接線端／共接點、拖右手到外殼，或在面板選擇接觸對象／離開。接地、接線、接觸及電壓條件共同決定人體電流；有電流時人物表情繃緊及顫動，顯示實際人體電流路徑，電流歸零即恢復 |
 | 11 | **漏電保護器**：雙極手柄及「漏電 30 mA」標記 | L 入／出、N 入／出，共四端；比較經過自身的火線與零線電流 | 漏電差流達演示條件後，同時切斷 L／N；可手動開合／復位。首版固定 30 mA，不增加靈敏度選單，也不兼作過電流斷路器 |
 
 ### 插座與家電的畫法
@@ -619,3 +619,16 @@ CI 補充：推送後讀取 [916f06f 的 Quality 失敗紀錄](https://github.co
 已檢視 output/playwright/circuit-household/source-C04-body-reclose-real.png 及 source-C10-body-reclose-phone-390x600.png；同目錄 results.json 記錄最終 source／ZIP 指紋及資產雜湊，家庭 ZIP 全部 30 個 runtime assets 與來源逐檔一致。四個家庭 Node tests、platform core 8 組、check、check:tests、文件連結及 diff 檢查通過。另執行 node tools/circuit-workbench-browser-regression.js --phone-smoke，DC 來源／ZIP 的原生手機開關開合及既有手機操作通過。
 
 沒有新增依賴、入口、文件版本或 registry owner。提交選取預覽 node tools/run-tests.js --base=a8e1a78 --head=HEAD --plan 為 affected、221 項及五個 circuit packages；未在本地執行全部 221 項。預覽存於同目錄 body-reclose-selection.json。真手機、實際 Moodle 及本機完整 Quality Full 未執行；遠端 CI 以本次提交 run 為準。
+
+
+### 人物沿用普通元件接線（2026-10-15）
+
+使用者明確要求把人當作燈泡／用電器一樣接線。本節取代先前手碰 E 或線身便新增／分割普通導線的決定。不新增接觸狀態、文件欄位或求解分段。人物左右手沿用共用元件吸附，只重用未接線端／共接點；靠近已接好的端子或線身不會憑空加線。需要接地時取普通導線，兩端接 E 和手部；移動人物時已有導線隨動，依共用線長限制，需要斷開則拔線。
+
+刪除家庭專用的線身／固定端子加線 helper；手部指定端口使用共用 component snapping。既有右手接觸家電外殼、左右手人體電阻、站地／站椅、保護計算及面板不變。封套 v2、幾何 v8、contacts 及 wires 均不新增格式；已有檔案的普通線完整保留，無法辨識是否由舊版自動產生，不猜測刪除。
+
+驗收：source／重建實際 ZIP 共 **385 browser checks** 通過，22 筆既有示例流程保留，結果沒有錯誤。左右手均以普通導線兩種自由端接地，覆蓋實物／符號、可信滑鼠及 320×500、390×500、390×600 可信觸控；核對吸附預覽、取消、人體電流、復原重做、production 往返及合法續作。拖手靠近已接線 E／線身再拉開，不會增加或分割導線。觸控 fixture 把自由線端與手部分開，並確認起手確實拖到人物手部。
+
+已檢視 output/playwright/circuit-household/source-hand-earth-hand-from-real.png 及 source-hand-earth-hand-earth-e-real.png；同目錄 results.json 記錄最終 source／ZIP 指紋及資產雜湊，家庭 ZIP 全部 30 個 runtime assets 與來源逐檔一致。四個家庭 Node tests、共用 component-snapping／platform core 各 8 組、check、check:tests、文件連結及 diff 檢查通過。
+
+沒有新增依賴、入口或 registry owner。提交選取預覽 node tools/run-tests.js --base=a0e2593 --head=HEAD --plan 為 affected、221 項及五個 circuit packages；未在本地執行全部 221 項。預覽存於同目錄 ordinary-hand-selection.json。真手機、實際 Moodle 及本機完整 Quality Full 未執行；遠端 CI 以本次提交 run 為準。
