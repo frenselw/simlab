@@ -162,3 +162,13 @@ for(const hand of ['hand','hand-left'])for(const stance of ['grounded','insulate
  const s=new H.Session(d);near(s.read().components.person.current,.115);near(s.read().components.person.groundCurrent,0);assert.equal(s.doc.wires.length,0);assert.equal(C.handContacts(d).length,2);const paths=require('./circuit-renderer').componentFlowPaths(d,s.read());near(paths.find(p=>p.component==='source'&&p.key==='live').current,-s.read().components.person.current);near(paths.find(p=>p.component==='source'&&p.key==='neutral').current,0);s.destroy();
 }
 console.log('Direct hand contacts: both hands, every socket/appliance/earth/source terminal, no cables, release, stance, restore and finite chair current passed');
+for(const key of ['C01','C03','C04'])for(const wiring of ['earth','disconnected','neutral-only','mixed','open-earth']){
+ const d=P.create(key),wire=d.wires.find(w=>w.from==='earth:e');
+ if(wiring==='disconnected')d.wires=d.wires.filter(w=>w!==wire);
+ if(wiring==='neutral-only')wire.from='source:n';
+ if(wiring==='mixed')M.connect(d,'source:n','earth:e');
+ if(wiring==='open-earth'){const c=M.add(d,'house-switch',-300,200,{closed:false});wire.from=c.id+':b';M.connect(d,'earth:e',c.id+':a');}
+ const s=new H.Session(d),r=s.read();assert(r.reliable);assert.equal(r.components.load.earthed,wiring==='earth',key+' '+wiring+' protective-earth classification');
+ const restored=H.Session.restore(H.decode(H.encode(s.capture())));assert.equal(restored.read().components.load.earthed,r.components.load.earthed);near(restored.read().components.load.current,r.components.load.current);restored.advance(.01);assert(restored.read().reliable);restored.destroy();s.destroy();
+}
+console.log('Protective earth: genuine E, disconnected E, neutral-only socket E, mixed N/E and open earth path, with production round-trip/continuation passed');

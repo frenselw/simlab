@@ -111,7 +111,7 @@
     try{const before=history.get();if(session)sessionHistory.set(before,session.capture());history.change(doc=>{fn(doc);
       if(household)for(const c of doc.components.filter(Family.isAppliance)){
         const previous=before.components.find(p=>p.id===c.id),kinds=Family.applianceKinds[c.type==='house-metal'?'metal':'insulated'],label=kinds[c.params.kind]?.label;
-        if(label&&previous&&previous.params.kind!==c.params.kind&&c.label===previous.label&&allow(before,previous,'label')&&[Family.definitions[c.type].name,previous.params.kind==='lamp'?'台燈':kinds[previous.params.kind]?.label].includes(previous.label))c.label=label;
+        if(label&&previous&&previous.params.kind!==c.params.kind&&c.label===previous.label&&allow(before,previous,'label')&&[Family.definitions[c.type].name,previous.params.kind==='lamp'?'台燈':previous.params.kind==='aircon'?'冷氣機':kinds[previous.params.kind]?.label].includes(previous.label))c.label=label;
       }
       if(household)for(const c of doc.components.filter(c=>c.type==='house-person')){const previous=before.components.find(p=>p.id===c.id);if(previous&&(session.state.contacts[c.id]||Family.handContacts(before).some(p=>p.hand.startsWith(c.id+':'))||R.ports(previous).some(p=>M.degree(before,p.id)>0))&&previous.params.stance!==c.params.stance){const point=Family.hand(previous);Family.placeHand(c,point);}}profile.prepare(doc);profile.assertTransition(before,doc,readOnly);});if(paramSession&&previewDoc&&JSON.stringify(previewDoc)===JSON.stringify(history.get())){const next=paramSession;unsubscribePreview?.();unsubscribePreview=null;paramSession=null;acUI?.endPreview(true);replaceSession(next,true);}else if(paramSession)discardParamPreview();previewDoc=null;meterPreview=null;relayLastTime=performance.now();analysis=solve(history.get());
       if(selection&&!M.endpoints(history.get()).has(selection.id)&&![...history.get().components,...history.get().junctions,...history.get().wires].some(x=>x.id===selection.id))selection=null;
@@ -420,7 +420,9 @@
   function quickParameter(binding=selection){
     if(!profile.ui.quickParameters||!binding)return null;
     const d=history.get(),c=d.components.find(c=>c.id===binding.id);if(!c)return null;
-    const key=R.get(c.type).primaryParameter,spec=profile.parameterSpec(c,key),p=R.primaryParameter(c,spec)||(household&&spec?.choices?{...spec,key,value:c.params[key],factor:1}:null);return p&&(!binding.key||binding.key===p.key)&&allow(d,c,'params',p.key)?{c,p}:null;
+    const key=R.get(c.type).primaryParameter;let spec=profile.parameterSpec(c,key);
+    if(spec?.legacyChoices?.includes(c.params[key]))spec={...spec,choices:[c.params[key],...spec.choices]};
+    const p=R.primaryParameter(c,spec)||(household&&spec?.choices?{...spec,key,value:c.params[key],factor:1}:null);return p&&(!binding.key||binding.key===p.key)&&allow(d,c,'params',p.key)?{c,p}:null;
   }
   const quickChoice=household?document.createElement('select'):null;
   if(quickChoice){quickChoice.hidden=true;quickChoice.dataset.householdQuick='true';$('quickValue').parentElement.append(quickChoice);quickChoice.onchange=()=>{const data=quickParameter(quickBinding);if(data?.p.choices)setQuickParameter(data.p.choices[quickChoice.selectedIndex]);};}
