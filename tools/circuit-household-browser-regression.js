@@ -32,6 +32,20 @@ async function main(){
       async function choice(selector,value){assert(await inside('(()=>{const e=document.querySelector('+JSON.stringify(selector)+');if(!e||e.disabled)return false;e.value='+JSON.stringify(String(value))+';if(e.selectedIndex<0)return false;e.dispatchEvent(new Event("change",{bubbles:true}));return true;})()'),selector+' offers '+value);}
       async function parameter(id,key,value){await object(id);await choice('[data-circuit-id="properties"] [data-param="'+key+'"]',value);assert.equal((await call('getDocument()')).components.find(c=>c.id===id).params[key],value);}
       async function contact(value){await object('person');await choice('[data-household-contact="person"]',value||'');assert.equal((await call('captureSession()')).contacts.person,value);}
+      for(const width of [1280,390]){
+        await cdp.send('Emulation.setDeviceMetricsOverride',{width,height:800,deviceScaleFactor:1,mobile:width<760});await load();
+        await inside("(()=>{const d=CircuitModel.empty('household');CircuitModel.add(d,'house-switch',0,0).id='switch';CircuitHouseholdWorkbench.loadDocument(d);})()");
+        for(const closed of [true,false]){assert.equal((await call('getDocument()')).components[0].params.closed,closed);assert.equal(await inside('document.querySelector("[data-house-apparatus=house-switch]").innerHTML.includes("M-18 48")'),false);await screenshot(mode+'-real-switch-'+closed+'-'+width);await click('[data-hit="body:switch"]');}
+        await click('[data-circuit-id=schematicView]');assert(await inside('document.querySelector("[data-house-apparatus=house-switch]").innerHTML.includes("M-20 0L20 0")'));await click('[data-hit="body:switch"]');assert(await inside('document.querySelector("[data-house-apparatus=house-switch]").innerHTML.includes("M-20 0L20 -24")'));checks.push(mode+'-switch-art-'+width);
+        for(const kind of ['fan','heater','aircon']){
+          await preset('C03');await click('[data-circuit-id=realView]');assert(await call("execute({type:'setParam',id:'load',key:'kind',value:'"+kind+"'})"));const a=await inside('(()=>{const b=document.querySelector("[data-component=load]"),bond=b.querySelector("[data-house-earth-bond]"),x=+bond.getAttribute("cx"),y=+bond.getAttribute("cy"),cover=b.querySelector("[data-house-aircon-cover]"),frame=b.querySelector("[data-house-aircon-frame]");return{x,y,connected:[...b.querySelectorAll("path[stroke=\\\"#5d9b49\\\"]")].some(p=>{const z=p.getPointAtLength(p.getTotalLength());return Math.hypot(z.x-x,z.y-y)<.01;}),frame:!!frame,inside:!!cover&&!!(bond.compareDocumentPosition(cover)&Node.DOCUMENT_POSITION_FOLLOWING)&&!!bond.closest("[data-house-aircon-interior]")};})()');assert(a.x<0&&a.connected,JSON.stringify(a));if(kind==='aircon')assert(a.frame&&a.inside);
+          if(kind==='aircon'){await object('load');assert.match(await inside('document.querySelector("[data-household-metal-parts=load]").textContent'),/塑膠外罩不導電/);}
+          if(kind!=='heater'){const rotor=()=>inside('(()=>{const e=document.querySelector("[data-component=load] [data-house-fan-rotor], [data-component=load] [data-house-aircon-rotor]");return e.dataset.angle||e.getAttribute("transform");})()');await call('setPlayback({paused:false})');const start=await rotor();await H.delay(180);assert.notEqual(await rotor(),start);await call('setPlayback({paused:true})');}
+          await screenshot(mode+'-left-earth-'+kind+'-'+width);checks.push(mode+'-left-earth-'+kind+'-'+width);
+        }
+      }
+      await cdp.send('Emulation.setDeviceMetricsOverride',{width:1280,height:900,deviceScaleFactor:1,mobile:false});await load();
+      if(process.argv.includes('--artwork-only')){await H.closeServer(server);server=null;continue;}
       for(const width of [1280,390,320]){
         await cdp.send('Emulation.setDeviceMetricsOverride',{width,height:800,deviceScaleFactor:1,mobile:width<760});await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:width<760,maxTouchPoints:2});await load();
         const setting=key=>'[data-household-setting="'+key+'"]',count=selector=>inside('document.querySelectorAll('+JSON.stringify('[data-circuit-id=scene] '+selector)+').length');

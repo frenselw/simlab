@@ -652,3 +652,13 @@ CI 補充：推送後讀取 [916f06f 的 Quality 失敗紀錄](https://github.co
 四個家庭 Node suites、36 個 v1 fixtures 正規化往返及合法續作、共用 core／document-import／layout／platform-core 通過；新增 Node 亦覆蓋總讀值開關獨立性、無效值、DC／AC 拒收家庭欄位及 student 不可改供電。DC source／ZIP 的 --phone-smoke、check、check:tests（240 entries）、文件連結及 diff 檢查通過。提交選取預覽另存 output/playwright/circuit-household/display-settings-selection.json，不宣稱已執行所有被選取的套件。
 
 Sites version 3 原生發布 succeeded，來源／版本／deployment ID 見維護指引。30 個部署 runtime files 與最終來源逐 byte／SHA-256 一致，部署目錄 1280／320／390 px 的入口、query／hash、可信視圖、可靠求解及短把手尺寸檢查通過；已檢視 390 px 截圖。證據在 output/sites/household-display-settings-assets.json、household-browser-verification.json 及 household-short-grips-390.png。本輪未做真手機、實際 Moodle 或本機完整 Quality Full。
+
+### 開關實物及家電接地圖像（2026-10-15）
+
+移除實物燈掣下方隨開合改變的灰色線段；實物只以搖板狀態表示開合，符號視圖保留標準開關符號。金屬風扇、熱水器及冷氣的圖內接地螺絲改在左側，綠黃引線不再繞到右邊；外接 L／N／E 端子、接觸座標、接線、文件、計算及保護動作保持。冷氣保留塑膠外罩，內部另畫金屬機架，E 線接機架指定螺絲；接地螺絲與故障支路置於半透明外罩內，不能暗示塑膠導電。現有「碰外殼」等效操作對冷氣代表碰到導電金屬結構，非完整外罩材質模擬。
+
+以廠商安裝手冊的指定 earth terminal 為依據（見維護指引），不把畫圖左／右當作實際產品接地位置要求。沿用既有測試 owner；新增圖像專項覆蓋開關實物／符號及兩種狀態、三款家電正常／故障、左側螺絲／故障路徑相連、冷氣機架在外罩內、既有轉軸／扇葉動畫及桌面／手機畫面。無評分或 schema 改動，真手機另驗。
+
+驗收：同一 household runner 的 --artwork-only 重建五包，source／實際 ZIP 共 **38 checks** 通過（含各 11 個既有示例載入及 1280／390 px 開關／三家電圖像專項），沒有 runtime errors。可信點按核對開關兩視圖開合；DOM 路徑末端與左側螺絲重合，冷氣螺絲位於機架及外罩之內；風扇扇葉／冷氣滾筒在正常播放繼續轉動。已檢視 source-real-switch-false-390.png 及 source-left-earth-{fan,heater,aircon}-1280.png。Node presets 核對三款故障路徑仍由 L 接到新的金屬接點、符號視圖保留故障及開關符號；household-model、check、check:tests（240 entries）、文件連結及 diff 檢查通過。沿用既有 registry owner，提交選取預覽存 output/playwright/circuit-household/earth-art-selection.json，不宣稱本輪執行全套物理回歸。
+
+最終 runtime／ZIP 指紋在 output/playwright/circuit-household/results.json；Sites 30 個 runtime assets 與來源逐 byte／SHA-256 一致，證據在 output/sites/household-earth-art-assets.json。部署目錄 1280／320／390 px 入口、視圖、無水平溢出及短把手尺寸亦通過。Sites version 4 原生發布 succeeded，身份見維護指引。未做真手機、實際 Moodle 或本機完整 Quality Full。

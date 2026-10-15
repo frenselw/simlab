@@ -69,6 +69,8 @@ C09「站在絕緣椅上也會觸電嗎」只有市電與人物，兩手分接 L
 
 冷氣內部送風部分另用專屬 SVG：馬達位於橫向送風滾筒一端，轉軸兩端分別接到馬達端蓋及滾筒軸心，另一端有支承。內部組件半透明，之後再疊上淡色機殼面板；葉片及連軸均可透視。此圖只表達室內送風部分，1000 W 仍是既定整機等效負載，不代表該送風馬達的獨立功率；端口及外殼接觸座標保持原契約。
 
+實物開關只畫搖板，不再在其下方疊加灰色開關符號；符號視圖仍保留標準開關圖。金屬風扇、熱水器及冷氣的圖內接地螺絲放在左側；外接端子不變。冷氣有塑膠外罩及內部金屬機架，E 線接在機架螺絲，機架、螺絲及故障路徑均在半透明外罩內。塑膠外罩不等於雙重絕緣；本模型冷氣的「接觸外殼」代表接觸導電金屬部位，檢視器有明示，不模擬塑膠表面導電。實際機款應以廠方指定接地端子為準，見 [Daikin 安裝手冊的 earth terminal 說明](https://www.daikin.eu/content/dam/document-library/installation-manuals/ac/sky-air/fhq-cb/FHQ-CB_3PEN368557-3B_Installation%20manuals_English.pdf)。左／右只屬教學圖布局，不是產品接地規定。
+
 冷氣滾筒的葉片會繞水平軸更新投影，機殼及支架位置固定；與風擺共用既有 frame，暫停或無工作電流時停轉。熱水器及風筒使用連續螺旋電熱絲，半透明剖視下通電呈紅色、斷電恢復灰色；紅色是加熱狀態提示，並非水中實際發紅或熱慣性模型。風筒先由馬達帶動扇葉送風，再經加熱區；攪拌機改為直軸連接杯底刀片，吸塵機改為連軸抽風葉輪。這些轉動均跟隨 `working` 及模擬時間，位置／功率／端口／原文件接觸座標不變，沒有加入溫度或機械動力學求解。
 
 雙重絕緣家電目前提供攪拌機 400 W、風扇 60 W、吹風機 1200 W、吸塵機 700 W；新元件及 C05／C06／C08 使用攪拌機。舊台燈只供舊文件相容讀取，保留 40 W、原外形及接觸座標，不出現在新元件的種類選單；載入舊台燈時才顯示目前的舊選項。吸塵機文件按目前選定的 700 W 教學款式重新計算負載。
@@ -99,3 +101,7 @@ Node 驗證：`household-connections.test.js`、`household-model.test.js`、`hou
 ### Version 3：標示開關及 220／230 V
 
 同一網址及私人存取保持。預設隱藏接線字母／市電電壓，設定可分別開啟並選擇 220／230 V；修正圖案內文字隨縮放放大至遮住機殼。Sites source commit：`9c054e9c6bb4cbecc43a38c2d25f00fe565f18a2`；saved version：`appgprj_6ad0b88108c08191a7568eda54a1f36c~appgver_318982c30ea0819194b2dbd06f6f6def`；deployment：`appgdep_6ad0d3537e548191b31cf24c2e5340b8`，原生回傳 `succeeded`。官方 archive：`output/sites/circuit-household-workbench-display-settings.tar.gz`。391 項完整 source／ZIP 回歸及最後 28 項設定專項通過；最終 30 個 runtime files 與部署目錄一致，詳細證據見計劃。真手機／Moodle 另驗。
+
+### Version 4：開關及左側接地圖像
+
+移除實物開關下方的重複符號，三款家電接地螺絲移左；冷氣的機架及接地點畫在半透明塑膠罩內，檢視器明示接觸對象代表導電金屬部位。Sites source：`c695ce930602d702b6437519389064e64280f482`；saved version：`appgprj_6ad0b88108c08191a7568eda54a1f36c~appgver_2687c148cdb08191a01e28026d494c4f`；deployment：`appgdep_6ad0daa483948191a356aff03ea7f63c`，原生回傳 `succeeded`，原網址及私人存取保持。官方 archive：`output/sites/circuit-household-workbench-earth-art.tar.gz`。Source／ZIP 圖像專項 38 checks、Node 相關套件及部署目錄檢查通過，詳見計劃；未重跑完整物理回歸、真手機或 Moodle。

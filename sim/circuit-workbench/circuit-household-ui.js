@@ -47,6 +47,7 @@
     function properties(c,doc,parent,actions){
       const readonly=controller.getInteraction().readOnly,r=controller.getAnalysis().components[c.id];
       protectionAction(c,r,actions);
+      if(c.type==='house-metal'&&c.params.kind==='aircon'){const note=document.createElement('p');note.className='note';note.dataset.householdMetalParts=c.id;note.textContent='塑膠外罩不導電；地線接內部金屬機架。本例「接觸外殼」代表碰到導電金屬部位。';parent.append(note);}
       const closed=parent.querySelector('[data-param="closed"]');
       if(C.isProtection(c)&&closed){
         const change=closed.onchange;
