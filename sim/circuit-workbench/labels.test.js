@@ -28,4 +28,9 @@ for(const names of [false,true])for(const values of [false,true]){
 for(const version of [1,2,3,4]){const d=P.create('series');d.version=version;if(d.cables)delete d.cables.resistance;d.wires.forEach(w=>delete w.resistance);delete d.display.names;if(version<3){delete d.cables;d.wires.forEach(w=>delete w.length);}if(version===1)d.wires.forEach(w=>delete w.shape);const restored=D.decode(JSON.stringify(d));assert.equal(restored.display.names,true);assert.equal(restored.version,6);restored.display.names=false;assert.equal(D.decode(D.encode(restored)).display.names,false);M.addWire(restored,900,600);D.decode(D.encode(restored));}
 for(const invalid of [null,0,'true',{},[]]){const d=P.create('series');d.display.names=invalid;assert.throws(()=>M.validate(d),'names must be boolean when provided');}
 const long=M.empty(),c=M.add(long,'resistor',200,200);c.label='這是一個需要自動換行顯示的較長元件名稱 <>&';const rows=verify(long)[0].rows;assert(rows.filter(r=>r.kind==='name').length>1);assert(rows.every(r=>r.size>=12));assert(V.scene(long,S.solve(long)).includes('&lt;&gt;&amp;'),'names are escaped as text');
+{
+ const d=M.empty();for(let n=0;n<3;n++)M.add(d,'resistor',300,260).label='相同位置的元件 '+n;
+ const placed=verify(d),options={previous:new Map(placed.map(p=>[p.id,p.slot]))},next=V.labels(d,S.solve(d),1,{},null,options);
+ assert.deepEqual(next,placed,'cached static collisions still account for every earlier label and keep stable slots');
+}
 console.log('Adaptive labels: actual cable sample clearance, rotated/nearby components, 120 responsive example layouts, stable pure layout, wrapped escaped names, independent visibility, strict optional v4 defaults and legal restored continuation passed.');

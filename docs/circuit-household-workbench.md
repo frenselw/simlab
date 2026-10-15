@@ -135,3 +135,7 @@ Node 驗證：`household-connections.test.js`、`household-model.test.js`、`hou
 ### Version 9：接觸、接線與支路開關
 
 移除重複 C08 選單入口，分開 N／E 路徑；補上市電線芯動畫及雙手直接接觸端子，移開不留額外線；所有現行家電示例加入火線開關，C07 改為三件獨立開關負載，C07fuse 縮為四件元件並修正規格／名稱避讓。Sites source：`9ecbadefad5d9bc8f32d6b0fd7e8dbfec1bda70a`；saved version：`appgprj_6ad0b88108c08191a7568eda54a1f36c~appgver_ac833ff7ddfc8191ac12677b03c9ed8f`；deployment：`appgdep_6ad106ecfeec81919153754a72e772dd`，原生回傳 `succeeded`，原網址及私人存取保持。官方 archive：`output/sites/circuit-household-workbench-switched-examples.tar.gz`。最終 source／ZIP 完整 **737 checks**、新示例 70 checks、動畫實際幀專項 94 checks、Node 及 DC 吸附回歸通過；30 個 runtime assets 與來源一致，部署目錄入口／手機／桌面檢查通過。遠端 CI 及獨立審查另記實際結果，未做真手機或 Moodle 驗證。
+### Version 10：共用標籤布局效能
+
+重用固定障礙物碰撞計算，保留既有標籤位置、物理模型及 CI 100 ms 效能門檻。Sites source：`047d086b9eb54bf133ad2d0ed6012c9e8c0504dd`；saved version：`appgprj_6ad0b88108c08191a7568eda54a1f36c~appgver_a6f5df4633a08191b72dbccdbafa8973`；deployment：`appgdep_6ad10d6432e08191b2254e5df7c192e2`，原生回傳 `succeeded`，原網址及私人存取保持。Archive：`output/sites/circuit-household-workbench-label-performance.tar.gz`。本輪 AC protection-budget source／ZIP 134 observations、家庭 source／ZIP 70 checks、標籤／layout／電流卡 Node 及部署目錄三尺寸通過。完整 737 checks 為此次共用效能修正前證據；新 head CI 及獨立審查另驗。
+

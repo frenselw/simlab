@@ -70,9 +70,10 @@
       work.push({item,order,body,rows,width,height,candidates,free:candidates.filter(c=>!c.penalty).length});
     });
     // Put constrained labels first, then keep a still-clear previous slot close to the best one.
-    work.sort((a,b)=>a.free-b.free||b.width-a.width||a.order-b.order);const placed=[];
+    work.sort((a,b)=>a.free-b.free||b.width-a.width||a.order-b.order);const placed=[],labelBoxes=[];
     for(const entry of work){
-      let best=null;for(const candidate of entry.candidates){const penalty=collision(candidate.box),score=penalty+candidate.base;if(!best||score<best.score)best={...candidate,penalty,score};}
+      // Bodies and wires are unchanged since candidate creation; only labels were added.
+      let best=null;for(const candidate of entry.candidates){const penalty=candidate.penalty+labelBoxes.reduce((sum,box)=>sum+(intersects(candidate.box,box)?50000:0),0),score=penalty+candidate.base;if(!best||score<best.score)best={...candidate,penalty,score};}
       if(best.penalty){const cx=(entry.body.left+entry.body.right)/2,cy=(entry.body.top+entry.body.bottom)/2;for(let dy=-144;dy<=144;dy+=12)for(let dx=-180;dx<=180;dx+=12){const x=cx+dx,y=cy+dy,box={left:x-entry.width/2,right:x+entry.width/2,top:y-entry.height/2,bottom:y+entry.height/2},penalty=collision(box),base=Math.hypot(dx,dy)+6,score=penalty+base;if(score<best.score)best={box,slot:'grid:'+dx+':'+dy,penalty,base,score};}}
       if(best.penalty&&!entry.item.fixedWidth)for(const limit of [120,96,72,54,40]){if(limit>=entry.width-6)continue;
         const rows=rowsFor(entry.item.lines,limit),width=Math.max(...rows.map(row=>row.width))+(entry.item.paddingX??6)+(entry.item.paddingLeft||0),height=rows.reduce((n,row)=>n+row.step,0)+4,cx=(entry.body.left+entry.body.right)/2,cy=(entry.body.top+entry.body.bottom)/2;
@@ -80,7 +81,7 @@
         if(!best.penalty)break;
       }
       const preferred=entry.candidates.find(c=>c.slot===previous?.get(entry.item.id));if(preferred&&!best.penalty&&!collision(preferred.box)&&preferred.base<=best.base+28)best={...preferred,penalty:0,score:preferred.base};
-      add({type:'label',id:entry.item.id,box:expand(best.box,3)});const box={left:origin.x+best.box.left/scale,right:origin.x+best.box.right/scale,top:origin.y+best.box.top/scale,bottom:origin.y+best.box.bottom/scale};let y=box.top+2/scale;
+      const occupied=expand(best.box,3);labelBoxes.push(occupied);add({type:'label',id:entry.item.id,box:occupied});const box={left:origin.x+best.box.left/scale,right:origin.x+best.box.right/scale,top:origin.y+best.box.top/scale,bottom:origin.y+best.box.bottom/scale};let y=box.top+2/scale;
       const rows=(best.rows||entry.rows).map(row=>{const baseline=y+row.ascent/scale;y+=row.step/scale;return{...row,x:(box.left+box.right)/2+(entry.item.paddingLeft||0)/(2*scale),y:baseline};});
       const center={x:(best.box.left+best.box.right)/2,y:(best.box.top+best.box.bottom)/2},nearest=(r,p)=>({x:Math.max(r.left,Math.min(r.right,p.x)),y:Math.max(r.top,Math.min(r.bottom,p.y))}),from=nearest(entry.body,center),to=nearest(best.box,from),leader=Math.hypot(from.x-to.x,from.y-to.y)>22?{from:{x:origin.x+from.x/scale,y:origin.y+from.y/scale},to:{x:origin.x+to.x/scale,y:origin.y+to.y/scale}}:null;
       placed.push({id:entry.item.id,box,rows,slot:best.slot,crowded:best.penalty>0,leader});
