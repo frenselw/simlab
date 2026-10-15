@@ -422,3 +422,10 @@ Quality Full 在各測試組全部通過後，因 GitHub runner 映像不同而�
 - 風擺沿用風扇已接入的共用模擬 frame，按實際推進時間更新其局部 SVG，重畫保留相位；角度不進入權威存檔，刪除或 destroy 時清理。外殼、端口、外殼接觸與 1000 W 負載模型維持原值。
 - source／實際 ZIP 共 **71 browser checks** 通過；新案例核對指示燈及 25°C 可見性／右下位置、風擺實際高度變化及折返、暫停／重畫保留位置，以及漏電跳掣後熄燈／隱去溫度／停止。已檢視放大運作／斷電圖及 665×604 小電路；證據在 `output/playwright/circuit-household/aircon-indicator-detail.png`／`aircon-indicator-workbench.png`，動作檢查及 source／ZIP 截圖在同資料夾的 `results.json`／`*-aircon-on.png`／`*-aircon-off.png`。
 - 四個家庭 Node tests（含 36 個舊文件往返／續作）、修改 JavaScript 的語法、`check:tests`、修改文件連結及 diff 檢查通過；沿用既有 registry owner。此輪未重跑完整 CI 或真手機驗收。
+
+### 冷氣機內部馬達與送風滾筒（2026-10-15）
+
+- 依使用者指出的透明度及空懸轉軸問題，冷氣移除泛用馬達圖案，改用專屬室內送風剖視。馬達設於橫向滾筒的一端，連續軸線接到滾筒軸心，另一端有支承；滾筒畫出縱向葉片及分段支架。橫向送風滾筒概念參考 [Mitsubishi Electric 房間冷氣產品資料](https://in.mitsubishielectric.com/en/data-center/comfortcoolingsystems/pdf/Room_air_conditioners.pdf)的 cross-flow fan，插圖為教學簡化，並非特定機型施工圖。
+- 內部組件以 56% 不透明度繪製，再覆上 22% 不透明度的淡色機殼面板，明確形成內部／面板層次；L／N 線接馬達，E 線接外殼。工具箱省略內部結構，實物畫布與匯出共用同一幾何。保留指示燈、25°C、慢速風擺、端口及外殼接觸座標；1000 W 仍屬整機教學負載，沒有新增製冷或馬達物理模型。
+- 已檢視放大運作／斷電圖及 665×604 小電路；證據為 `output/playwright/circuit-household/aircon-cutaway-detail.png`／`aircon-cutaway-workbench.png`。source／實際 ZIP 共 **73 browser checks** 通過，新增原生 SVG 幾何驗證：轉軸兩端對齊馬達／滾筒中心、內部位於機殼範圍且面板疊在其上、半透明度，以及實際葉片路徑非空。原有溫度、燈、風擺及跳掣檢查保留。
+- 四個家庭 Node tests（含 36 個舊文件往返／續作）、修改 JavaScript 語法、`check:tests`、修改文件連結及 diff 檢查通過。沿用既有 registry owner；本輪未重跑完整 CI 或真手機驗收。
