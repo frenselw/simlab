@@ -440,3 +440,9 @@ Quality Full 在各測試組全部通過後，因 GitHub runner 映像不同而�
 - 冷氣滾筒新增八片可動葉片，以水平圓柱的投影表現繞軸轉動；支架、外殼及轉軸位置固定，不把整個筒身當作平面風扇旋轉。與現有風擺一起沿用模擬 frame，按實際推進時間與工作電流更新；暫停、斷電／跳掣及只讀時停止，暫態角度不寫進存檔並在 destroy 時清理。
 - 已檢視所有款式及熱水器／風筒通斷電放大圖：`output/playwright/circuit-household/appliance-redesign-final.png`。source／實際 ZIP 共 **81 browser checks** 通過；新增新風扇外形、線圈有效曲線／透明度／熱色切換、風筒／攪拌機／吸塵機的轉軸兩端對齊、實際旋轉／暫停／再接通，以及冷氣葉片路徑隨時間改變而軸心位置保持、跳掣後停止。各款 source／ZIP 運作及斷電截圖與指紋由同資料夾 `results.json` 記錄。
 - 四個家庭 Node tests（含 36 個舊文件往返／續作）、`check`／`check:tests`、修改文件連結及 diff 檢查通過；沿用既有 registry owner，沒有新增依賴或測試入口。此輪未重跑完整 CI、DC／AC 瀏覽器或真手機驗收。
+
+### 攪拌機繞組端部修正（2026-10-15）
+
+將馬達內四條孤立銅色直線改為沿軸延伸、上下端部繞回的三組連續線圈，並補上鐵芯與端部高光；保留半透明機殼、原豎直轉軸、刀片及端口座標。已檢視放大及窄畫面（`output/playwright/circuit-household/blender-winding-detail.png`／`blender-winding-workbench.png`），既有示例／元件渲染與語法檢查通過。這是局部繪圖修正，不新增馬達模型或狀態欄位。
+
+最終 source／實際 ZIP 的 81 browser checks 通過，包含攪拌機連軸對齊、轉動、暫停及通斷電；修改文件連結及 diff 檢查通過。本輪未重跑完整 CI 或真手機驗收。
