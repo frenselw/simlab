@@ -3,8 +3,12 @@
   const C=root.CircuitHouseholdComponents,V=root.CircuitRenderer,Q=root.CircuitMath,P=root.CircuitHouseholdPresets;
   const abs=value=>Number.isFinite(value)?Math.abs(value):null;
   function mount({host,refs,controller}){
-    const fanAngles=new Map(),louverPhases=new Map(),blowerAngles=new Map();let fans=[],louvers=[],blowers=[];
+    const fanAngles=new Map(),louverPhases=new Map(),blowerAngles=new Map(),shockPhases=new Map(),reducedMotion=matchMedia('(prefers-reduced-motion: reduce)');let fans=[],louvers=[],blowers=[],people=[];
     function animate(result,elapsed){
+      for(const {id,node,flow}of people){
+        const shocked=Math.abs(result.components[id]?.current||0)>1e-9,phase=shocked?((shockPhases.get(id)||0)+(reducedMotion.matches?0:elapsed*2*Math.PI))%(2*Math.PI):0;
+        shockPhases.set(id,phase);node.setAttribute('transform','skewX('+(reducedMotion.matches?0:1.8*Math.sin(phase*4)).toFixed(3)+')');if(flow)flow.setAttribute('stroke-dashoffset',(-8*Math.sin(phase)).toFixed(3));
+      }
       for(const {id,node}of fans){const previous=fanAngles.get(id)||0,angle=(previous+(result.components[id]?.working?elapsed*240:0))%360;fanAngles.set(id,angle);const transform='rotate('+angle.toFixed(3)+')';if(node.getAttribute('transform')!==transform)node.setAttribute('transform',transform);}
       for(const {id,node}of louvers){const phase=((louverPhases.get(id)||0)+(result.components[id]?.working?elapsed*Math.PI/3:0))%(2*Math.PI);louverPhases.set(id,phase);const transform='translate(0 14) scale(1 '+(.65+.3*Math.sin(phase)).toFixed(4)+') translate(0 -14)';if(node.getAttribute('transform')!==transform)node.setAttribute('transform',transform);}
       for(const {id,node,fins}of blowers){const angle=((blowerAngles.get(id)||0)+(result.components[id]?.working?elapsed*240:0))%360;blowerAngles.set(id,angle);if(node.dataset.angle===angle.toFixed(3))continue;node.dataset.angle=angle.toFixed(3);fins.forEach((fin,n)=>{const phase=angle*Math.PI/180+n*2*Math.PI/fins.length,y=-15+7*Math.sin(phase);fin.setAttribute('d','M-13 '+y+'Q12 '+(y-Math.cos(phase))+' 37 '+y);fin.setAttribute('opacity',String(.3+.7*Math.max(0,Math.cos(phase))));});}
@@ -13,7 +17,7 @@
     refs.diagramLabels.replaceChildren();const legend=document.createElement('div');legend.className='household-legend';legend.innerHTML='<span><i></i>火線 L</span><span><i class="neutral"></i>零線 N</span><span><i class="earth"></i>地線 E</span>';refs.diagramLabels.append(legend);
     for(const strip of host.querySelectorAll('.scroll-strip'))strip.setAttribute('aria-label',(strip.classList.contains('left')?'左':'右')+'側捲頁區：上下滑動可捲動頁面');
     refs.canvasInstructions.textContent='拖線端接孔或手部接線點，也可拖手到外殼。雙指移圖、捏合縮放；單指滑動空白及左右捲頁區可捲動外層頁面。桌面滾輪縮放，按空白鍵拖移。';
-    refs.helpDialog.querySelector('.help-body').innerHTML='<section><h3>接線與觀察</h3><ol class="help-steps"><li><strong>拖線端接孔</strong><span>家電兩條線可以同接一孔，也可以接錯；放手後保留你的接法。</span></li><li><strong>選元件改條件</strong><span>可換家電種類、功率、故障或保護規格。點開關開合；跳掣後選保護器復位，熔絲需更換。</span></li><li><strong>拖人的手到外殼</strong><span>兩手接線點都可吸附導線；右手也可選「接觸對象」。選「站在絕緣椅上也會觸電嗎」，拆開一手再接回，比較人體電流。椅子只隔開身體與地，不能斷開雙手之間的回路。</span></li></ol></section><section><h3>三條線</h3><p>火線 L 和零線 N 供電；地線 E 在正確接線時連到金屬外殼，不承載正常工作電流。家電停止或能工作，都不能單憑這點判定接法正確。</p></section><section><h3>保護裝置</h3><p>斷路器和保險絲看電流是否超過額定值；漏電保護器比較流出與返回自身的電流，差流達 30 mA 才按延時切斷。站椅時兩手分接其後的 L／N，電流全經 N 返回，即使有人體電流也不跳掣。</p></section><details class="help-more"><summary>操作及模型界限</summary><div class="household-model-note"><p>沿用 DC 工作台的取線、彎線、相機、復原、實物／符號及全螢幕。手機雙指移圖；精細接線或拖手時提供放大預覽。線身交叉不接通。</p><p>市電以 230 V、50 Hz 有效值及電阻等效表示；風扇／冷氣不計啟動及功率因數。往返箭嘴只示意交流，並非真實頻率動畫。</p><p>外殼受損絕緣取 2000 Ω，每手至身體、身體至地各取 1000 Ω，單手至地或雙手之間等效 2000 Ω；地線為理想導體。過電流連續超額 2 s、差流達 30 mA 持續 0.10 s 才動作，均為教學延時。</p><p>理想地線不能代表任何實際接地都可靠；漏電保護器在電流發生後才動作，不能保證不受傷。絕緣椅忽略潮濕及其他接觸；雙重絕緣只演示內層破損、外層仍完整。此工作台用於概念探索。</p></div></details>';
+    refs.helpDialog.querySelector('.help-body').innerHTML='<section><h3>接線與觀察</h3><ol class="help-steps"><li><strong>拖線端接孔</strong><span>家電兩條線可以同接一孔，也可以接錯；放手後保留你的接法。</span></li><li><strong>選元件改條件</strong><span>可換家電種類、功率、故障或保護規格。點開關開合；跳掣後選保護器復位，熔絲需更換。</span></li><li><strong>拖人的手到外殼</strong><span>兩手接線點都可吸附導線；右手也可選「接觸對象」。選「站在絕緣椅上也會觸電嗎」，拆開一手再接回，比較人體電流。椅子只隔開身體與地，不能斷開雙手之間的回路。有人體電流時，人物顫動、表情繃緊，橙色流動線顯示人體內的回路；暫停時保留這個狀態。</span></li></ol></section><section><h3>三條線</h3><p>火線 L 和零線 N 供電；地線 E 在正確接線時連到金屬外殼，不承載正常工作電流。家電停止或能工作，都不能單憑這點判定接法正確。</p></section><section><h3>保護裝置</h3><p>斷路器和保險絲看電流是否超過額定值；漏電保護器比較流出與返回自身的電流，差流達 30 mA 才按延時切斷。站椅時兩手分接其後的 L／N，電流全經 N 返回，即使有人體電流也不跳掣。</p></section><details class="help-more"><summary>操作及模型界限</summary><div class="household-model-note"><p>沿用 DC 工作台的取線、彎線、相機、復原、實物／符號及全螢幕。手機雙指移圖；精細接線或拖手時提供放大預覽。線身交叉不接通。</p><p>市電以 230 V、50 Hz 有效值及電阻等效表示；風扇／冷氣不計啟動及功率因數。往返箭嘴只示意交流，並非真實頻率動畫。</p><p>外殼受損絕緣取 2000 Ω，每手至身體、身體至地各取 1000 Ω，單手至地或雙手之間等效 2000 Ω；地線為理想導體。過電流連續超額 2 s、差流達 30 mA 持續 0.10 s 才動作，均為教學延時。</p><p>理想地線不能代表任何實際接地都可靠；漏電保護器在電流發生後才動作，不能保證不受傷。絕緣椅忽略潮濕及其他接觸；雙重絕緣只演示內層破損、外層仍完整。人物反應及流動線只作教學提示，不表示實際傷害程度；減少動態效果設定會停用顫動，保留靜態表情及路徑。此工作台用於概念探索。</p></div></details>';
     function reading(c,r,readings){
       if(c.type==='house-person')return readings([['人體電流',Math.abs(r.current||0)*1000,'mA'],['雙手之間電壓',abs(r.handVoltage),'V'],['流向地面的電流',abs(r.groundCurrent)*1000,'mA']]);
       if(C.isProtection(c))return readings([['通過電流',abs(r.current),'A'],...(c.type==='house-rcd'?[['漏電差流',r.residualCurrent*1000,'mA']]:[])])+`<p class="note" data-family-protection="${V.esc(c.id)}">${r.status==='tripped'?'已跳掣':r.status==='blown'?'已熔斷':r.status==='open'?'手動斷開':'合上'}${r.protection?.elapsed?' · 動作計時 '+r.protection.elapsed.toFixed(2)+' s':''}</p>`;
@@ -51,11 +55,13 @@
       const ids=new Set(doc.components.filter(c=>C.isAppliance(c)&&['fan','dryer','blender','vacuum'].includes(c.params.kind)).map(c=>c.id));for(const id of fanAngles.keys())if(!ids.has(id))fanAngles.delete(id);
       const aircons=new Set(doc.components.filter(c=>C.isAppliance(c)&&c.params.kind==='aircon').map(c=>c.id));for(const id of louverPhases.keys())if(!aircons.has(id))louverPhases.delete(id);
       for(const id of blowerAngles.keys())if(!aircons.has(id))blowerAngles.delete(id);
+      const personIds=new Set(doc.components.filter(c=>c.type==='house-person').map(c=>c.id));for(const id of shockPhases.keys())if(!personIds.has(id)||Math.abs(result.components[id].current)<=1e-9)shockPhases.delete(id);
+      people=Array.from(refs.scene.querySelectorAll('[data-house-person-reaction]'),node=>({id:node.closest('[data-component]').dataset.component,node,flow:node.closest('[data-component]').querySelector('[data-house-body-flow]')}));
       fans=Array.from(refs.scene.querySelectorAll('[data-house-fan-rotor], [data-house-rotor]'),node=>({id:node.closest('[data-component]').dataset.component,node}));
       louvers=Array.from(refs.scene.querySelectorAll('[data-house-aircon-louver]'),node=>({id:node.closest('[data-component]').dataset.component,node}));
       blowers=Array.from(refs.scene.querySelectorAll('[data-house-aircon-rotor]'),node=>({id:node.closest('[data-component]').dataset.component,node,fins:Array.from(node.querySelectorAll('[data-house-aircon-fin]'))}));animate(result,0);
     }
-    return {readings:reading,properties,render,animate,destroy(){fans=[];louvers=[];blowers=[];fanAngles.clear();louverPhases.clear();blowerAngles.clear();observation.remove();}};
+    return {readings:reading,properties,render,animate,destroy(){fans=[];louvers=[];blowers=[];people=[];shockPhases.clear();fanAngles.clear();louverPhases.clear();blowerAngles.clear();observation.remove();}};
   }
   root.CircuitHouseholdUI=Object.freeze({mount});
 })(window);

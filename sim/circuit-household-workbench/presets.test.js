@@ -43,3 +43,15 @@ for(const kind of Object.keys(C.applianceKinds.metal)){
  const c=M.add(M.empty('household'),'house-metal',0,0,{kind,fault:true}),body=C.render(c),bond=body.match(/data-house-earth-bond="true" cx="([\d.-]+)" cy="([\d.-]+)"/),fault=body.match(/d="M([\d.-]+) ([\d.-]+)L[^" ]+ [^" ]+L([\d.-]+) ([\d.-]+)"[^>]*data-house-fault-path/),input=body.match(/d="M-86-26H-57L-45 ([\d.-]+)H([\d.-]+)"/);
  assert(bond&&fault&&input);assert.deepEqual(fault.slice(1,3),[input[2],input[1]],'fault begins on the live internal lead');assert.deepEqual(fault.slice(3,5),bond.slice(1,3),'fault ends on the metal shell');assert(C.render(c,{}, {view:'schematic'}).includes('data-house-fault-path'));
 }
+
+for(const stance of ['grounded','insulated'])for(const view of ['real','schematic']){
+ const d=P.create('C09');d.components.find(c=>c.id==='person').params.stance=stance;const s=new H.Session(d),c=s.doc.components.find(c=>c.id==='person'),r=s.read().components.person,ports=R.ports(c);
+ const body=C.render(c,r,{view});assert(body.includes('data-house-person-reaction="true"'));assert(body.includes('data-house-person-grimace="true"'));assert(body.includes('data-house-person-shock="true"'));assert(body.includes('M40-13'));assert(body.includes('L-15-18-20-1-25 20'));assert.equal(body.includes('M0-12V8L1 31'),stance==='grounded');assert.deepEqual(R.ports(c),ports);
+ const calm=C.render(c,{...r,current:0},{view});assert(calm.includes('data-house-person-reaction="false"'));assert(!calm.includes('data-house-person-grimace'));assert(!calm.includes('data-house-person-shock'));s.destroy();
+}
+
+for(const hand of ['hand','hand-left'])for(const stance of ['grounded','insulated']){
+ const d=P.create('C03');d.components.find(c=>c.id==='person').params.stance=stance;M.connect(d,'socket:l','person:'+hand);const s=new H.Session(d),c=s.doc.components.find(c=>c.id==='person'),body=C.render(c,s.read().components.person);
+ assert.equal(body.includes('data-house-person-shock'),stance==='grounded');
+ if(stance==='grounded'){assert.equal(body.includes('M40-13'),hand==='hand');assert.equal(body.includes('M-25 20'),hand==='hand-left');assert(body.includes('M0-12V8L1 31'));}s.destroy();
+}

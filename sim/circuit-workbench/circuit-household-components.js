@@ -142,7 +142,7 @@
     }
   }
   function person(c,r,id){
-    const stool=c.params.stance==='insulated',offset=stool?-22:0;
+    const stool=c.params.stance==='insulated',offset=stool?-22:0,shocked=Math.abs(r?.current||0)>1e-9;
     let out=`<defs><linearGradient id="${id}-skin" x1="0" y1="0" x2="1" y2=".3"><stop stop-color="#f4d9bf"/><stop offset=".65" stop-color="#e6bda0"/><stop offset="1" stop-color="#cfa589"/></linearGradient><linearGradient id="${id}-shirt" x1="0" y1="0" x2="1" y2=".4"><stop stop-color="#b9d6e1"/><stop offset=".55" stop-color="#92baca"/><stop offset="1" stop-color="#759eaf"/></linearGradient><linearGradient id="${id}-trousers"><stop stop-color="#708b9f"/><stop offset=".5" stop-color="#5d778e"/><stop offset="1" stop-color="#49677f"/></linearGradient></defs>`;
     out+=`<g data-house-person-support="${c.params.stance}"><ellipse cx="3" cy="${stool?77:75}" rx="34" ry="3" fill="#668295" opacity=".09"/>`+path(`M-40 ${stool?77:75}H46`,'#b8c7c8',1.5);
     if(stool)out+=`<path d="M-23 58L-27 77H-20L-16 58 M20 58L24 77H31L26 58" fill="url(#${id}-plastic)" stroke="#819da9" stroke-width="1.1"/><path d="M-26 52H29Q32 52 32 55V59H-29V55Q-29 52-26 52Z" fill="url(#${id}-plastic)" stroke="#7896a6" stroke-width="1.2"/>`+path('M-24 54H27 M-22 68H26','#afc8d2',1.5);
@@ -155,7 +155,7 @@
       <path d="M-16-20Q-20-15-21-3L-25 12-20 15-14-1-10-16 M14-21Q19-20 23-11L28-4 36-12 40-7 30 4Q26 7 22 2L12-12" fill="url(#${id}-skin)" stroke="#b58f78" stroke-width="1"/>
       <path d="M-25 11Q-27 15-28 20Q-28 24-25 24L-21 20-20 14 M35-12L37-16Q38-18 40-17L41-16 43-17Q45-17 45-15L44-9Q43-7 40-7L37-8Z" fill="url(#${id}-skin)" stroke="#b58f78" stroke-width=".9"/>
       <path data-house-person-fingers="true" d="M-25 17L-26 21 M-23 18L-24 22 M39-15L43-14 M39-12L43-12 M39-10L42-10" fill="none" stroke="#bd967f" stroke-width=".65"/>
-      <path d="M-5-38H6V-28L2-23-5-28Z" fill="url(#${id}-skin)" stroke="#bd967f" stroke-width=".8"/>
+      <g data-house-person-reaction="${shocked}" transform="skewX(0)"><path d="M-5-38H6V-28L2-23-5-28Z" fill="url(#${id}-skin)" stroke="#bd967f" stroke-width=".8"/>
       <path d="M-5-35Q0-31 6-34V-31Q0-28-5-31Z" fill="#cca184" opacity=".45"/>
       <path data-house-person-shirt="true" d="M-6-30L-14-27Q-20-25-21-19L-22-9-12-6-12 7-13 20Q0 24 14 20L13 6 14-10 19-7 25-13Q20-25 14-27L6-30 1-25Z" fill="url(#${id}-shirt)" stroke="#678fa4" stroke-width="1.1"/>
       <path d="M-6-30L1-25-3-20-8-26 M6-30L1-25 5-20 10-26" fill="#d7e7ed" stroke="#89afc0" stroke-width=".7"/>
@@ -165,9 +165,14 @@
       <path d="M-10-54Q-10-65 1-65Q12-64 13-54L12-45Q11-39 6-36Q2-34-3-37Q-9-40-10-47Z" fill="url(#${id}-skin)" stroke="#b89078" stroke-width=".9"/>
       <path d="M-11-48Q-15-58-8-64Q-1-70 7-65Q15-65 14-53L12-48 10-56Q3-55-3-59Q-6-54-9-54L-9-48Z" fill="#4e6471" stroke="#445d6c" stroke-width=".8"/>
       <path d="M-8-61Q-1-66 6-62 M-4-63Q1-64 5-62" fill="none" stroke="#758996" stroke-width=".8"/>
-      <path d="M-5-50Q-3-51-1-50 M6-50Q8-51 10-49" fill="none" stroke="#6a625d" stroke-width=".8"/><ellipse cx="-2.5" cy="-47.5" rx=".85" ry="1.1" fill="#4e5c64"/><ellipse cx="8" cy="-47.5" rx=".85" ry="1.1" fill="#4e5c64"/>
-      <path d="M3-47L5-43 2-42 M0-39Q4-37 8-40" fill="none" stroke="#ac7f69" stroke-width=".75"/><path d="M-6-44L-3-43 M8-43L10-44" fill="none" stroke="#d4a18c" stroke-width="1.1" opacity=".65"/></g>
+      ${shocked?`<path data-house-person-grimace="true" d="M-7-52L-1-50 M6-50L11-52 M-6-47L-1-46-6-45 M7-46L11-47 11-45 M3-46L5-42 2-42 M-3-38L0-40 3-38 6-40 9-38" fill="none" stroke="#855f51" stroke-width="1.1"/>`:`<path d="M-5-50Q-3-51-1-50 M6-50Q8-51 10-49" fill="none" stroke="#6a625d" stroke-width=".8"/><ellipse cx="-2.5" cy="-47.5" rx=".85" ry="1.1" fill="#4e5c64"/><ellipse cx="8" cy="-47.5" rx=".85" ry="1.1" fill="#4e5c64"/>
+      <path d="M3-47L5-43 2-42 M0-39Q4-37 8-40" fill="none" stroke="#ac7f69" stroke-width=".75"/><path d="M-6-44L-3-43 M8-43L10-44" fill="none" stroke="#d4a18c" stroke-width="1.1" opacity=".65"/>`}</g></g>
     </g>`;
+    if(shocked){
+      const active=current=>Math.abs(current||0)>1e-9,right=active(r.handCurrents?.right),left=active(r.handCurrents?.left);
+      const route=(right?'M40-13L28-2 16-18 0-12 '+(left?'L-15-18-20-1-25 20 ':''):left?'M-25 20L-20-1-15-18 0-12 ':'')+(active(r.groundCurrent)?'M0-12V8L1 31 M1 31L-9 48-14 73 M1 31L12 48 17 73':'');
+      out+='<g data-house-person-shock="true" transform="translate(0 '+offset+')" pointer-events="none"><title>觸電：有電流流經人體</title><path d="M-35-39l-4 7 5 6 M34-40l5 7-4 6" fill="none" stroke="#c05a32" stroke-width="1.8" stroke-linecap="round"/><path data-house-body-current="true" d="'+route+'" fill="none" stroke="#fff1cf" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity=".8"/><path data-house-body-flow="true" d="'+route+'" fill="none" stroke="#c5532e" stroke-width="2.4" stroke-dasharray="4 4" stroke-linecap="round" stroke-linejoin="round"/></g>';
+    }
     if(r?.contact)out+=`<circle data-house-hand="true" cx="40" cy="${-13+offset}" r="6" fill="none" stroke="${Math.abs(r.current||0)>.000001?'#c17845':'#80a18c'}" stroke-width="1.5"/>`;
     return out;
   }
