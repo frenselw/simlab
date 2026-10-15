@@ -6,7 +6,7 @@
 
 計劃第 47 節移除了記錄／圖像，第 48 節完成共用重構；其後加入元件本體吸附、快捷參數並完成整體審核。記錄表、擬合、CSV 及實驗模組維持移除，沒有加回基礎編輯器。
 
-家庭有效值後端現已接入相同 editor／profile／renderer；幾何使用獨立 v8 文件，動態權威狀態使用 `simlab-household-concepts` v1 封套。家庭元件及規則為按需依賴；供電端身份限制只套用家庭文件，家電端允許錯接。詳見[家庭維護指引](circuit-household-workbench.md)，其驗收另記於[家庭計劃](../plans/33-circuit-household-workbench.md)。
+家庭有效值後端現已接入相同 editor／profile／renderer；幾何使用獨立 v8 文件，動態權威狀態使用 `simlab-household-concepts` v2 封套（相容匯入 v1）。家庭元件及規則為按需依賴；家庭端子身份保持固定，但供電側與家電端均允許錯接，家庭有限線路阻抗及保護模型按實際回路求解。詳見[家庭維護指引](circuit-household-workbench.md)，其驗收另記於[家庭計劃](../plans/33-circuit-household-workbench.md)。
 
 ## 已形成的三層
 

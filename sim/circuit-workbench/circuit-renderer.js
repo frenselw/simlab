@@ -33,7 +33,7 @@
     return{known,power,ratedPower,ratio,brightness:Math.pow(Math.min(1,ratio),.6),overloaded:known&&ratio>S.hazardLimits.lampRatio};
   }
   const blend=(a,b,t)=>'#'+a.map((v,i)=>Math.round(v+(b[i]-v)*t).toString(16).padStart(2,'0')).join('');
-  const hazardLimits=S.hazardLimits, visualState=(doc,result)=>result.mode==='household'?{wires:{},components:{},short:false,overload:doc.components.some(c=>['house-breaker','house-fuse'].includes(c.type)&&Math.abs(result.components[c.id]?.current)>c.params.rating)}:result.mode==='transient'?result.hazards:S.hazards(doc,result);
+  const hazardLimits=S.hazardLimits, visualState=(doc,result)=>result.mode==='household'?{wires:{},components:{},short:!!result.shortCircuit,overload:doc.components.some(c=>['house-breaker','house-fuse'].includes(c.type)&&Math.abs(result.components[c.id]?.current)>c.params.rating)}:result.mode==='transient'?result.hazards:S.hazards(doc,result);
   function heatEffect(x,y,scale,attrs='') {
     return `<g class="heat-effect" ${attrs} transform="translate(${x} ${y}) scale(${1/scale})" pointer-events="none"><title>短路／過載發熱示意</title><circle cy="-8" r="23" fill="#ff9e3744"/><path class="heat-flame" d="M-13 0C-24-18-7-23-8-40C0-33 3-27 2-19C9-22 10-28 12-30C24-10 19 1 5 4C-3 7-9 4-13 0Z" fill="#ed6728" stroke="#c94a24" stroke-width="1.5"/><path d="M-5 1C-13-9-2-15-1-23C8-14 13-4 6 1C3 4-2 4-5 1Z" fill="#ffe681"/><path class="heat-sparks" d="M-22-25l-6-7 M22-16l7-4 M15-38l4-7" fill="none" stroke="#e78b20" stroke-width="2.5" stroke-linecap="round"/><path d="M-2-46q-8-7 1-13t-2-12" fill="none" stroke="#82919b" stroke-width="3" stroke-linecap="round" opacity=".45"/></g>`;
   }

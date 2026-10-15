@@ -142,7 +142,7 @@
     }
   }
   function person(c,r,id){
-    const stool=c.params.stance==='insulated',offset=stool?-22:0,shocked=Math.abs(r?.current||0)>1e-9;
+    const stool=c.params.stance==='insulated',offset=stool?-22:0,shocked=Math.abs(r?.current||0)>=.001;
     let out=`<defs><linearGradient id="${id}-skin" x1="0" y1="0" x2="1" y2=".3"><stop stop-color="#f4d9bf"/><stop offset=".65" stop-color="#e6bda0"/><stop offset="1" stop-color="#cfa589"/></linearGradient><linearGradient id="${id}-shirt" x1="0" y1="0" x2="1" y2=".4"><stop stop-color="#b9d6e1"/><stop offset=".55" stop-color="#92baca"/><stop offset="1" stop-color="#759eaf"/></linearGradient><linearGradient id="${id}-trousers"><stop stop-color="#708b9f"/><stop offset=".5" stop-color="#5d778e"/><stop offset="1" stop-color="#49677f"/></linearGradient></defs>`;
     out+=`<g data-house-person-support="${c.params.stance}"><ellipse cx="3" cy="${stool?77:75}" rx="34" ry="3" fill="#668295" opacity=".09"/>`+path(`M-40 ${stool?77:75}H46`,'#b8c7c8',1.5);
     if(stool)out+=`<path d="M-23 58L-27 77H-20L-16 58 M20 58L24 77H31L26 58" fill="url(#${id}-plastic)" stroke="#819da9" stroke-width="1.1"/><path d="M-26 52H29Q32 52 32 55V59H-29V55Q-29 52-26 52Z" fill="url(#${id}-plastic)" stroke="#7896a6" stroke-width="1.2"/>`+path('M-24 54H27 M-22 68H26','#afc8d2',1.5);

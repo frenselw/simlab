@@ -4,16 +4,16 @@ for(const type of ['house-metal','house-insulated'])for(const a of ['l','n','e']
   const d=M.empty('household');M.add(d,'house-socket',0,0).id='socket';M.add(d,type,200,0).id='load';const pairs=[['socket:'+a,'load:l'],['socket:'+b,'load:n']];if(reverse)pairs.reverse();for(const pair of pairs)M.connect(d,...pair);assert.equal(M.validate(d).wires.length,2,type+' '+a+b);assert.equal(Rules.inspect(d).roleOf('load:l'),a.toUpperCase());
 }
 for(const role of ['l','n','e']){const d=P.create('C03'),w=d.wires.find(w=>w.to==='load:e');w.from='socket:'+role;assert.doesNotThrow(()=>M.validate(d));}
-for(const [a,b]of [['source:l','socket:n'],['socket:l','socket:e'],['socket:n','socket:e']]){const d=P.create('C03'),before=JSON.stringify(d);assert.throws(()=>M.connect(d,a,b),/不能直接合併/);assert.equal(JSON.stringify(d),before);}
-for(const target of ['source:l','socket:n']){const d=P.create('C03');d.wires=d.wires.filter(w=>w.from!=='earth:e');assert.throws(()=>M.connect(d,'earth:e',target));}
+for(const [a,b]of [['source:l','socket:n'],['socket:l','socket:e'],['socket:n','socket:e']]){const d=P.create('C03'),before=d.wires.length;assert(M.connect(d,a,b));assert.equal(d.wires.length,before+1);assert.doesNotThrow(()=>M.validate(d));}
+for(const target of ['source:l','socket:n']){const d=P.create('C03');d.wires=d.wires.filter(w=>w.from!=='earth:e');assert(M.connect(d,'earth:e',target));assert.doesNotThrow(()=>M.validate(d));}
 {
- const d=P.create('C08');const w=d.wires.find(w=>w.to==='load:n');M.detach(d,w.id,'from');assert(M.attach(d,w.id,'from','socket:l'));assert.equal(w.from,'socket:l');const before=JSON.stringify(d);assert.throws(()=>M.attach(d,d.wires.find(w=>w.from==='source:l').id,'to','socket:n'));assert.equal(JSON.stringify(d),before);
+ const d=P.create('C08');const w=d.wires.find(w=>w.to==='load:n');M.detach(d,w.id,'from');assert(M.attach(d,w.id,'from','socket:l'));assert.equal(w.from,'socket:l');assert(M.attach(d,d.wires.find(w=>w.from==='source:l').id,'to','socket:n'));assert.doesNotThrow(()=>M.validate(d));
 }
 {
  const d=M.empty('household');M.add(d,'house-socket',0,0).id='socket';const load=M.add(d,'house-insulated',260,0);load.id='load';const w=M.addWire(d,120,40);M.attach(d,w.id,'from','socket:l');const p=M.endpoints(d).get(w.to),next=J.component(d,'load',{x:p.x+86,y:p.y},24);assert(next);assert.equal(next.doc.wires[0].to,'load:n','neutral appliance lead may snap onto the live supply net');
 }
 {
- const d=P.create('C02');const a=d.wires.find(w=>w.to==='switch:a'),b=d.wires.find(w=>w.from==='switch:b'),direct=d.wires.find(w=>w.to==='load:n');a.from='socket:n';b.to='load:n';direct.from='socket:l';direct.to='load:l';assert.doesNotThrow(()=>M.validate(d));a.from='socket:e';assert.throws(()=>M.validate(d),/地線/);
+ const d=P.create('C02');const a=d.wires.find(w=>w.to==='switch:a'),b=d.wires.find(w=>w.from==='switch:b'),direct=d.wires.find(w=>w.to==='load:n');a.from='socket:n';b.to='load:n';direct.from='socket:l';direct.to='load:l';assert.doesNotThrow(()=>M.validate(d));a.from='socket:e';assert.doesNotThrow(()=>M.validate(d));
 }
 assert.throws(()=>Profile.compile({role:'teacher',initialDocument:P.create('C01')}),/分析種類/);
 assert.throws(()=>M.validate({...P.create('C01'),kind:'simlab-circuit',version:6}),/欄位|家庭/);
@@ -23,7 +23,7 @@ for(const stance of ['grounded','insulated']){
  assert.deepEqual(C.hand(person),{x:person.x+40,y:person.y+(stance==='insulated'?-35:-13)});
  const wire=M.addWire(d,person.x+150,person.y+150),end=M.endpoints(d).get(wire.to),h=C.hand(person);
  const snapped=J.component(d,'person',{x:person.x+end.x-h.x+4,y:person.y+end.y-h.y+3},24);assert(snapped);assert.equal(snapped.doc.wires.find(w=>w.id===wire.id).to,'person:hand');assert.doesNotThrow(()=>M.validate(snapped.doc));
- M.connect(d,'socket:l','person:hand');const before=M.clone(d);assert.throws(()=>M.connect(d,'socket:n','person:hand'),/不能直接合併/);assert.deepEqual(d,before);
+ M.connect(d,'socket:l','person:hand');assert(M.connect(d,'socket:n','person:hand'));assert(new (require('./household-model').Session)(d).read().shortCircuit);
 }
 for(const type of ['house-mains','house-earth'])for(const end of ['from','to']){
  const d=M.empty('household'),c=M.add(d,type,0,0);assert.equal(d.wires.length,0);const endpoint=c.id+':'+(type==='house-mains'?'l':'e'),w=M.addWire(d,140,70);assert(M.attach(d,w.id,end,endpoint));assert.equal(w.anchor,undefined);assert.doesNotThrow(()=>M.validate(d));
@@ -72,7 +72,7 @@ for(const stance of ['grounded','insulated'])for(const hand of ['hand','hand-lef
  const d=M.empty('household');M.add(d,'house-mains',-200,0).id='source';M.add(d,'house-person',0,0).id='person';const fixed=M.connect(d,'source:n','person:hand-left'),ends=M.endpoints(d),a=ends.get(fixed.from),b=ends.get(fixed.to);fixed.length=Math.hypot(b.x-a.x,b.y-a.y);const w=M.addWire(d,100,-13);assert(M.attach(d,w.id,'from','source:l'));const before=M.clone(d);assert.equal(J.component(d,'person',{x:150,y:0},24,'person:hand'),null,'the other wired hand cannot stretch past its cable length');assert.deepEqual(d,before);
 }
 for(const role of ['l','n']){
- const d=P.create('C03'),person=d.components.find(c=>c.id==='person');M.connect(d,'socket:l','person:hand');const w=M.addWire(d,person.x+20,person.y);assert(M.attach(d,w.id,'from','socket:'+role));const ends=M.endpoints(d),h=ends.get('person:hand'),p=ends.get(w.to),before=M.clone(d),next=J.component(d,'person',{x:person.x+p.x-h.x,y:person.y+p.y-h.y},24,'person:hand');assert.equal(!!next,role==='l','one hand cannot merge L and N supply nets');assert.deepEqual(d,before);
+ const d=P.create('C03'),person=d.components.find(c=>c.id==='person');M.connect(d,'socket:l','person:hand');const w=M.addWire(d,person.x+20,person.y);assert(M.attach(d,w.id,'from','socket:'+role));const ends=M.endpoints(d),h=ends.get('person:hand'),p=ends.get(w.to),before=M.clone(d),next=J.component(d,'person',{x:person.x+p.x-h.x,y:person.y+p.y-h.y},24,'person:hand');assert(next,'same-hand supply-net mixing is now accepted');assert.equal(new (require('./household-model').Session)(next.doc).read().shortCircuit,role==='n');assert.deepEqual(d,before);
 }
 
 for(const stance of ['grounded','insulated'])for(const end of ['from','to']){
@@ -81,5 +81,5 @@ for(const stance of ['grounded','insulated'])for(const end of ['from','to']){
  const wire=M.addWire(d,person.x+150,person.y+150),p=M.endpoints(d).get(wire[end]);
  const snapped=J.component(d,'person',{x:person.x+p.x-left.x+4,y:person.y+p.y-left.y+3},24);assert(snapped);assert.equal(snapped.doc.wires.find(w=>w.id===wire.id)[end],'person:hand-left');assert.doesNotThrow(()=>M.validate(snapped.doc));
  M.connect(d,'socket:l','person:hand');M.connect(d,'socket:n','person:hand-left');assert.doesNotThrow(()=>M.validate(d));
- const before=M.clone(d);assert.throws(()=>M.connect(d,'socket:l','person:hand-left'),/不能直接合併/);assert.deepEqual(d,before);
+ assert(M.connect(d,'socket:l','person:hand-left'));assert(new (require('./household-model').Session)(d).read().shortCircuit);
 }
