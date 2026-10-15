@@ -83,3 +83,27 @@ for(const stance of ['grounded','insulated'])for(const end of ['from','to']){
  M.connect(d,'socket:l','person:hand');M.connect(d,'socket:n','person:hand-left');assert.doesNotThrow(()=>M.validate(d));
  assert(M.connect(d,'socket:l','person:hand-left'));assert(new (require('./household-model').Session)(d).read().shortCircuit);
 }
+
+for(const stance of ['grounded','insulated'])for(const hand of ['hand','hand-left'])for(const target of ['earth:e','socket:e','wire']){
+ const d=M.empty('household');M.add(d,'house-mains',-160,-100).id='source';M.add(d,'house-earth',0,0).id='earth';M.add(d,'house-socket',220,22).id='socket';const person=M.add(d,'house-person',300,170,{stance});person.id='person';
+ const earthWire=M.connect(d,'earth:e','socket:e',[],'free'),other=hand==='hand'?'hand-left':'hand';M.connect(d,'source:l','person:'+other,[],'free');
+ const before=M.clone(d),ends=M.endpoints(d),p=target==='wire'?{x:140,y:0}:ends.get(target),h=ends.get('person:'+hand),next=J.hand(d,'person',{x:person.x+p.x-h.x,y:person.y+p.y-h.y+4},24,'person:'+hand);assert(next,target+' '+hand);assert.deepEqual(d,before);assert.equal(next.snap.id,'person:'+hand);assert.equal(next.snap.connections.length,1);
+ const topology=Rules.inspect(next.doc);assert.equal(topology.find('earth:e'),topology.find('socket:e'));assert.equal(topology.find('earth:e'),topology.find('person:'+hand));assert.equal(next.doc.wires.find(w=>w.from==='source:l').to,'person:'+other);
+ if(target!=='wire')assert.deepEqual(next.doc.wires.find(w=>w.id===earthWire.id),earthWire,'touching an occupied E terminal must not unplug its earth wire');
+ if(target==='wire'){const halves=next.doc.wires.filter(w=>w.from==='person:'+hand||w.to==='person:'+hand);assert.equal(halves.length,2);assert(Math.abs(halves.reduce((sum,w)=>sum+w.length,0)-earthWire.length)<1e-8,'a mid-wire contact retains the original cable length budget');}
+ const H=require('./household-model'),s=new H.Session(next.doc),r=s.read().components.person;assert(Math.abs(r.current-(stance==='insulated'?.115:230/1500))<1e-5);if(stance==='insulated')assert.equal(r.groundCurrent,0);
+ const restored=H.Session.restore(H.decode(H.encode(s.capture())));assert.deepEqual(restored.capture(),s.capture());restored.advance(.01);assert(restored.read().reliable);restored.destroy();s.destroy();
+ const history=M.history(d);history.change(doc=>Object.assign(doc,next.doc));assert(history.undo());assert.deepEqual(history.get(),before);assert(history.redo());assert.deepEqual(history.get(),next.doc);
+ const full=M.clone(d);full.cables.count=full.wires.length;const fullBefore=M.clone(full);assert.equal(J.hand(full,'person',{x:person.x+p.x-h.x,y:person.y+p.y-h.y},24,'person:'+hand),null,'a new branch respects cable stock');assert.deepEqual(full,fullBefore);assert.deepEqual(d,before);
+ const eOnly=M.clone(next.doc);M.remove(eOnly,eOnly.wires.find(w=>w.from==='source:l').id);const safe=new H.Session(eOnly);assert(Math.abs(safe.read().components.person.current)<1e-9,'earth-only hand contact has no body current');safe.destroy();
+}
+{
+ const d=M.empty('household'),person=M.add(d,'house-person',300,170);person.id='person';M.add(d,'house-earth',0,0).id='earth';M.add(d,'house-socket',220,22).id='socket';const w=M.connect(d,'earth:e','socket:e',[],'free');
+ const next=J.hand(d,'person',{x:18+.01,y:13},24,'person:hand');assert(next);assert.deepEqual(next.doc.wires.find(v=>v.id===w.id),w,'subpixel rounding at E chooses its terminal rather than splitting the earth cable');
+}
+{
+ const d=M.empty('household');M.add(d,'house-mains',-200,0).id='source';M.add(d,'house-person',0,0).id='person';M.add(d,'house-earth',400,0).id='earth';const w=M.connect(d,'source:l','person:hand-left',[],'free'),G=require('./circuit-routing');w.length=G.length(G.route(d,w));const before=M.clone(d);
+ assert.equal(J.hand(d,'person',{x:418,y:13},24,'person:hand'),null,'an existing other-hand cable cannot stretch to reach earth');assert.deepEqual(d,before);
+ d.components.find(c=>c.id==='person').locked=true;assert.equal(J.hand(d,'person',{x:418,y:13},24,'person:hand'),null);
+}
+console.log('Household: either hand touches earth wire bodies and occupied E terminals without losing the earth connection; chair return, stock, history and session round-trips passed');
