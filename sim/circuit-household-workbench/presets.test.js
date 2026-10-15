@@ -2,6 +2,11 @@
 const assert=require('node:assert/strict'),P=require('./presets'),C=require('../circuit-workbench/circuit-household-components'),M=require('../circuit-workbench/circuit-model'),H=require('../circuit-workbench/household-model'),R=require('../circuit-workbench/component-registry'),V=require('../circuit-workbench/circuit-renderer');
 for(const [key,name]of Object.entries(P.names)){const d=P.create(key);assert.equal(d.components.length,key==='empty'?0:key==='C10'?3:key==='C09'?2:key==='C01'||key==='C04'?6:key==='C05'||key==='C08'?4:5);assert(d.components.every(c=>Object.hasOwn(C.definitions,c.type)));assert(Object.hasOwn(P.questions,key));assert(name);const s=new H.Session(d);assert.equal(s.read().reliable,true);if(key!=='empty')assert(key==='C09'?s.read().components.person.current>.1:s.read().components.load.power>0);s.destroy();}
 assert.throws(()=>P.create('unknown'));
+assert.deepEqual(P.groups.flatMap(g=>g.keys).sort(),Object.keys(P.names).filter(k=>k!=='empty').sort(),'each example appears in one group');
+assert.deepEqual(C.palette.map(p=>p.type),['house-mains','house-meter','house-breaker','house-rcd','house-fuse','house-switch','house-socket','house-earth','house-metal','house-insulated','house-person']);
+for(const type of ['house-breaker','house-rcd'])for(const angle of [0,45,90,180])for(const view of ['real','schematic']){
+ const c=M.add(M.empty('household'),type,100,200);c.angle=angle;const a=R.rotation(angle),at=(x,y)=>({x:c.x+x*a.cos-y*a.sin,y:c.y+x*a.sin+y*a.cos});assert(C.switchHit(c,at(0,11),view));for(const [x,y]of [[0,-38],[0,48],[-40,0],[40,0]])assert(!C.switchHit(c,at(x,y),view),'outside handle selects without operating');
+}
 for(const key of Object.keys(P.names).filter(k=>k!=='empty')){
  const d=P.create(key),G=require('../circuit-workbench/circuit-routing');
  for(const role of ['C09','C10'].includes(key)?[]:['l','n']){
@@ -12,6 +17,9 @@ for(const key of Object.keys(P.names).filter(k=>k!=='empty')){
   assert(main.length>=2);for(const w of main){const p=G.route(d,w);assert(p.every(q=>q.y===p[0].y));assert(p.at(-1).x>p[0].x,'supply continues right after protection');}
  }
  for(const w of d.wires){const p=G.route(d,w);for(let n=1;n<p.length;n++)assert(p[n].x===p[n-1].x||p[n].y===p[n-1].y,key+' uses square wire bends');}
+ for(const w of d.wires){const p=G.route(d,w);for(const c of d.components)for(const port of R.ports(c).filter(port=>port.id!==w.from&&port.id!==w.to))for(let n=1;n<p.length;n++){const a=p[n-1],b=p[n];assert(!(a.x===b.x&&Math.abs(port.x-a.x)<.1&&port.y>=Math.min(a.y,b.y)&&port.y<=Math.max(a.y,b.y)||a.y===b.y&&Math.abs(port.y-a.y)<.1&&port.x>=Math.min(a.x,b.x)&&port.x<=Math.max(a.x,b.x)),key+' '+w.id+' passes unconnected '+port.id);}}
+ for(let i=0;i<d.wires.length;i++)for(let j=i+1;j<d.wires.length;j++){const p=G.route(d,d.wires[i]),q=G.route(d,d.wires[j]);for(let a=1;a<p.length;a++)for(let b=1;b<q.length;b++){const u=p[a-1],v=p[a],x=q[b-1],y=q[b],overlap=u.x===v.x&&x.x===y.x&&u.x===x.x?Math.min(Math.max(u.y,v.y),Math.max(x.y,y.y))-Math.max(Math.min(u.y,v.y),Math.min(x.y,y.y)):u.y===v.y&&x.y===y.y&&u.y===x.y?Math.min(Math.max(u.x,v.x),Math.max(x.x,y.x))-Math.max(Math.min(u.x,v.x),Math.min(x.x,y.x)):0;assert(overlap<.001,key+' has overlapping '+d.wires[i].id+' and '+d.wires[j].id);}}
+ for(const w of d.wires){const p=G.route(d,w);for(const c of d.components.filter(c=>!w.from.startsWith(c.id+':')&&!w.to.startsWith(c.id+':'))){const b=R.bodyBounds(c);for(let n=1;n<p.length;n++){const a=p[n-1],z=p[n];assert(!(a.x===z.x&&a.x>b.left+2&&a.x<b.right-2&&Math.max(a.y,z.y)>b.top+2&&Math.min(a.y,z.y)<b.bottom-2||a.y===z.y&&a.y>b.top+2&&a.y<b.bottom-2&&Math.max(a.x,z.x)>b.left+2&&Math.min(a.x,z.x)<b.right-2),key+' '+w.id+' crosses unrelated '+c.id);}}}
 }
 {
  const d=P.create('C06'),s=new H.Session(d),branch=d.wires.find(w=>w.to==='socket:l');M.detach(d,branch.id,'to');s.update(d);

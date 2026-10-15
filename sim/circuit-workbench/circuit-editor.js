@@ -540,6 +540,7 @@
     if(meta.kind==='hand'&&(probeMode||!household||!allow(d,d.components.find(c=>c.id===meta.id),'move')||!allow(d,d.components.find(c=>c.id===meta.id),'params','stance')))return;
     if(meta.kind==='port'){if(probeMode)return;const w=selectedWire(),key=w&&['from','to'].find(k=>w[k]===meta.id);meta=key?{kind:'wireend',id:w.id,end:key,endpoint:meta.id}:{kind:'body',id:meta.id.split(':')[0]};}if(["wire","wireend","junction"].includes(meta.kind)&&!wireAllowed())return;if(probeMode&&meta.kind==="wireend")return;
     let readOnly=false;if(meta.kind==="body"||meta.kind==="slider"){const c=d.components.find(c=>c.id===meta.id);if(!allow(d,c,meta.kind==="slider"?"params":"move",meta.kind==="slider"?"position":undefined)){if(meta.kind!=="body"||e.pointerType!=="touch"||!readableMeter(d,c))return;readOnly=true;}}
+    if(household&&meta.kind==='body')tapMeta={...tapMeta,operateProtection:Family.switchHit(d.components.find(c=>c.id===meta.id),world(e.clientX,e.clientY),d.display.view)};
     const before=selection&&M.clone(selection);selection={...meta};drag={...meta,pointerId:e.pointerId,pointerType:e.pointerType,target:t,down:world(e.clientX,e.clientY),x:e.clientX,y:e.clientY,lastX:e.clientX,lastY:e.clientY,baseDoc:M.clone(d),selectionBefore:before,tapMeta,connectionBefore:selectedConnection,moved:false,snap:null,limited:false};
     if(readOnly)drag.kind="meterread";
     if(meta.kind==="wire"){const w=d.wires.find(w=>w.id===meta.id);drag.wholeWire=!M.attached(d,w,"from")&&!M.attached(d,w,"to");}
@@ -621,7 +622,7 @@
     const endpoint=meta?.endpoint??(meta?.kind==='port'?meta.id:meta?.kind==='junction'?meta.id+':p':meta?.kind==='wireend'?history.get().wires.find(w=>w.id===meta.id)?.[meta.end]:null);
     selectedConnection=!probeMode&&endpoint&&M.attached(history.get(),{from:endpoint},'from')?endpoint:null;
     if(meta){if(probeMode&&["port","junction","wireend","hand"].includes(meta.kind)){probePort(endpoint);return;}
-      if(!(selectedConnection&&selectedWire()&&[selectedWire().from,selectedWire().to].includes(selectedConnection)))selection={...meta};if(meta.kind==="body"&&["switch","spdt","house-switch","house-breaker","house-rcd"].includes(selectedComponent()?.type)&&allow(history.get(),selectedComponent(),"switch"))execute({type:'toggleSwitch',id:meta.id});else render();
+      if(!(selectedConnection&&selectedWire()&&[selectedWire().from,selectedWire().to].includes(selectedConnection)))selection={...meta};const c=selectedComponent(),protection=c&&['house-breaker','house-rcd'].includes(c.type);if(meta.kind==="body"&&["switch","spdt","house-switch","house-breaker","house-rcd"].includes(c?.type)&&(!protection||meta.operateProtection===true)&&allow(history.get(),c,"switch"))execute({type:'toggleSwitch',id:meta.id});else render();
     }else{selection=null;render();}
   });
   function undo(redo=false){if(readOnly||!profile.undo)return false;cancel();if(session)sessionHistory.set(history.get(),session.capture());const changed=redo?history.redo():history.undo();if(changed&&session){const saved=sessionHistory.get(history.get());if(saved)replaceSession(Backend.Session.restore(saved));else replaceSession(new Backend.Session(history.get()));paused=true;}selection=null;analysis=solve(history.get());if(changed&&autoFit)fit();render();if(changed)emitChange();notify(redo?"已重做。":"已復原。");return changed;}

@@ -36,6 +36,11 @@
   const power=c=>applianceKinds[c.type==='house-metal'?'metal':'insulated']?.[c.params.kind]?.power??(c.type==='house-insulated'&&c.params.kind==='lamp'?40:c.type==='house-metal'&&c.params.kind==='aircon'?1000:0);
   const isAppliance=c=>['house-metal','house-insulated'].includes(c.type);
   const isProtection=c=>['house-breaker','house-fuse','house-rcd'].includes(c.type);
+  function switchHit(c,point,view='real'){
+    if(!c||!['house-breaker','house-rcd'].includes(c.type))return false;
+    const a=R.rotation(c.angle),x=(point.x-c.x)*a.cos+(point.y-c.y)*a.sin,y=-(point.x-c.x)*a.sin+(point.y-c.y)*a.cos;
+    return view==='schematic'?Math.abs(x)<=18&&Math.abs(y)<=31:Math.abs(x)<=25&&y>=-9&&y<=31;
+  }
   function gradients(id){return `<defs><linearGradient id="${id}-plastic" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff"/><stop offset=".48" stop-color="#edf3f7"/><stop offset="1" stop-color="#cad7e1"/></linearGradient><linearGradient id="${id}-metal"><stop stop-color="#859aa7"/><stop offset=".2" stop-color="#dfe8ed"/><stop offset=".48" stop-color="#f7fafb"/><stop offset=".75" stop-color="#bdcdd6"/><stop offset="1" stop-color="#8fa5b2"/></linearGradient><linearGradient id="${id}-glass" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#e7f4f7" stop-opacity=".8"/><stop offset=".5" stop-color="#fff" stop-opacity=".4"/><stop offset="1" stop-color="#adcad4" stop-opacity=".8"/></linearGradient></defs>`;}
   function caseBox(id,x=-46,y=-52,w=92,h=104){return rect(x+3,y+3,w,h,'#c0ced8',7)+rect(x,y,w,h,`url(#${id}-plastic)`,7,'#446482',2)+path(`M${x+7} ${y+7}H${x+w-7}`,'#fff',2);}
   function channelLeads(){return lead('M-58-22H-40 M40-22H58','L')+lead('M-58 22H-40 M40 22H58','N');}
@@ -240,5 +245,5 @@
     return{x:c.x+q.x*a.cos-q.y*a.sin,y:c.y+q.x*a.sin+q.y*a.cos};
   }
   function placeHand(person,point){const h=hand(person);person.x+=point.x-h.x;person.y+=point.y-h.y;}
-  return Object.freeze({definitions,colours,applianceKinds,power,isAppliance,isProtection,hand,contactPoint,placeHand,render,palette:Object.keys(definitions).map(type=>({type,label:({'house-socket':'三孔插座','house-metal':'金屬家電','house-insulated':'雙重絕緣'})[type]||definitions[type].name,...(type==='house-mains'?{limit:1}:{})}))});
+  return Object.freeze({definitions,colours,applianceKinds,power,isAppliance,isProtection,switchHit,hand,contactPoint,placeHand,render,palette:["house-mains","house-meter","house-breaker","house-rcd","house-fuse","house-switch","house-socket","house-earth","house-metal","house-insulated","house-person"].map(type=>({type,label:({'house-socket':'三孔插座','house-metal':'金屬家電','house-insulated':'雙重絕緣'})[type]||definitions[type].name,...(type==='house-mains'?{limit:1}:{})}))});
 });
