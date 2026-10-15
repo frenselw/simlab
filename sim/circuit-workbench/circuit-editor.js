@@ -621,7 +621,7 @@
     const endpoint=meta?.endpoint??(meta?.kind==='port'?meta.id:meta?.kind==='junction'?meta.id+':p':meta?.kind==='wireend'?history.get().wires.find(w=>w.id===meta.id)?.[meta.end]:null);
     selectedConnection=!probeMode&&endpoint&&M.attached(history.get(),{from:endpoint},'from')?endpoint:null;
     if(meta){if(probeMode&&["port","junction","wireend","hand"].includes(meta.kind)){probePort(endpoint);return;}
-      if(!(selectedConnection&&selectedWire()&&[selectedWire().from,selectedWire().to].includes(selectedConnection)))selection={...meta};if(meta.kind==="body"&&["switch","spdt","house-switch","house-breaker","house-rcd"].includes(selectedComponent()?.type)&&allow(history.get(),selectedComponent(),"switch")&&!(household&&analysis.components[meta.id]?.status==='tripped'))change(doc=>{const c=doc.components.find(c=>c.id===meta.id);c.params.closed=c.type==='spdt'?(c.params.closed==='b'?'c':'b'):!c.params.closed;});else render();
+      if(!(selectedConnection&&selectedWire()&&[selectedWire().from,selectedWire().to].includes(selectedConnection)))selection={...meta};if(meta.kind==="body"&&["switch","spdt","house-switch","house-breaker","house-rcd"].includes(selectedComponent()?.type)&&allow(history.get(),selectedComponent(),"switch"))execute({type:'toggleSwitch',id:meta.id});else render();
     }else{selection=null;render();}
   });
   function undo(redo=false){if(readOnly||!profile.undo)return false;cancel();if(session)sessionHistory.set(history.get(),session.capture());const changed=redo?history.redo():history.undo();if(changed&&session){const saved=sessionHistory.get(history.get());if(saved)replaceSession(Backend.Session.restore(saved));else replaceSession(new Backend.Session(history.get()));paused=true;}selection=null;analysis=solve(history.get());if(changed&&autoFit)fit();render();if(changed)emitChange();notify(redo?"已重做。":"已復原。");return changed;}
@@ -763,6 +763,7 @@
     if(readOnly){notify('目前為只讀，不能修改電路。',true);return false;}
     if(command.type==='undo'||command.type==='redo')return undo(command.type==='redo');
     if(household&&command.type==='setContact')return setContact(command.id,command.target);
+    if(household&&command.type==='toggleSwitch'&&analysis.components[command.id]?.status==='tripped')return execute({type:'resetHouseholdProtection',id:command.id});
     if(household&&command.type==='resetHouseholdProtection')return householdAction(next=>{const c=next.doc.components.find(c=>c.id===command.id);if(!c||!Family.isProtection(c)||!allow(next.doc,c,c.type==='house-fuse'?'params':'switch'))throw Error('目前不能復位');if(!next.resetProtection(c.id))throw Error('找不到保護裝置');});
     cancel();
     return change(doc=>{

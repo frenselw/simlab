@@ -606,3 +606,16 @@ CI 補充：推送後讀取 [916f06f 的 Quality 失敗紀錄](https://github.co
 已檢視 output/playwright/circuit-household/source-hand-earth-hand-wire-real.png、source-hand-earth-hand-left-earth-e-real.png、source-hand-earth-hand-left-wire-phone-390x600.png；同目錄 results.json 記錄最終 source／ZIP 指紋及資產雜湊，五包重建，家庭 ZIP 全部 30 個 runtime assets 與來源逐檔一致。Node 接線測試另覆蓋兩站姿、兩手、地線線身／接地 E／插座 E、原線長預算、庫存不足原子性、另一手線長拉盡、鎖定、E 端子附近子像素落點、接地單獨接觸無人體電流及保存後續作。四個家庭 Node tests、共用 component-snapping／platform core 各 8 組、wire-current-labels、check、check:tests、文件連結及 diff 檢查通過。
 
 沿用原 registry owner，沒有新依賴、入口或文件版本。已執行提交選取預覽 node tools/run-tests.js --base=67616a5 --head=HEAD --plan，為 affected、221 項、五個 circuit packages；不是本輪已在本地執行全部 221 項。預覽存於同目錄 hand-earth-selection.json。真手機、實際 Moodle 及本機完整 Quality Full 未執行；最新遠端 CI 結果另看提交 run。
+
+
+### 點圖像復位合上（2026-10-15）
+
+依使用者最新要求，跳掣後直接點斷路器／漏電保護器圖像可復位合上；本節取代早期「點跳掣本體只選取」的操作決定。圖像與 toggleSwitch 命令共用既有 resetHouseholdProtection，清除本次動作紀錄及計時，重新求解供電；未排除漏電、過載或短路時，按既有延時再次跳掣。修好電路本身不自動合閘。普通開關及完整保護器繼續點按開合，熔斷保險絲仍須明確更換，不能以點圖像把已斷熔絲合上。面板復位／合上選項保留。
+
+沿用原權限、只讀、session、單筆復原／重做及完整文件往返；模型、保護延時及文件格式不變。歷史事件讀數測試以只讀選取檢視，避免點按本體時意外執行新復位動作。另以正常讀寫狀態的可信滑鼠、鍵盤及手機觸控驗證新圖像操作。
+
+驗收：source／重建實際 ZIP 共 **345 browser checks** 通過，22 筆既有示例流程保留。C04 漏電、C07 過載及 C10 短路均覆蓋實物／符號的可信滑鼠圖像復位；未修好再次跳掣，修好後再次點圖像可保持供電，核對手柄及面板、切斷前事件清空、只讀不改狀態、單次復原／重做及完整文件往返。符號視圖另以原生 Enter 鍵啟動圖像；測試輸入補齊 Enter 的鍵碼與字元，讓瀏覽器實際產生按鈕啟動事件。手機 320×500、390×500、390×600 均以可信觸控覆蓋上述三種故障的圖像復位、重跳、修好後合上、復原重做及保存後續作。
+
+已檢視 output/playwright/circuit-household/source-C04-body-reclose-real.png 及 source-C10-body-reclose-phone-390x600.png；同目錄 results.json 記錄最終 source／ZIP 指紋及資產雜湊，家庭 ZIP 全部 30 個 runtime assets 與來源逐檔一致。四個家庭 Node tests、platform core 8 組、check、check:tests、文件連結及 diff 檢查通過。另執行 node tools/circuit-workbench-browser-regression.js --phone-smoke，DC 來源／ZIP 的原生手機開關開合及既有手機操作通過。
+
+沒有新增依賴、入口、文件版本或 registry owner。提交選取預覽 node tools/run-tests.js --base=a8e1a78 --head=HEAD --plan 為 affected、221 項及五個 circuit packages；未在本地執行全部 221 項。預覽存於同目錄 body-reclose-selection.json。真手機、實際 Moodle 及本機完整 Quality Full 未執行；遠端 CI 以本次提交 run 為準。
