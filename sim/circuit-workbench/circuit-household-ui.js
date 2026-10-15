@@ -28,9 +28,15 @@
       if(c.type==='house-switch')return readings([['開關兩端電壓',abs(r.voltage),'V']])+`<p class="note">${r.role==='N'?'開關接在零線':r.role==='L'?'開關接在火線':'尚未接入 L／N 線路'}</p>`;
       return readings([['供電電壓（有效值）',r.voltage,'V'],['頻率',50,'Hz'],['供出電流',r.current,'A']]);
     }
+    function protectionAction(c,r,actions){
+      let button=actions.querySelector('[data-household-reset]');
+      if(!c||!C.isProtection(c)||!['tripped','blown'].includes(r.status)){button?.remove();return;}
+      if(!button){button=document.createElement('button');button.type='button';button.className='text-action';button.dataset.householdReset=c.id;button.textContent=c.type==='house-fuse'?'更換保險絲':'復位';button.onclick=()=>controller.execute({type:'resetHouseholdProtection',id:c.id});actions.append(button);}
+      button.disabled=controller.getInteraction().readOnly;
+    }
     function properties(c,doc,parent,actions){
       const readonly=controller.getInteraction().readOnly,r=controller.getAnalysis().components[c.id];
-      if(C.isProtection(c)&&['tripped','blown'].includes(r.status)){const button=document.createElement('button');button.type='button';button.className='text-action';button.dataset.householdReset=c.id;button.textContent=c.type==='house-fuse'?'更換保險絲':'復位';button.disabled=readonly;button.onclick=()=>controller.execute({type:'resetHouseholdProtection',id:c.id});actions.append(button);}
+      protectionAction(c,r,actions);
       if(c.type==='house-person'){const label=document.createElement('label'),span=document.createElement('span'),select=document.createElement('select');span.textContent='右手接觸對象';select.dataset.householdContact=c.id;select.append(new Option('離開外殼',''));for(const a of doc.components.filter(C.isAppliance))select.append(new Option(a.label,a.id));select.value=r.contact||'';select.disabled=readonly;select.onchange=()=>controller.execute({type:'setContact',id:c.id,target:select.value||null});label.append(span,select);parent.append(label);}
       if(C.isAppliance(c)){const note=document.createElement('p');note.className='note';note.dataset.householdConnections=c.id;note.textContent=Object.entries(r.connections).map(([expected,actual])=>`${expected.toUpperCase()} 引線：${actual?'接 '+actual:'未接到供電節點'}`).join('；');parent.append(note);}
     }
@@ -48,10 +54,12 @@
       if(c.type==='house-metal'&&r.connections.e==='L')return Math.abs(r.casePotential||0)>25?'外殼引線接火線，完整外殼也已帶電。':'外殼引線接火線，供電時外殼可帶電。';
       if(c.type==='house-insulated'&&c.params.fault)return '內層破損，完整外層仍隔離可觸外表。';
       if(c.params.fault)return Math.abs(r.leakageCurrent)>1e-9?'受損絕緣有電流流向外殼。':Number.isFinite(r.casePotential)&&Math.abs(r.casePotential)>25?'外殼已帶電，尚沒有持續回流。':'已設定絕緣破損，結果取決於接線。';
+      const loads=doc.components.filter(C.isAppliance);if(loads.length>1){const working=loads.filter(c=>result.components[c.id].working).length;return working===loads.length?loads.length+' 件用電器都在工作。':working?working+' 件仍在工作；其餘用電器已停止。':'各用電器均已停止，查看各支路的接線。';}
       if(r.working)return c.type==='house-metal'&&!r.earthed?'電器正在工作，外殼尚未正確接地。':'兩條工作線之間有電壓，形成工作回路。';
       return '電器不工作，查看兩條線和開關。';
     }
     function render(doc,result){const key=refs.preset.value;const question=P.questions[key]||P.questions.empty;host.querySelector('.brand p').textContent=question;const message=resultText(doc,result);if(observation.textContent!==message)observation.textContent=message;observation.dataset.alert=String(doc.components.some(c=>c.type==='house-person'&&Math.abs(result.components[c.id].current)>1e-9));
+      const selected=doc.components.find(c=>c.id===controller.getInteraction().selection?.id);protectionAction(selected,result.components[selected?.id],refs.objectActions);
       const ids=new Set(doc.components.filter(c=>C.isAppliance(c)&&['fan','dryer','blender','vacuum'].includes(c.params.kind)).map(c=>c.id));for(const id of fanAngles.keys())if(!ids.has(id))fanAngles.delete(id);
       const aircons=new Set(doc.components.filter(c=>C.isAppliance(c)&&c.params.kind==='aircon').map(c=>c.id));for(const id of louverPhases.keys())if(!aircons.has(id))louverPhases.delete(id);
       for(const id of blowerAngles.keys())if(!aircons.has(id))blowerAngles.delete(id);
