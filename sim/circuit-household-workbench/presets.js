@@ -8,48 +8,46 @@
     const add=(id,type,x,y,params={},label)=>{const c=M.add(doc,type,x,y,params);c.id=id;c.label=label||C.definitions[type].name;return c;};
     const wire=(from,to,via=[])=>{const ends=M.endpoints(doc),a=ends.get(from),b=ends.get(to);return M.connect(doc,from,to,via,via.length||a.x===b.x||a.y===b.y?'free':'auto');};
     if(key==='empty')return M.validate(doc);
-    if(key==='C08'){
-      add('source','house-mains',-170,-30,{},'市電');add('socket','house-socket',10,-30,{},'插座');add('load','house-insulated',250,-15,{kind:'blender'},'攪拌機');add('earth','house-earth',-160,95);
-      wire('source:l','socket:l',[{x:-52,y:-52},{x:-52,y:-100},{x:66,y:-100},{x:66,y:-6}]);wire('source:n','socket:n');
-      wire('earth:e','socket:e',[{x:-72,y:95},{x:-72,y:55},{x:10,y:55}]);
-      wire('socket:l','load:l',[{x:108,y:-6},{x:108,y:-41}]);wire('socket:n','load:n',[{x:-17,y:105},{x:140,y:105},{x:140,y:-15}]);return M.validate(doc);
-    }
-    add('source','house-mains',-100,-110,{},'市電');
+    add('source','house-mains',key==='C01'?-260:-140,-110,{},'市電');
+    const socketX=key==='C01'?260:180,loadX=key==='C01'?490:key==='C02'?500:410;
+    add('socket','house-socket',socketX,100,{},'插座');
+    let live='source:l',neutral='source:n';
     if(key==='C01'){
-      doc.components[0].x=-200;doc.components[0].y=-120;
-      add('meter','house-meter',-30,-120);add('breaker','house-breaker',140,-120,{rating:15});add('socket','house-socket',-40,110,{},'插座');add('load','house-metal',200,110,{kind:'heater'},'熱水器');add('earth','house-earth',-170,100);
-      wire('source:l','meter:li');wire('source:n','meter:ni');wire('meter:lo','breaker:li');wire('meter:no','breaker:ni');
-      wire('breaker:lo','socket:l',[{x:240,y:-142},{x:240,y:-25},{x:-13,y:-25}]);wire('breaker:no','socket:n',[{x:220,y:-98},{x:220,y:-45},{x:-95,y:-45},{x:-95,y:134}]);
-      wire('earth:e','socket:e',[{x:-112,y:30},{x:-40,y:30}]);
-    }else{
-      const socketY=key==='C08'?85:100;add('socket','house-socket',-60,socketY,{},'插座');
-      if(key==='C04'||key==='C07')add('protector',key==='C04'?'house-rcd':'house-breaker',100,-110,key==='C07'?{rating:15}:{},key==='C04'?'漏電保護器':'斷路器');
-      if(key==='C07fuse')add('protector','house-fuse',100,-110,{rating:13});
-      const protection=doc.components.find(c=>c.id==='protector');
-      if(protection&&protection.type!=='house-fuse'){
-        wire('source:l','protector:li');wire('source:n','protector:ni');
-        wire('protector:lo','socket:l',[{x:205,y:-132},{x:205,y:-25},{x:-33,y:-25}]);wire('protector:no','socket:n',[{x:180,y:-88},{x:180,y:-48},{x:-115,y:-48},{x:-115,y:socketY+24}]);
-      }else{
-        if(protection){wire('source:l','protector:a');wire('protector:b','socket:l',[{x:215,y:-110},{x:215,y:-35},{x:-33,y:-35}]);}
-        else wire('source:l','socket:l',[{x:40,y:-132},{x:40,y:-28},{x:-33,y:-28}]);
-        wire('source:n','socket:n',[{x:12,y:-88},{x:12,y:5},{x:-120,y:5},{x:-120,y:socketY+24}]);
-      }
-      const insulated=['C05','C06','C08'].includes(key),kind=key==='C07'||key==='C07fuse'?'heater':insulated?'blender':'fan';
-      add('load',insulated?'house-insulated':'house-metal',180,100,{kind},C.applianceKinds[insulated?'insulated':'metal'][kind].label);
-      if(['C03','C04','C07','C07fuse','C08'].includes(key)){add('earth','house-earth',-190,110);wire('earth:e','socket:e',[{x:-132,y:30},{x:-60,y:30}]);}
-      if(['C02','C03','C04','C05'].includes(key))add('person','house-person',340,125,{},'人');
-      if(key==='C02')add('switch','house-switch',165,-110,{},'開關');
+      add('meter','house-meter',-100,-110);add('breaker','house-breaker',60,-110,{rating:15});
+      wire(live,'meter:li');wire(neutral,'meter:ni');wire('meter:lo','breaker:li');wire('meter:no','breaker:ni');live='breaker:lo';neutral='breaker:no';
+    }else if(key==='C04'||key==='C07'){
+      add('protector',key==='C04'?'house-rcd':'house-breaker',20,-110,key==='C07'?{rating:15}:{},key==='C04'?'漏電保護器':'斷路器');
+      wire(live,'protector:li');wire(neutral,'protector:ni');live='protector:lo';neutral='protector:no';
+    }else if(key==='C07fuse'){
+      add('protector','house-fuse',20,-132,{rating:13});wire(live,'protector:a');live='protector:b';
     }
-    const socket=doc.components.find(c=>c.id==='socket'),load=doc.components.find(c=>c.id==='load'),lp=C.definitions[load.type].ports;
-    if(key==='C02'){
-      wire('socket:l','switch:a',[{x:25,y:124},{x:25,y:-110}]);wire('switch:b','load:l',[{x:260,y:-110},{x:260,y:-10},{x:55,y:-10},{x:55,y:load.y-26}]);
-    }else wire('socket:l','load:l',[{x:socket.x+75,y:socket.y+24},{x:socket.x+75,y:load.y-26}]);
-    wire('socket:n','load:n',[{x:socket.x-27,y:socket.y+112},{x:load.x-115,y:socket.y+112},{x:load.x-115,y:load.y}]);
-    if(lp.some(p=>p.key==='e')&&key!=='C02')wire('socket:e','load:e',[{x:socket.x,y:socket.y-75},{x:load.x-105,y:socket.y-75},{x:load.x-105,y:load.y+26}]);
+    const insulated=['C05','C06','C08'].includes(key),kind=key==='C01'||key==='C07'||key==='C07fuse'?'heater':insulated?'blender':'fan';
+    add('load',insulated?'house-insulated':'house-metal',loadX,100,{kind},C.applianceKinds[insulated?'insulated':'metal'][kind].label);
+    if(['C01','C03','C04','C07','C07fuse','C08'].includes(key)){
+      add('earth','house-earth',socketX-190,20);wire('earth:e','socket:e',[{x:socketX,y:20}]);
+    }
+    if(['C02','C03','C04','C05'].includes(key))add('person','house-person',loadX+140,125,{},'人');
+    if(key==='C02')add('switch','house-switch',340,-5,{},'開關');
     if(key==='C06'){
-      add('socket2','house-socket',-60,340,{},'插座 2');add('load2','house-insulated',180,340,{kind:'fan'},'風扇');
-      wire('socket:l','socket2:l',[{x:-10,y:124},{x:-10,y:364}]);wire('socket:n','socket2:n',[{x:-150,y:124},{x:-150,y:364}]);
-      wire('socket2:l','load2:l',[{x:15,y:364},{x:15,y:314}]);wire('socket2:n','load2:n',[{x:-87,y:435},{x:65,y:435},{x:65,y:340}]);
+      add('socket2','house-socket',socketX,340,{},'插座 2');add('load2','house-insulated',loadX,340,{kind:'fan'},'風扇');
+    }
+    // Separate junctions make a real branch; a visual crossing alone never connects.
+    function bus(from,role,y){
+      const taps=[{socket:'socket',x:socketX+(role==='l'?66:-66),y:124}];
+      if(key==='C06')taps.push({socket:'socket2',x:socketX+(role==='l'?104:-104),y:364});
+      taps.sort((a,b)=>a.x-b.x);let previous=from;
+      for(const tap of taps){const id='bus-'+role+'-'+tap.socket;doc.junctions.push({id,x:tap.x,y});wire(previous,id+':p');previous=id+':p';}
+      const id='bus-'+role+'-end';doc.junctions.push({id,x:loadX+48,y});wire(previous,id+':p');
+      for(const tap of taps)wire('bus-'+role+'-'+tap.socket+':p',tap.socket+':'+role,[{x:tap.x,y:tap.y}]);
+    }
+    bus(live,'l',-132);bus(neutral,'n',-88);
+    for(const suffix of key==='C06'?['','2']:['']){
+      const socket=doc.components.find(c=>c.id==='socket'+suffix),load=doc.components.find(c=>c.id==='load'+suffix);
+      if(key==='C02'){
+        wire('socket:l','switch:a',[{x:207,y:170},{x:270,y:170},{x:270,y:-5}]);wire('switch:b','load:l',[{x:400,y:-5},{x:400,y:74}]);
+      }else wire(socket.id+':l',load.id+':l',[{x:socket.x+27,y:socket.y+70},{x:socket.x+75,y:socket.y+70},{x:socket.x+75,y:load.y-26}]);
+      wire(socket.id+':n',load.id+':n',[{x:socket.x-27,y:socket.y+112},{x:load.x-115,y:socket.y+112},{x:load.x-115,y:load.y}]);
+      if(C.definitions[load.type].ports.some(p=>p.key==='e')&&key!=='C02')wire('socket:e','load:e',[{x:socket.x,y:socket.y-55},{x:load.x-105,y:socket.y-55},{x:load.x-105,y:load.y+26}]);
     }
     return M.validate(doc);
   }

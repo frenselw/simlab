@@ -25,7 +25,7 @@
     'house-earth':{name:'接地',icon:'⏚',ports:[port('e',58,0,'接地引線','E')],bounds:{left:-32,right:60,top:-32,bottom:32},params:{}},
     'house-metal':{rotatable:false,name:'金屬外殼用電器',icon:'家電',ports:[...workPorts,port('e',-86,26,'外殼接地 E')],bounds:{left:-64,right:64,top:-69,bottom:101},primaryParameter:'kind',params:{kind:choice('家電種類','fan',Object.keys(applianceKinds.metal),Object.fromEntries(Object.entries(applianceKinds.metal).map(([k,v])=>[k,v.label+' · '+v.power+' W']))),fault:choice('絕緣狀態',false,[false,true],{false:'正常',true:'絕緣破損（外殼漏電）'})}},
     'house-insulated':{rotatable:false,name:'雙重絕緣用電器',icon:'雙重',ports:workPorts,bounds:{left:-64,right:64,top:-69,bottom:101},primaryParameter:'kind',params:{kind:{...choice('家電種類','blender',Object.keys(applianceKinds.insulated),{...Object.fromEntries(Object.entries(applianceKinds.insulated).map(([k,v])=>[k,v.label+' · '+v.power+' W'])),lamp:'台燈 · 40 W（舊文件）'}),legacyChoices:['lamp']},fault:choice('絕緣狀態',false,[false,true],{false:'正常',true:'內層破損（外層完整）'})}},
-    'house-person':{rotatable:false,name:'人',icon:'人',ports:[],bounds:{left:-42,right:47,top:-72,bottom:81},params:{stance:choice('站立狀態','grounded',['grounded','insulated'],{grounded:'站在地上',insulated:'站在絕緣椅上'})}},
+    'house-person':{rotatable:false,name:'人',icon:'人',ports:[],bounds:{left:-42,right:47,top:-94,bottom:81},primaryParameter:'stance',params:{stance:choice('站立狀態','grounded',['grounded','insulated'],{grounded:'站在地上',insulated:'站在絕緣椅上'})}},
     'house-rcd':{name:'漏電保護器',icon:'30mA',ports:channelPorts,bounds:box,params:{closed:closed()}}
   };
   const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -143,22 +143,32 @@
   }
   function person(c,r,id){
     const stool=c.params.stance==='insulated',offset=stool?-22:0;
-    let out=path(`M-40 ${stool?77:75}H46`,'#b8c7c8',2);
-    if(stool)out+=`<path d="M-27 53H29V60H-27Z" fill="url(#${id}-plastic)" stroke="#819da9"/><path d="M-22 60L-26 77H-20L-16 60 M21 60L25 77H31L27 60" fill="#b9ccd6" stroke="#819da9" stroke-width="1.2"/>`+path('M-20 69H25','#9fb5c0',2);
-    out+=`<g transform="translate(0 ${offset})">
-      <path d="M-11 19H13L15 44 20 67 11 69 2 43-1 34-5 46-9 68-18 67-14 42Z" fill="#617c94" stroke="#48667c" stroke-width="1.2"/>
-      <path d="M1 26V38 M-10 30L-12 54 M12 30L15 54" fill="none" stroke="#89a0b2" stroke-width="1"/>
-      <path d="M-18 65L-8 66-6 72H-25Q-27 67-18 65 M11 66L20 65 29 70Q30 74 24 74H10Z" fill="#3e596b" stroke="#2e4c60" stroke-width="1"/>
-      <path d="M-5-37H5V-27H-5Z" fill="#e0b79c" stroke="#bc957d" stroke-width=".8"/>
-      <path d="M-6-30L-15-25-12 2-11 22H13L15-4 14-25 6-30Q0-24-6-30Z" fill="#91b8c8" stroke="#5f879c" stroke-width="1.2"/>
-      <path d="M-14-25Q-20-20-21-8L-26 10-19 13-12-6-9-17 M12-25Q18-25 23-12L27-5 34-10 38-4 26 4Q22 5 19 0L10-15" fill="#91b8c8" stroke="#5f879c" stroke-width="1.2"/>
-      <path d="M-26 10L-29 18Q-30 23-26 23L-22 20-19 13Z M34-10L38-15Q42-18 44-14L43-9 38-4Z" fill="#e8c3a9" stroke="#ba947c" stroke-width=".9"/>
-      <path d="M-6-29L0-23 6-29 M-7 5H9 M-7 18H9" fill="none" stroke="#c3dce5" stroke-width="1"/>
-      <path d="M-11-51Q-11-64 1-64Q13-64 13-50L11-41Q6-34 0-36Q-9-38-10-47Z" fill="#e8c3a9" stroke="#b9947f" stroke-width="1"/>
-      <path d="M-11-49Q-16-61-5-66Q5-70 13-61L14-49 9-55 3-57-5-54-8-46Z" fill="#4e6776"/>
-      <path d="M2-48h2 M9-48h1 M7-46l1 4H5 M3-39Q6-37 9-40" fill="none" stroke="#8b6c5b" stroke-width=".9" stroke-linecap="round"/>
+    let out=`<defs><linearGradient id="${id}-skin" x1="0" y1="0" x2="1" y2=".3"><stop stop-color="#f4d9bf"/><stop offset=".65" stop-color="#e6bda0"/><stop offset="1" stop-color="#cfa589"/></linearGradient><linearGradient id="${id}-shirt" x1="0" y1="0" x2="1" y2=".4"><stop stop-color="#b9d6e1"/><stop offset=".55" stop-color="#92baca"/><stop offset="1" stop-color="#759eaf"/></linearGradient><linearGradient id="${id}-trousers"><stop stop-color="#708b9f"/><stop offset=".5" stop-color="#5d778e"/><stop offset="1" stop-color="#49677f"/></linearGradient></defs>`;
+    out+=`<g data-house-person-support="${c.params.stance}"><ellipse cx="3" cy="${stool?77:75}" rx="34" ry="3" fill="#668295" opacity=".09"/>`+path(`M-40 ${stool?77:75}H46`,'#b8c7c8',1.5);
+    if(stool)out+=`<path d="M-23 58L-27 77H-20L-16 58 M20 58L24 77H31L26 58" fill="url(#${id}-plastic)" stroke="#819da9" stroke-width="1.1"/><path d="M-26 52H29Q32 52 32 55V59H-29V55Q-29 52-26 52Z" fill="url(#${id}-plastic)" stroke="#7896a6" stroke-width="1.2"/>`+path('M-24 54H27 M-22 68H26','#afc8d2',1.5);
+    out+=`</g><g data-house-person-figure="true" transform="translate(0 ${offset})" stroke-linejoin="round" stroke-linecap="round">
+      <path d="M-12 18H13L14 39 20 66 11 68 2 42-1 31-5 45-9 68-18 67-14 41Z" fill="url(#${id}-trousers)" stroke="#4f6b81" stroke-width="1.1"/>
+      <path d="M-11 22H12 M0 23V32 M-9 25Q-8 31-13 32 M10 25Q8 30 13 32 M-10 40L-13 59 M7 41L14 60" fill="none" stroke="#90a9ba" stroke-width=".8"/>
+      <path d="M-18 65L-9 65-7 69-7 74H-26V71Q-25 68-20 68Z M11 65H19L23 68Q28 68 29 72V74H10V69Z" fill="#526d80" stroke="#3f5d72" stroke-width="1"/>
+      <path data-house-person-soles="true" d="M-26 74H-7 M10 74H29" fill="none" stroke="#d0dce3" stroke-width="2"/>
+      <path d="M-20 68L-13 69 M-20 70L-12 71 M15 68L21 69 M15 70L23 71" fill="none" stroke="#a7bfce" stroke-width=".7"/>
+      <path d="M-16-20Q-20-15-21-3L-25 12-20 15-14-1-10-16 M14-21Q19-20 23-11L28-4 36-12 40-7 30 4Q26 7 22 2L12-12" fill="url(#${id}-skin)" stroke="#b58f78" stroke-width="1"/>
+      <path d="M-25 11Q-27 15-28 20Q-28 24-25 24L-21 20-20 14 M35-12L37-16Q38-18 40-17L41-16 43-17Q45-17 45-15L44-9Q43-7 40-7L37-8Z" fill="url(#${id}-skin)" stroke="#b58f78" stroke-width=".9"/>
+      <path data-house-person-fingers="true" d="M-25 17L-26 21 M-23 18L-24 22 M39-15L43-14 M39-12L43-12 M39-10L42-10" fill="none" stroke="#bd967f" stroke-width=".65"/>
+      <path d="M-5-38H6V-28L2-23-5-28Z" fill="url(#${id}-skin)" stroke="#bd967f" stroke-width=".8"/>
+      <path d="M-5-35Q0-31 6-34V-31Q0-28-5-31Z" fill="#cca184" opacity=".45"/>
+      <path data-house-person-shirt="true" d="M-6-30L-14-27Q-20-25-21-19L-22-9-12-6-12 7-13 20Q0 24 14 20L13 6 14-10 19-7 25-13Q20-25 14-27L6-30 1-25Z" fill="url(#${id}-shirt)" stroke="#678fa4" stroke-width="1.1"/>
+      <path d="M-6-30L1-25-3-20-8-26 M6-30L1-25 5-20 10-26" fill="#d7e7ed" stroke="#89afc0" stroke-width=".7"/>
+      <path d="M1-24V-13 M-20-10L-13-8 M19-9L23-13 M-11 17Q0 20 12 17 M-9-1L-7 3 M10 5L7 9" fill="none" stroke="#bcd7e2" stroke-width=".8"/>
+      <path d="M5-13H11V-6Q8-4 5-6Z" fill="#a9cbd8" stroke="#7da3b6" stroke-width=".65"/><circle cx="1" cy="-19" r=".7" fill="#6f95a9"/><circle cx="1" cy="-15" r=".7" fill="#6f95a9"/>
+      <g data-house-person-face="true"><path d="M-10-52Q-13-54-13-49Q-13-45-9-45 M12-52Q15-54 15-49Q15-45 11-45" fill="url(#${id}-skin)" stroke="#b89078" stroke-width=".8"/>
+      <path d="M-10-54Q-10-65 1-65Q12-64 13-54L12-45Q11-39 6-36Q2-34-3-37Q-9-40-10-47Z" fill="url(#${id}-skin)" stroke="#b89078" stroke-width=".9"/>
+      <path d="M-11-48Q-15-58-8-64Q-1-70 7-65Q15-65 14-53L12-48 10-56Q3-55-3-59Q-6-54-9-54L-9-48Z" fill="#4e6471" stroke="#445d6c" stroke-width=".8"/>
+      <path d="M-8-61Q-1-66 6-62 M-4-63Q1-64 5-62" fill="none" stroke="#758996" stroke-width=".8"/>
+      <path d="M-5-50Q-3-51-1-50 M6-50Q8-51 10-49" fill="none" stroke="#6a625d" stroke-width=".8"/><ellipse cx="-2.5" cy="-47.5" rx=".85" ry="1.1" fill="#4e5c64"/><ellipse cx="8" cy="-47.5" rx=".85" ry="1.1" fill="#4e5c64"/>
+      <path d="M3-47L5-43 2-42 M0-39Q4-37 8-40" fill="none" stroke="#ac7f69" stroke-width=".75"/><path d="M-6-44L-3-43 M8-43L10-44" fill="none" stroke="#d4a18c" stroke-width="1.1" opacity=".65"/></g>
     </g>`;
-    if(r?.contact)out+=`<circle data-house-hand="true" cx="40" cy="${-13+offset}" r="5" fill="#e3bfa5" stroke="${Math.abs(r.current||0)>.000001?'#c17845':'#80a18c'}" stroke-width="2"/>`;
+    if(r?.contact)out+=`<circle data-house-hand="true" cx="40" cy="${-13+offset}" r="6" fill="none" stroke="${Math.abs(r.current||0)>.000001?'#c17845':'#80a18c'}" stroke-width="1.5"/>`;
     return out;
   }
   function symbol(c,r,d,id){
