@@ -415,3 +415,10 @@ Quality Full 在各測試組全部通過後，因 GitHub runner 映像不同而�
 - 只有扇葉旋轉；共用 frame 把實際推進的模擬時間傳給家庭 UI。暫停、斷電、漏電保護切斷及只讀後停止；慢速跟隨模擬時間，減少動態偏好沿用既有暫停。角度不保存為權威狀態，重畫／適應畫面時保留當前角度，刪除元件或 destroy 時清理暫態資料。旋轉只表示風扇工作，不是實際轉速模型。
 - 已檢視兩類風扇、內層破損放大圖及 665×604 小電路；證據為 `output/playwright/circuit-household/fan-redesign-detail.png`／`fan-redesign-workbench.png`。瀏覽器驗收核對軸心對齊、半透明馬達、實際角度變化、固定護網、通斷電／再接通、暫停／重畫、只讀、減少動態及漏電保護跳掣後停轉，不能只查 `running` 標記。
 - 最終 source／實際 ZIP 共 **69 browser checks** 通過；四個家庭 Node tests（含 36 個舊文件續作）、DC 共用核心、`check`／`check:tests`、修改文件連結及 diff 檢查通過。沿用既有 registry owner，沒有新增測試入口。此輪未重跑完整 CI、AC 瀏覽器或真手機驗收。
+
+### 逐件修訂：冷氣機運作顯示（2026-10-15）
+
+- 依使用者指示，運作時亮綠色指示燈、機身右下角顯示「25°C」，下方風擺約每 6 s 緩慢往返。25°C 是固定示意顯示，不新增室溫／製冷模型。指示燈及溫度由實際負載功率決定；斷電或保護切斷後熄燈、隱去溫度並停擺，暫停保持通電顯示並凍結風擺。
+- 風擺沿用風扇已接入的共用模擬 frame，按實際推進時間更新其局部 SVG，重畫保留相位；角度不進入權威存檔，刪除或 destroy 時清理。外殼、端口、外殼接觸與 1000 W 負載模型維持原值。
+- source／實際 ZIP 共 **71 browser checks** 通過；新案例核對指示燈及 25°C 可見性／右下位置、風擺實際高度變化及折返、暫停／重畫保留位置，以及漏電跳掣後熄燈／隱去溫度／停止。已檢視放大運作／斷電圖及 665×604 小電路；證據在 `output/playwright/circuit-household/aircon-indicator-detail.png`／`aircon-indicator-workbench.png`，動作檢查及 source／ZIP 截圖在同資料夾的 `results.json`／`*-aircon-on.png`／`*-aircon-off.png`。
+- 四個家庭 Node tests（含 36 個舊文件往返／續作）、修改 JavaScript 的語法、`check:tests`、修改文件連結及 diff 檢查通過；沿用既有 registry owner。此輪未重跑完整 CI 或真手機驗收。
