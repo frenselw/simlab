@@ -5,6 +5,7 @@
     const find=k=>{let p=k;while(parent.get(p)!==p)p=parent.get(p);return p;};
     const join=(a,b)=>{parent.set(find(a),find(b));adjacency.get(a).push(b);adjacency.get(b).push(a);};
     doc.wires.forEach(w=>join(w.from,w.to));
+    C.handContacts(doc).forEach(({hand,target})=>join(hand,target));
     for(const c of doc.components){if(['house-meter','house-breaker','house-rcd'].includes(c.type)){join(c.id+':li',c.id+':lo');join(c.id+':ni',c.id+':no');}if(['house-switch','house-fuse'].includes(c.type))join(c.id+':a',c.id+':b');}
     const roles=new Map();for(const [id,p]of ports){if(!p.role)continue;const k=find(id);if(!roles.has(k))roles.set(k,new Set());roles.get(k).add(p.role);}
     const cache=new Map(),roleOf=id=>{

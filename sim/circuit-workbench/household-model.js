@@ -12,6 +12,7 @@
     const join=(a,b)=>parent.set(find(a),find(b));
     for(const c of doc.components){if(c.type==='house-earth')join(c.id+':e','@earth');if(c.type==='house-mains')join(c.id+':n','@earth');if(c.type==='house-metal')join(c.id+':e',c.id+':case');}
     for(const c of doc.components)if(c.type==='house-person'&&state.contacts[c.id])join(c.id+':hand',state.contacts[c.id]+':case');
+    C.handContacts(doc).forEach(({hand,target})=>join(hand,target));
     const ground=find('@earth'),nets=[...new Set(keys.map(find))].filter(k=>k!==ground),index=new Map(nets.map((k,i)=>[k,i])),edges=[];
     const edge=(id,owner,from,to,resistance,emf=0)=>{edges.push({id,owner,from,to,a:find(from),b:find(to),resistance,emf});};
     for(const c of doc.components){
@@ -104,7 +105,7 @@
       for(const c of next.components.filter(C.isProtection)){const previous=old.components.find(p=>p.id===c.id);if(c.type!=='house-fuse'&&previous?.params.closed!==c.params.closed)start.protection[c.id]=record(c);}
       for(const id of Object.keys(start.contacts))if(start.contacts[id]&&!next.components.some(c=>c.id===start.contacts[id]&&C.isAppliance(c)))start.contacts[id]=null;
       for(const c of next.components.filter(c=>c.type==='house-person'&&start.contacts[c.id])){const p=old.components.find(p=>p.id===c.id),target=next.components.find(a=>a.id===start.contacts[c.id]),previous=old.components.find(a=>a.id===start.contacts[c.id]);if(p&&c.params.stance===p.params.stance&&(c.x!==p.x||c.y!==p.y||c.angle!==p.angle)||previous&&(target.x!==previous.x||target.y!==previous.y||target.angle!==previous.angle||target.type!==previous.type||target.params.kind!==previous.params.kind))start.contacts[c.id]=null;}
-      for(const c of next.components.filter(c=>c.type==='house-person'&&start.contacts[c.id])){const previous=old.components.find(p=>p.id===c.id);if(previous&&previous.params.stance!==c.params.stance)C.placeHand(c,C.hand(previous));}
+      for(const c of next.components.filter(c=>c.type==='house-person'&&(start.contacts[c.id]||C.handContacts(old).some(p=>p.hand.startsWith(c.id+':'))))){const previous=old.components.find(p=>p.id===c.id);if(previous&&previous.params.stance!==c.params.stance)C.placeHand(c,C.hand(previous));}
       this.doc=M.validate(next);this.state=start;this.publish();this.clearInactiveTimers();return 'updated';}
     clearInactiveTimers(){for(const c of this.doc.components.filter(C.isProtection)){const p=this.state.protection[c.id],mode=active(c,this.state)?timingMode(c,this.result):null;if(!mode||mode!==p.timingMode){p.elapsed=0;p.bodyCurrentSeen=false;}p.timingMode=mode;Object.assign(this.result.components[c.id].protection,p);}}
     preview(doc){const next=this.fork();next.update(doc);const result=next.read();next.destroy();return result;}

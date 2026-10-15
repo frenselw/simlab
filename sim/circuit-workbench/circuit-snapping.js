@@ -7,11 +7,15 @@
 })(globalThis, function (M, R, G) {
   'use strict';
 
-  function candidates(doc, component, radius, portId) {
+  function candidates(doc, component, radius, portId, terminals = []) {
     const loose = doc.junctions.filter(j => M.degree(doc, j.id + ':p') > 0), pairs = [];
     for (const port of R.ports(component).filter(p => !portId || p.id === portId)) for (const j of loose) {
       const distance = Math.hypot(port.x - j.x, port.y - j.y);
       if (distance < radius) pairs.push({ port, endpoint: j.id + ':p', x: j.x, y: j.y, distance });
+    }
+    for(const port of R.ports(component).filter(p=>p.id===portId))for(const target of terminals.filter(p=>!p.id.startsWith(component.id+':'))){
+      const distance=Math.hypot(port.x-target.x,port.y-target.y);
+      if(distance<radius)pairs.push({port,endpoint:target.id,x:target.x,y:target.y,distance,contact:true});
     }
     // Equal-distance choices follow the stable registry/document ordering.
     return pairs.sort((a, b) => a.distance - b.distance);
@@ -42,16 +46,17 @@
 
   // Pure drag preview. Callers own activity permissions, release and history;
   // every pointer sample starts from the committed document, never this result.
-  function component(doc, id, position, radius, portId) {
+  function component(doc, id, position, radius, portId, terminals = []) {
     const c = doc.components.find(c => c.id === id);
     if (!c || !M.permission(doc, c, 'move') || !Number.isFinite(position.x) ||
         !Number.isFinite(position.y) || !Number.isFinite(radius) || radius <= 0) return null;
-    for (const candidate of candidates(doc, { ...c, ...position }, radius, portId)) {
+    for (const candidate of candidates(doc, { ...c, ...position }, radius, portId, terminals)) {
       let next = M.clone(doc);
       const moved = next.components.find(c => c.id === id);
       moved.x = candidate.x - (candidate.port.x - position.x);
       moved.y = candidate.y - (candidate.port.y - position.y);
       if (!M.reconcile(next, doc)) continue;
+      if(candidate.contact){try{return{doc:M.validate(next),snap:{id:candidate.port.id,endpoint:candidate.endpoint,x:candidate.x,y:candidate.y,contact:true}};}catch{continue;}}
       let joined = join(next, candidate.endpoint, candidate.port.id);
       if (!joined) continue;
       next = joined.doc;

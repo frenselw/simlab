@@ -1,24 +1,25 @@
 'use strict';
 const assert=require('node:assert/strict'),P=require('./presets'),C=require('../circuit-workbench/circuit-household-components'),M=require('../circuit-workbench/circuit-model'),H=require('../circuit-workbench/household-model'),R=require('../circuit-workbench/component-registry'),V=require('../circuit-workbench/circuit-renderer');
-for(const [key,name]of Object.entries(P.names)){const d=P.create(key);assert.equal(d.components.length,key==='empty'?0:key==='C10'?3:key==='C09'?2:key==='C01'||key==='C04'?6:key==='C05'||key==='C08'?4:5);assert(d.components.every(c=>Object.hasOwn(C.definitions,c.type)));assert(Object.hasOwn(P.questions,key));assert(name);const s=new H.Session(d);assert.equal(s.read().reliable,true);if(key!=='empty')assert(key==='C09'?s.read().components.person.current>.1:s.read().components.load.power>0);s.destroy();}
+for(const [key,name]of Object.entries(P.names)){const d=P.create(key);assert.equal(d.components.length,{empty:0,C01:7,C02:5,C03:6,C04:7,C05:5,C06:7,C07:8,C07fuse:4,C08:4,C09:2,C10:4}[key]);assert(d.components.every(c=>Object.hasOwn(C.definitions,c.type)));assert(Object.hasOwn(P.questions,key));assert(name);const s=new H.Session(d);assert.equal(s.read().reliable,true);if(key!=='empty')assert(key==='C09'?s.read().components.person.current>.1:key==='C07fuse'?Math.abs(s.read().components.load.power)<1e-9:s.read().components.load.power>0);s.destroy();}
 assert.throws(()=>P.create('unknown'));
-assert.deepEqual(P.groups.flatMap(g=>g.keys).sort(),Object.keys(P.names).filter(k=>k!=='empty').sort(),'each example appears in one group');
+assert.deepEqual(P.groups.flatMap(g=>g.keys).sort(),Object.keys(P.names).filter(k=>!['empty','C08'].includes(k)).sort(),'each current example appears once; C08 remains loadable without a duplicate menu entry');
 assert.deepEqual(C.palette.map(p=>p.type),['house-mains','house-meter','house-breaker','house-rcd','house-fuse','house-switch','house-socket','house-earth','house-metal','house-insulated','house-person']);
 for(const type of ['house-breaker','house-rcd'])for(const angle of [0,45,90,180])for(const view of ['real','schematic']){
  const c=M.add(M.empty('household'),type,100,200);c.angle=angle;const a=R.rotation(angle),at=(x,y)=>({x:c.x+x*a.cos-y*a.sin,y:c.y+x*a.sin+y*a.cos});assert(C.switchHit(c,at(0,11),view));for(const [x,y]of [[0,-38],[0,48],[-40,0],[40,0]])assert(!C.switchHit(c,at(x,y),view),'outside handle selects without operating');
 }
 for(const key of Object.keys(P.names).filter(k=>k!=='empty')){
- const d=P.create(key),G=require('../circuit-workbench/circuit-routing');
- for(const role of ['C09','C10'].includes(key)?[]:['l','n']){
-  const branch=d.wires.find(w=>w.to==='socket:'+role&&w.from.startsWith('bus-')),points=G.route(d,branch);
+ const d=P.create(key),G=require('../circuit-workbench/circuit-routing'),session=new H.Session(d),result=session.read();session.destroy();
+ for(const role of ['C07','C07fuse','C09','C10'].includes(key)?[]:['l','n']){
+  const branch=d.wires.find(w=>w.from==='bus-'+role+'-socket:p'&&(w.to==='socket:'+role||w.to==='switch:a')),points=G.route(d,branch);
   assert.equal(M.degree(d,branch.from),3,'supply branch has a real junction');
-  assert.equal(points[0].x,points[1].x);assert(points[1].y>points[0].y,'socket branch drops from the horizontal supply');
+ assert.equal(points[0].x,points[1].x);assert(points[1].y>points[0].y,'socket branch drops from the horizontal supply');
   const main=d.wires.filter(w=>w.to.startsWith('bus-'+role)&&!w.from.startsWith('socket'));
   assert(main.length>=2);for(const w of main){const p=G.route(d,w);assert(p.every(q=>q.y===p[0].y));assert(p.at(-1).x>p[0].x,'supply continues right after protection');}
  }
  for(const w of d.wires){const p=G.route(d,w);for(let n=1;n<p.length;n++)assert(p[n].x===p[n-1].x||p[n].y===p[n-1].y,key+' uses square wire bends');}
  for(const w of d.wires){const p=G.route(d,w);for(const c of d.components)for(const port of R.ports(c).filter(port=>port.id!==w.from&&port.id!==w.to))for(let n=1;n<p.length;n++){const a=p[n-1],b=p[n];assert(!(a.x===b.x&&Math.abs(port.x-a.x)<.1&&port.y>=Math.min(a.y,b.y)&&port.y<=Math.max(a.y,b.y)||a.y===b.y&&Math.abs(port.y-a.y)<.1&&port.x>=Math.min(a.x,b.x)&&port.x<=Math.max(a.x,b.x)),key+' '+w.id+' passes unconnected '+port.id);}}
  for(let i=0;i<d.wires.length;i++)for(let j=i+1;j<d.wires.length;j++){const p=G.route(d,d.wires[i]),q=G.route(d,d.wires[j]);for(let a=1;a<p.length;a++)for(let b=1;b<q.length;b++){const u=p[a-1],v=p[a],x=q[b-1],y=q[b],overlap=u.x===v.x&&x.x===y.x&&u.x===x.x?Math.min(Math.max(u.y,v.y),Math.max(x.y,y.y))-Math.max(Math.min(u.y,v.y),Math.min(x.y,y.y)):u.y===v.y&&x.y===y.y&&u.y===x.y?Math.min(Math.max(u.x,v.x),Math.max(x.x,y.x))-Math.max(Math.min(u.x,v.x),Math.min(x.x,y.x)):0;assert(overlap<.001,key+' has overlapping '+d.wires[i].id+' and '+d.wires[j].id);}}
+ for(const n of d.wires.filter(w=>result.wires[w.id].role==='N'))for(const e of d.wires.filter(w=>result.wires[w.id].role==='E')){const p=G.route(d,n),q=G.route(d,e);for(let a=1;a<p.length;a++)for(let b=1;b<q.length;b++){const u=p[a-1],v=p[a],x=q[b-1],y=q[b],vertical=u.x===v.x&&x.x===y.x,horizontal=u.y===v.y&&x.y===y.y,overlap=vertical?Math.min(Math.max(u.y,v.y),Math.max(x.y,y.y))-Math.max(Math.min(u.y,v.y),Math.min(x.y,y.y)):horizontal?Math.min(Math.max(u.x,v.x),Math.max(x.x,y.x))-Math.max(Math.min(u.x,v.x),Math.min(x.x,y.x)):0;if(overlap>1)assert((vertical?Math.abs(u.x-x.x):Math.abs(u.y-x.y))>=24,key+' keeps N/E parallel wires separated '+JSON.stringify({n:n.id,e:e.id,u,v,x,y}));}}
  for(const w of d.wires){const p=G.route(d,w);for(const c of d.components.filter(c=>!w.from.startsWith(c.id+':')&&!w.to.startsWith(c.id+':'))){const b=R.bodyBounds(c);for(let n=1;n<p.length;n++){const a=p[n-1],z=p[n];assert(!(a.x===z.x&&a.x>b.left+2&&a.x<b.right-2&&Math.max(a.y,z.y)>b.top+2&&Math.min(a.y,z.y)<b.bottom-2||a.y===z.y&&a.y>b.top+2&&a.y<b.bottom-2&&Math.max(a.x,z.x)>b.left+2&&Math.min(a.x,z.x)<b.right-2),key+' '+w.id+' crosses unrelated '+c.id);}}}
 }
 {
@@ -90,3 +91,26 @@ for(const [type,kinds]of [['house-metal',[...Object.keys(C.applianceKinds.metal)
  const off=M.clone(d);M.detach(off,off.wires.find(w=>w.to==='load:l').id,'to');s.update(off);assert(!V.flow(off,s.read(),{},.1,1).includes('data-flow-component="load"'));s.destroy();
 }
 console.log('Household internal flow: every appliance and legacy kind, both views, signed leads, fault/earth KCL, reverse wiring, zero suppression and immutable snapshots passed');
+
+for(const key of ['C01','C03','C08'])for(const view of ['real','schematic']){
+ const d=P.create(key);d.display.view=view;const s=new H.Session(d),r=s.read(),c=d.components.find(c=>c.id==='source'),paths=V.componentFlowPaths(d,r).filter(p=>p.component==='source');assert.equal(paths.length,2);
+ for(const [name,port]of [['live','l'],['neutral','n']]){const p=paths.find(p=>p.key===name),q=R.ports(c).find(p=>p.key===port);assert.deepEqual(p.points[0],{x:q.x,y:q.y});assert(Number.isFinite(p.current));assert(Math.sign(p.current)===(port==='l'?-1:1));assert(p.points.every(p=>Number.isFinite(p.x)&&Number.isFinite(p.y)));}
+ const svg=V.flow(d,r,{},.1,1);assert(svg.includes('data-flow-component="source"'));assert.notEqual(svg,V.flow(d,r,{},.3,1));assert.deepEqual(s.capture().circuit,d);s.destroy();
+}
+{const d=M.empty('household');M.add(d,'house-mains',0,0).id='source';const s=new H.Session(d);assert(!V.flow(d,s.read(),{},.1,1).includes('data-flow-component="source"'));s.destroy();}
+console.log('Mains L/N core current paths: both views, actual signed terminal currents, motion and open-circuit suppression passed');
+
+const near=(a,b)=>assert(Number.isFinite(a)&&Math.abs(a-b)<1e-8,a+' != '+b);
+for(const key of P.groups.flatMap(g=>g.keys).filter(k=>k!=='C09')){
+ const d=P.create(key),loads=d.components.filter(C.isAppliance),switches=d.components.filter(c=>c.type==='house-switch');assert.equal(switches.length,loads.length,key+' has a live switch for every appliance');switches.forEach(c=>c.params.closed=true);
+ for(let n=0;n<loads.length;n++){const before=M.clone(d),s=new H.Session(d),next=M.clone(d);next.components.find(c=>c.id===switches[n].id).params.closed=false;s.update(next);near(s.read().components[loads[n].id].power,0);assert.equal(s.read().components[switches[n].id].role,'L');for(let j=0;j<loads.length;j++)if(j!==n)assert(s.read().components[loads[j].id].power>0);assert.deepEqual(d,before);s.destroy();}
+}
+for(const supplyVoltage of [220,230]){
+ const d=P.create('C07');d.supplyVoltage=supplyVoltage;const s=new H.Session(d);assert(s.read().components.protector.current<5);s.advance(3);assert.equal(s.read().components.protector.status,'closed');
+ for(const id of ['switch2','switch3']){const next=M.clone(s.doc);next.components.find(c=>c.id===id).params.closed=true;s.update(next);if(id==='switch2'){assert(s.read().components.protector.current<5);s.advance(3);assert.equal(s.read().components.protector.status,'closed');}}
+ assert(s.read().components.protector.current>9);s.advance(1.999);assert.equal(s.read().components.protector.status,'closed');const restored=H.Session.restore(H.decode(H.encode(s.capture())));restored.advance(.001);assert.equal(restored.read().components.protector.status,'tripped');assert(restored.read().components.protector.protection.currentBeforeTrip>9);const next=M.clone(restored.doc);next.components.find(c=>c.id==='switch3').params.closed=false;restored.update(next);assert.equal(restored.read().components.protector.status,'tripped');restored.resetProtection('protector');restored.advance(3);assert.equal(restored.read().components.protector.status,'closed');assert(restored.read().components.load2.power>0);near(restored.read().components.load3.power,0);restored.destroy();s.destroy();
+}
+{
+ const d=P.create('C07fuse');assert.deepEqual(d.components.map(c=>c.type),['house-mains','house-fuse','house-switch','house-insulated']);assert.equal(d.components.find(c=>c.id==='protector').params.rating,3);const s=new H.Session(d);s.advance(3);assert.equal(s.read().components.protector.status,'intact');const next=M.clone(s.doc);next.components.find(c=>c.id==='switch').params.closed=true;s.update(next);s.advance(2);assert.equal(s.read().components.protector.status,'blown');assert(s.read().components.protector.protection.currentBeforeTrip>5);const fixed=M.clone(s.doc);fixed.components.find(c=>c.id==='load').params.kind='fan';s.update(fixed);assert.equal(s.read().components.protector.status,'blown');s.resetProtection('protector');s.advance(3);assert.equal(s.read().components.protector.status,'intact');assert(s.read().components.load.power>59);s.destroy();
+}
+console.log('Every current appliance example has an isolating live switch; three-load overload, safe reset and minimal 3 A fuse continuation passed');

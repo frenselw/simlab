@@ -113,7 +113,7 @@
         const previous=before.components.find(p=>p.id===c.id),kinds=Family.applianceKinds[c.type==='house-metal'?'metal':'insulated'],label=kinds[c.params.kind]?.label;
         if(label&&previous&&previous.params.kind!==c.params.kind&&c.label===previous.label&&allow(before,previous,'label')&&[Family.definitions[c.type].name,previous.params.kind==='lamp'?'台燈':kinds[previous.params.kind]?.label].includes(previous.label))c.label=label;
       }
-      if(household)for(const c of doc.components.filter(c=>c.type==='house-person')){const previous=before.components.find(p=>p.id===c.id);if(previous&&(session.state.contacts[c.id]||R.ports(previous).some(p=>M.degree(before,p.id)>0))&&previous.params.stance!==c.params.stance){const point=Family.hand(previous);Family.placeHand(c,point);}}profile.prepare(doc);profile.assertTransition(before,doc,readOnly);});if(paramSession&&previewDoc&&JSON.stringify(previewDoc)===JSON.stringify(history.get())){const next=paramSession;unsubscribePreview?.();unsubscribePreview=null;paramSession=null;acUI?.endPreview(true);replaceSession(next,true);}else if(paramSession)discardParamPreview();previewDoc=null;meterPreview=null;relayLastTime=performance.now();analysis=solve(history.get());
+      if(household)for(const c of doc.components.filter(c=>c.type==='house-person')){const previous=before.components.find(p=>p.id===c.id);if(previous&&(session.state.contacts[c.id]||Family.handContacts(before).some(p=>p.hand.startsWith(c.id+':'))||R.ports(previous).some(p=>M.degree(before,p.id)>0))&&previous.params.stance!==c.params.stance){const point=Family.hand(previous);Family.placeHand(c,point);}}profile.prepare(doc);profile.assertTransition(before,doc,readOnly);});if(paramSession&&previewDoc&&JSON.stringify(previewDoc)===JSON.stringify(history.get())){const next=paramSession;unsubscribePreview?.();unsubscribePreview=null;paramSession=null;acUI?.endPreview(true);replaceSession(next,true);}else if(paramSession)discardParamPreview();previewDoc=null;meterPreview=null;relayLastTime=performance.now();analysis=solve(history.get());
       if(selection&&!M.endpoints(history.get()).has(selection.id)&&![...history.get().components,...history.get().junctions,...history.get().wires].some(x=>x.id===selection.id))selection=null;
       $("settingsNotice").hidden=true;if(autoFit)fit();render(inspector);if(before!==history.get())emitChange();if(transient&&lastSessionChange==='restarted')notify('已建立新實驗，回到 t = 0 及初始儲能條件。');lastSessionChange=null;return true;
     }catch(e){discardParamPreview();selection=beforeSelection;previewDoc=null;analysis=solve(history.get());render(inspector);notify(e.message,true);return false;}
@@ -156,7 +156,7 @@
       const acBounds=R.get(c.type).analysis?R.bodyBounds(c):null;
       put("body:"+c.id,{kind:"body",id:c.id,label:c.label+"，拖動本體或用方向鍵移動"},screen(acBounds?{x:(acBounds.left+acBounds.right)/2,y:(acBounds.top+acBounds.bottom)/2}:center),(acBounds?acBounds.right-acBounds.left:Math.abs(Math.cos(angle))*w+Math.abs(Math.sin(angle))*h)*camera.scale,(acBounds?acBounds.bottom-acBounds.top:Math.abs(Math.sin(angle))*w+Math.abs(Math.cos(angle))*h)*camera.scale,allow(d,c,"move")||readableMeter(d,c)?"none":"pan-y");
       targets.get('body:'+c.id).classList.toggle('overview',camera.scale<(dual?.7:.55));
-      if(household&&c.type==='house-person')for(const p of R.ports(c))put(p.key==='hand'?'hand:'+c.id:'port:'+p.id,{kind:'hand',id:c.id,endpoint:p.id,label:p.label+'：可拖到未接線端吸附'+(p.key==='hand'?'，或接觸家電外殼':'')},screen(p),44,44,readOnly?'pan-y':'none').classList.add('port');
+      if(household&&c.type==='house-person')for(const p of R.ports(c))put(p.key==='hand'?'hand:'+c.id:'port:'+p.id,{kind:'hand',id:c.id,endpoint:p.id,label:p.label+'：可拖到接線端或插座孔吸附'+(p.key==='hand'?'，或接觸家電外殼':'')},screen(p),44,44,readOnly?'pan-y':'none').classList.add('port');
       if(c.type==="rheostat"){const angle=c.angle*Math.PI/180,x=-30+c.params.position*60,y=(c.params.terminals??2)>2?-34:38;put("slider:"+c.id,{kind:"slider",id:c.id,label:c.label+"滑片，拖動調整電阻"},screen({x:c.x+x*Math.cos(angle)-y*Math.sin(angle),y:c.y+x*Math.sin(angle)+y*Math.cos(angle)}),44,44,allow(d,c,"params","position")?"none":"pan-y");}
       R.ports(c).filter(p=>!(household&&c.type==='house-person')&&((dual?camera.scale>=.7:camera.scale>=.55)||probeMode||drag?.kind==="wireend"||M.degree(d,p.id)>0)).forEach(p=>{const t=put("port:"+p.id,{kind:"port",id:p.id,label:c.label+" "+p.label+"端子，拖導線端點到這裏接好"},screen(p),44,44,!probeMode&&allow(d,c,"move")?"none":"pan-y");t.classList.toggle("overview",camera.scale<(dual?.7:.55));});
     });
@@ -558,7 +558,7 @@
     if(drag.kind==="meterread"){render(false);return;}
     if(drag.kind==='hand'){
       const original=drag.baseDoc.components.find(c=>c.id===drag.id),start=R.ports(original).find(q=>q.id===drag.endpoint),wanted={x:start.x+p.x-drag.down.x,y:start.y+p.y-drag.down.y},position={x:original.x+wanted.x-start.x,y:original.y+wanted.y-start.y};let contact=null,distance=24/camera.scale;
-      const snapped=wireAllowed()?J.component(drag.baseDoc,drag.id,position,distance,drag.endpoint):null;
+      const snapped=wireAllowed()?J.component(drag.baseDoc,drag.id,position,distance,drag.endpoint,drag.baseDoc.components.filter(c=>c.type!=='house-person').flatMap(c=>R.ports(c))):null;
       if(!snapped&&drag.endpoint===drag.id+':hand')for(const c of drag.baseDoc.components.filter(Family.isAppliance)){const point=Family.contactPoint(c,wanted),gap=Math.hypot(point.x-wanted.x,point.y-wanted.y);if(gap<distance){distance=gap;contact={id:c.id,...point};}}
       drag.snap=snapped?.snap||contact;drag.contactTarget=contact?.id||null;drag.limited=false;
       if(snapped)previewDoc=snapped.doc;
@@ -591,7 +591,7 @@
     // Keep the original tap target rather than reselecting whatever moved under it.
     releasedMeta=!done.moved&&!done.quick&&done.kind!=="pan"?M.clone(done.tapMeta||selection):null;
     if(done.target.hasPointerCapture(e.pointerId))done.target.releasePointerCapture(e.pointerId);
-    if(done.kind==='hand'){if(done.moved&&done.contactTarget)setContact(done.id,done.contactTarget,done.focus);else if(done.moved&&preview){if(change(doc=>Object.assign(doc,preview)))notify(done.snap?'手部已接上現有導線。':done.limited?'導線已拉盡，接線保持不變。':'人物位置已更新。');}else{discardParamPreview();previewDoc=null;analysis=solve(history.get());render();}return;}
+    if(done.kind==='hand'){if(done.moved&&done.contactTarget)setContact(done.id,done.contactTarget,done.focus);else if(done.moved&&preview){if(change(doc=>Object.assign(doc,preview)))notify(done.snap?'手部已接觸接線位置。':done.limited?'導線已拉盡，接線保持不變。':'人物位置已更新。');}else{discardParamPreview();previewDoc=null;analysis=solve(history.get());render();}return;}
     if(discardZone){
       $('canvasNotice').hidden=true;analysis=solve(history.get());
       if(canDiscard(done,history.get())){if(change(doc=>{if(!canDiscard(done,doc))throw new Error('此物件不能拖放刪除');M.remove(doc,done.id);}))notify('已刪除；復原可還原，刪線歸還庫存。');}

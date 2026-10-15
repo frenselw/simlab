@@ -21,7 +21,7 @@
     'house-breaker':{name:'斷路器',icon:'A',ports:channelPorts,bounds:box,primaryParameter:'rating',params:{rating:choice('額定電流',15,[5,15,30],{5:'5 A',15:'15 A',30:'30 A'}),closed:closed()}},
     'house-socket':{name:'英式三孔插座',icon:'插座',ports:[port('e',0,-22,'地線 E','E'),port('n',-27,24,'零線 N','N'),port('l',27,24,'火線 L','L')],bounds:{left:-52,right:52,top:-53,bottom:54},params:{},portStyle:'hole'},
     'house-switch':{name:'普通開關',icon:'S',ports:[port('a',-58,0,'一端'),port('b',58,0,'另一端')],bounds:{left:-45,right:45,top:-43,bottom:43},params:{closed:closed()}},
-    'house-fuse':{name:'保險絲',icon:'熔絲',ports:[port('a',-64,0,'火線一端','L'),port('b',64,0,'火線另一端','L')],bounds:{left:-50,right:50,top:-22,bottom:22},primaryParameter:'rating',params:{rating:choice('額定電流',13,[3,5,13],{3:'3 A',5:'5 A',13:'13 A'})}},
+    'house-fuse':{name:'保險絲',icon:'熔絲',ports:[port('a',-64,0,'火線一端','L'),port('b',64,0,'火線另一端','L')],bounds:{left:-50,right:50,top:-42,bottom:42},primaryParameter:'rating',params:{rating:choice('額定電流',13,[3,5,13],{3:'3 A',5:'5 A',13:'13 A'})}},
     'house-earth':{name:'接地',icon:'⏚',ports:[port('e',58,0,'接地引線','E')],bounds:{left:-32,right:60,top:-32,bottom:32},params:{}},
     'house-metal':{rotatable:false,name:'金屬外殼用電器',icon:'家電',ports:[...workPorts,port('e',-86,26,'外殼接地 E')],bounds:{left:-64,right:64,top:-69,bottom:101},primaryParameter:'kind',params:{kind:{...choice('家電種類','fan',Object.keys(applianceKinds.metal),{...Object.fromEntries(Object.entries(applianceKinds.metal).map(([k,v])=>[k,v.label+' · '+v.power+' W'])),aircon:'冷氣機 · 1000 W（舊文件）'}),legacyChoices:['aircon']},fault:choice('絕緣狀態',false,[false,true],{false:'正常',true:'絕緣破損（外殼漏電）'})}},
     'house-insulated':{rotatable:false,name:'雙重絕緣用電器',icon:'雙重',ports:workPorts,bounds:{left:-64,right:64,top:-69,bottom:101},primaryParameter:'kind',params:{kind:{...choice('家電種類','blender',Object.keys(applianceKinds.insulated),{...Object.fromEntries(Object.entries(applianceKinds.insulated).map(([k,v])=>[k,v.label+' · '+v.power+' W'])),lamp:'台燈 · 40 W（舊文件）'}),legacyChoices:['lamp']},fault:choice('絕緣狀態',false,[false,true],{false:'正常',true:'內層破損（外層完整）'})}},
@@ -53,7 +53,17 @@
     const wire='M'+coilPoints(x,y,length,radius,turns).map(p=>p.join(' ')).join('L');
     return '<g data-house-heating-coil="'+kind+'" data-hot="'+on+'" opacity=".76"><title>螺旋電熱絲</title>'+path(wire,on?'#dc5143':'#84939e',1.9)+path(wire,on?'#ffb69a':'#dce6eb',.55,'opacity=".8"')+'</g>';
   }
+  function mainsLead(sign){
+    return [[-24,7*sign],[-8,7*sign],...Array.from({length:16},(_,n)=>{const t=(n+1)/16,u=1-t;return[-8*u**3+36*u*u*t+36*u*t*t+32*t**3,sign*(7*(u**3+3*u*u*t)+22*(3*u*t*t+t**3))];}),[76,22*sign]].reverse();
+  }
+  function handContacts(doc){
+    // Exact contact follows the saved geometry; moving away must leave no cable.
+    const targets=doc.components.filter(c=>c.type!=='house-person').flatMap(c=>R.ports(c)),contacts=[];
+    for(const c of doc.components.filter(c=>c.type==='house-person'))for(const hand of R.ports(c)){const target=targets.find(p=>Math.hypot(p.x-hand.x,p.y-hand.y)<1e-6);if(target)contacts.push({hand:hand.id,target:target.id});}return contacts;
+  }
   const flowGeometry={
+    mains:{l:mainsLead(-1),n:mainsLead(1)},
+    mainsSymbol:{l:[[76,-22],[24,-22]],n:[[76,22],[24,22]]},
     fan:{l:[[-86,-26],[-57,-26],[-45,-24],[-15,-24]],n:[[-86,0],[-60,0],[-45,-10],[-15,-10]],work:[[-15,-24],[-10,-24],[-5,-28],[0,-29],[5,-28],[11,-22],[12,-17],[11,-12],[5,-6],[0,-5],[-5,-6],[-10,-10],[-15,-10]],e:[[-86,26],[-50,26],[-28,9]],fault:[[-15,-24],[-8,-29],[-28,9]]},
     plasticFan:{l:[[-86,-26],[-57,-26],[-45,-24],[-13,-24]],n:[[-86,0],[-60,0],[-45,-10],[-13,-10]],work:[[-13,-24],[-8,-24],[-4,-26],[0,-27],[4,-26],[9,-21],[10,-17],[9,-13],[4,-8],[0,-7],[-4,-8],[-8,-10],[-13,-10]]},
     heater:{l:[[-86,-26],[-57,-26],[-45,-7],[-19,-7]],n:[[-86,0],[-60,0],[-45,7],[-19,7]],work:[...coilPoints(-19,1,36,8,8),[23,-6],[26,-1],[26,11],[23,16],[16,18],[-7,18],[-14,16],[-18,12],[-19,7]],e:[[-86,26],[-48,26],[-30,33]],fault:[[-19,-7],[-12,-12],[-30,33]]},
@@ -66,12 +76,15 @@
     schematic:{l:[[-86,-26],[-28,-26],[-28,-12]],n:[[-86,0],[-28,0],[-28,12]],work:[[-28,-12],[-23,-8],[23,8],[27,12],[-28,12]],e:[[-86,26],[-43,26],[-43,40]],fault:[[-28,-12],[-16,-18],[-43,40]]}
   };
   function flowPaths(c,r,view,doc,result){
-    const g=flowGeometry[view==='schematic'?'schematic':c.params.kind==='fan'&&c.type==='house-insulated'?'plasticFan':c.params.kind];if(!g)return [];
-    const terminal=key=>{if(!doc||!result)return null;let sum=0;for(const w of doc.wires){const sign=(w.to===c.id+':'+key?1:0)-(w.from===c.id+':'+key?1:0);if(!sign)continue;const i=result.wires[w.id]?.current;if(!Number.isFinite(i))return null;sum+=sign*i;}return sum;};
-    const make=(key,from,to,current,points)=>({key,from,to,current,points,size:.6}),paths=[make('live','l','working-l',terminal('l'),g.l),make('working','l','n',r?.current??null,g.work),make('neutral','n','working-n',terminal('n'),g.n)];
+    const mains=c.type==='house-mains',g=flowGeometry[mains?view==='schematic'?'mainsSymbol':'mains':view==='schematic'?'schematic':c.params.kind==='fan'&&c.type==='house-insulated'?'plasticFan':c.params.kind];if(!g)return [];
+    const wired=id=>{let sum=0;for(const w of doc.wires){const sign=(w.to===id?1:0)-(w.from===id?1:0);if(!sign)continue;const i=result.wires[w.id]?.current;if(!Number.isFinite(i))return null;sum+=sign*i;}return sum;};
+    const terminal=key=>{if(!doc||!result)return null;let sum=wired(c.id+':'+key);for(const {hand,target}of handContacts(doc).filter(p=>p.target===c.id+':'+key)){const i=wired(hand),body=result.components[hand.split(':')[0]]?.handCurrents?.[hand.endsWith(':hand')?'right':'left'];if(!Number.isFinite(sum)||!Number.isFinite(i)||!Number.isFinite(body))return null;sum+=i-body;}return sum;};
+    const make=(key,from,to,current,points)=>({key,from,to,current,points,size:.6});
+    if(mains)return[make('live','l','cable-l',terminal('l'),g.l),make('neutral','n','cable-n',terminal('n'),g.n)];
+    const paths=[make('live','l','working-l',terminal('l'),g.l),make('working','l','n',r?.current??null,g.work),make('neutral','n','working-n',terminal('n'),g.n)];
     if(c.type==='house-metal'){paths.push(make('earth','e','case',terminal('e'),g.e));if(c.params.fault)paths.push(make('fault','l','case',r?.leakageCurrent??null,g.fault));}return paths;
   }
-  for(const type of ['house-metal','house-insulated'])definitions[type].flowPaths=flowPaths;
+  for(const type of ['house-metal','house-insulated','house-mains'])definitions[type].flowPaths=flowPaths;
   function plasticFan(c,id,on,palette=false){
     const material='url(#'+id+'-plastic)';
     let out='<g data-house-fan-style="plastic-box"><ellipse cy="46" rx="40" ry="4" fill="#5b778b" opacity=".1"/><path d="M-15-58V-64Q-15-68-10-68H10Q15-68 15-64V-58" fill="none" stroke="#9ab3bf" stroke-width="4"/>'+rect(-44,-60,88,88,'#b8ced7',14,'#7d9eaf',1.4)+rect(-41,-59,82,84,material,12,'#64899e',1.4)+rect(-36,34,72,10,material,5,'#7e9cac',1)+path('M-29 25V36 M29 25V36','#9ab3bf',6)+'<circle cy="-17" r="34" fill="#d9e7ec" stroke="#83a7b7" stroke-width="2"/><circle cy="-17" r="31" fill="url(#'+id+'-glass)" stroke="#a6bec8" stroke-width=".7"/>';
@@ -219,7 +232,7 @@
     if(c.type==='house-socket')return caseBox(id)+socketHoles(c);
     if(isAppliance(c)){const metal=c.type==='house-metal';return lead('M-86-26H-28V-12','L')+lead('M-86 0H-28V12','N')+(metal?lead('M-86 26H-43V40','E'):'')+rect(-27,-12,54,24,'#fff',0)+path('M-23-8L23 8 M-23 8L23-8','#788c9b',1)+(metal?rect(-43,-40,86,83,'none',5):rect(-39,-36,78,72,'none',4)+rect(-44,-41,88,82,'none',4))+(c.params.fault?(metal?path('M-28-12L-16-18 -43 40','#c27b54',2,'stroke-dasharray="3 3" data-house-fault-path="true"'):path('M-39-24l5 6-5 5 5 6','#bd825f',2)):'')+text(0,64,power(c)+' W',14);}
     if(c.type==='house-switch')return path('M-58 0H-20 M20 0H58')+path(`M-20 0L20 ${c.params.closed?0:-24}`,'#617f95',2.5)+`<circle cx="-20" r="3" fill="#fff" stroke="#607b91"/><circle cx="20" r="3" fill="#fff" stroke="#607b91"/>`;
-    if(c.type==='house-fuse')return lead('M-64 0H-28 M28 0H64','L')+rect(-28,-12,56,24,'#fff',0)+path(r?.status==='blown'?'M-28 0H-5 M6 0H28':'M-28 0H28','#a97d54',2)+text(0,35,c.params.rating+' A');
+    if(c.type==='house-fuse')return lead('M-64 0H-28 M28 0H64','L')+rect(-28,-12,56,24,'#fff',0)+path(r?.status==='blown'?'M-28 0H-5 M6 0H28':'M-28 0H28','#a97d54',2)+text(0,35,c.params.rating+' A',14,'data-house-fuse-rating="true"');
     return channelLeads()+caseBox(id)+text(0,-38,c.type==='house-meter'?'kWh':c.type==='house-rcd'?'30 mA':c.params.rating+' A',14)+path(`M-38-22H-14L14 ${(r?.status?r.status==='closed':c.params.closed)||c.type==='house-meter'?-22:-8} M14-22H38 M-38 22H-14L14 ${(r?.status?r.status==='closed':c.params.closed)||c.type==='house-meter'?22:8} M14 22H38`,'#738da0',2)+text(0,45,r?.status==='tripped'?'跳掣':r?.status==='open'?'斷開':'',14);
   }
   function render(c,r={},d={}){
@@ -236,7 +249,7 @@
       if(c.type==='house-rcd')out+=rect(26,-3,11,13,'#bba574',2,'#9b865e',1);
     }else if(c.type==='house-socket')out+=caseBox(id,-48,-49,96,98)+rect(-41,-42,82,84,'#f8fafb',6,'#bdcdd7',1)+socketHoles(c)+`<circle cx="-36" r="2.5" fill="#ccd8df"/><circle cx="36" r="2.5" fill="#ccd8df"/>`;
     else if(c.type==='house-switch')out+=path('M-58 0H-36 M36 0H58','#9d795a',3)+caseBox(id,-39,-37,78,74)+`<path d="M-23-25H23V25H-23Z" fill="${plastic}" stroke="#859fae"/><path d="M-23 ${c.params.closed?-25:18}H23V${c.params.closed?-18:25}H-23Z" fill="#bdcdd8"/><path d="M-12 ${c.params.closed?17:-17}H12" stroke="#7190a5" stroke-width="2"/>`;
-    else if(c.type==='house-fuse')out+=lead('M-64 0H-41 M41 0H64','L')+rect(-36,-12,72,24,`url(#${id}-glass)`,5)+rect(-45,-14,18,28,metal,4)+rect(27,-14,18,28,metal,4)+path(r.status==='blown'?'M-27 0H-7L-3-3 M5 2L9 0H27':'M-27 0H27','#a57c53',2)+path('M-23-7H21','#fff',2)+text(0,-23,c.params.rating+' A',14);
+    else if(c.type==='house-fuse')out+=lead('M-64 0H-41 M41 0H64','L')+rect(-36,-12,72,24,`url(#${id}-glass)`,5)+rect(-45,-14,18,28,metal,4)+rect(27,-14,18,28,metal,4)+path(r.status==='blown'?'M-27 0H-7L-3-3 M5 2L9 0H27':'M-27 0H27','#a57c53',2)+path('M-23-7H21','#fff',2)+text(0,-23,c.params.rating+' A',14,'data-house-fuse-rating="true"');
     else if(c.type==='house-earth')out+=lead('M58 0H0V10','E',3)+path('M-23 10H23 M-15 18H15 M-7 26H7','#638171',2.5);
     else if(c.type==='house-person')out+=person(c,r,id);
     else if(isAppliance(c)){
@@ -266,5 +279,5 @@
     return{x:c.x+q.x*a.cos-q.y*a.sin,y:c.y+q.x*a.sin+q.y*a.cos};
   }
   function placeHand(person,point){const h=hand(person);person.x+=point.x-h.x;person.y+=point.y-h.y;}
-  return Object.freeze({definitions,colours,applianceKinds,power,isAppliance,isProtection,switchHit,hand,contactPoint,placeHand,render,palette:["house-mains","house-meter","house-breaker","house-rcd","house-fuse","house-switch","house-socket","house-earth","house-metal","house-insulated","house-person"].map(type=>({type,label:({'house-socket':'三孔插座','house-metal':'金屬家電','house-insulated':'雙重絕緣'})[type]||definitions[type].name,...(type==='house-mains'?{limit:1}:{})}))});
+  return Object.freeze({definitions,colours,applianceKinds,power,isAppliance,isProtection,switchHit,hand,handContacts,contactPoint,placeHand,render,palette:["house-mains","house-meter","house-breaker","house-rcd","house-fuse","house-switch","house-socket","house-earth","house-metal","house-insulated","house-person"].map(type=>({type,label:({'house-socket':'三孔插座','house-metal':'金屬家電','house-insulated':'雙重絕緣'})[type]||definitions[type].name,...(type==='house-mains'?{limit:1}:{})}))});
 });
