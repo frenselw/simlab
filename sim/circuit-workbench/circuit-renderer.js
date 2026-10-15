@@ -325,9 +325,9 @@
         const points=local.map(([px,py])=>({x:c.x+px*cos-py*sin,y:c.y+px*sin+py*cos}));
         const path={id:'component:'+c.id+':'+key,component:c.id,key,from:prefix+from,to:prefix+to,current:value,points};if(Routing.length(points)>1e-8)paths.push(path);return path;
       };
-      const custom=R.get(c.type).flowPaths?.(c,result.components[c.id],doc.display.view);
+      const custom=R.get(c.type).flowPaths?.(c,result.components[c.id],doc.display.view,doc,result);
       if(custom){for(const item of custom){const p=add(item.key,item.from,item.to,item.current,item.points);let at=0,part=[],visible=[];p.hidden=[];
-        for(let n=1;n<item.points.length;n++){const a=item.points[n-1],b=item.points[n],length=Math.hypot(b[0]-a[0],b[1]-a[1]);if(b[2]){if(part.length){visible.push(part);part=[];}const last=p.hidden.at(-1);if(last&&Math.abs(last[1]-at)<1e-8)last[1]+=length;else p.hidden.push([at,at+length]);}else{if(!part.length)part.push(p.points[n-1]);part.push(p.points[n]);}at+=length;}if(part.length)visible.push(part);p.track=visible.map(Routing.path).join(' ');p.size=.38;
+        for(let n=1;n<item.points.length;n++){const a=item.points[n-1],b=item.points[n],length=Math.hypot(b[0]-a[0],b[1]-a[1]);if(b[2]){if(part.length){visible.push(part);part=[];}const last=p.hidden.at(-1);if(last&&Math.abs(last[1]-at)<1e-8)last[1]+=length;else p.hidden.push([at,at+length]);}else{if(!part.length)part.push(p.points[n-1]);part.push(p.points[n]);}at+=length;}if(part.length)visible.push(part);p.track=visible.map(Routing.path).join(' ');p.size=item.size??.38;
       }continue;}
       if(R.dualMeter(c)){
         const high=i,low=current('c','b'),ports=R.localPorts(c),a=ports.find(p=>p.key==='a'),b=ports.find(p=>p.key==='b');
@@ -467,14 +467,14 @@
     if (doc.display.flow === "off") return ""; let out = '';const electron=doc.display.flow==='electron',references=flowReferences(doc,result,baselines),household=doc.analysis==='household',swing=Math.cos(time*2*Math.PI*.7);
     doc.wires.forEach((w) => {
       const current = result.wires[w.id]?.current,reference=referenceAt(references,result,w.from),speed=flowSpeed(displayCurrent(doc,result,w.from,current,references,result.wires[w.id]?.currentPeak),reference);if(!speed)return;
-      const points=routes[w.id]||Routing.route(doc,w),reverse=(current*(household?swing:1)<0)!==electron,phase=modulo(household?Math.sin(time*2*Math.PI*.7)*flowSpacing*.4*(current<0?-1:1):offsets?offsets.get(w.id)||0:time*speed*(reverse?-1:1),flowSpacing);
+      const points=routes[w.id]||Routing.route(doc,w),reverse=(current*(household?swing:1)<0)!==electron,phase=modulo(household?Math.sin(time*2*Math.PI*.7)*flowSpacing*.4*(current<0?-1:1)*(electron?-1:1):offsets?offsets.get(w.id)||0:time*speed*(reverse?-1:1),flowSpacing);
       out+=`<g data-flow-wire="${w.id}" data-current="${current}" data-reference-current="${reference}" data-speed="${speed}" data-phase="${phase}" data-direction="${reverse?-1:1}">`;
       out+=flowParticles(points,phase,flowSpacing,scale,electron,reverse,1/scale);
       out+='</g>';
     });
     for(const p of componentFlowPaths(doc,result)){
       const reference=referenceAt(references,result,p.from),speed=flowSpeed(displayCurrent(doc,result,p.from,p.current,references),reference);if(!speed)continue;
-      const reverse=(p.current<0)!==electron,phase=modulo(offsets?offsets.get(p.id)||0:time*speed*(reverse?-1:1),flowSpacing),spacing=componentFlowSpacing(p.points,scale),size=Math.min(1/scale,p.size??.55);
+      const reverse=(p.current*(household?swing:1)<0)!==electron,phase=modulo(household?Math.sin(time*2*Math.PI*.7)*flowSpacing*.4*(p.current<0?-1:1)*(electron?-1:1):offsets?offsets.get(p.id)||0:time*speed*(reverse?-1:1),flowSpacing),spacing=componentFlowSpacing(p.points,scale),size=Math.min(1/scale,p.size??.55);
       out+=`<g data-flow-component="${esc(p.component)}" data-flow-path="${p.key}" data-from="${esc(p.from)}" data-to="${esc(p.to)}" data-current="${p.current}" data-reference-current="${reference}" data-speed="${speed}" data-phase="${phase}" data-direction="${reverse?-1:1}" data-spacing="${spacing}" pointer-events="none"><path data-flow-route="true" d="${Routing.path(p.points)}" fill="none" stroke="none"/><path data-flow-track="true" d="${p.track??Routing.path(p.points)}" fill="none" stroke="${electron?flowColours.electron:flowColours.current}" opacity=".2" stroke-width="${2*size}" stroke-linejoin="round"/>`;
       out+=flowParticles(p.points,phase,spacing,scale,electron,reverse,size,p.hidden)+'</g>';
     }

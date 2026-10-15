@@ -45,12 +45,33 @@
   function caseBox(id,x=-46,y=-52,w=92,h=104){return rect(x+3,y+3,w,h,'#c0ced8',7)+rect(x,y,w,h,`url(#${id}-plastic)`,7,'#446482',2)+path(`M${x+7} ${y+7}H${x+w-7}`,'#fff',2);}
   function channelLeads(){return lead('M-58-22H-40 M40-22H58','L')+lead('M-58 22H-40 M40 22H58','N');}
   function socketHoles(c){return definitions['house-socket'].ports.map(p=>{const w=p.key==='e'?10:16,h=p.key==='e'?16:10;return `<rect data-house-socket-hole="${p.key}" data-port="${c.id}:${p.key}" x="${p.x-w/2}" y="${p.y-h/2}" width="${w}" height="${h}" rx="1" fill="#526676" stroke="#9eb3c0" stroke-width="1.5"/><path d="M${p.x-w/2+2} ${p.y+h/2-2}V${p.y-h/2+2}H${p.x+w/2-2}" fill="none" stroke="#334c5e" stroke-width="2"/>`;}).join('');}
-  function heatingCoil(kind,x,y,length,radius,turns,on){
+  function coilPoints(x,y,length,radius,turns){
     const points=[];
-    for(let n=0;n<=turns*32;n++){const a=n*Math.PI/16;points.push((x+length*n/(turns*32)+radius*.55*Math.sin(a)).toFixed(2)+' '+(y-radius*Math.cos(a)).toFixed(2));}
-    const wire='M'+points.join('L');
+    for(let n=0;n<=turns*32;n++){const a=n*Math.PI/16;points.push([Number((x+length*n/(turns*32)+radius*.55*Math.sin(a)).toFixed(2)),Number((y-radius*Math.cos(a)).toFixed(2))]);}return points;
+  }
+  function heatingCoil(kind,x,y,length,radius,turns,on){
+    const wire='M'+coilPoints(x,y,length,radius,turns).map(p=>p.join(' ')).join('L');
     return '<g data-house-heating-coil="'+kind+'" data-hot="'+on+'" opacity=".76"><title>螺旋電熱絲</title>'+path(wire,on?'#dc5143':'#84939e',1.9)+path(wire,on?'#ffb69a':'#dce6eb',.55,'opacity=".8"')+'</g>';
   }
+  const flowGeometry={
+    fan:{l:[[-86,-26],[-57,-26],[-45,-24],[-15,-24]],n:[[-86,0],[-60,0],[-45,-10],[-15,-10]],work:[[-15,-24],[-10,-24],[-5,-28],[0,-29],[5,-28],[11,-22],[12,-17],[11,-12],[5,-6],[0,-5],[-5,-6],[-10,-10],[-15,-10]],e:[[-86,26],[-50,26],[-28,9]],fault:[[-15,-24],[-8,-29],[-28,9]]},
+    plasticFan:{l:[[-86,-26],[-57,-26],[-45,-24],[-13,-24]],n:[[-86,0],[-60,0],[-45,-10],[-13,-10]],work:[[-13,-24],[-8,-24],[-4,-26],[0,-27],[4,-26],[9,-21],[10,-17],[9,-13],[4,-8],[0,-7],[-4,-8],[-8,-10],[-13,-10]]},
+    heater:{l:[[-86,-26],[-57,-26],[-45,-7],[-19,-7]],n:[[-86,0],[-60,0],[-45,7],[-19,7]],work:[...coilPoints(-19,1,36,8,8),[23,-6],[26,-1],[26,11],[23,16],[16,18],[-7,18],[-14,16],[-18,12],[-19,7]],e:[[-86,26],[-48,26],[-30,33]],fault:[[-19,-7],[-12,-12],[-30,33]]},
+    washer:{l:[[-86,-26],[-57,-26],[-45,-22],[-42,-22]],n:[[-86,0],[-60,0],[-45,-8],[-42,-8]],work:[[-42,-22],[-36,-22],[-36,-8],[-42,-8]],e:[[-86,26],[-62,26],[-48,30]],fault:[[-42,-22],[-35,-27],[-48,30]]},
+    aircon:{l:[[-86,-26],[-57,-26],[-45,-22],[-42,-22]],n:[[-86,0],[-60,0],[-45,-8],[-42,-8]],work:[[-42,-22],[-38,-22],[-38,-20],[-30,-20],[-30,-10],[-38,-10],[-38,-8],[-42,-8]],e:[[-86,26],[-62,26],[-50,30]],fault:[[-42,-22],[-35,-27],[-50,30]]},
+    blender:{l:[[-86,-26],[-57,-26],[-45,24],[-23,24]],n:[[-86,0],[-60,0],[-45,40],[-23,40]],work:[[-23,24],[-8,24],[-8,28],[-6,30],[-4,27],[0,26],[4,27],[6,30],[6,40],[4,43],[0,44],[-4,43],[-6,40],[-8,38],[-8,40],[-23,40]]},
+    vacuum:{l:[[-86,-26],[-57,-26],[-45,-7],[-31,-7]],n:[[-86,0],[-60,0],[-45,10],[-31,10]],work:[[-31,-7],[-23,-7],[-23,-1],[-21,-1],[-21,11],[-23,11],[-23,10],[-31,10]]},
+    dryer:{l:[[-86,-26],[-57,-26],[-45,-25],[-34,-25]],n:[[-86,0],[-60,0],[-45,-5],[-34,-5]],work:[[-34,-25],[2,-25],...coilPoints(2,-15,26,8,7),[33,-23],[33,-5],[-34,-5]]},
+    lamp:{l:[[-86,-26],[-57,-26],[-45,-7],[-7,-7]],n:[[-86,0],[-60,0],[-45,7],[-7,7]],work:[[-7,-7],[2,-7],[4,-3],[7,-7],[10,-3],[13,-7],[17,-7],[17,7],[-7,7]]},
+    schematic:{l:[[-86,-26],[-28,-26],[-28,-12]],n:[[-86,0],[-28,0],[-28,12]],work:[[-28,-12],[-23,-8],[23,8],[27,12],[-28,12]],e:[[-86,26],[-43,26],[-43,40]],fault:[[-28,-12],[-16,-18],[-43,40]]}
+  };
+  function flowPaths(c,r,view,doc,result){
+    const g=flowGeometry[view==='schematic'?'schematic':c.params.kind==='fan'&&c.type==='house-insulated'?'plasticFan':c.params.kind];if(!g)return [];
+    const terminal=key=>{if(!doc||!result)return null;let sum=0;for(const w of doc.wires){const sign=(w.to===c.id+':'+key?1:0)-(w.from===c.id+':'+key?1:0);if(!sign)continue;const i=result.wires[w.id]?.current;if(!Number.isFinite(i))return null;sum+=sign*i;}return sum;};
+    const make=(key,from,to,current,points)=>({key,from,to,current,points,size:.6}),paths=[make('live','l','working-l',terminal('l'),g.l),make('working','l','n',r?.current??null,g.work),make('neutral','n','working-n',terminal('n'),g.n)];
+    if(c.type==='house-metal'){paths.push(make('earth','e','case',terminal('e'),g.e));if(c.params.fault)paths.push(make('fault','l','case',r?.leakageCurrent??null,g.fault));}return paths;
+  }
+  for(const type of ['house-metal','house-insulated'])definitions[type].flowPaths=flowPaths;
   function plasticFan(c,id,on,palette=false){
     const material='url(#'+id+'-plastic)';
     let out='<g data-house-fan-style="plastic-box"><ellipse cy="46" rx="40" ry="4" fill="#5b778b" opacity=".1"/><path d="M-15-58V-64Q-15-68-10-68H10Q15-68 15-64V-58" fill="none" stroke="#9ab3bf" stroke-width="4"/>'+rect(-44,-60,88,88,'#b8ced7',14,'#7d9eaf',1.4)+rect(-41,-59,82,84,material,12,'#64899e',1.4)+rect(-36,34,72,10,material,5,'#7e9cac',1)+path('M-29 25V36 M29 25V36','#9ab3bf',6)+'<circle cy="-17" r="34" fill="#d9e7ec" stroke="#83a7b7" stroke-width="2"/><circle cy="-17" r="31" fill="url(#'+id+'-glass)" stroke="#a6bec8" stroke-width=".7"/>';

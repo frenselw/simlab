@@ -19,6 +19,8 @@
 
 供電等效電阻 0.05 Ω；每條外接導線、電表、閉合開關及保護器每通道 0.001 Ω，固定而不隨畫面線長改變；家電 E 端至金屬外殼仍視為內部理想連接。外殼受損絕緣取 2000 Ω。人體以兩手各經 1000 Ω 接到同一身體節點，站地時身體再經 1000 Ω 回等效地，站椅時只斷開腳的支路；單手至地或雙手之間等效 2000 Ω。金屬外殼故障支路固定在家電預定 L 端；反接不會把故障移到另一端。雙重絕緣的指定故障只破壞內層，外層仍隔離。
 
+家電內部的電流箭嘴沿 L／N 引線及馬達線圈／電熱絲顯示，符號視圖則穿過負載符號；沿用共用電流／電子／關閉選項，與外接導線同步交流往返。正常地線無箭嘴，漏電時依各端子實際電流及故障支路顯示，不把全部漏電量誤當地線電流。洗衣機不把衣物、滾筒及轉軸當導體，風筒沿單一等效工作路徑示意。斷電停止、暫停凍結，動畫不改物理模型或存檔。
+
 斷路器／保險絲連續超額 2 s 動作，電流達額定值 5 倍則以 0.02 s 快速過流切斷；漏電保護器差流 ≥30 mA 持續 0.10 s 動作，均是教學等效，並非實物完整時間—電流曲線。處理事件時切分模擬步，同時達條件的器件一起切斷後重算；幀率及元件順序不決定結果。手動復位／更換後，未排除的故障重新累計，沒有自動合閘。
 
 有限接地線、固定人體阻值、理想絕緣椅及單層絕緣破損均有模型界限；這些讀值不預測實際傷害或住宅合規。詳細界限放在工作台說明中。
@@ -121,3 +123,7 @@ Node 驗證：`household-connections.test.js`、`household-model.test.js`、`hou
 ### Version 7：把手操作、導覽與示例整理
 
 保護器把手才開合／復位，其他位置只選取；工具箱將保護裝置放在一起，示例分類及標題與 DC／AC 導覽方式一致。固定家庭電路頁首、概念探索標章及副標題；整理 C02／C06 及插座地線路徑。Sites source：`55e19ae2cb09d357e0290f27af274fc6b272dbf3`；saved version：`appgprj_6ad0b88108c08191a7568eda54a1f36c~appgver_2ec01e7e11e48191b9e61858c6a86a8d`；deployment：`appgdep_6ad0f2be6e888191b174cfb9943af127`，原生回傳 `succeeded`，原網址及私人存取保持。官方 archive：`output/sites/circuit-household-workbench-organization.tar.gz`。最終完整 household source／ZIP **445 checks**、相關 Node suites、DC 手機 smoke 及部署目錄檢查通過，詳見計劃；未做真手機或 Moodle 驗證。
+
+### Version 8：家電內部電流動畫
+
+九款新舊家電及兩種視圖接入共用電流動畫，與外接導線同步，保留反接、漏電及地線實際分流。Sites source：`cd8569e0496af2f1e1dc863b79b6a4ca16de2897`；saved version：`appgprj_6ad0b88108c08191a7568eda54a1f36c~appgver_599e533c3f548191a82ce13b4cb77b91`；deployment：`appgdep_6ad0f91a77f8819186d5cd3d550d1a60`，原生回傳 `succeeded`，原網址及私人存取保持。官方 archive：`output/sites/circuit-household-workbench-internal-flow.tar.gz`。Source／ZIP 動畫專項 **94 checks**、家庭 Node、共用 component-flow／winding-flow、AC platform、DC flow browser smoke 及部署目錄檢查通過；30 個 runtime assets 與來源一致，證據見計劃。未重跑完整 household 瀏覽器回歸、真手機或 Moodle。

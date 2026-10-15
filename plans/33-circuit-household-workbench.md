@@ -696,3 +696,13 @@ CI 38746611310／38750403498 失敗於電能表 SVG 讀數邊界：Linux 的 sys
 接地觸控 fixture 的 100 ms 等待仍偶發保留暫態布局的相機位置；改為先選線、待工具列布局後才 fit 及量度端點，並在 touchStart 後直接斷言開始 wireend 拖動。最終 source／ZIP 的三種手機尺寸均通過；沒有修改 runtime 接地或手部接線行為。
 
 四個家庭 Node suites、core／platform-core／ac-platform、DC source／ZIP phone-smoke、check、check:tests（240 entries）、文件連結及 diff 通過。提交選取預覽另存 output/playwright/circuit-household/organization-selection.json。前一輪提交 90391ae 的 Quality 已成功（run 38755996921）；本輪遠端 CI 以推送後的新提交另驗，不能把前一輪結果當作本輪結果。Sites version 7 原生發布 succeeded，身份見維護指引；30 個 runtime assets 與來源逐 byte／SHA-256 一致，部署目錄 1280／320／390 px 入口、可信視圖、無水平溢出及短把手檢查通過，證據在 output/sites/household-organization-assets.json 及 household-browser-verification.json。未做真手機、實際 Moodle 或本機完整 Quality Full。
+
+### 家電內部電流路徑（2026-10-15）
+
+金屬及雙重絕緣家電接入既有 registry flowPaths／renderer 動畫，不另加動畫迴圈。實物沿既有 L／N 引線、馬達線圈或電熱絲流動；洗衣機只經左側內部工作回路，不穿過衣物、滾筒或機械轉軸。符號視圖走負載符號。沿用單一等效負載，不虛構風筒馬達／電熱絲各自的支路電流。
+
+L／N／E 引線讀實際外接導線的帶符號端子淨電流，工作部位讀模型負載電流，故障支路讀漏電電流；正常 E 不顯示電流，未接 E 時也不虛構回流。內外箭嘴共用家庭版交流往返相位，電子顯示方向相反。零電流／未知電流不畫箭嘴，暫停、關閉流向及只讀沿用共用規則；動畫不寫入存檔。Node 覆蓋所有新舊款式、兩視圖、反接、錯接、漏電分流、斷線及保存不變；browser 沿用 household owner 驗證 source／ZIP、桌面／手機的實際箭嘴移動及開關狀態，完成後另記實際證據。
+
+驗收（2026-10-16）：source／實際重建 ZIP 的 --flow-only 共 **94 checks** 通過，零 runtime errors，結果及最終 runtime／ZIP 指紋另存 output/playwright/circuit-household/internal-flow.json。九款新舊家電 × 兩視圖 × 1280／390 px，均驗證工作路徑有實際粒子、播放位移、暫停凍結、內外相位／方向一致、電子反向、關閉清空、保存往返及拔 L 後消失。已檢視桌面風扇／熱水器／洗衣機及手機熱水器／塑膠風扇截圖。最初固定 120 ms 的動畫等待在手機偶遇第一幀未更新，改為最多 1 s 等待實際相位變化，保留位移及暫停斷言，未改 runtime。
+
+家庭 presets／model／state、共用 component-flow／winding-flow、AC platform、DC source／ZIP --flow-smoke、check、check:tests（240 entries）通過。沿用 registry owner，提交選取預覽另存 output/playwright/circuit-household/internal-flow-selection.json。Sites version 8 原生發布 succeeded，身份見維護指引；30 個 runtime assets 與來源逐 byte／SHA-256 一致，證據為 output/sites/household-internal-flow-assets.json，部署目錄 1280／320／390 px 的入口、可信視圖、無水平溢出及短把手檢查亦通過。本輪未重跑完整 household browser owner、真手機、實際 Moodle 或本機完整 Quality Full；推送後遠端 CI 另驗。
