@@ -7,7 +7,7 @@
   function initial(doc){return {time:0,contacts:Object.fromEntries(doc.components.filter(c=>c.type==='house-person').map(c=>[c.id,null])),protection:Object.fromEntries(doc.components.filter(C.isProtection).map(c=>[c.id,record(c)])),energyKWh:Object.fromEntries(doc.components.filter(c=>c.type==='house-meter').map(c=>[c.id,0]))};}
   const active=(c,state)=>c.type==='house-fuse'?state.protection[c.id]?.status!=='blown':c.params.closed&&state.protection[c.id]?.status==='closed';
   function solve(input,state=initial(input)){
-    const doc=M.validate(input),topology=Connections.inspect(doc),ports=M.endpoints(doc),keys=[...ports.keys(),'@earth',...doc.components.filter(C.isAppliance).map(c=>c.id+':case')],parent=new Map(keys.map(k=>[k,k]));
+    const doc=M.validate(input),topology=Connections.inspect(doc),ports=M.endpoints(doc),keys=[...ports.keys(),'@earth',...doc.components.filter(C.isAppliance).map(c=>c.id+':case'),...doc.components.filter(c=>c.type==='house-person').map(c=>c.id+':body')],parent=new Map(keys.map(k=>[k,k]));
     const find=k=>{let p=k;while(parent.get(p)!==p)p=parent.get(p);return p;};
     const join=(a,b)=>parent.set(find(a),find(b));
     doc.wires.forEach(w=>join(w.from,w.to));
@@ -22,7 +22,12 @@
       if(c.type==='house-switch'&&c.params.closed||c.type==='house-fuse'&&active(c,state))edge(c.id+':switch',c.id,at('a'),at('b'),constants.channelResistance);
       if(C.isAppliance(c))edge(c.id+':load',c.id,at('l'),at('n'),constants.voltage**2/C.power(c));
       if(c.type==='house-metal'&&c.params.fault)edge(c.id+':fault',c.id,at('l'),at('case'),constants.faultResistance);
-      if(c.type==='house-person'&&c.params.stance==='grounded')edge(c.id+':human',c.id,at('hand'),'@earth',constants.humanResistance);
+      if(c.type==='house-person'){
+        // Each arm and the ground path are half the existing hand-to-ground resistance.
+        edge(at('human-right'),c.id,at('hand'),at('body'),constants.humanResistance/2);
+        edge(at('human-left'),c.id,at('hand-left'),at('body'),constants.humanResistance/2);
+        if(c.params.stance==='grounded')edge(at('human-ground'),c.id,at('body'),'@earth',constants.humanResistance/2);
+      }
     }
     const n=nets.length+edges.length,A=Array.from({length:n},()=>Array(n).fill(0)),b=Array(n).fill(0);
     edges.forEach((e,i)=>{e.index=nets.length+i;for(const [net,sign]of [[e.a,1],[e.b,-1]]){if(index.has(net)){A[index.get(net)][e.index]+=sign;A[e.index][index.get(net)]+=sign;}}A[e.index][e.index]=-e.resistance;b[e.index]=e.emf;});
@@ -37,7 +42,12 @@
       const result={voltage:load?.voltage??source?.voltage??sw?.voltage??null,current:load?.current??source?.current??sw?.current??line?.current??0,power:load?.power??0,branches:Object.values(branches).filter(e=>e.from.startsWith(c.id+':'))};
       if(c.type==='house-mains'){result.power=source?.power===null?null:-source.power;result.current=source?.current===null?null:-source.current;result.voltage=source?.voltage;}
       if(C.isAppliance(c)){result.resistance=constants.voltage**2/C.power(c);result.casePotential=potential(at('case'));result.leakageCurrent=branches[c.id+':fault']?.current??0;result.connections=Object.fromEntries(R.ports(c).map(p=>[p.key,topology.roleOf(p.id)]));result.earthed=c.type==='house-metal'&&result.connections.e==='E'&&find(at('case'))===ground;result.working=Number.isFinite(result.power)&&result.power>.01;}
-      if(c.type==='house-person'){result.contact=state.contacts[c.id];result.current=branches[c.id+':human']?.current??0;result.voltage=potential(at('hand'));result.power=branches[c.id+':human']?.power??0;}
+      if(c.type==='house-person'){
+        const right=branches[at('human-right')],left=branches[at('human-left')],feet=branches[at('human-ground')];
+        result.contact=state.contacts[c.id];result.handCurrents={right:right?.current??0,left:left?.current??0};result.groundCurrent=feet?.current??0;
+        result.current=Math.max(Math.abs(result.handCurrents.right),Math.abs(result.handCurrents.left),Math.abs(result.groundCurrent));
+        result.voltage=potential(at('hand'));result.handVoltage=voltage(at('hand'),at('hand-left'));result.power=[right,left,feet].reduce((sum,b)=>sum+(b?.power??0),0);
+      }
       if(c.type==='house-meter'){result.energyKWh=state.energyKWh[c.id];result.power=Number.isFinite(line?.current)&&Number.isFinite(voltage(at('lo'),at('no')))?line.current*voltage(at('lo'),at('no')):null;result.voltage=voltage(at('lo'),at('no'));}
       if(C.isProtection(c)){result.status=state.protection[c.id].status;result.protection=clone(state.protection[c.id]);result.channelL=line?.current??0;result.channelN=neutral?.current??0;result.current=c.type==='house-fuse'?sw?.current??0:Math.max(Math.abs(result.channelL),Math.abs(result.channelN));result.residualCurrent=Math.abs(result.channelL+result.channelN);}
       if(c.type==='house-switch'){result.status=c.params.closed?'closed':'open';result.voltage=voltage(at('a'),at('b'));result.role=topology.roleOf(at('a'));}

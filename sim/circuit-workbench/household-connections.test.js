@@ -56,3 +56,12 @@ for(const mode of ['free','wiring'])for(const role of ['teacher','student']){
  const next=M.clone(d);next.components.find(c=>c.id==='load').x+=20;assert.doesNotThrow(()=>profile.assertTransition(d,next));
 }
 console.log('Household: working-lead combinations, supply boundaries, atomic attach, snapping and fixed appliance/person orientations passed');
+
+for(const stance of ['grounded','insulated'])for(const end of ['from','to']){
+ const d=P.create('C03'),person=d.components.find(c=>c.id==='person');person.params.stance=stance;
+ const left=M.endpoints(d).get('person:hand-left');assert.equal(left.x,person.x-25);assert.equal(left.y,person.y+(stance==='insulated'?-2:20));
+ const wire=M.addWire(d,person.x+150,person.y+150),p=M.endpoints(d).get(wire[end]);
+ const snapped=J.component(d,'person',{x:person.x+p.x-left.x+4,y:person.y+p.y-left.y+3},24);assert(snapped);assert.equal(snapped.doc.wires.find(w=>w.id===wire.id)[end],'person:hand-left');assert.doesNotThrow(()=>M.validate(snapped.doc));
+ M.connect(d,'socket:l','person:hand');M.connect(d,'socket:n','person:hand-left');assert.doesNotThrow(()=>M.validate(d));
+ const before=M.clone(d);assert.throws(()=>M.connect(d,'socket:l','person:hand-left'),/不能直接合併/);assert.deepEqual(d,before);
+}

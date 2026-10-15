@@ -1,13 +1,18 @@
 (function(root,factory){const node=typeof module==='object'&&module.exports;const api=factory(node?require('../circuit-workbench/circuit-household-components'):root.CircuitHouseholdComponents,node?require('../circuit-workbench/circuit-model'):root.CircuitModel);if(node)module.exports=api;else root.CircuitHouseholdPresets=api;})(globalThis,function(C,M){
   'use strict';
-  const names=Object.freeze({empty:'空白工作台',C01:'家庭電路怎樣接',C02:'開關應接哪條線',C03:'地線如何保護人',C04:'漏電保護器為何跳掣',C05:'雙重絕緣多了一層甚麼',C06:'兩件家電為何並聯',C07:'斷路器保護甚麼',C07fuse:'保險絲保護甚麼',C08:'兩條線接到哪裏'});
-  const questions=Object.freeze({empty:'取出元件，試試你的接法。',C01:'三條線怎樣連到插座和電器？',C02:'電器停止後，火線是否已經隔離？',C03:'地線如何把金屬外殼接回地？',C04:'哪些回流路徑會令漏電保護器跳掣？',C05:'內層破損後，外層仍隔離甚麼？',C06:'拔開其中一件，另一件會怎樣？',C07:'同一件電器，改小額定電流會怎樣？',C07fuse:'熔絲斷了，合上開關能恢復嗎？',C08:'兩條工作線接到不同孔，電器會怎樣？'});
+  const names=Object.freeze({empty:'空白工作台',C01:'家庭電路怎樣接',C02:'開關應接哪條線',C03:'地線如何保護人',C04:'漏電保護器為何跳掣',C05:'雙重絕緣多了一層甚麼',C06:'兩件家電為何並聯',C07:'斷路器保護甚麼',C07fuse:'保險絲保護甚麼',C08:'兩條線接到哪裏',C09:'站在絕緣椅上也會觸電嗎'});
+  const questions=Object.freeze({empty:'取出元件，試試你的接法。',C01:'三條線怎樣連到插座和電器？',C02:'電器停止後，火線是否已經隔離？',C03:'地線如何把金屬外殼接回地？',C04:'哪些回流路徑會令漏電保護器跳掣？',C05:'內層破損後，外層仍隔離甚麼？',C06:'拔開其中一件，另一件會怎樣？',C07:'同一件電器，改小額定電流會怎樣？',C07fuse:'熔絲斷了，合上開關能恢復嗎？',C08:'兩條工作線接到不同孔，電器會怎樣？',C09:'兩手分別接火線和零線，椅子能斷開這個回路嗎？'});
   function create(key='C01'){
     if(!Object.hasOwn(names,key))throw new Error('不存在的家庭示例');
     const doc=M.empty('household');doc.cables={count:40,length:900,resistance:0};doc.display.fontSize='s';doc.display.values=false;
     const add=(id,type,x,y,params={},label)=>{const c=M.add(doc,type,x,y,params);c.id=id;c.label=label||C.definitions[type].name;return c;};
     const wire=(from,to,via=[])=>{const ends=M.endpoints(doc),a=ends.get(from),b=ends.get(to);return M.connect(doc,from,to,via,via.length||a.x===b.x||a.y===b.y?'free':'auto');};
     if(key==='empty')return M.validate(doc);
+    if(key==='C09'){
+      add('source','house-mains',-170,0,{},'市電');add('person','house-person',130,20,{stance:'insulated'},'人');
+      wire('source:l','person:hand',[{x:-65,y:-22},{x:-65,y:-110},{x:195,y:-110},{x:195,y:-15}]);
+      wire('source:n','person:hand-left',[{x:-65,y:22},{x:-65,y:75},{x:70,y:75},{x:70,y:18}]);return M.validate(doc);
+    }
     add('source','house-mains',key==='C01'?-260:-140,-110,{},'市電');
     const socketX=key==='C01'?260:180,loadX=key==='C01'?490:key==='C02'?500:410;
     add('socket','house-socket',socketX,100,{},'插座');

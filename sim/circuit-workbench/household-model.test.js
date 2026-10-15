@@ -69,3 +69,33 @@ console.log('Household: analytical wiring matrix, neutral switch, earthing, insu
 {
  const d=P.create('C04');d.components.find(c=>c.id==='load').params.fault=true;M.detach(d,d.wires.find(w=>w.to==='load:e').id,'from');const s=new H.Session(d);s.contact('person','load');s.advance(.04);assert(s.state.protection.protector.bodyCurrentSeen);const next=M.clone(s.doc);M.attach(next,next.wires.find(w=>w.to==='load:e').id,'from','socket:e');s.update(next);near(s.read().components.person.current,0);const restored=H.Session.restore(s.capture());restored.advance(.06);assert(restored.state.protection.protector.bodyCurrentBeforeTrip,'remember body current before earth was reconnected');
 }
+
+// Two distinct hands make a finite body path even without a path to earth.
+for(const stance of ['grounded','insulated'])for(const right of ['l','n','e',null])for(const left of ['l','n','e',null]){
+ const d=P.create('C03');d.components.find(c=>c.id==='person').params.stance=stance;
+ if(right)M.connect(d,'socket:'+right,'person:hand');if(left)M.connect(d,'socket:'+left,'person:hand-left');
+ const s=new H.Session(d),r=s.read().components.person,rv=right==='l'?230:0,lv=left==='l'?230:0;
+ const connected=[...(right?[rv]:[]),...(left?[lv]:[]),...(stance==='grounded'?[0]:[])],body=connected.reduce((a,b)=>a+b,0)/(connected.length||1);
+ const ri=right?(rv-body)/1000:0,li=left?(lv-body)/1000:0,gi=stance==='grounded'?body/1000:0;
+ near(r.handCurrents.right,ri);near(r.handCurrents.left,li);near(r.groundCurrent,gi);near(r.current,Math.max(Math.abs(ri),Math.abs(li),Math.abs(gi)));
+ near(r.power,(ri*ri+li*li+gi*gi)*1000);near(ri+li,gi);
+ const restored=H.Session.restore(H.decode(H.encode(s.capture())));assert.deepEqual(restored.capture(),s.capture());restored.advance(.01);near(restored.read().components.person.current,r.current);restored.destroy();s.destroy();
+}
+{
+ const s=new H.Session(P.create('C09')),r=s.read().components.person;near(r.current,.115);near(r.handVoltage,230);near(r.groundCurrent,0);near(r.power,26.45);
+ const restored=H.Session.restore(H.decode(H.encode(s.capture())));restored.advance(.01);near(restored.read().components.person.current,.115);restored.destroy();s.destroy();
+}
+for(const stance of ['grounded','insulated']){
+ const d=P.create('C04');d.components.find(c=>c.id==='person').params.stance=stance;M.connect(d,'socket:l','person:hand');M.connect(d,'socket:n','person:hand-left');const s=new H.Session(d);
+ assert(s.read().components.person.current>.1);if(stance==='insulated')near(s.read().components.protector.residualCurrent,0);else assert(s.read().components.protector.residualCurrent>.03);
+ s.advance(.2);assert.equal(s.read().components.protector.status,stance==='insulated'?'closed':'tripped');
+ if(stance==='insulated')near(s.read().components.person.current,.115);else near(s.read().components.person.current,0);
+ const restored=H.Session.restore(H.decode(H.encode(s.capture())));restored.advance(.01);assert.equal(restored.read().components.protector.status,s.read().components.protector.status);restored.destroy();s.destroy();
+}
+console.log('Household: both hands L/N/E/open, grounded/chair, finite body power, balanced RCD and round-trips passed');
+
+{
+ const d=P.create('C03');d.components.find(c=>c.id==='person').params.stance='insulated';d.components.find(c=>c.id==='load').params.fault=true;M.detach(d,d.wires.find(w=>w.to==='load:e').id,'from');M.connect(d,'socket:n','person:hand-left');
+ const s=new H.Session(d);s.contact('person','load');near(s.read().components.person.current,230/4000);near(s.read().components.person.groundCurrent,0);
+ const restored=H.Session.restore(H.decode(H.encode(s.capture())));restored.advance(.01);near(restored.read().components.person.current,230/4000);assert.equal(restored.read().components.person.contact,'load');restored.destroy();s.destroy();
+}
