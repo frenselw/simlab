@@ -55,3 +55,11 @@ for(const hand of ['hand','hand-left'])for(const stance of ['grounded','insulate
  assert.equal(body.includes('data-house-person-shock'),stance==='grounded');
  if(stance==='grounded'){assert.equal(body.includes('M40-13'),hand==='hand');assert.equal(body.includes('M-25 20'),hand==='hand-left');assert(body.includes('M0-12V8L1 31'));}s.destroy();
 }
+
+for(const [key,id,low,high]of [['C08','socket','n','l'],['C09','person','hand-left','hand']]){
+ const d=P.create(key),s=new H.Session(d),result=s.read(),before=s.capture(),options={potentialDirections:new Set([id])},label=V.labels(d,result,1,{},null,options).find(p=>p.id==='potential-'+id).rows[0];
+ assert.equal(label.from,id+':'+low);assert.equal(label.to,id+':'+high);assert.equal(label.text,'電勢升高');
+ const w=d.wires.find(w=>w.from==='source:l'),path=svg=>svg.match(new RegExp('data-wire="'+w.id+'"[^>]*stroke="([^"]+)"'))[1];
+ assert.equal(path(V.scene(d,result)),'#a56535');d.display.potential=true;assert.equal(path(V.scene(d,result)),V.colour(result.wires[w.id].potential,V.potentialRange(result).max));
+ assert.equal(result.wires[w.id].role,'L');assert.deepEqual(s.capture(),before,'display rendering does not change saved circuit state');s.destroy();
+}

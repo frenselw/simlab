@@ -173,8 +173,8 @@
     return leads;
   }
   function potentialDirection(c,result){
-    const r=result.components[c.id],branch=!R.dualMeter(c)&&r?.branches?.[0],ports=R.ports(c);
-    const a=ports.find(p=>p.id===(c.type==='wattmeter'?c.id+':c':branch?.from||c.id+':'+(R.dualMeter(c)?r?.activePort:'a'))),b=ports.find(p=>p.id===(c.type==='wattmeter'?c.id+':d':branch?.to||c.id+':b'));
+    const r=result.components[c.id],branch=!R.dualMeter(c)&&r?.branches?.[0],ports=R.ports(c),pair=c.type==='house-socket'?['l','n']:c.type==='house-person'?['hand','hand-left']:null;
+    const a=ports.find(p=>p.id===(pair?c.id+':'+pair[0]:c.type==='wattmeter'?c.id+':c':branch?.from||c.id+':'+(R.dualMeter(c)?r?.activePort:'a'))),b=ports.find(p=>p.id===(pair?c.id+':'+pair[1]:c.type==='wattmeter'?c.id+':d':branch?.to||c.id+':b'));
     const voltage=a&&b?(typeof result.voltage==='function'?result.voltage(a.id,b.id):Number.isFinite(result.potentials[a.id])&&Number.isFinite(result.potentials[b.id])?result.potentials[a.id]-result.potentials[b.id]:null):null;
     const from=voltage>0?b:a,to=voltage>0?a:b,known=Number.isFinite(voltage),directed=known&&voltage!==0;
     return {kind:'potentialDirection',componentId:c.id,text:directed?'電勢升高':known?'等電勢':'未能確定',voltage,from:directed?from.id:null,to:directed?to.id:null,angle:directed?Math.atan2(to.y-from.y,to.x-from.x)*180/Math.PI:null};
@@ -268,7 +268,7 @@
     });
     // Cables lie on top of components; terminals and labels stay legible above them.
     doc.wires.forEach((w) => {
-      const points = routes[w.id] || Routing.route(doc, w), colourValue = result.mode==='household'?({L:'#a56535',N:'#2583b5',E:'#5d9b49'}[result.wires[w.id]?.role]||'#738698'):doc.display.potential ? colour(result.wires[w.id]?.potential, max) : "#50677e", d = Routing.path(points);
+      const points = routes[w.id] || Routing.route(doc, w), colourValue = doc.display.potential?colour(result.wires[w.id]?.potential,max):result.mode==='household'?({L:'#a56535',N:'#2583b5',E:'#5d9b49'}[result.wires[w.id]?.role]||'#738698'):"#50677e", d = Routing.path(points);
       const reading=result.wires[w.id],gradient=doc.display.potential&&w.resistance>0&&selection!==w.id&&Number.isFinite(reading?.potential)&&Number.isFinite(reading?.potentialTo);
       if(hazards.wires[w.id])out+=`<path data-wire-heat="${w.id}" d="${d}" fill="none" stroke="#f09b50" opacity=".5" stroke-width="${12/scale}" stroke-linejoin="round" stroke-linecap="round" pointer-events="none"/>`;
       out += `<path d="${d}" fill="none" stroke="#fff" stroke-width="${9 / scale}" stroke-linejoin="round"/><path ${hazards.wires[w.id]?`data-wire-hazard="${hazards.wires[w.id]}"`:''} ${selection===w.id?`data-raised-wire="${w.id}"`:""} data-wire="${w.id}" d="${d}" fill="none" stroke="${selection === w.id ? "#2563eb" : gradient?'transparent':colourValue}" stroke-width="${(selection === w.id ? 5 : 4) / scale}" stroke-linejoin="round" stroke-linecap="round"/>`;

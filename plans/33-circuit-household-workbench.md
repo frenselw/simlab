@@ -536,3 +536,13 @@ CI 補充：推送後讀取 [916f06f 的 Quality 失敗紀錄](https://github.co
 四個家庭 Node tests（含 32 組人體矩陣、36 個歷史 production fixture 往返續作）、8 組 platform core、19 組 activity core、8 組文件匯入、`check`、`check:tests`、修改文件連結及 diff 檢查通過。沿用既有 registry owner，沒有新增依賴或入口；提交選取預覽 `node tools/run-tests.js --base=24e4b50 --head=HEAD --plan` 為 affected、221 項、五個 circuit packages，並非宣稱全部 221 項已執行。
 
 刷新檢查也補強：導航須先確認新 document 的 timeOrigin，且刷新前先累積至少 10 s，再核對刷新後的時間及電能只可能來自新頁面的正常自動播放、總掣恢復初始合上。這取代把開頁後合法自動播放超過固定 0.25 s 誤報成恢復舊進度的斷言。前一提交 [24e4b50 的 Quality 已成功](https://github.com/frenselw/simlab/actions/runs/38685497340)；本輪新修改的 CI 另看最新 run。本輪未做真手機、實際 Moodle 或完整 Quality Full 驗收。
+
+### 恢復共用圖上標示控制（2026-10-15）
+
+家庭入口原先明確停用 wireCurrents／potentialDirections，家庭 UI 又清空共用 diagramLabels 區，連電勢色彩也移除。本輪恢復既有 workbench 的「圖上標示」標題、導線電流與電勢方向全顯示／全隱藏及電勢色彩勾選；L／N／E 圖例附加於後。標示仍預設關閉，亦可在所選導線／元件逐一切換，沒有另建控制組件。
+
+補正家庭插座以 L／N、人體以兩手可見端點判讀電勢方向；其餘沿用實際支路端點。色彩勾選時外部導線使用求解電勢，取消時恢復 L／N／E 色彩，導線角色不變；單端接地元件沒有跨端電勢方向。電流為有效值，電勢標示採模型參考電勢，不表示 50 Hz 瞬時相位。
+
+最終原始碼／重建實際 ZIP 共 **225 browser checks** 通過，保留全部 20 筆示例流程記錄；新增桌面全體／單條標示及色彩切換、插座／雙手方向檢查，以及 320×500、390×500、390×600 可信觸控開面板、捲動及操作三類控制。已檢視 `output/playwright/circuit-household/source-diagram-label-controls.png` 及 `source-diagram-controls-phone-390x600.png`；完整結果及 source／ZIP 指紋見同目錄 `results.json`。五包已重建，家庭 ZIP 全部 30 個 runtime assets 與來源逐檔一致。
+
+四個家庭 Node tests、共用 wire-current-labels（含 DC／AC）、8 組 platform core、`check`、`check:tests`、修改文件連結及 diff 檢查通過。沿用既有 registry owner，沒有新增依賴；提交選取預覽 `node tools/run-tests.js --base=709a4ba --head=HEAD --plan` 為 affected、221 項、五個 circuit packages，並非宣稱全部 221 項已執行。本輪未做真手機、實際 Moodle 或完整 Quality Full；遠端 CI 狀態以新提交 run 為準。
