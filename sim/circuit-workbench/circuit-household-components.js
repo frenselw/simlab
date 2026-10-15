@@ -25,7 +25,7 @@
     'house-earth':{name:'接地',icon:'⏚',ports:[port('e',58,0,'接地引線','E')],bounds:{left:-32,right:60,top:-32,bottom:32},params:{}},
     'house-metal':{rotatable:false,name:'金屬外殼用電器',icon:'家電',ports:[...workPorts,port('e',-86,26,'外殼接地 E')],bounds:{left:-64,right:64,top:-69,bottom:101},primaryParameter:'kind',params:{kind:choice('家電種類','fan',Object.keys(applianceKinds.metal),Object.fromEntries(Object.entries(applianceKinds.metal).map(([k,v])=>[k,v.label+' · '+v.power+' W']))),fault:choice('絕緣狀態',false,[false,true],{false:'正常',true:'絕緣破損（外殼漏電）'})}},
     'house-insulated':{rotatable:false,name:'雙重絕緣用電器',icon:'雙重',ports:workPorts,bounds:{left:-64,right:64,top:-69,bottom:101},primaryParameter:'kind',params:{kind:{...choice('家電種類','blender',Object.keys(applianceKinds.insulated),{...Object.fromEntries(Object.entries(applianceKinds.insulated).map(([k,v])=>[k,v.label+' · '+v.power+' W'])),lamp:'台燈 · 40 W（舊文件）'}),legacyChoices:['lamp']},fault:choice('絕緣狀態',false,[false,true],{false:'正常',true:'內層破損（外層完整）'})}},
-    'house-person':{rotatable:false,name:'人',icon:'人',ports:[],bounds:{left:-42,right:47,top:-94,bottom:81},primaryParameter:'stance',params:{stance:choice('站立狀態','grounded',['grounded','insulated'],{grounded:'站在地上',insulated:'站在絕緣椅上'})}},
+    'house-person':{rotatable:false,name:'人',icon:'人',ports:[port('hand',40,-13,'手部接線點')],portsFor:c=>[port('hand',40,c.params.stance==='insulated'?-35:-13,'手部接線點')],bounds:{left:-42,right:47,top:-94,bottom:81},primaryParameter:'stance',params:{stance:choice('站立狀態','grounded',['grounded','insulated'],{grounded:'站在地上',insulated:'站在絕緣椅上'})}},
     'house-rcd':{name:'漏電保護器',icon:'30mA',ports:channelPorts,bounds:box,params:{closed:closed()}}
   };
   const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -219,7 +219,7 @@
     return `<g data-house-apparatus="${c.type}" data-house-view="real" data-house-working="${on}">${out}</g>`;
   }
   for(const [type,definition]of Object.entries(definitions))if(!R.definitions[type])R.register(type,{...definition,analysis:'household',render,dc(){throw new Error('家庭元件需要家庭有效值模型');}});
-  const hand=c=>{const p={x:40,y:-13+(c.params.stance==='insulated'?-22:0)},a=R.rotation(c.angle);return{x:c.x+p.x*a.cos-p.y*a.sin,y:c.y+p.x*a.sin+p.y*a.cos};};
+  const hand=c=>{const p=R.ports(c).find(p=>p.key==='hand');return{x:p.x,y:p.y};};
   function contactPoint(c,point=null){const a=R.rotation(c.angle),local=point?{x:(point.x-c.x)*a.cos+(point.y-c.y)*a.sin,y:-(point.x-c.x)*a.sin+(point.y-c.y)*a.cos}:null;let q;
     if(c.params.kind==='fan'){const dx=(local?.x??-38),dy=(local?.y??-17)+17,length=Math.hypot(dx,dy)||1;q={x:dx*38/length,y:-17+dy*38/length};}
     else{const [left,top,right,bottom]=({heater:[-33,-62,33,61],aircon:[-61,-41,61,38],blender:[-35,10,35,65],lamp:[-24,-28,40,-4],dryer:[-29,-34,55,9],vacuum:[-38,-10,43,34]})[c.params.kind];const p=local||{x:left,y:(top+bottom)/2},x=Math.max(left,Math.min(right,p.x)),y=Math.max(top,Math.min(bottom,p.y));q=[{x:left,y},{x:right,y},{x,y:top},{x,y:bottom}].sort((u,v)=>Math.hypot(u.x-p.x,u.y-p.y)-Math.hypot(v.x-p.x,v.y-p.y))[0];}

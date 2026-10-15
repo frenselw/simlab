@@ -18,6 +18,13 @@ for(const target of ['source:l','socket:n','load:e']){const d=P.create('C03');d.
 assert.throws(()=>Profile.compile({role:'teacher',initialDocument:P.create('C01')}),/分析種類/);
 assert.throws(()=>M.validate({...P.create('C01'),kind:'simlab-circuit',version:6}),/欄位|家庭/);
 assert.equal(Object.keys(C.definitions).length,11);
+for(const stance of ['grounded','insulated']){
+ const d=P.create('C03'),person=d.components.find(c=>c.id==='person');person.params.stance=stance;
+ assert.deepEqual(C.hand(person),{x:person.x+40,y:person.y+(stance==='insulated'?-35:-13)});
+ const wire=M.addWire(d,person.x+150,person.y+150),end=M.endpoints(d).get(wire.to),h=C.hand(person);
+ const snapped=J.component(d,'person',{x:person.x+end.x-h.x+4,y:person.y+end.y-h.y+3},24);assert(snapped);assert.equal(snapped.doc.wires.find(w=>w.id===wire.id).to,'person:hand');assert.doesNotThrow(()=>M.validate(snapped.doc));
+ M.connect(d,'socket:l','person:hand');const before=M.clone(d);assert.throws(()=>M.connect(d,'socket:n','person:hand'),/不能直接合併/);assert.deepEqual(d,before);
+}
 {
  const d=M.empty('household'),c=M.add(d,'house-earth',0,0);M.addLeads(d,c);assert.equal(d.wires.length,1);assert.doesNotThrow(()=>M.validate(d));const w=d.wires[0],before=JSON.stringify(d);assert.throws(()=>M.detach(d,w.id,'from'),/固定/);assert.throws(()=>M.remove(d,w.id),/固定/);assert.equal(JSON.stringify(d),before);const template=require('./circuit-document').template(d);assert.equal(template.wires.length,d.wires.length);assert.doesNotThrow(()=>M.validate(template));M.remove(d,c.id);assert.equal(d.wires.length,0);assert.doesNotThrow(()=>M.validate(d));
 }

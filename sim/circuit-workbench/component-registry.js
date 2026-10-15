@@ -57,8 +57,8 @@
     return Math.sign(value)*Math.round(Math.abs(value)/step)*step||0;
   }
   function localPorts(component,legacy=false){
-    const terminals=component.params.terminals??2;
-    const local=component.type==='rheostat'?(terminals===2?two:terminals===3?rheostatPorts.filter(p=>p.key!=='d'):rheostatPorts):dualMeter(component)?legacy===true?polar:legacy==='v4'?v4MeterPorts:meterPorts:get(component.type).ports;
+    const terminals=component.params.terminals??2,definition=get(component.type);
+    const local=component.type==='rheostat'?(terminals===2?two:terminals===3?rheostatPorts.filter(p=>p.key!=='d'):rheostatPorts):dualMeter(component)?legacy===true?polar:legacy==='v4'?v4MeterPorts:meterPorts:definition.portsFor?.(component)??definition.ports;
     return legacy!==true&&dualMeter(component)&&component.mirrored?local.map(p=>({...p,x:-p.x,dx:-(p.dx??Math.sign(p.x))})):local;
   }
   function ports(component, legacy=false) {

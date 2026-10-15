@@ -12,6 +12,7 @@
     const join=(a,b)=>parent.set(find(a),find(b));
     doc.wires.forEach(w=>join(w.from,w.to));
     for(const c of doc.components){if(c.type==='house-earth')join(c.id+':e','@earth');if(c.type==='house-mains')join(c.id+':n','@earth');if(c.type==='house-metal')join(c.id+':e',c.id+':case');}
+    for(const c of doc.components)if(c.type==='house-person'&&state.contacts[c.id])join(c.id+':hand',state.contacts[c.id]+':case');
     const ground=find('@earth'),nets=[...new Set(keys.map(find))].filter(k=>k!==ground),index=new Map(nets.map((k,i)=>[k,i])),edges=[];
     const edge=(id,owner,from,to,resistance,emf=0)=>{edges.push({id,owner,from,to,a:find(from),b:find(to),resistance,emf});};
     for(const c of doc.components){
@@ -21,7 +22,7 @@
       if(c.type==='house-switch'&&c.params.closed||c.type==='house-fuse'&&active(c,state))edge(c.id+':switch',c.id,at('a'),at('b'),constants.channelResistance);
       if(C.isAppliance(c))edge(c.id+':load',c.id,at('l'),at('n'),constants.voltage**2/C.power(c));
       if(c.type==='house-metal'&&c.params.fault)edge(c.id+':fault',c.id,at('l'),at('case'),constants.faultResistance);
-      if(c.type==='house-person'&&state.contacts[c.id]&&c.params.stance==='grounded')edge(c.id+':human',c.id,state.contacts[c.id]+':case','@earth',constants.humanResistance);
+      if(c.type==='house-person'&&c.params.stance==='grounded')edge(c.id+':human',c.id,at('hand'),'@earth',constants.humanResistance);
     }
     const n=nets.length+edges.length,A=Array.from({length:n},()=>Array(n).fill(0)),b=Array(n).fill(0);
     edges.forEach((e,i)=>{e.index=nets.length+i;for(const [net,sign]of [[e.a,1],[e.b,-1]]){if(index.has(net)){A[index.get(net)][e.index]+=sign;A[e.index][index.get(net)]+=sign;}}A[e.index][e.index]=-e.resistance;b[e.index]=e.emf;});
@@ -36,7 +37,7 @@
       const result={voltage:load?.voltage??source?.voltage??sw?.voltage??null,current:load?.current??source?.current??sw?.current??line?.current??0,power:load?.power??0,branches:Object.values(branches).filter(e=>e.from.startsWith(c.id+':'))};
       if(c.type==='house-mains'){result.power=source?.power===null?null:-source.power;result.current=source?.current===null?null:-source.current;result.voltage=source?.voltage;}
       if(C.isAppliance(c)){result.resistance=constants.voltage**2/C.power(c);result.casePotential=potential(at('case'));result.leakageCurrent=branches[c.id+':fault']?.current??0;result.connections=Object.fromEntries(R.ports(c).map(p=>[p.key,topology.roleOf(p.id)]));result.earthed=c.type==='house-metal'&&result.connections.e==='E'&&find(at('case'))===ground;result.working=Number.isFinite(result.power)&&result.power>.01;}
-      if(c.type==='house-person'){result.contact=state.contacts[c.id];result.current=branches[c.id+':human']?.current??0;result.voltage=result.contact?potential(result.contact+':case'):null;result.power=branches[c.id+':human']?.power??0;}
+      if(c.type==='house-person'){result.contact=state.contacts[c.id];result.current=branches[c.id+':human']?.current??0;result.voltage=potential(at('hand'));result.power=branches[c.id+':human']?.power??0;}
       if(c.type==='house-meter'){result.energyKWh=state.energyKWh[c.id];result.power=Number.isFinite(line?.current)&&Number.isFinite(voltage(at('lo'),at('no')))?line.current*voltage(at('lo'),at('no')):null;result.voltage=voltage(at('lo'),at('no'));}
       if(C.isProtection(c)){result.status=state.protection[c.id].status;result.protection=clone(state.protection[c.id]);result.channelL=line?.current??0;result.channelN=neutral?.current??0;result.current=c.type==='house-fuse'?sw?.current??0:Math.max(Math.abs(result.channelL),Math.abs(result.channelN));result.residualCurrent=Math.abs(result.channelL+result.channelN);}
       if(c.type==='house-switch'){result.status=c.params.closed?'closed':'open';result.voltage=voltage(at('a'),at('b'));result.role=topology.roleOf(at('a'));}
@@ -44,6 +45,7 @@
     }
     const adjacency=new Map(keys.map(k=>[k,[]])),link=(from,to,id)=>{adjacency.get(from).push({to,id});adjacency.get(to).push({to:from,id});};for(const w of doc.wires)link(w.from,w.to,w.id);
     for(const c of doc.components){if(c.type==='house-earth')link(c.id+':e','@earth','@'+c.id);if(c.type==='house-mains')link(c.id+':n','@earth','@'+c.id);if(c.type==='house-metal')link(c.id+':e',c.id+':case','@'+c.id);}
+    for(const c of doc.components)if(c.type==='house-person'&&state.contacts[c.id])link(c.id+':hand',state.contacts[c.id]+':case','@'+c.id);
     const wires={};
     for(const w of doc.wires){const seen=new Set([w.from]),pending=[w.from];while(pending.length)for(const e of adjacency.get(pending.pop()))if(e.id!==w.id&&!seen.has(e.to)){seen.add(e.to);pending.push(e.to);}
       let current=null;if(!seen.has(w.to)){const coeff=Array(n).fill(0);for(const k of keys)if(find(k)===find(w.from)&&seen.has(k)){const injection=injections.get(k);for(let i=0;i<n;i++)coeff[i]-=injection[i];}current=ident(coeff);}
@@ -83,7 +85,7 @@
     fork(){return Session.restore(this.capture());}
     capture(){return {kind:'simlab-household-concepts',version:1,model:'concept-rms-1',circuit:clone(this.doc),contacts:clone(this.state.contacts),timeSeconds:this.state.time,protection:clone(this.state.protection),energyKWh:clone(this.state.energyKWh)};}
     static restore(snapshot){const {doc,state}=validateSnapshot(decode(snapshot)),session=new Session(doc);session.state=state;session.publish();return session;}
-    contact(person,target){if(!this.doc.components.some(c=>c.id===person&&c.type==='house-person')||target!==null&&!this.doc.components.some(c=>c.id===target&&C.isAppliance(c)))throw new Error('接觸對象無效');const next=clone(this.doc);if(target){const c=next.components.find(c=>c.id===person),appliance=next.components.find(c=>c.id===target),hand=C.hand(c),near=C.contactPoint(appliance,hand);if(Math.hypot(hand.x-near.x,hand.y-near.y)>1e-6)C.placeHand(c,C.contactPoint(appliance));}else if(this.state.contacts[person]){const c=next.components.find(c=>c.id===person),appliance=next.components.find(c=>c.id===this.state.contacts[person]),hand=C.hand(c),dx=hand.x-appliance.x,dy=hand.y-appliance.y,length=Math.hypot(dx,dy)||1;C.placeHand(c,{x:hand.x+26*dx/length,y:hand.y+26*dy/length});}this.doc=M.validate(next);this.state.contacts[person]=target;this.publish();this.clearInactiveTimers();}
+    contact(person,target){if(!this.doc.components.some(c=>c.id===person&&c.type==='house-person')||target!==null&&!this.doc.components.some(c=>c.id===target&&C.isAppliance(c)))throw new Error('接觸對象無效');const next=clone(this.doc);if(target){const c=next.components.find(c=>c.id===person),appliance=next.components.find(c=>c.id===target),hand=C.hand(c),near=C.contactPoint(appliance,hand);if(Math.hypot(hand.x-near.x,hand.y-near.y)>1e-6)C.placeHand(c,C.contactPoint(appliance));}else if(this.state.contacts[person]){const c=next.components.find(c=>c.id===person),appliance=next.components.find(c=>c.id===this.state.contacts[person]),hand=C.hand(c),dx=hand.x-appliance.x,dy=hand.y-appliance.y,length=Math.hypot(dx,dy)||1;C.placeHand(c,{x:hand.x+26*dx/length,y:hand.y+26*dy/length});}if(!M.reconcile(next,this.doc))throw new Error('導線太短，請先拔開或移近人物');this.doc=M.validate(next);this.state.contacts[person]=target;this.publish();this.clearInactiveTimers();}
     resetProtection(id){const c=this.doc.components.find(c=>c.id===id&&C.isProtection(c));if(!c)return false;this.state.protection[id]=record(c);this.publish();return true;}
     reset(){this.state=initial(this.doc);return this.publish();}
     advance(seconds){if(this.dead)throw new Error('模型已卸載');number(seconds,10);if(!seconds||this.fault)return {advanced:0,complete:true,result:this.result};let remaining=seconds;

@@ -1,6 +1,25 @@
 'use strict';
 const assert=require('node:assert/strict'),P=require('../circuit-household-workbench/presets'),M=require('./circuit-model'),H=require('./household-model'),V=require('./circuit-renderer');
 const near=(actual,expected,tolerance=.005)=>assert(Number.isFinite(actual)&&Math.abs(actual-expected)<=Math.max(1e-8,Math.abs(expected)*tolerance),actual+' != '+expected);
+for(const stance of ['grounded','insulated'])for(const terminal of ['l','n','e']){
+ const d=P.create('C03');d.components.find(c=>c.id==='person').params.stance=stance;const w=M.connect(d,'socket:'+terminal,'person:hand'),s=new H.Session(d);
+ near(s.read().components.person.current,stance==='grounded'&&terminal==='l'?230/2000:0);near(s.read().wires[w.id].current,s.read().components.person.current);
+ near(s.read().components.person.voltage,terminal==='l'?230:0);assert.equal(s.read().components.person.contact,null);
+ const restored=H.Session.restore(H.decode(H.encode(s.capture())));assert.deepEqual(restored.capture(),s.capture());restored.advance(.01);near(restored.read().components.person.current,s.read().components.person.current);restored.destroy();s.destroy();
+}
+{
+ const d=P.create('C04');M.connect(d,'socket:l','person:hand');const s=new H.Session(d);assert(s.read().components.person.current>.1);assert(s.read().components.protector.residualCurrent>.1);s.advance(.1);
+ assert.equal(s.read().components.protector.status,'tripped');near(s.read().components.person.current,0);assert(s.state.protection.protector.bodyCurrentBeforeTrip);
+ const restored=H.Session.restore(H.decode(H.encode(s.capture())));assert.deepEqual(restored.capture(),s.capture());restored.advance(.01);assert.equal(restored.read().components.protector.status,'tripped');assert(restored.state.protection.protector.bodyCurrentBeforeTrip);restored.destroy();s.destroy();
+}
+{
+ const d=P.create('C03');M.detach(d,d.wires.find(w=>w.to==='load:e').id,'from');d.components.find(c=>c.id==='load').params.fault=true;const w=M.connect(d,'load:e','person:hand'),s=new H.Session(d);
+ near(s.read().components.person.current,230/4000);near(s.read().wires[w.id].current,230/4000);s.contact('person','load');near(s.read().components.person.current,230/4000);s.destroy();
+}
+{
+ const d=P.create('C03');M.connect(d,'socket:l','person:hand');const far=M.add(d,'house-metal',2500,0),s=new H.Session(d),before=s.capture();
+ assert.throws(()=>s.contact('person',far.id),/導線太短/);assert.deepEqual(s.capture(),before,'contact rejected by cable length is atomic');s.destroy();
+}
 for(const value of [.02,.03,.04])assert.equal(H.threshold({id:'r',type:'house-rcd'},{components:{r:{residualCurrent:value}}}),value>=.03);
 for(const value of [4.99,5,5.01,-5.01])assert.equal(H.threshold({id:'r',type:'house-breaker',params:{rating:5}},{components:{r:{current:value}}}),Math.abs(value)>5);
 for(const key of ['C01','C02','C03','C04','C05','C06','C07','C07fuse','C08']){const d=P.create(key),s=new H.Session(d),r=s.read();assert(r.reliable);assert(!r.diagnostics.length);near(r.components.load.power,d.components.find(c=>c.id==='load').params.kind==='heater'?2000:d.components.find(c=>c.id==='load').params.kind==='fan'?60:400);assert.equal(V.visualState(d,r).overload,false);s.destroy();}
