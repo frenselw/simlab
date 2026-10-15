@@ -9,7 +9,7 @@
   const quantityDefaults=Object.freeze({loadResistance:false,loadPower:false,sourceResistance:false,rheostatResistance:true});
   const fontSizes=Object.freeze({xs:{label:'很小',name:14,value:12,wire:14,direction:16,maxWidth:180},s:{label:'小',name:16,value:14,wire:16,direction:18,maxWidth:210},m:{label:'中',name:20,value:18,wire:18,direction:20,maxWidth:260},l:{label:'大',name:24,value:22,wire:22,direction:24,maxWidth:310},xl:{label:'特大',name:28,value:26,wire:26,direction:28,maxWidth:360}});
   const fontSize=display=>display.fontSize??(display.projection?'l':'m');
-  const empty = (analysis='dc') => {if(!['dc','transient','household'].includes(analysis))throw new Error('不支援的分析種類');return { kind: analysis==='household'?'simlab-household-circuit':"simlab-circuit", version: analysis==='household'?8:analysis==='dc'?6:7, ...(analysis!=='dc'?{analysis,modelRevision:1}:{}), components: [], junctions: [], wires: [], cables: {count:20,length:600,resistance:0}, policy: { mode: "free", allowRotate: false, allowParams: false, allowSwitch: true }, display: { view: "real", flow: "current", meters: "analog", potential: false, names: true, values: true, reference: null, projection: false, quantities:{...quantityDefaults} } };};
+  const empty = (analysis='dc') => {if(!['dc','transient','household'].includes(analysis))throw new Error('不支援的分析種類');return { kind: analysis==='household'?'simlab-household-circuit':"simlab-circuit", version: analysis==='household'?8:analysis==='dc'?6:7, ...(analysis!=='dc'?{analysis,modelRevision:1}:{}), ...(analysis==='household'?{supplyVoltage:230}:{}), components: [], junctions: [], wires: [], cables: {count:20,length:600,resistance:0}, policy: { mode: "free", allowRotate: false, allowParams: false, allowSwitch: true }, display: { view: "real", flow: "current", meters: "analog", potential: false, names: true, values: true, reference: null, projection: false, quantities:{...quantityDefaults}, ...(analysis==='household'?{terminalLabels:false,showSupplyVoltage:false}:{}) } };};
   const householdRules=()=>typeof module==='object'&&module.exports?require('./household-connections'):globalThis.CircuitHouseholdConnections;
   function object(value, keys) { if (!value || typeof value !== "object" || Array.isArray(value) || Object.keys(value).some((k) => !keys.includes(k))) throw new Error("電路檔含不支援的欄位"); }
   function numeric(v, min, max) { if (!Number.isFinite(v) || v < min || v > max) throw new Error("數值超出合法範圍"); }
@@ -18,8 +18,9 @@
   const point = (p) => { object(p, ["x", "y"]); numeric(p.x, -limits.coordinate, limits.coordinate); numeric(p.y, -limits.coordinate, limits.coordinate); };
   function endpoints(doc,legacy=false) { const map = new Map(); doc.components.forEach((c) => R.portsForVersion(c,legacy?3:doc.version).forEach((p) => map.set(p.id, p))); doc.junctions.forEach((j) => map.set(j.id + ":p", { ...j, id: j.id + ":p", dx: 0, dy: 0, label: "接點" })); return map; }
   function validate(input) {
-    object(input, ["kind", "version", "components", "junctions", "wires", "policy", "display", ...(input?.version>=3?["cables"]:[]),...(input?.version>=7?['analysis','modelRevision']:[])]);
+    object(input, ["kind", "version", "components", "junctions", "wires", "policy", "display", ...(input?.version>=3?["cables"]:[]),...(input?.version>=7?['analysis','modelRevision']:[]),...(input?.version===8?['supplyVoltage']:[])]);
     const household=input.version===8;
+    if(household&&Object.hasOwn(input,'supplyVoltage'))choice(input.supplyVoltage,[220,230]);
     if (household?input.kind!=='simlab-household-circuit'||input.analysis!=='household'||input.modelRevision!==1:input.kind !== "simlab-circuit" || ![1, 2, 3, 4, 5, 6, 7].includes(input.version)) throw new Error("不支援的電路檔版本");
     if(input.version===7&&(input.analysis!=='transient'||input.modelRevision!==1))throw new Error('不支援的時間模型版本');
     const ids = new Set();
@@ -53,7 +54,8 @@
     });
     if(input.version>=3){object(input.cables,["count","length",...(input.version>=6?["resistance"]:[])]);if(Object.hasOwn(input.cables,'resistance'))numeric(input.cables.resistance,0,limits.resistance);numeric(input.cables.count,1,limits.wires);if(!Number.isInteger(input.cables.count))throw new Error("導線數量必須是整數");numeric(input.cables.length,120,1200);if(input.wires.length>input.cables.count)throw new Error("已超過導線庫存數量");}
     object(input.policy, ["mode", "allowRotate", "allowParams", "allowSwitch"]); choice(input.policy.mode, ["free", "wiring"]); ["allowRotate", "allowParams", "allowSwitch"].forEach((k) => bool(input.policy[k]));
-    object(input.display, ["view", "flow", "meters", "potential", "names", "values", "reference", "projection", "fontSize", "quantities"]);
+    object(input.display, ["view", "flow", "meters", "potential", "names", "values", "reference", "projection", "fontSize", "quantities", ...(household?["terminalLabels","showSupplyVoltage"]:[])]);
+    if(household)for(const key of ["terminalLabels","showSupplyVoltage"])if(Object.hasOwn(input.display,key))bool(input.display[key]);
     choice(input.display.view, ["real", "schematic"]); choice(input.display.flow, ["off", "current", "electron"]); choice(input.display.meters, ["digital", "analog"]);
     ["potential", "values", "projection"].forEach((k) => bool(input.display[k]));
     if(Object.hasOwn(input.display,"names"))bool(input.display.names);
@@ -61,6 +63,7 @@
     if(Object.hasOwn(input.display,'quantities')){object(input.display.quantities,Object.keys(quantityDefaults));Object.keys(quantityDefaults).forEach(k=>bool(input.display.quantities[k]));}
     if (input.display.reference !== null && !ports.has(input.display.reference)) throw new Error("參考端點不存在");
     const valid = clone(input);
+    if(household){valid.supplyVoltage??=230;valid.display.terminalLabels??=false;valid.display.showSupplyVoltage??=false;}
     // Release legacy household anchors without changing saved wiring or geometry.
     if(household)valid.wires.forEach(w=>{delete w.anchor;});
     valid.components.forEach(c=>{for(const [key,spec]of Object.entries(R.get(c.type).params))if(spec.optional&&!Object.hasOwn(c.params,key))c.params[key]=spec.value;});

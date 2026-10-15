@@ -1,6 +1,20 @@
 'use strict';
 const assert=require('node:assert/strict'),P=require('../circuit-household-workbench/presets'),M=require('./circuit-model'),H=require('./household-model'),V=require('./circuit-renderer');
 const near=(actual,expected,tolerance=.005)=>assert(Number.isFinite(actual)&&Math.abs(actual-expected)<=Math.max(1e-8,Math.abs(expected)*tolerance),actual+' != '+expected);
+for(const supplyVoltage of [220,230]){
+ const d=P.create('C01');d.supplyVoltage=supplyVoltage;const s=new H.Session(d),r=s.read(),load=r.components.load,resistance=230**2/2000;
+ near(load.current,supplyVoltage/(resistance+.05+.008),.001);near(load.power,load.current**2*resistance,1e-10);assert.equal(r.references[0].voltage,0);
+ for(const terminalLabels of [false,true])for(const showSupplyVoltage of [false,true])for(const view of ['real','schematic'])for(const values of [false,true]){
+  const shown=M.clone(d);Object.assign(shown.display,{terminalLabels,showSupplyVoltage,view,values});const svg=V.scene(shown,r,.3);
+  assert.equal(svg.includes('data-house-port-label='),terminalLabels);assert.equal(svg.includes('data-house-supply-voltage='),showSupplyVoltage);if(showSupplyVoltage)assert(svg.includes(supplyVoltage+' V～'));
+  near(H.solve(shown).components.load.current,load.current,1e-10);
+ }
+ s.advance(.01);const saved=s.capture(),restored=H.Session.restore(H.decode(H.encode(saved)));assert.deepEqual(restored.capture(),saved);restored.advance(.01);assert(restored.state.time>saved.timeSeconds);restored.destroy();s.destroy();
+}
+for(const supplyVoltage of [0,219,240,'220',NaN,Infinity])assert.throws(()=>M.validate({...P.create('C01'),supplyVoltage}));
+for(const key of ['terminalLabels','showSupplyVoltage'])assert.throws(()=>M.validate({...P.create('C01'),display:{...P.create('C01').display,[key]:'true'}}));
+for(const analysis of ['dc','transient']){const d=M.empty(analysis);assert.throws(()=>M.validate({...d,supplyVoltage:220}));assert.throws(()=>M.validate({...d,display:{...d.display,terminalLabels:true}}));}
+{const d=P.create('C01'),profile=require('./circuit-profile').compile({role:'student',analysis:'household',initialDocument:d,palette:[]});assert.throws(()=>profile.assertTransition(d,{...d,supplyVoltage:220}),/供電電壓已固定/);}
 function shorted(type='house-breaker',target='n'){
  const d=P.create('C10'),p=d.components.find(c=>c.id==='protector');
  if(type==='house-fuse'){p.type=type;p.params={rating:5};d.wires=d.wires.filter(w=>w.to!=='protector:ni');for(const w of d.wires){if(w.to==='protector:li')w.to='protector:a';if(w.from==='protector:lo')w.from='protector:b';if(w.from==='protector:no')w.from='source:n';}}

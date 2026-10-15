@@ -13,7 +13,9 @@
 
 ## 物理及讀值
 
-單一 230 V、50 Hz 市電源，採有效值電阻等效：家電 `R = 230² / 額定輸入功率`，工作電流、功率及外殼電勢按實際連接計算。交流往返箭嘴只作概念示意。圖上導線電流是有效值，電勢方向及色彩採本模型的參考電勢，並非 50 Hz 瞬時圖；插座比較 L／N，人物比較雙手，其餘器件沿用實際支路兩端。單端接地符號沒有跨端電勢方向。開啟電勢色彩時，外接導線依計算電勢著色；關閉後恢復 L／N／E 線色，角色及家電自帶線芯身份不變。
+設定中的「家庭供電與標示」提供供電電壓 220／230 V、「顯示接線標示 L／N／E」及「顯示市電電壓」。兩個顯示選項預設關閉，獨立於總畫布讀值選項，對實物／符號及 SVG 匯出皆生效；端子仍可接線，無障礙名稱及側面圖例保留。切換示例保留供電選擇。錶面內的數字、單位及保護器字樣跟機殼同比例縮放，不再以最低螢幕字級把字放大至遮住圖案；電能表數字限於固定顯示窗寬度，詳細數值可選取元件在面板查看。
+
+單一 220／230 V（設定選擇，預設 230 V）、50 Hz 市電源，採有效值電阻等效：家電 `R = 230² / 額定輸入功率`，工作電流、功率及外殼電勢按實際連接及所選電壓計算；220 V 時沿用 230 V 額定等效電阻，工作功率隨電壓平方減少。交流往返箭嘴只作概念示意。圖上導線電流是有效值，電勢方向及色彩採本模型的參考電勢，並非 50 Hz 瞬時圖；插座比較 L／N，人物比較雙手，其餘器件沿用實際支路兩端。單端接地符號沒有跨端電勢方向。開啟電勢色彩時，外接導線依計算電勢著色；關閉後恢復 L／N／E 線色，角色及家電自帶線芯身份不變。
 
 供電等效電阻 0.05 Ω；每條外接導線、電表、閉合開關及保護器每通道 0.001 Ω，固定而不隨畫面線長改變；家電 E 端至金屬外殼仍視為內部理想連接。外殼受損絕緣取 2000 Ω。人體以兩手各經 1000 Ω 接到同一身體節點，站地時身體再經 1000 Ω 回等效地，站椅時只斷開腳的支路；單手至地或雙手之間等效 2000 Ω。金屬外殼故障支路固定在家電預定 L 端；反接不會把故障移到另一端。雙重絕緣的指定故障只破壞內層，外層仍隔離。
 
@@ -24,6 +26,8 @@
 ## 文件及權威狀態
 
 匯出封套為 `kind: 'simlab-household-concepts'`、`version: 2`、`model: 'concept-rms-2'`。其 `circuit` 使用獨立的 `simlab-household-circuit` v8／`analysis: 'household'`／`modelRevision: 1` 幾何文件；不是 DC 或 AC 文件的冒用。
+
+`circuit.supplyVoltage` 僅接受 220／230；`display.terminalLabels` 及 `display.showSupplyVoltage` 為布林值。舊文件缺少時分別補為 230／false／false，不更動接線、時間、電能或切斷前讀數；DC／AC 文件不接受這些家庭欄位。顯示開關及電壓選擇沿用單次復原／重做及只讀限制。
 
 封套保存實際接線（含錯接及自由端）、元件參數、`contacts`、`timeSeconds`、`protection` 及 `energyKWh`。市電圖案自帶 L／N 線芯，但從工具箱取出市電或接地元件均不自動附加外接導線；點按取件、拖放、複製及命令新增使用相同規則。用戶自行取普通導線，任一端均可吸附接地 E 接線點，可經共接點連接插座、家電地線或手部；也容許供電角色互接，由實際電流顯示短路或回流改變。所有外接導線兩端均可拔接、刪除及分支，移除元件只把導線拔開留在畫布。舊檔的市電／接地 `anchor` 經驗證後移除固定標記，保留接線、線形及模擬狀態；匯出接線範本清空全部導線及共接點。
 
@@ -91,3 +95,7 @@ Node 驗證：`household-connections.test.js`、`household-model.test.js`、`hou
 同一網址及私人存取保持，移除家庭版全高把手樣式，恢復 DC／AC 共用的底角 32×64 px 把手。Sites source commit 為 `eaa140163f618d5bc68098e6dd9557cdbf70d514`；saved version 為 `appgprj_6ad0b88108c08191a7568eda54a1f36c~appgver_e2d1bcf1f5188191a9b77e11df00d9ff`，deployment 為 `appgdep_6ad0c949b080819198834d1f12a2886e`，原生回傳 `succeeded`。官方 archive：`output/sites/circuit-household-workbench-short-grips.tar.gz`。
 
 30 個 runtime files 與來源一致；部署目錄桌面／兩種手機寬度的尺寸及基本運作檢查、實際 ZIP 的 T2 兩尺寸 34 次可信觸控捲動均通過。詳細證據見[家庭計劃](../plans/33-circuit-household-workbench.md)。未重跑完整物理回歸、真手機或 Moodle。
+
+### Version 3：標示開關及 220／230 V
+
+同一網址及私人存取保持。預設隱藏接線字母／市電電壓，設定可分別開啟並選擇 220／230 V；修正圖案內文字隨縮放放大至遮住機殼。Sites source commit：`9c054e9c6bb4cbecc43a38c2d25f00fe565f18a2`；saved version：`appgprj_6ad0b88108c08191a7568eda54a1f36c~appgver_318982c30ea0819194b2dbd06f6f6def`；deployment：`appgdep_6ad0d3537e548191b31cf24c2e5340b8`，原生回傳 `succeeded`。官方 archive：`output/sites/circuit-household-workbench-display-settings.tar.gz`。391 項完整 source／ZIP 回歸及最後 28 項設定專項通過；最終 30 個 runtime files 與部署目錄一致，詳細證據見計劃。真手機／Moodle 另驗。

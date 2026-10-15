@@ -638,3 +638,17 @@ CI 補充：推送後讀取 [916f06f 的 Quality 失敗紀錄](https://github.co
 使用者指出兩側把手拉長至整幅畫布，與 DC／AC 不一致。刪除家庭 CSS 的全高 scroll-strip 覆寫，沿用共用 32×64 px 底角把手及距底 8 px；兩側 32 px 空間、pan-y、共用手機／滑鼠顯隱規則及畫布手勢不變。本節取代先前完整高度可見捲頁條的外觀決定。
 
 實際重建 ZIP 在 T2 的 320×500／390×600 共 2 cases、34 次可信觸控捲動檢查通過，沒有 issues／runtime errors；證據在 output/playwright/circuit-household/short-grips-mobile.json。Sites 部署目錄另以 1280／320／390 px 驗證掛載、query／hash、可信視圖切換、無水平溢出；手機實測兩把手均為 32×64 px、距底 8 px、pan-y，已檢視 390 px 截圖。30 個 runtime files 與來源逐 byte／SHA-256 一致，證據在 output/sites/household-short-grips-assets.json、household-browser-verification.json 及 household-short-grips-390.png。既有 browser registry owner 不變；本次僅 CSS 與維護紀錄，未重跑完整物理回歸、真手機或 Moodle。Sites version 2 已原生發布成功，身份及來源見家庭維護指引。
+
+### 接線標示、供電設定及錶面文字（2026-10-15）
+
+依使用者要求，家庭版預設隱藏畫布及插座的 L／N／E 端子字母，可在設定獨立開啟；接線孔、導線顏色及無障礙端子名稱保留。市電標稱電壓預設 230 V，可在設定改為 220／230 V，另有預設關閉的畫布電壓顯示選項，實物／符號皆適用。兩個顯示開關不依賴總讀值開關；供電選擇保留至切換示例及存檔恢復，不因隱藏文字改變模型。非評分工作台，rubric／SCORM／提交風險 N/A。
+
+電路 v8 新增可選 supplyVoltage；家庭 display 新增可選 terminalLabels／showSupplyVoltage，缺省為 230／false／false，舊封套恢復先正規化並保持接線及歷史保護事件。只接受 220 或 230 及布林顯示值，DC／AC 不接受家庭欄位。模型改用選定供電有效值；家電額定功率仍以 230 V 定義固定等效電阻，220 V 時電流、功率及保護動作按實際回路計算。圖案內文字跟機殼同比例縮放，移除放大內字的最低螢幕字級補償；電能表讀值固定在顯示窗內，小畫面可選取元件看面板數值。
+
+驗證矩陣：新／舊文件、220／230 V、兩種視圖、兩個獨立開關、總讀值開／關、空白／部分接線、示例切換、復原重做、只讀、保存恢復及合法續作；Node 覆蓋電流／功率、無效值及 DC／AC 隔離，browser 覆蓋設定原生操作、手機／桌面多級縮放的錶面邊界、source／實際 ZIP。沿用既有 registry owner，完成後追加實際證據；真手機／Moodle 另驗。
+
+驗收：source／實際 ZIP 完整 **391 browser checks** 通過，22 筆既有示例流程保留；結果存於 output/playwright/circuit-household/display-settings-full.json。最後補齊說明文字及電能讀值旋轉標記後，使用同一 runner 的 --settings-only 重建五包並通過 **28 checks**（source／ZIP 各含 11 個示例載入及 1280／390／320 px 設定／縮放專項），最終資產雜湊及 ZIP 指紋存於同目錄 results.json。兩視圖、標示開關、220 V 功率平方比例、只讀、復原重做、production 保存恢復與續作、切換示例／空白保留電壓均通過。電能表在六級縮放的字級固定 11 畫布單位，字形邊界以顯示窗外 1 畫布單位為量度容差，沒有最低螢幕字級放大。
+
+四個家庭 Node suites、36 個 v1 fixtures 正規化往返及合法續作、共用 core／document-import／layout／platform-core 通過；新增 Node 亦覆蓋總讀值開關獨立性、無效值、DC／AC 拒收家庭欄位及 student 不可改供電。DC source／ZIP 的 --phone-smoke、check、check:tests（240 entries）、文件連結及 diff 檢查通過。提交選取預覽另存 output/playwright/circuit-household/display-settings-selection.json，不宣稱已執行所有被選取的套件。
+
+Sites version 3 原生發布 succeeded，來源／版本／deployment ID 見維護指引。30 個部署 runtime files 與最終來源逐 byte／SHA-256 一致，部署目錄 1280／320／390 px 的入口、query／hash、可信視圖、可靠求解及短把手尺寸檢查通過；已檢視 390 px 截圖。證據在 output/sites/household-display-settings-assets.json、household-browser-verification.json 及 household-short-grips-390.png。本輪未做真手機、實際 Moodle 或本機完整 Quality Full。

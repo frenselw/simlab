@@ -16,7 +16,7 @@
     const edge=(id,owner,from,to,resistance,emf=0)=>{edges.push({id,owner,from,to,a:find(from),b:find(to),resistance,emf});};
     for(const c of doc.components){
       const at=k=>c.id+':'+k;
-      if(c.type==='house-mains')edge(c.id+':source',c.id,at('l'),at('n'),constants.sourceResistance,constants.voltage);
+      if(c.type==='house-mains')edge(c.id+':source',c.id,at('l'),at('n'),constants.sourceResistance,doc.supplyVoltage);
       if(c.type==='house-meter'||['house-breaker','house-rcd'].includes(c.type)&&active(c,state)){edge(c.id+':l',c.id,at('li'),at('lo'),constants.channelResistance);edge(c.id+':n',c.id,at('ni'),at('no'),constants.channelResistance);}
       if(c.type==='house-switch'&&c.params.closed||c.type==='house-fuse'&&active(c,state))edge(c.id+':switch',c.id,at('a'),at('b'),constants.channelResistance);
       if(C.isAppliance(c))edge(c.id+':load',c.id,at('l'),at('n'),constants.voltage**2/C.power(c));

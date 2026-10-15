@@ -166,6 +166,7 @@
       }
       if (!wires && (!same(before.wires,doc.wires) || !same(before.junctions,doc.junctions))) throw new Error('活動不允許改接線');
       if (!teacher) {
+        if(before.supplyVoltage!==doc.supplyVoltage)throw new Error('供電電壓已固定');
         const displayBefore = M.clone(before.display), displayAfter = M.clone(doc.display);
         if (ui.viewToggle) { delete displayBefore.view; delete displayAfter.view; }
         if (ui.probe) { delete displayBefore.reference; delete displayAfter.reference; }
