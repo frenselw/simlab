@@ -74,3 +74,14 @@ C09「站在絕緣椅上也會觸電嗎」只有市電與人物，兩手分接 L
 Node 驗證：`household-connections.test.js`、`household-model.test.js`、`household-state.test.js` 及 `presets.test.js`；[production fixtures](../sim/circuit-workbench/fixtures/household-v1-states.json)涵蓋合法錯接、部分接線、故障、人物及保護／電能狀態。
 
 `tools/circuit-household-browser-regression.js` 檢查原始碼與實際 ZIP。既有 `tools/mobile-scroll-browser-regression.js` 已接受 standalone 資產清單／ZIP，並以家庭 phase profiles 及可信的線端、彎線、共接點、手部、開關、取消、雙指操作補足 T0–T3。這些 runner 及 Node tests 都遵循 test registry 的登記和選取規則。
+
+## Sites 部署（2026-10-15）
+
+[家庭電路工作台正式網址](https://simlab-household-circuit-workbench.ieyp.chatgpt.site)。Sites 原生發布回傳 `succeeded`，version 1，維持新站預設的擁有者私人存取；不是公開學生入口或 Moodle／SCORM 部署。
+
+- Project ID：`appgprj_6ad0b88108c08191a7568eda54a1f36c`；後續重用此站，不使用 repository 根目錄另一站的 `.openai/hosting.json`。
+- Runtime 提交：`00247a963ab201ab2d61507d70e96a9302abf241`；Sites 已推送來源：`3d4360a21f5d1b73476fcd8400960444453a0fa6`。
+- Saved version：`appgprj_6ad0b88108c08191a7568eda54a1f36c~appgver_ac71e06224e481918fb56a976c98e67d`；deployment：`appgdep_6ad0b99cb81c8191bc8ad6707c7035f7`。
+- 獨立 checkout：`output/sites/circuit-household-workbench/`，`static.directory` 為 `dist`。官方 helper 封裝為 `output/sites/circuit-household-workbench-00247a9.tar.gz`；Windows 使用 Git Bash 及 `TAR_OPTIONS=--force-local`。
+
+30 個 runtime assets 與上述 SimLab 提交逐 byte／SHA-256 一致，HTML／CSS 相對引用存在。部署目錄 1280／390 px 的 HTTP 200、根入口跳轉並保留 query／hash、工作台掛載、可信視圖切換、求解可靠、無水平溢出及無執行例外檢查通過；已檢視手機截圖。證據在 `output/sites/household-runtime-verification.json`、`household-browser-verification.json` 及 `household-deploy-390.png`。本次發布沿用前述 385 項 source／ZIP 回歸，未重跑完整 CI、真手機或 Moodle 驗證。
