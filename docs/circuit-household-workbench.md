@@ -138,4 +138,3 @@ Node 驗證：`household-connections.test.js`、`household-model.test.js`、`hou
 ### Version 10：共用標籤布局效能
 
 重用固定障礙物碰撞計算，保留既有標籤位置、物理模型及 CI 100 ms 效能門檻。Sites source：`047d086b9eb54bf133ad2d0ed6012c9e8c0504dd`；saved version：`appgprj_6ad0b88108c08191a7568eda54a1f36c~appgver_a6f5df4633a08191b72dbccdbafa8973`；deployment：`appgdep_6ad10d6432e08191b2254e5df7c192e2`，原生回傳 `succeeded`，原網址及私人存取保持。Archive：`output/sites/circuit-household-workbench-label-performance.tar.gz`。本輪 AC protection-budget source／ZIP 134 observations、家庭 source／ZIP 70 checks、標籤／layout／電流卡 Node 及部署目錄三尺寸通過。完整 737 checks 為此次共用效能修正前證據；新 head CI 及獨立審查另驗。
-
