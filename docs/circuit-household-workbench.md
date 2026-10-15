@@ -141,3 +141,6 @@ Node 驗證：`household-connections.test.js`、`household-model.test.js`、`hou
 ### Version 11：獨立審查修正
 
 完整 CI 成功後，兩位獨立 reviewer 及第三位匯總確認的三項問題已修正：N/E 混接的保護接地判定、舊款家電快捷種類空白、舊冷氣改款時的預設名稱。Sites source：`50a240012e60d7ac49f4a338467393c70d80c399`；saved version：`appgprj_6ad0b88108c08191a7568eda54a1f36c~appgver_78c5b1712bbc8191a92649ba9f685e72`；deployment：`appgdep_6ad117dc05648191baab69c5868fa270`，原生回傳 `succeeded`，原網址及私人存取保持。Archive：`output/sites/circuit-household-workbench-review-fixes.tar.gz`。來源／ZIP 專項 50 checks、家庭四個 Node owner、共用 core／platform-core／AC platform、靜態／registry 及三尺寸部署目錄驗證通過。30 runtime assets 指紋：output/sites/household-review-fixes-assets.json。新 head CI 與原 reviewers 重驗另驗；真手機及 Moodle 未驗。
+### Version 12：舊款選單連續操作
+
+修正 UI reviewer 重驗找到的持續焦點問題：舊款改款後同步選項及值，使用值配對，避免第二次改款與畫面不符。Sites source：`fd5ac16f606749ecd4982ebe3831f25f1b3800d7`；saved version：`appgprj_6ad0b88108c08191a7568eda54a1f36c~appgver_2a77f05ba07c819197786c916cec6271`；deployment：`appgdep_6ad11994cd808191a56e56f6d47ff259`，原生回傳 `succeeded`，原網址及私人存取保持。Archive：`output/sites/circuit-household-workbench-focus-fix.tar.gz`。source／ZIP 50 checks 包含持續焦點可信 ArrowDown、連續改款／歷史；check／registry 及三尺寸部署目錄通過，30 runtime assets 與來源一致。新 head CI 及兩位原 reviewer 再驗另驗；未驗真手機或 Moodle。

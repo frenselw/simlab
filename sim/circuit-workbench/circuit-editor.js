@@ -425,7 +425,7 @@
     const p=R.primaryParameter(c,spec)||(household&&spec?.choices?{...spec,key,value:c.params[key],factor:1}:null);return p&&(!binding.key||binding.key===p.key)&&allow(d,c,'params',p.key)?{c,p}:null;
   }
   const quickChoice=household?document.createElement('select'):null;
-  if(quickChoice){quickChoice.hidden=true;quickChoice.dataset.householdQuick='true';$('quickValue').parentElement.append(quickChoice);quickChoice.onchange=()=>{const data=quickParameter(quickBinding);if(data?.p.choices)setQuickParameter(data.p.choices[quickChoice.selectedIndex]);};}
+  if(quickChoice){quickChoice.hidden=true;quickChoice.dataset.householdQuick='true';$('quickValue').parentElement.append(quickChoice);quickChoice.onchange=()=>{const data=quickParameter(quickBinding);if(data?.p.choices)setQuickParameter(data.p.choices.find(value=>String(value)===quickChoice.value));};}
   function renderQuickParameters(){
     const controls=[$('quickValue'),$('quickMinus'),$('quickPlus')];
     // Freeze selection/layout during canvas gestures, not ordinary footer taps.
@@ -433,7 +433,8 @@
     // disabling a pressed button here would discard that click.
     if(drag||cameraGesture||touchBlocked||[...touches.values()].some(t=>t.central)){controls.forEach(e=>e.disabled=true);if(quickChoice)quickChoice.disabled=true;return;}
     const selected=selectedComponent();$('hint').parentElement.classList.toggle('has-meter',!!selected&&(R.dualMeter(selected)||selected.type==='galvanometer'));
-    if([$('quickValue'),quickChoice].includes(document.activeElement)&&quickBinding?.id===selection?.id&&quickParameter(quickBinding))return;
+    const focused=document.activeElement,editing=[$('quickValue'),quickChoice].includes(focused)&&quickBinding?.id===selection?.id?quickParameter(quickBinding):null;
+    if(editing&&(focused===$('quickValue')||editing.p.choices?.length===quickChoice.options.length&&editing.p.choices.every((value,i)=>String(value)===quickChoice.options[i].value)&&quickChoice.value===String(editing.p.value)))return;
     const data=quickParameter();$('quickParameters').hidden=!data;
     $('hint').parentElement.classList.toggle('has-quick',!!data);quickBinding=data?{id:data.c.id,key:data.p.key}:null;
     controls.forEach(e=>e.disabled=!data);$('quickValue').removeAttribute('aria-invalid');
