@@ -30,13 +30,26 @@
     }
     function protectionAction(c,r,actions){
       let button=actions.querySelector('[data-household-reset]');
+      const closed=refs.properties.querySelector('[data-param="closed"]');
+      if(c&&C.isProtection(c)&&closed){
+        let trip=closed.querySelector('[value="tripped"]');
+        if(r.status==='tripped'){
+          if(!trip){trip=new Option('跳掣（已斷開）','tripped');trip.disabled=true;closed.append(trip);}
+          closed.value='tripped';
+        }else{trip?.remove();closed.value=String(c.params.closed);}
+      }
       if(!c||!C.isProtection(c)||!['tripped','blown'].includes(r.status)){button?.remove();return;}
-      if(!button){button=document.createElement('button');button.type='button';button.className='text-action';button.dataset.householdReset=c.id;button.textContent=c.type==='house-fuse'?'更換保險絲':'復位';button.onclick=()=>controller.execute({type:'resetHouseholdProtection',id:c.id});actions.append(button);}
+      if(!button){button=document.createElement('button');button.type='button';button.className='text-action';button.dataset.householdReset=c.id;button.textContent=c.type==='house-fuse'?'更換保險絲':'復位並合上';button.onclick=()=>controller.execute({type:'resetHouseholdProtection',id:c.id});actions.append(button);}
       button.disabled=controller.getInteraction().readOnly;
     }
     function properties(c,doc,parent,actions){
       const readonly=controller.getInteraction().readOnly,r=controller.getAnalysis().components[c.id];
       protectionAction(c,r,actions);
+      const closed=parent.querySelector('[data-param="closed"]');
+      if(C.isProtection(c)&&closed){
+        const change=closed.onchange;
+        closed.onchange=()=>closed.value==='true'&&controller.getAnalysis().components[c.id].status==='tripped'?controller.execute({type:'resetHouseholdProtection',id:c.id}):change();
+      }
       if(c.type==='house-person'){const label=document.createElement('label'),span=document.createElement('span'),select=document.createElement('select');span.textContent='右手接觸對象';select.dataset.householdContact=c.id;select.append(new Option('離開外殼',''));for(const a of doc.components.filter(C.isAppliance))select.append(new Option(a.label,a.id));select.value=r.contact||'';select.disabled=readonly;select.onchange=()=>controller.execute({type:'setContact',id:c.id,target:select.value||null});label.append(span,select);parent.append(label);}
       if(C.isAppliance(c)){const note=document.createElement('p');note.className='note';note.dataset.householdConnections=c.id;note.textContent=Object.entries(r.connections).map(([expected,actual])=>`${expected.toUpperCase()} 引線：${actual?'接 '+actual:'未接到供電節點'}`).join('；');parent.append(note);}
     }

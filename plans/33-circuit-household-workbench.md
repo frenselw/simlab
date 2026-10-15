@@ -546,3 +546,13 @@ CI 補充：推送後讀取 [916f06f 的 Quality 失敗紀錄](https://github.co
 最終原始碼／重建實際 ZIP 共 **225 browser checks** 通過，保留全部 20 筆示例流程記錄；新增桌面全體／單條標示及色彩切換、插座／雙手方向檢查，以及 320×500、390×500、390×600 可信觸控開面板、捲動及操作三類控制。已檢視 `output/playwright/circuit-household/source-diagram-label-controls.png` 及 `source-diagram-controls-phone-390x600.png`；完整結果及 source／ZIP 指紋見同目錄 `results.json`。五包已重建，家庭 ZIP 全部 30 個 runtime assets 與來源逐檔一致。
 
 四個家庭 Node tests、共用 wire-current-labels（含 DC／AC）、8 組 platform core、`check`、`check:tests`、修改文件連結及 diff 檢查通過。沿用既有 registry owner，沒有新增依賴；提交選取預覽 `node tools/run-tests.js --base=709a4ba --head=HEAD --plan` 為 affected、221 項、五個 circuit packages，並非宣稱全部 221 項已執行。本輪未做真手機、實際 Moodle 或完整 Quality Full；遠端 CI 狀態以新提交 run 為準。
+
+### 跳掣後合上控制（2026-10-15）
+
+使用者指出漏電保護器無法合上的操作問題。跳掣後權威 `protection.status` 是 `tripped`，保存的手柄意圖 `params.closed` 仍為 true；共用參數下拉原來直接讀後者，錯顯「合上」，再選同值也不會復位。本輪只在家庭 UI 接合處修正：跳掣時下拉顯示不可選的「跳掣（已斷開）」暫態項目；明確選「合上」轉交既有 `resetHouseholdProtection`，普通斷開仍沿用原參數操作。復位按鈕改為「復位並合上」，斷路器同樣處理。點跳掣本體仍只選取，不自行清除事件；熔絲仍須更換。沒有改模型、文件版本或保存參數，跳掣選項只存在於 DOM。
+
+新增桌面回歸涵蓋漏電保護器／斷路器已選時自動跳掣、實際狀態同步、選合上後未排除故障會重跳、修好後合上、普通開合、復原重做及只讀拒絕。手機在 320×500、390×500、390×600 以可信觸控打開原生選單並以 Home／Enter 選合上，對照未修好重跳及修好後供電；保留原復位按鈕及全部示例流程回歸。
+
+最終原始碼／實際 ZIP 共 **235 browser checks** 通過，全部 20 筆示例流程記錄保留；已檢視 `output/playwright/circuit-household/source-C04-tripped-close-control.png`、`source-rcd-tripped-control-phone-320x500.png` 及 `source-rcd-tripped-control-phone-390x600.png`。完整結果、資產雜湊及 source／ZIP 指紋見同目錄 `results.json`；五包已重建，家庭 ZIP 全部 30 個 runtime assets 與來源逐檔一致。過程曾在手機接地拖線 fixture 得到自由端，最小可信輸入重現可正常吸附；補上選取後兩幀版面等待、最後 touchMove 完成一幀後才 touchEnd，保留原接地吸附斷言，最終全套通過。
+
+四個家庭 Node tests、8 組 platform core、`check`、`check:tests`、修改文件連結及 diff 檢查通過。沿用原 registry owner，沒有新增依賴或入口；提交選取預覽 `node tools/run-tests.js --base=85f53ed --head=HEAD --plan` 為 affected、221 項、五個 circuit packages，並非全部 221 項已在本輪執行。未做真手機、實際 Moodle 或本機完整 Quality Full；新提交遠端 CI 另看最新 run。
