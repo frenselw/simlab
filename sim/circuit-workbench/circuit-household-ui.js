@@ -3,10 +3,11 @@
   const C=root.CircuitHouseholdComponents,V=root.CircuitRenderer,Q=root.CircuitMath,P=root.CircuitHouseholdPresets;
   const abs=value=>Number.isFinite(value)?Math.abs(value):null;
   function mount({host,refs,controller}){
-    const fanAngles=new Map(),louverPhases=new Map();let fans=[],louvers=[];
+    const fanAngles=new Map(),louverPhases=new Map(),blowerAngles=new Map();let fans=[],louvers=[],blowers=[];
     function animate(result,elapsed){
       for(const {id,node}of fans){const previous=fanAngles.get(id)||0,angle=(previous+(result.components[id]?.working?elapsed*240:0))%360;fanAngles.set(id,angle);const transform='rotate('+angle.toFixed(3)+')';if(node.getAttribute('transform')!==transform)node.setAttribute('transform',transform);}
       for(const {id,node}of louvers){const phase=((louverPhases.get(id)||0)+(result.components[id]?.working?elapsed*Math.PI/3:0))%(2*Math.PI);louverPhases.set(id,phase);const transform='translate(0 14) scale(1 '+(.65+.3*Math.sin(phase)).toFixed(4)+') translate(0 -14)';if(node.getAttribute('transform')!==transform)node.setAttribute('transform',transform);}
+      for(const {id,node,fins}of blowers){const angle=((blowerAngles.get(id)||0)+(result.components[id]?.working?elapsed*240:0))%360;blowerAngles.set(id,angle);if(node.dataset.angle===angle.toFixed(3))continue;node.dataset.angle=angle.toFixed(3);fins.forEach((fin,n)=>{const phase=angle*Math.PI/180+n*2*Math.PI/fins.length,y=-15+7*Math.sin(phase);fin.setAttribute('d','M-13 '+y+'Q12 '+(y-Math.cos(phase))+' 37 '+y);fin.setAttribute('opacity',String(.3+.7*Math.max(0,Math.cos(phase))));});}
     }
     const observation=document.createElement('output');observation.className='household-observation';observation.setAttribute('aria-live','polite');observation.dataset.householdObservation='true';refs.stage.insertBefore(observation,refs.canvasArea);
     refs.diagramLabels.replaceChildren();const legend=document.createElement('div');legend.className='household-legend';legend.innerHTML='<span><i></i>火線 L</span><span><i class="neutral"></i>零線 N</span><span><i class="earth"></i>地線 E</span>';refs.diagramLabels.append(legend);
@@ -45,12 +46,14 @@
       return '電器不工作，查看兩條線和開關。';
     }
     function render(doc,result){const key=refs.preset.value;const question=P.questions[key]||P.questions.empty;host.querySelector('.brand p').textContent=question;const message=resultText(doc,result);if(observation.textContent!==message)observation.textContent=message;observation.dataset.alert=String(doc.components.some(c=>c.type==='house-person'&&Math.abs(result.components[c.id].current)>1e-9));
-      const ids=new Set(doc.components.filter(c=>C.isAppliance(c)&&c.params.kind==='fan').map(c=>c.id));for(const id of fanAngles.keys())if(!ids.has(id))fanAngles.delete(id);
+      const ids=new Set(doc.components.filter(c=>C.isAppliance(c)&&['fan','dryer','blender','vacuum'].includes(c.params.kind)).map(c=>c.id));for(const id of fanAngles.keys())if(!ids.has(id))fanAngles.delete(id);
       const aircons=new Set(doc.components.filter(c=>C.isAppliance(c)&&c.params.kind==='aircon').map(c=>c.id));for(const id of louverPhases.keys())if(!aircons.has(id))louverPhases.delete(id);
-      fans=Array.from(refs.scene.querySelectorAll('[data-house-fan-rotor]'),node=>({id:node.closest('[data-component]').dataset.component,node}));
-      louvers=Array.from(refs.scene.querySelectorAll('[data-house-aircon-louver]'),node=>({id:node.closest('[data-component]').dataset.component,node}));animate(result,0);
+      for(const id of blowerAngles.keys())if(!aircons.has(id))blowerAngles.delete(id);
+      fans=Array.from(refs.scene.querySelectorAll('[data-house-fan-rotor], [data-house-rotor]'),node=>({id:node.closest('[data-component]').dataset.component,node}));
+      louvers=Array.from(refs.scene.querySelectorAll('[data-house-aircon-louver]'),node=>({id:node.closest('[data-component]').dataset.component,node}));
+      blowers=Array.from(refs.scene.querySelectorAll('[data-house-aircon-rotor]'),node=>({id:node.closest('[data-component]').dataset.component,node,fins:Array.from(node.querySelectorAll('[data-house-aircon-fin]'))}));animate(result,0);
     }
-    return {readings:reading,properties,render,animate,destroy(){fans=[];louvers=[];fanAngles.clear();louverPhases.clear();observation.remove();}};
+    return {readings:reading,properties,render,animate,destroy(){fans=[];louvers=[];blowers=[];fanAngles.clear();louverPhases.clear();blowerAngles.clear();observation.remove();}};
   }
   root.CircuitHouseholdUI=Object.freeze({mount});
 })(window);
