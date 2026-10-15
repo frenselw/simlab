@@ -111,3 +111,7 @@ Node 驗證：`household-connections.test.js`、`household-model.test.js`、`hou
 ### Version 5：以洗衣機取代新選單的冷氣
 
 新金屬家電選單改用 500 W 教學洗衣機，保留舊冷氣文件相容。Sites source：`cdc93a3761316f6ea9fcf9d8f18708f1be56d48b`；saved version：`appgprj_6ad0b88108c08191a7568eda54a1f36c~appgver_ec1e21e282308191bb1acac0ee7951a1`；deployment：`appgdep_6ad0e0ac7e2c8191a0999f274cac13d5`，原生回傳 `succeeded`，原網址及私人存取保持。官方 archive：`output/sites/circuit-household-workbench-washer.tar.gz`。Source／ZIP 圖像專項 42 checks、四個家庭 Node suites 及部署目錄檢查通過；30 個 runtime assets 與來源一致，詳見計劃。未重跑完整物理回歸、真手機或 Moodle。
+
+### Version 6：快捷按鈕與向量讀數
+
+額定電流快捷中欄改用共用 64 px 闊度，44 px 高度及平直內側邊框；家電／站立種類保留 136 px。電能表使用既有 CircuitMath 向量數字，四位小數及 kWh 的可讀標籤放在錶窗內 44×13 SVG 視口，避免 Linux 字型及低縮放文字量度造成越界；原邊界檢查保留。Sites source：`f37f0e4acd971575bb2126cfdc4649dc2c5e226d`；saved version：`appgprj_6ad0b88108c08191a7568eda54a1f36c~appgver_3d9519ad9fb881918c958cf50d176529`；deployment：`appgdep_6ad0e89e6b348191a06707ff91372f25`，原生回傳 `succeeded`，原網址及私人存取保持。官方 archive：`output/sites/circuit-household-workbench-quick-controls.tar.gz`；30 個 runtime assets 與來源逐 byte／SHA-256 一致，設定 source／ZIP 專項 54 checks 及部署目錄檢查通過，完整回歸及 CI 證據另記計劃。未做真手機或 Moodle 驗證。

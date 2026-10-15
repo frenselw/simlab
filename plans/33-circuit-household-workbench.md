@@ -672,3 +672,13 @@ Sites version 3 原生發布 succeeded，來源／版本／deployment ID 見維�
 驗收：source／實際重建 ZIP 的 --artwork-only 共 **42 checks** 通過，無 runtime errors。1280／390 px 均核對新種類有 washer、沒有 aircon；洗衣機約 500 W、左側接地末端重合、滾筒正常播放／暫停／斷電停轉，實際按住／拖動本體時仍轉動且權威 session 凍結；production 保存往返後可斷線及接續。舊冷氣的既有圖像、接地及滾筒動作仍通過。Node presets 另對洗衣機／舊冷氣核對額定功率、接地故障時人體近零、拔 E 後人體電流及完整保存恢復／合法續作；四個家庭 Node suites、check、check:tests（240 entries）、文件連結及 diff 檢查通過。已檢視 source-left-earth-washer-1280.png、source-left-earth-washer-390.png，圖像為白色機身及圓門滾筒。
 
 最終 runtime／ZIP 指紋在 output/playwright/circuit-household/results.json；部署 30 個 runtime assets 與來源逐 byte／SHA-256 一致，證據在 output/sites/household-washer-assets.json。部署目錄 1280／320／390 px 的入口、視圖、無水平溢出及短把手檢查亦通過。沿用 registry owner，提交選取預覽另存 output/playwright/circuit-household/washer-selection.json；本輪未重跑完整物理回歸、真手機、實際 Moodle 或本機完整 Quality Full。Sites 發布身份見維護指引。
+
+### 快捷選單與 Linux 錶面字型（2026-10-15）
+
+額定電流快捷選單沿用共用 44 px stepper，數字選項用 64 px 中欄，家電／站立種類保留 136 px；中欄取消圓角及 120 px 最低寬度，與兩側按鈕平齊。權限、復原及既有下拉選項不變，DC／AC 數值輸入流程保持。既有 household browser owner 增加 source／ZIP 的桌面、390／320 px 尺寸、無溢出與可信加減操作檢查。
+
+CI 38746611310／38750403498 失敗於電能表 SVG 讀數邊界：Linux 的 system-ui 字型在 11 px 的 bbox 底部達 -12.853，超過顯示窗容差 -13；本機小比例亦有文字量度偏差。改用已隨工作台打包的 CircuitMath 向量字形，置於錶窗內 44×13 的 SVG 視口，保留小數四位及可讀的 kWh 標籤，長讀數同比例適應。保留原錶窗邊界斷言，不放寬容差，不增加外部字型或依賴。
+
+設定專項 source／重建 ZIP 共 **54 checks** 通過，含 1280／390／320 px 的快捷按鈕尺寸、可信加減、長選項布局及六級縮放錶窗邊界；已檢視手機截圖。Node core、household-state、presets、check、check:tests（240 entries）通過。完整 household source／ZIP 回歸及遠端 CI 另記實際結果；真手機另驗。
+
+完整回歸另發現既有接地觸控 fixture 的布局競態：由人物切成單條自由線後，底列由單列改成兩列，相機隨 ResizeObserver 重置，過早讀取的端點仍在舊位置，導致觸控沒有開始拖線。該 fixture 沿用相鄰觸控案例的 100 ms 布局等待後才量度端點，保留原吸附／接線斷言，失敗時輸出尺寸、起點／終點及手勢狀態；獨立三種手機尺寸的接地拖曳實測均能吸附，沒有改動 runtime 接線規則。

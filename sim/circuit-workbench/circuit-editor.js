@@ -440,7 +440,7 @@
     const {c,p}=data,label=c.label+' · '+p.label;
     $('quickName').textContent=label;$('quickName').title=label;$('quickParameters').setAttribute('aria-label',label);
     $('quickLabel').textContent=label+(p.unit?' · '+p.unit:'');$('quickUnit').innerHTML=p.unit?rich(Q.unit(p.unit)):'';
-    if(p.choices){quickChoice.replaceChildren(...p.choices.map(v=>new Option(p.labels?.[v]||String(v),String(v))));quickChoice.selectedIndex=p.choices.indexOf(p.value);quickChoice.setAttribute('aria-label',label);$('quickValue').parentElement.style.width='136px';$('hint').parentElement.classList.add('has-wide-param');$('quickMinus').disabled=quickChoice.selectedIndex<=0;$('quickPlus').disabled=quickChoice.selectedIndex>=p.choices.length-1;return;}
+    if(p.choices){quickChoice.replaceChildren(...p.choices.map(v=>new Option(p.labels?.[v]||String(v),String(v))));quickChoice.selectedIndex=p.choices.indexOf(p.value);quickChoice.setAttribute('aria-label',label);const width=typeof p.value==='number'?64:136;$('quickValue').parentElement.style.width=width+'px';$('hint').parentElement.classList.toggle('has-wide-param',width>64);$('quickMinus').disabled=quickChoice.selectedIndex<=0;$('quickPlus').disabled=quickChoice.selectedIndex>=p.choices.length-1;return;}
     $('quickValue').value=Number((p.value*p.factor).toPrecision(12));$('quickValue').min=p.min*p.factor;$('quickValue').max=p.max*p.factor;
     const numeric=$('quickValue').value,quantity={text:numeric+(p.unit?' '+p.unit:''),tex:numeric.replace(/e([+-]?\d+)$/i,'\\times10^{$1}')+(p.unit?'\\,'+Q.unit(p.unit).tex:'')};
     const readoutWidth=Math.max(64,Math.ceil(Q.measure(quantity.tex,16).width)+12);$('quickReadout').innerHTML=Q.html(quantity);$('quickValue').parentElement.style.width=readoutWidth+'px';

@@ -1,8 +1,8 @@
 (function(root,factory){
   const node=typeof module==='object'&&module.exports;
-  const api=factory(node?require('./component-registry'):root.CircuitRegistry);
+  const api=factory(node?require('./component-registry'):root.CircuitRegistry,node?require('./circuit-math'):root.CircuitMath);
   if(node)module.exports=api;else root.CircuitHouseholdComponents=api;
-})(globalThis,function(R){
+})(globalThis,function(R,Q){
   'use strict';
   const colours=Object.freeze({L:'#a56535',N:'#2583b5',E:'#5d9b49',unknown:'#738698'});
   const applianceKinds=Object.freeze({
@@ -203,7 +203,7 @@
     if(d.palette&&isAppliance(c))return out+applianceOutline(c,id,false,true)+(c.type==='house-insulated'?rect(39,37,14,14,'none',0,'#557d90',1.5)+rect(43,41,6,6,'none',0,'#557d90',1.3):'');
     if(d.view==='schematic'){let drawing=out+symbol(c,r,d,id);if(c.angle)drawing=drawing.replace(/<text x="([\d.-]+)" y="([\d.-]+)"/g,(_,x,y)=>`<text x="${x}" y="${y}" transform="rotate(${-c.angle} ${x} ${y})"`);return `<g data-house-apparatus="${c.type}" data-house-view="schematic">${drawing}</g>`;}
     if(c.type==='house-mains')out+=`<defs><linearGradient id="${id}-cable" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#8096a3"/><stop offset=".2" stop-color="#dce7ed"/><stop offset=".36" stop-color="#f5f9fb"/><stop offset=".65" stop-color="#b6c8d3"/><stop offset="1" stop-color="#667f90"/></linearGradient></defs><path d="M-51-20H-24A7 20 0 0 1-24 20H-51A7 20 0 0 1-51-20Z" fill="url(#${id}-cable)" stroke="#657e8e" stroke-width="1.5"/><path d="M-50-19C-58-15-58 15-50 19" fill="none" stroke="#eff5f7" stroke-width="1" opacity=".7"/><path d="M-53-9H-28" stroke="#fff" stroke-width="1.3" opacity=".7"/><ellipse cx="-24" rx="7" ry="20" fill="#526b7b" stroke="#8198a6" stroke-width="1.2"/><ellipse cx="-24" rx="4.7" ry="17" fill="#d6e0e5"/><ellipse cx="-24" cy="-7" rx="2.5" ry="4" fill="#a56535"/><ellipse cx="-24" cy="7" rx="2.5" ry="4" fill="#2583b5"/>`+lead('M-24-7H-8C12-7 12-22 32-22H76','L',4)+lead('M-24 7H-8C12 7 12 22 32 22H76','N',4)+path('M-8-8C12-8 12-23 32-23H67','#dab58e',.8)+path('M-8 6C12 6 12 21 32 21H67','#8fc5df',.8)+(d.showSupplyVoltage?text(10,-37,(d.supplyVoltage??230)+' V～',14,'data-house-supply-voltage="true"'):'');
-    else if(c.type==='house-meter')out+=channelLeads()+caseBox(id)+rect(-34,-37,68,27,'#b5c6cc',3)+rect(-30,-33,60,19,'#eef6ed',2,'#809888',1)+`<text x="-22" y="-19" data-house-energy-reading="true" font-family="system-ui,sans-serif" font-size="11" fill="#36546c" font-variant-numeric="tabular-nums" textLength="44" lengthAdjust="spacingAndGlyphs">${esc((r.energyKWh||0).toFixed(4))}</text>`+text(0,7,'kWh',14)+rect(-25,19,50,19,'#d9e3e9',3)+Array.from({length:5},(_,n)=>path(`M${-20+n*10} 23V33`,'#94a9b8',1)).join('');
+    else if(c.type==='house-meter'){const value=(r.energyKWh||0).toFixed(4),glyph=Q.compiled(value);out+=channelLeads()+caseBox(id)+rect(-34,-37,68,27,'#b5c6cc',3)+rect(-30,-33,60,19,'#eef6ed',2,'#809888',1)+`<g data-house-energy-reading="true" font-size="11" role="img" aria-label="${esc(value)} kWh"><svg x="-22" y="-30" width="44" height="13" viewBox="${glyph.box.join(' ')}" color="#36546c">${glyph.markup}</svg></g>`+text(0,7,'kWh',14)+rect(-25,19,50,19,'#d9e3e9',3)+Array.from({length:5},(_,n)=>path(`M${-20+n*10} 23V33`,'#94a9b8',1)).join('');}
     else if(['house-breaker','house-rcd'].includes(c.type)){
       const shut=r.status?r.status==='closed':c.params.closed,y=shut?5:21;
       out+=channelLeads()+caseBox(id)+rect(-32,-40,64,18,'#e5edf2',2)+text(0,-26,c.type==='house-rcd'?'30 mA':c.params.rating+' A',14)+rect(-25,-9,50,40,'#b4c3cf',4)+rect(-21,y-8,42,16,'#6b8fa8',3,'#456b85')+path(`M-14 ${y-4}H14`,'#aec9d9',2)+text(0,48,r.status==='tripped'?'跳掣':shut?'合上':'斷開',14);
