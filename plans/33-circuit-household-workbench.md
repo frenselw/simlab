@@ -632,3 +632,9 @@ CI 補充：推送後讀取 [916f06f 的 Quality 失敗紀錄](https://github.co
 已檢視 output/playwright/circuit-household/source-hand-earth-hand-from-real.png 及 source-hand-earth-hand-earth-e-real.png；同目錄 results.json 記錄最終 source／ZIP 指紋及資產雜湊，家庭 ZIP 全部 30 個 runtime assets 與來源逐檔一致。四個家庭 Node tests、共用 component-snapping／platform core 各 8 組、check、check:tests、文件連結及 diff 檢查通過。
 
 沒有新增依賴、入口或 registry owner。提交選取預覽 node tools/run-tests.js --base=a0e2593 --head=HEAD --plan 為 affected、221 項及五個 circuit packages；未在本地執行全部 221 項。預覽存於同目錄 ordinary-hand-selection.json。真手機、實際 Moodle 及本機完整 Quality Full 未執行；遠端 CI 以本次提交 run 為準。
+
+### 手機短捲頁把手（2026-10-15）
+
+使用者指出兩側把手拉長至整幅畫布，與 DC／AC 不一致。刪除家庭 CSS 的全高 scroll-strip 覆寫，沿用共用 32×64 px 底角把手及距底 8 px；兩側 32 px 空間、pan-y、共用手機／滑鼠顯隱規則及畫布手勢不變。本節取代先前完整高度可見捲頁條的外觀決定。
+
+實際重建 ZIP 在 T2 的 320×500／390×600 共 2 cases、34 次可信觸控捲動檢查通過，沒有 issues／runtime errors；證據在 output/playwright/circuit-household/short-grips-mobile.json。Sites 部署目錄另以 1280／320／390 px 驗證掛載、query／hash、可信視圖切換、無水平溢出；手機實測兩把手均為 32×64 px、距底 8 px、pan-y，已檢視 390 px 截圖。30 個 runtime files 與來源逐 byte／SHA-256 一致，證據在 output/sites/household-short-grips-assets.json、household-browser-verification.json 及 household-short-grips-390.png。既有 browser registry owner 不變；本次僅 CSS 與維護紀錄，未重跑完整物理回歸、真手機或 Moodle。Sites version 2 已原生發布成功，身份及來源見家庭維護指引。

@@ -51,7 +51,7 @@ C09「站在絕緣椅上也會觸電嗎」只有市電與人物，兩手分接 L
 
 ## 觸控
 
-手機沿用共用工作台的收合面板、局部 44 px 目標及 24 CSS px 吸附。家庭版畫布兩側各留完整 32 px 原生捲頁區，非操作空白也為 `pan-y`；拖線／拖手使用其本身的 `none` 目標及共用放大預覽。精細拖動時保持底部操作列及觀察句高度，避免重排取消捕獲。
+手機沿用共用工作台的收合面板、局部 44 px 目標及 24 CSS px 吸附。家庭版畫布兩側各留 32 px 空間，左右底角沿用共用的 32×64 px 短捲頁把手，不把可見把手拉長至整幅畫布；非操作空白也為 `pan-y`。拖線／拖手使用其本身的 `none` 目標及共用放大預覽。精細拖動時保持底部操作列及觀察句高度，避免重排取消捕獲。
 
 雙指導航沿用共用相機；第二指建立相機手勢時才取消該次原生多指預設動作，單指空白捲動仍由瀏覽器處理。沒有外層 CSS 鎖定、捲動回寫或虛構 host 接收器。部署 owner、逐步樣本及可信輸入見計劃的 T0–T3 證據；跨來源 Moodle 與真手機另驗。
 
@@ -85,3 +85,9 @@ Node 驗證：`household-connections.test.js`、`household-model.test.js`、`hou
 - 獨立 checkout：`output/sites/circuit-household-workbench/`，`static.directory` 為 `dist`。官方 helper 封裝為 `output/sites/circuit-household-workbench-00247a9.tar.gz`；Windows 使用 Git Bash 及 `TAR_OPTIONS=--force-local`。
 
 30 個 runtime assets 與上述 SimLab 提交逐 byte／SHA-256 一致，HTML／CSS 相對引用存在。部署目錄 1280／390 px 的 HTTP 200、根入口跳轉並保留 query／hash、工作台掛載、可信視圖切換、求解可靠、無水平溢出及無執行例外檢查通過；已檢視手機截圖。證據在 `output/sites/household-runtime-verification.json`、`household-browser-verification.json` 及 `household-deploy-390.png`。本次發布沿用前述 385 項 source／ZIP 回歸，未重跑完整 CI、真手機或 Moodle 驗證。
+
+### Version 2：手機短捲頁把手
+
+同一網址及私人存取保持，移除家庭版全高把手樣式，恢復 DC／AC 共用的底角 32×64 px 把手。Sites source commit 為 `eaa140163f618d5bc68098e6dd9557cdbf70d514`；saved version 為 `appgprj_6ad0b88108c08191a7568eda54a1f36c~appgver_e2d1bcf1f5188191a9b77e11df00d9ff`，deployment 為 `appgdep_6ad0c949b080819198834d1f12a2886e`，原生回傳 `succeeded`。官方 archive：`output/sites/circuit-household-workbench-short-grips.tar.gz`。
+
+30 個 runtime files 與來源一致；部署目錄桌面／兩種手機寬度的尺寸及基本運作檢查、實際 ZIP 的 T2 兩尺寸 34 次可信觸控捲動均通過。詳細證據見[家庭計劃](../plans/33-circuit-household-workbench.md)。未重跑完整物理回歸、真手機或 Moodle。
