@@ -162,3 +162,7 @@ Node 驗證：`household-connections.test.js`、`household-model.test.js`、`hou
 ### 三種導線顏色模式發布（2026-10-16）
 
 SimLab runtime：`8e2151f`；Sites source：`4fac2a5b0003b8bd15b615e6773d7e17549a8fbc`；saved version：`appgprj_6ad0b88108c08191a7568eda54a1f36c~appgver_ad95c76b08608191a7b934932987be1a`；deployment：`appgdep_6ad19fa8b7448191b80147785758b671`，原生回傳 `succeeded`。身份色／電勢漸變／普通色選單、舊值相容及 36 個歷史 fixture Node 檢查通過，五包已重建。30 runtime assets 與來源逐 byte／SHA-256 相符，證據 `output/sites/household-wire-colour-modes-assets.json`；官方 archive 為 `output/sites/circuit-household-workbench-wire-colour-modes.tar.gz`。原網址及存取保持；按用戶要求未開 Chrome。
+
+### 電勢模式完整覆蓋引線與漸變（2026-10-16）
+
+SimLab runtime：`802aff4`；Sites source：`8244b335cf5130f4284783f179dc8710051fc09b`；saved version：`appgprj_6ad0b88108c08191a7568eda54a1f36c~appgver_6adf811a1f08819190c3098fa499ac8e`；deployment：`appgdep_6ad1a23cd59c8191ba8d643a710a16ca`，原生回傳 `succeeded`。修正元件引線殘留身份色，以及家庭外線有效電阻未啟用漸變；統一使用低藍／高紅電勢色階，端子未知顯灰。原 presets／household-connections Node owner 及五包重建通過；30 runtime assets 與來源相同，證據 `output/sites/household-actual-potential-colours-assets.json`，archive 為 `output/sites/circuit-household-workbench-actual-potential-colours.tar.gz`。原網址及存取保持；按用戶要求未開 Chrome，未作畫面驗收。
