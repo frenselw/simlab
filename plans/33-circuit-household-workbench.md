@@ -824,3 +824,5 @@ ced4917 的 Quality 38924680174 已完成：原先選錯手的步驟已通過，
 86984ca 的 Quality 38928153724 中 AC 原門檻及其餘六個 browser 分片均成功；家庭 source 已通過左右手及導線負對照，後續手機保護器重合 line 526 仍保持 tripped。touchOperate／touchInspectProtector 在呼叫 touchControl 之前先讀取模型畫面座標，但 touchControl 其後才等布局／ResizeObserver 的兩個動畫幀；在切換只讀／面板後，舊相機座標可能已失效。範圍限原 browser 輸入 helper 與兩個呼叫者、household-connections Node owner 及本計劃：改為布局完成後才執行點位 callback，保留原生 touch、只讀／故障仍可重合後再跳掣、修復後穩定閉合及 undo／restore 的全部斷言。Node 執行實際 helper，覆蓋布局放大／縮小後一般控制、保護器檢視及手柄點位取樣時序；不改 runtime、保護物理模型或 CI 效能門檻。本機不開 Chrome，仍以完整遠端 CI 成功作合併條件。
 
 原 helper 的 6 組布局／點位回歸在舊碼實際失敗（使用舊座標 10，而非布局後的 60），改為 callback 後全過；原 household-connections owner（含 120 組手部命中）及 240 項登記通過，browser 語法及 diff 檢查通過。runtime 及打包資源與 ced4917 相同，無需重跑未變的本機打包或開 Chrome；新提交完整 CI 驗 source／package。
+
+c3af3b2 的 Quality 38931745075 仍在手機同一步 line 526 失敗，其餘七個 browser 分片均通過；因此延後座標取樣修正尚不足以證明該步問題已解決。原手機 helper 加受 AbortController 管理的 pointerdown／pointerup／click capture 與 bubble 記錄，包含實際元素、可信輸入、座標、相機、選取及保護狀態，並在原閉合斷言失敗時附上紀錄。先取得完整原生事件證據，保留原斷言，不再猜測操作失敗原因。本機仍不開 Chrome，main／分支清理繼續等待 CI 成功。
