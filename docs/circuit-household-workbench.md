@@ -168,3 +168,7 @@ SimLab runtime：`8e2151f`；Sites source：`4fac2a5b0003b8bd15b615e6773d7e17549
 ### 電勢模式完整覆蓋引線與漸變（2026-10-16）
 
 SimLab runtime：`802aff4`；Sites source：`8244b335cf5130f4284783f179dc8710051fc09b`；saved version：`appgprj_6ad0b88108c08191a7568eda54a1f36c~appgver_6adf811a1f08819190c3098fa499ac8e`；deployment：`appgdep_6ad1a23cd59c8191ba8d643a710a16ca`，原生回傳 `succeeded`。修正元件引線殘留身份色，以及家庭外線有效電阻未啟用漸變；統一使用低藍／高紅電勢色階，端子未知顯灰。原 presets／household-connections Node owner 及五包重建通過；30 runtime assets 與來源相同，證據 `output/sites/household-actual-potential-colours-assets.json`，archive 為 `output/sites/circuit-household-workbench-actual-potential-colours.tar.gz`。原網址及存取保持；按用戶要求未開 Chrome，未作畫面驗收。
+
+### 搬拖板時保持插頭插定（2026-10-16）
+
+SimLab runtime：`4091a14`；Sites source：`fa5137d1ecd93ac0e3a7f5817151d1970a7d0716`；saved version：`appgprj_6ad0b88108c08191a7568eda54a1f36c~appgver_50d2040a05488191ab0c67ee1f22391d`；deployment：`appgdep_6ad1c1bb1ab88191adccb881a014db78`，原生回傳 `succeeded`。搬本體保持插頭接通，直接拖插頭仍可拔出；Node connections／snapping 及五包重建通過。30 runtime assets 與來源一致，證據 `output/sites/household-anchored-plug-assets.json`，archive 為 `output/sites/circuit-household-workbench-anchored-plug.tar.gz`。原網址及存取保持；按用戶要求未開 Chrome，未作畫面驗收。
