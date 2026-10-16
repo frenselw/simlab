@@ -227,7 +227,7 @@
     ["flow"].forEach(id=>$(id).value=d.display[id]);["names","values"].forEach(id=>$(id).checked=d.display[id]);if(household)$("potential").value=d.display.potential?'potential':d.display.roleColours===false?'plain':'roles';else $("potential").checked=d.display.potential;$("fontSize").value=M.fontSize(d.display);$("pause").setAttribute("aria-pressed",String(paused));$("pause").setAttribute("aria-label",paused?"繼續模擬":"暫停模擬");$("pause").title=paused?"繼續模擬":"暫停模擬";$("pause").querySelector("use").setAttribute("href","#"+prefix+(paused?"icon-play":"icon-pause"));$("slowMotion").setAttribute("aria-pressed",String(slowMotion));$("mode").value=d.policy.mode;$("policyOptions").hidden=d.policy.mode!=="wiring";["allowRotate","allowParams","allowSwitch"].forEach(id=>$(id).checked=d.policy[id]);
     Object.keys(M.quantityDefaults).filter(id=>$(id)).forEach(id=>{$(id).checked=d.display.quantities[id];$(id).disabled=!d.display.values;});
     $("potentialLegend").hidden=!d.display.potential;$("pan").setAttribute("aria-pressed",String(panMode));$("probe").setAttribute("aria-pressed",String(probeMode));$("pickWire").setAttribute("aria-pressed",String(wireMode));surface.classList.toggle('wire-priority',wireMode);surface.classList.toggle("panning",panMode);surface.classList.toggle("quick-pan",spacePan||!!drag?.quick);surface.classList.toggle("camera-gesture",!!cameraGesture);surface.classList.toggle("grabbing",!!(drag||cameraGesture));surface.classList.toggle("effects-paused",paused);surface.classList.toggle("effects-slow",slowMotion);
-    const w=selectedWire(),c=selectedComponent(),actions=!!(w||c||selection?.kind==="junction");if(!household||!drag&&!cameraGesture){$("selectionActions").hidden=!actions;$("hint").parentElement.classList.toggle("has-actions",actions);}
+    const w=selectedWire(),c=selectedComponent(),actions=!probeMode&&!!(w||c||selection?.kind==="junction");if(!household||!drag&&!cameraGesture){$("selectionActions").hidden=!actions;$("hint").parentElement.classList.toggle("has-actions",actions);}
     $("focusSelected").hidden=!actions;
     const canCopy=!!c&&profile.palette.some(e=>e.type===c.type&&profile.canAdd(e,d,readOnly));$("copySelected").hidden=!c||!teacher&&!canCopy;$("copySelected").disabled=!canCopy;
     $("detachFrom").hidden=!w||!wireAllowed();$("detachTo").hidden=!w||!wireAllowed();$("detachFrom").disabled=!!w&&(!M.attached(history.get(),w,"from"));$("detachTo").disabled=!!w&&(!M.attached(history.get(),w,"to"));["rotateSelected","rotateCounterSelected"].forEach(id=>{$(id).hidden=!c||R.get(c.type).rotatable===false||!teacher&&!allow(d,c,"rotate");$(id).disabled=!!c&&!allow(d,c,"rotate");});
@@ -380,7 +380,7 @@
       button("整理線形",()=>tidy(wire.id),!wireAllowed());
     }else if(selection?.kind==="port"||selection?.kind==="junction"){
       const endpoint=selection.kind==="junction"?selection.id+":p":selection.id;$("selectionTitle").textContent=portName(endpoint);if(profile.ui.readings){prop.innerHTML=readingHost();}if(profile.ui.probe&&!household)button("設為 0 V",()=>change(doc=>doc.display.reference=endpoint),readOnly);
-      d.wires.filter(w=>w.from===endpoint||w.to===endpoint).forEach(w=>button("選導線 "+w.id,()=>{selection={kind:"wire",id:w.id};render();}));
+      if(!probeMode)d.wires.filter(w=>w.from===endpoint||w.to===endpoint).forEach(w=>button("選導線 "+w.id,()=>{selection={kind:"wire",id:w.id};render();}));
     }else{$("selectionTitle").textContent=profile.ui.readings&&probeResult?"兩點量測":analysis.diagnostics.length?"電路提示":"";if(profile.ui.readings&&probeResult)prop.innerHTML=readingHost();}
     for(const diagnostic of analysis.diagnostics){const p=document.createElement("p");p.className="diagnostic";p.textContent=diagnostic.message;prop.append(p);}
     $("selectionTitle").closest('.inspector')?.toggleAttribute('hidden',!profile.ui.inspector||!prop.childElementCount&&!$("objectActions").childElementCount);
@@ -566,6 +566,7 @@
     if(touchBlocked||cameraGesture||(e.pointerType==="touch"&&!e.isPrimary))return;
     const quick=e.pointerType==="mouse"&&(e.button===1||(e.button===0&&spacePan));if(e.button!==0&&!quick)return;suppressClick=false;
     if(panMode||quick){startPan(e,quick);return;}
+    if(probeMode)return;
     const t=e.target.closest(".hit"),d=history.get();let meta=t?.meta,tapMeta=meta;
     if(meta?.kind==='wireend'&&M.attached(d,d.wires.find(w=>w.id===meta.id),meta.end)&&!selectedWire()){const endpoint=d.wires.find(w=>w.id===meta.id)[meta.end],component=d.components.find(c=>c.id===endpoint.split(':')[0]);meta=tapMeta={kind:component?'port':'junction',id:component?endpoint:endpoint.split(':')[0]};}
     const owner=meta&&['body','port','slider'].includes(meta.kind)&&d.components.find(c=>c.id===meta.id.split(':')[0]);
@@ -575,9 +576,9 @@
     }else if(meta?.kind==='port'){const p=world(e.clientX,e.clientY),ports=R.ports(owner).filter(p=>targets.has('port:'+p.id));ports.sort((a,b)=>Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y));if(ports[0])meta=tapMeta={...meta,id:ports[0].id};}
     if(!t&&e.pointerType==="mouse")blankMouseDown=e;
     if(!meta||['detachConnection','addConnectionWire'].includes(meta.kind))return;
-    if(meta.kind==='plug'&&(probeMode||!household||!allow(d,d.components.find(c=>c.id===meta.id),'plug')))return;
-    if(meta.kind==='hand'&&(probeMode||!household||!allow(d,d.components.find(c=>c.id===meta.id),'move')||!allow(d,d.components.find(c=>c.id===meta.id),'params','stance')))return;
-    if(meta.kind==='port'){if(probeMode)return;const w=selectedWire(),key=w&&['from','to'].find(k=>w[k]===meta.id);meta=key?{kind:'wireend',id:w.id,end:key,endpoint:meta.id}:{kind:'body',id:meta.id.split(':')[0]};}if(["wire","wireend","junction"].includes(meta.kind)&&!wireAllowed())return;if(probeMode&&meta.kind==="wireend")return;
+    if(meta.kind==='plug'&&(!household||!allow(d,d.components.find(c=>c.id===meta.id),'plug')))return;
+    if(meta.kind==='hand'&&(!household||!allow(d,d.components.find(c=>c.id===meta.id),'move')||!allow(d,d.components.find(c=>c.id===meta.id),'params','stance')))return;
+    if(meta.kind==='port'){const w=selectedWire(),key=w&&['from','to'].find(k=>w[k]===meta.id);meta=key?{kind:'wireend',id:w.id,end:key,endpoint:meta.id}:{kind:'body',id:meta.id.split(':')[0]};}if(["wire","wireend","junction"].includes(meta.kind)&&!wireAllowed())return;
     let readOnly=false;if(meta.kind==="body"||meta.kind==="slider"){const c=d.components.find(c=>c.id===meta.id);if(!allow(d,c,meta.kind==="slider"?"params":"move",meta.kind==="slider"?"position":undefined)){if(meta.kind!=="body"||e.pointerType!=="touch"||!readableMeter(d,c))return;readOnly=true;}}
     if(household&&meta.kind==='body')tapMeta={...tapMeta,operateProtection:Family.switchHit(d.components.find(c=>c.id===meta.id),world(e.clientX,e.clientY),d.display.view)};
     const before=selection&&M.clone(selection);selection={...meta};drag={...meta,pointerId:e.pointerId,pointerType:e.pointerType,target:t,down:world(e.clientX,e.clientY),x:e.clientX,y:e.clientY,lastX:e.clientX,lastY:e.clientY,baseDoc:M.clone(d),selectionBefore:before,tapMeta,connectionBefore:selectedConnection,moved:false,snap:null,limited:false};
@@ -660,11 +661,12 @@
     if($("preview").contains(e.target))return;
     const meta=e.detail&&releasedMeta?releasedMeta:e.target.closest(".hit")?.meta;releasedMeta=null;
     if(suppressClick&&e.detail)return;if(panMode)return;
+    const endpoint=meta?.endpoint??(meta?.kind==='port'?meta.id:meta?.kind==='junction'?meta.id+':p':meta?.kind==='wireend'?history.get().wires.find(w=>w.id===meta.id)?.[meta.end]:null);
+    if(probeMode){if(endpoint&&M.endpoints(history.get()).has(endpoint))probePort(endpoint);return;}
     if(meta?.kind==='addConnectionWire'){takeWire(meta.id);return;}
     if(meta?.kind==='detachConnection'){const endpoint=meta.id;cancel();if(!wireAllowed())return;change(doc=>M.detachConnection(doc,endpoint,32/camera.scale));selectedConnection=null;selection=null;render();notify('已拆開並分開全部線端；復原可還原整組接線。');return;}
-    const endpoint=meta?.endpoint??(meta?.kind==='port'?meta.id:meta?.kind==='junction'?meta.id+':p':meta?.kind==='wireend'?history.get().wires.find(w=>w.id===meta.id)?.[meta.end]:null);
-    selectedConnection=!probeMode&&endpoint&&M.endpoints(history.get()).has(endpoint)?endpoint:null;
-    if(meta){if(probeMode&&["port","junction","wireend","hand"].includes(meta.kind)){probePort(endpoint);return;}
+    selectedConnection=endpoint&&M.endpoints(history.get()).has(endpoint)?endpoint:null;
+    if(meta){
       if(!(selectedConnection&&selectedWire()&&[selectedWire().from,selectedWire().to].includes(selectedConnection)))selection={...meta};const c=selectedComponent(),protection=c&&['house-breaker','house-rcd'].includes(c.type);if(meta.kind==="body"&&["switch","spdt","house-switch","house-breaker","house-rcd"].includes(c?.type)&&(!protection||meta.operateProtection===true)&&allow(history.get(),c,"switch"))execute({type:'toggleSwitch',id:meta.id});else render();
     }else{selection=null;render();}
   });
@@ -681,6 +683,7 @@
     }
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="z"){e.preventDefault();undo(e.shiftKey);return;}
     if(host.querySelector("dialog[open]"))return;
+    if(probeMode)return;
     const focused=e.target.meta;if(focused)selection={...focused};
     if(e.key==='Enter'&&selection?.kind==='plug'){e.preventDefault();change(doc=>{const c=doc.components.find(c=>c.id===selection.id);if(!allow(doc,c,'plug'))throw Error('插頭已固定');const next=Family.previewPlug(doc,c.id,Family.plugPoint(c),wireAllowed()?24/camera.scale:0);if(next)Object.assign(doc,next.doc);});return;}
     if(e.key.toLowerCase()==="r"&&selection?.kind==="body"){e.preventDefault();rotate(selection.id,e.shiftKey?-1:1);}
@@ -722,7 +725,7 @@
   ["flow","potential","names","values"].forEach(id=>$(id).onchange=()=>change(doc=>{if(household&&id==='potential'){doc.display.potential=$(id).value==='potential';if($(id).value==='plain')doc.display.roleColours=false;else delete doc.display.roleColours;}else doc.display[id]=$(id).type==="checkbox"?$(id).checked:$(id).value;}));$("pause").onclick=()=>{if(timed){setPlayback({paused:!paused});return;}paused=!paused;lastTime=0;relayLastTime=performance.now();render(false);};$("slowMotion").onclick=()=>{if(timed&&(readOnly||!profile.simulation.rate))return;slowMotion=!slowMotion;lastTime=0;acLag=0;relayLastTime=performance.now();render(false);};
   Object.keys(M.quantityDefaults).filter(id=>$(id)).forEach(id=>$(id).onchange=()=>change(doc=>doc.display.quantities[id]=$(id).checked));
   $("mode").onchange=()=>{const value=$("mode").value;cancel();change(doc=>doc.policy.mode=value);};["allowRotate","allowParams","allowSwitch"].forEach(id=>$(id).onchange=()=>{const value=$(id).checked;cancel();change(doc=>doc.policy[id]=value);});
-  $("probe").onclick=()=>{cancelInteraction();probeMode=!probeMode;probeFirst=null;probeResult=null;panMode=false;wireMode=false;render();notify(probeMode?"點一個端子看電勢，再點另一個量兩點電壓。":"取線後拖端點接線；拿線身搬動或彎曲。");};
+  $("probe").onclick=()=>{cancelInteraction();probeMode=!probeMode;probeFirst=null;probeResult=null;selection=null;selectedConnection=null;panMode=false;wireMode=false;render();notify(probeMode?"點一個端子看電勢，再點另一個量兩點電壓。":"取線後拖端點接線；拿線身搬動或彎曲。");};
   $("pan").onclick=()=>{cancelInteraction();panMode=!panMode;probeMode=false;wireMode=false;render();notify(panMode?"手掌工具：拖動畫布；觸控板可雙指滑動，捏合縮放。再按一次返回拿取元件。":"已返回拿取模式，可拿導線端點或線身。");};
   $('pickWire').onclick=()=>{cancelInteraction();wireMode=!wireMode;panMode=false;probeMode=false;render();notify(wireMode?'拿導線：重疊時優先拿線身或線端。再按一次返回拿元件。':'已返回拿取元件與導線。');};
   host.querySelectorAll("[data-camera]").forEach(b=>b.onclick=()=>{cancel();const action=b.dataset.camera,r=surface.getBoundingClientRect();if(action==="fit"){autoFit=true;fit();}else{autoFit=false;if(["in","out"].includes(action))zoomAt(action==="in"?1.2:1/1.2,r.left+r.width/2,r.top+r.height/2);else{const delta=100/camera.scale;if(action==="left")camera.x-=delta;if(action==="right")camera.x+=delta;if(action==="up")camera.y-=delta;if(action==="down")camera.y+=delta;}}render(false);});
