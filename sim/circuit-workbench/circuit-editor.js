@@ -205,7 +205,7 @@
     // Hidden math labels need no rebuilding or layout until potential is shown.
     if(d.display.potential){
       const potentialRange=V.potentialRange(analysis),{low,high,max,known}=potentialRange,mid=(low+high)/2,equal=low===high;
-      $('potentialScale').style.background=known?'linear-gradient(to right,'+Array.from({length:21},(_,i)=>V.colour(low+(high-low)*i/20,max)+' '+i*5+'%').join(',')+')':V.colour(null,max);
+      $('potentialScale').style.background=known?'linear-gradient(to right,'+Array.from({length:21},(_,i)=>V.colour(low+(high-low)*i/20,max,household)+' '+i*5+'%').join(',')+')':V.colour(null,max,household);
       $('potentialScale').setAttribute('aria-label',known?(equal?'等電勢：'+Q.quantity(mid,'V').text:'電勢由低至高：'+[low,mid,high].map(v=>Q.quantity(v,'V').text).join('、')):'電勢未能確定');
       $('potentialLow').hidden=$('potentialHigh').hidden=equal||!known;$('potentialTicks').style.justifyContent=equal?'center':'space-between';
       for(const [id,label,value]of [['potentialLow','低',low],['potentialMid',equal?'等電勢':'中',mid],['potentialHigh','高',high]])$(id).innerHTML=known?rich([label+' ',Q.quantity(value,'V')]):'未能確定';

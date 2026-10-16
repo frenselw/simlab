@@ -10,12 +10,17 @@ assert.throws(()=>P.create('unknown'));
  for(const mode of ['roles','potential','plain','roles']){
   refs.potential.value=mode;refs.potential.onchange();assert.equal(d.display.potential,mode==='potential');assert.equal(d.display.roleColours===false,mode==='plain');
   const svg=V.scene(d,result,1),wire=id=>svg.match(new RegExp('data-wire="'+id+'"[^>]*stroke="([^"]+)"'))[1];
-  for(const role of ['L','N','E']){const w=d.wires.find(w=>result.wires[w.id].role===role);assert(w);assert.equal(wire(w.id),mode==='roles'?C.colours[role]:mode==='plain'?'#50677e':V.colour(result.wires[w.id].potential,V.potentialRange(result).max));}
+  for(const role of ['L','N','E']){const w=d.wires.find(w=>result.wires[w.id].role===role);assert(w);assert.equal(wire(w.id),mode==='roles'?C.colours[role]:mode==='plain'?'#50677e':'transparent');if(mode==='potential')assert(svg.includes('data-wire-potential="'+w.id+'"'),'effective household wire resistance enables a real SVG gradient');}
   assert.equal(svg.includes('data-house-earth-wire='),mode==='roles','yellow earth stripe only appears with L/N/E colours');
+  const leads=[...(svg+V.scene({...d,display:{...d.display,view:'schematic'}},result,1)).matchAll(/<path\b[^>]*data-house-conductor="[^"]+"[^>]*\/>/g)];assert(leads.length>8,'source, protection and appliance leads are covered');
+  if(mode!=='roles'){assert(!svg.includes('data-house-earth-stripe='));for(const [path]of leads)assert(mode==='potential'?/stroke="hsl\(/.test(path):path.includes('stroke="#50677e"'),'component leads follow the selected colour mode');}
   const saved=new H.Session(d),restored=H.Session.restore(H.decode(H.encode(saved.capture())));assert.deepEqual(restored.doc.display,d.display);restored.advance(.01);assert(restored.read().components.load.working);restored.destroy();saved.destroy();
  }
  assert.deepEqual(d.display,original,'returning to default preserves the original legacy display shape');
- const legacy=M.clone(d);legacy.display.potential=true;assert(V.scene(legacy,result,1).includes('stroke="'+V.colour(result.wires[d.wires[0].id].potential,V.potentialRange(result).max)+'"'));
+ const legacy=M.clone(d);legacy.display.potential=true;assert(V.scene(legacy,result,1).includes('stop-color="'+V.colour(result.wires[d.wires[0].id].potential,V.potentialRange(result).max,true)+'"'));
+ assert.equal(V.colour(0,230,true),'hsl(240 82% 46%)');assert.equal(V.colour(230,230,true),'hsl(0 82% 46%)');assert.equal(V.colour(null,230,true),'#64748b');
+ const load=d.components.find(c=>c.id==='load'),art=C.render(load,result.components.load,{potential:true,conductorColours:{l:V.colour(230,230,true),n:V.colour(0,230,true),e:V.colour(0,230,true)}}),lead=key=>art.match(new RegExp('<path[^>]*stroke="([^"]+)"[^>]*data-house-conductor="'+key+'"'))[1];assert.equal(lead('n'),lead('e'),'equal neutral / earth potentials have the same colour');assert.notEqual(lead('l'),lead('n'));
+ const open=M.clone(legacy);open.components.find(c=>c.id==='breaker').params.closed=false;const opened=new H.Session(open),unknown=V.scene(open,opened.read(),1);assert(unknown.includes('data-house-conductor="lo"'));assert(/<path[^>]*stroke="#64748b"[^>]*data-house-conductor="lo"/.test(unknown),'isolated output lead is drawn with unknown-potential grey');const breaker=open.components.find(c=>c.id==='breaker'),pins=Object.fromEntries(R.ports(breaker).map(p=>[p.key,V.colour(opened.read().potentials[p.id],230,true)]));assert.notEqual(pins.li,pins.lo,'isolated output must not inherit the live input colour');opened.destroy();
  for(const value of [null,0,'plain'])assert.throws(()=>M.validate({...d,display:{...d.display,roleColours:value}}));
  for(const analysis of ['dc','transient']){const other=M.empty(analysis);other.display.roleColours=false;assert.throws(()=>M.validate(other));}
  session.destroy();
@@ -111,7 +116,7 @@ for(const [key,id,low,high]of [['C08','socket','n','l'],['C09','person','hand-le
  const d=P.create(key),s=new H.Session(d),result=s.read(),before=s.capture(),options={potentialDirections:new Set([id])},label=V.labels(d,result,1,{},null,options).find(p=>p.id==='potential-'+id).rows[0];
  assert.equal(label.from,id+':'+low);assert.equal(label.to,id+':'+high);assert.equal(label.text,'電勢升高');
  const w=d.wires.find(w=>w.from==='source:l'),path=svg=>svg.match(new RegExp('data-wire="'+w.id+'"[^>]*stroke="([^"]+)"'))[1];
- assert.equal(path(V.scene(d,result)),'#a56535');d.display.potential=true;assert.equal(path(V.scene(d,result)),V.colour(result.wires[w.id].potential,V.potentialRange(result).max));
+ assert.equal(path(V.scene(d,result)),'#a56535');d.display.potential=true;const painted=V.scene(d,result);assert.equal(path(painted),'transparent');assert(painted.includes('data-wire-potential="'+w.id+'"'));assert(painted.includes('stop-color="'+V.colour(result.wires[w.id].potential,V.potentialRange(result).max,true)+'"'));
  assert.equal(result.wires[w.id].role,'L');assert.deepEqual(s.capture(),before,'display rendering does not change saved circuit state');s.destroy();
 }
 
