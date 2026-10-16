@@ -826,3 +826,7 @@ ced4917 的 Quality 38924680174 已完成：原先選錯手的步驟已通過，
 原 helper 的 6 組布局／點位回歸在舊碼實際失敗（使用舊座標 10，而非布局後的 60），改為 callback 後全過；原 household-connections owner（含 120 組手部命中）及 240 項登記通過，browser 語法及 diff 檢查通過。runtime 及打包資源與 ced4917 相同，無需重跑未變的本機打包或開 Chrome；新提交完整 CI 驗 source／package。
 
 c3af3b2 的 Quality 38931745075 仍在手機同一步 line 526 失敗，其餘七個 browser 分片均通過；因此延後座標取樣修正尚不足以證明該步問題已解決。原手機 helper 加受 AbortController 管理的 pointerdown／pointerup／click capture 與 bubble 記錄，包含實際元素、可信輸入、座標、相機、選取及保護狀態，並在原閉合斷言失敗時附上紀錄。先取得完整原生事件證據，保留原斷言，不再猜測操作失敗原因。本機仍不開 Chrome，main／分支清理繼續等待 CI 成功。
+
+0d25e6d 的 Quality 38935025561 原生證據確認：320×500、C04、scale 0.2391799544，實際模型點 (20,-99) 位於手柄（switchHit=true），但 pointerdown／pointerup／click 均命中 junction:bus-n-socket，進入 junction drag；可信 click 正常到達（detail=2），保護器維持 tripped。修正限共用 pointerdown 命中與原 Node owner：一般拿取模式下，若點中的是共接點 44 px 區域的透明邊緣、且實際位於保護器繪出的手柄，將手勢交給該手柄；實際 5 px 共接點圓點及「拿導線」模式保留共接點所有權。沿用權限／只讀、量測隔離及正常 release／click，保留原 source／package 斷言與事件證據。Node 用實際 pointerdown、release metadata 及 click 驗兩種保護器、視圖／旋轉／縮放、滑鼠／觸控、手柄／共接點／取線／量測／只讀；不改物理求解、文件或評分。這才是上述手機失敗的已確認 runtime 根因，先前取樣時序修正不作該步已解決證據。
+
+實際 handler 的回歸先在舊碼重現手柄點擊沒有 toggle 命令，再於修正後全過：兩類保護器 × 兩視圖 × 兩旋轉 × 三縮放 × 兩輸入 × 六意圖共 288 組，驗證選取／命令、可見圓點與取線優先、檢視／量測／只讀不操作及幾何不變。household-connections owner（含 120 手部及 6 取樣時序）、平台 18 群組、語法／manifest、240 項登記及五包重建通過。本機未開 Chrome；完整原生 source／package 以新提交 CI 為準，仍未合併 main 或刪分支。

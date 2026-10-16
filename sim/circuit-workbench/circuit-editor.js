@@ -607,8 +607,13 @@
       const p=world(e.clientX,e.clientY),ports=R.ports(d.components.find(c=>c.id===meta.id));
       ports.sort((a,b)=>Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y));meta=tapMeta={...meta,endpoint:ports[0].id};
     }
+    if(household&&meta?.kind==='junction'&&!wireMode){
+      const p=world(e.clientX,e.clientY),j=d.junctions.find(j=>j.id===meta.id),c=j&&Math.hypot(j.x-p.x,j.y-p.y)*camera.scale>5&&d.components.findLast(c=>Family.switchHit(c,p,d.display.view));
+      // The painted 5 px junction keeps its gesture; transparent padding must not cover a switch handle.
+      if(c)meta=tapMeta={kind:'body',id:c.id,operateProtection:true};
+    }
     const owner=meta&&['body','port','slider'].includes(meta.kind)&&d.components.find(c=>c.id===meta.id.split(':')[0]);
-    if(owner&&camera.scale<(R.dualMeter(owner)?.7:.55)){
+    if(owner&&!meta.operateProtection&&camera.scale<(R.dualMeter(owner)?.7:.55)){
       const p=world(e.clientX,e.clientY),features=['body:'+owner.id,'slider:'+owner.id,...R.ports(owner).map(p=>'port:'+p.id)].map(key=>targets.get(key)).filter(Boolean);
       features.sort((a,b)=>{const distance=t=>{const r=t.getBoundingClientRect(),q=world(r.left+r.width/2,r.top+r.height/2);return Math.hypot(q.x-p.x,q.y-p.y);};return distance(a)-distance(b);});if(features[0])meta=tapMeta=features[0].meta;
     }else if(meta?.kind==='port'){const p=world(e.clientX,e.clientY),ports=R.ports(owner).filter(p=>targets.has('port:'+p.id));ports.sort((a,b)=>Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y));if(ports[0])meta=tapMeta={...meta,id:ports[0].id};}
