@@ -146,3 +146,7 @@ Node 驗證：`household-connections.test.js`、`household-model.test.js`、`hou
 ### Version 12：舊款選單連續操作
 
 修正 UI reviewer 重驗找到的持續焦點問題：舊款改款後同步選項及值，使用值配對，避免第二次改款與畫面不符。Sites source：`fd5ac16f606749ecd4982ebe3831f25f1b3800d7`；saved version：`appgprj_6ad0b88108c08191a7568eda54a1f36c~appgver_2a77f05ba07c819197786c916cec6271`；deployment：`appgdep_6ad11994cd808191a56e56f6d47ff259`，原生回傳 `succeeded`，原網址及私人存取保持。Archive：`output/sites/circuit-household-workbench-focus-fix.tar.gz`。source／ZIP 50 checks 包含持續焦點可信 ArrowDown、連續改款／歷史；check／registry 及三尺寸部署目錄通過，30 runtime assets 與來源一致。新 head CI 及兩位原 reviewer 再驗另驗；未驗真手機或 Moodle。
+
+### 最新發布：三位拖板與全闊畫布（2026-10-16）
+
+同步 SimLab `9005206` 的全部 30 個 runtime assets，包含三人觸電比較、暫停保護事件及現存短路提示修正、三位拖板，以及移除左右各 32 px 的全高空白留位。Sites source：`a10391a8025f39c4d8d3b36ec6438322996fc397`；saved version：`appgprj_6ad0b88108c08191a7568eda54a1f36c~appgver_085404f87130819182c913a156419878`；deployment：`appgdep_6ad19c62740481918bd3a616ecf5d5f9`，原生回傳 `succeeded`，原網址及 owner-only 存取保持。官方 archive：`output/sites/circuit-household-workbench-power-strip-fullwidth.tar.gz`，30 個來源檔案逐 byte／SHA-256 相符，證據 `output/sites/household-power-strip-fullwidth-assets.json`。沿用本輪已記錄的 Node／靜態及套件檢查；按用戶要求未開 Chrome，未另做瀏覽器、真手機或 Moodle 驗收。
