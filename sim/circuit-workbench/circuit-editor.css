@@ -201,7 +201,8 @@
 .circuit-editor .hit.port{cursor:default}
 .circuit-editor .hit.connection-selected{outline:2px solid #2563eb;background:#93c5fd44!important}
 .circuit-editor .hit.wire.connection-wire{background:#93c5fd22!important}
-.circuit-editor .hit.detachConnection{z-index:12;border:1px solid #b5c9db;background:#fff!important;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;touch-action:manipulation}
+.circuit-editor :is(.hit.detachConnection,.hit.addConnectionWire){z-index:12;border:1px solid #b5c9db;background:#fff!important;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;touch-action:manipulation}
+.circuit-editor .hit.addConnectionWire{font-size:22px;color:#325d7b}
 .circuit-editor .hit.detachConnection small{position:absolute;right:3px;bottom:1px;font-size:10px;color:#325d7b}
 .circuit-editor .surface.grabbing,.circuit-editor .surface.grabbing .hit{cursor:grabbing}
 .circuit-editor .hand-tool{display:flex;align-items:center;justify-content:center;gap:6px}

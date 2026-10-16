@@ -7,6 +7,7 @@
     doc.wires.forEach(w=>join(w.from,w.to));
     C.handContacts(doc).forEach(({hand,target})=>join(hand,target));
     C.plugContacts(doc).forEach(({plug,target})=>join(plug,target));
+    for(const c of doc.components.filter(c=>c.type==='house-metal'))join(c.id+':e',c.id+':case');
     for(const c of doc.components.filter(c=>c.type==='house-power-strip'))for(const [from,to]of C.stripLinks)join(c.id+':'+from,c.id+':'+to);
     for(const c of doc.components){if(['house-meter','house-breaker','house-rcd'].includes(c.type)){join(c.id+':li',c.id+':lo');join(c.id+':ni',c.id+':no');}if(['house-switch','house-fuse'].includes(c.type))join(c.id+':a',c.id+':b');}
     const roles=new Map();for(const [id,p]of ports){if(!p.role)continue;const k=find(id);if(!roles.has(k))roles.set(k,new Set());roles.get(k).add(p.role);}
@@ -40,7 +41,7 @@
     }
   }
   function wireRole(doc,w,topology=inspect(doc)){
-    for(const end of [w.from,w.to]){const p=topology.ports.get(end);if(p&&C.isAppliance(p.component))return p.key.toUpperCase();}
+    for(const end of [w.from,w.to]){const p=topology.ports.get(end);if(p&&C.isAppliance(p.component)&&p.key!=='case')return p.key.toUpperCase();}
     return topology.roleOf(w.from)||topology.roleOf(w.to);
   }
   return Object.freeze({inspect,validate,wireRole,anchorPlugs});

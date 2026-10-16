@@ -28,7 +28,7 @@
     'house-switch':{name:'普通開關',icon:'S',ports:[port('a',-58,0,'一端'),port('b',58,0,'另一端')],bounds:{left:-45,right:45,top:-43,bottom:43},params:{closed:closed()}},
     'house-fuse':{name:'保險絲',icon:'熔絲',ports:[port('a',-64,0,'火線一端','L'),port('b',64,0,'火線另一端','L')],bounds:{left:-50,right:50,top:-42,bottom:42},primaryParameter:'rating',params:{rating:choice('額定電流',13,[3,5,13],{3:'3 A',5:'5 A',13:'13 A'})}},
     'house-earth':{name:'接地',icon:'⏚',ports:[port('e',58,0,'接地引線','E')],bounds:{left:-32,right:60,top:-32,bottom:32},params:{}},
-    'house-metal':{rotatable:false,name:'金屬外殼用電器',icon:'家電',ports:[...workPorts,port('e',-86,26,'外殼接地 E')],bounds:{left:-64,right:64,top:-69,bottom:101},primaryParameter:'kind',params:{kind:{...choice('家電種類','fan',Object.keys(applianceKinds.metal),{...Object.fromEntries(Object.entries(applianceKinds.metal).map(([k,v])=>[k,v.label+' · '+v.power+' W'])),aircon:'冷氣機 · 1000 W（舊文件）'}),legacyChoices:['aircon']},fault:choice('絕緣狀態',false,[false,true],{false:'正常',true:'絕緣破損（外殼漏電）'})}},
+    'house-metal':{rotatable:false,name:'金屬外殼用電器',icon:'家電',ports:[...workPorts,port('e',-86,26,'外殼接地 E'),port('case',-38,-17,'金屬外殼接點')],bounds:{left:-64,right:64,top:-69,bottom:101},primaryParameter:'kind',params:{kind:{...choice('家電種類','fan',Object.keys(applianceKinds.metal),{...Object.fromEntries(Object.entries(applianceKinds.metal).map(([k,v])=>[k,v.label+' · '+v.power+' W'])),aircon:'冷氣機 · 1000 W（舊文件）'}),legacyChoices:['aircon']},fault:choice('絕緣狀態',false,[false,true],{false:'正常',true:'絕緣破損（外殼漏電）'})}},
     'house-insulated':{rotatable:false,name:'雙重絕緣用電器',icon:'雙重',ports:workPorts,bounds:{left:-64,right:64,top:-69,bottom:101},primaryParameter:'kind',params:{kind:{...choice('家電種類','blender',Object.keys(applianceKinds.insulated),{...Object.fromEntries(Object.entries(applianceKinds.insulated).map(([k,v])=>[k,v.label+' · '+v.power+' W'])),lamp:'台燈 · 40 W（舊文件）'}),legacyChoices:['lamp']},fault:choice('絕緣狀態',false,[false,true],{false:'正常',true:'內層破損（外層完整）'})}},
     'house-person':{rotatable:false,name:'人',icon:'人',ports:[port('hand',40,-13,'右手接線點'),port('hand-left',-25,20,'左手接線點')],portsFor:c=>[port('hand',40,c.params.stance==='insulated'?-35:-13,'右手接線點'),port('hand-left',-25,c.params.stance==='insulated'?-2:20,'左手接線點')],bounds:{left:-42,right:47,top:-94,bottom:81},primaryParameter:'stance',params:{stance:choice('站立狀態','grounded',['grounded','insulated'],{grounded:'站在地上',insulated:'站在絕緣椅上'})}},
     'house-rcd':{name:'漏電保護器',icon:'30mA',ports:channelPorts,bounds:box,params:{closed:closed()}}
@@ -44,6 +44,7 @@
   }
   const power=c=>applianceKinds[c.type==='house-metal'?'metal':'insulated']?.[c.params.kind]?.power??(c.type==='house-insulated'&&c.params.kind==='lamp'?40:c.type==='house-metal'&&c.params.kind==='aircon'?1000:0);
   const isAppliance=c=>['house-metal','house-insulated'].includes(c.type);
+  definitions['house-metal'].portsFor=c=>{const p=contactPoint({...c,x:0,y:0,angle:0});return[...definitions['house-metal'].ports.filter(p=>p.key!=='case'),port('case',p.x,p.y,'金屬外殼接點')];};
   const isProtection=c=>['house-breaker','house-fuse','house-rcd'].includes(c.type);
   function switchHit(c,point,view='real'){
     if(!c||!['house-breaker','house-rcd'].includes(c.type))return false;
@@ -67,8 +68,8 @@
   }
   function handContacts(doc){
     // Exact contact follows the saved geometry; moving away must leave no cable.
-    const targets=doc.components.filter(c=>c.type!=='house-person').flatMap(c=>R.ports(c)),contacts=[];
-    for(const c of doc.components.filter(c=>c.type==='house-person'))for(const hand of R.ports(c)){const target=targets.find(p=>Math.hypot(p.x-hand.x,p.y-hand.y)<1e-6);if(target)contacts.push({hand:hand.id,target:target.id});}return contacts;
+    const targets=doc.components.filter(c=>c.type!=='house-person').flatMap(c=>R.ports(c)),shells=doc.components.filter(c=>c.type==='house-metal'),contacts=[];
+    for(const c of doc.components.filter(c=>c.type==='house-person'))for(const hand of R.ports(c)){const target=targets.find(p=>Math.hypot(p.x-hand.x,p.y-hand.y)<1e-6);if(target)contacts.push({hand:hand.id,target:target.id});else{const shell=shells.find(a=>{const p=contactPoint(a,hand);return Math.hypot(p.x-hand.x,p.y-hand.y)<1e-6;});if(shell)contacts.push({hand:hand.id,target:shell.id+':case'});}}return contacts;
   }
   function socketSites(doc,except){
     return doc.components.filter(c=>c.id!==except&&['house-socket','house-power-strip'].includes(c.type)).flatMap(c=>(c.type==='house-socket'?['']:['1','2','3']).map(suffix=>{
@@ -275,7 +276,7 @@
       const route=(right?'M40-13L28-2 16-18 0-12 '+(left?'L-15-18-20-1-25 20 ':''):left?'M-25 20L-20-1-15-18 0-12 ':'')+(active(r.groundCurrent)?'M0-12V8L1 31 M1 31L-9 48-14 73 M1 31L12 48 17 73':'');
       out+='<g data-house-person-shock="true" transform="translate(0 '+offset+')" pointer-events="none"><title>觸電：有電流流經人體</title><path d="M-35-39l-4 7 5 6 M34-40l5 7-4 6" fill="none" stroke="#c05a32" stroke-width="1.8" stroke-linecap="round"/><path data-house-body-current="true" d="'+route+'" fill="none" stroke="#fff1cf" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity=".8"/><path data-house-body-flow="true" d="'+route+'" fill="none" stroke="#c5532e" stroke-width="2.4" stroke-dasharray="4 4" stroke-linecap="round" stroke-linejoin="round"/></g>';
     }
-    if(r?.contact)out+=`<circle data-house-hand="true" cx="40" cy="${-13+offset}" r="6" fill="none" stroke="${Math.abs(r.current||0)>.000001?'#c17845':'#80a18c'}" stroke-width="1.5"/>`;
+    for(const p of R.localPorts(c))if((p.key==='hand'?r?.contact||r?.caseContacts?.right:r?.caseContacts?.left))out+=`<circle data-house-hand="true" data-house-contact-hand="${p.key}" cx="${p.x}" cy="${p.y}" r="6" fill="none" stroke="${Math.abs(r.current||0)>.000001?'#c17845':'#80a18c'}" stroke-width="1.5"/>`;
     return out;
   }
   function symbol(c,r,d,id){

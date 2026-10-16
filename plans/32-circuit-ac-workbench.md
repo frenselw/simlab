@@ -1512,3 +1512,7 @@ N/A：AC工作台及兩個示例沒有已評分SCO或raw LMS handling。後續�
 - source／解壓ZIP browser136 observations：衰減LC以公開單步連續取180點，首次整窗歸零後反向不再閃回；選取C／L及下方能量區數字0 J、條value=0，原始E>0、UI操作不改session；RL尾值、同功率亮度及2／50 Hz實時維持。波形browser194 observations通過，涵蓋探頭、軸、歷史、多工具及50 Hz兩圖真實時間。單次長流程超過工具5秒上限，改為12次單步一批，不放寬判定或時間預算。已檢視LC零能量截圖。
 - 四包統一重建；syntax／manifest及diff通過。證據：`output/ac-baseline/ac-cycle-display-*.log`。新增測試仍在既有總runner內；未重新驗證真Moodle／實機或全站既有阻塞，不改評分與物理模型版本。
 - 2026-10-16 CI 38773956454 的 AC source／ZIP protection-budget 在手機案例出現 103 ms long task，超過原有 100 ms 門檻。共用 label-layout 重用候選位置已計算的固定圖形／導線碰撞，只追加先前標籤碰撞，避免同一布局重算；fallback／上一位置檢查保留。沒有提高門檻或更改 solver。labels（120 responsive cases 加重疊三標籤）、layout、wire-current-labels 通過；30 組舊／新版標籤輸出及 previous slots 完全一致，局部 warmed Node benchmark 約為舊版 19.5% 耗時（不代表整體 browser 加速比例）。AC source／ZIP protection-budget 134 observations、家庭 source／ZIP 新示例 70 checks 及部署目錄三尺寸通過。證據：`output/playwright/circuit-ac/label-layout-ci-benchmark.json`、`protection-budget-after-label-fix.log`、`output/playwright/circuit-household/label-fix-examples.log`。遠端 CI 以新提交另驗。
+
+### 共用接點加線（2026-10-16）
+
+沿用 [DC 共用操作決定](28-circuit-workbench.md#共用接點加線與下方取線2026-10-16) 及[作者說明](../docs/circuit-activity-authoring.md#接點快捷取線與下方取線位置)。AC 不複製 UI、不修改暫態求解或 session schema；新導線照常交既有 Session.update 處理電路變更。platform-core 已執行 AC 的取線、分支及保存往返，AC platform owner 通過。本機不開 Chrome，完整 browser 及遠端 CI 另驗。

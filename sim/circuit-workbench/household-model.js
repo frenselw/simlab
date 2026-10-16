@@ -9,13 +9,13 @@
   const electricalKey=(doc,state)=>JSON.stringify([doc.supplyVoltage,doc.components.map(c=>[c.id,c.type,c.params]),doc.junctions.map(j=>j.id),doc.wires.map(w=>[w.id,w.from,w.to]),C.handContacts(doc),C.plugContacts(doc),state.contacts,Object.entries(state.protection).map(([id,p])=>[id,p.status])]);
   // Session events reuse validated geometry; public solve still validates external documents.
   function* solveSteps(doc,state=initial(doc)){
-    const topology=Connections.inspect(doc),ports=M.endpoints(doc),keys=[...ports.keys(),'@earth',...doc.components.filter(C.isAppliance).map(c=>c.id+':case'),...doc.components.filter(c=>c.type==='house-person').map(c=>c.id+':body')],parent=new Map(keys.map(k=>[k,k]));
+    const topology=Connections.inspect(doc),ports=M.endpoints(doc),contacts=C.handContacts(doc),keys=[...new Set([...ports.keys(),'@earth',...doc.components.filter(C.isAppliance).map(c=>c.id+':case'),...doc.components.filter(c=>c.type==='house-person').map(c=>c.id+':body')])],parent=new Map(keys.map(k=>[k,k]));
     const find=k=>{let p=k;while(parent.get(p)!==p)p=parent.get(p);return p;};
     const join=(a,b)=>parent.set(find(a),find(b));
     yield;
     for(const c of doc.components){if(c.type==='house-earth')join(c.id+':e','@earth');if(c.type==='house-mains')join(c.id+':n','@earth');if(c.type==='house-metal')join(c.id+':e',c.id+':case');}
     for(const c of doc.components)if(c.type==='house-person'&&state.contacts[c.id])join(c.id+':hand',state.contacts[c.id]+':case');
-    C.handContacts(doc).forEach(({hand,target})=>join(hand,target));
+    contacts.forEach(({hand,target})=>join(hand,target));
     C.plugContacts(doc).forEach(({plug,target})=>join(plug,target));
     const ground=find('@earth'),nets=[...new Set(keys.map(find))].filter(k=>k!==ground),index=new Map(nets.map((k,i)=>[k,i])),edges=[];
     const edge=(id,owner,from,to,resistance,emf=0)=>{edges.push({id,owner,from,to,a:find(from),b:find(to),resistance,emf});};
@@ -39,7 +39,7 @@
     const external=new Map(keys.map(k=>[k,k])),externalFind=k=>{let p=k;while(external.get(p)!==p)p=external.get(p);while(external.get(k)!==k){const next=external.get(k);external.set(k,p);k=next;}return p;},externalJoin=(a,b)=>external.set(externalFind(a),externalFind(b));
     for(const e of edges)if(e.resistance<=constants.sourceResistance&&e.id!==e.owner+':source')externalJoin(e.from,e.to);
     for(const c of doc.components){if(c.type==='house-metal')externalJoin(c.id+':e',c.id+':case');if(c.type==='house-person'&&state.contacts[c.id])externalJoin(c.id+':hand',state.contacts[c.id]+':case');}
-    C.handContacts(doc).forEach(({hand,target})=>externalJoin(hand,target));
+    contacts.forEach(({hand,target})=>externalJoin(hand,target));
     C.plugContacts(doc).forEach(({plug,target})=>externalJoin(plug,target));
     const earthRoots=new Set(doc.components.filter(c=>c.type==='house-earth').map(c=>externalFind(c.id+':e'))),supplyRoots=new Set(doc.components.filter(c=>c.type==='house-mains').flatMap(c=>[externalFind(c.id+':l'),externalFind(c.id+':n')]));
     // Trace actual closed conductors; socket lettering remains a separate display role.
@@ -69,10 +69,11 @@
       const at=k=>c.id+':'+k,load=branches[c.id+':load'],line=branches[c.id+':l'],neutral=branches[c.id+':n'],source=branches[c.id+':source'],sw=branches[c.id+':switch'];
       const result={voltage:load?.voltage??source?.voltage??sw?.voltage??null,current:load?.current??source?.current??sw?.current??line?.current??0,power:load?.power??0,branches:edges.filter(e=>e.owner===c.id).map(e=>branches[e.id])};
       if(c.type==='house-mains'){result.power=source?.power===null?null:-source.power;result.current=source?.current===null?null:-source.current;result.voltage=source?.voltage;}
-      if(C.isAppliance(c)){result.resistance=constants.voltage**2/C.power(c);result.casePotential=potential(at('case'));result.leakageCurrent=branches[c.id+':fault']?.current??0;result.connectionSources=Object.fromEntries(R.ports(c).map(p=>[p.key,connectionSources(p.id)]));result.connections=Object.fromEntries(Object.entries(result.connectionSources).map(([key,roles])=>[key,roles.length===1?roles[0]:null]));result.earthed=c.type==='house-metal'&&earthRoots.has(externalFind(at('e')))&&!supplyRoots.has(externalFind(at('e')));result.working=Number.isFinite(result.power)&&result.power>.01;}
+      if(C.isAppliance(c)){result.resistance=constants.voltage**2/C.power(c);result.casePotential=potential(at('case'));result.leakageCurrent=branches[c.id+':fault']?.current??0;result.connectionSources=Object.fromEntries(R.ports(c).filter(p=>p.key!=='case').map(p=>[p.key,connectionSources(p.id)]));result.connections=Object.fromEntries(Object.entries(result.connectionSources).map(([key,roles])=>[key,roles.length===1?roles[0]:null]));result.earthed=c.type==='house-metal'&&earthRoots.has(externalFind(at('e')))&&!supplyRoots.has(externalFind(at('e')));result.working=Number.isFinite(result.power)&&result.power>.01;}
       if(c.type==='house-person'){
         const right=branches[at('human-right')],left=branches[at('human-left')],feet=branches[at('human-ground')];
         result.contact=state.contacts[c.id];result.handCurrents={right:right?.current??0,left:left?.current??0};result.groundCurrent=feet?.current??0;
+        result.caseContacts=Object.fromEntries([['right','hand'],['left','hand-left']].map(([side,key])=>[side,contacts.find(p=>p.hand===at(key)&&p.target.endsWith(':case'))?.target.split(':')[0]||null]));
         result.current=Math.max(Math.abs(result.handCurrents.right),Math.abs(result.handCurrents.left),Math.abs(result.groundCurrent));
         result.voltage=potential(at('hand'));result.handVoltage=voltage(at('hand'),at('hand-left'));result.power=[right,left,feet].reduce((sum,b)=>sum+(b?.power??0),0);
       }

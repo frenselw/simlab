@@ -157,7 +157,7 @@
       put("body:"+c.id,{kind:"body",id:c.id,label:c.label+"，拖動本體或用方向鍵移動"},screen(acBounds?{x:(acBounds.left+acBounds.right)/2,y:(acBounds.top+acBounds.bottom)/2}:center),(acBounds?acBounds.right-acBounds.left:Math.abs(Math.cos(angle))*w+Math.abs(Math.sin(angle))*h)*camera.scale,(acBounds?acBounds.bottom-acBounds.top:Math.abs(Math.sin(angle))*w+Math.abs(Math.cos(angle))*h)*camera.scale,allow(d,c,"move")||readableMeter(d,c)?"none":"pan-y");
       targets.get('body:'+c.id).classList.toggle('overview',camera.scale<(dual?.7:.55));
       if(household&&c.type==='house-power-strip')put('plug:'+c.id,{kind:'plug',id:c.id,label:'拖板插頭：拖到插座吸附，方向鍵移動，Shift 加方向鍵微調，Enter 插入附近插座'},screen(Family.plugPoint(c)),86*camera.scale,87*camera.scale,allow(d,c,'plug')?'none':'pan-y');
-      if(household&&c.type==='house-person')for(const p of R.ports(c))put(p.key==='hand'?'hand:'+c.id:'port:'+p.id,{kind:'hand',id:c.id,endpoint:p.id,label:p.label+'：可拖到接線端或插座孔吸附'+(p.key==='hand'?'，或接觸家電外殼':'')},screen(p),44,44,readOnly?'pan-y':'none').classList.add('port');
+      if(household&&c.type==='house-person')for(const p of R.ports(c))put(p.key==='hand'?'hand:'+c.id:'port:'+p.id,{kind:'hand',id:c.id,endpoint:p.id,label:p.label+'：可拖到接線端或插座孔吸附'+'，或接觸金屬家電外殼'},screen(p),44,44,readOnly?'pan-y':'none').classList.add('port');
       if(c.type==="rheostat"){const angle=c.angle*Math.PI/180,x=-30+c.params.position*60,y=(c.params.terminals??2)>2?-34:38;put("slider:"+c.id,{kind:"slider",id:c.id,label:c.label+"滑片，拖動調整電阻"},screen({x:c.x+x*Math.cos(angle)-y*Math.sin(angle),y:c.y+x*Math.sin(angle)+y*Math.cos(angle)}),44,44,allow(d,c,"params","position")?"none":"pan-y");}
       R.ports(c).filter(p=>!p.hidden&&!(household&&c.type==='house-person')&&((dual?camera.scale>=.7:camera.scale>=.55)||probeMode||drag?.kind==="wireend"||M.degree(d,p.id)>0)).forEach(p=>{const t=put("port:"+p.id,{kind:"port",id:p.id,label:c.label+" "+p.label+"端子，拖導線端點到這裏接好"},screen(p),44,44,!probeMode&&allow(d,c,"move")?"none":"pan-y");t.classList.toggle("overview",camera.scale<(dual?.7:.55));});
     });
@@ -166,9 +166,14 @@
       points.slice(1).forEach((p,i)=>{const a=screen(points[i]),b=screen(p),n=put("wire:"+w.id+":"+i,{kind:"wire",id:w.id,segment:i,point:{x:(points[i].x+p.x)/2,y:(points[i].y+p.y)/2},label:"導線 "+w.id+"，拿線身搬動或彎曲"},{x:(a.x+b.x)/2,y:(a.y+b.y)/2},Math.hypot(b.x-a.x,b.y-a.y)+6,18);n.style.transform+=` rotate(${Math.atan2(b.y-a.y,b.x-a.x)*180/Math.PI}deg)`;n.classList.toggle("selected",selection?.id===w.id);});
       const ends=M.endpoints(d);["from","to"].forEach((end,i)=>{if(!M.attached(d,w,end)||selection?.id===w.id||wireMode){const n=put("wireend:"+w.id+":"+end,{kind:"wireend",id:w.id,end,endpoint:w[end],label:`導線 ${w.id} ${i?"B":"A"}端，${M.attached(d,w,end)?"拉走可拔開":"拖到端子或其他線端接好"}`},screen(ends.get(w[end])));n.classList.toggle("selected",selection?.id===w.id);}});
     });
-    const connection=selectedConnection&&M.endpoints(d).get(selectedConnection),count=connection?M.degree(d,selectedConnection):0;
+    const connection=selectedConnection&&M.endpoints(d).get(selectedConnection),count=connection?M.degree(d,selectedConnection):0,detach=count&&M.attached(d,{from:selectedConnection},'from');
     for(const t of targets.values()){t.classList.toggle('connection-selected',!!connection&&t.meta.id===selectedConnection||!!connection&&t.meta.endpoint===selectedConnection);t.classList.toggle('connection-wire',!!connection&&t.meta.kind==='wire'&&d.wires.some(w=>w.id===t.meta.id&&(w.from===selectedConnection||w.to===selectedConnection)));}
-    if(connection&&count&&screen(connection).x>=0&&screen(connection).x<=surface.clientWidth&&screen(connection).y>=0&&screen(connection).y<=surface.clientHeight&&wireAllowed()&&!probeMode&&!drag&&!cameraGesture){const p=screen(connection),icon=put('detachConnection',{kind:'detachConnection',id:selectedConnection,label:'拆開全部 · '+count+' 個線端'},{x:Math.max(24,Math.min(surface.clientWidth-24,p.x+38)),y:Math.max(24,Math.min(surface.clientHeight-24,p.y-38))},44,44,'manipulation');icon.title=icon.meta.label;icon.innerHTML='<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#'+prefix+'icon-detach"/></svg><small>'+count+'</small>';}
+    if(connection&&screen(connection).x>=0&&screen(connection).x<=surface.clientWidth&&screen(connection).y>=0&&screen(connection).y<=surface.clientHeight&&wireAllowed()&&!probeMode&&!drag&&!cameraGesture){
+      const p=screen(connection),width=surface.clientWidth,height=surface.clientHeight,space=detach?50:0;
+      const side=p.x+48+space<=width-24?p.x+48:p.x-48-space,x=Math.max(24,Math.min(width-24-space,side)),y=Math.max(24,Math.min(height-24,p.y-48<24?p.y+48:p.y-48));
+      const add=put('addConnectionWire',{kind:'addConnectionWire',id:selectedConnection,label:'由此接點加一條導線'},{x,y},44,44,'manipulation');add.title=add.meta.label;add.disabled=d.wires.length>=d.cables.count;add.innerHTML='<span aria-hidden="true">＋</span>';
+      if(detach){const icon=put('detachConnection',{kind:'detachConnection',id:selectedConnection,label:'拆開全部 · '+count+' 個線端'},{x:x+50,y},44,44,'manipulation');icon.title=icon.meta.label;icon.innerHTML='<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#'+prefix+'icon-detach"/></svg><small>'+count+'</small>';}
+    }
     for(const [key,t]of targets)if(!needed.has(key)&&t!==drag?.target&&![...touches.values()].some(p=>p.target===t)){t.remove();targets.delete(key);}
   }
   function canDiscard(grip,doc=grip?.baseDoc){
@@ -474,8 +479,15 @@
   function unplug(id,key){cancel();change(doc=>{M.detach(doc,id,key);selection={kind:"wireend",id,end:key};});notify("已拔開這一端，導線留在畫布，可重新接線。");}
   function straighten(id){cancel();if(change(doc=>M.straightenWire(doc,id)))notify("導線已拉直，兩端接線保持不變；可再拿線身彎曲。");}
   function tidy(id){cancel();change(doc=>{doc.wires.filter(w=>!id||w.id===id).forEach(w=>{const points=G.route(doc,w),clean=G.smooth(G.simplify(points,12));const fitted=G.fitLength(G.resample(clean,10),w.length);if(!fitted)throw new Error('導線已拉盡；移近端點後再整理線形。');w.shape="free";w.via=fitted.slice(1,-1).map(p=>({x:p.x,y:p.y}));});});}
-  function takeWire(){if(!wireAllowed())return false;cancel();panMode=false;probeMode=false;const ok=change(doc=>{const x=camera.x+surface.clientWidth/(2*camera.scale),y=camera.y+surface.clientHeight/(2*camera.scale);let dy=0;while(doc.wires.some(w=>{const points=G.route(doc,w),mid=G.along(points,G.length(points)/2);return Math.hypot(mid.x-x,mid.y-y-dy)<45;}))dy+=45;const w=addWire(doc,x,y+dy);selection={kind:"wire",id:w.id};});if(ok)notify("直線導線已取出。拿端點時另一端固定；拿線身可搬整條，接好一端後可彎曲。");}
-  $("quickWire").onclick=takeWire;
+  function wirePlacement(doc,endpoint){
+    const width=surface.clientWidth,height=surface.clientHeight,pad=Math.min(32,width/4,height/4),clamp=(v,max)=>Math.max(pad,Math.min(max-pad,v)),length=Math.min(120,doc.cables.length*.65*camera.scale,width-2*pad);
+    if(endpoint){const origin=M.endpoints(doc).get(endpoint);if(!origin)throw Error('接線點不存在');const p=screen(origin),dx=origin.dx||(!origin.dy?1:0),dy=origin.dy||0;return{from:origin,to:{x:camera.x+clamp(p.x+dx*length,width)/camera.scale,y:camera.y+clamp(p.y+dy*length,height)/camera.scale}};}
+    const rows=Math.max(1,Math.floor((height-2*pad)/28));let x=width/2,y=height-pad;
+    for(let n=0;n<=doc.wires.length;n++){x=Math.max(pad+length/2,Math.min(width-pad-length/2,width/2+(Math.floor(n/rows)%2?1:-1)*Math.ceil(Math.floor(n/rows)/2)*28));y=clamp(height-pad-(n%rows)*28,height);if(!doc.wires.some(w=>{const points=G.route(doc,w),q=screen(G.along(points,G.length(points)/2));return Math.hypot(q.x-x,q.y-y)<22;}))break;}
+    return{from:{x:camera.x+(x-length/2)/camera.scale,y:camera.y+y/camera.scale},to:{x:camera.x+(x+length/2)/camera.scale,y:camera.y+y/camera.scale}};
+  }
+  function takeWire(endpoint=null){if(!wireAllowed())return false;cancel();panMode=false;probeMode=false;const fitted=autoFit;autoFit=false;const ok=change(doc=>{const p=wirePlacement(doc,endpoint),w=addWire(doc,(p.from.x+p.to.x)/2,(p.from.y+p.to.y)/2);M.moveWireEnd(doc,w.id,'from',p.from);M.moveWireEnd(doc,w.id,'to',p.to);if(endpoint&&!M.attach(doc,w.id,'from',endpoint))throw Error('導線未能接到此接點');selection={kind:'wireend',id:w.id,end:'to'};selectedConnection=endpoint;});if(!ok)autoFit=fitted;else notify(endpoint?'導線已由接點接出，拖自由端繼續接線。':'導線已放在畫布下方，拖動線端接線。');return ok;}
+  $("quickWire").onclick=()=>takeWire();
   on($("addWire"),'click',e=>{if(suppressedToolClick($("addWire"),e))return;takeWire();});
   for(const [id,key]of [['cableCount','count'],['cableResistance','resistance']]){
     on($(id),'input',()=>settingsDrafts.set(id,$(id).value));
@@ -540,7 +552,7 @@
       features.sort((a,b)=>{const distance=t=>{const r=t.getBoundingClientRect(),q=world(r.left+r.width/2,r.top+r.height/2);return Math.hypot(q.x-p.x,q.y-p.y);};return distance(a)-distance(b);});if(features[0])meta=tapMeta=features[0].meta;
     }else if(meta?.kind==='port'){const p=world(e.clientX,e.clientY),ports=R.ports(owner).filter(p=>targets.has('port:'+p.id));ports.sort((a,b)=>Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y));if(ports[0])meta=tapMeta={...meta,id:ports[0].id};}
     if(!t&&e.pointerType==="mouse")blankMouseDown=e;
-    if(!meta||meta.kind==='detachConnection')return;
+    if(!meta||['detachConnection','addConnectionWire'].includes(meta.kind))return;
     if(meta.kind==='plug'&&(probeMode||!household||!allow(d,d.components.find(c=>c.id===meta.id),'plug')))return;
     if(meta.kind==='hand'&&(probeMode||!household||!allow(d,d.components.find(c=>c.id===meta.id),'move')||!allow(d,d.components.find(c=>c.id===meta.id),'params','stance')))return;
     if(meta.kind==='port'){if(probeMode)return;const w=selectedWire(),key=w&&['from','to'].find(k=>w[k]===meta.id);meta=key?{kind:'wireend',id:w.id,end:key,endpoint:meta.id}:{kind:'body',id:meta.id.split(':')[0]};}if(["wire","wireend","junction"].includes(meta.kind)&&!wireAllowed())return;if(probeMode&&meta.kind==="wireend")return;
@@ -564,8 +576,8 @@
     if(drag.kind==='hand'){
       const original=drag.baseDoc.components.find(c=>c.id===drag.id),start=R.ports(original).find(q=>q.id===drag.endpoint),wanted={x:start.x+p.x-drag.down.x,y:start.y+p.y-drag.down.y},position={x:original.x+wanted.x-start.x,y:original.y+wanted.y-start.y};let contact=null,distance=24/camera.scale;
       const snapped=wireAllowed()?J.component(drag.baseDoc,drag.id,position,distance,drag.endpoint,drag.baseDoc.components.filter(c=>c.type!=='house-person').flatMap(c=>R.ports(c))):null;
-      if(!snapped&&drag.endpoint===drag.id+':hand')for(const c of drag.baseDoc.components.filter(Family.isAppliance)){const point=Family.contactPoint(c,wanted),gap=Math.hypot(point.x-wanted.x,point.y-wanted.y);if(gap<distance){distance=gap;contact={id:c.id,...point};}}
-      drag.snap=snapped?.snap||contact;drag.contactTarget=contact?.id||null;drag.limited=false;
+      if(!snapped)for(const c of drag.baseDoc.components.filter(c=>drag.endpoint===drag.id+':hand'?Family.isAppliance(c):c.type==='house-metal')){const point=Family.contactPoint(c,wanted),gap=Math.hypot(point.x-wanted.x,point.y-wanted.y);if(gap<distance){distance=gap;contact={id:c.id,...point};}}
+      drag.snap=snapped?.snap||contact;drag.contactTarget=contact?.id||(snapped?.snap.endpoint?.endsWith(':case')?snapped.snap.endpoint.split(':')[0]:null);drag.limited=false;
       if(snapped)previewDoc=snapped.doc;
       else{const focus=contact||wanted,moved=moveObject(drag.baseDoc,'body',drag.id,focus.x-start.x,focus.y-start.y);previewDoc=moved.doc;if(moved.limited){drag.snap=null;drag.contactTarget=null;drag.limited=true;}}
       drag.focus=R.ports(previewDoc.components.find(c=>c.id===drag.id)).find(q=>q.id===drag.endpoint);
@@ -599,7 +611,7 @@
     // Keep the original tap target rather than reselecting whatever moved under it.
     releasedMeta=!done.moved&&!done.quick&&done.kind!=="pan"?M.clone(done.tapMeta||selection):null;
     if(done.target.hasPointerCapture(e.pointerId))done.target.releasePointerCapture(e.pointerId);
-    if(done.kind==='hand'){if(done.moved&&done.contactTarget)setContact(done.id,done.contactTarget,done.focus);else if(done.moved&&preview){if(change(doc=>Object.assign(doc,preview)))notify(done.snap?'手部已接觸接線位置。':done.limited?'導線已拉盡，接線保持不變。':'人物位置已更新。');}else{discardParamPreview();previewDoc=null;analysis=solve(history.get());render();}return;}
+    if(done.kind==='hand'){if(done.moved&&done.contactTarget&&done.endpoint===done.id+':hand')setContact(done.id,done.contactTarget,done.focus);else if(done.moved&&preview){if(change(doc=>Object.assign(doc,preview)))notify(done.snap?'手部已接觸接線位置。':done.limited?'導線已拉盡，接線保持不變。':'人物位置已更新。');}else{discardParamPreview();previewDoc=null;analysis=solve(history.get());render();}return;}
     if(discardZone){
       $('canvasNotice').hidden=true;analysis=solve(history.get());
       if(canDiscard(done,history.get())){if(change(doc=>{if(!canDiscard(done,doc))throw new Error('此物件不能拖放刪除');M.remove(doc,done.id);}))notify('已刪除；復原可還原，刪線歸還庫存。');}
@@ -626,9 +638,10 @@
     if($("preview").contains(e.target))return;
     const meta=e.detail&&releasedMeta?releasedMeta:e.target.closest(".hit")?.meta;releasedMeta=null;
     if(suppressClick&&e.detail)return;if(panMode)return;
+    if(meta?.kind==='addConnectionWire'){takeWire(meta.id);return;}
     if(meta?.kind==='detachConnection'){const endpoint=meta.id;cancel();if(!wireAllowed())return;change(doc=>M.detachConnection(doc,endpoint,32/camera.scale));selectedConnection=null;selection=null;render();notify('已拆開並分開全部線端；復原可還原整組接線。');return;}
     const endpoint=meta?.endpoint??(meta?.kind==='port'?meta.id:meta?.kind==='junction'?meta.id+':p':meta?.kind==='wireend'?history.get().wires.find(w=>w.id===meta.id)?.[meta.end]:null);
-    selectedConnection=!probeMode&&endpoint&&M.attached(history.get(),{from:endpoint},'from')?endpoint:null;
+    selectedConnection=!probeMode&&endpoint&&M.endpoints(history.get()).has(endpoint)?endpoint:null;
     if(meta){if(probeMode&&["port","junction","wireend","hand"].includes(meta.kind)){probePort(endpoint);return;}
       if(!(selectedConnection&&selectedWire()&&[selectedWire().from,selectedWire().to].includes(selectedConnection)))selection={...meta};const c=selectedComponent(),protection=c&&['house-breaker','house-rcd'].includes(c.type);if(meta.kind==="body"&&["switch","spdt","house-switch","house-breaker","house-rcd"].includes(c?.type)&&(!protection||meta.operateProtection===true)&&allow(history.get(),c,"switch"))execute({type:'toggleSwitch',id:meta.id});else render();
     }else{selection=null;render();}

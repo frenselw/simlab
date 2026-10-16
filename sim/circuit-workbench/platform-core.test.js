@@ -71,4 +71,27 @@ test('pure DC hazards preserve short paths, finite resistance, unknowns and thre
   assert.equal(check(null).components[lamp.id],undefined);assert.equal(check(4.5).components[lamp.id],undefined);assert.equal(check(4.500001).components[lamp.id],'overload');
   assert.deepEqual(V.visualState(doc,result),S.hazards(doc,result));assert.equal(V.hazardLimits,S.hazardLimits);
 });
+test('shared point and lower-canvas wire creation preserves branches, stock, permissions and history in DC/AC/household',()=>{
+  const fs=require('node:fs'),vm=require('node:vm'),G=require('./circuit-routing'),source=fs.readFileSync(require.resolve('./circuit-editor'),'utf8');require('./circuit-ac-components');require('./circuit-household-components');
+  const code=source.slice(source.indexOf('  function wirePlacement('),source.indexOf('  $("quickWire").onclick'));
+  for(const [analysis,type,port]of [['dc','resistor','a'],['transient','resistor','a'],['household','house-socket','l']])for(const [width,height,scale]of [[390,360,.5],[1280,600,2],[320,100,.8]]){
+    const d=M.empty(analysis),camera={x:-300,y:-200,scale},c=M.add(d,type,camera.x+width/2/scale,camera.y+height/3/scale),endpoint=c.id+':'+port,initial=M.clone(d);let history=M.history(d),enabled=true;
+    const context=vm.createContext({M,G,camera,surface:{clientWidth:width,clientHeight:height},autoFit:true,selection:null,selectedConnection:null,panMode:false,probeMode:false,screen:p=>({x:(p.x-camera.x)*scale,y:(p.y-camera.y)*scale}),wireAllowed:()=>enabled,cancel(){},notify(){},addWire:M.addWire,change:fn=>{try{history.change(fn);return true;}catch{return false;}}});vm.runInContext(code,context);
+    assert(context.takeWire());const loose=history.get(),w=loose.wires[0],a=M.endpoints(loose).get(w.from),b=M.endpoints(loose).get(w.to);assert(a.x<b.x);assert((a.y-camera.y)*scale>=height/2);for(const p of [a,b]){assert((p.x-camera.x)*scale>=0&&(p.x-camera.x)*scale<=width);assert((p.y-camera.y)*scale>=0&&(p.y-camera.y)*scale<=height);}assert.equal(w.length,d.cables.length);assert.equal(context.autoFit,false);
+    assert(context.takeWire());assert.notDeepEqual(M.endpoints(history.get()).get(history.get().wires[1].from),a);assert(history.undo());assert.deepEqual(history.get(),loose);
+    assert(context.takeWire(endpoint));const first=M.clone(history.get().wires),free=first[0].from;assert.equal(first.at(-1).from,endpoint);assert(context.takeWire(endpoint));assert.deepEqual(history.get().wires.slice(0,-1),first);assert.equal(M.degree(history.get(),endpoint),2);
+    assert(context.takeWire(free));assert.equal(M.degree(history.get(),free),2,'an existing loose wire end can become a branch');const after=M.clone(history.get());assert.deepEqual(D.decode(D.encode(after)),after);assert(history.undo());assert(history.redo());assert.deepEqual(history.get(),after);
+    enabled=false;assert.equal(context.takeWire(endpoint),false);assert.deepEqual(history.get(),after);enabled=true;
+    const full=M.clone(after);full.cables.count=full.wires.length;history=M.history(full);assert.equal(context.takeWire(endpoint),false);assert.deepEqual(history.get(),full);assert.deepEqual(d,initial);
+  }
+});
+test('shared connection actions show add for empty, loose and occupied points with touch-size targets and guards',()=>{
+ const fs=require('node:fs'),vm=require('node:vm'),G=require('./circuit-routing'),source=fs.readFileSync(require.resolve('./circuit-editor'),'utf8'),d=M.empty(),c=M.add(d,'resistor',200,100),endpoint=c.id+':a',targets=new Map();let enabled=true;
+ const context=vm.createContext({M,R,G,targets,camera:{scale:1},surface:{clientWidth:320,clientHeight:240},selection:null,selectedConnection:endpoint,drag:null,cameraGesture:null,touches:new Map(),wireMode:false,probeMode:false,household:false,prefix:'test-',routes:{},screen:p=>p,allow:M.permission,wireAllowed:()=>enabled,readableMeter:()=>false,target:(key,meta,p,width,height)=>{const t=targets.get(key)||{style:{transform:''},classList:{toggle(){}},remove(){}};Object.assign(t,{meta,p,width,height});targets.set(key,t);return t;}});
+ vm.runInContext(source.slice(source.indexOf('  function renderHits('),source.indexOf('  function canDiscard(')),context);
+ context.renderHits(d);assert(targets.has('addConnectionWire'));assert(!targets.has('detachConnection'));assert.equal(targets.get('addConnectionWire').width,44);assert.equal(targets.get('addConnectionWire').height,44);
+ const w=M.addWire(d,200,180);context.routes={[w.id]:G.route(d,w)};context.selectedConnection=w.from;context.renderHits(d);assert(targets.has('addConnectionWire'));assert(!targets.has('detachConnection'));
+ assert(M.attach(d,w.id,'from',endpoint));context.selectedConnection=endpoint;context.routes={[w.id]:G.route(d,w)};context.renderHits(d);assert(targets.has('addConnectionWire'));assert(targets.has('detachConnection'));for(const key of ['addConnectionWire','detachConnection']){const t=targets.get(key);assert(t.p.x>=22&&t.p.x<=298&&t.p.y>=22&&t.p.y<=218);}
+ d.cables.count=1;context.renderHits(d);assert.equal(targets.get('addConnectionWire').disabled,true);enabled=false;context.renderHits(d);assert(!targets.has('addConnectionWire'));assert(!targets.has('detachConnection'));enabled=true;context.probeMode=true;context.renderHits(d);assert(!targets.has('addConnectionWire'));
+});
 console.log(`Circuit platform: ${groups} focused groups passed.`);

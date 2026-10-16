@@ -794,3 +794,9 @@ C08 的九種接法探索可在其他自由接線示例完成，從學生示例�
 執行 48 組 L／N × a／b × 合上／斷開矩陣（直接市電、正常／反接插座、正常／反接單拖板及反接雙拖板），每組檢查實際 reading 提示、負載通斷、接線不變、正式保存還原及續算；另有 11 組同源、兩端不同來源、單端混接、地線及未接來源邊界。模型／狀態 Node owner、36 歷史 fixtures、registry 240 entries 及五包重建通過；按用戶要求未開本機 Chrome。
 
 上一輪 2fa7449 的遠端 Quality 38867800593 實際 failure：家庭 owner 在手機接地線端的 gesture target 斷言中止（舊版 line 442，earth gesture starts on the visible endpoint）。此為既有觸控驗收限制，不能把此前 CI 當完整 source／package 通過；本輪不擴大修改其他手勢，新提交 CI 結果另驗。
+
+### 左右手接外殼及共用接點取線（2026-10-16）
+
+共用取線規則見 [DC 計劃](28-circuit-workbench.md#共用接點加線與下方取線2026-10-16)。家庭金屬家電新增外殼 case 端點，與既有 E／case 電氣節點一致，可接普通導線；左右手直接觸殼由輪廓精確接觸派生，右手舊 contacts 介面及歷史封套保持。繪圖分別標記左右手，觀察提示識別左手外殼電流，模板也拒絕保留直接外殼接觸。雙重絕緣不加導電 case 端點。case 接點按款式隨輪廓定位，不改原本 L／N／E 引線；新增結果欄位 caseContacts 為派生分析，不寫入保存資料。
+
+沿用 household-connections Node owner：四種新舊金屬家電 × 左右手 × 兩站姿 × 正常／漏電 × 直接／導線共 64 組，涵蓋兩視圖、人體／雙手回路電流、外殼接地、移開／拔線、正式 encode/decode/restore 與續算；另執行實際編輯器左手拖動預覽／放手片段，確認不誤用舊右手 setter。家庭既有模型、狀態、歷史 fixtures 及 presets owner 通過；共用平台／吸附與 AC platform 通過。無新增依賴、評分或權威保存版本。本機按用戶要求未開 Chrome，browser／真手機／Moodle 未驗，遠端 CI 另驗。
