@@ -150,3 +150,7 @@ Node 驗證：`household-connections.test.js`、`household-model.test.js`、`hou
 ### 最新發布：三位拖板與全闊畫布（2026-10-16）
 
 同步 SimLab `9005206` 的全部 30 個 runtime assets，包含三人觸電比較、暫停保護事件及現存短路提示修正、三位拖板，以及移除左右各 32 px 的全高空白留位。Sites source：`a10391a8025f39c4d8d3b36ec6438322996fc397`；saved version：`appgprj_6ad0b88108c08191a7568eda54a1f36c~appgver_085404f87130819182c913a156419878`；deployment：`appgdep_6ad19c62740481918bd3a616ecf5d5f9`，原生回傳 `succeeded`，原網址及 owner-only 存取保持。官方 archive：`output/sites/circuit-household-workbench-power-strip-fullwidth.tar.gz`，30 個來源檔案逐 byte／SHA-256 相符，證據 `output/sites/household-power-strip-fullwidth-assets.json`。沿用本輪已記錄的 Node／靜態及套件檢查；按用戶要求未開 Chrome，未另做瀏覽器、真手機或 Moodle 驗收。
+
+### 控制面板回復共用高度（2026-10-16）
+
+移除家庭手機 `.workspace` 固定 112 px 的覆寫，沿用 AC／DC 共用 `minmax(112px,31%)`、收合及短橫向布局。SimLab runtime：`66b7d2f`；Sites source：`f3c0829555fc168d8c960b7d79c31b6314229d05`；saved version：`appgprj_6ad0b88108c08191a7568eda54a1f36c~appgver_89cf71fce6bc8191b474046535a476c3`；deployment：`appgdep_6ad19dd635f08191b47d8da90a185b75`，原生回傳 `succeeded`。30 runtime assets 與來源逐 byte／SHA-256 相符，證據 `output/sites/household-shared-panel-height-assets.json`；官方 archive 為 `output/sites/circuit-household-workbench-shared-panel-height.tar.gz`。原網址及存取保持；本輪為單條 CSS 刪除，diff／家庭包重建通過，按用戶要求未開 Chrome 或新增測試。
