@@ -64,7 +64,7 @@
       if(result.shortCircuit)return '目前仍有短路：低電阻路徑繞過用電器，查看供電電流及各支路。'+(trip?'「'+doc.components.find(c=>c.id===trip[0]).label+'」已'+(trip[1].status==='blown'?'熔斷':'跳掣')+'，但未切斷目前的短路。':'');
       if(trip){const r=trip[1],current=r.protection.currentBeforeTrip;if(r.protection.reason==='short-circuit'&&!r.protection.bodyCurrentBeforeTrip)return '短路已'+(r.status==='blown'?'熔斷':'跳掣')+'；切斷前 '+Q.quantity(current,'A').text+'。';const message=r.protection.bodyCurrentBeforeTrip?'曾有電流通過人體，現已切斷。':r.protection.reason==='short-circuit'?'短路，'+(r.status==='blown'?'保險絲已熔斷。':'斷路器已切斷。'):r.status==='blown'?'電流超額，保險絲已熔斷。':r.protection.reason==='residual'?'回流繞過零線，漏電保護器已切斷。':'電流超額，斷路器已切斷。';return message+(Number.isFinite(current)?'切斷前 '+Q.quantity(current,'A').text+'。':'');}
       const c=doc.components.find(c=>c.id==='load')||doc.components.find(C.isAppliance);if(!c)return doc.components.length?'接上兩條工作線，觀察回路。':'從工具箱取出元件和導線。';const r=result.components[c.id],a=r.connections.l,b=r.connections.n;
-      if(Object.values(r.connectionSources).some(sources=>sources.length>1))return '引線混接多個供電來源，查看各引線的接線。';
+      if(Object.values(r.connectionSources).some(sources=>sources.length>1))return '引線混接多個供電來源，查看各引線的接線。'+(c.type==='house-metal'&&!r.earthed?'外殼尚未正確接地。':'');
       if(a&&a===b&&Number.isFinite(r.voltage)&&abs(r.voltage)<1e-8){const live=['l','n'].some(k=>Math.abs(result.potentials[c.id+':'+k]||0)>25);return `同接${({L:'火線',N:'零線',E:'地線'})[a]}：電器不工作。${live?'引線仍對地帶電。':''}`;}
       if((a==='L'&&b==='E'||a==='E'&&b==='L'))return r.working?'電器可工作，但工作電流錯經地線回流。':'火線–地線接法，目前沒有工作電流。';
       if(a==='N'&&b==='L')return r.working?'火線與零線反接；能工作不代表接法正確。':'火線與零線反接；目前沒有工作電流。';

@@ -241,7 +241,7 @@ console.log('Paused editor frames settle due protection within 10 ms budgets wit
   const r=s.read().components.load;assert.equal(r.connections.n,null,'open live path has no source');assert.deepEqual(r.connectionSources.n,[]);assert.equal(r.connections.l,gate==='house-switch'||gate==='house-fuse'?'N':null);assert.equal(r.connections.e,'E');assert.equal(r.working,false);s.destroy();
  }
  {
-  const d=supplied(1,false);M.connect(d,'source:n','earth:e');const s=new H.Session(d),r=s.read().components.load;assert.equal(r.connections.n,null);assert.deepEqual(r.connectionSources.n,['E','N']);assert.match(context.resultText(d,s.read()),/混接/);assert.equal(r.earthed,false);s.destroy();
+  const d=supplied(1,false);M.connect(d,'source:n','earth:e');const s=new H.Session(d),r=s.read().components.load;assert.equal(r.connections.n,null);assert.deepEqual(r.connectionSources.n,['E','N']);assert.match(context.resultText(d,s.read()),/混接/);assert.match(context.resultText(d,s.read()),/外殼尚未正確接地/);assert.equal(r.earthed,false);s.destroy();
   const isolated=supplied(1,false);isolated.wires=isolated.wires.filter(w=>w.from!=='source:l'&&w.from!=='source:n');const off=new H.Session(isolated);assert.deepEqual(off.read().components.load.connections,{l:null,n:null,e:'E'});off.destroy();
  }
  for(const type of ['house-breaker','house-fuse'])for(const upstream of [true,false]){

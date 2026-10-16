@@ -178,3 +178,5 @@ SimLab runtime：`4091a14`；Sites source：`fa5137d1ecd93ac0e3a7f5817151d1970a7
 固定元件接線模板仍固定拖板本體；插頭的三個位置／方向參數改由接線權限管理，滑鼠、觸控、鍵盤及文件變更共用規則。只讀、鎖定或 wires:false 仍禁止插拔，不開放其他參數。模板仍須先拔插頭再匯出，重新載入後可接線、插入及拔出。
 
 接線診斷的 connections 改讀求解器實際閉合低阻通路到市電 L／N、獨立接地 E 的來源；connectionSources 列出各引線的全部來源，斷開為空、多來源明確顯示混接。孔位印刷標示及身份線色仍使用原角色判定，不以這些標示作供電診斷。分析結果由文件及保護狀態重算，不新增存檔欄位或版本。工具箱瀏覽器驗收保留正式清單比對、按鈕及圖示尺寸檢查，移除重複的固定 11 項預期。
+
+發布：SimLab runtime `8ea9ccf`；Sites source `8492d861c2dd96dd02e3d60709d72e09e55c999f`；saved version `appgprj_6ad0b88108c08191a7568eda54a1f36c~appgver_ed008e8fb57c81919dbf10cd49082d3b`；deployment `appgdep_6ad1cf2cfab48191a6d7908d9a080b8b` 原生回傳 succeeded。30 個 runtime assets 與提交來源一致，證據 `output/sites/household-wiring-origin-fixes-assets.json`，archive 為 `output/sites/circuit-household-workbench-wiring-origin-fixes.tar.gz`。原網址及 owner-only 存取保持。本機家庭四 Node owner、共用 core／platform-core／snapping、靜態／registry 及五包重建通過；遠端 Quality 38865865094 對應 runtime SHA 的 source／package 結果另記，未開本機 Chrome。
