@@ -42,6 +42,10 @@
     C.handContacts(doc).forEach(({hand,target})=>externalJoin(hand,target));
     C.plugContacts(doc).forEach(({plug,target})=>externalJoin(plug,target));
     const earthRoots=new Set(doc.components.filter(c=>c.type==='house-earth').map(c=>externalFind(c.id+':e'))),supplyRoots=new Set(doc.components.filter(c=>c.type==='house-mains').flatMap(c=>[externalFind(c.id+':l'),externalFind(c.id+':n')]));
+    // Trace actual closed conductors; socket lettering remains a separate display role.
+    const sources=new Map();
+    for(const c of doc.components)for(const key of c.type==='house-mains'?['l','n']:c.type==='house-earth'?['e']:[]){const root=externalFind(c.id+':'+key);if(!sources.has(root))sources.set(root,new Set());sources.get(root).add(key.toUpperCase());}
+    const connectionSources=id=>[...(sources.get(externalFind(id))||[])].sort();
     yield;
     const conducting=new Map([...new Set(keys.map(find))].map(k=>[k,[]]));
     for(const e of edges)if(e.resistance<=constants.sourceResistance&&e.id!==e.owner+':source'){conducting.get(e.a).push({to:e.b,id:e.id});conducting.get(e.b).push({to:e.a,id:e.id});}
@@ -65,7 +69,7 @@
       const at=k=>c.id+':'+k,load=branches[c.id+':load'],line=branches[c.id+':l'],neutral=branches[c.id+':n'],source=branches[c.id+':source'],sw=branches[c.id+':switch'];
       const result={voltage:load?.voltage??source?.voltage??sw?.voltage??null,current:load?.current??source?.current??sw?.current??line?.current??0,power:load?.power??0,branches:edges.filter(e=>e.owner===c.id).map(e=>branches[e.id])};
       if(c.type==='house-mains'){result.power=source?.power===null?null:-source.power;result.current=source?.current===null?null:-source.current;result.voltage=source?.voltage;}
-      if(C.isAppliance(c)){result.resistance=constants.voltage**2/C.power(c);result.casePotential=potential(at('case'));result.leakageCurrent=branches[c.id+':fault']?.current??0;result.connections=Object.fromEntries(R.ports(c).map(p=>[p.key,topology.roleOf(p.id)]));result.earthed=c.type==='house-metal'&&earthRoots.has(externalFind(at('e')))&&!supplyRoots.has(externalFind(at('e')));result.working=Number.isFinite(result.power)&&result.power>.01;}
+      if(C.isAppliance(c)){result.resistance=constants.voltage**2/C.power(c);result.casePotential=potential(at('case'));result.leakageCurrent=branches[c.id+':fault']?.current??0;result.connectionSources=Object.fromEntries(R.ports(c).map(p=>[p.key,connectionSources(p.id)]));result.connections=Object.fromEntries(Object.entries(result.connectionSources).map(([key,roles])=>[key,roles.length===1?roles[0]:null]));result.earthed=c.type==='house-metal'&&earthRoots.has(externalFind(at('e')))&&!supplyRoots.has(externalFind(at('e')));result.working=Number.isFinite(result.power)&&result.power>.01;}
       if(c.type==='house-person'){
         const right=branches[at('human-right')],left=branches[at('human-left')],feet=branches[at('human-ground')];
         result.contact=state.contacts[c.id];result.handCurrents={right:right?.current??0,left:left?.current??0};result.groundCurrent=feet?.current??0;
@@ -76,7 +80,7 @@
       if(C.isProtection(c)){result.status=state.protection[c.id].status;result.protection=clone(state.protection[c.id]);result.channelL=line?.current??0;result.channelN=neutral?.current??0;result.current=c.type==='house-fuse'?sw?.current??0:Math.max(Math.abs(result.channelL),Math.abs(result.channelN));result.residualCurrent=Math.abs(result.channelL+result.channelN);
         result.shortCircuit=shortCircuit&&c.type!=='house-rcd'&&Math.abs(result.current)>=constants.fastMultiple*c.params.rating&&edges.some(e=>e.owner===c.id&&Math.abs(branches[e.id].current)>1e-9&&live.some(k=>reaches(e.a,k,e.id)&&reaches(e.b,ground,e.id)||reaches(e.b,k,e.id)&&reaches(e.a,ground,e.id)));
       }
-      if(c.type==='house-switch'){result.status=c.params.closed?'closed':'open';result.voltage=voltage(at('a'),at('b'));result.role=topology.roleOf(at('a'));}
+      if(c.type==='house-switch'){result.status=c.params.closed?'closed':'open';result.voltage=voltage(at('a'),at('b'));const roles=connectionSources(at('a'));result.role=roles.length===1?roles[0]:null;}
       components[c.id]=result;
       yield;
     }

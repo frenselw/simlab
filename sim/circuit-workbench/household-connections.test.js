@@ -40,7 +40,19 @@ assert.equal(Object.keys(C.definitions).length,12);
  }
  for(const angle of [0,45,90,135,180,225,270,315]){const turned=M.clone(d);turned.components.find(c=>c.id==='socket').angle=angle;const p=C.previewPlug(turned,'strip',{x:7,y:4},24);assert(p?.snap);assert.equal(p.doc.components.find(c=>c.id==='strip').params.plugAngle,angle);assert.equal(C.plugContacts(p.doc).length,3);}
  assert.equal(C.previewPlug(d,'strip',{x:1200,y:1200},24),null,'cord cannot extend beyond its fixed length');
- const locked=M.clone(d);locked.components.find(c=>c.id==='strip').locked=true;assert.equal(C.previewPlug(locked,'strip',{x:0,y:0},24),null);locked.components.find(c=>c.id==='strip').locked=false;locked.policy.mode='wiring';assert.equal(C.previewPlug(locked,'strip',{x:0,y:0},24),null);
+ const locked=M.clone(d);locked.components.find(c=>c.id==='strip').locked=true;assert.equal(C.previewPlug(locked,'strip',{x:0,y:0},24),null);locked.components.find(c=>c.id==='strip').locked=false;locked.policy.mode='wiring';assert(C.previewPlug(locked,'strip',{x:0,y:0},24),'fixed body still permits plug wiring');
+ for(const role of ['teacher','student']){
+  const template=D.decode(D.encode(D.template(d)));for(const w of d.wires)M.connect(template,w.from,w.to);
+  const profile=Profile.compile({role,analysis:'household',initialDocument:template,palette:C.palette}),c=template.components.find(c=>c.id==='strip');
+  assert(profile.allows(template,c,'plug'));assert(!profile.allows(template,c,'move'));assert(!profile.allows(template,c,'params'));assert(!profile.allows(template,c,'plug',undefined,true));
+  const inserted=C.previewPlug(template,c.id,{x:0,y:0},24).doc;assert.doesNotThrow(()=>profile.assertTransition(template,inserted));assert.equal(C.plugContacts(inserted).length,3);
+  const powered=new H.Session(inserted);assert(powered.read().components.load1.power>59);powered.destroy();
+  const removed=C.previewPlug(inserted,c.id,{x:-50,y:0}).doc;assert.doesNotThrow(()=>profile.assertTransition(inserted,removed));assert.equal(C.plugContacts(removed).length,0);
+  const off=new H.Session(removed);assert.equal(off.read().components.load1.working,false);off.destroy();
+  const moved=M.clone(inserted);moved.components.find(item=>item.id===c.id).x++;assert.throws(()=>profile.assertTransition(inserted,moved),/固定|未開放/);
+  const other=M.clone(inserted);other.components.find(c=>c.id==='load1').params.kind='washer';assert.throws(()=>profile.assertTransition(inserted,other),/參數/);
+  const disabled=Profile.compile({role,analysis:'household',initialDocument:template,palette:C.palette,wires:false});assert(!disabled.allows(template,c,'plug'));assert.throws(()=>disabled.assertTransition(template,inserted),/拖板|參數/);
+ }
  const profile=Profile.compile({role:'teacher',analysis:'household',initialDocument:d,palette:C.palette});assert.throws(()=>profile.assertTransition(d,preview.doc,true),/只讀/);
  const noWiring=Profile.compile({role:'teacher',analysis:'household',initialDocument:d,palette:C.palette,wires:false});assert.throws(()=>noWiring.assertTransition(d,preview.doc),/不允許改接拖板/);
  const crowded=M.clone(preview.doc),second=M.add(crowded,'house-power-strip',600,150);assert.equal(C.previewPlug(crowded,second.id,{x:0,y:0},24),null,'one plug per socket');

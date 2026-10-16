@@ -87,7 +87,7 @@
   }
   function previewPlug(doc,id,point,radius=0){
     const Model=M||globalThis.CircuitModel,c=doc.components.find(c=>c.id===id);
-    if(!c||c.type!=='house-power-strip'||!Model.permission(doc,c,'move')||!Model.permission(doc,c,'params')||![point.x,point.y,radius].every(Number.isFinite)||radius<0)return null;
+    if(!c||!Model.permission(doc,c,'plug')||![point.x,point.y,radius].every(Number.isFinite)||radius<0)return null;
     const occupied=new Set(plugContacts(doc).filter(p=>!p.plug.startsWith(id+':')).map(p=>p.target));
     const sites=socketSites(doc,id).filter(s=>!occupied.has(s.id)&&Math.hypot(s.x-point.x,s.y-point.y)<radius).sort((a,b)=>Math.hypot(a.x-point.x,a.y-point.y)-Math.hypot(b.x-point.x,b.y-point.y));
     for(const site of [...sites,null]){

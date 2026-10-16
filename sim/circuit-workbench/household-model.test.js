@@ -218,6 +218,32 @@ console.log('Paused editor frames settle due protection within 10 ms budgets wit
 {
  const fs=require('node:fs'),vm=require('node:vm'),source=fs.readFileSync(require.resolve('./circuit-household-ui'),'utf8'),context=vm.createContext({C,Q:require('./circuit-math'),abs:value=>Number.isFinite(value)?Math.abs(value):null});
  vm.runInContext(source.slice(source.indexOf('    function resultText(doc,result){'),source.indexOf('    function render(doc,result){')),context);
+ function supplied(depth,reversed,gate){
+  const d=M.empty('household');d.cables.count=40;d.cables.length=1200;
+  M.add(d,'house-mains',-200,-150).id='source';M.add(d,'house-earth',-160,150).id='earth';M.add(d,'house-socket',0,0).id='socket';
+  let live='source:l',neutral='source:n';
+  if(gate){const c=M.add(d,gate,-100,-50);c.id='gate';if(gate==='house-switch'||gate==='house-fuse'){M.connect(d,live,'gate:a');live='gate:b';}else{M.connect(d,live,'gate:li');M.connect(d,neutral,'gate:ni');live='gate:lo';neutral='gate:no';}}
+  M.connect(d,live,'socket:'+(reversed?'n':'l'));M.connect(d,neutral,'socket:'+(reversed?'l':'n'));M.connect(d,'earth:e','socket:e');
+  let outputs={l:'socket:l',n:'socket:n',e:'socket:e'},plug={x:0,y:0};
+  for(let i=0;i<depth;i++){const c=M.add(d,'house-power-strip',300+i*300,150);c.id='strip'+i;const next=C.previewPlug(d,c.id,plug,24);assert(next?.snap);Object.assign(d,next.doc);outputs=Object.fromEntries(['l','n','e'].map(k=>[k,c.id+':'+k+'2']));plug={x:300+i*300,y:150};}
+  M.add(d,'house-metal',500,400,{kind:'fan'}).id='load';for(const k of ['l','n','e'])M.connect(d,outputs[k],'load:'+k);
+  for(const w of d.wires)w.length=2000;return M.validate(d);
+ }
+ for(const depth of [0,1,2])for(const reversed of [false,true]){
+  const d=supplied(depth,reversed),s=new H.Session(d),r=s.read();assert(r.components.load.power>59);assert.deepEqual(r.components.load.connections,{l:reversed?'N':'L',n:reversed?'L':'N',e:'E'});assert.equal(r.components.load.earthed,true);
+  assert.equal(require('./household-connections').inspect(d).roleOf('load:l'),'L','printed socket roles remain available for wire colours');
+  assert.match(context.resultText(d,r),reversed?/火線與零線反接/:/形成工作回路/);
+  const restored=H.Session.restore(H.decode(H.encode(s.capture())));restored.advance(.01);assert.deepEqual(restored.read().components.load.connections,r.components.load.connections);restored.destroy();s.destroy();
+ }
+ for(const gate of ['house-switch','house-breaker','house-rcd','house-fuse']){
+  const d=supplied(2,true,gate),s=new H.Session(d);assert.equal(s.read().components.load.connections.n,'L');
+  if(gate==='house-switch'){const next=M.clone(d);next.components.find(c=>c.id==='gate').params.closed=false;s.update(next);}else{Object.assign(s.state.protection.gate,{status:gate==='house-fuse'?'blown':'tripped',reason:gate==='house-rcd'?'residual':'overcurrent'});s.publish();}
+  const r=s.read().components.load;assert.equal(r.connections.n,null,'open live path has no source');assert.deepEqual(r.connectionSources.n,[]);assert.equal(r.connections.l,gate==='house-switch'||gate==='house-fuse'?'N':null);assert.equal(r.connections.e,'E');assert.equal(r.working,false);s.destroy();
+ }
+ {
+  const d=supplied(1,false);M.connect(d,'source:n','earth:e');const s=new H.Session(d),r=s.read().components.load;assert.equal(r.connections.n,null);assert.deepEqual(r.connectionSources.n,['E','N']);assert.match(context.resultText(d,s.read()),/混接/);assert.equal(r.earthed,false);s.destroy();
+  const isolated=supplied(1,false);isolated.wires=isolated.wires.filter(w=>w.from!=='source:l'&&w.from!=='source:n');const off=new H.Session(isolated);assert.deepEqual(off.read().components.load.connections,{l:null,n:null,e:'E'});off.destroy();
+ }
  for(const type of ['house-breaker','house-fuse'])for(const upstream of [true,false]){
   const d=shorted(type),s=new H.Session(d);s.advance(.02);const stopped=type==='house-fuse'?'熔斷':'跳掣';assert.equal(s.read().shortCircuit,false);assert.match(context.resultText(s.doc,s.read()),new RegExp('短路已'+stopped));
   const next=M.clone(s.doc);M.detach(next,'short-link','to');next.components.find(c=>c.id==='protector').label='支路甲保護器';

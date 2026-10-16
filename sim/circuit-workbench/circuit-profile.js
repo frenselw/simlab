@@ -96,6 +96,7 @@
     }
     function allows(doc,c,operation,param,readOnly=false) {
       if (readOnly || !c) return false;
+      if (operation==='plug'||operation==='params'&&M.plugParameter(c,param)) return wires&&M.permission(doc,c,'plug');
       if (teacher) return M.permission(doc,c,operation === 'label' ? 'params' : operation);
       const r = getRule(c);
       if (operation === 'params') return (r.params === true || Array.isArray(r.params) && (param ? r.params.includes(param) : r.params.length > 0)) && M.permission(doc,c,'params');
@@ -104,7 +105,7 @@
     function matches(c,entry) {
       if (c.type !== entry.type) return false;
       const r = getRule(c);
-      return Object.keys(entry.params).every(k => mutable(r,k,c) || same(c.params[k],entry.params[k]));
+      return Object.keys(entry.params).every(k => M.plugParameter(c,k)&&allows(initial,c,'plug') || mutable(r,k,c) || same(c.params[k],entry.params[k]));
     }
     function entryFor(c) { return palette.find(p => matches(c,p)); }
     function count(doc,entry) { return doc.components.filter(c => entryFor(c)?.key === entry.key).length; }

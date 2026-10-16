@@ -172,3 +172,9 @@ SimLab runtime：`802aff4`；Sites source：`8244b335cf5130f4284783f179dc8710051
 ### 搬拖板時保持插頭插定（2026-10-16）
 
 SimLab runtime：`4091a14`；Sites source：`fa5137d1ecd93ac0e3a7f5817151d1970a7d0716`；saved version：`appgprj_6ad0b88108c08191a7568eda54a1f36c~appgver_50d2040a05488191ab0c67ee1f22391d`；deployment：`appgdep_6ad1c1bb1ab88191adccb881a014db78`，原生回傳 `succeeded`。搬本體保持插頭接通，直接拖插頭仍可拔出；Node connections／snapping 及五包重建通過。30 runtime assets 與來源一致，證據 `output/sites/household-anchored-plug-assets.json`，archive 為 `output/sites/circuit-household-workbench-anchored-plug.tar.gz`。原網址及存取保持；按用戶要求未開 Chrome，未作畫面驗收。
+
+### 固定模板插拔與實際供電來源（2026-10-16）
+
+固定元件接線模板仍固定拖板本體；插頭的三個位置／方向參數改由接線權限管理，滑鼠、觸控、鍵盤及文件變更共用規則。只讀、鎖定或 wires:false 仍禁止插拔，不開放其他參數。模板仍須先拔插頭再匯出，重新載入後可接線、插入及拔出。
+
+接線診斷的 connections 改讀求解器實際閉合低阻通路到市電 L／N、獨立接地 E 的來源；connectionSources 列出各引線的全部來源，斷開為空、多來源明確顯示混接。孔位印刷標示及身份線色仍使用原角色判定，不以這些標示作供電診斷。分析結果由文件及保護狀態重算，不新增存檔欄位或版本。工具箱瀏覽器驗收保留正式清單比對、按鈕及圖示尺寸檢查，移除重複的固定 11 項預期。

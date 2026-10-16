@@ -85,11 +85,13 @@
   function nextId(doc, prefix) { const ids = new Set([...doc.components, ...doc.junctions, ...doc.wires].map((x) => x.id)); let n = 1; while (ids.has(prefix + n)) n++; return prefix + n; }
   function component(doc, type, x, y, params = {}) { R.get(type); return { id: nextId(doc, "c"), type, label: R.get(type).name, x, y, angle: 0, locked: false, editable: false, ...(R.dualMeter({type})?{mirrored:false}:{}), params: { ...R.defaults(type), ...params } }; }
   function permission(doc, c, operation) {
+    if (operation === 'plug') return doc.analysis === 'household' && c.type === 'house-power-strip' && !c.locked;
     if (operation === "rotate" && R.get(c.type).rotatable === false) return false;
     if (operation === "switch") return doc.policy.allowSwitch;
     if (doc.policy.mode === "wiring") return operation === "rotate" ? doc.policy.allowRotate : operation === "params" ? doc.policy.allowParams || c.editable : false;
     return !c.locked;
   }
+  const plugParameter=(c,key)=>c.type==='house-power-strip'&&['plugX','plugY','plugAngle'].includes(key);
   function add(doc, type, x, y, params) { if (doc.policy.mode !== "free") throw new Error("目前固定元件，只能接線"); const c = component(doc, type, x, y, params); doc.components.push(c); return c; }
   function connect(doc, from, to, via = [], shape = "auto") {
     if (!endpoints(doc).has(from) || !endpoints(doc).has(to) || from === to) throw new Error("請選擇兩個不同的有效端點");
@@ -242,5 +244,5 @@
       w.shape='free';
     }
   }
-  return { limits, quantityDefaults, fontSizes, fontSize, clone, empty, validate, endpoints, nextId, component, permission, add, connect, remove, splitWire, history, degree, attached, cleanup, addWire, setWireResistance, detachConnection, detach, attach, moveWireEnd, translateWire, bendWire, straightenWire, rotateComponent, setTerminals, flipMeter, reconcile, limitWirePoints };
+  return { limits, quantityDefaults, fontSizes, fontSize, clone, empty, validate, endpoints, nextId, component, permission, plugParameter, add, connect, remove, splitWire, history, degree, attached, cleanup, addWire, setWireResistance, detachConnection, detach, attach, moveWireEnd, translateWire, bendWire, straightenWire, rotateComponent, setTerminals, flipMeter, reconcile, limitWirePoints };
 });

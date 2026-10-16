@@ -156,7 +156,7 @@
       const acBounds=c.type==='house-power-strip'?{left:c.x-158,right:c.x+158,top:c.y-55,bottom:c.y+55}:R.get(c.type).analysis?R.bodyBounds(c):null;
       put("body:"+c.id,{kind:"body",id:c.id,label:c.label+"，拖動本體或用方向鍵移動"},screen(acBounds?{x:(acBounds.left+acBounds.right)/2,y:(acBounds.top+acBounds.bottom)/2}:center),(acBounds?acBounds.right-acBounds.left:Math.abs(Math.cos(angle))*w+Math.abs(Math.sin(angle))*h)*camera.scale,(acBounds?acBounds.bottom-acBounds.top:Math.abs(Math.sin(angle))*w+Math.abs(Math.cos(angle))*h)*camera.scale,allow(d,c,"move")||readableMeter(d,c)?"none":"pan-y");
       targets.get('body:'+c.id).classList.toggle('overview',camera.scale<(dual?.7:.55));
-      if(household&&c.type==='house-power-strip')put('plug:'+c.id,{kind:'plug',id:c.id,label:'拖板插頭：拖到插座吸附，方向鍵移動，Shift 加方向鍵微調，Enter 插入附近插座'},screen(Family.plugPoint(c)),86*camera.scale,87*camera.scale,wireAllowed()&&allow(d,c,'move')&&allow(d,c,'params')?'none':'pan-y');
+      if(household&&c.type==='house-power-strip')put('plug:'+c.id,{kind:'plug',id:c.id,label:'拖板插頭：拖到插座吸附，方向鍵移動，Shift 加方向鍵微調，Enter 插入附近插座'},screen(Family.plugPoint(c)),86*camera.scale,87*camera.scale,allow(d,c,'plug')?'none':'pan-y');
       if(household&&c.type==='house-person')for(const p of R.ports(c))put(p.key==='hand'?'hand:'+c.id:'port:'+p.id,{kind:'hand',id:c.id,endpoint:p.id,label:p.label+'：可拖到接線端或插座孔吸附'+(p.key==='hand'?'，或接觸家電外殼':'')},screen(p),44,44,readOnly?'pan-y':'none').classList.add('port');
       if(c.type==="rheostat"){const angle=c.angle*Math.PI/180,x=-30+c.params.position*60,y=(c.params.terminals??2)>2?-34:38;put("slider:"+c.id,{kind:"slider",id:c.id,label:c.label+"滑片，拖動調整電阻"},screen({x:c.x+x*Math.cos(angle)-y*Math.sin(angle),y:c.y+x*Math.sin(angle)+y*Math.cos(angle)}),44,44,allow(d,c,"params","position")?"none":"pan-y");}
       R.ports(c).filter(p=>!p.hidden&&!(household&&c.type==='house-person')&&((dual?camera.scale>=.7:camera.scale>=.55)||probeMode||drag?.kind==="wireend"||M.degree(d,p.id)>0)).forEach(p=>{const t=put("port:"+p.id,{kind:"port",id:p.id,label:c.label+" "+p.label+"端子，拖導線端點到這裏接好"},screen(p),44,44,!probeMode&&allow(d,c,"move")?"none":"pan-y");t.classList.toggle("overview",camera.scale<(dual?.7:.55));});
@@ -541,7 +541,7 @@
     }else if(meta?.kind==='port'){const p=world(e.clientX,e.clientY),ports=R.ports(owner).filter(p=>targets.has('port:'+p.id));ports.sort((a,b)=>Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y));if(ports[0])meta=tapMeta={...meta,id:ports[0].id};}
     if(!t&&e.pointerType==="mouse")blankMouseDown=e;
     if(!meta||meta.kind==='detachConnection')return;
-    if(meta.kind==='plug'&&(probeMode||!household||!wireAllowed()||!['move','params'].every(op=>allow(d,d.components.find(c=>c.id===meta.id),op))))return;
+    if(meta.kind==='plug'&&(probeMode||!household||!allow(d,d.components.find(c=>c.id===meta.id),'plug')))return;
     if(meta.kind==='hand'&&(probeMode||!household||!allow(d,d.components.find(c=>c.id===meta.id),'move')||!allow(d,d.components.find(c=>c.id===meta.id),'params','stance')))return;
     if(meta.kind==='port'){if(probeMode)return;const w=selectedWire(),key=w&&['from','to'].find(k=>w[k]===meta.id);meta=key?{kind:'wireend',id:w.id,end:key,endpoint:meta.id}:{kind:'body',id:meta.id.split(':')[0]};}if(["wire","wireend","junction"].includes(meta.kind)&&!wireAllowed())return;if(probeMode&&meta.kind==="wireend")return;
     let readOnly=false;if(meta.kind==="body"||meta.kind==="slider"){const c=d.components.find(c=>c.id===meta.id);if(!allow(d,c,meta.kind==="slider"?"params":"move",meta.kind==="slider"?"position":undefined)){if(meta.kind!=="body"||e.pointerType!=="touch"||!readableMeter(d,c))return;readOnly=true;}}
@@ -647,11 +647,11 @@
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="z"){e.preventDefault();undo(e.shiftKey);return;}
     if(host.querySelector("dialog[open]"))return;
     const focused=e.target.meta;if(focused)selection={...focused};
-    if(e.key==='Enter'&&selection?.kind==='plug'){e.preventDefault();change(doc=>{const c=doc.components.find(c=>c.id===selection.id);if(!wireAllowed()||!allow(doc,c,'move'))throw Error('插頭已固定');const next=Family.previewPlug(doc,c.id,Family.plugPoint(c),wireAllowed()?24/camera.scale:0);if(next)Object.assign(doc,next.doc);});return;}
+    if(e.key==='Enter'&&selection?.kind==='plug'){e.preventDefault();change(doc=>{const c=doc.components.find(c=>c.id===selection.id);if(!allow(doc,c,'plug'))throw Error('插頭已固定');const next=Family.previewPlug(doc,c.id,Family.plugPoint(c),wireAllowed()?24/camera.scale:0);if(next)Object.assign(doc,next.doc);});return;}
     if(e.key.toLowerCase()==="r"&&selection?.kind==="body"){e.preventDefault();rotate(selection.id,e.shiftKey?-1:1);}
     if(["Delete","Backspace"].includes(e.key)&&selection&&selection.kind!=="port"){e.preventDefault();const id=selection.id;cancel();change(doc=>M.remove(doc,id));}
     const offset={ArrowLeft:[-20,0],ArrowRight:[20,0],ArrowUp:[0,-20],ArrowDown:[0,20]}[e.key];if(!offset||!selection)return;e.preventDefault();const [dx,dy]=offset;
-    if(selection.kind==="plug"){change(doc=>{const c=doc.components.find(c=>c.id===selection.id);if(!wireAllowed()||!allow(doc,c,'move'))throw Error('插頭已固定');const p=Family.plugPoint(c),next=Family.previewPlug(doc,c.id,{x:p.x+dx/(e.shiftKey?20:1),y:p.y+dy/(e.shiftKey?20:1)});if(next)Object.assign(doc,next.doc);});}
+    if(selection.kind==="plug"){change(doc=>{const c=doc.components.find(c=>c.id===selection.id);if(!allow(doc,c,'plug'))throw Error('插頭已固定');const p=Family.plugPoint(c),next=Family.previewPlug(doc,c.id,{x:p.x+dx/(e.shiftKey?20:1),y:p.y+dy/(e.shiftKey?20:1)});if(next)Object.assign(doc,next.doc);});}
     else if(selection.kind==="wireend"){const id=selection.id,key=selection.end;change(doc=>{const w=doc.wires.find(w=>w.id===id),p=M.endpoints(doc).get(w[key]);M.moveWireEnd(doc,id,key,{x:p.x+dx,y:p.y+dy});});}
     else if(selection.kind==="wire"){change(doc=>M.bendWire(doc,selection.id,selection.point||G.along(routes[selection.id],G.length(routes[selection.id])/2),dx,dy));}
     else if(selection.kind==="body"||selection.kind==="junction"){change(doc=>{if(selection.kind==="body"&&!allow(doc,doc.components.find(c=>c.id===selection.id),"move"))throw new Error("此元件已固定");Object.assign(doc,moveObject(doc,selection.kind,selection.id,dx,dy).doc);});}
