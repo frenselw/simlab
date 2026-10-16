@@ -170,4 +170,12 @@ test('direct hand contacts form one probe candidate using solved nodes, includin
  }
  for(const wired of [false,true]){const d=M.empty('household');M.add(d,'house-mains',-260,-110).id='source';if(wired){d.junctions.push({id:'a',x:0,y:0},{id:'b',x:0,y:0});M.connect(d,'a:p','b:p');M.connect(d,'source:n','a:p');}else{M.add(d,'house-person',-40,13).id='a';M.add(d,'house-person',-40,13).id='b';}const analysis=H.solve(d),ids=wired?['a:p','b:p']:['a:hand','b:hand'];assert.notEqual(analysis.netOf[ids[0]],analysis.netOf[ids[1]]);assert(Number.isFinite(analysis.potentials[ids[0]]));assert.equal(analysis.potentials[ids[0]],analysis.potentials[ids[1]]);let message='';const context=vm.createContext({M,history:{get:()=>d},analysis,household:true,targets:targetsFor(d),camera:{scale:2.5},world:(x,y)=>({x,y}),notify:m=>message=m});vm.runInContext(pick,context);assert.equal(context.probeEndpointAt(0,0),null);assert.match(message,/放大/);}
 });
+test('hidden terminal names stay distinct across multiport components, orientations and label settings',()=>{
+ const fs=require('node:fs'),vm=require('node:vm'),Family=require('./circuit-household-components'),source=fs.readFileSync(require.resolve('./circuit-editor'),'utf8'),code=source.slice(source.indexOf('  function portName('),source.indexOf('  function quickParameter('));
+ for(const type of [...Family.palette.map(p=>p.type),'ac-ammeter','ac-voltmeter','ac-wattmeter'])for(const angle of [0,45,90,135,180,225,270,315])for(const labels of [false,true]){
+  const household=type.startsWith('house-'),d=M.empty(household?'household':'transient'),c=M.add(d,type,200,100);c.angle=angle;d.display.terminalLabels=labels;const before=M.clone(d),context=vm.createContext({M,R,household,history:{get:()=>d}});vm.runInContext(code,context);const ports=R.ports(c),names=ports.map(p=>context.portName(p.id));assert.equal(new Set(names).size,names.length,type+' '+angle+' '+labels+' '+names);assert(names.every(n=>n&&!n.includes('undefined')));if(household&&labels)assert.deepEqual(names,ports.map(p=>c.label+' '+p.label));assert.deepEqual(d,before);
+  if(type==='house-mains'&&angle===0)assert.deepEqual(names,labels?['市電電纜 火線 L','市電電纜 零線 N']:['市電電纜 右上接線端','市電電纜 右下接線端']);
+  if(type==='house-meter'&&angle===0&&!labels)assert.deepEqual(names,['電能表 左上接線端','電能表 右上接線端','電能表 左下接線端','電能表 右下接線端']);
+ }
+});
 console.log(`Circuit platform: ${groups} focused groups passed.`);
