@@ -1,8 +1,8 @@
 (function(root,factory){const node=typeof module==='object'&&module.exports;const api=factory(node?require('../circuit-workbench/circuit-household-components'):root.CircuitHouseholdComponents,node?require('../circuit-workbench/circuit-model'):root.CircuitModel);if(node)module.exports=api;else root.CircuitHouseholdPresets=api;})(globalThis,function(C,M){
   'use strict';
-  const names=Object.freeze({empty:'空白工作台',C01:'基本接線：市電、插座與家電',C02:'開關位置：切斷火線與零線',C03:'地線保護：金屬外殼漏電',C04:'漏電保護：偵測差流並跳掣',C05:'雙重絕緣：隔開帶電部分',C06:'並聯用電：各支路獨立工作',C07:'過載跳掣：逐件開啟家電',C07fuse:'保險絲：過流時熔斷',C08:'接線比較：家電接到不同導線',C09:'人體觸電：雙手接火線與零線',C10:'短路保護：大電流與跳掣'});
+  const names=Object.freeze({empty:'空白工作台',C01:'基本接線：市電、插座與家電',C02:'開關位置：切斷火線與零線',C03:'地線保護：金屬外殼漏電',C04:'漏電保護：偵測差流並跳掣',C05:'雙重絕緣：隔開帶電部分',C06:'並聯用電：各支路獨立工作',C07:'過載跳掣：逐件開啟家電',C07fuse:'保險絲：過流時熔斷',C08:'接線比較：家電接到不同導線',C09:'人體觸電：三種接觸比較',C10:'短路保護：大電流與跳掣'});
   const groups=Object.freeze([{label:'接線基礎',keys:['C01','C06','C02']},{label:'防觸電保護',keys:['C03','C05','C04','C09']},{label:'過流與短路',keys:['C07','C07fuse','C10']}]);
-  const questions=Object.freeze({empty:'取出元件，試試你的接法。',C01:'三條線怎樣連到插座和電器？',C02:'電器停止後，火線是否已經隔離？',C03:'地線如何把金屬外殼接回地？',C04:'哪些回流路徑會令漏電保護器跳掣？',C05:'外層絕緣如何隔開帶電部分？',C06:'拔開其中一件，另一件會怎樣？',C07:'逐件開啟家電，總電流何時超過 5 A？',C07fuse:'合上開關，3 A 保險絲能承受這件家電嗎？',C08:'兩條線接到不同孔，電器會怎樣？',C09:'兩手分別接火線和零線，椅子能斷開這個回路嗎？',C10:'把跨線的自由端接到 N，電流會怎樣？'});
+  const questions=Object.freeze({empty:'取出元件，試試你的接法。',C01:'三條線怎樣連到插座和電器？',C02:'電器停止後，火線是否已經隔離？',C03:'地線如何把金屬外殼接回地？',C04:'哪些回流路徑會令漏電保護器跳掣？',C05:'外層絕緣如何隔開帶電部分？',C06:'拔開其中一件，另一件會怎樣？',C07:'逐件開啟家電，總電流何時超過 5 A？',C07fuse:'合上開關，3 A 保險絲能承受這件家電嗎？',C08:'兩條線接到不同孔，電器會怎樣？',C09:'比較雙手站椅、單手站地及單手站椅：哪些情況有人體電流？',C10:'把跨線的自由端接到 N，電流會怎樣？'});
   function create(key='C01'){
     if(!Object.hasOwn(names,key))throw new Error('不存在的家庭示例');
     const doc=M.empty('household');doc.cables={count:40,length:900,resistance:0};doc.display.fontSize='s';doc.display.values=false;
@@ -26,9 +26,19 @@
       const bridge=M.addWire(doc,20,130);bridge.id='short-link';M.attach(doc,bridge.id,'from','short-l:p');return M.validate(doc);
     }
     if(key==='C09'){
-      add('source','house-mains',-170,0,{},'市電');add('person','house-person',130,20,{stance:'insulated'},'人');
-      wire('source:l','person:hand',[{x:-65,y:-22},{x:-65,y:-110},{x:195,y:-110},{x:195,y:-15}]);
-      wire('source:n','person:hand-left',[{x:-65,y:22},{x:-65,y:75},{x:70,y:75},{x:70,y:18}]);return M.validate(doc);
+      add('source','house-mains',-170,-110,{},'市電');
+      add('person','house-person',10,110,{stance:'insulated'},'雙手・站椅');
+      add('person2','house-person',210,110,{stance:'grounded'},'單手・站地');
+      add('person3','house-person',410,110,{stance:'insulated'},'單手・站椅');
+      for(const role of ['l','n']){
+        const y=role==='l'?-132:-88;let previous='source:'+role;
+        for(const c of doc.components.filter(c=>c.type==='house-person'&&(role==='l'||c.id==='person'))){
+          const hand=c.id+':'+(role==='l'?'hand':'hand-left'),p=M.endpoints(doc).get(hand),id='bus-'+role+'-'+c.id;
+          doc.junctions.push({id,x:p.x,y});wire(previous,id+':p');wire(id+':p',hand);previous=id+':p';
+        }
+        const id='bus-'+role+'-end';doc.junctions.push({id,x:500,y});wire(previous,id+':p');
+      }
+      return M.validate(doc);
     }
     add('source','house-mains',key==='C01'?-260:-140,-110,{},'市電');
     const socketX=key==='C01'?260:180,loadX=key==='C01'?490:key==='C02'?500:410;

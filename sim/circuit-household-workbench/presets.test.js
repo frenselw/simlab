@@ -1,7 +1,24 @@
 'use strict';
 const assert=require('node:assert/strict'),P=require('./presets'),C=require('../circuit-workbench/circuit-household-components'),M=require('../circuit-workbench/circuit-model'),H=require('../circuit-workbench/household-model'),R=require('../circuit-workbench/component-registry'),V=require('../circuit-workbench/circuit-renderer');
-for(const [key,name]of Object.entries(P.names)){const d=P.create(key);assert.equal(d.components.length,{empty:0,C01:7,C02:5,C03:6,C04:7,C05:5,C06:7,C07:8,C07fuse:4,C08:4,C09:2,C10:4}[key]);assert(d.components.every(c=>Object.hasOwn(C.definitions,c.type)));assert(Object.hasOwn(P.questions,key));assert(name);const s=new H.Session(d);assert.equal(s.read().reliable,true);if(key!=='empty')assert(key==='C09'?s.read().components.person.current>.1:key==='C07fuse'?Math.abs(s.read().components.load.power)<1e-9:s.read().components.load.power>0);s.destroy();}
+for(const [key,name]of Object.entries(P.names)){const d=P.create(key);assert.equal(d.components.length,{empty:0,C01:7,C02:5,C03:6,C04:7,C05:5,C06:7,C07:8,C07fuse:4,C08:4,C09:4,C10:4}[key]);assert(d.components.every(c=>Object.hasOwn(C.definitions,c.type)));assert(Object.hasOwn(P.questions,key));assert(name);const s=new H.Session(d);assert.equal(s.read().reliable,true);if(key!=='empty')assert(key==='C09'?s.read().components.person.current>.1:key==='C07fuse'?Math.abs(s.read().components.load.power)<1e-9:s.read().components.load.power>0);s.destroy();}
 assert.throws(()=>P.create('unknown'));
+{
+ const d=P.create('C09'),people=d.components.filter(c=>c.type==='house-person'),s=new H.Session(d),r=s.read();
+ assert.deepEqual(people.map(c=>[c.id,c.params.stance]),[['person','insulated'],['person2','grounded'],['person3','insulated']]);
+ assert(people.every(c=>c.y===people[0].y));assert(people[0].x<people[1].x&&people[1].x<people[2].x);
+ for(const id of ['person','person2'])assert(Math.abs(r.components[id].current-.115)<1e-5);
+ assert.equal(r.components.person.groundCurrent,0);assert(Math.abs(r.components.person2.groundCurrent)>.114);assert.equal(r.components.person3.current,0);
+ const G=require('../circuit-workbench/circuit-routing');
+ for(const role of ['l','n']){
+  const main=d.wires.filter(w=>w.to.startsWith('bus-'+role+'-'));
+  assert(main.length>=2);for(const w of main){const points=G.route(d,w);assert(points.every(p=>p.y===points[0].y));assert(points.at(-1).x>points[0].x);}
+ }
+ for(const c of people){const w=d.wires.find(w=>w.to===c.id+':hand');assert.equal(M.degree(d,w.from),3);const p=G.route(d,w);assert(p.every(q=>q.x===p[0].x));assert(p.at(-1).y>p[0].y);}
+ const saved=s.capture(),restored=H.Session.restore(H.decode(H.encode(saved)));assert.deepEqual(restored.capture(),saved);
+ const next=M.clone(restored.doc),left=next.wires.find(w=>w.to==='person:hand-left');M.detach(next,left.id,'to');restored.update(next);restored.advance(.01);
+ assert(Math.abs(restored.read().components.person.current)<1e-9);assert(restored.read().components.person2.current>.114);assert.equal(restored.read().components.person3.current,0);
+ restored.destroy();s.destroy();
+}
 assert.deepEqual(P.groups.flatMap(g=>g.keys).sort(),Object.keys(P.names).filter(k=>!['empty','C08'].includes(k)).sort(),'each current example appears once; C08 remains loadable without a duplicate menu entry');
 assert.deepEqual(C.palette.map(p=>p.type),['house-mains','house-meter','house-breaker','house-rcd','house-fuse','house-switch','house-socket','house-earth','house-metal','house-insulated','house-person']);
 for(const type of ['house-breaker','house-rcd'])for(const angle of [0,45,90,180])for(const view of ['real','schematic']){
