@@ -156,3 +156,7 @@ Node 驗證：`household-connections.test.js`、`household-model.test.js`、`hou
 ### 控制面板回復共用高度（2026-10-16）
 
 移除家庭手機 `.workspace` 固定 112 px 的覆寫，沿用 AC／DC 共用 `minmax(112px,31%)`、收合及短橫向布局。SimLab runtime：`66b7d2f`；Sites source：`f3c0829555fc168d8c960b7d79c31b6314229d05`；saved version：`appgprj_6ad0b88108c08191a7568eda54a1f36c~appgver_89cf71fce6bc8191b474046535a476c3`；deployment：`appgdep_6ad19dd635f08191b47d8da90a185b75`，原生回傳 `succeeded`。30 runtime assets 與來源逐 byte／SHA-256 相符，證據 `output/sites/household-shared-panel-height-assets.json`；官方 archive 為 `output/sites/circuit-household-workbench-shared-panel-height.tar.gz`。原網址及存取保持；本輪為單條 CSS 刪除，diff／家庭包重建通過，按用戶要求未開 Chrome 或新增測試。
+
+### 三種導線顏色模式發布（2026-10-16）
+
+SimLab runtime：`8e2151f`；Sites source：`4fac2a5b0003b8bd15b615e6773d7e17549a8fbc`；saved version：`appgprj_6ad0b88108c08191a7568eda54a1f36c~appgver_ad95c76b08608191a7b934932987be1a`；deployment：`appgdep_6ad19fa8b7448191b80147785758b671`，原生回傳 `succeeded`。身份色／電勢漸變／普通色選單、舊值相容及 36 個歷史 fixture Node 檢查通過，五包已重建。30 runtime assets 與來源逐 byte／SHA-256 相符，證據 `output/sites/household-wire-colour-modes-assets.json`；官方 archive 為 `output/sites/circuit-household-workbench-wire-colour-modes.tar.gz`。原網址及存取保持；按用戶要求未開 Chrome。
