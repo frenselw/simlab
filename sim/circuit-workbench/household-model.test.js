@@ -195,6 +195,39 @@ for(const key of ['C04','C07','C07fuse','C10']){
  try{const p=s.advance(.02,{budget:2});assert.equal(p.advanced,.02);assert.equal(p.complete,false);assert(s.pending);const repaired=M.clone(s.doc);M.detach(repaired,'short-link','to');s.update(repaired);assert.equal(s.pending,null);assert.equal(s.read().components.protector.status,'closed');s.advance(.1);assert.equal(s.read().components.protector.status,'closed','editing cancels stale pending trips');}finally{globalThis.performance=clock;s.destroy();}
 }
 console.log('External audit: real isolated earth paths, steady solve cache, budgeted atomic trips, zero-time continuation and cancellation passed');
+{
+ const fs=require('node:fs'),vm=require('node:vm'),source=fs.readFileSync(require.resolve('./circuit-editor'),'utf8');
+ const playback=source.slice(source.indexOf('  function setPlayback(options){'),source.indexOf('  function advanceTime(seconds){'));
+ const animation=source.slice(source.indexOf('function animate(time){'),source.indexOf('}frame=requestAnimationFrame(animate);'))+'}';
+ const d=shorted(),baseline=new H.Session(d),live=new H.Session(d),clock=globalThis.performance;baseline.advance(.02);let tick=0;globalThis.performance={now:()=>tick+=5};
+ try{
+  const progress=live.advance(.02,{budget:10});assert.equal(progress.complete,false);assert(live.pending);assert.equal(live.state.time,.02);assert.equal(live.read().components.protector.status,'closed');
+  const restored=H.Session.restore(H.decode(H.encode(live.capture())));
+  for(const session of [live,restored]){
+   let paints=0,frames=0;const advance=session.advance.bind(session);session.advance=(seconds,options)=>{assert.equal(seconds,0,'paused frames never add physics time');assert.equal(options.budget,10,'paused frames keep the cooperative budget');return advance(seconds,options);};
+   const context=vm.createContext({session,analysis:session.read(),destroyed:false,readOnly:false,profile:{simulation:{play:true,rate:true}},paused:false,slowMotion:false,timeRate:1,lastTime:0,acLag:0,actualRate:0,animationTime:.02,lastACPaint:0,relayLastTime:0,timed:true,household:true,transient:false,document:{hidden:false},drag:null,previewDoc:null,cameraGesture:null,touches:new Map(),paramSession:null,acUI:null,familyUI:null,flowOffsets:new Map(),needleStates:new Map(),relayStates:new Map(),routes:{},camera:{scale:1},frame:0,current:()=>session.doc,flowContext:()=>new Map(),V:{advanceFlow(){},flow:()=>''},N:{advance:()=>false},$:()=>({innerHTML:''}),cancelInteraction(){},render(){paints++;},updateSelectionReadings(){},requestAnimationFrame:()=>++frames});
+   vm.runInContext(playback+'\n'+animation+'\nsetPlayback({paused:true});',context);const before=paints;
+   while(session.read().components.protector.status==='closed'){vm.runInContext('animate('+(frames+1)*16+');',context);assert(frames<2000,'paused event must finish');assert.equal(session.state.time,.02);}
+   assert(paints>before,'completed protection event redraws while paused');assert(frames>1,'event solving remains split across frames');assert.equal(context.paused,true);assert.deepEqual(session.capture(),baseline.capture());assert.deepEqual(session.read().components,baseline.read().components);
+   const final=H.Session.restore(H.decode(H.encode(session.capture())));assert.deepEqual(final.capture(),baseline.capture());final.destroy();
+  }
+  restored.destroy();
+ }finally{globalThis.performance=clock;live.destroy();baseline.destroy();}
+}
+console.log('Paused editor frames settle due protection within 10 ms budgets without advancing time, including export/restore');
+{
+ const fs=require('node:fs'),vm=require('node:vm'),source=fs.readFileSync(require.resolve('./circuit-household-ui'),'utf8'),context=vm.createContext({C,Q:require('./circuit-math'),abs:value=>Number.isFinite(value)?Math.abs(value):null});
+ vm.runInContext(source.slice(source.indexOf('    function resultText(doc,result){'),source.indexOf('    function render(doc,result){')),context);
+ for(const type of ['house-breaker','house-fuse'])for(const upstream of [true,false]){
+  const d=shorted(type),s=new H.Session(d);s.advance(.02);const stopped=type==='house-fuse'?'熔斷':'跳掣';assert.equal(s.read().shortCircuit,false);assert.match(context.resultText(s.doc,s.read()),new RegExp('短路已'+stopped));
+  const next=M.clone(s.doc);M.detach(next,'short-link','to');next.components.find(c=>c.id==='protector').label='支路甲保護器';
+  if(upstream)M.connect(next,'source:l','source:n');
+  else{const second=M.add(next,'house-breaker',-20,300,{rating:15});M.connect(next,'source:l',second.id+':li');M.connect(next,'source:n',second.id+':ni');M.connect(next,second.id+':lo',second.id+':no');}
+  s.update(next);assert(s.read().shortCircuit);assert(s.read().components.source.current>1000);near(s.read().components.protector.current,0);
+  const message=context.resultText(s.doc,s.read());assert.match(message,/^目前仍有短路/);assert(message.includes('「支路甲保護器」已'+stopped));assert(!message.startsWith('短路已'));s.destroy();
+ }
+}
+console.log('Current upstream / other-branch shorts take precedence over named historical breaker / fuse events');
 for(const count of [20,40,80]){
  const d=M.empty('household');d.cables={count:240,length:1200,resistance:0};M.add(d,'house-mains',-140,0).id='source';M.add(d,'house-breaker',0,0,{rating:5}).id='protector';M.connect(d,'source:l','protector:li');M.connect(d,'source:n','protector:ni');let l='protector:lo',n='protector:no';
  for(let i=0;i<count-3;i++){const c=M.add(d,'house-meter',i%10*100,Math.floor(i/10)*100);M.connect(d,l,c.id+':li');M.connect(d,n,c.id+':ni');l=c.id+':lo';n=c.id+':no';}M.add(d,'house-insulated',600,600,{kind:'dryer'}).id='load';M.connect(d,l,'load:l');M.connect(d,n,'load:n');

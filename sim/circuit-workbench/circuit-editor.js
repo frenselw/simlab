@@ -857,6 +857,11 @@
     // Household gestures freeze physics while their illustrative motors keep moving.
     // A completed request can leave a rounding remainder that is not another physics step.
     if(timed&&active&&!readOnly&&!householdPreview){acLag+=elapsed*timeRate;const live=paramSession||session,progress=live.advance(acLag,{budget:10});acAdvanced=progress.advanced;acLag=progress.complete?0:Math.max(0,acLag-progress.advanced);actualRate=rawElapsed?progress.advanced/rawElapsed:0;analysis=progress.result;animationTime=live.state.time;if(live.fault&&!paramSession)paused=true;if(live.fault||time-lastACPaint>=200){lastACPaint=time;render(false);}}
+    if(household&&paused&&!document.hidden&&!readOnly&&!householdPreview){
+      // Pause stops new time, but an event already due still finishes within frame budgets.
+      const previous=analysis;analysis=session.advance(0,{budget:10}).result;
+      if(session.fault||Object.keys(session.state.protection).some(id=>analysis.components[id].status!==previous.components[id].status))render(false);
+    }
     if(transient&&active&&!readOnly)for(const c of current().components)if(['lamp','capacitor','inductor','generator','transformer'].includes(c.type)){const node=$('scene').querySelector('[data-component="'+c.id+'"] '+(c.type==='lamp'?'[data-lamp]':c.type==='generator'?'[data-generator-model]':'[data-ac-apparatus]'));if(node){if(c.type==='generator')root.CircuitGeneratorGraphics.update(node,c,analysis.components[c.id],labelOptions.fields??true);else if(c.type==='transformer'){const slot=node.querySelector('[data-transformer-field-slot]');if(slot){if(labelOptions.fields===false)slot.innerHTML='';else root.CircuitFieldGraphics.updateTransformer(slot,c,V.displayComponent(current(),analysis,c,labelOptions.currentReferences),current().display.view==='schematic',slot.dataset.transformerFieldId);}}else node.outerHTML=V.body(c,V.displayComponent(current(),analysis,c,labelOptions.currentReferences),{...current().display,fields:labelOptions.fields??true});}}
     if(timed&&(!active||householdPreview))acLag=0;
     familyUI?.animate(analysis,active&&!readOnly?(householdPreview?elapsed*timeRate:acAdvanced):0);
