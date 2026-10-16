@@ -125,11 +125,20 @@
     return c;
   }
   function addWire(doc,x,y){const w=M.addWire(doc,x,y);if(!teacher&&profile.initial.wires.some(initial=>initial.id===w.id))w.id=M.nextId({...doc,wires:[...doc.wires,...profile.initial.wires]},'w');return w;}
+  function canvasBounds(){
+    const width=surface.clientWidth,height=surface.clientHeight,r=surface.getBoundingClientRect(),pad=Math.min(22,width/2,height/2),exclusions=[];let left=pad,right=width-pad;
+    for(const grip of host.querySelectorAll('.scroll-strip')){
+      if(!grip.getClientRects().length)continue;const g=grip.getBoundingClientRect();if(g.right<=r.left||g.left>=r.right||g.bottom<=r.top||g.top>=r.bottom)continue;
+      exclusions.push({left:g.left-r.left,right:g.right-r.left,top:g.top-r.top,bottom:g.bottom-r.top});
+      if((g.left+g.right)/2<(r.left+r.right)/2)left=Math.max(left,g.right-r.left+22);else right=Math.min(right,g.left-r.left-22);
+    }
+    return{left,right,top:pad,bottom:height-pad,exclusions};
+  }
   function fit(){const d=current(),points=[...d.components.flatMap(c=>{if(household){const b=R.bodyBounds(c);return[{x:b.left-25,y:b.top-30},{x:b.right+25,y:b.bottom+35},...R.ports(c)];}return[{x:c.x-90,y:c.y-90},{x:c.x+90,y:c.y+130}];}),...d.junctions,...d.wires.flatMap(w=>G.route(d,w))];
     if(!points.length){Object.assign(camera,{x:0,y:0,scale:1});return;}
     const minX=Math.min(...points.map(p=>p.x)),maxX=Math.max(...points.map(p=>p.x)),minY=Math.min(...points.map(p=>p.y)),maxY=Math.max(...points.map(p=>p.y));
-    camera.scale=Math.max(.001,Math.min(transient?1.8:1.2,(surface.clientWidth-40)/Math.max(120,maxX-minX),(surface.clientHeight-40)/Math.max(120,maxY-minY)));
-    camera.x=(minX+maxX)/2-surface.clientWidth/(2*camera.scale);camera.y=(minY+maxY)/2-surface.clientHeight/(2*camera.scale);
+    const box=canvasBounds();camera.scale=Math.max(.001,Math.min(transient?1.8:1.2,(box.right-box.left)/Math.max(120,maxX-minX),(box.bottom-box.top)/Math.max(120,maxY-minY)));
+    camera.x=(minX+maxX)/2-(box.left+box.right)/(2*camera.scale);camera.y=(minY+maxY)/2-(box.top+box.bottom)/(2*camera.scale);
   }
   function focusPoint(p){autoFit=false;camera.scale=Math.max(1,camera.scale);camera.x=p.x-surface.clientWidth/(2*camera.scale);camera.y=p.y-surface.clientHeight/(2*camera.scale);render(false);}
   function resolveSnap(d,id,key,p){const w=d.wires.find(w=>w.id===id),other=key==="from"?"to":"from";let found=null,distance=24/camera.scale;
@@ -499,14 +508,15 @@
   function straighten(id){cancel();if(change(doc=>M.straightenWire(doc,id)))notify("導線已拉直，兩端接線保持不變；可再拿線身彎曲。");}
   function tidy(id){cancel();change(doc=>{doc.wires.filter(w=>!id||w.id===id).forEach(w=>{const points=G.route(doc,w),clean=G.smooth(G.simplify(points,12));const fitted=G.fitLength(G.resample(clean,10),w.length);if(!fitted)throw new Error('導線已拉盡；移近端點後再整理線形。');w.shape="free";w.via=fitted.slice(1,-1).map(p=>({x:p.x,y:p.y}));});});}
   function wirePlacement(doc,endpoint){
-    const width=surface.clientWidth,height=surface.clientHeight,pad=Math.min(32,width/4,height/4),clamp=(v,max)=>Math.max(pad,Math.min(max-pad,v)),length=Math.min(120,doc.cables.length*.65*camera.scale,width-2*pad);
+    const width=surface.clientWidth,height=surface.clientHeight,pad=Math.min(32,width/4,height/4),box=canvasBounds(),left=Math.max(pad,box.left),right=Math.min(width-pad,box.right),top=Math.max(pad,box.top),bottom=Math.min(height-pad,box.bottom),edgeX=Math.max(pad,Math.min(22,width/2)),clampY=v=>Math.max(top,Math.min(bottom,v)),length=Math.min(120,doc.cables.length*.65*camera.scale,right-left);
     if(endpoint){
       const origin=M.endpoints(doc).get(endpoint);if(!origin)throw Error('接線點不存在');
       const p=screen(origin),nx=origin.dx||0,ny=origin.dy||0,paths=doc.wires.map(w=>G.simplify(G.route(doc,w).map(screen),1)),bodies=doc.components.filter(c=>!endpoint.startsWith(c.id+':')).map(c=>{const b=R.bodyBounds(c);return{a:screen({x:b.left,y:b.top}),b:screen({x:b.right,y:b.bottom})};}).filter(box=>p.x<box.a.x||p.x>box.b.x||p.y<box.a.y||p.y>box.b.y),candidates=[];
       const incident=doc.wires.filter(w=>w.from===endpoint||w.to===endpoint),wire=incident.find(w=>w.id===selection?.id)||incident[0];
       const path=wire?paths[doc.wires.indexOf(wire)]:[],next=wire?.from===endpoint?path[1]:path.at(-2),angle=next?Math.atan2(p.y-next.y,p.x-next.x):Math.atan2(ny,nx);
       for(let n=0;n<16;n++){
-        const a=angle+n*Math.PI/8,q={x:clamp(p.x+Math.cos(a)*length,width),y:clamp(p.y+Math.sin(a)*length,height)},span=Math.hypot(q.x-p.x,q.y-p.y),f=Math.min(1,length/(span||1));q.x=p.x+(q.x-p.x)*f;q.y=p.y+(q.y-p.y)*f;
+        const a=angle+n*Math.PI/8,q={x:Math.max(edgeX,Math.min(width-edgeX,p.x+Math.cos(a)*length)),y:clampY(p.y+Math.sin(a)*length)},span=Math.hypot(q.x-p.x,q.y-p.y),f=Math.min(1,length/(span||1));q.x=p.x+(q.x-p.x)*f;q.y=p.y+(q.y-p.y)*f;
+        if(q.x<edgeX-1e-6||q.x>width-edgeX+1e-6||q.y<top-1e-6||q.y>bottom+1e-6||(box.exclusions||[]).some(g=>q.x+22>g.left+1e-6&&q.x-22<g.right-1e-6&&q.y+22>g.top+1e-6&&q.y-22<g.bottom-1e-6))continue;
         const dx=q.x-p.x,dy=q.y-p.y,reach=Math.hypot(dx,dy);if(reach<.01)continue;
         let clearance=24,clear=true;
         // Taper the clearance at the shared origin so a clear continuation remains preferred.
@@ -520,11 +530,11 @@
       }
       const outward=candidates.filter(q=>q.outward),available=outward.length?outward:candidates;
       available.sort((a,b)=>Number(b.preferred)-Number(a.preferred)||(Math.abs(b.clearance-a.clearance)>.01?b.clearance-a.clearance:b.reach-a.reach));
-      const best=available[0]||{x:clamp(p.x+Math.cos(angle)*length,width),y:clamp(p.y+Math.sin(angle)*length,height)};
+      const best=available[0];if(!best)throw Error('接點太近畫布邊緣，請先移動畫布或放大再取線。');
       return{from:origin,to:{x:camera.x+best.x/camera.scale,y:camera.y+best.y/camera.scale}};
     }
-    const rows=Math.max(1,Math.floor((height-2*pad)/28));let x=width/2,y=height-pad;
-    for(let n=0;n<=doc.wires.length;n++){x=Math.max(pad+length/2,Math.min(width-pad-length/2,width/2+(Math.floor(n/rows)%2?1:-1)*Math.ceil(Math.floor(n/rows)/2)*28));y=clamp(height-pad-(n%rows)*28,height);if(!doc.wires.some(w=>{const points=G.route(doc,w),q=screen(G.along(points,G.length(points)/2));return Math.hypot(q.x-x,q.y-y)<22;}))break;}
+    const rows=Math.max(1,Math.floor((bottom-top)/28)),middle=(left+right)/2;let x=middle,y=bottom;
+    for(let n=0;n<=doc.wires.length;n++){x=Math.max(left+length/2,Math.min(right-length/2,middle+(Math.floor(n/rows)%2?1:-1)*Math.ceil(Math.floor(n/rows)/2)*28));y=clampY(bottom-(n%rows)*28);if(!doc.wires.some(w=>{const points=G.route(doc,w),q=screen(G.along(points,G.length(points)/2));return Math.hypot(q.x-x,q.y-y)<22;}))break;}
     return{from:{x:camera.x+(x-length/2)/camera.scale,y:camera.y+y/camera.scale},to:{x:camera.x+(x+length/2)/camera.scale,y:camera.y+y/camera.scale}};
   }
   function takeWire(endpoint=null){if(!wireAllowed())return false;cancel();panMode=false;probeMode=false;const fitted=autoFit;autoFit=false;const ok=change(doc=>{const p=wirePlacement(doc,endpoint),w=addWire(doc,(p.from.x+p.to.x)/2,(p.from.y+p.to.y)/2);M.moveWireEnd(doc,w.id,'from',p.from);M.moveWireEnd(doc,w.id,'to',p.to);if(endpoint&&!M.attach(doc,w.id,'from',endpoint))throw Error('導線未能接到此接點');selection={kind:'wireend',id:w.id,end:'to'};selectedConnection=endpoint;});if(!ok)autoFit=fitted;else notify(endpoint?'導線已由接點接出，拖自由端繼續接線。':'導線已放在畫布下方，拖動線端接線。');return ok;}
