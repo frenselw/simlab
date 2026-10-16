@@ -16,6 +16,13 @@
     return {document:M.validate(data),removedMeasurements};
   }
   function decode(text) { if(typeof text!=='string')throw new Error("電路檔過大或無效");return importDocument(text).document; }
-  function template(doc) { const copy = M.validate(doc);copy.wires = []; copy.junctions = [];copy.display.reference = null; copy.policy.mode = "wiring"; return copy; }
+  function template(doc) {
+    const copy=M.validate(doc);
+    if(copy.analysis==='household'){
+      const family=typeof module==='object'&&module.exports?require('./circuit-household-components'):globalThis.CircuitHouseholdComponents;
+      if(family.handContacts(copy).length)throw new Error('請先把人物雙手移離元件接線端，再匯出固定元件接線模板。');
+    }
+    copy.wires=[];copy.junctions=[];copy.display.reference=null;copy.policy.mode='wiring';return copy;
+  }
   return { encode, decode, importDocument, template, bytes };
 });

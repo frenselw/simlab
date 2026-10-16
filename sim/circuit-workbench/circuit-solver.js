@@ -20,29 +20,30 @@
     return { find, join(a, b) { parent.set(find(a), find(b)); } };
   }
   // Row-scaled RREF exposes the nullspace. Unidentifiable currents are never reported as zero.
-  function linear(A, b) {
+  function* linearSteps(A, b) {
     const n = b.length; if (!n) return { x: [], nullspace: [], roundoff: [] };
-    const rows = A.map((a, i) => { const scale = Math.max(...a.map(Math.abs), 1e-30); return [...a.map((v) => v / scale), b[i] / scale]; });
+    const rows=[];for(let i=0;i<n;i++){const a=A[i],scale=Math.max(...a.map(Math.abs),1e-30);rows.push([...a.map(v=>v/scale),b[i]/scale]);yield;}
     // Track the RHS magnitudes involved in cancellation, in each unknown's
     // own units. Tiny high-resistance currents have tiny error scales too.
     const rhsScales=rows.map(row=>Math.abs(row[n])),pivots = []; let rank = 0;
     for (let col = 0; col < n; col++) {
       let p = rank; for (let i = rank; i < n; i++) if (Math.abs(rows[i][col]) > Math.abs(rows[p]?.[col] || 0)) p = i;
-      if (rank === n || Math.abs(rows[p][col]) < 1e-15) continue;
+      if (rank === n || Math.abs(rows[p][col]) < 1e-15) {yield;continue;}
       [rows[p], rows[rank]] = [rows[rank], rows[p]];
       [rhsScales[p],rhsScales[rank]]=[rhsScales[rank],rhsScales[p]];
       const value = rows[rank][col]; rhsScales[rank]/=Math.abs(value);for (let j = col; j <= n; j++) rows[rank][j] /= value;
-      for (let i = 0; i < n; i++) if (i !== rank) { const factor = rows[i][col];rhsScales[i]+=Math.abs(factor)*rhsScales[rank];for (let j = col; j <= n; j++) rows[i][j] -= factor * rows[rank][j]; }
+      for (let i = 0; i < n; i++) if (i !== rank) { const factor = rows[i][col];if(factor){rhsScales[i]+=Math.abs(factor)*rhsScales[rank];for (let j = col; j <= n; j++) rows[i][j] -= factor * rows[rank][j];}yield; }
       pivots.push(col); rank++;
     }
     for (let i = rank; i < n; i++) if (Math.abs(rows[i][n]) > 1e-8) return { error: "inconsistent" };
     const x = Array(n).fill(0); pivots.forEach((col, i) => { x[col] = rows[i][n]; });
     const nullspace = [];
-    for (let col = 0; col < n; col++) if (!pivots.includes(col)) { const v = Array(n).fill(0); v[col] = 1; pivots.forEach((p, i) => { v[p] = -rows[i][col]; }); nullspace.push(v); }
+    for (let col = 0; col < n; col++) if (!pivots.includes(col)) { const v = Array(n).fill(0); v[col] = 1; pivots.forEach((p, i) => { v[p] = -rows[i][col]; }); nullspace.push(v);yield; }
     if (x.some((v) => !Number.isFinite(v))) return { error: "numerical" };
     const roundoff=Array(n).fill(0);pivots.forEach((col,i)=>roundoff[col]=32*n*Number.EPSILON*rhsScales[i]);
     return { x, nullspace, roundoff };
   }
+  function linear(A,b){const job=linearSteps(A,b);let step;do{step=job.next();}while(!step.done);return step.value;}
   function solve(input,relayStates=null) {
     if(input?.version===7)throw new Error('DC 求解器不支援交流時間模型');
     if(input?.version===8)throw new Error('DC 求解器不支援家庭有效值模型');
@@ -187,5 +188,5 @@
     doc.components.forEach(c=>{const r=result.components[c.id],hot=c.type==='battery'?Number.isFinite(r?.current)&&Math.abs(r.current)>hazardLimits.current:c.type==='ammeter'?Number.isFinite(r?.reading)&&Math.abs(r.reading)>hazardLimits.meterRatio*r.range:c.type==='lamp'?Number.isFinite(r?.power)&&Math.max(0,r.power)/(c.params.ratedVoltage**2/c.params.resistance)>hazardLimits.lampRatio:false;if(hot&&!components[c.id])components[c.id]='overload';});
     return{wires,components,short:Object.values(components).includes('short'),overload:Object.values(components).includes('overload')||Object.values(wires).includes('overload')};
   }
-  return { solve, linear, estimateLinear, reading, cutExpressions, bestCut, hazards, hazardLimits };
+  return { solve, linear, linearSteps, estimateLinear, reading, cutExpressions, bestCut, hazards, hazardLimits };
 });

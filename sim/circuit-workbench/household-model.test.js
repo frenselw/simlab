@@ -172,3 +172,39 @@ for(const key of ['C01','C03','C04'])for(const wiring of ['earth','disconnected'
  const restored=H.Session.restore(H.decode(H.encode(s.capture())));assert.equal(restored.read().components.load.earthed,r.components.load.earthed);near(restored.read().components.load.current,r.components.load.current);restored.advance(.01);assert(restored.read().reliable);restored.destroy();s.destroy();
 }
 console.log('Protective earth: genuine E, disconnected E, neutral-only socket E, mixed N/E and open earth path, with production round-trip/continuation passed');
+for(const type of ['house-switch','house-fuse','house-breaker','house-rcd']){
+ const d=P.create('C03'),c=M.add(d,type,-250,220,type==='house-switch'?{closed:false}:{}),ends=['house-switch','house-fuse'].includes(type)?['a','b']:['ni','no'];
+ M.connect(d,'source:n',c.id+':'+ends[0]);M.connect(d,c.id+':'+ends[1],'earth:e');const s=new H.Session(d);
+ if(type!=='house-switch'){Object.assign(s.state.protection[c.id],{status:type==='house-fuse'?'blown':'tripped',reason:type==='house-rcd'?'residual':'overcurrent'});s.publish();}
+ assert.equal(s.read().components.load.earthed,true,type+' isolated N/E bridge keeps genuine earth');near(s.read().components.load.casePotential,0);near(s.read().components[c.id].current,0);
+ const restored=H.Session.restore(H.decode(H.encode(s.capture())));assert.equal(restored.read().components.load.earthed,true);restored.advance(.01);assert.equal(restored.read().components.load.earthed,true);restored.destroy();
+ if(type==='house-switch'){const next=M.clone(s.doc);next.components.find(x=>x.id===c.id).params.closed=true;s.update(next);}else s.resetProtection(c.id);
+ assert.equal(s.read().components.load.earthed,false,type+' closed bridge is an actual neutral/earth mix');s.destroy();
+}
+{
+ const Solver=require('./circuit-solver'),original=Solver.linearSteps;let calls=0;Solver.linearSteps=function(...args){calls++;return original(...args);};
+ try{const s=new H.Session(P.create('C01')),before=calls,energy=s.read().components.meter.energyKWh,old=s.read();for(let i=0;i<120;i++)s.advance(1/60,{budget:10});assert.equal(calls,before,'steady frames reuse the electrical solve');assert(s.read().components.meter.energyKWh>energy);near(s.read().time,2);assert.equal(old.time,0,'previous observations remain unchanged');assert.equal(old.components.meter.energyKWh,energy);const display=M.clone(s.doc);display.display.flow='off';display.components.find(c=>c.id==='load').label='自訂家電';s.update(display);assert.equal(calls,before,'display and name changes keep the electrical cache');const electrical=M.clone(s.doc);electrical.supplyVoltage=220;s.update(electrical);assert(calls>before);near(s.read().components.source.voltage,220);s.destroy();}finally{Solver.linearSteps=original;}
+}
+for(const key of ['C04','C07','C07fuse','C10']){
+ const d=P.create(key);if(key==='C04')d.components.find(c=>c.id==='load').params.fault=true;if(key==='C07')d.components.filter(c=>c.type==='house-switch').forEach(c=>c.params.closed=true);if(key==='C07fuse')d.components.find(c=>c.id==='switch').params.closed=true;if(key==='C10')M.attach(d,'short-link','to','short-n:p');
+ const baseline=new H.Session(d),s=new H.Session(d);baseline.advance(3);const realClock=globalThis.performance;let now=0;globalThis.performance={now:()=>++now};
+ try{let remaining=3,count=0,roundTrip=false;do{const p=s.advance(remaining,{budget:4});remaining=Math.max(0,remaining-p.advanced);assert(++count<20000);assert.equal(s.fault,null);assert.doesNotThrow(()=>H.encode(s.capture()));if(s.pending){const status=s.read().components.protector.status;assert.equal(status,key==='C07fuse'?'intact':'closed','pending event keeps accepted status and currents');assert(s.read().components.protector.current>0);if(!roundTrip){const copy=H.Session.restore(H.decode(H.encode(s.capture())));copy.advance(0);assert(['tripped','blown'].includes(copy.read().components.protector.status));copy.destroy();roundTrip=true;}}if(p.complete)break;}while(true);assert.deepEqual(s.capture(),baseline.capture(),key+' budget continuation matches unbudgeted physics');assert.deepEqual(s.read().components,baseline.read().components);}finally{globalThis.performance=realClock;s.destroy();baseline.destroy();}
+}
+{
+ const d=P.create('C10');M.attach(d,'short-link','to','short-n:p');const s=new H.Session(d),clock=globalThis.performance;let t=0;globalThis.performance={now:()=>++t};
+ try{const p=s.advance(.02,{budget:2});assert.equal(p.advanced,.02);assert.equal(p.complete,false);assert(s.pending);const repaired=M.clone(s.doc);M.detach(repaired,'short-link','to');s.update(repaired);assert.equal(s.pending,null);assert.equal(s.read().components.protector.status,'closed');s.advance(.1);assert.equal(s.read().components.protector.status,'closed','editing cancels stale pending trips');}finally{globalThis.performance=clock;s.destroy();}
+}
+console.log('External audit: real isolated earth paths, steady solve cache, budgeted atomic trips, zero-time continuation and cancellation passed');
+for(const count of [20,40,80]){
+ const d=M.empty('household');d.cables={count:240,length:1200,resistance:0};M.add(d,'house-mains',-140,0).id='source';M.add(d,'house-breaker',0,0,{rating:5}).id='protector';M.connect(d,'source:l','protector:li');M.connect(d,'source:n','protector:ni');let l='protector:lo',n='protector:no';
+ for(let i=0;i<count-3;i++){const c=M.add(d,'house-meter',i%10*100,Math.floor(i/10)*100);M.connect(d,l,c.id+':li');M.connect(d,n,c.id+':ni');l=c.id+':lo';n=c.id+':no';}M.add(d,'house-insulated',600,600,{kind:'dryer'}).id='load';M.connect(d,l,'load:l');M.connect(d,n,'load:n');
+ const G=require('./circuit-routing');for(const w of d.wires)w.length=Math.max(w.length,Math.ceil(G.length(G.route(d,w)))+20);
+ const baseline=new H.Session(d),s=new H.Session(d);baseline.advance(2);const real=globalThis.performance;let clock=0;globalThis.performance={now:()=>clock+=.01};
+ try{let remaining=2,calls=0;do{const p=s.advance(remaining,{budget:10});remaining=Math.max(0,remaining-p.advanced);assert(++calls<10000);if(s.pending){assert.equal(s.read().components.protector.status,'closed');assert(s.read().components.protector.current>5);}if(p.complete)break;}while(true);assert(calls>1,'connected event solve is resumable');assert.deepEqual(s.capture(),baseline.capture());assert.equal(s.read().components.protector.status,'tripped');near(s.read().components.load.current,0);}finally{globalThis.performance=real;s.destroy();baseline.destroy();}
+}
+console.log('Capacity: 20/40/80 connected component event solves honour continuation and exact state/energy');
+{
+ const d=P.create('C10');M.attach(d,'short-link','to','short-n:p');const fuse=M.add(d,'house-fuse',-300,-150,{rating:3}),wire=d.wires.find(w=>w.to==='protector:li');wire.to=fuse.id+':a';M.connect(d,fuse.id+':b','protector:li');
+ const baseline=new H.Session(d),s=new H.Session(d);baseline.advance(.1);const real=globalThis.performance;let clock=0;globalThis.performance={now:()=>++clock};
+ try{let remaining=.1,done=false,calls=0;while(!done){const p=s.advance(remaining,{budget:4});remaining=Math.max(0,remaining-p.advanced);done=p.complete;assert(++calls<20000);const r=s.read().components;assert.equal(r.protector.status==='tripped',r[fuse.id].status==='blown','simultaneous protection statuses publish together');if(s.pending){assert.equal(r.protector.status,'closed');assert.equal(r[fuse.id].status,'intact');assert(r.protector.current>100);}assert.doesNotThrow(()=>H.encode(s.capture()));}assert.deepEqual(s.capture(),baseline.capture());assert.equal(s.read().components.protector.status,'tripped');assert.equal(s.read().components[fuse.id].status,'blown');}finally{globalThis.performance=real;s.destroy();baseline.destroy();}
+}

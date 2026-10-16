@@ -373,7 +373,7 @@
       if(wireAllowed())prop.insertAdjacentHTML('beforeend','<p class="note connection-legend">接合接頭：接好　分離接頭：拔開</p>');
       button("整理線形",()=>tidy(wire.id),!wireAllowed());
     }else if(selection?.kind==="port"||selection?.kind==="junction"){
-      const endpoint=selection.kind==="junction"?selection.id+":p":selection.id;$("selectionTitle").textContent=portName(endpoint);if(profile.ui.readings){prop.innerHTML=readingHost();}if(profile.ui.probe)button("設為 0 V",()=>change(doc=>doc.display.reference=endpoint),readOnly);
+      const endpoint=selection.kind==="junction"?selection.id+":p":selection.id;$("selectionTitle").textContent=portName(endpoint);if(profile.ui.readings){prop.innerHTML=readingHost();}if(profile.ui.probe&&!household)button("設為 0 V",()=>change(doc=>doc.display.reference=endpoint),readOnly);
       d.wires.filter(w=>w.from===endpoint||w.to===endpoint).forEach(w=>button("選導線 "+w.id,()=>{selection={kind:"wire",id:w.id};render();}));
     }else{$("selectionTitle").textContent=profile.ui.readings&&probeResult?"兩點量測":analysis.diagnostics.length?"電路提示":"";if(profile.ui.readings&&probeResult)prop.innerHTML=readingHost();}
     for(const diagnostic of analysis.diagnostics){const p=document.createElement("p");p.className="diagnostic";p.textContent=diagnostic.message;prop.append(p);}

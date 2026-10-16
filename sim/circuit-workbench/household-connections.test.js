@@ -108,3 +108,11 @@ for(const stance of ['grounded','insulated'])for(const hand of ['hand','hand-lef
  d.components.find(c=>c.id==='person').locked=true;assert.equal(J.component(d,'person',{x:418,y:13},24,'person:hand'),null);
 }
 console.log('Household: ordinary hand ports reuse existing cables; no automatic wires at E or wire bodies; stock, movement, history and round-trips passed');
+for(const hand of ['hand','hand-left'])for(const [type,keys]of [['house-mains',['l','n']],['house-socket',['l','n','e']],['house-metal',['l','n','e']],['house-earth',['e']]])for(const key of keys){
+ const d=M.empty('household'),target=M.add(d,type,0,0),person=M.add(d,'house-person',250,150),R=require('./component-registry'),D=require('./circuit-document'),a=R.ports(target).find(p=>p.key===key),b=R.ports(person).find(p=>p.key===hand);person.x+=a.x-b.x;person.y+=a.y-b.y;
+ assert(C.handContacts(d).some(p=>p.hand===person.id+':'+hand&&p.target===target.id+':'+key));const before=M.clone(d);assert.throws(()=>D.template(d),/雙手移離元件接線端/);assert.deepEqual(d,before,'template rejection leaves the original circuit unchanged');
+}
+{
+ const D=require('./circuit-document'),H=require('./household-model'),d=P.create('C09'),copy=D.template(d);assert.equal(C.handContacts(copy).length,0);assert.equal(copy.wires.length,0);assert.equal(copy.junctions.length,0);assert.equal(copy.policy.mode,'wiring');const s=H.Session.restore(H.decode(H.encode(new H.Session(copy).capture())));assert.equal(s.read().components.person.current,0);s.advance(.01);assert.equal(s.read().components.person.current,0);s.destroy();
+ const shell=new H.Session(P.create('C03'));shell.contact('person','load');const safe=D.template(shell.doc),restored=new H.Session(safe);assert.equal(restored.state.contacts.person,null);assert.equal(restored.read().components.person.current,0);restored.destroy();shell.destroy();
+}
