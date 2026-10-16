@@ -88,7 +88,7 @@
     const wires={};for(const w of doc.wires){const b=branches['@wire:'+w.id];wires[w.id]={current:b.current,voltage:b.voltage,potential:potential(w.from),potentialTo:potential(w.to),resistance:constants.wireResistance,power:b.power,cyclic:false,role:Connections.wireRole(doc,w,topology)};yield;}
     const diagnostics=solution.error?[{code:solution.error,message:'電路未能得到可靠結果，模擬已暫停。'}]:[];
     const potentials={};for(const k of ports.keys()){potentials[k]=potential(k);yield;}
-    return {mode:'household',shortCircuit,time:state.time,components,wires,potentials,islandOf:Object.fromEntries([...ports.keys()].map(k=>[k,'earth-reference'])),references:[{island:'earth-reference',endpoint:doc.components.find(c=>c.type==='house-mains')?.id+':n',voltage:0}],diagnostics,reliable:!solution.error,voltage};
+    return {mode:'household',shortCircuit,time:state.time,components,wires,potentials,netOf:Object.fromEntries([...ports.keys()].map(k=>[k,find(k)])),islandOf:Object.fromEntries([...ports.keys()].map(k=>[k,'earth-reference'])),references:[{island:'earth-reference',endpoint:doc.components.find(c=>c.type==='house-mains')?.id+':n',voltage:0}],diagnostics,reliable:!solution.error,voltage};
   }
   function solve(input,state){const job=solveSteps(M.validate(input),state);let step;do{step=job.next();}while(!step.done);return step.value;}
   function object(value,allowed){if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).some(k=>!allowed.includes(k))||allowed.some(k=>!Object.hasOwn(value,k)))throw new Error('家庭文件欄位無效');}

@@ -150,7 +150,8 @@
     const p=world(x,y),ends=M.endpoints(history.get()),candidates=new Map();
     for(const t of targets.values()){
       const m=t.meta,id=m.kind==='port'?m.id:m.kind==='junction'?m.id+':p':['wireend','hand'].includes(m.kind)?m.endpoint:null,q=ends.get(id);
-      if(!q)continue;const distance=Math.hypot(q.x-p.x,q.y-p.y)*camera.scale;if(distance<=22)candidates.set(id,{id,distance});
+      if(!q)continue;const distance=Math.hypot(q.x-p.x,q.y-p.y)*camera.scale,node=household?analysis.netOf[id]:id;
+      if(distance<=22&&(!candidates.has(node)||distance<candidates.get(node).distance))candidates.set(node,{id,distance});
     }
     const nearby=[...candidates.values()].sort((a,b)=>a.distance-b.distance);
     if(nearby[1]&&nearby[1].distance-nearby[0].distance<2){notify('測點太接近，請放大後再選。');return null;}
