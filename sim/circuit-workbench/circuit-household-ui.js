@@ -27,7 +27,7 @@
       if(c.type==='house-earth')return '<p class="note">拖普通導線到 E 接線點，表示連回供電系統的地。</p>';
       if(c.type==='house-socket')return '<p class="note">正面：上 E、左 N、右 L；家電兩條線可接同一孔。</p>';
       if(c.type==='house-power-strip')return readings([['總電流（有效值）',abs(r.current),'A']])+'<p class="note">拖白色插頭到插座，三腳一同接通；拖開便拔出。三個插位同名端子並聯，白色電源線內藏 L／N／E。插頭可用方向鍵移動、Shift 微調及 Enter 吸附。</p>';
-      if(c.type==='house-switch')return readings([['開關兩端電壓',abs(r.voltage),'V']])+`<p class="note">${r.role==='N'?'開關接在零線':r.role==='L'?'開關接在火線':'尚未接入 L／N 線路'}</p>`;
+      if(c.type==='house-switch')return readings([['開關兩端電壓',abs(r.voltage),'V']])+`<p class="note">${r.sourceRoles.length>1?'開關兩端接有不同或混接的供電來源：'+r.sourceRoles.join('／'):r.role==='N'?'開關接在零線':r.role==='L'?'開關接在火線':r.role==='E'?'開關接在地線':'尚未接入 L／N 線路'}</p>`;
       return readings([['供電電壓（有效值）',r.voltage,'V'],['頻率',50,'Hz'],['供出電流',r.current,'A']]);
     }
     function protectionAction(c,r,actions){

@@ -80,7 +80,7 @@
       if(C.isProtection(c)){result.status=state.protection[c.id].status;result.protection=clone(state.protection[c.id]);result.channelL=line?.current??0;result.channelN=neutral?.current??0;result.current=c.type==='house-fuse'?sw?.current??0:Math.max(Math.abs(result.channelL),Math.abs(result.channelN));result.residualCurrent=Math.abs(result.channelL+result.channelN);
         result.shortCircuit=shortCircuit&&c.type!=='house-rcd'&&Math.abs(result.current)>=constants.fastMultiple*c.params.rating&&edges.some(e=>e.owner===c.id&&Math.abs(branches[e.id].current)>1e-9&&live.some(k=>reaches(e.a,k,e.id)&&reaches(e.b,ground,e.id)||reaches(e.b,k,e.id)&&reaches(e.a,ground,e.id)));
       }
-      if(c.type==='house-switch'){result.status=c.params.closed?'closed':'open';result.voltage=voltage(at('a'),at('b'));const roles=connectionSources(at('a'));result.role=roles.length===1?roles[0]:null;}
+      if(c.type==='house-switch'){result.status=c.params.closed?'closed':'open';result.voltage=voltage(at('a'),at('b'));result.sourceRoles=[...new Set(['a','b'].flatMap(key=>connectionSources(at(key))))].sort();result.role=result.sourceRoles.length===1?result.sourceRoles[0]:null;}
       components[c.id]=result;
       yield;
     }

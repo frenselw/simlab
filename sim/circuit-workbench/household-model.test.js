@@ -218,17 +218,37 @@ console.log('Paused editor frames settle due protection within 10 ms budgets wit
 {
  const fs=require('node:fs'),vm=require('node:vm'),source=fs.readFileSync(require.resolve('./circuit-household-ui'),'utf8'),context=vm.createContext({C,Q:require('./circuit-math'),abs:value=>Number.isFinite(value)?Math.abs(value):null});
  vm.runInContext(source.slice(source.indexOf('    function resultText(doc,result){'),source.indexOf('    function render(doc,result){')),context);
+ vm.runInContext(source.slice(source.indexOf('    function reading(c,r,readings){'),source.indexOf('    function protectionAction(c,r,actions){')),context);
  function supplied(depth,reversed,gate){
   const d=M.empty('household');d.cables.count=40;d.cables.length=1200;
   M.add(d,'house-mains',-200,-150).id='source';M.add(d,'house-earth',-160,150).id='earth';M.add(d,'house-socket',0,0).id='socket';
   let live='source:l',neutral='source:n';
   if(gate){const c=M.add(d,gate,-100,-50);c.id='gate';if(gate==='house-switch'||gate==='house-fuse'){M.connect(d,live,'gate:a');live='gate:b';}else{M.connect(d,live,'gate:li');M.connect(d,neutral,'gate:ni');live='gate:lo';neutral='gate:no';}}
-  M.connect(d,live,'socket:'+(reversed?'n':'l'));M.connect(d,neutral,'socket:'+(reversed?'l':'n'));M.connect(d,'earth:e','socket:e');
-  let outputs={l:'socket:l',n:'socket:n',e:'socket:e'},plug={x:0,y:0};
+  if(depth>=0){M.connect(d,live,'socket:'+(reversed?'n':'l'));M.connect(d,neutral,'socket:'+(reversed?'l':'n'));M.connect(d,'earth:e','socket:e');}
+  let outputs=depth<0?{l:live,n:neutral,e:'earth:e'}:{l:'socket:l',n:'socket:n',e:'socket:e'},plug={x:0,y:0};
   for(let i=0;i<depth;i++){const c=M.add(d,'house-power-strip',300+i*300,150);c.id='strip'+i;const next=C.previewPlug(d,c.id,plug,24);assert(next?.snap);Object.assign(d,next.doc);outputs=Object.fromEntries(['l','n','e'].map(k=>[k,c.id+':'+k+'2']));plug={x:300+i*300,y:150};}
   M.add(d,'house-metal',500,400,{kind:'fan'}).id='load';for(const k of ['l','n','e'])M.connect(d,outputs[k],'load:'+k);
   for(const w of d.wires)w.length=2000;return M.validate(d);
  }
+ for(const [depth,reversed]of [[-1,false],[0,false],[0,true],[1,false],[1,true],[2,true]])for(const lead of ['l','n'])for(const input of ['a','b']){
+  const d=supplied(depth,reversed),c=M.add(d,'house-switch',650,300);c.id='switch';const w=d.wires.find(w=>w.to==='load:'+lead);w.to='switch:'+input;M.connect(d,'switch:'+(input==='a'?'b':'a'),'load:'+lead);
+  const expected=(reversed?(lead==='l'?'n':'l'):lead).toUpperCase(),s=new H.Session(d),wires=M.clone(s.doc.wires);
+  for(const closed of [true,false]){
+   const next=M.clone(s.doc);next.components.find(c=>c.id==='switch').params.closed=closed;s.update(next);const r=s.read().components.switch;
+   assert.equal(r.role,expected,JSON.stringify({depth,reversed,lead,input,closed}));assert.deepEqual(r.sourceRoles,[expected]);assert.match(context.reading(c,r,()=>''),expected==='L'?/開關接在火線/:/開關接在零線/);assert.equal(s.read().components.load.working,closed);assert.deepEqual(s.doc.wires,wires,'opening the switch changes no wiring');
+   const restored=H.Session.restore(H.decode(H.encode(s.capture())));restored.advance(.01);assert.equal(restored.read().components.switch.role,expected);assert.deepEqual(restored.read().components.switch.sourceRoles,[expected]);assert.match(context.reading(c,restored.read().components.switch,()=>''),expected==='L'?/開關接在火線/:/開關接在零線/);restored.destroy();
+  }
+  s.destroy();
+ }
+ for(const closed of [true,false])for(const ends of [[null,null],['l','l'],['l','n'],['n','e'],['e',null]]){
+  const d=M.empty('household');M.add(d,'house-mains',-200,0).id='source';M.add(d,'house-earth',-200,150).id='earth';const c=M.add(d,'house-switch',0,0,{closed});c.id='switch';
+  ends.forEach((role,i)=>{if(role)M.connect(d,(role==='e'?'earth':'source')+':'+role,'switch:'+(i?'b':'a'));});
+  const s=new H.Session(d),roles=[...new Set(ends.filter(Boolean).map(k=>k.toUpperCase()))].sort(),r=s.read().components.switch;assert.deepEqual(r.sourceRoles,roles);assert.equal(r.role,roles.length===1?roles[0]:null);assert.match(context.reading(c,r,()=>''),roles.length>1?/不同或混接/:roles.length===0?/尚未接入/:roles[0]==='E'?/開關接在地線/:/開關接在火線/);s.destroy();
+ }
+ {
+  const d=M.empty('household');M.add(d,'house-mains',-200,0).id='source';const c=M.add(d,'house-switch',0,0,{closed:false});c.id='switch';M.connect(d,'source:l','switch:b');M.connect(d,'source:n','switch:b');const s=new H.Session(d);assert.deepEqual(s.read().components.switch.sourceRoles,['L','N']);assert.equal(s.read().components.switch.role,null);assert.match(context.reading(c,s.read().components.switch,()=>''),/不同或混接/);s.destroy();
+ }
+ console.log('Switch supply diagnosis: L/N × a/b × closed/open, reversed sockets, one/two strips, actual UI, restore/continuation and mixed/absent sources passed');
  for(const depth of [0,1,2])for(const reversed of [false,true]){
   const d=supplied(depth,reversed),s=new H.Session(d),r=s.read();assert(r.components.load.power>59);assert.deepEqual(r.components.load.connections,{l:reversed?'N':'L',n:reversed?'L':'N',e:'E'});assert.equal(r.components.load.earthed,true);
   assert.equal(require('./household-connections').inspect(d).roleOf('load:l'),'L','printed socket roles remain available for wire colours');

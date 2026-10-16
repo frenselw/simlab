@@ -786,3 +786,11 @@ C08 的九種接法探索可在其他自由接線示例完成，從學生示例�
 原 Node owners 已覆蓋模板匯出／解碼／插拔／負載通斷、本體固定、禁止其他參數及只讀／wires:false；直接插座與一／兩層拖板的上游反接、開關／斷路器／RCD／保險絲斷開、N-E 混接及保存續作。四家庭 Node owners、registry 240 entries 及五包重建通過。原 browser owner 補上固定模板滑鼠／觸控／鍵盤插拔與本體固定，source／package 均執行；按用戶要求本機不開 Chrome，實際遠端 CI 結果另記，不能把 Node 當完整瀏覽器驗收。
 
 遠端 38865865094 的家庭 owner 實際失敗於既有接地警告斷言（line 96）：新增的混接提示蓋過「外殼尚未正確接地」。此前新增滑鼠／觸控／鍵盤插拔案例已執行通過，但 source 後段及 package 未完成，不能算完整驗收。已在混接提示同時保留缺失保護接地警告，補上 Node 雙警告斷言；Node model 及重建五包通過，下一提交重新執行完整 source／package。
+
+### 普通開關 b 端供電後斷開的診斷修正（2026-10-16）
+
+只修改家庭模型、元件讀數提示及既有 household-model Node owner：綜合 a／b 兩端實際閉合低阻通路的來源並去重，不假定 a 端為輸入、不退回孔位標示。sourceRoles 是派生分析結果；單一 L／N／E、混接及完全未接分開顯示，存檔版本及物理求解保持。
+
+執行 48 組 L／N × a／b × 合上／斷開矩陣（直接市電、正常／反接插座、正常／反接單拖板及反接雙拖板），每組檢查實際 reading 提示、負載通斷、接線不變、正式保存還原及續算；另有 11 組同源、兩端不同來源、單端混接、地線及未接來源邊界。模型／狀態 Node owner、36 歷史 fixtures、registry 240 entries 及五包重建通過；按用戶要求未開本機 Chrome。
+
+上一輪 2fa7449 的遠端 Quality 38867800593 實際 failure：家庭 owner 在手機接地線端的 gesture target 斷言中止（舊版 line 442，earth gesture starts on the visible endpoint）。此為既有觸控驗收限制，不能把此前 CI 當完整 source／package 通過；本輪不擴大修改其他手勢，新提交 CI 結果另驗。
