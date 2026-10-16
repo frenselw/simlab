@@ -603,6 +603,10 @@
     if(probeMode)return;
     const d=history.get();let meta=t?.meta,tapMeta=meta;
     if(meta?.kind==='wireend'&&M.attached(d,d.wires.find(w=>w.id===meta.id),meta.end)&&!selectedWire()){const endpoint=d.wires.find(w=>w.id===meta.id)[meta.end],component=d.components.find(c=>c.id===endpoint.split(':')[0]);meta=tapMeta={kind:component?'port':'junction',id:component?endpoint:endpoint.split(':')[0]};}
+    if(meta?.kind==='hand'){
+      const p=world(e.clientX,e.clientY),ports=R.ports(d.components.find(c=>c.id===meta.id));
+      ports.sort((a,b)=>Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y));meta=tapMeta={...meta,endpoint:ports[0].id};
+    }
     const owner=meta&&['body','port','slider'].includes(meta.kind)&&d.components.find(c=>c.id===meta.id.split(':')[0]);
     if(owner&&camera.scale<(R.dualMeter(owner)?.7:.55)){
       const p=world(e.clientX,e.clientY),features=['body:'+owner.id,'slider:'+owner.id,...R.ports(owner).map(p=>'port:'+p.id)].map(key=>targets.get(key)).filter(Boolean);

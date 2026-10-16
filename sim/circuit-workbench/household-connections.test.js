@@ -196,3 +196,12 @@ for(const hand of ['hand','hand-left'])for(const [type,keys]of [['house-mains',[
  context.done={...context.drag,moved:true};context.preview=context.previewDoc;vm.runInContext('function release(){'+source.slice(source.indexOf("    if(done.kind==='hand'){"),source.indexOf('    if(discardZone){'))+'}',context);context.release();assert(session.read().components.person.handCurrents.left>.05);assert.equal(session.state.contacts.person,null);context.paramSession.destroy();session.destroy();
  console.log('Actual editor left-hand preview/release contacts metal without invoking the right-hand contact setter');
 }
+{
+ const fs=require('node:fs'),vm=require('node:vm'),R=require('./component-registry'),source=fs.readFileSync(require.resolve('./circuit-editor'),'utf8'),code=source.slice(source.indexOf('  on(surface,"pointerdown"'),source.indexOf('  on(surface,"mousedown"'));
+ for(const stance of ['grounded','insulated'])for(const hand of ['hand','hand-left'])for(const scale of [.15,.3,.55,1,2.5])for(const pointerType of ['mouse','touch'])for(const offset of [-2,0,2]){
+  const d=M.empty('household'),person=M.add(d,'house-person',300,170,{stance}),endpoint=person.id+':'+hand,p=R.ports(person).find(p=>p.id===endpoint),before=M.clone(d),target={meta:{kind:'hand',id:person.id,endpoint:person.id+':'+(hand==='hand'?'hand-left':'hand')},setPointerCapture(){}};let down;
+  const context=vm.createContext({M,R,surface:{},history:{get:()=>d},$:()=>({contains:()=>false}),touchBlocked:false,cameraGesture:null,panMode:false,spacePan:false,probeMode:false,household:true,readOnly:false,selection:null,selectedConnection:null,camera:{x:100,y:50,scale},selectedWire:()=>null,allow:()=>true,render(){},world:(x,y)=>({x:100+(x-17)/scale,y:50+(y-41)/scale}),on:(_owner,_event,fn)=>down=fn});vm.runInContext(code,context);
+  down({target:{closest:()=>target},clientX:17+(p.x-100)*scale+offset,clientY:41+(p.y-50)*scale,pointerType,pointerId:1,isPrimary:true,button:0});assert.equal(context.drag?.kind,'hand');assert.equal(context.drag.endpoint,endpoint,'the nearest hand wins over an overlapping opposite-hand target');assert.equal(context.drag.tapMeta.endpoint,endpoint,'tap and drag use the same hand');assert.deepEqual(d,before);
+ }
+ console.log('Actual pointerdown resolves both hand targets by distance: 120 stance/zoom/input/offset cases');
+}
