@@ -67,6 +67,7 @@ async function cameraCases(h,mode,base){
     for(const [flag,id]of [["wireMode","pickWire"],["probeMode","probe"]])if((await interaction())[flag])await click("#"+id);
     const d=P.create("series");d.display.view=view;await load(d);
     if(tool==="wire")await click("#pickWire");if(tool==="probe")await click("#probe");if(tool==="read-only")await inside("CircuitWorkbench.setReadOnly(true)");
+    const probePoints=tool==='probe'?['c1:a','c1:b']:null;if(probePoints)await click('[data-hit="port:'+probePoints[0]+'"]');
     const p=await blankClick();await watch();const before=await state();await mouse(p,"mousePressed",2);
     assert.equal((await interaction()).dragging,"pan");assert.equal(await inside("document.getElementById('surface').classList.contains('quick-pan')"),true);const samples=[];
     for(let n=1;n<=6;n++){await mouse(p,"mouseMoved",2,48*n/6,-30*n/6);const c=(await interaction()).camera;assert.equal(c.scale,before.interaction.camera.scale);assert(Math.abs(c.x-before.interaction.camera.x+48*n/6/c.scale)<1e-7);assert(Math.abs(c.y-before.interaction.camera.y-30*n/6/c.scale)<1e-7);samples.push(c);}
@@ -74,6 +75,7 @@ async function cameraCases(h,mode,base){
     assert.equal((await interaction()).dragging,null);assert.equal(await inside("document.getElementById('surface').classList.contains('quick-pan')"),false);await unchanged(before);
     for(const flag of ["panMode","wireMode","probeMode","readOnly"])assert.equal((await interaction())[flag],before.interaction[flag]);
     const after=(await interaction()).camera;await mouse(p,"mousePressed");await mouse(p,"mouseMoved",1,20,15);await mouse(p,"mouseReleased",1,20,15);assert.deepEqual((await interaction()).camera,after,"single blank drag stays inert after temporary hand releases");await unchanged(before);
+    if(probePoints){await click('[data-hit="port:'+probePoints[1]+'"]');assert.match((await interaction()).lastMessage,/兩點電壓/,'the first probe survives blank navigation');assert.equal((await interaction()).selection.id,probePoints[1]);assert.equal(await save(),before.saved);assert.deepEqual(await inside("[document.getElementById('undo').disabled,document.getElementById('redo').disabled]"),before.history);assert.equal((await interaction()).probeMode,true);}
     assert((await inside("__navEvents")).some(e=>e.trusted&&e.type==="pointermove"&&e.pointer==="mouse"));
     if(tool==="read-only")await inside("CircuitWorkbench.setReadOnly(false)");
     else{await click("#quickWire");await click("#undo");assert.equal(await save(),before.saved,"temporary pan adds no undo entry and editing resumes");}

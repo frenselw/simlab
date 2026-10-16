@@ -146,7 +146,17 @@
     if(M.translateWire(snapped,id,best.x-p.x,best.y-p.y).limited||!M.attach(snapped,id,best.end,best.id))return null;
     return{doc:snapped,snap:best};
   }
-  function probePort(id){selection={kind:"port",id};const value=analysis.potentials[id];if(probeFirst&&probeFirst!==id){probeResult={from:probeFirst,to:id,voltage:analysis.voltage(probeFirst,id)};probeFirst=null;notify(probeResult.voltage===null?"兩點不屬同一個可確定電勢差的電路。":["兩點電壓：",Q.quantity(probeResult.voltage,'V'),"（第一點 − 第二點）"]);}else{probeFirst=id;probeResult=null;notify(['相對電勢 ',Q.quantity(value,'V'),'（'+referenceText(id)+'）；再點另一個端子測量。']);}render();}
+  function probeEndpointAt(x,y){
+    const p=world(x,y),ends=M.endpoints(history.get()),candidates=new Map();
+    for(const t of targets.values()){
+      const m=t.meta,id=m.kind==='port'?m.id:m.kind==='junction'?m.id+':p':['wireend','hand'].includes(m.kind)?m.endpoint:null,q=ends.get(id);
+      if(!q)continue;const distance=Math.hypot(q.x-p.x,q.y-p.y)*camera.scale;if(distance<=22)candidates.set(id,{id,distance});
+    }
+    const nearby=[...candidates.values()].sort((a,b)=>a.distance-b.distance);
+    if(nearby[1]&&nearby[1].distance-nearby[0].distance<2){notify('測點太接近，請放大後再選。');return null;}
+    return nearby[0]?.id||null;
+  }
+  function probePort(id){selection={kind:"port",id};const value=analysis.potentials[id];if(probeFirst&&probeFirst!==id){probeResult={from:probeFirst,to:id,voltage:analysis.voltage(probeFirst,id)};probeFirst=null;notify(probeResult.voltage===null?"兩點不屬同一個可確定電勢差的電路。":["兩點電壓：",Q.quantity(probeResult.voltage,'V'),'（'+portName(probeResult.from)+' − '+portName(id)+'）']);}else{probeFirst=id;probeResult=null;notify([portName(id)+'：相對電勢 ',Q.quantity(value,'V'),'（'+referenceText(id)+'）；再點另一個端子測量。']);}render();}
   function target(key,meta,p,width=44,height=44,touch="none"){let t=targets.get(key);if(!t){t=document.createElement("button");t.type="button";t.className="hit "+meta.kind;t.dataset.hit=key;targets.set(key,t);hitLayer.append(t);}
     t.meta=meta;t.setAttribute("aria-label",meta.label);Object.assign(t.style,{left:p.x+"px",top:p.y+"px",width:Math.max(meta.kind==="wire"?12:44,width)+"px",height:Math.max(meta.kind==="wire"?12:44,height)+"px",touchAction:touch,transform:"translate(-50%,-50%)"});
     t.classList.toggle("snap",!!drag?.snap&&(drag.snap.connections||[drag.snap]).some(s=>s.id===meta.id||s.id===meta.endpoint));t.tabIndex=meta.kind==="wire"&&meta.segment>0?-1:0;return t;
@@ -200,6 +210,7 @@
       n.innerHTML=rich(snap?[drag.kind==="body"?"元件將接線：":drag.wholeWire?(snap.end==="from"?"A":"B")+" 端將接到：":"將接到：",...connectionLabel(snap.id)]:drag.limited?"線已拉盡；移近元件，或用另一條線接長。":"");}
     else if(drag?.discardNoticed){$('canvasNotice').hidden=true;drag.discardNoticed=false;}
     if(probeFirst){const p=M.endpoints(current()).get(probeFirst);if(p)$("ghostLayer").innerHTML+=`<circle cx="${p.x}" cy="${p.y}" r="${11/camera.scale}" fill="none" stroke="#b56e20" stroke-width="${2/camera.scale}"/>`;}
+    if(probeMode&&selection?.kind==='port'){const p=M.endpoints(d).get(selection.id);if(p)$("ghostLayer").innerHTML+=`<circle data-probe-target="${V.esc(selection.id)}" cx="${p.x}" cy="${p.y}" r="${6/camera.scale}" fill="#93c5fd66" stroke="#2563eb" stroke-width="${2/camera.scale}"/>`;}
   }
   function render(inspector=true){if(destroyed)return;const d=current(),surfaceRect=surface.getBoundingClientRect();N.sync(needleStates,d,analysis,reducedMotion.matches);svg.setAttribute("viewBox",`${camera.x} ${camera.y} ${surfaceRect.width/camera.scale} ${surfaceRect.height/camera.scale}`);
     for(const id of wireCurrents)if(!history.get().wires.some(w=>w.id===id))wireCurrents.delete(id);
@@ -566,15 +577,15 @@
     if(touchBlocked||cameraGesture||(e.pointerType==="touch"&&!e.isPrimary))return;
     const quick=e.pointerType==="mouse"&&(e.button===1||(e.button===0&&spacePan));if(e.button!==0&&!quick)return;suppressClick=false;
     if(panMode||quick){startPan(e,quick);return;}
+    const t=e.target.closest(".hit");if(!t&&e.pointerType==="mouse")blankMouseDown=e;
     if(probeMode)return;
-    const t=e.target.closest(".hit"),d=history.get();let meta=t?.meta,tapMeta=meta;
+    const d=history.get();let meta=t?.meta,tapMeta=meta;
     if(meta?.kind==='wireend'&&M.attached(d,d.wires.find(w=>w.id===meta.id),meta.end)&&!selectedWire()){const endpoint=d.wires.find(w=>w.id===meta.id)[meta.end],component=d.components.find(c=>c.id===endpoint.split(':')[0]);meta=tapMeta={kind:component?'port':'junction',id:component?endpoint:endpoint.split(':')[0]};}
     const owner=meta&&['body','port','slider'].includes(meta.kind)&&d.components.find(c=>c.id===meta.id.split(':')[0]);
     if(owner&&camera.scale<(R.dualMeter(owner)?.7:.55)){
       const p=world(e.clientX,e.clientY),features=['body:'+owner.id,'slider:'+owner.id,...R.ports(owner).map(p=>'port:'+p.id)].map(key=>targets.get(key)).filter(Boolean);
       features.sort((a,b)=>{const distance=t=>{const r=t.getBoundingClientRect(),q=world(r.left+r.width/2,r.top+r.height/2);return Math.hypot(q.x-p.x,q.y-p.y);};return distance(a)-distance(b);});if(features[0])meta=tapMeta=features[0].meta;
     }else if(meta?.kind==='port'){const p=world(e.clientX,e.clientY),ports=R.ports(owner).filter(p=>targets.has('port:'+p.id));ports.sort((a,b)=>Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y));if(ports[0])meta=tapMeta={...meta,id:ports[0].id};}
-    if(!t&&e.pointerType==="mouse")blankMouseDown=e;
     if(!meta||['detachConnection','addConnectionWire'].includes(meta.kind))return;
     if(meta.kind==='plug'&&(!household||!allow(d,d.components.find(c=>c.id===meta.id),'plug')))return;
     if(meta.kind==='hand'&&(!household||!allow(d,d.components.find(c=>c.id===meta.id),'move')||!allow(d,d.components.find(c=>c.id===meta.id),'params','stance')))return;
@@ -662,7 +673,7 @@
     const meta=e.detail&&releasedMeta?releasedMeta:e.target.closest(".hit")?.meta;releasedMeta=null;
     if(suppressClick&&e.detail)return;if(panMode)return;
     const endpoint=meta?.endpoint??(meta?.kind==='port'?meta.id:meta?.kind==='junction'?meta.id+':p':meta?.kind==='wireend'?history.get().wires.find(w=>w.id===meta.id)?.[meta.end]:null);
-    if(probeMode){if(endpoint&&M.endpoints(history.get()).has(endpoint))probePort(endpoint);return;}
+    if(probeMode){const id=e.detail?probeEndpointAt(e.clientX,e.clientY):endpoint;if(id&&M.endpoints(history.get()).has(id))probePort(id);return;}
     if(meta?.kind==='addConnectionWire'){takeWire(meta.id);return;}
     if(meta?.kind==='detachConnection'){const endpoint=meta.id;cancel();if(!wireAllowed())return;change(doc=>M.detachConnection(doc,endpoint,32/camera.scale));selectedConnection=null;selection=null;render();notify('已拆開並分開全部線端；復原可還原整組接線。');return;}
     selectedConnection=endpoint&&M.endpoints(history.get()).has(endpoint)?endpoint:null;
