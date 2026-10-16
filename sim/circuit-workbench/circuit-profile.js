@@ -115,6 +115,10 @@
       assertModel(doc);doc.components.forEach(assertRanges);
       if(doc.wires.some(w=>w.via.length>wirePointLimit))throw new Error('導線線形超出活動容量');
       if (!wires && (!same(doc.wires,initial.wires) || !same(doc.junctions,initial.junctions))) throw new Error('活動不允許改接線');
+      if(!wires&&doc.analysis==='household'){
+        const family=typeof module==='object'&&module.exports?require('./circuit-household-components'):globalThis.CircuitHouseholdComponents;
+        if(!same(family.plugContacts(doc),family.plugContacts(initial)))throw new Error('活動不允許改接拖板插頭');
+      }
       if (teacher) return doc;
       if (!same(doc.policy,initial.policy) || !same(doc.cables,initial.cables)) throw new Error('活動的操作規則與導線庫存不能更改');
       if(!canSetWireResistance(doc))for(const w of doc.wires){const old=initial.wires.find(x=>x.id===w.id);if(w.resistance!==(old?.resistance??initial.cables.resistance))throw new Error('導線電阻已固定');}

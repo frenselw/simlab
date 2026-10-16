@@ -6,7 +6,7 @@
   function record(c){return {status:c.type==='house-fuse'?'intact':c.params.closed?'closed':'open',elapsed:0,reason:null,bodyCurrentSeen:false,bodyCurrentBeforeTrip:false,timingMode:null,currentBeforeTrip:null,residualBeforeTrip:null};}
   function initial(doc){return {time:0,contacts:Object.fromEntries(doc.components.filter(c=>c.type==='house-person').map(c=>[c.id,null])),protection:Object.fromEntries(doc.components.filter(C.isProtection).map(c=>[c.id,record(c)])),energyKWh:Object.fromEntries(doc.components.filter(c=>c.type==='house-meter').map(c=>[c.id,0]))};}
   const active=(c,state)=>c.type==='house-fuse'?state.protection[c.id]?.status!=='blown':c.params.closed&&state.protection[c.id]?.status==='closed';
-  const electricalKey=(doc,state)=>JSON.stringify([doc.supplyVoltage,doc.components.map(c=>[c.id,c.type,c.params]),doc.junctions.map(j=>j.id),doc.wires.map(w=>[w.id,w.from,w.to]),C.handContacts(doc),state.contacts,Object.entries(state.protection).map(([id,p])=>[id,p.status])]);
+  const electricalKey=(doc,state)=>JSON.stringify([doc.supplyVoltage,doc.components.map(c=>[c.id,c.type,c.params]),doc.junctions.map(j=>j.id),doc.wires.map(w=>[w.id,w.from,w.to]),C.handContacts(doc),C.plugContacts(doc),state.contacts,Object.entries(state.protection).map(([id,p])=>[id,p.status])]);
   // Session events reuse validated geometry; public solve still validates external documents.
   function* solveSteps(doc,state=initial(doc)){
     const topology=Connections.inspect(doc),ports=M.endpoints(doc),keys=[...ports.keys(),'@earth',...doc.components.filter(C.isAppliance).map(c=>c.id+':case'),...doc.components.filter(c=>c.type==='house-person').map(c=>c.id+':body')],parent=new Map(keys.map(k=>[k,k]));
@@ -16,6 +16,7 @@
     for(const c of doc.components){if(c.type==='house-earth')join(c.id+':e','@earth');if(c.type==='house-mains')join(c.id+':n','@earth');if(c.type==='house-metal')join(c.id+':e',c.id+':case');}
     for(const c of doc.components)if(c.type==='house-person'&&state.contacts[c.id])join(c.id+':hand',state.contacts[c.id]+':case');
     C.handContacts(doc).forEach(({hand,target})=>join(hand,target));
+    C.plugContacts(doc).forEach(({plug,target})=>join(plug,target));
     const ground=find('@earth'),nets=[...new Set(keys.map(find))].filter(k=>k!==ground),index=new Map(nets.map((k,i)=>[k,i])),edges=[];
     const edge=(id,owner,from,to,resistance,emf=0)=>{edges.push({id,owner,from,to,a:find(from),b:find(to),resistance,emf});};
     for(const c of doc.components){
@@ -23,6 +24,7 @@
       if(c.type==='house-mains')edge(c.id+':source',c.id,at('l'),at('n'),constants.sourceResistance,doc.supplyVoltage);
       if(c.type==='house-meter'||['house-breaker','house-rcd'].includes(c.type)&&active(c,state)){edge(c.id+':l',c.id,at('li'),at('lo'),constants.channelResistance);edge(c.id+':n',c.id,at('ni'),at('no'),constants.channelResistance);}
       if(c.type==='house-switch'&&c.params.closed||c.type==='house-fuse'&&active(c,state))edge(c.id+':switch',c.id,at('a'),at('b'),constants.channelResistance);
+      if(c.type==='house-power-strip')for(const [from,to,key]of C.stripLinks)edge(at(key),c.id,at(from),at(to),constants.channelResistance);
       if(C.isAppliance(c))edge(c.id+':load',c.id,at('l'),at('n'),constants.voltage**2/C.power(c));
       if(c.type==='house-metal'&&c.params.fault)edge(c.id+':fault',c.id,at('l'),at('case'),constants.faultResistance);
       if(c.type==='house-person'){
@@ -38,6 +40,7 @@
     for(const e of edges)if(e.resistance<=constants.sourceResistance&&e.id!==e.owner+':source')externalJoin(e.from,e.to);
     for(const c of doc.components){if(c.type==='house-metal')externalJoin(c.id+':e',c.id+':case');if(c.type==='house-person'&&state.contacts[c.id])externalJoin(c.id+':hand',state.contacts[c.id]+':case');}
     C.handContacts(doc).forEach(({hand,target})=>externalJoin(hand,target));
+    C.plugContacts(doc).forEach(({plug,target})=>externalJoin(plug,target));
     const earthRoots=new Set(doc.components.filter(c=>c.type==='house-earth').map(c=>externalFind(c.id+':e'))),supplyRoots=new Set(doc.components.filter(c=>c.type==='house-mains').flatMap(c=>[externalFind(c.id+':l'),externalFind(c.id+':n')]));
     yield;
     const conducting=new Map([...new Set(keys.map(find))].map(k=>[k,[]]));

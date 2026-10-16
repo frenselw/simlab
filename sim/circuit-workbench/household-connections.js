@@ -6,6 +6,8 @@
     const join=(a,b)=>{parent.set(find(a),find(b));adjacency.get(a).push(b);adjacency.get(b).push(a);};
     doc.wires.forEach(w=>join(w.from,w.to));
     C.handContacts(doc).forEach(({hand,target})=>join(hand,target));
+    C.plugContacts(doc).forEach(({plug,target})=>join(plug,target));
+    for(const c of doc.components.filter(c=>c.type==='house-power-strip'))for(const [from,to]of C.stripLinks)join(c.id+':'+from,c.id+':'+to);
     for(const c of doc.components){if(['house-meter','house-breaker','house-rcd'].includes(c.type)){join(c.id+':li',c.id+':lo');join(c.id+':ni',c.id+':no');}if(['house-switch','house-fuse'].includes(c.type))join(c.id+':a',c.id+':b');}
     const roles=new Map();for(const [id,p]of ports){if(!p.role)continue;const k=find(id);if(!roles.has(k))roles.set(k,new Set());roles.get(k).add(p.role);}
     const cache=new Map(),roleOf=id=>{
@@ -20,6 +22,11 @@
     if(doc.components.some(c=>!C.definitions[c.type]))throw new Error('家庭工作台只接受家庭元件');
     if(doc.components.filter(c=>c.type==='house-mains').length>1)throw new Error('只可使用一個市電電纜');
     if(doc.wires.some(w=>w.resistance!==0)||doc.cables.resistance!==0)throw new Error('家庭導線使用模型固定的等效電阻，不能另設阻值');
+    for(const c of doc.components.filter(c=>c.type==='house-power-strip')){
+      const p=C.plugPoint(c);
+      if(c.angle!==0||Math.hypot(c.params.plugX+158,c.params.plugY)>600||Math.abs(p.x)>10000||Math.abs(p.y)>10000)throw new Error('拖板電源線已拉盡或插頭位置無效');
+    }
+    const occupied=new Set();for(const {target}of C.plugContacts(doc)){if(occupied.has(target))throw new Error('同一插位只可插入一個插頭');occupied.add(target);}
     const topology=inspect(doc);
     return topology;
   }

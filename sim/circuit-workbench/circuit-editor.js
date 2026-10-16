@@ -153,12 +153,13 @@
   }
   function renderHits(d){const needed=new Set(),put=(key,...args)=>{needed.add(key);return target(key,...args);};
     d.components.forEach(c=>{const dual=R.dualMeter(c),size=d.display.view==='real'?R.meterBodyScale(c):1,w=(dual?(d.display.view==='real'?144:70):c.type==='relay'?150:c.type==='galvanometer'?102:c.type==='rheostat'?100:c.type==='wattmeter'?80:70)*size,h=(dual?(d.display.view==='real'?130:70):c.type==='relay'?108:c.type==="lamp"?106:c.type==='galvanometer'?97:c.type==='rheostat'?64:c.type==="wattmeter"?78:46)*size,angle=c.angle*Math.PI/180,center=dual&&d.display.view==='real'?{x:c.x+22*size*Math.sin(angle),y:c.y-22*size*Math.cos(angle)}:c.type==='relay'?{x:c.x-14*Math.sin(angle),y:c.y+14*Math.cos(angle)}:c;
-      const acBounds=R.get(c.type).analysis?R.bodyBounds(c):null;
+      const acBounds=c.type==='house-power-strip'?{left:c.x-158,right:c.x+158,top:c.y-55,bottom:c.y+55}:R.get(c.type).analysis?R.bodyBounds(c):null;
       put("body:"+c.id,{kind:"body",id:c.id,label:c.label+"，拖動本體或用方向鍵移動"},screen(acBounds?{x:(acBounds.left+acBounds.right)/2,y:(acBounds.top+acBounds.bottom)/2}:center),(acBounds?acBounds.right-acBounds.left:Math.abs(Math.cos(angle))*w+Math.abs(Math.sin(angle))*h)*camera.scale,(acBounds?acBounds.bottom-acBounds.top:Math.abs(Math.sin(angle))*w+Math.abs(Math.cos(angle))*h)*camera.scale,allow(d,c,"move")||readableMeter(d,c)?"none":"pan-y");
       targets.get('body:'+c.id).classList.toggle('overview',camera.scale<(dual?.7:.55));
+      if(household&&c.type==='house-power-strip')put('plug:'+c.id,{kind:'plug',id:c.id,label:'拖板插頭：拖到插座吸附，方向鍵移動，Shift 加方向鍵微調，Enter 插入附近插座'},screen(Family.plugPoint(c)),86*camera.scale,87*camera.scale,wireAllowed()&&allow(d,c,'move')&&allow(d,c,'params')?'none':'pan-y');
       if(household&&c.type==='house-person')for(const p of R.ports(c))put(p.key==='hand'?'hand:'+c.id:'port:'+p.id,{kind:'hand',id:c.id,endpoint:p.id,label:p.label+'：可拖到接線端或插座孔吸附'+(p.key==='hand'?'，或接觸家電外殼':'')},screen(p),44,44,readOnly?'pan-y':'none').classList.add('port');
       if(c.type==="rheostat"){const angle=c.angle*Math.PI/180,x=-30+c.params.position*60,y=(c.params.terminals??2)>2?-34:38;put("slider:"+c.id,{kind:"slider",id:c.id,label:c.label+"滑片，拖動調整電阻"},screen({x:c.x+x*Math.cos(angle)-y*Math.sin(angle),y:c.y+x*Math.sin(angle)+y*Math.cos(angle)}),44,44,allow(d,c,"params","position")?"none":"pan-y");}
-      R.ports(c).filter(p=>!(household&&c.type==='house-person')&&((dual?camera.scale>=.7:camera.scale>=.55)||probeMode||drag?.kind==="wireend"||M.degree(d,p.id)>0)).forEach(p=>{const t=put("port:"+p.id,{kind:"port",id:p.id,label:c.label+" "+p.label+"端子，拖導線端點到這裏接好"},screen(p),44,44,!probeMode&&allow(d,c,"move")?"none":"pan-y");t.classList.toggle("overview",camera.scale<(dual?.7:.55));});
+      R.ports(c).filter(p=>!p.hidden&&!(household&&c.type==='house-person')&&((dual?camera.scale>=.7:camera.scale>=.55)||probeMode||drag?.kind==="wireend"||M.degree(d,p.id)>0)).forEach(p=>{const t=put("port:"+p.id,{kind:"port",id:p.id,label:c.label+" "+p.label+"端子，拖導線端點到這裏接好"},screen(p),44,44,!probeMode&&allow(d,c,"move")?"none":"pan-y");t.classList.toggle("overview",camera.scale<(dual?.7:.55));});
     });
     d.junctions.filter(j=>M.degree(d,j.id+":p")>1).forEach(j=>put("junction:"+j.id,{kind:"junction",id:j.id,label:"共接點，點選量測或拖動"},screen(j)));
     d.wires.forEach(w=>{const points=G.simplify(routes[w.id],1.2/camera.scale);
@@ -245,7 +246,7 @@
     if($('selectionActionsDialog').open&&(selection?.id!==$('selectionActionsDialog').dataset.selection||getComputedStyle($('moreSelected')).display==='none'))$('selectionActionsDialog').close();
     const held=drag?.pointerType==="touch"&&["body","meterread"].includes(drag.kind)&&!drag.moved?d.components.find(c=>c.id===drag.id):null;
     const pinned=meterPreview?d.components.find(c=>c.id===meterPreview.id):null,reading=readableMeter(d,held)?held:readableMeter(d,pinned)?pinned:null;
-    if(reading)renderPreview(null,reading);else if(drag?.pointerType==="touch"&&['wireend','hand'].includes(drag.kind))renderPreview(drag.focus||world(drag.lastX,drag.lastY));else $("preview").hidden=true;
+    if(reading)renderPreview(null,reading);else if(drag?.pointerType==="touch"&&['wireend','hand','plug'].includes(drag.kind))renderPreview(drag.focus||world(drag.lastX,drag.lastY));else $("preview").hidden=true;
     updateMeterNeedles();
     if(acUI)acUI.render(analysis);
     familyUI?.render(d,analysis);
@@ -309,7 +310,7 @@
       for (const key of Object.keys(R.get(c.type).params)) {
         const spec={...profile.parameterSpec(c,key),...(c.type==='ac-source'&&key==='voltage'&&c.params.protectionEnabled?{label:'電動勢有效值（調節前）'}:{})};
         if(spec.legacyChoices?.includes(c.params[key]))spec.choices=[c.params[key],...spec.choices];
-        if (key === "polarity") continue;
+        if (key === "polarity" || spec.hidden) continue;
         if(c.type==='ac-source'&&['protectionEnabled','maxCurrent','maxPower'].includes(key))continue;
         if(c.type==='lamp'&&c.params.model==='ideal'&&['coldRatio','linearLoss'].includes(key))continue;
         const enabled = allow(d, c, key === "closed" ? "switch" : "params",key);
@@ -540,6 +541,7 @@
     }else if(meta?.kind==='port'){const p=world(e.clientX,e.clientY),ports=R.ports(owner).filter(p=>targets.has('port:'+p.id));ports.sort((a,b)=>Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y));if(ports[0])meta=tapMeta={...meta,id:ports[0].id};}
     if(!t&&e.pointerType==="mouse")blankMouseDown=e;
     if(!meta||meta.kind==='detachConnection')return;
+    if(meta.kind==='plug'&&(probeMode||!household||!wireAllowed()||!['move','params'].every(op=>allow(d,d.components.find(c=>c.id===meta.id),op))))return;
     if(meta.kind==='hand'&&(probeMode||!household||!allow(d,d.components.find(c=>c.id===meta.id),'move')||!allow(d,d.components.find(c=>c.id===meta.id),'params','stance')))return;
     if(meta.kind==='port'){if(probeMode)return;const w=selectedWire(),key=w&&['from','to'].find(k=>w[k]===meta.id);meta=key?{kind:'wireend',id:w.id,end:key,endpoint:meta.id}:{kind:'body',id:meta.id.split(':')[0]};}if(["wire","wireend","junction"].includes(meta.kind)&&!wireAllowed())return;if(probeMode&&meta.kind==="wireend")return;
     let readOnly=false;if(meta.kind==="body"||meta.kind==="slider"){const c=d.components.find(c=>c.id===meta.id);if(!allow(d,c,meta.kind==="slider"?"params":"move",meta.kind==="slider"?"position":undefined)){if(meta.kind!=="body"||e.pointerType!=="touch"||!readableMeter(d,c))return;readOnly=true;}}
@@ -572,7 +574,10 @@
     drag.discardZone=discardZoneAt(drag,e.clientX,e.clientY);drag.discard=drag.discardZone&&canDiscard(drag)?drag.discardZone:null;
     if(drag.discardZone){drag.snap=null;drag.limited=false;renderGhost();return;}
     const dx=p.x-drag.down.x,dy=p.y-drag.down.y;previewDoc=M.clone(drag.baseDoc);drag.snap=null;drag.limited=false;
-    if(drag.kind==="wireend"){
+    if(drag.kind==="plug"){
+      const original=drag.baseDoc.components.find(c=>c.id===drag.id),start=Family.plugPoint(original),result=Family.previewPlug(drag.baseDoc,drag.id,{x:start.x+dx,y:start.y+dy},wireAllowed()?24/camera.scale:0);
+      previewDoc=result?.doc||M.clone(drag.baseDoc);drag.snap=result?.snap||null;drag.limited=!result;drag.focus=Family.plugPoint(previewDoc.components.find(c=>c.id===drag.id));
+    }else if(drag.kind==="wireend"){
       const desired={x:drag.start.x+dx,y:drag.start.y+dy},result=M.moveWireEnd(previewDoc,drag.id,drag.end,desired);drag.limited=result.limited;
       const candidate=resolveSnap(previewDoc,drag.id,drag.end,desired);if(candidate){const snapped=M.clone(previewDoc);if(M.attach(snapped,drag.id,drag.end,candidate.id)){previewDoc=snapped;drag.snap=candidate;drag.limited=false;}}
       drag.focus=M.endpoints(previewDoc).get(previewDoc.wires.find(w=>w.id===drag.id)[drag.end]);
@@ -641,10 +646,13 @@
     }
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="z"){e.preventDefault();undo(e.shiftKey);return;}
     if(host.querySelector("dialog[open]"))return;
-    const focused=e.target.meta;if(focused)selection={...focused};if(e.key.toLowerCase()==="r"&&selection?.kind==="body"){e.preventDefault();rotate(selection.id,e.shiftKey?-1:1);}
+    const focused=e.target.meta;if(focused)selection={...focused};
+    if(e.key==='Enter'&&selection?.kind==='plug'){e.preventDefault();change(doc=>{const c=doc.components.find(c=>c.id===selection.id);if(!wireAllowed()||!allow(doc,c,'move'))throw Error('插頭已固定');const next=Family.previewPlug(doc,c.id,Family.plugPoint(c),wireAllowed()?24/camera.scale:0);if(next)Object.assign(doc,next.doc);});return;}
+    if(e.key.toLowerCase()==="r"&&selection?.kind==="body"){e.preventDefault();rotate(selection.id,e.shiftKey?-1:1);}
     if(["Delete","Backspace"].includes(e.key)&&selection&&selection.kind!=="port"){e.preventDefault();const id=selection.id;cancel();change(doc=>M.remove(doc,id));}
     const offset={ArrowLeft:[-20,0],ArrowRight:[20,0],ArrowUp:[0,-20],ArrowDown:[0,20]}[e.key];if(!offset||!selection)return;e.preventDefault();const [dx,dy]=offset;
-    if(selection.kind==="wireend"){const id=selection.id,key=selection.end;change(doc=>{const w=doc.wires.find(w=>w.id===id),p=M.endpoints(doc).get(w[key]);M.moveWireEnd(doc,id,key,{x:p.x+dx,y:p.y+dy});});}
+    if(selection.kind==="plug"){change(doc=>{const c=doc.components.find(c=>c.id===selection.id);if(!wireAllowed()||!allow(doc,c,'move'))throw Error('插頭已固定');const p=Family.plugPoint(c),next=Family.previewPlug(doc,c.id,{x:p.x+dx/(e.shiftKey?20:1),y:p.y+dy/(e.shiftKey?20:1)});if(next)Object.assign(doc,next.doc);});}
+    else if(selection.kind==="wireend"){const id=selection.id,key=selection.end;change(doc=>{const w=doc.wires.find(w=>w.id===id),p=M.endpoints(doc).get(w[key]);M.moveWireEnd(doc,id,key,{x:p.x+dx,y:p.y+dy});});}
     else if(selection.kind==="wire"){change(doc=>M.bendWire(doc,selection.id,selection.point||G.along(routes[selection.id],G.length(routes[selection.id])/2),dx,dy));}
     else if(selection.kind==="body"||selection.kind==="junction"){change(doc=>{if(selection.kind==="body"&&!allow(doc,doc.components.find(c=>c.id===selection.id),"move"))throw new Error("此元件已固定");Object.assign(doc,moveObject(doc,selection.kind,selection.id,dx,dy).doc);});}
     else if(selection.kind==="slider"){change(doc=>{const c=doc.components.find(c=>c.id===selection.id);if(!allow(doc,c,"params","position"))throw new Error("參數已固定");c.params.position=Math.max(0,Math.min(1,c.params.position+(dx+dy)/400));});}
@@ -744,7 +752,7 @@
   if(profile.ui.palette)for (const entry of profile.palette) {
     const {type}=entry, b=document.createElement('button');b.type='button';b.dataset.add=entry.key;b.entry=entry;
     const sample={id:'palette-'+entry.key,type,params:entry.params};
-    const bounds=household?R.get(type).bounds:null,ports=household?R.ports({...sample,x:0,y:0,angle:0}):[];
+    const bounds=household?(type==='house-power-strip'?R.bodyBounds({...sample,x:0,y:0,angle:0}):R.get(type).bounds):null,ports=household?R.ports({...sample,x:0,y:0,angle:0}):[];
     const left=bounds?Math.min(bounds.left,...ports.map(p=>p.x))-8:0,right=bounds?Math.max(bounds.right,...ports.map(p=>p.x))+8:0;
     const paletteBox=household&&type==='house-metal'?'-42 -58 84 124':household&&type==='house-insulated'?'-48 -73 108 145':bounds?`${left} ${bounds.top-10} ${right-left} ${bounds.bottom-bounds.top+20}`:null;
     if(household){b.title=R.get(type).name;b.setAttribute('aria-label',R.get(type).name);}

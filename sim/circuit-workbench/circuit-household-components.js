@@ -1,8 +1,8 @@
 (function(root,factory){
   const node=typeof module==='object'&&module.exports;
-  const api=factory(node?require('./component-registry'):root.CircuitRegistry,node?require('./circuit-math'):root.CircuitMath);
+  const api=factory(node?require('./component-registry'):root.CircuitRegistry,node?require('./circuit-math'):root.CircuitMath,node?require('./circuit-model'):root.CircuitModel);
   if(node)module.exports=api;else root.CircuitHouseholdComponents=api;
-})(globalThis,function(R,Q){
+})(globalThis,function(R,Q,M){
   'use strict';
   const colours=Object.freeze({L:'#a56535',N:'#2583b5',E:'#5d9b49',unknown:'#738698'});
   const applianceKinds=Object.freeze({
@@ -15,11 +15,16 @@
   const channelPorts=[port('li',-58,-22,'火線入','L'),port('lo',58,-22,'火線出','L'),port('ni',-58,22,'零線入','N'),port('no',58,22,'零線出','N')];
   const workPorts=[port('l',-86,-26,'預定火線 L'),port('n',-86,0,'預定零線 N')];
   const box={left:-50,right:50,top:-58,bottom:58};
+  const stripOutlets=[-100,0,100].flatMap((x,i)=>[port('e'+(i+1),x,-22,'插位 '+(i+1)+' 地線 E','E'),port('n'+(i+1),x-27,24,'插位 '+(i+1)+' 零線 N','N'),port('l'+(i+1),x+27,24,'插位 '+(i+1)+' 火線 L','L')]);
+  const stripLinks=['l','n','e'].flatMap(role=>[['p'+role,role+'1',role],[role+'1',role+'2',role+'2'],[role+'2',role+'3',role+'3']]);
+  const plugPoint=c=>({x:c.x+c.params.plugX,y:c.y+c.params.plugY});
+  function stripPorts(c){const a=R.rotation(c.params.plugAngle);return [...stripOutlets,...definitions['house-socket'].ports.map(p=>({...p,key:'p'+p.key,x:c.params.plugX+p.x*a.cos-p.y*a.sin,y:c.params.plugY+p.x*a.sin+p.y*a.cos,hidden:true}))];}
   const definitions={
     'house-mains':{name:'市電電纜',icon:'~',ports:[port('l',76,-22,'火線 L','L'),port('n',76,22,'零線 N','N')],bounds:{left:-58,right:78,top:-36,bottom:36},params:{}},
     'house-meter':{name:'電能表',icon:'kWh',ports:channelPorts,bounds:box,params:{}},
     'house-breaker':{name:'斷路器',icon:'A',ports:channelPorts,bounds:box,primaryParameter:'rating',params:{rating:choice('額定電流',15,[5,15,30],{5:'5 A',15:'15 A',30:'30 A'}),closed:closed()}},
     'house-socket':{name:'英式三孔插座',icon:'插座',ports:[port('e',0,-22,'地線 E','E'),port('n',-27,24,'零線 N','N'),port('l',27,24,'火線 L','L')],bounds:{left:-52,right:52,top:-53,bottom:54},params:{},portStyle:'hole'},
+    'house-power-strip':{rotatable:false,name:'三位拖板',icon:'拖板',ports:[...stripOutlets,...['e','n','l'].map(key=>({...port('p'+key,0,0,'插頭 '+key.toUpperCase(),key.toUpperCase()),hidden:true}))],portsFor:stripPorts,bounds:{left:-158,right:158,top:-55,bottom:55},annotationBounds:c=>{const p=plugPoint(c);return{left:p.x-62,right:p.x+62,top:p.y-62,bottom:p.y+62};},portStyle:'hole',params:{plugX:{value:-260,min:-1000,max:1000,hidden:true},plugY:{value:-30,min:-1000,max:1000,hidden:true},plugAngle:{value:0,choices:[0,45,90,135,180,225,270,315],hidden:true}}},
     'house-switch':{name:'普通開關',icon:'S',ports:[port('a',-58,0,'一端'),port('b',58,0,'另一端')],bounds:{left:-45,right:45,top:-43,bottom:43},params:{closed:closed()}},
     'house-fuse':{name:'保險絲',icon:'熔絲',ports:[port('a',-64,0,'火線一端','L'),port('b',64,0,'火線另一端','L')],bounds:{left:-50,right:50,top:-42,bottom:42},primaryParameter:'rating',params:{rating:choice('額定電流',13,[3,5,13],{3:'3 A',5:'5 A',13:'13 A'})}},
     'house-earth':{name:'接地',icon:'⏚',ports:[port('e',58,0,'接地引線','E')],bounds:{left:-32,right:60,top:-32,bottom:32},params:{}},
@@ -44,7 +49,7 @@
   function gradients(id){return `<defs><linearGradient id="${id}-plastic" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff"/><stop offset=".48" stop-color="#edf3f7"/><stop offset="1" stop-color="#cad7e1"/></linearGradient><linearGradient id="${id}-metal"><stop stop-color="#859aa7"/><stop offset=".2" stop-color="#dfe8ed"/><stop offset=".48" stop-color="#f7fafb"/><stop offset=".75" stop-color="#bdcdd6"/><stop offset="1" stop-color="#8fa5b2"/></linearGradient><linearGradient id="${id}-glass" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#e7f4f7" stop-opacity=".8"/><stop offset=".5" stop-color="#fff" stop-opacity=".4"/><stop offset="1" stop-color="#adcad4" stop-opacity=".8"/></linearGradient></defs>`;}
   function caseBox(id,x=-46,y=-52,w=92,h=104){return rect(x+3,y+3,w,h,'#c0ced8',7)+rect(x,y,w,h,`url(#${id}-plastic)`,7,'#446482',2)+path(`M${x+7} ${y+7}H${x+w-7}`,'#fff',2);}
   function channelLeads(){return lead('M-58-22H-40 M40-22H58','L')+lead('M-58 22H-40 M40 22H58','N');}
-  function socketHoles(c){return definitions['house-socket'].ports.map(p=>{const w=p.key==='e'?10:16,h=p.key==='e'?16:10;return `<rect data-house-socket-hole="${p.key}" data-port="${c.id}:${p.key}" x="${p.x-w/2}" y="${p.y-h/2}" width="${w}" height="${h}" rx="1" fill="#526676" stroke="#9eb3c0" stroke-width="1.5"/><path d="M${p.x-w/2+2} ${p.y+h/2-2}V${p.y-h/2+2}H${p.x+w/2-2}" fill="none" stroke="#334c5e" stroke-width="2"/>`;}).join('');}
+  function socketHoles(c,ports=definitions['house-socket'].ports){return ports.map(p=>{const w=p.key.startsWith('e')?10:16,h=p.key.startsWith('e')?16:10;return `<rect data-house-socket-hole="${p.key}" data-port="${c.id}:${p.key}" x="${p.x-w/2}" y="${p.y-h/2}" width="${w}" height="${h}" rx="1" fill="#526676" stroke="#9eb3c0" stroke-width="1.5"/><path d="M${p.x-w/2+2} ${p.y+h/2-2}V${p.y-h/2+2}H${p.x+w/2-2}" fill="none" stroke="#334c5e" stroke-width="2"/>`;}).join('');}
   function coilPoints(x,y,length,radius,turns){
     const points=[];
     for(let n=0;n<=turns*32;n++){const a=n*Math.PI/16;points.push([Number((x+length*n/(turns*32)+radius*.55*Math.sin(a)).toFixed(2)),Number((y-radius*Math.cos(a)).toFixed(2))]);}return points;
@@ -60,6 +65,50 @@
     // Exact contact follows the saved geometry; moving away must leave no cable.
     const targets=doc.components.filter(c=>c.type!=='house-person').flatMap(c=>R.ports(c)),contacts=[];
     for(const c of doc.components.filter(c=>c.type==='house-person'))for(const hand of R.ports(c)){const target=targets.find(p=>Math.hypot(p.x-hand.x,p.y-hand.y)<1e-6);if(target)contacts.push({hand:hand.id,target:target.id});}return contacts;
+  }
+  function socketSites(doc,except){
+    return doc.components.filter(c=>c.id!==except&&['house-socket','house-power-strip'].includes(c.type)).flatMap(c=>(c.type==='house-socket'?['']:['1','2','3']).map(suffix=>{
+      const ports=R.ports(c),a=R.rotation(c.angle),e=ports.find(p=>p.key==='e'+suffix);
+      return{id:e.id,x:e.x-22*a.sin,y:e.y+22*a.cos,angle:c.angle,ports:Object.fromEntries(['l','n','e'].map(role=>[role,ports.find(p=>p.key===role+suffix)]))};
+    }));
+  }
+  function plugContacts(doc){
+    const contacts=[];
+    for(const c of doc.components.filter(c=>c.type==='house-power-strip')){
+      const pins=Object.fromEntries(R.ports(c).filter(p=>p.hidden).map(p=>[p.key.slice(1),p]));
+      const site=socketSites(doc,c.id).find(s=>['l','n','e'].every(role=>Math.hypot(pins[role].x-s.ports[role].x,pins[role].y-s.ports[role].y)<1e-6));
+      if(site)for(const role of ['l','n','e'])contacts.push({plug:pins[role].id,target:site.ports[role].id});
+    }
+    return contacts;
+  }
+  function previewPlug(doc,id,point,radius=0){
+    const Model=M||globalThis.CircuitModel,c=doc.components.find(c=>c.id===id);
+    if(!c||c.type!=='house-power-strip'||!Model.permission(doc,c,'move')||!Model.permission(doc,c,'params')||![point.x,point.y,radius].every(Number.isFinite)||radius<0)return null;
+    const occupied=new Set(plugContacts(doc).filter(p=>!p.plug.startsWith(id+':')).map(p=>p.target));
+    const sites=socketSites(doc,id).filter(s=>!occupied.has(s.id)&&Math.hypot(s.x-point.x,s.y-point.y)<radius).sort((a,b)=>Math.hypot(a.x-point.x,a.y-point.y)-Math.hypot(b.x-point.x,b.y-point.y));
+    for(const site of [...sites,null]){
+      const next=Model.clone(doc),moved=next.components.find(c=>c.id===id),p=site||point;
+      Object.assign(moved.params,{plugX:p.x-moved.x,plugY:p.y-moved.y,...(site?{plugAngle:site.angle}:{})});
+      if(!Model.reconcile(next,doc))continue;
+      try{return{doc:Model.validate(next),snap:site?{id:site.id,x:site.x,y:site.y}:null};}catch{}
+    }
+    return null;
+  }
+  function powerStrip(c,id){
+    const p=c.params,a=R.rotation(p.plugAngle),end={x:p.plugX-44*a.sin,y:p.plugY+44*a.cos};
+    const cord=`M-158 0C-210 0 ${end.x-35} ${end.y+30} ${end.x} ${end.y}`;
+    let out=rect(-158,-55,316,110,'#fff',13,'#8fa3af',1.8)+rect(-152,-49,304,98,'#fcfdfd',10,'#e2e8ec',1);
+    out+='<g data-house-strip-internal="true" opacity=".12">';
+    for(const [i,role]of ['l','n','e'].entries()){
+      const y=40+i*3,x=-150+i*3;
+      out+=lead(`M-158 ${i*3}H${x}V${y}H130`,role,1.6);
+      for(const port of stripOutlets.filter(p=>p.key.startsWith(role)))out+=lead(`M${port.x} ${port.y}V${y}`,role,1.6);
+    }
+    out+='</g>';
+    for(const [i,x]of [-100,0,100].entries())out+=`<g data-house-strip-socket="${i+1}">`+rect(x-43,-45,86,79,'#ffffff33',7,'#e1e7eb',1)+socketHoles(c,stripOutlets.filter(p=>p.key.endsWith(String(i+1))))+'</g>';
+    out+='<g data-house-strip-cord="true">'+path(cord,'#94a5af',8)+path(cord,'#fff',5.4)+'</g>';
+    out+=`<g data-house-strip-plug="true" transform="translate(${p.plugX} ${p.plugY}) rotate(${p.plugAngle})">`+rect(-43,-43,86,87,'#fff',15,'#8fa3af',1.8)+rect(-32,-33,64,65,'#f7f9fa',11,'#e3e9ed',1)+definitions['house-socket'].ports.map(pin=>{const w=pin.key==='e'?8:14,h=pin.key==='e'?14:8;return rect(pin.x-w/2,pin.y-h/2,w,h,'#c2a36d',1,'#9b855f',1);}).join('')+path('M-16 35H16','#ccd6dd',2)+'</g>';
+    return out;
   }
   const flowGeometry={
     mains:{l:mainsLead(-1),n:mainsLead(1)},
@@ -226,6 +275,7 @@
     return out;
   }
   function symbol(c,r,d,id){
+    if(c.type==='house-power-strip')return powerStrip(c,id);
     if(c.type==='house-person')return person(c,r,id);
     if(c.type==='house-earth')return lead('M58 0H0V11','E')+path('M-22 11H22 M-15 18H15 M-7 25H7','#587d75',2.5);
     if(c.type==='house-mains')return lead('M24-22H76','L')+lead('M24 22H76','N')+`<circle cx="0" r="27" fill="#fff" stroke="#5d7d96" stroke-width="2"/>`+text(0,7,'~',26)+(d.showSupplyVoltage?text(10,-37,(d.supplyVoltage??230)+' V～',14,'data-house-supply-voltage="true"'):'');
@@ -251,6 +301,7 @@
     else if(c.type==='house-switch')out+=path('M-58 0H-36 M36 0H58','#9d795a',3)+caseBox(id,-39,-37,78,74)+`<path d="M-23-25H23V25H-23Z" fill="${plastic}" stroke="#859fae"/><path d="M-23 ${c.params.closed?-25:18}H23V${c.params.closed?-18:25}H-23Z" fill="#bdcdd8"/><path d="M-12 ${c.params.closed?17:-17}H12" stroke="#7190a5" stroke-width="2"/>`;
     else if(c.type==='house-fuse')out+=lead('M-64 0H-41 M41 0H64','L')+rect(-36,-12,72,24,`url(#${id}-glass)`,5)+rect(-45,-14,18,28,metal,4)+rect(27,-14,18,28,metal,4)+path(r.status==='blown'?'M-27 0H-7L-3-3 M5 2L9 0H27':'M-27 0H27','#a57c53',2)+path('M-23-7H21','#fff',2)+text(0,-23,c.params.rating+' A',14,'data-house-fuse-rating="true"');
     else if(c.type==='house-earth')out+=lead('M58 0H0V10','E',3)+path('M-23 10H23 M-15 18H15 M-7 26H7','#638171',2.5);
+    else if(c.type==='house-power-strip')out+=powerStrip(c,id);
     else if(c.type==='house-person')out+=person(c,r,id);
     else if(isAppliance(c)){
       out+=applianceOutline(c,id,on);
@@ -279,5 +330,5 @@
     return{x:c.x+q.x*a.cos-q.y*a.sin,y:c.y+q.x*a.sin+q.y*a.cos};
   }
   function placeHand(person,point){const h=hand(person);person.x+=point.x-h.x;person.y+=point.y-h.y;}
-  return Object.freeze({definitions,colours,applianceKinds,power,isAppliance,isProtection,switchHit,hand,handContacts,contactPoint,placeHand,render,palette:["house-mains","house-meter","house-breaker","house-rcd","house-fuse","house-switch","house-socket","house-earth","house-metal","house-insulated","house-person"].map(type=>({type,label:({'house-socket':'三孔插座','house-metal':'金屬家電','house-insulated':'雙重絕緣'})[type]||definitions[type].name,...(type==='house-mains'?{limit:1}:{})}))});
+  return Object.freeze({definitions,colours,applianceKinds,power,isAppliance,isProtection,switchHit,hand,handContacts,plugPoint,plugContacts,previewPlug,stripLinks,contactPoint,placeHand,render,palette:["house-mains","house-meter","house-breaker","house-rcd","house-fuse","house-switch","house-socket","house-power-strip","house-earth","house-metal","house-insulated","house-person"].map(type=>({type,label:({'house-socket':'三孔插座','house-metal':'金屬家電','house-insulated':'雙重絕緣'})[type]||definitions[type].name,...(type==='house-mains'?{limit:1}:{})}))});
 });

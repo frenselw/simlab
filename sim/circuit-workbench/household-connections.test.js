@@ -17,7 +17,36 @@ for(const target of ['source:l','socket:n']){const d=P.create('C03');d.wires=d.w
 }
 assert.throws(()=>Profile.compile({role:'teacher',initialDocument:P.create('C01')}),/分析種類/);
 assert.throws(()=>M.validate({...P.create('C01'),kind:'simlab-circuit',version:6}),/欄位|家庭/);
-assert.equal(Object.keys(C.definitions).length,11);
+assert.equal(Object.keys(C.definitions).length,12);
+{
+ const H=require('./household-model'),D=require('./circuit-document'),V=require('./circuit-renderer'),Profile=require('./circuit-profile'),d=M.empty('household');d.cables={count:40,length:1200,resistance:0};
+ M.add(d,'house-mains',-200,-150).id='source';M.add(d,'house-socket',0,0).id='socket';M.add(d,'house-earth',-160,150).id='earth';
+ const strip=M.add(d,'house-power-strip',300,150);strip.id='strip';
+ M.connect(d,'source:l','socket:l');M.connect(d,'source:n','socket:n');M.connect(d,'earth:e','socket:e');
+ for(const [i,type,kind]of [[1,'house-metal','fan'],[2,'house-insulated','blender'],[3,'house-insulated','fan']]){const c=M.add(d,type,180+i*180,400,{kind});c.id='load'+i;M.connect(d,'strip:l'+i,c.id+':l');M.connect(d,'strip:n'+i,c.id+':n');if(type==='house-metal')M.connect(d,'strip:e'+i,c.id+':e');}
+ const before=M.clone(d),preview=C.previewPlug(d,'strip',{x:10,y:5},24);assert(preview?.snap);assert.deepEqual(d,before,'plug preview / cancellation never mutates the committed circuit');assert.equal(preview.doc.wires.length,d.wires.length,'integrated cable consumes no loose wires');assert.equal(C.plugContacts(preview.doc).length,3);assert.deepEqual(C.plugPoint(preview.doc.components.find(c=>c.id==='strip')),{x:0,y:0});
+ const session=new H.Session(preview.doc),r=session.read();assert(r.reliable);for(const [i,power]of [[1,60],[2,400],[3,60]])assert(Math.abs(r.components['load'+i].power-power)<power*.005);assert(r.components.load1.earthed);assert(Math.abs(r.components.strip.current-r.components.source.current)<1e-7);assert.equal(Rules.inspect(preview.doc).roleOf('strip:l3'),'L');
+ for(const angle of [0,45,90,135,180,225,270,315]){const turned=M.clone(d);turned.components.find(c=>c.id==='socket').angle=angle;const p=C.previewPlug(turned,'strip',{x:7,y:4},24);assert(p?.snap);assert.equal(p.doc.components.find(c=>c.id==='strip').params.plugAngle,angle);assert.equal(C.plugContacts(p.doc).length,3);}
+ assert.equal(C.previewPlug(d,'strip',{x:1200,y:1200},24),null,'cord cannot extend beyond its fixed length');
+ const locked=M.clone(d);locked.components.find(c=>c.id==='strip').locked=true;assert.equal(C.previewPlug(locked,'strip',{x:0,y:0},24),null);locked.components.find(c=>c.id==='strip').locked=false;locked.policy.mode='wiring';assert.equal(C.previewPlug(locked,'strip',{x:0,y:0},24),null);
+ const profile=Profile.compile({role:'teacher',analysis:'household',initialDocument:d,palette:C.palette});assert.throws(()=>profile.assertTransition(d,preview.doc,true),/只讀/);
+ const noWiring=Profile.compile({role:'teacher',analysis:'household',initialDocument:d,palette:C.palette,wires:false});assert.throws(()=>noWiring.assertTransition(d,preview.doc),/不允許改接拖板/);
+ const crowded=M.clone(preview.doc),second=M.add(crowded,'house-power-strip',600,150);assert.equal(C.previewPlug(crowded,second.id,{x:0,y:0},24),null,'one plug per socket');
+ const invalid=M.clone(crowded);Object.assign(invalid.components.find(c=>c.id===second.id).params,{plugX:-600,plugY:-150});assert.throws(()=>M.validate(invalid),/同一插位/);
+ const chained=C.previewPlug(crowded,second.id,{x:400,y:150},24);assert(chained?.snap);assert.equal(C.plugContacts(chained.doc).length,6);const chainSession=new H.Session(chained.doc);assert(chainSession.read().potentials[second.id+':l1']>229);chainSession.destroy();
+ assert.throws(()=>D.template(preview.doc),/拔開拖板插頭/);assert.doesNotThrow(()=>D.template(d));
+ const saved=session.capture(),restored=H.Session.restore(H.decode(H.encode(saved)));assert.deepEqual(restored.capture(),saved);restored.advance(.01);assert(restored.read().components.load2.working);
+ const noEarth=M.clone(restored.doc);M.detach(noEarth,noEarth.wires.find(w=>w.from==='earth:e').id,'from');restored.update(noEarth);assert(!restored.read().components.load1.earthed,'earth protection follows the actual third conductor');
+ const unplugged=C.previewPlug(restored.doc,'strip',{x:-50,y:0});assert(unplugged);assert.equal(C.plugContacts(unplugged.doc).length,0);restored.update(unplugged.doc);assert(!restored.read().components.load1.working&&!restored.read().components.load2.working&&!restored.read().components.load3.working);restored.destroy();session.destroy();
+ const history=M.history(d);history.replace(preview.doc);assert(history.undo());assert.equal(C.plugContacts(history.get()).length,0);assert(history.redo());assert.equal(C.plugContacts(history.get()).length,3);
+ for(const view of ['real','schematic']){const c=preview.doc.components.find(c=>c.id==='strip'),art=C.render(c,{}, {view});assert.equal((art.match(/data-house-strip-socket=/g)||[]).length,3);assert.equal((art.match(/data-house-socket-hole=/g)||[]).length,9);assert(art.includes('data-house-strip-internal="true" opacity=".12"'));const cord=art.match(/<g data-house-strip-cord="true">(.*?)<\/g>/)[1];assert(cord.includes('stroke="#fff"'));for(const colour of Object.values(C.colours))assert(!cord.includes(colour),'external cord hides coloured cores');assert(art.includes('data-house-strip-plug="true"'));assert(!art.includes('NaN')&&!art.includes('undefined'));}
+ const svg=V.scene(preview.doc,r,.7);assert(!svg.includes('data-port="strip:pl"'),'plug pins do not expose three loose wire targets');
+ assert(!Object.keys(P.names).some(key=>P.create(key).components.some(c=>c.type==='house-power-strip')),'new component stays out of existing examples');
+ const fs=require('node:fs'),vm=require('node:vm'),browser=vm.createContext({TextEncoder,CircuitMath:require('./circuit-math')});
+ for(const file of ['component-registry','circuit-household-components','circuit-routing','circuit-model','household-connections'])vm.runInContext(fs.readFileSync(require.resolve('./'+file),'utf8'),browser);
+ assert.equal(vm.runInContext('CircuitHouseholdComponents.previewPlug('+JSON.stringify(d)+',"strip",{x:10,y:5},24).snap.id',browser),'socket:e','deferred browser script order supports plug dragging');
+}
+console.log('Three-outlet strip: bundled plug snapping, parallel loads / earth, rotations, occupancy, cord limits, permissions, save / undo and subtle SVG passed');
 for(const stance of ['grounded','insulated']){
  const d=P.create('C03'),person=d.components.find(c=>c.id==='person');person.params.stance=stance;
  assert.deepEqual(C.hand(person),{x:person.x+40,y:person.y+(stance==='insulated'?-35:-13)});

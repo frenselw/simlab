@@ -20,6 +20,7 @@
     const copy=M.validate(doc);
     if(copy.analysis==='household'){
       const family=typeof module==='object'&&module.exports?require('./circuit-household-components'):globalThis.CircuitHouseholdComponents;
+      if(family.plugContacts(copy).length)throw new Error('請先拔開拖板插頭，再匯出固定元件接線模板。');
       if(family.handContacts(copy).length)throw new Error('請先把人物雙手移離元件接線端，再匯出固定元件接線模板。');
     }
     copy.wires=[];copy.junctions=[];copy.display.reference=null;copy.policy.mode='wiring';return copy;

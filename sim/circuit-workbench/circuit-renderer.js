@@ -204,7 +204,7 @@
       if(lines.length)items.push({id:c.id,lines,maxWidth:font.maxWidth});
       if(c.type==='transformer'&&doc.display.values){const edge=c.y-R.bodyBounds(c).top;items.push({id:'ratio-'+c.id,componentId:c.id,anchor:{x:c.x,y:Math.max(c.y-edge-50/scale,viewport?viewport.y+5/scale:-Infinity)},lines:[{kind:'transformerRatio',componentId:c.id,...Q.turnsRatio(c.params.primaryTurns,c.params.secondaryTurns),size:valueSize}],maxWidth:font.maxWidth});}
       if(options?.selection===c.id){const b=R.bodyBounds(c);details.push({left:b.left-6,right:b.right+6,top:b.top-6,bottom:b.bottom+6});}
-      if(doc.display.terminalLabels&&R.get(c.type).analysis==='household')R.ports(c).forEach(p=>details.push(householdPortLabel(p,scale).box));
+      if(doc.display.terminalLabels&&R.get(c.type).analysis==='household')R.ports(c).filter(p=>!p.hidden).forEach(p=>details.push(householdPortLabel(p,scale).box));
       if((isMeter||c.type==='rheostat')&&(!R.dualMeter(c)||scale>=(doc.display.view==='real'?.4:.7)))R.ports(c).filter(p=>p.labelVisible!==false).forEach(p=>{const label=portLabel(c,p,scale,doc.display.view);details.push(label.box);});
       if(options?.potentialDirections?.has(c.id)){const direction=potentialDirection(c,result);items.push({id:'potential-'+c.id,componentId:c.id,paddingLeft:direction.angle===null?0:32,lines:[{...direction,size:font.direction}]});}
     });
@@ -281,7 +281,7 @@
     });
     doc.junctions.filter(j=>doc.wires.reduce((n,w)=>n+(w.from===j.id+":p")+(w.to===j.id+":p"),0)>1).forEach((j) => { const v = result.potentials[j.id + ":p"]; out += `<circle cx="${j.x}" cy="${j.y}" r="${5 / scale}" fill="${doc.display.potential ? colour(v, max) : "#334155"}"/>`; });
     doc.components.forEach(c=>{const isMeter=R.isMeter(c)||c.type==='rheostat';
-      R.ports(c).forEach((p) => {
+      R.ports(c).filter(p=>!p.hidden).forEach((p) => {
         const v = result.potentials[p.id]; if(R.get(c.type).portStyle==='hole'){if(doc.display.terminalLabels)out+=householdPortText(p,scale);return;}out += `<circle data-port="${p.id}" cx="${p.x}" cy="${p.y}" r="${5 / scale}" fill="#fff" stroke="${doc.display.potential ? colour(v, max) : "#57728b"}" stroke-width="${2 / scale}"/>`;
         if(doc.display.terminalLabels&&R.get(c.type).analysis==='household')out+=householdPortText(p,scale);
         if(isMeter&&p.labelVisible!==false&&!tiny&&(!R.dualMeter(c)||scale>=(doc.display.view==='real'?.4:.7))){const a=portLabel(c,p,scale,doc.display.view),attrs=`data-port-label="${p.id}"`;if(!R.dualMeter(c)||doc.display.view!=='real')out+=`<rect x="${a.box.left}" y="${a.box.top}" width="${a.box.right-a.box.left}" height="${a.box.bottom-a.box.top}" rx="${2/scale}" fill="#ffffffee" pointer-events="none"/>`;out+=(a.spec.tex?Q.svg(a.x,a.y,a.spec,a.size,attrs):text(a.x,a.y,a.spec.text,a.size,attrs));}

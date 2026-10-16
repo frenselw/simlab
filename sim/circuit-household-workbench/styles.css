@@ -10,7 +10,7 @@ html,body{height:100%;height:100dvh;min-height:0;overflow:hidden}
 .household-workbench .household-legend i{display:block;width:22px;height:3px;background:#a56535}
 .household-workbench .household-legend .neutral{background:#2583b5}
 .household-workbench .household-legend .earth{background:repeating-linear-gradient(90deg,#5d9b49 0 5px,#edcd4d 5px 8px)}
-.household-workbench .hit.hand{border-radius:50%;z-index:6}
+.household-workbench :is(.hit.hand,.hit.plug){border-radius:50%;z-index:6}
 .household-workbench .hit.hand:focus-visible{outline:2px solid #2a77af}
 .household-workbench .quick-field select{width:100%;min-width:0;height:44px;min-height:44px;border-radius:0;font:16px system-ui,sans-serif;padding:0 2px;border:1px solid #bdccda;background:#fff;color:#213e56;text-align:center}
 .household-workbench .quick-field:has(select:not([hidden])) :is(input,[data-circuit-id="quickUnit"],[data-circuit-id="quickReadout"]){display:none}

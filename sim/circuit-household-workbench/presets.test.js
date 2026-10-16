@@ -20,7 +20,7 @@ assert.throws(()=>P.create('unknown'));
  restored.destroy();s.destroy();
 }
 assert.deepEqual(P.groups.flatMap(g=>g.keys).sort(),Object.keys(P.names).filter(k=>!['empty','C08'].includes(k)).sort(),'each current example appears once; C08 remains loadable without a duplicate menu entry');
-assert.deepEqual(C.palette.map(p=>p.type),['house-mains','house-meter','house-breaker','house-rcd','house-fuse','house-switch','house-socket','house-earth','house-metal','house-insulated','house-person']);
+assert.deepEqual(C.palette.map(p=>p.type),['house-mains','house-meter','house-breaker','house-rcd','house-fuse','house-switch','house-socket','house-power-strip','house-earth','house-metal','house-insulated','house-person']);
 for(const type of ['house-breaker','house-rcd'])for(const angle of [0,45,90,180])for(const view of ['real','schematic']){
  const c=M.add(M.empty('household'),type,100,200);c.angle=angle;const a=R.rotation(angle),at=(x,y)=>({x:c.x+x*a.cos-y*a.sin,y:c.y+x*a.sin+y*a.cos});assert(C.switchHit(c,at(0,11),view));for(const [x,y]of [[0,-38],[0,48],[-40,0],[40,0]])assert(!C.switchHit(c,at(x,y),view),'outside handle selects without operating');
 }
