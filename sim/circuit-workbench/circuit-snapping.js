@@ -9,7 +9,7 @@
 
   function candidates(doc, component, radius, portId, terminals = []) {
     const loose = doc.junctions.filter(j => M.degree(doc, j.id + ':p') > 0), pairs = [];
-    for (const port of R.ports(component).filter(p => !portId || p.id === portId)) for (const j of loose) {
+    for (const port of R.ports(component).filter(p => !p.hidden&&(!portId || p.id === portId))) for (const j of loose) {
       const distance = Math.hypot(port.x - j.x, port.y - j.y);
       if (distance < radius) pairs.push({ port, endpoint: j.id + ':p', x: j.x, y: j.y, distance });
     }

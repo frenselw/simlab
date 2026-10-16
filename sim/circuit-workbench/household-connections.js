@@ -30,9 +30,18 @@
     const topology=inspect(doc);
     return topology;
   }
+  function anchorPlugs(doc,before){
+    const ports=new Map(doc.components.flatMap(c=>R.ports(c).map(p=>[p.id,p])));
+    for(const {plug,target}of C.plugContacts(before).filter(p=>p.plug.endsWith(':pe'))){
+      const id=plug.split(':')[0],old=before.components.find(c=>c.id===id),next=doc.components.find(c=>c.id===id),socket=doc.components.find(c=>c.id===target.split(':')[0]),port=ports.get(target);
+      if(!next||!port||['plugX','plugY','plugAngle'].some(key=>next.params[key]!==old.params[key]))continue;
+      const a=R.rotation(socket.angle);
+      Object.assign(next.params,{plugX:port.x-22*a.sin-next.x,plugY:port.y+22*a.cos-next.y,plugAngle:socket.angle});
+    }
+  }
   function wireRole(doc,w,topology=inspect(doc)){
     for(const end of [w.from,w.to]){const p=topology.ports.get(end);if(p&&C.isAppliance(p.component))return p.key.toUpperCase();}
     return topology.roleOf(w.from)||topology.roleOf(w.to);
   }
-  return Object.freeze({inspect,validate,wireRole});
+  return Object.freeze({inspect,validate,wireRole,anchorPlugs});
 });

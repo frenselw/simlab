@@ -164,6 +164,7 @@
     const bent=G.bend(G.route(doc,w),at,dx,dy,w.length,radius);pose(doc,w,bent.points);return {limited:bent.limited};
   }
   function reconcile(doc,before){
+    if(doc.analysis==='household')householdRules().anchorPlugs(doc,before);
     const ends=endpoints(doc);
     for(const w of doc.wires){const old=before.wires.find(x=>x.id===w.id);if(!old)continue;const oldEnds=endpoints(before),a=ends.get(w.from),b=ends.get(w.to);if(!a||!b)return false;
       if(a.x===oldEnds.get(old.from)?.x&&a.y===oldEnds.get(old.from)?.y&&b.x===oldEnds.get(old.to)?.x&&b.y===oldEnds.get(old.to)?.y)continue;
