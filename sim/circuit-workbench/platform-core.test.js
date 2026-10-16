@@ -1,7 +1,7 @@
 'use strict';
 const assert=require('node:assert/strict'),M=require('./circuit-model'),P=require('./circuit-profile'),D=require('./circuit-document'),S=require('./circuit-solver'),V=require('./circuit-renderer'),R=require('./component-registry');
 let groups=0;
-const clearCanvas=(width,height)=>{const pad=Math.min(22,width/2,height/2);return{left:pad,right:width-pad,top:pad,bottom:height-pad};};
+const clearCanvas=(width,height)=>{const pad=Math.min(22,width/2,height/2);return{left:pad,right:width-pad,top:pad,bottom:height-pad,exclusions:[]};};
 function test(name,fn){fn();groups++;console.log('✓ '+name);}
 const variants=[{type:'lamp',key:'low',params:{resistance:12},limit:1},{type:'lamp',key:'high',params:{resistance:24},limit:1}];
 test('duplicate and mutable discriminators fail before mounting',()=>{
@@ -190,6 +190,14 @@ test('fit and wire placement leave full endpoint touch space beside visible corn
   for(const endpoint of [c.id+':'+key,'audit-end:p'])clear(screen(context.wirePlacement(d,endpoint).to));assert.deepEqual(d.wires.slice(0,2),original.wires);
   if(width===390&&height===280&&visible&&side===1&&gripWidth===32){const upper=M.empty(analysis),c=M.add(upper,analysis==='household'?'house-mains':'resistor',0,0),endpoint=c.id+':'+key,p=M.endpoints(upper).get(endpoint);upper.junctions.push({id:'back',x:p.x-180,y:p.y});M.connect(upper,'back:p',endpoint,[],'free');Object.assign(camera,{scale:1,x:p.x-230,y:p.y-80});const next=context.wirePlacement(upper,endpoint).to;assert.equal(next.x,p.x+120,'clear space above a grip still permits a straight continuation');assert.equal(next.y,p.y);clear(screen(next));}
   if(analysis==='dc'&&width===320&&height===100&&visible&&side===-1&&gripWidth===32){const history=M.history(d),saved=D.encode(history.get()),p=M.endpoints(d).get(c.id+':'+key);Object.assign(camera,{scale:.01,x:p.x-800,y:p.y-5000});Object.assign(context,{autoFit:true,history,wireAllowed:()=>true,cancel(){},notify(){},addWire:M.addWire,change:fn=>{try{history.change(fn);return true;}catch{return false;}}});assert.equal(context.takeWire(c.id+':'+key),false);assert.equal(D.encode(history.get()),saved);assert.equal(history.canUndo(),false);assert.equal(context.autoFit,true);}
+ }
+});
+test('corner grips preserve full-width meter fit when actual targets are clear',()=>{
+ const fs=require('node:fs'),vm=require('node:vm'),G=require('./circuit-routing'),Renderer=require('./circuit-renderer'),{meterMathFixture}=require('../../tools/circuit-meters-math-browser-cases'),source=fs.readFileSync(require.resolve('./circuit-editor'),'utf8'),code=source.slice(source.indexOf('  function canvasBounds('),source.indexOf('  function focusPoint('));
+ for(const width of [320,390,1280])for(const height of [280,500])for(const type of ['ammeter','voltmeter']){
+  const d=meterMathFixture(type),before=M.clone(d),camera={},rect={left:0,top:0,right:width,bottom:height},grips=[{left:0,right:32,top:height-72,bottom:height-8},{left:width-32,right:width,top:height-72,bottom:height-8}];let visible=false;
+  const context=vm.createContext({M,R,G,current:()=>d,camera,surface:{clientWidth:width,clientHeight:height,getBoundingClientRect:()=>rect},host:{querySelectorAll:()=>grips.map(g=>({getClientRects:()=>visible?[g]:[],getBoundingClientRect:()=>g}))},household:false,transient:false,screen:p=>({x:(p.x-camera.x)*camera.scale,y:(p.y-camera.y)*camera.scale})});vm.runInContext(code,context);context.fit();const full={...camera};visible=true;context.fit();assert.deepEqual(camera,full,'clear endpoints retain the full-width fit');
+  const meter=d.components.find(c=>c.type===type);for(const p of R.ports(meter))assert(Renderer.portLabel(meter,p,camera.scale).size*camera.scale>=14,'initial range font remains at least 14 CSS px');assert.deepEqual(d,before);
  }
 });
 console.log(`Circuit platform: ${groups} focused groups passed.`);

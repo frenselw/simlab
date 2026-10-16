@@ -137,8 +137,12 @@
   function fit(){const d=current(),points=[...d.components.flatMap(c=>{if(household){const b=R.bodyBounds(c);return[{x:b.left-25,y:b.top-30},{x:b.right+25,y:b.bottom+35},...R.ports(c)];}return[{x:c.x-90,y:c.y-90},{x:c.x+90,y:c.y+130}];}),...d.junctions,...d.wires.flatMap(w=>G.route(d,w))];
     if(!points.length){Object.assign(camera,{x:0,y:0,scale:1});return;}
     const minX=Math.min(...points.map(p=>p.x)),maxX=Math.max(...points.map(p=>p.x)),minY=Math.min(...points.map(p=>p.y)),maxY=Math.max(...points.map(p=>p.y));
-    const box=canvasBounds();camera.scale=Math.max(.001,Math.min(transient?1.8:1.2,(box.right-box.left)/Math.max(120,maxX-minX),(box.bottom-box.top)/Math.max(120,maxY-minY)));
-    camera.x=(minX+maxX)/2-(box.left+box.right)/(2*camera.scale);camera.y=(minY+maxY)/2-(box.top+box.bottom)/(2*camera.scale);
+    const box=canvasBounds(),place=(left,right)=>{
+      camera.scale=Math.max(.001,Math.min(transient?1.8:1.2,(right-left)/Math.max(120,maxX-minX),(box.bottom-box.top)/Math.max(120,maxY-minY)));
+      camera.x=(minX+maxX)/2-(left+right)/(2*camera.scale);camera.y=(minY+maxY)/2-(box.top+box.bottom)/(2*camera.scale);
+    };
+    place(box.top,surface.clientWidth-box.top);
+    if(box.exclusions.length&&[...M.endpoints(d).values()].some(p=>{const q=screen(p);return box.exclusions.some(g=>q.x+22>g.left&&q.x-22<g.right&&q.y+22>g.top&&q.y-22<g.bottom);}))place(box.left,box.right);
   }
   function focusPoint(p){autoFit=false;camera.scale=Math.max(1,camera.scale);camera.x=p.x-surface.clientWidth/(2*camera.scale);camera.y=p.y-surface.clientHeight/(2*camera.scale);render(false);}
   function resolveSnap(d,id,key,p){const w=d.wires.find(w=>w.id===id),other=key==="from"?"to":"from";let found=null,distance=24/camera.scale;
