@@ -7,8 +7,9 @@
   function initial(doc){return {time:0,contacts:Object.fromEntries(doc.components.filter(c=>c.type==='house-person').map(c=>[c.id,null])),protection:Object.fromEntries(doc.components.filter(C.isProtection).map(c=>[c.id,record(c)])),energyKWh:Object.fromEntries(doc.components.filter(c=>c.type==='house-meter').map(c=>[c.id,0]))};}
   const active=(c,state)=>c.type==='house-fuse'?state.protection[c.id]?.status!=='blown':c.params.closed&&state.protection[c.id]?.status==='closed';
   const electricalKey=(doc,state)=>JSON.stringify([doc.supplyVoltage,doc.components.map(c=>[c.id,c.type,c.params]),doc.junctions.map(j=>j.id),doc.wires.map(w=>[w.id,w.from,w.to]),C.handContacts(doc),state.contacts,Object.entries(state.protection).map(([id,p])=>[id,p.status])]);
-  function* solveSteps(input,state=initial(input)){
-    const doc=M.validate(input),topology=Connections.inspect(doc),ports=M.endpoints(doc),keys=[...ports.keys(),'@earth',...doc.components.filter(C.isAppliance).map(c=>c.id+':case'),...doc.components.filter(c=>c.type==='house-person').map(c=>c.id+':body')],parent=new Map(keys.map(k=>[k,k]));
+  // Session events reuse validated geometry; public solve still validates external documents.
+  function* solveSteps(doc,state=initial(doc)){
+    const topology=Connections.inspect(doc),ports=M.endpoints(doc),keys=[...ports.keys(),'@earth',...doc.components.filter(C.isAppliance).map(c=>c.id+':case'),...doc.components.filter(c=>c.type==='house-person').map(c=>c.id+':body')],parent=new Map(keys.map(k=>[k,k]));
     const find=k=>{let p=k;while(parent.get(p)!==p)p=parent.get(p);return p;};
     const join=(a,b)=>parent.set(find(a),find(b));
     yield;
@@ -81,7 +82,7 @@
     const potentials={};for(const k of ports.keys()){potentials[k]=potential(k);yield;}
     return {mode:'household',shortCircuit,time:state.time,components,wires,potentials,islandOf:Object.fromEntries([...ports.keys()].map(k=>[k,'earth-reference'])),references:[{island:'earth-reference',endpoint:doc.components.find(c=>c.type==='house-mains')?.id+':n',voltage:0}],diagnostics,reliable:!solution.error,voltage};
   }
-  function solve(input,state){const job=solveSteps(input,state);let step;do{step=job.next();}while(!step.done);return step.value;}
+  function solve(input,state){const job=solveSteps(M.validate(input),state);let step;do{step=job.next();}while(!step.done);return step.value;}
   function object(value,allowed){if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).some(k=>!allowed.includes(k))||allowed.some(k=>!Object.hasOwn(value,k)))throw new Error('家庭文件欄位無效');}
   function number(v,max=Infinity){if(!Number.isFinite(v)||v<0||v>max)throw new Error('家庭狀態數值無效');}
   function validateSnapshot(input){

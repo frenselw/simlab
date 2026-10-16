@@ -204,6 +204,10 @@ for(const count of [20,40,80]){
 }
 console.log('Capacity: 20/40/80 connected component event solves honour continuation and exact state/energy');
 {
+ const d=P.create('C10');M.attach(d,'short-link','to','short-n:p');const s=new H.Session(d),G=require('./circuit-routing'),original=G.route;let calls=0;G.route=function(...args){calls++;return original(...args);};
+ try{s.advance(.1,{budget:Infinity});assert.equal(s.read().components.protector.status,'tripped');assert.equal(calls,0,'electrical protection event never reroutes already validated geometry');const invalid=M.clone(d);invalid.wires[0].length=1;assert.throws(()=>H.solve(invalid));assert.throws(()=>s.update(invalid));assert(calls===0,'invalid external geometry is still rejected before routing');}finally{G.route=original;s.destroy();}
+}
+{
  const d=P.create('C10');M.attach(d,'short-link','to','short-n:p');const fuse=M.add(d,'house-fuse',-300,-150,{rating:3}),wire=d.wires.find(w=>w.to==='protector:li');wire.to=fuse.id+':a';M.connect(d,fuse.id+':b','protector:li');
  const baseline=new H.Session(d),s=new H.Session(d);baseline.advance(.1);const real=globalThis.performance;let clock=0;globalThis.performance={now:()=>++clock};
  try{let remaining=.1,done=false,calls=0;while(!done){const p=s.advance(remaining,{budget:4});remaining=Math.max(0,remaining-p.advanced);done=p.complete;assert(++calls<20000);const r=s.read().components;assert.equal(r.protector.status==='tripped',r[fuse.id].status==='blown','simultaneous protection statuses publish together');if(s.pending){assert.equal(r.protector.status,'closed');assert.equal(r[fuse.id].status,'intact');assert(r.protector.current>100);}assert.doesNotThrow(()=>H.encode(s.capture()));}assert.deepEqual(s.capture(),baseline.capture());assert.equal(s.read().components.protector.status,'tripped');assert.equal(s.read().components[fuse.id].status,'blown');}finally{globalThis.performance=real;s.destroy();baseline.destroy();}
