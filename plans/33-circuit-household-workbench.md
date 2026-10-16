@@ -820,3 +820,7 @@ e0e2321 的 Quality 38916419838 已完成且 failure：其餘 Node／檢查及�
 實際 pointerdown 的 120 組回歸測試先在舊碼重現選錯手，再於修正後全過；原 household-connections 全 owner、平台 18 群組及 36 個正式保存／續作 fixtures 通過，語法／manifest、240 項登記及五包重建通過。這些本機 Node 證據不當作瀏覽器驗收；source／package 的完整遠端 CI 結果另記於交付證據。
 
 ced4917 的 Quality 38924680174 已完成：原先選錯手的步驟已通過，家庭 source 隨後在同一測試 line 507 的 wire 負對照失敗（預期 null，實際正確吸附所選手）。原 fixture 的線中段在短畫布初始 fit 後亦進入 24 px 端子吸附圈，與「只碰絕緣導線中段」前提不符。只將 wire 負對照的端子向兩側拉開，保留其他 from／to／earth:e 及角落量測 fixture 座標、預設 fit、原生手勢、null／零電流／原線／undo／restore 斷言；新增前提斷言，要求落點在實際導線中段、無直接接觸且距每個非人物端子大於 24 CSS px。本機以正式 browser fixture、正式 fit 及 snapping 跑 20 組兩手／兩視圖／五種畫布（含 320×75），均確認無可吸附端子，未開 Chrome。同輪其餘七個分片中六個成功，AC browser-1 因單次長任務 102 ms 超過既有 100 ms 門檻失敗（輸入反應及 advance 門檻通過）；本次不放寬效能門檻，新提交完整 CI 亦會重跑 AC，成功後才合併。
+
+86984ca 的 Quality 38928153724 中 AC 原門檻及其餘六個 browser 分片均成功；家庭 source 已通過左右手及導線負對照，後續手機保護器重合 line 526 仍保持 tripped。touchOperate／touchInspectProtector 在呼叫 touchControl 之前先讀取模型畫面座標，但 touchControl 其後才等布局／ResizeObserver 的兩個動畫幀；在切換只讀／面板後，舊相機座標可能已失效。範圍限原 browser 輸入 helper 與兩個呼叫者、household-connections Node owner 及本計劃：改為布局完成後才執行點位 callback，保留原生 touch、只讀／故障仍可重合後再跳掣、修復後穩定閉合及 undo／restore 的全部斷言。Node 執行實際 helper，覆蓋布局放大／縮小後一般控制、保護器檢視及手柄點位取樣時序；不改 runtime、保護物理模型或 CI 效能門檻。本機不開 Chrome，仍以完整遠端 CI 成功作合併條件。
+
+原 helper 的 6 組布局／點位回歸在舊碼實際失敗（使用舊座標 10，而非布局後的 60），改為 callback 後全過；原 household-connections owner（含 120 組手部命中）及 240 項登記通過，browser 語法及 diff 檢查通過。runtime 及打包資源與 ced4917 相同，無需重跑未變的本機打包或開 Chrome；新提交完整 CI 驗 source／package。

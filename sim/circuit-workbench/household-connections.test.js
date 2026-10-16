@@ -205,3 +205,10 @@ for(const hand of ['hand','hand-left'])for(const [type,keys]of [['house-mains',[
  }
  console.log('Actual pointerdown resolves both hand targets by distance: 120 stance/zoom/input/offset cases');
 }
+(async()=>{
+ const fs=require('node:fs'),vm=require('node:vm'),source=fs.readFileSync(require.resolve('../../tools/circuit-household-browser-regression'),'utf8'),start=source.indexOf('          async function touchControl('),code=source.slice(start,source.indexOf("          for(const hand of ['hand','hand-left']){",start));
+ for(const finalX of [60,160])for(const helper of ['touchControl','touchInspectProtector','touchOperate']){
+  let settled=false,pressed;const context=vm.createContext({inside:async script=>{if(script.includes('requestAnimationFrame'))settled=true;},componentPoint:async(_id,x=0,y=11)=>({x:(settled?finalX:10)+x,y:100+y}),midpoint:async()=>({x:settled?finalX:10,y:100}),H:{delay:async()=>{}},cdp:{send:async(_method,event)=>{if(event.type==='touchStart')pressed=event.touchPoints[0];}}});vm.runInContext(code,context);await context[helper]('button');assert.equal(pressed.x,finalX,'sample coordinates after layout settles');assert.equal(pressed.y,helper==='touchInspectProtector'?62:helper==='touchOperate'?111:100);
+ }
+ console.log('Actual mobile control helpers sample current coordinates after layout in 6 resize/target cases');
+})().catch(error=>{console.error(error);process.exitCode=1});
