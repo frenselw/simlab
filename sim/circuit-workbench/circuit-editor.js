@@ -483,17 +483,24 @@
     const width=surface.clientWidth,height=surface.clientHeight,pad=Math.min(32,width/4,height/4),clamp=(v,max)=>Math.max(pad,Math.min(max-pad,v)),length=Math.min(120,doc.cables.length*.65*camera.scale,width-2*pad);
     if(endpoint){
       const origin=M.endpoints(doc).get(endpoint);if(!origin)throw Error('接線點不存在');
-      const p=screen(origin),nx=origin.dx||0,ny=origin.dy||0,angle=Math.atan2(ny,nx),paths=doc.wires.map(w=>G.simplify(G.route(doc,w).map(screen),1)),candidates=[];
+      const p=screen(origin),nx=origin.dx||0,ny=origin.dy||0,paths=doc.wires.map(w=>G.simplify(G.route(doc,w).map(screen),1)),bodies=doc.components.filter(c=>!endpoint.startsWith(c.id+':')).map(c=>{const b=R.bodyBounds(c);return{a:screen({x:b.left,y:b.top}),b:screen({x:b.right,y:b.bottom})};}).filter(box=>p.x<box.a.x||p.x>box.b.x||p.y<box.a.y||p.y>box.b.y),candidates=[];
+      const incident=doc.wires.filter(w=>w.from===endpoint||w.to===endpoint),wire=incident.find(w=>w.id===selection?.id)||incident[0];
+      const path=wire?paths[doc.wires.indexOf(wire)]:[],next=wire?.from===endpoint?path[1]:path.at(-2),angle=next?Math.atan2(p.y-next.y,p.x-next.x):Math.atan2(ny,nx);
       for(let n=0;n<16;n++){
         const a=angle+n*Math.PI/8,q={x:clamp(p.x+Math.cos(a)*length,width),y:clamp(p.y+Math.sin(a)*length,height)},span=Math.hypot(q.x-p.x,q.y-p.y),f=Math.min(1,length/(span||1));q.x=p.x+(q.x-p.x)*f;q.y=p.y+(q.y-p.y)*f;
         const dx=q.x-p.x,dy=q.y-p.y,reach=Math.hypot(dx,dy);if(reach<.01)continue;
-        let clearance=24;
-        // Ignore the shared origin; compare the visible run against every existing wire.
-        for(let i=1;i<=16;i++){const point={x:p.x+dx*i/16,y:p.y+dy*i/16};for(const path of paths)clearance=Math.min(clearance,G.nearest(path,point)?.distance??24);}
-        candidates.push({...q,clearance,reach,outward:nx*dx+ny*dy>= -1e-6&&reach>=Math.min(32,length/2)});
+        let clearance=24,clear=true;
+        // Taper the clearance at the shared origin so a clear continuation remains preferred.
+        for(let i=1;i<=16;i++){
+          const point={x:p.x+dx*i/16,y:p.y+dy*i/16};let distance=24;
+          for(const path of paths)distance=Math.min(distance,G.nearest(path,point)?.distance??24);
+          for(const box of bodies)distance=Math.min(distance,Math.hypot(Math.max(box.a.x-point.x,0,point.x-box.b.x),Math.max(box.a.y-point.y,0,point.y-box.b.y)));
+          clearance=Math.min(clearance,distance);if(distance<Math.min(12,reach*i/32))clear=false;
+        }
+        candidates.push({...q,clearance,reach,preferred:n===0&&clear&&reach>=length*.95,outward:nx*dx+ny*dy>= -1e-6&&reach>=Math.min(32,length/2)});
       }
       const outward=candidates.filter(q=>q.outward),available=outward.length?outward:candidates;
-      available.sort((a,b)=>Math.abs(b.clearance-a.clearance)>.01?b.clearance-a.clearance:b.reach-a.reach);
+      available.sort((a,b)=>Number(b.preferred)-Number(a.preferred)||(Math.abs(b.clearance-a.clearance)>.01?b.clearance-a.clearance:b.reach-a.reach));
       const best=available[0]||{x:clamp(p.x+Math.cos(angle)*length,width),y:clamp(p.y+Math.sin(angle)*length,height)};
       return{from:origin,to:{x:camera.x+best.x/camera.scale,y:camera.y+best.y/camera.scale}};
     }
