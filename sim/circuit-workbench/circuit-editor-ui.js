@@ -89,6 +89,7 @@
     else host.removeAttribute('data-sim-fullscreen-target');
     host.tabIndex = -1;
     const content = document.createElement('template'); content.innerHTML = template;
+    if(profile.analysis==='household')content.content.querySelector('#potential').parentElement.outerHTML='<label>導線顏色<select id="potential"><option value="roles">火線／零線／地線顏色</option><option value="potential">電勢漸變顏色</option><option value="plain">普通導線顏色</option></select></label>';
     const refs = {app:host};
     for (const element of content.content.querySelectorAll('[id]')) {
       const id = element.id; refs[id] = element; element.dataset.circuitId = id; element.id = prefix + id;

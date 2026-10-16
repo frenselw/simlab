@@ -75,7 +75,7 @@
       if(r.working)return c.type==='house-metal'&&!r.earthed?'電器正在工作，外殼尚未正確接地。':'兩條工作線之間有電壓，形成工作回路。';
       return '電器不工作，查看兩條線和開關。';
     }
-    function render(doc,result){const message=resultText(doc,result);if(observation.textContent!==message)observation.textContent=message;observation.dataset.alert=String(doc.components.some(c=>c.type==='house-person'&&Math.abs(result.components[c.id].current)>1e-9));
+    function render(doc,result){legend.hidden=doc.display.potential||doc.display.roleColours===false;const message=resultText(doc,result);if(observation.textContent!==message)observation.textContent=message;observation.dataset.alert=String(doc.components.some(c=>c.type==='house-person'&&Math.abs(result.components[c.id].current)>1e-9));
       for(const input of settings.querySelectorAll('[data-household-setting]')){const key=input.dataset.householdSetting;if(input.type==='checkbox')input.checked=doc.display[key];else input.value=String(doc.supplyVoltage);input.disabled=controller.getInteraction().readOnly;}
       const selected=doc.components.find(c=>c.id===controller.getInteraction().selection?.id);protectionAction(selected,result.components[selected?.id],refs.objectActions);
       const ids=new Set(doc.components.filter(c=>C.isAppliance(c)&&['fan','washer','dryer','blender','vacuum'].includes(c.params.kind)).map(c=>c.id));for(const id of fanAngles.keys())if(!ids.has(id))fanAngles.delete(id);

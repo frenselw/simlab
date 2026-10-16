@@ -54,8 +54,8 @@
     });
     if(input.version>=3){object(input.cables,["count","length",...(input.version>=6?["resistance"]:[])]);if(Object.hasOwn(input.cables,'resistance'))numeric(input.cables.resistance,0,limits.resistance);numeric(input.cables.count,1,limits.wires);if(!Number.isInteger(input.cables.count))throw new Error("導線數量必須是整數");numeric(input.cables.length,120,1200);if(input.wires.length>input.cables.count)throw new Error("已超過導線庫存數量");}
     object(input.policy, ["mode", "allowRotate", "allowParams", "allowSwitch"]); choice(input.policy.mode, ["free", "wiring"]); ["allowRotate", "allowParams", "allowSwitch"].forEach((k) => bool(input.policy[k]));
-    object(input.display, ["view", "flow", "meters", "potential", "names", "values", "reference", "projection", "fontSize", "quantities", ...(household?["terminalLabels","showSupplyVoltage"]:[])]);
-    if(household)for(const key of ["terminalLabels","showSupplyVoltage"])if(Object.hasOwn(input.display,key))bool(input.display[key]);
+    object(input.display, ["view", "flow", "meters", "potential", "names", "values", "reference", "projection", "fontSize", "quantities", ...(household?["terminalLabels","showSupplyVoltage","roleColours"]:[])]);
+    if(household)for(const key of ["terminalLabels","showSupplyVoltage","roleColours"])if(Object.hasOwn(input.display,key))bool(input.display[key]);
     choice(input.display.view, ["real", "schematic"]); choice(input.display.flow, ["off", "current", "electron"]); choice(input.display.meters, ["digital", "analog"]);
     ["potential", "values", "projection"].forEach((k) => bool(input.display[k]));
     if(Object.hasOwn(input.display,"names"))bool(input.display.names);

@@ -3,6 +3,25 @@ const assert=require('node:assert/strict'),P=require('./presets'),C=require('../
 for(const [key,name]of Object.entries(P.names)){const d=P.create(key);assert.equal(d.components.length,{empty:0,C01:7,C02:5,C03:6,C04:7,C05:5,C06:7,C07:8,C07fuse:4,C08:4,C09:4,C10:4}[key]);assert(d.components.every(c=>Object.hasOwn(C.definitions,c.type)));assert(Object.hasOwn(P.questions,key));assert(name);const s=new H.Session(d);assert.equal(s.read().reliable,true);if(key!=='empty')assert(key==='C09'?s.read().components.person.current>.1:key==='C07fuse'?Math.abs(s.read().components.load.power)<1e-9:s.read().components.load.power>0);s.destroy();}
 assert.throws(()=>P.create('unknown'));
 {
+ const fs=require('node:fs'),vm=require('node:vm'),editor=fs.readFileSync(require.resolve('../circuit-workbench/circuit-editor'),'utf8');
+ const handler=editor.slice(editor.indexOf('["flow","potential","names","values"].forEach'),editor.indexOf(';$("pause").onclick'))+';';
+ const d=P.create('C01'),original=M.clone(d.display),session=new H.Session(d),result=session.read(),refs=Object.fromEntries(['flow','potential','names','values'].map(id=>[id,{type:id==='potential'?'select-one':'checkbox',value:''}]));
+ vm.runInNewContext(handler,{household:true,$:id=>refs[id],change:fn=>fn(d)});
+ for(const mode of ['roles','potential','plain','roles']){
+  refs.potential.value=mode;refs.potential.onchange();assert.equal(d.display.potential,mode==='potential');assert.equal(d.display.roleColours===false,mode==='plain');
+  const svg=V.scene(d,result,1),wire=id=>svg.match(new RegExp('data-wire="'+id+'"[^>]*stroke="([^"]+)"'))[1];
+  for(const role of ['L','N','E']){const w=d.wires.find(w=>result.wires[w.id].role===role);assert(w);assert.equal(wire(w.id),mode==='roles'?C.colours[role]:mode==='plain'?'#50677e':V.colour(result.wires[w.id].potential,V.potentialRange(result).max));}
+  assert.equal(svg.includes('data-house-earth-wire='),mode==='roles','yellow earth stripe only appears with L/N/E colours');
+  const saved=new H.Session(d),restored=H.Session.restore(H.decode(H.encode(saved.capture())));assert.deepEqual(restored.doc.display,d.display);restored.advance(.01);assert(restored.read().components.load.working);restored.destroy();saved.destroy();
+ }
+ assert.deepEqual(d.display,original,'returning to default preserves the original legacy display shape');
+ const legacy=M.clone(d);legacy.display.potential=true;assert(V.scene(legacy,result,1).includes('stroke="'+V.colour(result.wires[d.wires[0].id].potential,V.potentialRange(result).max)+'"'));
+ for(const value of [null,0,'plain'])assert.throws(()=>M.validate({...d,display:{...d.display,roleColours:value}}));
+ for(const analysis of ['dc','transient']){const other=M.empty(analysis);other.display.roleColours=false;assert.throws(()=>M.validate(other));}
+ session.destroy();
+}
+console.log('Household wire colours: real control handler, role / potential / plain SVG, earth stripe, legacy compatibility and save / restore passed');
+{
  const d=P.create('C09'),people=d.components.filter(c=>c.type==='house-person'),s=new H.Session(d),r=s.read();
  assert.deepEqual(people.map(c=>[c.id,c.params.stance]),[['person','insulated'],['person2','grounded'],['person3','insulated']]);
  assert(people.every(c=>c.y===people[0].y));assert(people[0].x<people[1].x&&people[1].x<people[2].x);
