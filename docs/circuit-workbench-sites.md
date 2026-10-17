@@ -1,6 +1,6 @@
 # DC／AC／Household 工作台的獨立 Sites 部署
 
-三個 standalone 工作台各有獨立 Sites 部署；本輪 DC／AC／Household 分別更新至 version 36／37／33，原生部署均回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。以下舊版紀錄按各自日期解讀。
+三個 standalone 工作台各有獨立 Sites 部署；本輪 DC／AC／Household 分別更新至 version 37／38／34，原生部署均回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。以下舊版紀錄按各自日期解讀。
 
 | 工作台 | 正式網址 | Site project ID | 原始入口 |
 |---|---|---|---|
@@ -8,7 +8,29 @@
 | AC | [交流電路工作台](https://simlab-ac-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6acacd3a2fb4819187870a3ebf24da68` | `sim/circuit-ac-workbench/index.html` |
 | Household | [家庭電路工作台](https://simlab-household-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6ad0b88108c08191a7568eda54a1f36c` | `sim/circuit-household-workbench/index.html` |
 
-## 最近更新：Household 短路發熱效果（2026-10-17）
+## 最近更新：三工作台審核修正（2026-10-17）
+
+修正取自已推送分支 `codex/circuit-audit-fixes` 的
+`e30e382fb160ef0ef5cb971e2028c8c657ce0543`（runtime 修正 `97b5804`）。
+九項標準工作台及一項嵌入配置缺口的修改、209/209 Node、Playwright CLI
+來源／ZIP × 1280／390 px 四組通過及驗收界限，見
+[審核修正紀錄](circuit-workbench-audit-followup-2026-10-17.md)。
+
+| 工作台 | 已推送 Sites source commit | saved version | deployment（均 succeeded） |
+|---|---|---|---|
+| DC | `b849955777fdc4080986933b0b2071d1699e8b6c` | 37，`appgprj_6acacd25ad448191b82c7bdd801e2047~appgver_900c1af2faa88191997b4771048a5b31` | `appgdep_6ad36ad7e840819197a2ef3b42dae6e0` |
+| AC | `91eef619a19f1de4ca631ba7b17f7d42b7046823` | 38，`appgprj_6acacd3a2fb4819187870a3ebf24da68~appgver_15f11e372a248191bee48bbcb45b6a41` | `appgdep_6ad36ae976c88191affb08e929d5fc5d` |
+| Household | `3e7c414aa3b031332adbbeb5322a071fef2e6557` | 34，`appgprj_6ad0b88108c08191a7568eda54a1f36c~appgver_f894f0189088819181817807080187ad` | `appgdep_6ad36afa145881918c30dd3611473074` |
+
+三站共 97 個 runtime 資產（29／38／30）與上述 SimLab 提交逐 byte／SHA-256
+核對；入口、query/hash 跳轉及 HTML／CSS 相對引用通過。官方 helper 推送、
+封裝後，以原生私人發布確認三站成功；原網址及 owner-only audience 保持。
+archive 為 `output/sites/circuit-{dc,ac,household}-workbench-audit-fixes-e30e382.tar.gz`；
+資產與部署證據為 `output/sites/shared-audit-fixes-assets.json`、
+`output/sites/shared-audit-fixes-deployments.json`。本次發布沿用已通過的來源／ZIP
+驗證，沒有重跑完整 browser、真手機或 Moodle。
+
+## 前次更新：Household 短路發熱效果（2026-10-17）
 
 Runtime 取自已推送分支 `codex/household-short-heat` 的 `aa53bfdb8a1020dca86170abd19b8b69d007b945`。家庭後端沿既有低阻導通圖及已解電流方向產生短路發熱標記，重用共用 renderer 的火焰／光暈；保護切斷或解除短路後清除，正常大電流家電及無關支路不誤標。電流／保護計時、文件及 session 格式保持。測試與界限見[家庭計劃](../plans/33-circuit-household-workbench.md#household-短路發熱效果2026-10-17)。
 

@@ -55,5 +55,7 @@
   及兩個 DC SCORM ZIP；建構證據 `output/circuit-platform-build.json`。
 
 以上是本地專項回歸，不代表完整 browser／trusted-touch host matrix 已重新
-驗收。真手機、真 Moodle、線上 Sites 或既有發布 ZIP 的更新均未執行；
+驗收。真手機、真 Moodle 及既有 Moodle 發布 ZIP 的替換未執行；
 不宣稱本輪已完成 Moodle-ready 或全套 package-ready 門檻。
+其後依使用者明確要求推送修正分支及更新三個既有私人 Sites，三次原生
+發布均成功；來源／版本／部署證據見 [Sites 紀錄](circuit-workbench-sites.md)。
