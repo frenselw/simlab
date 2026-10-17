@@ -33,7 +33,7 @@ console.log('AC low-frequency controls, 50 Hz option and stable current label wi
 console.log('50 Hz display power stays available and stable across 120 frame boundaries');
 
 // Authored compact diagrams retain usable body separation and correctly attached finite cables.
-{const R=require('./component-registry'),G=require('./circuit-routing');for(const name of Object.keys(P.names)){const d=P.create(name),ports=M.endpoints(d);for(let i=0;i<d.components.length;i++)for(const c of d.components.slice(i+1)){const a=R.bodyBounds(d.components[i]),b=R.bodyBounds(c);assert(a.right<=b.left||b.right<=a.left||a.bottom<=b.top||b.bottom<=a.top,name+' body overlap');}for(const w of d.wires){const points=G.route(d,w);assert(G.length(points)<=w.length+.01,name+' finite cable');for(const [point,id]of [[points[0],w.from],[points.at(-1),w.to]]){assert.equal(point.x,ports.get(id).x);assert.equal(point.y,ports.get(id).y);}}if(d.wires.length){const points=d.wires.flatMap(w=>G.route(d,w));assert(Math.max(...points.map(p=>p.x))-Math.min(...points.map(p=>p.x))<=680,name+' unnecessarily wide diagram');}}const legacy=JSON.parse(Data.encode('lc',new T.Session(P.examples('lc').initialDocument).capture()));for(const version of [1,2,3,4]){legacy.version=version;assert.throws(()=>Data.decode(legacy),'an old fixed template must not be silently moved');}}
+{const R=require('./component-registry'),G=require('./circuit-routing');for(const name of Object.keys(P.names)){const d=P.create(name),ports=M.endpoints(d);for(let i=0;i<d.components.length;i++)for(const c of d.components.slice(i+1)){const a=R.bodyBounds(d.components[i]),b=R.bodyBounds(c);assert(a.right<=b.left||b.right<=a.left||a.bottom<=b.top||b.bottom<=a.top,name+' body overlap');}for(const w of d.wires){const points=G.route(d,w);assert(G.length(points)<=w.length+.01,name+' finite cable');for(const [point,id]of [[points[0],w.from],[points.at(-1),w.to]]){assert.equal(point.x,ports.get(id).x);assert.equal(point.y,ports.get(id).y);}}if(d.wires.length){const points=d.wires.flatMap(w=>G.route(d,w));assert(Math.max(...points.map(p=>p.x))-Math.min(...points.map(p=>p.x))<=(name==='transmission'?1000:680),name+' unnecessarily wide diagram');}}const legacy=JSON.parse(Data.encode('lc',new T.Session(P.examples('lc').initialDocument).capture()));for(const version of [1,2,3,4]){legacy.version=version;assert.throws(()=>Data.decode(legacy),'an old fixed template must not be silently moved');}}
 console.log('Compact presets: body separation, finite terminal routes and fixed-template version guard passed');
 
 // Visual charge signs follow CU, stay balanced, reverse colours, and respect field permissions.
@@ -97,3 +97,26 @@ for(const name of Object.keys(P.names)){const d=P.create(name),bad=[];for(let i=
 
 for(const name of ['transformer','lc']){const fresh=new T.Session(P.examples(name).initialDocument).capture(),old=JSON.parse(Data.encode(name,fresh));old.version=5;delete old.physics.energyDomains;delete old.physics.energyOrigin;const migrated=Data.decode(old);assert.equal(migrated.version,2);const restored=T.Session.restore(migrated);restored.advance(.01);assert.equal(restored.fault,null);}
 console.log('Legacy example codec v5 migrates to v6/session v2 and continues legally');
+
+// Compare identical sources and loads; delivered power changes with line losses.
+{
+ const near=(actual,expected)=>assert(Number.isFinite(actual)&&Math.abs(actual-expected)<=Math.max(1e-8,Math.abs(expected)*.003),`${actual} versus ${expected}`);
+ assert(P.groups.find(g=>g.label==='變壓器與互感').keys.includes('transmission'));
+ for(const lineResistance of [0,100]){
+  const doc=D.decode(D.encode(P.create('transmission'))),lossy=doc.wires.filter(w=>w.resistance>0);
+  assert.equal(lossy.length,4);lossy.forEach(w=>M.setWireResistance(doc,w.id,lineResistance));
+  const session=new T.Session(doc);session.advance(.08);assert.equal(session.fault,null);const out=session.read();
+  for(const [label,ratio,sourceLabel,meterLabel]of [['直接輸電負載',1,'直接輸電電源','直接輸電電流'],['升壓輸電負載',100,'升壓輸電電源','高壓輸電電流']]){
+   const load=doc.components.find(c=>c.label===label),source=doc.components.find(c=>c.label===sourceLabel),meter=doc.components.find(c=>c.label===meterLabel),expectedI=230*ratio/(529*ratio**2+2*lineResistance),power=(expectedI*ratio)**2*529;
+   near(out.components[meter.id].reading,expectedI);near(out.measurements[load.id].voltageRms,expectedI*ratio*529);near(out.measurements[load.id].averagePower,power);
+   near(-out.measurements[source.id].averagePower,power+expectedI**2*2*lineResistance);
+  }
+  assert.equal(out.voltage('c1:a','c5:a'),null,'separate comparison circuits have no shared voltage reference');
+  for(const meter of doc.components.filter(c=>AC.types[c.type]?.meter))assert.equal(out.components[meter.id].meterStatus,'normal');
+  const resumed=T.Session.restore(JSON.parse(JSON.stringify(session.capture())));resumed.advance(.02);session.advance(.02);assert.equal(resumed.fault,null);near(resumed.read().measurements.c9.averagePower,session.read().measurements.c9.averagePower);
+  const changed=M.clone(resumed.doc);changed.components.find(c=>c.label==='升壓輸電負載').params.resistance=1058;resumed.update(changed);resumed.advance(.06);assert.equal(resumed.fault,null);near(resumed.read().measurements.c9.averagePower,(230*100/(1058*10000+2*lineResistance)*100)**2*1058);
+  changed.wires.pop();resumed.update(changed);resumed.advance(.02);assert.equal(resumed.fault,null,'partial wiring remains legal');
+ }
+ const invalid=P.create('transmission');invalid.wires.find(w=>w.resistance>0).resistance=-1;assert.throws(()=>M.validate(invalid));
+ console.log('High-voltage transmission: independent analytic currents, power balance, meter ranges, zero-loss reference, document/session continuation and partial wiring passed');
+}

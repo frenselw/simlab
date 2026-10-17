@@ -19,3 +19,8 @@ for(const view of ['real','schematic'])for(const angle of [0,90,180,270])for(con
  for(const [i,box]of labels.entries()){assert(!overlap(box,body),`${view}/${angle}/${scale}: terminal label overlaps case`);for(const other of labels.slice(i+1))assert(!overlap(box,other),'terminal labels remain distinct');}
 }
 console.log('Compact AC meter vectors, fixed terminals, reversed RMS / signed power, terminal clearance at four angles/zooms, and grouped preset names passed');
+// Scale dial labels with their SI prefix; keep raw readings and needle fractions in SI.
+for(const [type,range,unit]of [['ac-voltmeter',30000,'kV'],['ac-ammeter',.01,'mA'],['ac-wattmeter',1e6,'MW'],['ac-voltmeter',300,'V']]){
+ const c=M.component(M.empty('transient'),type,100,100,{range}),face=require('./circuit-ac-components').meterFace(c,{reading:range*.5,range},{values:true});
+ assert(face.includes('data-math="'+unit+'~"'));assert(face.includes('data-reading="'+range*.5+'"'));assert(face.includes('data-fraction="0.5"'));assert(!face.includes('times10'));
+}

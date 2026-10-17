@@ -1516,3 +1516,14 @@ N/A：AC工作台及兩個示例沒有已評分SCO或raw LMS handling。後續�
 ### 共用接點加線（2026-10-16）
 
 沿用 [DC 共用操作決定](28-circuit-workbench.md#共用接點加線與下方取線2026-10-16) 及[作者說明](../docs/circuit-activity-authoring.md#接點快捷取線與下方取線位置)。AC 不複製 UI、不修改暫態求解或 session schema；新導線照常交既有 Session.update 處理電路變更。platform-core 已執行 AC 的取線、分支及保存往返，AC platform owner 通過。本機不開 Chrome，完整 browser 及遠端 CI 另驗。
+
+### 高壓輸電比較預設（2026-10-17）
+
+- 範圍：既有非評量 AC 教師工作台新增 `transmission` 預設，歸入「變壓器與互感」。同畫面兩個獨立電路分別直接輸電、以兩個理想變壓器升壓 100 倍再降壓；兩邊均為 230 V／50 Hz、529 Ω 恆阻負載、去回各 100 Ω 線阻。高壓段約 23 kV，並非新求解模型或家庭供電。電源不啟用限流／功率保護，避免改變比較條件。
+- 教學與界限：比較線路電流、負載電壓與功率；線損按兩條線的有效值電流計算 `I² × 200 Ω`。固定電源及負載，實際負載功率並不相同，不把「電壓百倍、損耗必定萬分之一」套到此比較。線阻固定，不隨畫面長度改變；不含三相、長線分佈參數、電暈或鐵損。
+- Assessment risk／rubric／SCORM phases：N/A，非評量示例；不加分數、提交或 attempt lifecycle。既有教師編輯／部分接線／只讀、實物／符號及手機縮放／捲頁／fullscreen 規則沿用，不新增手勢或 UI。
+- 權威狀態：沿用 AC v7 document（含兩條各電路的有阻線）及既有 Session capture／restore；不增加版本、持久化或 runtime 依賴。production encode→decode→restore 後續改負載／播放與拆線為合法續作；非法阻值繼續由共用模型拒絕。
+- 影響範圍：AC presets 名稱／分組／電路及說明、既有 `ac-platform.test.js` 與 AC browser owner、作者文件、獨立 ZIP 與現有 AC Sites。DC／Household 不加入此預設；沿用資產清單及 catalogue，不新增活動。
+- 驗證決定：既有 AC platform owner 加解析電路、負載／線損能量比較、文件及動態恢復續作；AC browser owner 加 `--transmission-smoke`，同時接回完整入口，source／ZIP 在桌面及 390／320 px 驗預設選取、實物／符號、電表量程、可見標籤、可信觸控選取及恢復續作。執行相鄰 transient／AC reference、`check`／`check:tests`、五包重建及 committed selection preview。實機／Moodle gate 另列，完成後補實際證據。
+- 目視修正：30 kV 錶盤原科學記數刻度互相擠壓，AC A／V／W 的錶面現在沿用 `CircuitMath.engineering`，以同一 SI 前綴同步顯示錶面單位及刻度（此示例為 kV／mA）；原讀數、量程、指針比例、面板及求解不變。新增既有 meter-design owner 的 SI／原指針回歸，browser 補播放後實際偏轉與手機放大錶盤。比較圖因兩個變壓器與用戶端量測預留 1000 世界單位寬；既有單電路 680 上限保持，所有線端／無交叉／本體避讓檢查亦保留。手機先顯示全圖概覽，已設計以選取→定位→放大錶盤讀取，沒有縮小文字充數。
+- 實際驗證：`ac-platform.test.js`（所有預設、240 次既有開關轉換、新比較的解析電流／負載功率／輸入能量、零線阻、文件／動態恢復及改負載／拆線續作）、`transient.test.js`、`ac-reference.test.js`（1771 checks／24 metered circuits）、`ac-meter-design.test.js`、`meters-and-math.test.js`（96 fixtures）及 `ac-meter-response.test.js`（6 cases）通過。`check`／`check:tests` 通過（240 entries、48 helpers）；沿用已登記的 AC platform／meter-design 邏輯 owner 與 AC browser／transformer helper owner，沒有新增測試檔或未登記入口。browser 內五包重建並核對資產，`--transmission-smoke` source／ZIP 各 67、合共 134 項及 `--meter-design-smoke` 各 112、合共 224 項通過；不同專項不相加作完整 gate。已目視桌面雙電路及 320 px kV 錶盤，證據 `output/playwright/circuit-ac/*transmission*.png`。全站測試、完整 browser、T1–T4 全手勢、實機與 Moodle 未重跑；沿用未改共用操作的歷史證據。

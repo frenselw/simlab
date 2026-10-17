@@ -1,9 +1,10 @@
 (function(root,factory){const node=typeof module==='object'&&module.exports,api=factory(node?require('./circuit-model'):root.CircuitModel,node?require('./circuit-routing'):root.CircuitRouting,node?require('./circuit-ac-components'):root.CircuitAC,node?require('./circuit-math'):root.CircuitMath);if(node)module.exports=api;else root.CircuitACPresets=api;})(globalThis,function(M,G,AC,Q){
   'use strict';
-  const names={resistive:'交流電阻：電壓、電流與有效值',mains:'50 Hz交流：燈泡亮度',generator:'交流發電機：轉動與感應電動勢',led:'交流方向：反向並聯LED',capacitive:'交流電容：頻率與電流',inductive:'交流電感：頻率與電流',rc:'電容充放電：電流與儲能',rl:'通電自感：電流建立',self:'斷電自感：線圈放電',transformer:'理想變壓器：匝數、電壓與電流',coupled:'非理想變壓器：耦合與線圈電阻',mutual:'互感：通斷電與感應電流',lc:'LC振盪：電場與磁場儲能',damped:'阻尼振盪：電阻與能量耗散',empty:'空白電路'};
-  const groups=[{label:'交流基礎',keys:['resistive','mains','generator','led']},{label:'電容與電感',keys:['capacitive','inductive','rc','rl','self']},{label:'變壓器與互感',keys:['transformer','coupled','mutual']},{label:'振盪電路',keys:['lc','damped']}];
+  const names={resistive:'交流電阻：電壓、電流與有效值',mains:'50 Hz交流：燈泡亮度',generator:'交流發電機：轉動與感應電動勢',led:'交流方向：反向並聯LED',capacitive:'交流電容：頻率與電流',inductive:'交流電感：頻率與電流',rc:'電容充放電：電流與儲能',rl:'通電自感：電流建立',self:'斷電自感：線圈放電',transformer:'理想變壓器：匝數、電壓與電流',coupled:'非理想變壓器：耦合與線圈電阻',mutual:'互感：通斷電與感應電流',transmission:'高壓輸電：升壓與線路損耗',lc:'LC振盪：電場與磁場儲能',damped:'阻尼振盪：電阻與能量耗散',empty:'空白電路'};
+  const groups=[{label:'交流基礎',keys:['resistive','mains','generator','led']},{label:'電容與電感',keys:['capacitive','inductive','rc','rl','self']},{label:'變壓器與互感',keys:['transformer','coupled','mutual','transmission']},{label:'振盪電路',keys:['lc','damped']}];
   const descriptions={resistive:'調較電源電壓或頻率，觀察燈泡及電壓、電流波形。電阻兩端的電壓與電流會同時轉向。',mains:'這個示例用 50 Hz 交流電源。電流快速反向，燈泡看起來持續發光；可用波形圖觀察電壓及電流。',square:'方波的有效值等於峰值；與正弦波的 √2 關係不同。',triangle:'三角波的有效值等於峰值除以 √3。',generator:'轉動線圈會產生電壓。加快轉速，觀察波形變密、電壓增大。',led:'紅、綠 LED 接成相反方向，交流電流每次轉向，由另一顆 LED 發光。',capacitive:'調大電容 C 或提高頻率 f，看看交流電流如何改變。兩塊極板會輪流充電、放電；電子不會穿過兩板之間。',inductive:'調大自感系數 L 或提高頻率 f，看看交流電流如何改變。線圈會儲存磁場能量；切換至放電側，觀察燈泡逐漸變暗。',rc:'切至充電側，觀察燈泡由亮變暗；等幾秒後再切至放電側，燈泡會再亮起並逐漸熄滅。',rl:'切至供電側：電流逐漸增加，燈泡逐漸亮起。再切至放電側，觀察燈泡逐漸熄滅。',self:'合上開關等約 8 秒，再斷開：線圈儲存的能量使燈泡短暫發光，之後逐漸變暗。觀察燈泡中的電流方向。',transformer:'調較副線圈匝數或負載電阻，觀察電壓與電流。理想情況下，電壓比等於匝數比：U₁/U₂=N₁/N₂。兩側導線沒有直接相連。',coupled:'部分磁場沒有穿過另一個線圈，加上繞線本身有電阻，電壓比未必等於匝數比。調整參數，與理想變壓器比較。',mutual:'合上開關，等電流穩定後再斷開，觀察副線圈電流計向兩個相反方向偏轉。原線圈電流改變，才會在副線圈產生感應。',lc:'先切至充電側，等約 2 秒後切至振盪側。觀察兩極板反覆改變電荷，能量在電容的電場與線圈的磁場之間轉換。',damped:'與 LC 振盪示例比較：加入電阻後，電流逐漸減弱，儲存的能量逐漸轉成熱。',empty:'從工具箱取出元件和導線。滑鼠或觸控筆可拖放；手指可點選。把接孔與線端移近便會接好。'};
 
+  descriptions.transmission='上方直接輸電，下方由 230 V 升至約 23 kV，經輸電線後降回用戶端。兩邊負載均為 529 Ω，去回線各為 100 Ω；比較輸電電流、負載電壓與選取負載後的平均功率。線損等於有效值電流的平方乘 200 Ω。兩邊固定電源及負載，實際送達功率不同。變壓器為理想模型，畫面線長不改變線阻。';
   const rate=()=>1;
   function create(name,{comparisonMeters=true}={}){if(!Object.hasOwn(names,name)&&!['square','triangle'].includes(name))throw new Error('未知交流預設');const d=M.empty('transient');d.cables.count=40;
     const add=(type,x,y,label,params={},angle=0)=>{const c=M.add(d,type,x,y,params);c.label=label;c.angle=angle;return c;};
@@ -11,6 +12,20 @@
     const joint=(x,y)=>{const j={id:M.nextId(d,'j'),x,y};d.junctions.push(j);return j;};
     if(name==='empty')return d;
     const dc=['rc','rl','self','mutual','lc','damped'].includes(name),source=add(name==='generator'?'generator':dc?'battery':'ac-source',180,260,name==='generator'?'交流發電機':dc?'直流電源':'交流電源',{},90);
+    if(name==='transmission'){
+      source.x=120;source.y=230;source.label='直接輸電電源';Object.assign(source.params,{voltage:230,frequency:50});
+      const lowA=add('ac-ammeter',610,110,'直接輸電電流',{range:.5}),lowLoad=add('resistor',1120,230,'直接輸電負載',{resistance:529},90),lowV=add('ac-voltmeter',940,230,'直接輸電負載電壓',{range:300}),lowTop=joint(880,110),lowBottom=joint(1000,380);
+      link(source,'a',lowA,'a',[{x:120,y:110}]);link(lowA,'b',lowTop,'p').resistance=100;link(lowTop,'p',lowLoad,'a',[{x:1120,y:110}]);
+      link(lowLoad,'b',lowBottom,'p',[{x:1120,y:380}]);link(lowBottom,'p',source,'b',[{x:120,y:380}]).resistance=100;
+      link(lowV,'a',lowTop,'p');link(lowV,'b',lowBottom,'p');
+      const highSource=add('ac-source',120,640,'升壓輸電電源',{voltage:230,frequency:50},90),up=add('transformer',340,640,'升壓變壓器',{model:'ideal',primaryTurns:10,secondaryTurns:1000}),down=add('transformer',820,640,'降壓變壓器',{model:'ideal',primaryTurns:1000,secondaryTurns:10}),highA=add('ac-ammeter',570,500,'高壓輸電電流',{range:.01}),highLoad=add('resistor',1120,640,'升壓輸電負載',{resistance:529},90),lineV=add('ac-voltmeter',570,650,'高壓段電壓',{range:30000},90),highV=add('ac-voltmeter',990,640,'升壓輸電負載電壓',{range:300}),top=joint(740,560),bottom=joint(570,800),loadTop=joint(930,540),loadBottom=joint(1050,760);
+      link(highSource,'a',up,'a',[{x:120,y:540},{x:240,y:540},{x:240,y:614}]);link(up,'b',highSource,'b',[{x:240,y:666},{x:240,y:760},{x:120,y:760}]);
+      link(up,'c',highA,'a',[{x:450,y:614},{x:450,y:500}]).resistance=100;link(highA,'b',top,'p',[{x:740,y:500}]);link(top,'p',down,'a',[{x:740,y:614}]);link(down,'b',bottom,'p',[{x:740,y:666},{x:740,y:800}]);link(bottom,'p',up,'d',[{x:450,y:800},{x:450,y:666}]).resistance=100;
+      link(lineV,'a',top,'p',[{x:570,y:560}]);link(lineV,'b',bottom,'p');
+      link(down,'c',loadTop,'p',[{x:910,y:614},{x:910,y:540}]);link(loadTop,'p',highLoad,'a',[{x:1120,y:540}]);link(highLoad,'b',loadBottom,'p',[{x:1120,y:760}]);link(loadBottom,'p',down,'d',[{x:910,y:760},{x:910,y:666}]);
+      link(highV,'a',loadTop,'p');link(highV,'b',loadBottom,'p');
+      return M.validate(d);
+    }
     if(name==='mains')source.params.frequency=50;
     if(name==='generator'){source.params.frequency=1;source.params.turns=300;}
     if(['lc','damped'].includes(name)){

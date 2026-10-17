@@ -72,4 +72,38 @@ async function mutualLayoutCases(h,source){let checks=0;
  }
  console.log(source+' mutual layout and induction: '+checks+' checks passed');return checks;
 }
-module.exports={transformerCases,transformerComparisonCases,mutualLayoutCases};
+async function transmissionCases(h,source){
+ let checks=0;
+ for(const [width,height]of [[1280,900],[390,844],[320,700]]){
+  await h.cdp.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:width<960});await h.cdp.send('Emulation.setTouchEmulationEnabled',{enabled:width<960,maxTouchPoints:5});
+  await h.call('loadDocument('+JSON.stringify(P.create('resistive'))+')');
+  const selector='[data-circuit-id=preset]';
+  if(width<960)await h.touch(await h.point(selector));else await h.click(selector);
+  const index=await h.inside(`Array.from(document.querySelector('${selector}').options).findIndex(o=>o.value==='transmission')`);assert(index>0);
+  async function key(key){await h.cdp.send('Input.dispatchKeyEvent',{type:'keyDown',key});await h.cdp.send('Input.dispatchKeyEvent',{type:'keyUp',key});}
+  await key('Home');for(let n=0;n<index;n++)await key('ArrowDown');await key('Enter');await h.delay(100);
+  assert.equal(await h.inside(`document.querySelector('${selector}').value`),'transmission');
+  await h.call('setPlayback({paused:false})');await h.delay(1200);await h.call('setPlayback({paused:true})');await h.call('advanceTime(.08)');const doc=await h.call('getDocument()'),out=await h.call('getAnalysis()');assert.equal(out.diagnostics.length,0);assert.equal(doc.components.length,11);
+  for(const meter of doc.components.filter(c=>c.type==='ac-ammeter'||c.type==='ac-voltmeter'))assert.equal(out.components[meter.id].meterStatus,'normal');
+  assert(out.measurements.c9.averagePower>out.measurements.c3.averagePower*1.8);assert(out.components.c10.reading>22000&&out.components.c10.reading<23001);checks+=10;
+  assert(await h.inside('document.documentElement.scrollWidth<=innerWidth+1'));checks++;
+  for(const view of ['real','schematic']){
+   if(await h.call('getDocument().display.view')!==view)await h.click('[data-circuit-id='+(view==='real'?'realView':'schematicView')+']');
+   assert.equal(await h.call('getDocument().display.view'),view);assert.equal(await h.inside('document.querySelectorAll("[data-component]").length'),11);checks+=2;
+   await h.screenshot(source+'-transmission-'+width+'-'+view);
+  }
+  if(width<960){
+   await h.touch(await h.point('[data-hit="body:c10"]',true));assert.equal((await h.call('getInteraction()')).selection.id,'c10');
+   async function action(id){const selector='[data-circuit-id='+id+']';if(await h.inside(`getComputedStyle(document.querySelector('${selector}')).display==='none'`)){await h.touch(await h.point('[data-circuit-id=moreSelected]'));await h.touch(await h.point('[data-selection-action='+id+']'));}else await h.touch(await h.point(selector));}
+   await action('focusSelected');assert((await h.call('getInteraction()')).camera.scale>=1);await action('inspectMeter');assert(await h.inside('document.querySelector("[data-circuit-id=meterDialog]").open'));checks+=3;
+   assert(await h.inside('document.querySelector("[data-circuit-id=meterDetail] [data-meter-unit]").dataset.math==="kV~"'));assert(await h.inside('Math.abs(Number(document.querySelector("[data-circuit-id=meterDetail] [data-meter-needle]").dataset.fraction)-23/30)<.01'));checks+=2;
+   await h.screenshot(source+'-transmission-'+width+'-meter-detail');await h.touch(await h.point('[data-circuit-id=closeMeter]'));
+  }
+  const saved=await h.call('captureSession()');await h.call('advanceTime(.02)');await h.call('restoreSession('+JSON.stringify(saved)+')');await h.call('advanceTime(.02)');assert.equal(await h.call('getAnalysis().diagnostics.length'),0);checks++;
+  await h.call('execute({type:"setParam",id:"c9",key:"resistance",value:1058})');await h.call('advanceTime(.06)');assert(await h.call('getAnalysis().measurements.c9.averagePower')<51);checks++;
+  await h.call('loadDocument('+JSON.stringify(P.create('transmission'))+')');await h.call('setPlayback({paused:false})');const before=await h.call('getAnalysis().time');await h.delay(200);await h.call('setPlayback({paused:true})');assert(await h.call('getAnalysis().time')>before);assert.equal(await h.call('getAnalysis().diagnostics.length'),0);checks+=2;
+ }
+ await h.cdp.send('Emulation.setTouchEmulationEnabled',{enabled:false});
+ console.log(source+' high-voltage transmission preset, metered comparison and continuation: '+checks+' checks passed');return checks;
+}
+module.exports={transformerCases,transformerComparisonCases,mutualLayoutCases,transmissionCases};
