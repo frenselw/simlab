@@ -19,6 +19,29 @@ async function main(){
     async function screenshot(name){const image=await cdp.send('Page.captureScreenshot',{format:'png'});fs.writeFileSync(path.join(out,name+'.png'),Buffer.from(image.data,'base64'));}
     async function load(){const previousOrigin=await inside('performance.timeOrigin');await cdp.send('Page.navigate',{url:'http://127.0.0.1:'+server.address().port+'/circuit-household-workbench/index.html'});for(let i=0;i<140;i++){if(await inside('performance.timeOrigin!=='+previousOrigin+'&&!!window.CircuitHouseholdWorkbench')){await call('setPlayback({paused:true})');return;}await H.delay(50);}throw Error('Household failed to start: '+await inside('document.body.innerText'));}
     async function preset(key){assert.equal(await inside(`(()=>{const e=document.querySelector('[data-circuit-id="preset"]');if(${JSON.stringify(key)}==='C08')CircuitHouseholdWorkbench.loadDocument(CircuitHouseholdPresets.create('C08'));else{e.value=${JSON.stringify(key)};e.dispatchEvent(new Event('change',{bubbles:true}));}CircuitHouseholdWorkbench.setPlayback({paused:true});return !!CircuitHouseholdWorkbench.getDocument().components.length;})()`),key!=='empty');}
+    async function auditFollowup(mode){
+      const M=require('../sim/circuit-workbench/circuit-model'),C=require('../sim/circuit-workbench/circuit-household-components');
+      for(const width of [1280,390]){
+        await cdp.send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<760});
+        await preset('C04');await click('[data-hit="body:load"]',await componentPoint('load'));
+        assert(await call('execute({type:"setParam",id:"load",key:"fault",value:true})'));
+        assert(await inside('(()=>{window.auditNote=document.querySelector("[data-household-connections=load]");window.auditInput=document.querySelector("[data-param=fault]");auditInput.focus();return auditNote.textContent.includes("接 L");})()'));
+        await call('advanceTime(.2)');assert.equal((await call('getAnalysis()')).components.protector.status,'tripped');
+        assert(await inside('auditNote===document.querySelector("[data-household-connections=load]")&&document.activeElement===auditInput&&auditNote.textContent.includes("未接到供電節點")&&!auditNote.textContent.includes("接 L")&&!auditNote.textContent.includes("接 N")'));
+        const d=M.empty('household');d.cables.length=1200;const b=M.add(d,'house-mains',100,150),socket=M.add(d,'house-socket',350,150),strip=M.add(d,'house-power-strip',600,350),load=M.add(d,'house-insulated',800,350,{kind:'dryer'});
+        for(const p of ['l','n']){M.connect(d,b.id+':'+p,socket.id+':'+p);M.connect(d,strip.id+':'+p+'1',load.id+':'+p);}
+        const inserted=C.previewPlug(d,strip.id,{x:socket.x,y:socket.y},24).doc;await call('loadDocument('+JSON.stringify(inserted)+')');await click('[data-hit="body:'+socket.id+'"]',await componentPoint(socket.id,0,40));
+        const before=(await call('getAnalysis()')).components[load.id].power;await inside('document.querySelector('+JSON.stringify('[data-hit="body:'+socket.id+'"]')+').focus()');await key('r','KeyR');
+        assert.equal((await call('getDocument()')).components.find(c=>c.id===socket.id).angle,45);assert.equal(await inside('CircuitHouseholdComponents.plugContacts(CircuitHouseholdWorkbench.getDocument()).length'),3);assert(Math.abs((await call('getAnalysis()')).components[load.id].power-before)<1e-7);
+        assert(await call('execute({type:"undo"})'));assert.equal(await inside('CircuitHouseholdComponents.plugContacts(CircuitHouseholdWorkbench.getDocument()).length'),3);
+        assert(await call('execute({type:"addWire",x:500,y:450})'));const selected=(await call('getInteraction()')).selection.id;
+        assert(await inside('[...document.querySelectorAll("select[data-end] option")].every(o=>!/:p[eln]$/.test(o.value))'));assert.equal(await call('execute({type:"attach",id:"'+selected+'",end:"to",target:"'+strip.id+':pl"})'),false);
+        // The inspector must display the model's finite resistance without rewriting the file placeholder.
+        const inspector=await inside('({text:document.querySelector("[data-circuit-id=properties]").textContent,math:[...document.querySelectorAll("[data-circuit-id=properties] [data-math]")].map(n=>n.dataset.math),values:CircuitHouseholdWorkbench.getDocument().display.values})');assert(inspector.text.includes('導線等效電阻')&&inspector.math.some(m=>m.startsWith('0.001')),JSON.stringify(inspector));
+        assert.equal((await call('getAnalysis()')).wires[selected].resistance,.001);assert.equal((await call('getDocument()')).wires.find(w=>w.id===selected).resistance,0);
+        await screenshot(mode+'-audit-followup-'+width);checks.push(mode+'-audit-followup-'+width);
+      }
+    }
     async function heatCases(mode){
       let touch=false,id=97000;const count=()=>inside('document.querySelectorAll("[data-circuit-id=scene] .heat-effect").length'),flame=()=>inside('(()=>{const s=getComputedStyle(document.querySelector(".heat-flame"));return{name:s.animationName,state:s.animationPlayState,duration:parseFloat(s.animationDuration),transform:s.transform};})()');
       const point=selector=>inside(`(async()=>{await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));const b=document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();return{x:b.x+b.width/2,y:b.y+b.height/2};})()`);
@@ -51,6 +74,7 @@ async function main(){
     const directories=[['source',path.join(root,'sim')]];if(!sourceOnly){extracted=fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),'simlab-position-time-package-'));new AdmZip(path.join(root,'output/circuit-household-workbench-standalone.zip')).extractAllTo(extracted);directories.push(['package',extracted]);}
     for(const [mode,directory]of directories){
       server=H.createServer(directory);await H.listenServer(server);await cdp.send('Emulation.setDeviceMetricsOverride',{width:1280,height:900,deviceScaleFactor:1,mobile:false});await load();
+      if(process.argv.includes('--audit-followup-smoke')||!process.argv.slice(2).some(flag=>flag.endsWith('-smoke'))){await auditFollowup(mode);if(process.argv.includes('--audit-followup-smoke')){await H.closeServer(server);server=null;continue;}await load();}
       if(!process.argv.includes('--help-smoke')){await heatCases(mode);if(process.argv.includes('--heat-smoke')){await H.closeServer(server);server=null;continue;}await load();}
       checks.push(mode+'-help-copy-'+await copyHelpCases({inside,call,send:(...args)=>cdp.send(...args),screenshot,delay:H.delay},'household',mode));if(process.argv.includes('--help-smoke')){await H.closeServer(server);server=null;continue;}await cdp.send('Emulation.setDeviceMetricsOverride',{width:1280,height:900,deviceScaleFactor:1,mobile:false});await load();
       assert.deepEqual(await inside('[...document.querySelectorAll("[data-circuit-id=preset] optgroup")].map(g=>g.label)'),['接線基礎','防觸電保護','過流與短路']);

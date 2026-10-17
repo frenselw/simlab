@@ -17,6 +17,7 @@
   const choice = (v, choices) => { if (!choices.includes(v)) throw new Error("不支援的設定值"); };
   const point = (p) => { object(p, ["x", "y"]); numeric(p.x, -limits.coordinate, limits.coordinate); numeric(p.y, -limits.coordinate, limits.coordinate); };
   function endpoints(doc,legacy=false) { const map = new Map(); doc.components.forEach((c) => R.portsForVersion(c,legacy?3:doc.version).forEach((p) => map.set(p.id, p))); doc.junctions.forEach((j) => map.set(j.id + ":p", { ...j, id: j.id + ":p", dx: 0, dy: 0, label: "接點" })); return map; }
+  const wireEndpoints=doc=>new Map([...endpoints(doc)].filter(([,p])=>!p.hidden));
   function validate(input) {
     object(input, ["kind", "version", "components", "junctions", "wires", "policy", "display", ...(input?.version>=3?["cables"]:[]),...(input?.version>=7?['analysis','modelRevision']:[]),...(input?.version===8?['supplyVoltage']:[])]);
     const household=input.version===8;
@@ -41,7 +42,7 @@
       }
     });
     input.junctions.forEach((j) => { object(j, ["id", "x", "y"]); id(j.id); numeric(j.x, -limits.coordinate, limits.coordinate); numeric(j.y, -limits.coordinate, limits.coordinate); });
-    const ports = endpoints(input), pairs = new Set();
+    const ports = wireEndpoints(input), pairs = new Set();
     input.wires.forEach((w) => {
       object(w, input.version === 1 ? ["id", "from", "to", "via"] : ["id", "from", "to", "via", "shape", ...(input.version>=3?["length"]:[]), ...(input.version>=6?["resistance"]:[]),...(household?['anchor']:[])]); id(w.id);
       if(Object.hasOwn(w,'anchor')&&(![w.from,w.to].includes(w.anchor)||!(household&&input.components.some(c=>['house-mains','house-earth'].includes(c.type)&&R.ports(c).some(p=>p.id===w.anchor)))||w.from===w.to))throw new Error('固定引線的錨點無效');
@@ -94,7 +95,7 @@
   const plugParameter=(c,key)=>c.type==='house-power-strip'&&['plugX','plugY','plugAngle'].includes(key);
   function add(doc, type, x, y, params) { if (doc.policy.mode !== "free") throw new Error("目前固定元件，只能接線"); const c = component(doc, type, x, y, params); doc.components.push(c); return c; }
   function connect(doc, from, to, via = [], shape = "auto") {
-    if (!endpoints(doc).has(from) || !endpoints(doc).has(to) || from === to) throw new Error("請選擇兩個不同的有效端點");
+    if (!wireEndpoints(doc).has(from) || !wireEndpoints(doc).has(to) || from === to) throw new Error("請選擇兩個不同的有效端點");
     if (doc.wires.some((w) => (w.from === from && w.to === to) || (w.from === to && w.to === from))) throw new Error("這兩個端點已接好");
     if(doc.wires.length>=doc.cables.count)throw new Error("導線已用完；刪除一條可放回工具箱");
     const w = { id: nextId(doc, "w"), from, to, via: clone(via), shape, resistance:doc.cables.resistance??0 };
@@ -150,7 +151,7 @@
     const j=doc.junctions.find(j=>j.id+":p"===w[key]);Object.assign(j,target);pose(doc,w,fitted);return {limited:distance>w.length||bounded.x!==p.x||bounded.y!==p.y};
   }
   function attach(doc,id,key,endpoint){
-    const w=doc.wires.find(w=>w.id===id),target=endpoints(doc).get(endpoint);if(!w||!target||w[key]===endpoint)return false;
+    const w=doc.wires.find(w=>w.id===id),target=wireEndpoints(doc).get(endpoint);if(!w||!target||w[key]===endpoint)return false;
 
     if(doc.analysis==='household'){const candidate=clone(doc),next=candidate.wires.find(v=>v.id===id);next[key]=endpoint;householdRules().validate(candidate);}
     const followReference=!attached(doc,w,key)&&doc.display.reference===w[key];
@@ -207,13 +208,14 @@
     if(!c||!permission(doc,c,"rotate"))throw new Error("這個元件不能旋轉");
     const next=clone(doc),rotated=next.components.find(c=>c.id===id);
     rotated.angle=(rotated.angle+45*direction+360)%360;
+    if(next.analysis==='household')householdRules().anchorPlugs(next,doc);
     const ports=new Set(R.ports(rotated).map(p=>p.id)),ends=endpoints(next);
     for(const w of next.wires)if(ports.has(w.from)||ports.has(w.to)){
       straightenWire(next,w.id);
       const a=ends.get(w.from),b=ends.get(w.to);
       if(!G.fitLength([a,b],w.length))throw new Error("導線太短，請先拔開或移近元件再旋轉");
     }
-    Object.assign(doc,next);
+    validate(next);Object.assign(doc,next);
   }
   function setTerminals(doc,id,count){
     choice(count,[2,3,4]);const c=doc.components.find(c=>c.id===id&&c.type==='rheostat');
@@ -244,5 +246,5 @@
       w.shape='free';
     }
   }
-  return { limits, quantityDefaults, fontSizes, fontSize, clone, empty, validate, endpoints, nextId, component, permission, plugParameter, add, connect, remove, splitWire, history, degree, attached, cleanup, addWire, setWireResistance, detachConnection, detach, attach, moveWireEnd, translateWire, bendWire, straightenWire, rotateComponent, setTerminals, flipMeter, reconcile, limitWirePoints };
+  return { limits, quantityDefaults, fontSizes, fontSize, clone, empty, validate, endpoints, wireEndpoints, nextId, component, permission, plugParameter, add, connect, remove, splitWire, history, degree, attached, cleanup, addWire, setWireResistance, detachConnection, detach, attach, moveWireEnd, translateWire, bendWire, straightenWire, rotateComponent, setTerminals, flipMeter, reconcile, limitWirePoints };
 });

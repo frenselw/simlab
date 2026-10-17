@@ -87,14 +87,22 @@
         return { A, b };
       }
       function residual(x) {
-        const { A, b } = assemble(x); return Math.max(0, ...b.map((v, i) => Math.abs(dot(A[i], x) - v) / Math.max(1, Math.abs(v), ...A[i].map((a, j) => Math.abs(a * x[j])))));
+        const sums=Array(n).fill(0),scales=Array(n).fill(0),noise=Array(n).fill(0),roundoff=result?.roundoff||Array(n).fill(0);
+        // Normalize KCL in amperes and branch constraints in volts, using the physical laws.
+        for(const e of g.edges){
+          const d=diff(e.a,e.b),v=dot(d,x),branch=e.kind==='branch'||e.kind==='resistor',current=branch?x[e.index]:e.law(v,e.c.params).current;
+          const voltageNoise=d.reduce((sum,a,i)=>sum+Math.abs(a)*roundoff[i],0),currentNoise=branch?roundoff[e.index]:Math.abs(e.law(v,e.c.params).conductance)*voltageNoise;
+          for(let i=0;i<nodes.length;i++){sums[i]+=d[i]*current;scales[i]+=Math.abs(d[i]*current);noise[i]+=Math.abs(d[i])*currentNoise;}
+          if(branch){sums[e.index]=v-e.resistance*current-e.emf;scales[e.index]=Math.abs(e.emf)+Math.abs(e.resistance*current)+d.reduce((sum,a,i)=>sum+Math.abs(a*x[i]),0);noise[e.index]=voltageNoise+Math.abs(e.resistance)*currentNoise;}
+        }
+        return sums.some((v,i)=>!Number.isFinite(v)||!Number.isFinite(scales[i]))?Infinity:Math.max(0,...sums.map((v,i)=>Math.abs(v)/Math.max(1e-24,scales[i],noise[i]/1e-9)));
       }
       let x = Array(n).fill(0), result, error, iteration = 0;
       for (; iteration < 100; iteration++) {
         const { A, b } = assemble(x); result = linear(A, b);
         if (result.error) { error = result.error; break; }
         const oldResidual = residual(x); let next = result.x, factor = 1;
-        while (residual(next) > oldResidual && factor > 1 / 2048) { factor /= 2; next = x.map((v, i) => v + factor * (result.x[i] - v)); }
+        while (oldResidual>=1e-9 && residual(next) >= oldResidual && factor > 1 / 2048) { factor /= 2; next = x.map((v, i) => v + factor * (result.x[i] - v)); }
         x = next;
         if (residual(x) < 1e-9) break;
       }

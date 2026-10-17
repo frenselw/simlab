@@ -5,6 +5,7 @@ const {groups:dcGroups}=require('./circuit-test-groups');
 const root=path.resolve(__dirname,'..');
 
 const registeredTests = [
+  'sim/circuit-workbench/audit-followup.test.js',
   'sim/circuit-workbench/household-connections.test.js',
   'sim/circuit-workbench/household-model.test.js',
   'sim/circuit-workbench/household-state.test.js',

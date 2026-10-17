@@ -1,5 +1,12 @@
 # 交流電路工作台
 
+## 2026-10-17 審核修正
+
+處理失效探頭、無關電源影響電容顯示，以及 RC／RL／LC 懸空線清空儲能。
+[審核修正紀錄](../docs/circuit-workbench-audit-followup-2026-10-17.md)列出
+物理域／顯示／session 延續的驗證決定與實際執行範圍。非評分 scope、
+文件及 session schema 保持，新依賴、rubric／attempt 為 N/A。
+
 ## 播放完成後的浮點時間餘數（2026-10-14）
 
 正常播放完成後，`duration - advanced` 可能留下浮點餘數；下一幀時間相同時，

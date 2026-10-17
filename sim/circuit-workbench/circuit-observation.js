@@ -125,7 +125,7 @@
   }
   function signal(tool,result,doc){
     if(!['voltage','current'].includes(tool.kind)){const v=result.components[tool.channel.id]?.[tool.kind];return Number.isFinite(v)?v:null;}
-    if(tool.probes.some(p=>!p.target))return null;
+    if(tool.probes.some(p=>!p.target||!targetValid(p.target,tool.kind,doc)))return null;
     if(tool.kind==='current'){const t=tool.probes[0].target,v=t.kind==='wire'?result.wires[t.id]?.current:result.components[t.id]?.current;return Number.isFinite(v)?v:null;}
     const node=p=>p.target.kind==='endpoint'?p.target.id:doc.wires.find(w=>w.id===p.target.id)?.from,[a,b]=tool.probes.map(node),u=result.potentials[a],v=result.potentials[b];return result.islandOf[a]!==undefined&&result.islandOf[a]===result.islandOf[b]&&Number.isFinite(u)&&Number.isFinite(v)?u-v:null;
   }
@@ -152,5 +152,5 @@
     setSpan(span){const begin=this.time-span,old=this.points(),fine=this.width<=this.historyWidth,cutoff=old[0]?.time??Infinity,points=[...tracePoints(this.history,begin).filter(p=>!fine||p.time<cutoff),...(fine?old:[])];this.span=span;this.width=span/1024;this.bins=[];for(const p of points)if(p.time>=begin-this.width)tracePoint(this.bins,p,this.width);while(this.bins.length>1025)this.bins.shift();}
     copy(){const trace=new Trace(this.span);Object.assign(trace,{width:this.width,historyWidth:this.historyWidth,time:this.time,bins:M.clone(this.bins),history:M.clone(this.history)});return trace;}
   }
-  return {Tracker,GroupTracker,measurementWindow,CoreFluxTracker,Buffer,channels,phase,kinds,permitted,validateTools,probePosition,signal,snapProbe,timeInterval,Trace};
+  return {Tracker,GroupTracker,measurementWindow,CoreFluxTracker,Buffer,channels,phase,kinds,targetValid,permitted,validateTools,probePosition,signal,snapProbe,timeInterval,Trace};
 });

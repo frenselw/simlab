@@ -5,6 +5,7 @@
   function mount({host,refs,controller}){
     const fanAngles=new Map(),louverPhases=new Map(),blowerAngles=new Map(),shockPhases=new Map(),reducedMotion=matchMedia('(prefers-reduced-motion: reduce)');let fans=[],louvers=[],blowers=[],people=[];
     function animate(result,elapsed){
+      for(const note of refs.properties.querySelectorAll('[data-household-connections]')){const r=result.components[note.dataset.householdConnections];if(r){const text=connectionText(r);if(note.textContent!==text)note.textContent=text;}}
       for(const {id,node,flow}of people){
         const shocked=Math.abs(result.components[id]?.current||0)>=.001,phase=shocked?((shockPhases.get(id)||0)+(reducedMotion.matches?0:elapsed*2*Math.PI))%(2*Math.PI):0;
         shockPhases.set(id,phase);node.setAttribute('transform','skewX('+(reducedMotion.matches?0:1.8*Math.sin(phase*4)).toFixed(3)+')');if(flow)flow.setAttribute('stroke-dashoffset',(-8*Math.sin(phase)).toFixed(3));
@@ -54,8 +55,9 @@
         closed.onchange=()=>closed.value==='true'&&controller.getAnalysis().components[c.id].status==='tripped'?controller.execute({type:'resetHouseholdProtection',id:c.id}):change();
       }
       if(c.type==='house-person'){const label=document.createElement('label'),span=document.createElement('span'),select=document.createElement('select');span.textContent='右手接觸對象';select.dataset.householdContact=c.id;select.append(new Option('離開外殼',''));for(const a of doc.components.filter(C.isAppliance))select.append(new Option(a.label,a.id));select.value=r.contact||'';select.disabled=readonly;select.onchange=()=>controller.execute({type:'setContact',id:c.id,target:select.value||null});label.append(span,select);parent.append(label);}
-      if(C.isAppliance(c)){const note=document.createElement('p');note.className='note';note.dataset.householdConnections=c.id;note.textContent=Object.entries(r.connectionSources).map(([expected,sources])=>`${expected.toUpperCase()} 引線：${sources.length>1?'混接 '+sources.join('／'):sources.length?'接 '+sources[0]:'未接到供電節點'}`).join('；');parent.append(note);}
+      if(C.isAppliance(c)){const note=document.createElement('p');note.className='note';note.dataset.householdConnections=c.id;note.textContent=connectionText(r);parent.append(note);}
     }
+    const connectionText=r=>Object.entries(r.connectionSources).map(([expected,sources])=>`${expected.toUpperCase()} 引線：${sources.length>1?'混接 '+sources.join('／'):sources.length?'接 '+sources[0]:'未接到供電節點'}`).join('；');
     function resultText(doc,result){
       const entries=Object.entries(result.components),trip=entries.find(([,r])=>['tripped','blown'].includes(r.status));
       const acrossHands=doc.components.find(c=>c.type==='house-person'&&Math.abs(result.components[c.id].current)>=.001&&result.components[c.id].handCurrents.right*result.components[c.id].handCurrents.left< -1e-18);

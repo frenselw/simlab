@@ -160,9 +160,9 @@
   }
   function retainUnaffected(before,next,old,preserveSources=new Set()){
     const same=(id,quantity=null)=>{const a=before.policies.get(id),b=next.policies.get(id);return !!a&&!!b&&(quantity?a.quantities?.[quantity]?.key===b.quantities?.[quantity]?.key:a.key===b.key);};
-    if(!preserveSources.size&&!next.sources.some(e=>same(e.c.id)&&next.policies.get(e.c.id).closed))return null;
     const owner=e=>e.wire?'wire:'+e.id:e.c.type==='transformer'&&e.pa.endsWith(':c')?e.c.id+'~secondary':e.c.id,state=initial(next);state.time=old.time;
     const stableEdges=new Set();for(const members of next.signals.energyDomains.values())if(members.every(e=>same(owner(e),'current')))for(const e of members)stableEdges.add(e.id);
+    if(!preserveSources.size&&!next.sources.some(e=>same(e.c.id)&&next.policies.get(e.c.id).closed)&&!next.dynamic.some(e=>stableEdges.has(e.id)&&old.dynamic[e.id]))return null;
     // A fault preserves its old/new dependency blocks, not the whole canvas.
     for(const id of preserveSources)for(const compiled of [before,next]){const source=compiled.sources.find(e=>e.c.id===id);if(source)for(const e of compiled.signals.energyDomains.get(compiled.signals.groupOf(source))){const old=before.doc.components.find(c=>c.id===e.c.id),current=next.doc.components.find(c=>c.id===e.c.id);if(old&&current&&resetKeys.some(key=>old.params[key]!==current.params[key]))continue;stableEdges.add(e.id);}}
     // Restart excitation and storage together; an unchanged source parameter

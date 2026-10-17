@@ -1,12 +1,18 @@
 (function(root,factory){const api=factory(typeof module==='object'&&module.exports?require('./circuit-renderer'):root.CircuitRenderer,typeof module==='object'&&module.exports?require('./circuit-math'):root.CircuitMath);if(typeof module==='object'&&module.exports)module.exports=api;else root.CircuitACDisplay=api;})(globalThis,function(V,Q){
  'use strict';
  const decimal=new Intl.NumberFormat('en',{useGrouping:false,minimumFractionDigits:2,maximumFractionDigits:2});
- function voltageReference(c,doc){return Math.max(1,Math.abs(c.params.initialVoltage||0),...(doc?.components||[]).filter(c=>['battery','ac-source'].includes(c.type)).map(c=>Math.abs(c.params.voltage||0)*(c.type==='ac-source'?Math.SQRT2:1)));}
+ function voltageReference(c,doc,result){
+  const islands=new Set(['a','b'].map(key=>result?.islandOf?.[c.id+':'+key]).filter(key=>key!==undefined));
+  const belongs=c=>['a','b','c','d'].some(key=>islands.has(result?.islandOf?.[c.id+':'+key]));
+  const transformers=(doc?.components||[]).filter(c=>c.type==='transformer');
+  for(let i=0;i<transformers.length;i++)for(const t of transformers)if(belongs(t))for(const key of ['a','b','c','d']){const island=result?.islandOf?.[t.id+':'+key];if(island!==undefined)islands.add(island);}
+  return Math.max(1,Math.abs(c.params.initialVoltage||0),Math.abs(result?.components?.[c.id]?.voltagePeak||0),...(doc?.components||[]).filter(c=>['battery','ac-source'].includes(c.type)&&belongs(c)).map(c=>Math.abs(c.params.voltage||0)*(c.type==='ac-source'?Math.SQRT2:1)));
+ }
  function visual(c,r,context={}){
   if(!r)return r;
   if(context.doc&&V.storedEnergyInvisible(context.doc,context.result,c.id+':a'))return {...r,current:0,voltage:0,fieldCurrent:0,fieldVoltage:0,charge:c.type==='capacitor'?0:r.charge,energy:0,polarity:Math.sign(c.type==='capacitor'?r.voltage:r.current)||Math.sign(c.params[c.type==='capacitor'?'initialVoltage':'initialCurrent'])||1};
   const current=context.doc?V.displayCurrent(context.doc,context.result,c.id+':a',r.current,context.references):Number.isFinite(r.currentPeak)&&r.currentPeak<1e-6&&Math.abs(r.current)<1e-6?0:r.current;
-  const cutoff=voltageReference(c,context.doc)*1e-4,capacitorTail=c.type==='capacitor'&&current===0&&Number.isFinite(r.voltage)&&Math.abs(r.voltage)<cutoff&&Number.isFinite(r.voltagePeak)&&r.voltagePeak<cutoff;
+  const cutoff=voltageReference(c,context.doc,context.result)*1e-4,capacitorTail=c.type==='capacitor'&&current===0&&Number.isFinite(r.voltage)&&Math.abs(r.voltage)<cutoff&&Number.isFinite(r.voltagePeak)&&r.voltagePeak<cutoff;
   const voltage=capacitorTail||Number.isFinite(r.voltage)&&Math.abs(r.voltage)<1e-6&&Number.isFinite(r.voltagePeak)&&r.voltagePeak<1e-6?0:r.voltage;
   const energy=capacitorTail?0:V.displayEnergy(r.energy);
   return {...r,current,voltage,fieldCurrentReference:c.type==='inductor'?context.references?.get('field:'+c.id):undefined,fieldCurrent:c.type==='inductor'&&energy===0||Number.isFinite(current)&&Math.abs(current)<1e-6?0:current,fieldVoltage:c.type==='capacitor'&&energy===0||Number.isFinite(voltage)&&Math.abs(voltage)<1e-6?0:voltage,charge:c.type==='capacitor'&&voltage===0?0:r.charge,energy,polarity:Math.sign(c.type==='capacitor'?r.voltage:r.current)||Math.sign(c.params[c.type==='capacitor'?'initialVoltage':'initialCurrent'])||1};

@@ -22,4 +22,26 @@ async function auditCases(h,source){
   for(const width of [1280,390]){await h.send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<960});await h.call('loadDocument('+JSON.stringify(parallel)+')');await h.call('advanceTime(2.25)');a=await h.call('getAnalysis()');assert(a.reliable);assert.equal(a.components[sa.id].current,null);assert(Math.abs(a.components[sa.id].sourceEmf-6*Math.SQRT2)<1e-9);assert.equal(a.measurements[sa.id].voltageStatus,'ready');assert.equal(a.measurements[sa.id].currentStatus,'unknown');assert.equal(a.measurements[sa.id].powerStatus,'unknown');assert(Math.abs(a.measurements[sa.id].voltageRms-6)<.006);checks+=7;await h.click('[data-hit="body:'+sa.id+'"]',true);const text=await h.inside('document.querySelector(".reading-host").textContent');assert(await h.inside('(()=>{const host=document.querySelector(".reading-host"),text=host.textContent;return [...host.querySelectorAll("dt")].some(e=>e.textContent.startsWith("電壓有效值")&&e.nextElementSibling.querySelector("[data-math]")?.dataset.math.includes("V"))&&text.includes("電源電動勢")&&text.includes("電流／功率未能唯一確定")&&!text.includes("收集量測中")&&!text.includes("收集完整量測窗");})()'),text);checks++;await h.inside('document.querySelector(".reading-host").scrollIntoView({block:"center"})');await h.screenshot(source+'-partial-source-readings-'+width);}
   checks+=await energyR2Cases(h,source);checks+=await settingsDraftCases(h,source);console.log(source+' full-workbench AC audit checks: '+checks);return checks;
 }
-module.exports={auditCases};
+async function followupCases(h,source){
+ let checks=0;
+ for(const width of [1280,390]){
+  await h.send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<960});
+  const d=M.empty('transient'),b=M.add(d,'ac-source',100,180,{frequency:1}),r=M.add(d,'resistor',400,180,{resistance:12}),w=link(d,b,r);link(d,b,r,'b','b');
+  await h.call('loadDocument('+JSON.stringify(d)+')');await h.call('advanceTime(.25)');
+  const tools=[{id:'scope-audit',kind:'voltage',x:32,y:0,width:300,height:200,range:10,span:1,probes:[{target:{kind:'wire',id:w.id,fraction:.5},position:{x:250,y:100},bends:[]},{target:{kind:'endpoint',id:b.id+':b'},position:{x:100,y:180},bends:[]}]}];
+  assert(await h.call('setObservationTools('+JSON.stringify(tools)+')'));assert(await h.call('execute({type:"setWireResistance",id:"'+w.id+'",value:12})'));
+  assert.equal((await h.call('getObservationTools()'))[0].probes[0].target,null);assert.equal(await h.inside('document.querySelector(".ac-scope-status").textContent'),'拉探頭到測點');checks+=4;
+  tools[0].probes[0].target={kind:'endpoint',id:r.id+':a'};assert(await h.call('setObservationTools('+JSON.stringify(tools)+')'));await h.call('advanceTime(.01)');assert(await h.inside('document.querySelector(".ac-scope-status").hidden'));checks+=2;
+  const isolated=M.empty('transient'),cap=M.add(isolated,'capacitor',200,200,{capacitance:.02,initialVoltage:.01});M.add(isolated,'ac-source',500,200,{voltage:230,frequency:1});await h.call('loadDocument('+JSON.stringify(isolated)+')');await h.call('advanceTime(2)');
+  const display=await h.inside('(()=>{const d=CircuitACWorkbench.getDocument(),a=CircuitACWorkbench.getAnalysis();return CircuitRenderer.displayComponent(d,a,d.components[0]);})()');assert.equal(display.voltage,.01);assert.equal(display.charge,.0002);assert(Math.abs(display.energy-.000001)<1e-18);assert(await h.inside('document.querySelector("[data-component='+cap.id+'] [data-polarity-active=true]")!==null'));checks+=4;
+  for(const kind of ['RC','RL','LC']){
+   const doc=M.empty('transient'),c=M.add(doc,kind==='RL'?'inductor':'capacitor',400,180,kind==='RL'?{inductance:1,resistance:0}:{capacitance:.02,initialVoltage:kind==='LC'?6:0}),load=M.add(doc,kind==='LC'?'inductor':'resistor',250,180,kind==='LC'?{inductance:1,resistance:0}:{resistance:5});
+   if(kind==='LC'){link(doc,c,load);link(doc,c,load,'b','b');}else{const battery=M.add(doc,'battery',100,180);link(doc,battery,load);link(doc,load,c,'b','a');link(doc,c,battery,'b','b');}
+   await h.call('loadDocument('+JSON.stringify(doc)+')');await h.call('advanceTime(.1)');const before=await h.call('captureSession()');assert(await h.call('execute({type:"addWire",x:500,y:300})'));const after=await h.call('captureSession()');assert.equal(after.physics.time,before.physics.time);
+   for(const id of Object.keys(before.physics.dynamic))for(const key of ['i','v'])assert(Math.abs(after.physics.dynamic[id][key]-before.physics.dynamic[id][key])<1e-12);await h.call('advanceTime(.01)');assert((await h.call('getAnalysis()')).reliable);checks+=4;
+  }
+  await h.screenshot(source+'-audit-followup-'+width);
+ }
+ console.log(source+' AC 2026-10-17 audit follow-up: '+checks);return checks;
+}
+module.exports={auditCases,followupCases};

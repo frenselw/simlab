@@ -119,6 +119,7 @@
       if(!wires&&doc.analysis==='household'){
         const family=typeof module==='object'&&module.exports?require('./circuit-household-components'):globalThis.CircuitHouseholdComponents;
         if(!same(family.plugContacts(doc),family.plugContacts(initial)))throw new Error('活動不允許改接拖板插頭');
+        if(!same(family.handContacts(doc),family.handContacts(initial)))throw new Error('活動不允許改接手部接觸');
       }
       if (teacher) return doc;
       if (!same(doc.policy,initial.policy) || !same(doc.cables,initial.cables)) throw new Error('活動的操作規則與導線庫存不能更改');

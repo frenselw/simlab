@@ -1,5 +1,13 @@
 # 家庭電路工作台：概念與接線計劃
 
+## 2026-10-17 審核修正
+
+處理跳掣供電文字、旋轉拖板插頭錨定、等效線阻讀值及隱藏插腳入口，
+並補 `wires:false` 的直接手部接觸限制。範圍、舊漏洞文件的明確拒絕、
+保存／復原續作、Node／browser／Playwright CLI 證據集中於
+[審核修正紀錄](../docs/circuit-workbench-audit-followup-2026-10-17.md)。
+非評分 scope 與 v8 文件／既有 session 保持，新依賴、rubric／attempt 為 N/A。
+
 更新：2026-10-15。**狀態：用戶已批准，實作與驗收進行中。**
 
 2026-10-16 C09 追加決定：同一畫布三人並排，共用兩條平行直線 L／N，以普通導線接手，不增模型或保存格式。沿用非評分 scope、v8 幾何／v2 session、站地／站椅電阻與既有觸控規則；rubric／attempt N/A。修改範圍為示例工廠、說明、原 presets Node owner 及 household browser owner；不增依賴、manifest 或測試入口。驗證三人各自電流、水平幹線／無重疊線路、production 保存往返／拔線續作，驗收：presets、household-model、household-state、household-connections 四個既有 Node owner 通過，套件已重建。用戶本輪明確要求不開 Chrome，並省略額外驗證；故未執行 check／check:tests、CI 選擇預覽或瀏覽器／真手機驗收。
