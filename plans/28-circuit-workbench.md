@@ -1700,3 +1700,12 @@ Sol 第三輪另確認 R16（P2）：文件與旋轉接受略超導線預算的�
 bbbd6c8 外部審核確認 320×500 的既有右下線端被捲頁把手攔截。採用共用相機／取線安全範圍，按可見把手的實際矩形預留 22 px 半徑（44 px 觸控空間），不改全寬畫布佈局或捲頁把手的原生 pan-y 操作。fit 及 wirePlacement 共用範圍，包含底部取線及接點延伸；接點過近邊緣而無可用線長時原子拒絕並提示移圖，不把新線放到把手下。模型、文件及量測選點／命名保持，評分／SCORM N/A。沿用 platform-core Node owner 驗三分析、四尺寸、把手顯隱／實際大小及連續取線；家庭 browser owner 保留原稀疏電路與 320×500 斷言，再補左右鏡像角落的端點輕點／微滑及完整 44 px 空間；既有共用平台 browser owner 保留原生捲頁檢查。本機按用戶要求不開 Chrome。
 
 平台 17 群組通過：新增三分析 × 五組畫布尺寸（含 320×75／100 高短畫布）× 把手顯隱 × 左右鏡像 × 32／48 px 把手共 120 組，執行正式邊界量測／fit／wirePlacement，核對完整 44 px 範圍、10 次連續取線、接點延伸、原線及全寬 surface 保留；另驗無可用線長時 takeWire 拒絕、文件／undo／autoFit 不變。語法／manifest、240 項測試登記及五包重建通過。Node 的 DOM 矩形為替身，新增原生角落選點與既有 T1–T3 捲頁 owner 以新 CI 為準，本機未開 Chrome。
+
+### 三個工作台說明文字精準修訂（2026-10-17）
+
+- 範圍：修正共用顏色提示、元件參數位置、預設量程；AC 說明改用交流接法及有效值／平均功率定義、移除繼電器段落，理想變壓器參數加適用條件，單刀雙擲端子改中性 B／C；既有示例描述只在說明窗、且電路仍符合選單原始預設時顯示；改動或恢復不同電路後不顯示錯配資料。家庭說明縮短接觸步驟，精確限定電勢、保護、動畫及阻值範圍，修正短路回饋主語。
+- 不改求解、權限、手勢、文件／session 版本或持久化，不加活動、依賴或常駐教學提示；既有教師／學生、可編輯／只讀及部分接線狀態沿用。Assessment risk／rubric／SCORM phase N/A，非評量工作台的呈現修訂。沿用磁通量既有用語，不擴寫額外教材。
+- 影響位置：editor UI／AC UI／家庭 UI、AC 元件文字與 renderer、既有預設描述及三個 browser owners／共用 help helper；所有 callers 及既有文字斷言同步。
+- 驗證決定：共用 help helper 登記三個 browser owners，source／ZIP 的桌面、320／390 px、短螢幕檢查精準文案、數學／控制可達、示例切換及開啟／關閉說明不改文件／session。執行相鄰 AC platform／readout／household 邏輯、check／check:tests、五包重建及 committed selection preview；不因文字修訂重跑全站物理／完整手勢或宣稱真手機／Moodle gate。
+
+- 實際驗證：三個既有 browser owners 的 `--help-smoke` 在 source／ZIP 通過；DC 精準文案各 21 項及既有 14 組 viewport／數學／學生簡版檢查，AC 各 29 項（含高壓輸電描述、參數／恢復後隱去舊資料、理想／線性模型註記及 B／C 選項），家庭各 24 項。桌面 1280×900、手機 390×844／320×500 的可信觸控開關說明、關閉按鈕及文件／session 不變均通過，已目視三種說明；測試保留字數上限，不把文案擴成教材。`ac-platform.test.js`（含 240 次既有開關轉換）、`readout-math.test.js`、`household-model.test.js` 通過；`check`、`check:tests` 通過（240 entries：208 node／32 browser，48 helpers、2 manual）。所有 runtime 依賴保持，五包由 browser 入口重建並核對。證據 `output/playwright/circuit-workbench/*copy-help*`、`output/playwright/circuit-ac/*copy-help*.png`、`output/playwright/circuit-household/*copy-help*.png`。全站、完整手勢、遠端 CI、真手機與 Moodle 未在本輪重跑；Sites 未更新。

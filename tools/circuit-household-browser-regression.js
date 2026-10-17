@@ -2,6 +2,7 @@
 'use strict';
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto'),{spawn}=require('node:child_process'),AdmZip=require('adm-zip');
 const H=require('./position-time-browser-regression'),Packages=require('./package-circuit-platform');
+const {copyHelpCases}=require('./circuit-help-browser-cases');
 const root=path.resolve(__dirname,'..'),out=path.join(root,'output/playwright/circuit-household');
 async function main(){
   fs.mkdirSync(out,{recursive:true});const sourceOnly=process.argv.includes('--source-only');if(!sourceOnly)Packages.build();
@@ -21,6 +22,7 @@ async function main(){
     const directories=[['source',path.join(root,'sim')]];if(!sourceOnly){extracted=fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),'simlab-position-time-package-'));new AdmZip(path.join(root,'output/circuit-household-workbench-standalone.zip')).extractAllTo(extracted);directories.push(['package',extracted]);}
     for(const [mode,directory]of directories){
       server=H.createServer(directory);await H.listenServer(server);await cdp.send('Emulation.setDeviceMetricsOverride',{width:1280,height:900,deviceScaleFactor:1,mobile:false});await load();
+      checks.push(mode+'-help-copy-'+await copyHelpCases({inside,call,send:(...args)=>cdp.send(...args),screenshot,delay:H.delay},'household',mode));if(process.argv.includes('--help-smoke')){await H.closeServer(server);server=null;continue;}await cdp.send('Emulation.setDeviceMetricsOverride',{width:1280,height:900,deviceScaleFactor:1,mobile:false});await load();
       assert.deepEqual(await inside('[...document.querySelectorAll("[data-circuit-id=preset] optgroup")].map(g=>g.label)'),['接線基礎','防觸電保護','過流與短路']);
       assert.equal(await inside('document.querySelectorAll("[data-circuit-id=preset] option[value=C08]").length'),0,'duplicate wiring example is retired from the menu');
       assert.deepEqual(await inside('[...document.querySelectorAll("[data-circuit-id=palette] button")].map(b=>b.entry.type)'),await inside('CircuitHouseholdComponents.palette.map(p=>p.type)'));

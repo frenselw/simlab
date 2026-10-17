@@ -265,7 +265,7 @@ console.log('Paused editor frames settle due protection within 10 ms budgets wit
   const isolated=supplied(1,false);isolated.wires=isolated.wires.filter(w=>w.from!=='source:l'&&w.from!=='source:n');const off=new H.Session(isolated);assert.deepEqual(off.read().components.load.connections,{l:null,n:null,e:'E'});off.destroy();
  }
  for(const type of ['house-breaker','house-fuse'])for(const upstream of [true,false]){
-  const d=shorted(type),s=new H.Session(d);s.advance(.02);const stopped=type==='house-fuse'?'熔斷':'跳掣';assert.equal(s.read().shortCircuit,false);assert.match(context.resultText(s.doc,s.read()),new RegExp('短路已'+stopped));
+  const d=shorted(type),s=new H.Session(d);s.advance(.02);const stopped=type==='house-fuse'?'熔斷':'跳掣';assert.equal(s.read().shortCircuit,false);assert.match(context.resultText(s.doc,s.read()),new RegExp('短路令'+(type==='house-fuse'?'保險絲':'斷路器')+stopped));
   const next=M.clone(s.doc);M.detach(next,'short-link','to');next.components.find(c=>c.id==='protector').label='支路甲保護器';
   if(upstream)M.connect(next,'source:l','source:n');
   else{const second=M.add(next,'house-breaker',-20,300,{rating:15});M.connect(next,'source:l',second.id+':li');M.connect(next,'source:n',second.id+':ni');M.connect(next,second.id+':lo',second.id+':no');}

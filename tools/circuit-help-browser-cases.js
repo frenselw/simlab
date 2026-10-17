@@ -1,6 +1,7 @@
 'use strict';
 const assert=require('node:assert/strict'),M=require('../sim/circuit-workbench/circuit-model');
 async function helpCases(h,mode,base){
+  await copyHelpCases({...h,call:code=>h.inside('CircuitWorkbench.'+code)},'dc',mode);
   let width,height,touchId=82000;
   const control=id=>'[data-circuit-id="'+id+'"]';
   async function tap(selector){const p=await h.point(selector);if(width<600){await h.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:p.x,y:p.y,id:touchId++,radiusX:2,radiusY:2,force:1}]});await h.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});}else{await h.send('Input.dispatchMouseEvent',{type:'mousePressed',x:p.x,y:p.y,button:'left',buttons:1,clickCount:1});await h.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:p.x,y:p.y,button:'left',buttons:0,clickCount:1});}await h.delay(50);}
@@ -26,4 +27,34 @@ async function helpCases(h,mode,base){
     const events=await h.inside('__helpEvents');assert(events.length&&events.every(e=>e.trusted));h.evidence.push({mode,width,height,header,help:true,initial,expanded,student,terminals,trustedHelpControls:true});console.log(`${mode}: ${width}x${height} header help and panel cleanup passed`);
   }
 }
-module.exports={helpCases};
+async function copyHelpCases(h,kind,mode){
+  let checks=0,touchId=93000;
+  await h.call('setPlayback({paused:true})');
+  async function tap(selector,touch){
+    const p=await h.inside(`(async()=>{const e=document.querySelector(${JSON.stringify(selector)});e.scrollIntoView({block:'nearest'});await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));const b=e.getBoundingClientRect();return{x:b.left+b.width/2,y:b.top+b.height/2};})()`);
+    if(touch){await h.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...p,id:touchId++}]});await h.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});}
+    else{await h.send('Input.dispatchMouseEvent',{type:'mousePressed',...p,button:'left',clickCount:1});await h.send('Input.dispatchMouseEvent',{type:'mouseReleased',...p,button:'left',clickCount:1});}await h.delay(60);
+  }
+  const snapshot=()=>h.call(kind==='dc'?'exportDocument()':'captureSession()');
+  for(const [width,height]of [[1280,900],[390,844],[320,500]]){
+    const touch=width<600;await h.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:touch});await h.send('Emulation.setTouchEmulationEnabled',{enabled:touch,maxTouchPoints:2});await h.delay(80);
+    const before=await snapshot();await tap('[data-circuit-id=help]',touch);
+    const copy=await h.inside(`(()=>{const d=document.querySelector('[data-circuit-id=helpDialog]'),r=d.getBoundingClientRect(),b=d.querySelector('button').getBoundingClientRect();return{open:d.open,text:d.textContent,chars:d.textContent.replace(/\\s/g,'').length,overflow:d.scrollWidth-d.clientWidth,visible:r.top>=0&&r.bottom<=innerHeight+.1&&r.left>=0&&r.right<=innerWidth+.1,close:b.width>=44&&b.height>=44&&b.top>=r.top&&b.bottom<=r.bottom};})()`);
+    assert(copy.open&&copy.visible&&copy.close&&copy.overflow<=1,JSON.stringify({kind,width,copy}));assert(copy.chars<=(kind==='transient'?1100:kind==='household'?1050:900));
+    assert.equal(await h.inside('document.querySelector("[data-circuit-id=wireCurrentControls]").title'),'紅色箭嘴表示常規電流方向。');checks+=3;
+    if(kind==='dc'){assert(copy.text.includes('預設量程')&&copy.text.includes('預設滿偏'));assert(copy.text.includes('其他元件參數在操作面板'));assert(copy.text.includes('繼電器'));checks+=3;}
+    if(kind==='transient'){assert(!copy.text.includes('量程孔')&&!copy.text.includes('繼電器'));assert(copy.text.includes('平均有功功率')&&copy.text.includes('有效值'));assert(copy.text.includes('受影響電路')&&copy.text.includes('瞬時值'));checks+=3;}
+    if(kind==='household'){assert(copy.text.includes('額定功率隨種類設定'));assert(copy.text.includes('等效參考電勢')&&copy.text.includes('並非 50 Hz 瞬時分布'));assert(copy.text.includes('無其他漏電')&&copy.text.includes('達 1 mA 才'));assert(copy.text.includes('顯示門檻不代表安全界線'));checks+=4;}
+    if(!await h.inside('document.querySelector(".help-more").open'))await tap('.help-more summary',touch);await h.screenshot(mode+'-'+kind+'-copy-help-'+width);await tap('[data-circuit-id=closeHelp]',touch);assert.deepEqual(await snapshot(),before,'help does not alter '+kind+' state');checks++;
+  }
+  await h.send('Emulation.setTouchEmulationEnabled',{enabled:false});
+  if(kind==='transient'){
+    await h.inside(`(()=>{const e=document.querySelector('[data-circuit-id=preset]');e.value='transmission';e.dispatchEvent(new Event('change'));})()`);const before=await snapshot();await tap('[data-circuit-id=help]',false);assert(await h.inside('document.querySelector("[data-circuit-id=helpDialog]").textContent.includes("示例起始條件：")&&!!document.querySelector(\'[data-circuit-id=helpDialog] [data-math="100 Ω"]\')'));await tap('[data-circuit-id=closeHelp]',false);assert.deepEqual(await snapshot(),before);checks+=2;
+    await h.call('execute({type:"setParam",id:"c9",key:"resistance",value:600})');await tap('[data-circuit-id=help]',false);assert(!await h.inside('document.querySelector("[data-circuit-id=helpDialog]").innerText.includes("示例起始條件：")'));await tap('[data-circuit-id=closeHelp]',false);await h.inside("CircuitACWorkbench.restoreSession(new CircuitTransient.Session(CircuitACPresets.create('lc')).capture())");await tap('[data-circuit-id=help]',false);assert(!await h.inside('document.querySelector("[data-circuit-id=helpDialog]").innerText.includes("示例起始條件：")'));await tap('[data-circuit-id=closeHelp]',false);checks+=2;
+    await h.inside("CircuitACWorkbench.loadDocument(CircuitACPresets.create('transformer'))");await h.inside(`document.querySelector('[data-hit="body:c2"]').dispatchEvent(new MouseEvent('click',{bubbles:true}))`);assert(await h.inside('document.querySelector("[data-circuit-id=properties]").textContent.includes("只適用於「線性線圈」")'));await h.call('execute({type:"setParam",id:"c2",key:"model",value:"coupled"})');assert(!await h.inside('document.querySelector("[data-circuit-id=properties]").textContent.includes("理想模型忽略")'));checks+=2;
+    await h.inside("CircuitACWorkbench.loadDocument(CircuitACPresets.create('lc'))");await h.inside(`document.querySelector('[data-hit="body:c3"]').dispatchEvent(new MouseEvent('click',{bubbles:true}))`);assert.deepEqual(await h.inside('[...document.querySelectorAll("[data-param=closed] option")].map(o=>o.textContent)'),['接通 B','接通 C']);checks++;
+    await h.inside("CircuitACWorkbench.loadDocument(CircuitACPresets.create('empty'))");await tap('[data-circuit-id=help]',false);assert(!await h.inside('document.querySelector("[data-circuit-id=helpDialog]").innerText.includes("示例起始條件：")'));await tap('[data-circuit-id=closeHelp]',false);checks++;
+  }
+  console.log(mode+' '+kind+' focused help copy: '+checks+' checks passed');return checks;
+}
+module.exports={helpCases,copyHelpCases};

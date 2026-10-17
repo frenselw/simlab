@@ -267,7 +267,7 @@ const helpers = [
   {"file":"tools/circuit-flow-browser-cases.js","scope":"circuit-family","consumers":["tools/circuit-workbench-browser-regression.js"]},
   {"file":"tools/circuit-foundation-browser-cases.js","scope":"circuit-family","consumers":["tools/circuit-workbench-browser-regression.js"]},
   {"file":"tools/circuit-generator-browser-cases.js","scope":"circuit-family","consumers":["tools/circuit-ac-browser-regression.js"]},
-  {"file":"tools/circuit-help-browser-cases.js","scope":"circuit-family","consumers":["tools/circuit-workbench-browser-regression.js"]},
+  {"file":"tools/circuit-help-browser-cases.js","scope":"circuit-family","consumers":["tools/circuit-workbench-browser-regression.js","tools/circuit-ac-browser-regression.js","tools/circuit-household-browser-regression.js"]},
   {"file":"tools/circuit-instrument-readouts-browser-cases.js","scope":"circuit-family","consumers":["tools/circuit-ac-browser-regression.js"]},
   {"file":"tools/circuit-label-browser-cases.js","scope":"circuit-family","consumers":["tools/circuit-workbench-browser-regression.js"]},
   {"file":"tools/circuit-meter-design-browser-cases.js","scope":"circuit-family","consumers":["tools/circuit-ac-browser-regression.js","tools/circuit-meter-response-browser-cases.js"]},

@@ -29,7 +29,7 @@
     <aside id="panel" class="panel" aria-label="操作面板">
       <section class="panel-section"><h2>元件工具箱</h2><div id="palette" class="palette"></div></section>
       <section class="panel-section cable-toolbox"><h2>導線工具箱</h2><button id="addWire" class="take-wire"><svg viewBox="0 0 80 32" aria-hidden="true"><path d="M8 16H72"/><circle cx="8" cy="16" r="4"/><circle cx="72" cy="16" r="4"/></svg><span>取出導線 <b id="wireStock">16 / 20</b></span></button><p class="note">拿線端或元件接孔互相靠近接線，拿線身移動或彎曲。</p></section>
-      <section id="diagramLabels" class="panel-section"><h2>圖上標示</h2><div id="wireCurrentControls" class="diagram-label-controls" role="group" aria-label="導線電流標示" title="藍色箭嘴表示常規電流方向。"><h3>導線電流</h3><div class="wire-current-controls"><button id="showWireCurrents" type="button" aria-label="顯示全部導線電流">全顯示</button><button id="hideWireCurrents" type="button" aria-label="隱藏全部導線電流">全隱藏</button></div></div><div id="potentialDirectionControls" class="diagram-label-controls" role="group" aria-label="電勢升高方向標示" title="琥珀色箭嘴由低電勢指向高電勢。"><h3>電勢方向</h3><div class="wire-current-controls"><button id="showPotentialDirections" type="button" aria-label="顯示全部元件電勢方向">全顯示</button><button id="hidePotentialDirections" type="button" aria-label="隱藏全部元件電勢方向">全隱藏</button></div></div><div id="potentialColorControls"><label class="check"><input type="checkbox" id="potential">電勢色彩</label><div id="potentialLegend" hidden><div id="potentialScale" class="potential-scale" role="img"></div><div id="potentialTicks" class="potential-ticks"><span id="potentialLow"></span><span id="potentialMid"></span><span id="potentialHigh"></span></div><p class="note potential-zero-note">各電路分別以 <span data-help-tex="0\\,\\mathrm{V}" data-help-text="0 V"></span> 為參考。</p></div></div></section>
+      <section id="diagramLabels" class="panel-section"><h2>圖上標示</h2><div id="wireCurrentControls" class="diagram-label-controls" role="group" aria-label="導線電流標示" title="紅色箭嘴表示常規電流方向。"><h3>導線電流</h3><div class="wire-current-controls"><button id="showWireCurrents" type="button" aria-label="顯示全部導線電流">全顯示</button><button id="hideWireCurrents" type="button" aria-label="隱藏全部導線電流">全隱藏</button></div></div><div id="potentialDirectionControls" class="diagram-label-controls" role="group" aria-label="電勢升高方向標示" title="琥珀色箭嘴由低電勢指向高電勢。"><h3>電勢方向</h3><div class="wire-current-controls"><button id="showPotentialDirections" type="button" aria-label="顯示全部元件電勢方向">全顯示</button><button id="hidePotentialDirections" type="button" aria-label="隱藏全部元件電勢方向">全隱藏</button></div></div><div id="potentialColorControls"><label class="check"><input type="checkbox" id="potential">電勢色彩</label><div id="potentialLegend" hidden><div id="potentialScale" class="potential-scale" role="img"></div><div id="potentialTicks" class="potential-ticks"><span id="potentialLow"></span><span id="potentialMid"></span><span id="potentialHigh"></span></div><p class="note potential-zero-note">各電路分別以 <span data-help-tex="0\\,\\mathrm{V}" data-help-text="0 V"></span> 為參考。</p></div></div></section>
       <section class="panel-section inspector" hidden><h2 id="selectionTitle"></h2><div id="properties"></div><div id="objectActions" class="object-actions"></div></section>
       <details class="panel-section"><summary>連線清單</summary><div id="wireList"></div></details>
     </aside>
@@ -44,21 +44,22 @@
         <li><strong>移動與改形狀</strong><span>拖元件搬位；接好一端後拖線身彎曲。拉走已接線端可拔開。</span></li>
       </ol><p class="help-tip">線身交叉不會接通；線太短可移近元件或接另一條線。</p></section>
       <section><h3>儀表接法</h3><dl class="help-meters">
-        <div><dt>電流表 <span data-help-tex="\\mathrm{A}" data-help-text="A"></span></dt><dd>串聯；量程 <span data-help-tex="0.6\\,\\mathrm{A}" data-help-text="0.6 A"></span>／<span data-help-tex="3\\,\\mathrm{A}" data-help-text="3 A"></span>。</dd></div>
-        <div><dt>電壓表 <span data-help-tex="\\mathrm{V}" data-help-text="V"></span></dt><dd>並聯；量程 <span data-help-tex="3\\,\\mathrm{V}" data-help-text="3 V"></span>／<span data-help-tex="15\\,\\mathrm{V}" data-help-text="15 V"></span>。</dd></div>
+        <div><dt>電流表 <span data-help-tex="\\mathrm{A}" data-help-text="A"></span></dt><dd>串聯；預設量程 <span data-help-tex="0.6\\,\\mathrm{A}" data-help-text="0.6 A"></span>／<span data-help-tex="3\\,\\mathrm{A}" data-help-text="3 A"></span>。</dd></div>
+        <div><dt>電壓表 <span data-help-tex="\\mathrm{V}" data-help-text="V"></span></dt><dd>並聯；預設量程 <span data-help-tex="3\\,\\mathrm{V}" data-help-text="3 V"></span>／<span data-help-tex="15\\,\\mathrm{V}" data-help-text="15 V"></span>。</dd></div>
         <div><dt>電功率表 <span data-help-tex="\\mathrm{W}" data-help-text="W"></span></dt><dd><span data-help-tex="I_{+},\\ I_{-}" data-help-text="I+、I−"></span> 串聯；<span data-help-tex="V_{+},\\ V_{-}" data-help-text="V+、V−"></span> 跨接用電器。<br><span data-help-tex="P=(V_{+}-V_{-})I" data-help-text="P = (V+ − V−) I"></span></dd></div>
-      </dl><p class="help-tip">電流表／電壓表接共用 <span data-help-tex="-" data-help-text="−"></span> 孔及一個量程孔，先用大量程。等指針停定再讀數；手機點電錶可放大刻度。</p></section>
+      </dl><p class="help-tip">電流表／電壓表接共用 <span data-help-tex="-" data-help-text="−"></span> 孔及一個量程孔，先用大量程；以目前設定為準。等指針停定再讀數；手機點電表可預覽刻度。</p></section>
       <section><h3>移圖與讀值</h3><ul class="help-short-list">
         <li><strong>手機：</strong>雙指拖畫布、捏合縮放。</li>
         <li><strong>桌面：</strong>滾輪縮放；雙擊畫布空白處，第二下按住並拖曳；放開後恢復原工具。也可按住空白鍵拖畫布。</li>
-        <li><strong>調參：</strong>選元件後用底部分組工具調參、每次旋轉45°、刪除、複製或定位；調參用 <span data-help-tex="-\\,/\\,+" data-help-text="−／＋"></span>；其他選項在設定。</li>
-        <li><strong>繼電器：</strong>線圈兩孔、共用觸點與上／下觸點共五孔；未吸合接上、吸合接下，切換中兩邊斷開。動作延時可調，屬教學示意；選「電鈴式自斷」後閉合控制開關可觀察反覆動作。畫布上方可暫停／繼續，或用烏龜按鈕切換 ¼ 速慢動作；電流箭嘴與指針亦同步放慢。</li>
+        <li><strong>調參：</strong>底部可用 <span data-help-tex="-\\,/\\,+" data-help-text="−／＋"></span> 調常用參數，或旋轉45°、刪除、複製及定位。其他元件參數在操作面板；顯示選項在工作台設定。</li>
+        <li data-help-relay><strong>繼電器：</strong>五孔分別為線圈兩孔及共用／常閉／常開觸點。未吸合接常閉端，吸合後接常開端，切換中兩邊斷開。選「電鈴式自斷」並閉合控制開關，可觀察反覆動作；延時屬教學示意。</li>
+        <li><strong>播放：</strong>畫布上方可暫停／繼續；烏龜按鈕切換 ¼ 速慢動作，箭頭及指針同步放慢。</li>
         <li><strong>電勢：</strong>「圖上標示」可全部或逐元件顯示升高方向；琥珀色箭嘴由低指向高，跟隨接孔旋轉。電勢色彩可獨立開關；探測工具可量兩點電壓。</li>
         <li><strong>導線電流：</strong>面板可全部顯示／隱藏，選導線後可逐條開關。靜態箭嘴表示常規電流方向，數字表示大小；「未能確定」不代表零。</li>
       </ul></section>
       <details class="help-more"><summary>更多操作與模型</summary><ul class="help-short-list">
         <li>單擊接孔或共接點，再按旁邊拆線圖示可拆開全部線端；拖接孔搬元件，拖共接點搬整組。先選一條導線，再拖連接位可只拔開該線端。</li><li><kbd>R</kbd> 旋轉、<kbd>Esc</kbd> 取消、<kbd>Ctrl／⌘ Z</kbd> 復原。選導線後亦可用接好／拔開圖示。</li>
-        <li>靈敏電流計：中心零，滿偏 <span data-help-tex="\\pm50\\,\\mu\\mathrm{A}" data-help-text="±50 μA"></span>；內阻 <span data-help-tex="100\\,\\Omega" data-help-text="100 Ω"></span>。</li>
+        <li>靈敏電流計：中心零，預設滿偏 <span data-help-tex="\\pm50\\,\\mu\\mathrm{A}" data-help-text="±50 μA"></span>、內阻 <span data-help-tex="100\\,\\Omega" data-help-text="100 Ω"></span>；以目前設定為準。</li>
         <li>變阻器：<span data-help-tex="A-P" data-help-text="A–P"></span> 限流；<span data-help-tex="A-B" data-help-text="A–B"></span> 供電、由 <span data-help-tex="P" data-help-text="P"></span> 取分壓。</li>
         <li>導線預設為理想；選線可設定固定總電阻，教師設定只影響新取線。拖動或彎線不改阻值。</li><li>預設理想電源內阻 <span data-help-tex="r=0\\,\\Omega" data-help-text="r = 0 Ω"></span>。互不相連的電路，各有自己的零伏參考。</li>
         <li>箭頭速度、燈光與發熱只作教學示意；未知讀值顯示「—」，不代表零。</li>

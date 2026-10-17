@@ -337,6 +337,7 @@
         const summary=document.createElement('summary');summary.textContent='進階：電源保護';protection.append(summary);
         const toggle=document.createElement('input');toggle.type='checkbox';toggle.dataset.param='protectionEnabled';toggle.checked=c.params.protectionEnabled;toggle.disabled=!allow(d,c,'params','protectionEnabled');toggle.onchange=()=>change(doc=>{doc.components.find(x=>x.id===c.id).params.protectionEnabled=toggle.checked;});field('啟用電源保護',toggle,protection);
       }
+      if(teacher&&c.type==='transformer'&&c.params.model==='ideal'){const note=document.createElement('p');note.className='note';note.textContent='理想模型忽略線圈電阻、電感、耦合及初始電流；這些參數只適用於「線性線圈」。';prop.append(note);}
       for (const key of Object.keys(R.get(c.type).params)) {
         const spec={...profile.parameterSpec(c,key),...(c.type==='ac-source'&&key==='voltage'&&c.params.protectionEnabled?{label:'電動勢有效值（調節前）'}:{})};
         if(spec.legacyChoices?.includes(c.params[key]))spec.choices=[c.params[key],...spec.choices];
