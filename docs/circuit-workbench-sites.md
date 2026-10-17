@@ -1,12 +1,26 @@
 # DC／AC／Household 工作台的獨立 Sites 部署
 
-三個 standalone 工作台各有獨立 Sites 部署；本輪 DC／AC／Household 分別更新至 version 35／36／32，原生部署均回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。以下舊版紀錄按各自日期解讀。
+三個 standalone 工作台各有獨立 Sites 部署；本輪 DC／AC／Household 分別更新至 version 36／37／33，原生部署均回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。以下舊版紀錄按各自日期解讀。
 
 | 工作台 | 正式網址 | Site project ID | 原始入口 |
 |---|---|---|---|
 | DC | [直流電路工作台](https://simlab-dc-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6acacd25ad448191b82c7bdd801e2047` | `sim/circuit-workbench/index.html` |
 | AC | [交流電路工作台](https://simlab-ac-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6acacd3a2fb4819187870a3ebf24da68` | `sim/circuit-ac-workbench/index.html` |
 | Household | [家庭電路工作台](https://simlab-household-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6ad0b88108c08191a7568eda54a1f36c` | `sim/circuit-household-workbench/index.html` |
+
+## 最近更新：Household 短路發熱效果（2026-10-17）
+
+Runtime 取自已推送分支 `codex/household-short-heat` 的 `aa53bfdb8a1020dca86170abd19b8b69d007b945`。家庭後端沿既有低阻導通圖及已解電流方向產生短路發熱標記，重用共用 renderer 的火焰／光暈；保護切斷或解除短路後清除，正常大電流家電及無關支路不誤標。電流／保護計時、文件及 session 格式保持。測試與界限見[家庭計劃](../plans/33-circuit-household-workbench.md#household-短路發熱效果2026-10-17)。
+
+| 工作台 | 已推送 Sites source commit | saved version | deployment（均 succeeded） |
+|---|---|---|---|
+| DC | `0acf5a4967cf3a7a7761b127719b6b98cdb321e8` | 36，`appgprj_6acacd25ad448191b82c7bdd801e2047~appgver_396b930015d48191bc84dc6e0e12083f` | `appgdep_6ad3322eace48191b176c1f230cf8d3e` |
+| AC | `f05a0793d7c135d55174fd0c7093a110a5cd1164` | 37，`appgprj_6acacd3a2fb4819187870a3ebf24da68~appgver_bd17571d7ca8819183f1c214b2506d42` | `appgdep_6ad3323bf6b0819184abc7e25506354b` |
+| Household | `7b0c715226297b3748720416fd705f26f0686a8d` | 33，`appgprj_6ad0b88108c08191a7568eda54a1f36c~appgver_44cfe4f2be5c8191a6bcd7f21dc291ba` | `appgdep_6ad33248f780819195c4f85557727ea7` |
+
+三站 97 個 runtime 資產（DC 29／AC 38／Household 30）與上述提交逐 byte／SHA-256 核對，入口及 HTML 相對引用通過。官方 helper 推送／封裝後，原生私人部署及 get_site_version 確認各自來源；網址與 owner-only audience 保持。家庭 source／ZIP 的桌面／390 px／320×500 發熱、可信接線、兩外觀、保護切斷、暫停／慢速／減少動態及保存續作通過，Node 相鄰家庭／DC／AC 檢查、check／check:tests、五包重建通過；沒有把 selection preview 當成完整 CI 通過。
+
+Archive 為 `output/sites/circuit-{dc,ac,household}-workbench-household-short-heat-aa53bfd.tar.gz`；核對與部署證據為 `output/sites/shared-household-short-heat-assets.json`、`output/sites/shared-household-short-heat-deployments.json`。未跑完整 CI／browser、真手機或 Moodle，亦不以火焰示意推斷溫升或實際著火。
 
 ## 最近更新：三個工作台說明文字修訂（2026-10-17）
 
