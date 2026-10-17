@@ -19,6 +19,14 @@ assert.equal(D.visual(cap,{...smallDischarge,currentPeak:1}).voltage,20e-6,'an A
  const d=M.empty('transient'),c=M.add(d,'capacitor',0,0,{capacitance:.1,initialVoltage:.5}),load=M.add(d,'resistor',200,0,{resistance:1e6});M.connect(d,c.id+':a',load.id+':a');M.connect(d,load.id+':b',c.id+':b');const s=new T.Session(d);s.advance(2);const raw=s.read(),display=V.displayComponent(s.doc,raw,c);assert.equal(display.current,0);assert(display.voltage>.49&&display.fieldVoltage>.49&&display.energy>0,'a slow discharge with meaningful stored voltage keeps its field');
 }
 const readouts=new D.Readouts(),text=h=>h.match(/class="ac-bar-value">([^<]*)/)[1];
+// A shared reference node and zero magnetic coupling do not supply the capacitor.
+for(const mode of ['separate','reference-node','zero-coupling','coupled','driven']){
+ const d=M.empty('transient'),c=M.add(d,'capacitor',0,0,{capacitance:.2,initialVoltage:.1}),r=M.add(d,'resistor',200,0,{resistance:1e6}),b=M.add(d,'ac-source',600,0,{voltage:1000,frequency:1}),link=(a,b,ap='a',bp='a')=>M.connect(d,a.id+':'+ap,b.id+':'+bp);
+ link(c,r);if(['zero-coupling','coupled'].includes(mode)){const t=M.add(d,'transformer',400,0,{model:'coupled',coupling:mode==='coupled'?.5:0});link(r,t,'b','a');link(c,t,'b','b');link(b,t,'a','c');link(b,t,'b','d');}else if(mode==='driven'){link(r,b,'b','a');link(c,b,'b','b');}else{link(c,r,'b','b');if(mode==='reference-node')link(c,b,'b','b');}
+ const s=new T.Session(d);s.advance(2);assert.equal(s.fault,null,mode);const raw=s.read(),saved=JSON.stringify(s.capture()),view=V.displayComponent(s.doc,raw,c),related=['coupled','driven'].includes(mode);assert.equal(raw.measurements[c.id].voltageReference,related?1000*Math.SQRT2:0,mode);
+ if(!related){assert(raw.components[c.id].voltage>.099);assert.equal(view.voltage,raw.components[c.id].voltage,mode);assert.equal(view.charge,raw.components[c.id].charge,mode);assert.equal(view.energy,raw.components[c.id].energy,mode);assert(view.fieldVoltage>0,mode);}
+ assert.equal(JSON.stringify(s.capture()),saved,'display does not change saved physics');
+}
 const a=readouts.html(coil,'current',.12,'A',{paused:false,now:0}),b=readouts.html(coil,'current',.23,'A',{paused:false,now:100}),c=readouts.html(coil,'current',-.23,'A',{paused:false,now:250});assert.equal(text(a),text(b));assert.notEqual(text(a),text(c));assert(c.includes('negative'));assert(!text(c).includes('−'));assert.equal(text(c).split(' ').at(-1),text(a).split(' ').at(-1));assert(!/[eE][+-]?\d/.test(text(c)));
 assert(text(readouts.html(coil,'current',-.23,'A',{paused:true,now:251})).startsWith('-'));assert(text(readouts.html(coil,'current',0,'A',{paused:false,now:252})).includes('0'));readouts.clear();assert.equal(readouts.states.size,0);
 // Exercise the actual preset, including switching to a discharge-only circuit.

@@ -1,5 +1,22 @@
 # 交流電路工作台
 
+## 第二輪審核：電容顯示依賴（2026-10-17）
+
+按使用者確認，只補顯示依賴，不修改 LC 積分器。使用已編譯的 voltage
+訊號政策產生派生電源參考，排除單節點旁支及 k=0 的無關來源；保留真正
+耦合與電源參考。非評分工具，rubric／attempt N/A；沒有新依賴或 snapshot
+欄位，物理狀態及保存格式不變。既有 ac-display Node owner 及 AC audit
+browser owner 補分離／單節點／k=0／實際耦合對照，驗證 raw／RMS／顯示及
+保存隔離；Playwright CLI 驗來源／ZIP。
+
+執行證據：ac-display 及 audit-followup 通過；Playwright CLI 來源／ZIP 在
+1280／390px 的顯示、量測、儲能及真正耦合對照通過，pageErrors 為空。
+原有短窗放電歸零與保存隔離測試保持；五包已重建，check／check:tests／
+diff 通過。全倉 Node 初跑208/209；唯一失敗為 platform-core 的純幾何
+fixture 新增了 UI 重排依賴，已把重排移回 UI 開合／resize，該 suite 18組
+重跑通過；未再重跑完整209。證據在 output/reviews/round2-*；未修改 LC
+積分方法，長時間相位精度問題保留待後續評估；真手機／Moodle／Sites 未更新。
+
 ## 2026-10-17 審核修正
 
 處理失效探頭、無關電源影響電容顯示，以及 RC／RL／LC 懸空線清空儲能。

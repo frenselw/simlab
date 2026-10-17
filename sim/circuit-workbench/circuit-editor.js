@@ -42,6 +42,15 @@
   const surface=$("surface"),svg=$("circuitSvg"),hitLayer=$("hitLayer");
   const history=M.history(profile.initial),camera={x:0,y:0,scale:1},listeners=new Set(),targets=new Map();
   const transient=profile.analysis==='transient',household=profile.analysis==='household',timed=transient||household,Backend=household?root.CircuitHousehold:root.CircuitTransient,Family=root.CircuitHouseholdComponents,reactiveReadouts=transient?new root.CircuitACDisplay.Readouts():null,analysisListeners=new Set(),sessionHistory=new WeakMap();
+  const stageBottom=$('stage').querySelector('.stage-bottom'),shortHousehold=household?matchMedia('(max-width:559px) and (max-height:600px)'):null;
+  function reflowControls(){
+    if(!household)return;
+    const inPanel=shortHousehold.matches&&$('panel').isConnected&&!$('app').classList.contains('panel-hidden'),parent=inPanel?$('panel'):$('stage');
+    if(stageBottom.parentElement===parent)return;
+    const focused=stageBottom.contains(document.activeElement)?document.activeElement:null;
+    if(inPanel){parent.prepend(stageBottom);parent.scrollTop=0;}else parent.append(stageBottom);
+    focused?.focus({preventScroll:true});
+  }
   let session=timed?new Backend.Session(history.get()):null,sessionDocument=history.get(),acUI=null,familyUI=null,lastSessionChange=null,paramSession=null,unsubscribePreview=null;
   const forwardAnalysis=result=>{const {voltage,...data}=result;for(const fn of analysisListeners)try{fn(M.clone(data));}catch(e){console.error('CircuitEditor analysis callback failed',e);}};
   let unsubscribeAnalysis=session?.subscribe(forwardAnalysis);
@@ -226,7 +235,7 @@
     if(probeFirst){const p=M.endpoints(current()).get(probeFirst);if(p)$("ghostLayer").innerHTML+=`<circle cx="${p.x}" cy="${p.y}" r="${11/camera.scale}" fill="none" stroke="#b56e20" stroke-width="${2/camera.scale}"/>`;}
     if(probeMode&&selection?.kind==='port'){const p=M.endpoints(d).get(selection.id);if(p)$("ghostLayer").innerHTML+=`<circle data-probe-target="${V.esc(selection.id)}" cx="${p.x}" cy="${p.y}" r="${6/camera.scale}" fill="#93c5fd66" stroke="#2563eb" stroke-width="${2/camera.scale}"/>`;}
   }
-  function render(inspector=true){if(destroyed)return;const d=current(),surfaceRect=surface.getBoundingClientRect();N.sync(needleStates,d,analysis,reducedMotion.matches);svg.setAttribute("viewBox",`${camera.x} ${camera.y} ${surfaceRect.width/camera.scale} ${surfaceRect.height/camera.scale}`);
+  function render(inspector=true){if(destroyed)return;reflowControls();const d=current(),surfaceRect=surface.getBoundingClientRect();N.sync(needleStates,d,analysis,reducedMotion.matches);svg.setAttribute("viewBox",`${camera.x} ${camera.y} ${surfaceRect.width/camera.scale} ${surfaceRect.height/camera.scale}`);
     for(const id of wireCurrents)if(!history.get().wires.some(w=>w.id===id))wireCurrents.delete(id);
     $('showWireCurrents').disabled=!d.wires.length||wireCurrents.size===d.wires.length;$('hideWireCurrents').disabled=!wireCurrents.size;
     for(const id of potentialDirections)if(!history.get().components.some(c=>c.id===id))potentialDirections.delete(id);
@@ -772,7 +781,7 @@
   $("pan").onclick=()=>{cancelInteraction();panMode=!panMode;probeMode=false;wireMode=false;render();notify(panMode?"手掌工具：拖動畫布；觸控板可雙指滑動，捏合縮放。再按一次返回拿取元件。":"已返回拿取模式，可拿導線端點或線身。");};
   $('pickWire').onclick=()=>{cancelInteraction();wireMode=!wireMode;panMode=false;probeMode=false;render();notify(wireMode?'拿導線：重疊時優先拿線身或線端。再按一次返回拿元件。':'已返回拿取元件與導線。');};
   host.querySelectorAll("[data-camera]").forEach(b=>b.onclick=()=>{cancel();const action=b.dataset.camera,r=surface.getBoundingClientRect();if(action==="fit"){autoFit=true;fit();}else{autoFit=false;if(["in","out"].includes(action))zoomAt(action==="in"?1.2:1/1.2,r.left+r.width/2,r.top+r.height/2);else{const delta=100/camera.scale;if(action==="left")camera.x-=delta;if(action==="right")camera.x+=delta;if(action==="up")camera.y-=delta;if(action==="down")camera.y+=delta;}}render(false);});
-  $("panelToggle").onclick=()=>{cancel();const hidden=$("app").classList.toggle("panel-hidden");$("panelToggle").setAttribute("aria-expanded",String(!hidden));$("panelToggle").setAttribute("aria-label",hidden?"展開操作面板":"收起操作面板");later(()=>{if(autoFit)fit();render(false);});};
+  $("panelToggle").onclick=()=>{cancel();const hidden=$("app").classList.toggle("panel-hidden");$("panelToggle").setAttribute("aria-expanded",String(!hidden));$("panelToggle").setAttribute("aria-label",hidden?"展開操作面板":"收起操作面板");reflowControls();later(()=>{if(autoFit)fit();render(false);});};
   $('showWireCurrents').onclick=()=>setDiagramDisplay('wireCurrents',undefined,true);$('hideWireCurrents').onclick=()=>setDiagramDisplay('wireCurrents',undefined,false);
   $('showPotentialDirections').onclick=()=>setDiagramDisplay('potentialDirections',undefined,true);$('hidePotentialDirections').onclick=()=>setDiagramDisplay('potentialDirections',undefined,false);
   $("clearAll").onclick=()=>{cancel();selection=null;change(doc=>{if(doc.policy.mode!=="free")throw new Error("固定模式可用「只移除導線」重新接線。");const cables=doc.cables;Object.keys(doc).forEach(key=>delete doc[key]);Object.assign(doc,M.empty(profile.analysis),{cables});});};
@@ -847,7 +856,7 @@
   }
 
   if(!transient&&matchMedia("(max-width:759px) and (min-height:451px)").matches){$("app").classList.add("panel-hidden");$("panelToggle").setAttribute("aria-expanded","false");$("panelToggle").setAttribute("aria-label","展開操作面板");}
-  observer=new ResizeObserver(()=>{const interrupted=!!(drag||previewDoc||cameraGesture);if(interrupted)cancel();if(autoFit&&!interrupted)fit();render(false);});observer.observe(surface);
+  observer=new ResizeObserver(()=>{const interrupted=!!(drag||previewDoc||cameraGesture);if(interrupted)cancel();reflowControls();if(autoFit&&!interrupted)fit();render(false);});observer.observe(surface);
   function execute(command) {
     if(destroyed)throw new Error('編輯器已卸載');
     if(!command || typeof command.type!=='string')throw new TypeError('命令格式無效');

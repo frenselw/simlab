@@ -2,11 +2,7 @@
  'use strict';
  const decimal=new Intl.NumberFormat('en',{useGrouping:false,minimumFractionDigits:2,maximumFractionDigits:2});
  function voltageReference(c,doc,result){
-  const islands=new Set(['a','b'].map(key=>result?.islandOf?.[c.id+':'+key]).filter(key=>key!==undefined));
-  const belongs=c=>['a','b','c','d'].some(key=>islands.has(result?.islandOf?.[c.id+':'+key]));
-  const transformers=(doc?.components||[]).filter(c=>c.type==='transformer');
-  for(let i=0;i<transformers.length;i++)for(const t of transformers)if(belongs(t))for(const key of ['a','b','c','d']){const island=result?.islandOf?.[t.id+':'+key];if(island!==undefined)islands.add(island);}
-  return Math.max(1,Math.abs(c.params.initialVoltage||0),Math.abs(result?.components?.[c.id]?.voltagePeak||0),...(doc?.components||[]).filter(c=>['battery','ac-source'].includes(c.type)&&belongs(c)).map(c=>Math.abs(c.params.voltage||0)*(c.type==='ac-source'?Math.SQRT2:1)));
+  return Math.max(1,Math.abs(c.params.initialVoltage||0),Math.abs(result?.components?.[c.id]?.voltagePeak||0),result?.measurements?.[c.id]?.voltageReference||0);
  }
  function visual(c,r,context={}){
   if(!r)return r;

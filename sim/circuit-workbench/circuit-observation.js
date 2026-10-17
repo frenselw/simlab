@@ -57,7 +57,7 @@
     copy(){const next=Object.create(GroupTracker.prototype);next.policies=this.policies;next.groups=new Map([...this.groups].map(([key,g])=>[key,{policy:g.policy,ids:new Set(g.ids),tracker:g.tracker.copy()}]));return next;}
     sample(result){for(const group of this.groups.values())group.tracker.sample(result);}
     measure(id){const policy=this.policies.get(id);if(!policy)return {status:'unknown'};
-      const result={...this.groups.get(policy.key).tracker.measure(id),windowKind:policy.windowKind,period:policy.period,frequencies:policy.frequencies,sourceCount:policy.sourceCount};
+      const result={...this.groups.get(policy.key).tracker.measure(id),windowKind:policy.windowKind,period:policy.period,frequencies:policy.frequencies,sourceCount:policy.sourceCount,voltageReference:(policy.quantities?.voltage||policy).voltageReference??0};
       for(const [quantity,p]of Object.entries(policy.quantities||{})){const q=this.groups.get(p.key).tracker.measure(id),fields=quantity==='voltage'?['voltageStatus','voltageRms','provisionalVoltageRms','voltageDuration','voltagePeak']:quantity==='current'?['currentStatus','currentRms','provisionalCurrentRms','currentDuration','currentPeak']:['powerStatus','averagePower','provisionalAveragePower','powerDuration'];for(const field of fields)result[field]=q[field];result[quantity+'Window']=p.window;result[quantity+'WindowKind']=p.windowKind;}
       const states=[result.voltageStatus,result.currentStatus,result.powerStatus];result.status=states.every(s=>s==='ready')?'ready':states.includes('collecting')?'collecting':'unknown';return result;
     }

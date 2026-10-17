@@ -41,6 +41,15 @@ async function main(){
         assert.equal((await call('getAnalysis()')).wires[selected].resistance,.001);assert.equal((await call('getDocument()')).wires.find(w=>w.id===selected).resistance,0);
         await screenshot(mode+'-audit-followup-'+width);checks.push(mode+'-audit-followup-'+width);
       }
+      for(const [width,height]of [[320,500],[390,500],[320,800],[390,844],[844,390]]){
+        await cdp.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:width<760});await preset('C09');
+        const toggle='[data-circuit-id=panelToggle]',expanded=()=>inside('document.querySelector("[data-circuit-id=panelToggle]").getAttribute("aria-expanded")==="true"');if(await expanded())await click(toggle);
+        const initial=await call('captureSession()');await click(toggle);await inside('new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))');
+        const layout=await inside('(()=>{const d=CircuitHouseholdWorkbench.getDocument(),p=document.querySelector("[data-circuit-id=panel]"),s=document.querySelector("[data-circuit-id=surface]");return{height:s.clientHeight,scale:CircuitHouseholdWorkbench.getInteraction().camera.scale,footerInPanel:p.contains(document.querySelector(".stage-bottom")),overflow:document.documentElement.scrollHeight>innerHeight+1};})()');
+        assert(layout.height>=100&&layout.scale>.05,JSON.stringify({width,height,...layout}));assert.equal(layout.footerInPanel,width<=559&&height<=600);assert(!layout.overflow);assert.deepEqual(await call('captureSession()'),initial);
+        await inside('(()=>{const p=document.querySelector("[data-circuit-id=panel]");p.scrollTop=p.scrollHeight;return true;})()');await inside('new Promise(r=>requestAnimationFrame(r))');assert(await inside('(()=>{const p=document.querySelector("[data-circuit-id=panel]");return p.scrollHeight<=p.clientHeight+1||p.scrollTop+p.clientHeight>=p.scrollHeight-1;})()'));
+        await click(toggle);await inside('new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))');assert(await inside('document.querySelector("[data-circuit-id=stage]").contains(document.querySelector(".stage-bottom"))'));assert.deepEqual(await call('captureSession()'),initial);await screenshot(mode+'-short-panel-'+width+'x'+height);checks.push(mode+'-short-panel-'+width+'x'+height);
+      }
     }
     async function heatCases(mode){
       let touch=false,id=97000;const count=()=>inside('document.querySelectorAll("[data-circuit-id=scene] .heat-effect").length'),flame=()=>inside('(()=>{const s=getComputedStyle(document.querySelector(".heat-flame"));return{name:s.animationName,state:s.animationPlayState,duration:parseFloat(s.animationDuration),transform:s.transform};})()');

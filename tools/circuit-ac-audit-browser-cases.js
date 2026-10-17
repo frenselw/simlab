@@ -41,6 +41,13 @@ async function followupCases(h,source){
    for(const id of Object.keys(before.physics.dynamic))for(const key of ['i','v'])assert(Math.abs(after.physics.dynamic[id][key]-before.physics.dynamic[id][key])<1e-12);await h.call('advanceTime(.01)');assert((await h.call('getAnalysis()')).reliable);checks+=4;
   }
   await h.screenshot(source+'-audit-followup-'+width);
+  for(const mode of ['reference-node','zero-coupling','coupled']){
+   const d=M.empty('transient'),cap=M.add(d,'capacitor',150,180,{capacitance:.2,initialVoltage:.1}),r=M.add(d,'resistor',350,180,{resistance:1e6}),b=M.add(d,'ac-source',700,180,{voltage:1000,frequency:1});link(d,cap,r);
+   if(mode==='reference-node'){link(d,cap,r,'b','b');link(d,cap,b,'b','b');}else{const t=M.add(d,'transformer',500,180,{model:'coupled',coupling:mode==='coupled'?.5:0});link(d,r,t,'b','a');link(d,cap,t,'b','b');link(d,b,t,'a','c');link(d,b,t,'b','d');}
+   await h.call('loadDocument('+JSON.stringify(d)+')');await h.call('advanceTime(2)');const state=await h.call('captureSession()'),raw=await h.call('getAnalysis()');assert.equal(raw.measurements[cap.id].voltageReference,mode==='coupled'?1000*Math.SQRT2:0);checks++;
+   if(mode!=='coupled'){const view=await h.inside('(()=>{const d=CircuitACWorkbench.getDocument(),a=CircuitACWorkbench.getAnalysis();return CircuitRenderer.displayComponent(d,a,d.components[0]);})()');for(const key of ['voltage','charge','energy'])assert.equal(view[key],raw.components[cap.id][key]);assert(view.fieldVoltage>.09);checks+=4;}
+   assert.deepEqual(await h.call('captureSession()'),state);checks++;
+  }
  }
  console.log(source+' AC 2026-10-17 audit follow-up: '+checks);return checks;
 }

@@ -108,6 +108,7 @@
       const members=signals.members(dependencies),ids=new Set(members.map(e=>e.id)),wires=doc.wires.filter(w=>[...wireSignals.get(w.id)].some(key=>signals.members(new Set([key])).some(e=>ids.has(e.id))));
       const cs=members.filter(e=>e.C),ls=members.filter(e=>e.L),natural=cs.length===1&&ls.length===1?AC.TAU*Math.sqrt(cs[0].C*ls[0].L):null,selected=O.measurementWindow(members.filter(e=>e.kind==='source'&&e.c.type!=='battery').map(e=>e.c.params.frequency),natural);
       selected.sourceCount=members.filter(e=>e.kind==='source').length;selected.closed=[...dependencies].some(key=>signals.exchangeDomains.has(key));
+      selected.voltageReference=Math.max(0,...members.filter(e=>e.kind==='source'&&['battery','ac-source'].includes(e.c.type)).map(e=>Math.abs(e.c.params.voltage)*(e.c.type==='ac-source'?Math.SQRT2:1)));
       selected.key=JSON.stringify({branches:members.map(e=>[e.id,e.pa,e.pb,e.c.type,e.c.params?Object.entries(e.c.params).sort():e.resistance]).sort(byId),wires:wires.map(w=>[w.id,w.from,w.to,w.resistance]).sort(byId),probe,window:selected.window,kind:selected.windowKind});
       cache.set(cacheKey,selected);return selected;
     }
