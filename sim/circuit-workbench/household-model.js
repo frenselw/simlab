@@ -88,7 +88,15 @@
     const wires={};for(const w of doc.wires){const b=branches['@wire:'+w.id];wires[w.id]={current:b.current,voltage:b.voltage,potential:potential(w.from),potentialTo:potential(w.to),resistance:constants.wireResistance,power:b.power,cyclic:false,role:Connections.wireRole(doc,w,topology)};yield;}
     const diagnostics=solution.error?[{code:solution.error,message:'電路未能得到可靠結果，模擬已暫停。'}]:[];
     const potentials={};for(const k of ports.keys()){potentials[k]=potential(k);yield;}
-    return {mode:'household',shortCircuit,time:state.time,components,wires,potentials,netOf:Object.fromEntries([...ports.keys()].map(k=>[k,find(k)])),islandOf:Object.fromEntries([...ports.keys()].map(k=>[k,'earth-reference'])),references:[{island:'earth-reference',endpoint:doc.components.find(c=>c.type==='house-mains')?.id+':n',voltage:0}],diagnostics,reliable:!solution.error,voltage};
+    const hazards={wires:{},components:{},short:shortCircuit,overload:doc.components.some(c=>['house-breaker','house-fuse'].includes(c.type)&&Math.abs(components[c.id]?.current)>c.params.rating)};
+    if(shortCircuit&&!solution.error){
+      // Follow solved current so a shared neutral cannot heat an unrelated load's return wire.
+      const reachable=(starts,reverse=false)=>{const seen=new Set(starts),queue=[...seen];for(const from of queue)for(const e of conducting.get(from)||[]){const b=branches[e.id],i=b.current*(find(b.from)===from?1:-1)*(reverse?-1:1);if(Number.isFinite(i)&&i>1e-9&&!seen.has(e.to)){seen.add(e.to);queue.push(e.to);}}return seen;};
+      const supplied=reachable(live),returning=reachable([ground],true);
+      for(const c of doc.components)if(c.type==='house-mains'&&returning.has(find(c.id+':l'))&&Math.abs(components[c.id].current)>1e-9)hazards.components[c.id]='short';
+      for(const w of doc.wires){const b=branches['@wire:'+w.id],from=find(b.current>0?w.from:w.to),to=find(b.current>0?w.to:w.from);if(Math.abs(b.current)>1e-9&&supplied.has(from)&&returning.has(to))hazards.wires[w.id]='short';}
+    }
+    return {mode:'household',shortCircuit,hazards,time:state.time,components,wires,potentials,netOf:Object.fromEntries([...ports.keys()].map(k=>[k,find(k)])),islandOf:Object.fromEntries([...ports.keys()].map(k=>[k,'earth-reference'])),references:[{island:'earth-reference',endpoint:doc.components.find(c=>c.type==='house-mains')?.id+':n',voltage:0}],diagnostics,reliable:!solution.error,voltage};
   }
   function solve(input,state){const job=solveSteps(M.validate(input),state);let step;do{step=job.next();}while(!step.done);return step.value;}
   function object(value,allowed){if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).some(k=>!allowed.includes(k))||allowed.some(k=>!Object.hasOwn(value,k)))throw new Error('家庭文件欄位無效');}

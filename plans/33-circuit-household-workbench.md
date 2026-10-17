@@ -834,3 +834,12 @@ c3af3b2 的 Quality 38931745075 仍在手機同一步 line 526 失敗，其餘�
 ### 三個工作台說明文字精準修訂（2026-10-17）
 
 本輪範圍、共用接合與驗證決定統一記於 [DC／共用說明修訂](28-circuit-workbench.md#三個工作台說明文字精準修訂2026-10-17)，不複製模型或新增狀態。
+
+### Household 短路發熱效果（2026-10-17）
+
+- 範圍：在家庭後端既有低阻導通圖上，沿已解出的電流方向標示有供電的 L→N／E 短路路徑，將市電來源及路徑導線交給共用 renderer 現有發熱效果；不以 DC 的 5 A 門檻判家庭負載，也不把正常支路、懸空線或切斷後的歷史電流當作發熱。
+- 既有短路／過流判定、電流、保護計時及狀態不改。沿用 fire SVG、最多八處效果、暫停／慢速／減少動態、實物／符號；無新選項、依賴、溫度／火災模型或文件／session 欄位。教師非評量，assessment risk／rubric／SCORM phase N/A。
+- 接合：`household-model.js` 衍生分析→`CircuitRenderer.visualState()`→現有 `scene()`；相鄰 DC／AC renderer callers 保持。新增斷言放入既有 household-model Node owner 及家庭 browser owner，不加未登記測試檔／helper。
+- 驗證決定：先於舊碼重現直接短接沒有效果；驗 L／N、L／E、方向反轉、分流／正常與懸空支路、正常大於 5 A 家電、斷路器／保險絲／RCD 切斷及上游仍短路、解除故障／復位、production encode→decode→restore→合法續作。browser source／ZIP 桌面與手機驗可信短接／復位、兩外觀、效果可見、動畫暫停／慢速／減少動態及保護切斷後消失；相鄰 DC／AC 發熱測試、check／check:tests、五包及 committed selection preview。Sites 逐資產核對後同步三站，保留私人存取。完整 CI／真手機／Moodle 不列為本輪已驗。
+- 實際證據：舊碼的直接 L／N 接線回歸先因缺少 wire hazard 失敗；修正後 `household-model.test.js` 通過全部原案例及新短路路徑／切斷／production 往返續作，`household-state.test.js`（36 fixture 往返）、`household-connections.test.js`、家庭 `presets.test.js` 通過。相鄰 `feedback.test.js`（70 cases）、`platform-core.test.js`（18 groups）、`ac-audit-regressions.test.js` 通過。`check`／`check:tests` 通過，沿用 240 entries、48 helpers、2 manual，沒有改登記或增加依賴。
+- `node tools/circuit-household-browser-regression.js --heat-smoke` 在 source／ZIP 各通過四組檢查：1280×900、390×900、320×500 的可信滑鼠／觸控短接、實物／符號可見火焰、正常 >5 A 不誤標、暫停／慢速／減少動態、保存恢復／解除故障、保險絲及 RCD 正常播放切斷；斷路器按既有 0.02 s 切斷，重設未修故障會重新發熱。自動切斷後按原 5 Hz scene 更新清除效果。短畫布以火焰主體可見面積驗收，裝飾煙線可超出邊緣；沿用既有圖形位置，不修改版面。已目視桌面與窄手機。browser 入口重建及核對五包；證據 `output/playwright/circuit-household/results.json`、`*-short-heat-*.png`。未執行完整 browser／CI、真手機或 Moodle。

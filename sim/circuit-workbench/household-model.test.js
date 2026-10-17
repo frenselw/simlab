@@ -21,6 +21,43 @@ function shorted(type='house-breaker',target='n'){
  if(type==='house-rcd'){p.type=type;p.params={closed:true};}
  if(target==='e'){M.add(d,'house-earth',70,180).id='earth';M.attach(d,'short-link','to','earth:e');}else M.attach(d,'short-link','to','short-n:p');return M.validate(d);
 }
+{
+ const d=M.empty('household'),source=M.add(d,'house-mains',160,180),wire=M.connect(d,source.id+':l',source.id+':n');
+ const r=H.solve(d),hazards=V.visualState(d,r);assert(r.shortCircuit&&r.components[source.id].current>4000);
+ assert.equal(hazards.wires[wire.id],'short','energised household short must reach the shared heat renderer');
+ assert.equal(hazards.components[source.id],'short');assert(V.scene(d,r).includes('data-hazard-wire="'+wire.id+'"'));
+}
+for(const reversed of [false,true])for(const earth of [false,true]){
+ const d=M.empty('household');d.cables.length=1200;
+ const source=M.add(d,'house-mains',160,180),target=earth?M.add(d,'house-earth',160,380).id+':e':source.id+':n',ends=[source.id+':l',target];if(reversed)ends.reverse();
+ d.junctions.push({id:'parallel',x:260,y:380},{id:'return',x:620,y:380});
+ const wire=M.connect(d,...ends),parallel=[M.connect(d,ends[0],'parallel:p'),M.connect(d,'parallel:p',ends[1])],load=M.add(d,'house-metal',720,380,{kind:'heater'}),open=M.add(d,'house-switch',320,180,{closed:false});
+ const normal=[M.connect(d,source.id+':l',load.id+':l'),M.connect(d,source.id+':n',load.id+':n'),M.connect(d,source.id+':n','return:p'),M.connect(d,'return:p',load.id+':n')],spur=M.connect(d,source.id+':l',open.id+':a');
+ const s=new H.Session(d),r=s.read(),h=V.visualState(d,r);assert(r.components[load.id].current>0);
+ assert.deepEqual(Object.keys(h.wires).sort(),[wire,...parallel].map(w=>w.id).sort());assert.deepEqual(h.components,{[source.id]:'short'});
+ assert(normal.every(w=>!h.wires[w.id])&&!h.wires[spur.id]);
+ for(const view of ['real','schematic']){d.display.view=view;const svg=V.scene(d,r,.4);assert(svg.includes('data-hazard-component="'+source.id+'"'));assert(svg.includes('data-wire-heat="'+wire.id+'"'));assert(!svg.includes('data-hazard-component="'+load.id+'"'));}
+ const saved=s.capture(),restored=H.Session.restore(H.decode(H.encode(saved)));assert.deepEqual(restored.read().hazards,r.hazards);assert(!Object.hasOwn(saved,'hazards'));
+ const fixed=M.clone(restored.doc);for(const w of [wire,...parallel])M.detach(fixed,w.id,'to');restored.update(fixed);restored.advance(.01);assert(!restored.read().shortCircuit);assert.deepEqual(restored.read().hazards.wires,{});assert(!V.scene(fixed,restored.read()).includes('heat-effect'));restored.destroy();s.destroy();
+}
+for(const type of ['house-breaker','house-fuse','house-rcd'])for(const target of ['n','e']){
+ const d=shorted(type,target),s=new H.Session(d);assert.equal(s.read().hazards.wires['short-link'],'short');assert.equal(s.read().hazards.components.source,'short');
+ const balanced=type==='house-rcd'&&target==='n',delay=type==='house-rcd'?.1:.02;
+ s.advance(delay-.001);assert.equal(s.read().hazards.wires['short-link'],'short');
+ const restored=H.Session.restore(H.decode(H.encode(s.capture())));restored.advance(.001);
+ if(balanced){assert.equal(restored.read().components.protector.status,'closed');assert.equal(restored.read().hazards.wires['short-link'],'short');}
+ else{const r=restored.read();assert(['tripped','blown'].includes(r.components.protector.status));assert(r.components.protector.protection.currentBeforeTrip>1000);assert(!r.shortCircuit);assert.deepEqual(r.hazards.wires,{});assert.deepEqual(r.hazards.components,{});assert(!V.scene(d,r).includes('heat-effect'));
+  const latched=H.Session.restore(H.decode(H.encode(restored.capture())));latched.advance(.01);assert.deepEqual(latched.read().hazards.wires,{});assert(latched.resetProtection('protector'));assert.equal(latched.read().hazards.wires['short-link'],'short');latched.advance(delay);assert.deepEqual(latched.read().hazards.wires,{});latched.destroy();
+ }
+ restored.destroy();s.destroy();
+}
+{
+ const d=shorted(),bypass=M.connect(d,'source:l','source:n'),s=new H.Session(d);s.advance(.02);const r=s.read();assert.equal(r.components.protector.status,'tripped');assert(r.shortCircuit);assert.deepEqual(r.hazards.wires,{[bypass.id]:'short'});assert.equal(r.hazards.components.source,'short');assert(V.scene(d,r).includes('data-hazard-wire="'+bypass.id+'"'));s.destroy();
+}
+for(const key of ['C01','C02','C03','C04','C05','C06','C07','C07fuse','C09']){
+ const d=P.create(key),r=H.solve(d);if(key==='C01')assert(r.components.source.current>5,'normal household loads can exceed the DC warning threshold');assert.deepEqual(r.hazards.wires,{});assert.deepEqual(r.hazards.components,{});assert(!V.scene(d,r).includes('heat-effect'),key+' is not a source short');
+}
+console.log('Household heat: live L/N/E paths, reversed/parallel wires, normal >5 A loads and shared neutral returns, trips, upstream faults and production restore/continuation passed');
 for(const type of ['house-breaker','house-fuse'])for(const target of ['n','e'])for(const step of [.1,.007,.001]){
  const d=shorted(type,target),s=new H.Session(d),r=s.read(),current=r.components.protector.current;assert(r.shortCircuit&&r.reliable);assert(current>1000&&Number.isFinite(current));for(const wire of Object.values(r.wires)){assert(Number.isFinite(wire.current)&&Number.isFinite(wire.power));near(wire.power,wire.current**2*H.constants.wireResistance,1e-8);}
  const dissipation=Object.values(r.wires).reduce((sum,w)=>sum+w.power,0)+d.components.filter(c=>c.type!=='house-mains').reduce((sum,c)=>sum+r.components[c.id].branches.reduce((n,b)=>n+b.power,0),0);near(r.components.source.power,dissipation,1e-8);
