@@ -39,8 +39,18 @@
   回歸：來源／ZIP × 1280／390 px 四組全部通過，涵蓋九項標準工作台
   發現，`pageErrors: []`。手機面板實際顯示 0.001 Ω，已檢視截圖。
   完整腳本、`run.log` 及四張截圖在 `output/playwright/audit-cli/`。
-- `npm run check` 通過。`check:tests`：241 入口，209 Node、32 browser、
-  48 helpers、2 manual。完整 Node 重跑及 committed selection preview 待補記。
+- `npm run check`、`git diff --check` 通過。`check:tests`：241 入口，
+  209 Node、32 browser、48 helpers、2 manual。
+- 最終 `npm run test:fast` **209/209 通過**，含兩個 DC 評量 consumer，
+  報告 `output/ci-tests/local-1792237297193-81756/report.json`，完整輸出
+  `output/audit-fast-tests-final.log`。初次重跑發現零電流支路的尺度問題，
+  補入求解器既有 roundoff 後完整重跑通過；沒有放寬微電流相對驗收。
+- 修正提交 `97b5804`；`node tools/run-tests.js --affected
+  --base=91251dc7b784105e11a81ef3eb1377ebe95b4e00 --head=97b5804 --plan`
+  的 committed preview 為 `full`、241 入口、`packages: all`，原因是
+  `tools/test-registry.js` 改動，包含 DC／AC／家庭／評量 browser owners。
+  證據 `output/audit-selection-preview.json`。這是選測範圍，不宣稱全部
+  32 browser entries 或遠端 GitHub CI 已通過。
 - `npm run package:circuit-platform` 已重建 DC、AC、家庭三個 standalone ZIP
   及兩個 DC SCORM ZIP；建構證據 `output/circuit-platform-build.json`。
 
