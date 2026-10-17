@@ -1,13 +1,29 @@
 # DC／AC工作台的獨立Sites部署
 
-兩個standalone工作台已更新至Sites version 24，兩次原生部署均回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。
+DC／AC standalone 工作台各有獨立 Sites 部署；本輪 AC 已更新至 version 35，原生部署回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。以下舊版紀錄按各自日期解讀。
 
 | 工作台 | 正式網址 | Site project ID | 原始入口 |
 |---|---|---|---|
 | DC | [直流電路工作台](https://simlab-dc-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6acacd25ad448191b82c7bdd801e2047` | `sim/circuit-workbench/index.html` |
 | AC | [交流電路工作台](https://simlab-ac-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6acacd3a2fb4819187870a3ebf24da68` | `sim/circuit-ac-workbench/index.html` |
 
-## 最近更新：Sites version 24／CW-21、CW-22儀表讀值（2026-10-13）
+## 最近更新：AC Sites version 35／高壓輸電比較（2026-10-17）
+
+AC 的「變壓器與互感」新增「高壓輸電：升壓與線路損耗」。同畫面比較 230 V 直接輸電及先升至約 23 kV 再降壓，兩邊使用相同的 529 Ω 負載及去回各 100 Ω 導線。AC 錶盤單位與刻度共同使用 SI 前綴，避免高壓長科學記數擠壓；原求解及量程仍以 SI 計算。教學界限與驗證決定見[交流計劃](../plans/32-circuit-ac-workbench.md#高壓輸電比較預設2026-10-17)。
+
+| 項目 | 已確認結果 |
+|---|---|
+| SimLab runtime commit | `91197c83822be5fb24bf1b328592cdaf2f83ea84`，已推送 `codex/ac-high-voltage-transmission` |
+| 已推送 AC Sites source commit | `32423ec042ae367d2417b6e7eeab0646fc745c45` |
+| saved version | 35，`appgprj_6acacd3a2fb4819187870a3ebf24da68~appgver_9519a72003e48191b00a163d55d926c7` |
+| deployment | `appgdep_6ad2cc3d3c848191a16b1463d4731df8`，`succeeded` |
+| archive | `output/sites/circuit-ac-workbench-transmission-91197c8.tar.gz`；已保存 SHA-256 `f71c190a17b73475ea7f0a2a0c2e667dd3d6ed8a397a3ce4cb4ac9b314b8e06f` |
+
+官方 source helper 開啟現有 checkout，再同步全部 38 個 AC runtime 資產；每個檔案與上述 SimLab commit 逐 byte／SHA-256 比對，證據 `output/sites/ac-transmission-assets.json`。官方 helper 推送／封裝後原生私人發布成功，get_site_version 確認 version 35 及正確 source commit。原[交流正式網址](https://simlab-ac-circuit-workbench.ieyp.chatgpt.site)和 owner-only audience 保持；DC／Household Sites 本輪未發布。
+
+source／ZIP 的高壓輸電專項 134 項及相鄰電表專項 224 項通過；1280／390／320 px 涵蓋選單、實物／符號、量測、手機可信觸控定位與放大錶盤、保存恢復和播放續作。解析 AC reference 1771 項、其他相關邏輯套件、check／check:tests 和五包重建通過；committed selection preview 選中 circuit-family 及五包。完整證據與未跑項目見交流計劃；不宣稱全站／完整 browser、真手機或 Moodle gate 通過，正式部署由原生成功結果確認。
+
+## 歷史更新：Sites version 24／CW-21、CW-22儀表讀值（2026-10-13）
 
 Runtime取自已推送提交 `beb53f4c4d8bfd41cf21193a22b4f55a8f800903`。G面板電流及參考量程統一SI A，末層轉工程單位，避免零／未知及大量程的雙重µ前綴例外；微小非零值保留，機械刻度精度不改。功率表瞬時電壓改用sensedVoltage，明示V₊−V₋，有效值同用電壓端；端子字形沿用LaTeX。求解、實測回饋保護及session格式不改。
 
