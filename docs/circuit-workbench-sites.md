@@ -1,11 +1,26 @@
-# DC／AC工作台的獨立Sites部署
+# DC／AC／Household 工作台的獨立 Sites 部署
 
-DC／AC standalone 工作台各有獨立 Sites 部署；本輪 AC 已更新至 version 35，原生部署回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。以下舊版紀錄按各自日期解讀。
+三個 standalone 工作台各有獨立 Sites 部署；本輪 DC／AC／Household 分別更新至 version 35／36／32，原生部署均回傳 `succeeded`。目前均保留擁有者私人存取，須以擁有者的ChatGPT帳戶登入；不是公開學生入口，也不是SCORM部署。以下舊版紀錄按各自日期解讀。
 
 | 工作台 | 正式網址 | Site project ID | 原始入口 |
 |---|---|---|---|
 | DC | [直流電路工作台](https://simlab-dc-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6acacd25ad448191b82c7bdd801e2047` | `sim/circuit-workbench/index.html` |
 | AC | [交流電路工作台](https://simlab-ac-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6acacd3a2fb4819187870a3ebf24da68` | `sim/circuit-ac-workbench/index.html` |
+| Household | [家庭電路工作台](https://simlab-household-circuit-workbench.ieyp.chatgpt.site) | `appgprj_6ad0b88108c08191a7568eda54a1f36c` | `sim/circuit-household-workbench/index.html` |
+
+## 最近更新：三個工作台說明文字修訂（2026-10-17）
+
+修訂取自 SimLab `e411d4b4846d4518135e092364f0a8879024bf4d`（runtime `0945353a0b9e9d40e832264fecf685d44905e8ab`），三站共 97 個 runtime 資產與已測試來源逐 byte／SHA-256 核對：DC 29、AC 38、Household 30。修訂範圍與 source／ZIP 驗證見[共用計劃](../plans/28-circuit-workbench.md#三個工作台說明文字精準修訂2026-10-17)。
+
+| 工作台 | 已推送 Sites source commit | saved version | deployment（均 succeeded） |
+|---|---|---|---|
+| DC | `0160c84a36e67db74282fc972cc25f1e91ab1624` | 35，`appgprj_6acacd25ad448191b82c7bdd801e2047~appgver_451aa22ca9a48191a92ecf4f1ca27d97` | `appgdep_6ad2dddbb7c08191bccec02e2992a7ed` |
+| AC | `c3a5f9b8bb97e23c4ee0b3cb5bedb3448d53424a` | 36，`appgprj_6acacd3a2fb4819187870a3ebf24da68~appgver_0ffa6c1869ac819187bf52cb64590c18` | `appgdep_6ad2ddebb4e881918e56fdbc7ecf4ef3` |
+| Household | `823170e131f7ab85f78bdb60a739bb411026a10b` | 32，`appgprj_6ad0b88108c08191a7568eda54a1f36c~appgver_692f5ad31cb88191b2d213759df50489` | `appgdep_6ad2ddfb4fc88191900b6318be5ad624` |
+
+官方 source helper 推送及封裝後，原生私人發布及 get_site_version 確認上述來源／版本；原網址與 owner-only audience 保持。部署目錄入口及 HTML 相對引用通過；沿用本修訂已通過的三站 source／ZIP 說明頁及相鄰邏輯檢查，沒有重跑完整 CI、真手機或 Moodle。封裝使用 Git Bash 及 `TAR_OPTIONS=--force-local` 避開本機 WSL／Windows 磁碟路徑問題；未修改應用程式或插件。
+
+Archive 為 `output/sites/circuit-{dc,ac,household}-workbench-help-copy-e411d4b.tar.gz`；資產與原生部署證據分別為 `output/sites/shared-help-copy-assets.json`、`output/sites/shared-help-copy-deployments.json`。
 
 ## 最近更新：AC Sites version 35／高壓輸電比較（2026-10-17）
 
