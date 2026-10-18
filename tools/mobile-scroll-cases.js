@@ -41,13 +41,13 @@ function activityProfiles(slug) {
     const filled=projectile.filled();filled.selectedSlot=0;
     const profiles=[{id:'initial',projectileTarget:'#catcherHandle',projectileDelta:[0,-25]}];
     for(const view of projectileModel.VIEWS){
-      const s={...projectileModel.clone(filled),view};
+      const s={...projectileModel.clone(filled),view};if(view==='measure')s.selectedSlot=null;
       profiles.push(restored(view+'-answered',s,['#checkButton',`[data-go="${view}"]`],view==='collect'?{projectileTarget:'#catcherHandle',projectileDelta:[0,-25]}:view==='measure'?{projectileTarget:'#rulerBodyTarget',projectileDelta:[35,25]}:view==='plot'?{projectileTarget:'[data-point-slot="0"]',projectileDelta:[28,18]}:{}));
       const blank={...projectileModel.fresh(),view};profiles.push(restored(view+'-unanswered',blank,['#checkButton',`[data-go="${view}"]`]));
     }
-    profiles.push(restored('measure-vertical',{...projectileModel.clone(filled),view:'measure'},['#checkButton','[data-go="measure"]','#rulerY'],{projectileTarget:'#rulerBodyTarget',projectileDelta:[30,25]}));
+    profiles.push(restored('measure-vertical',{...projectileModel.clone(filled),view:'measure',selectedSlot:5},['#checkButton','[data-go="measure"]','#rulerY'],{projectileTarget:'#rulerBodyTarget',projectileDelta:[30,25]}));
     for(const axis of ['x','y']){
-      const s={...projectileModel.clone(filled),view:'measure'},p=projectileModel.impact(s.rows[0].depthMm,s.rows[0].speedOffsetPpm);s.ruler={axis,zero:axis==='x'?[0,p.y]:[Math.round(p.x),0]};
+      const s={...projectileModel.clone(filled),view:'measure',selectedSlot:null},p=projectileModel.impact(s.rows[0].depthMm,s.rows[0].speedOffsetPpm);s.ruler={axis,zero:axis==='x'?[0,p.y]:[Math.round(p.x),0]};
       profiles.push(restored('measure-preview-'+axis,s,['#checkButton','[data-go="measure"]'],{projectileTarget:'#rulerBodyTarget',projectileDelta:[30,25]}));
     }
     profiles.push(restored('plot-placement',{...projectileModel.clone(filled),view:'plot'},['#checkButton','[data-go="plot"]','#placePoint'],{projectileTarget:'#plotInputSurface',projectileDelta:[8,8]}));

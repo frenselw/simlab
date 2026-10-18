@@ -66,7 +66,6 @@
     const records=s.rows.map((r,i)=>r?[i,`第${i+1}點 · 已記錄`]:null).filter(Boolean);
     const complete=s.rows.map((r,i)=>r&&!r.read.includes(null)?[i,`第${i+1}點`]:null).filter(Boolean);
     options(d.recordSlot,s.rows.map((r,i)=>[i,`第${i+1}點 · ${r?'已有印記（重做）':'空白'}`]),s.setup?.slot??0);
-    options(d.measureSlot,[['','選擇印記'],...records],selected());
     options(d.plotSlot,[['','選擇已有完整讀數的點'],...complete],selected());
     d.recordCount.innerHTML=`已留下 ${records.length} / 6 個印記。高度相隔至少${math("5\\,\\mathrm{cm}","5 cm")}。槽微調每次${math("0.5\\,\\mathrm{cm}","0.5 cm")}；建議取高低分散的位置。`;
     d.recordList.innerHTML=records.map(([i])=>`<li>${math(`P_{${i+1}}`,pn(i))}：已將印記轉記到記錄紙</li>`).join('');
@@ -96,7 +95,7 @@
     d.timeFitResult.innerHTML=s.clockShown?fitText(M.timeFit(s,timeAxis),timeAxis===0?'timeX':'timeY'):'先顯示獨立計時記錄。';
     d.gFromClock.disabled=locked||!s.clockShown||!M.timeFit(s,1).ok;
     Object.keys(M.QUESTIONS).forEach(k=>document.querySelectorAll(`[data-question="${k}"]`).forEach(e=>{e.checked=s.conclusions[k]===e.value;e.disabled=locked;}));
-    [d.recordSlot,d.depthUp,d.depthDown,d.release,d.measureSlot,d.rulerX,d.rulerY,d.rulerHome,d.plotSlot,d.fitModel,d.trajectory,d.connectPoints,d.clearPlot].forEach(e=>e.disabled=locked);
+    [d.recordSlot,d.depthUp,d.depthDown,d.release,d.rulerX,d.rulerY,d.rulerHome,d.plotSlot,d.fitModel,d.trajectory,d.connectPoints,d.clearPlot].forEach(e=>e.disabled=locked);
     [d.recordSlot,d.depthUp,d.depthDown,d.catcherHandle].forEach(e=>e.disabled=locked||Boolean(run));
     d.previous.disabled=M.VIEWS.indexOf(view)===0;d.next.textContent=view==='motion'?'檢查目前作答':'下一步';d.returnCheck.hidden=!s.returnToCheck;
     if(checking){
@@ -204,7 +203,7 @@
       html+=`<path d="${ticks}" stroke="#654c17" stroke-width=".7" fill="none"/>`;
       const spacing=[10,20,50,100,200,500,1000].find(mm=>mm*scale>=labelSize*2)??1000;
       for(let mm=0;mm<=1000;mm+=spacing)html+=text(rxp+(horizontal?mm*scale:18),ryp+(horizontal?labelSize+22:mm*scale+labelSize*.35),mm/10,'#654c17',horizontal?'middle':'start').replace('<g ',`<g data-ruler-value="${mm}" `);
-      const actual=s.rows[selected()];if(actual){const p=M.impact(actual.depthMm,actual.speedOffsetPpm),px=horizontal?x(p.x):rxp,py=horizontal?ryp:y(p.y);html+=line(x(p.x),y(p.y),px,py,'#8d6e37')+`<circle data-reading-target="true" cx="${px}" cy="${py}" r="5" fill="#a3321e" stroke="#fff" stroke-width="1.5"/>`;}
+      const actual=s.rows[measured()];if(actual){const p=M.impact(actual.depthMm,actual.speedOffsetPpm),px=horizontal?x(p.x):rxp,py=horizontal?ryp:y(p.y);html+=line(x(p.x),y(p.y),px,py,'#8d6e37')+`<circle data-reading-target="true" data-reading-slot="${measured()}" cx="${px}" cy="${py}" r="5" fill="#a3321e" stroke="#fff" stroke-width="1.5"/>`;}
     }
     return html;
   }
@@ -236,15 +235,17 @@
     const p=selected(),eligible=p!==null&&s.rows[p]&&!s.rows[p].read.includes(null);
     d.plotInputSurface.hidden=!editing()||view!=='plot'||!placing||!eligible;
     d.plotInputSurface.style.cssText=`left:${g.x(0)}px;top:${g.y(0)}px;width:${1000*g.s}px;height:${1000*g.s}px`;
-    d.stageHint.innerHTML=prose(hint||(view==='collect'?'上下調槽，每次留下一個固定撞擊印記。':view==='measure'?'拖動尺身，對齊所選印記會自動吸附及放大；請自行對準零位。':view==='plot'?(placing?'在中央圖域放置所選點；兩側空白可滑動頁面。':'選資料點，再放點或拖動；兩側空白可滑動頁面。'):view==='speed'?'圖為自己的點及擬合；請在面板計算逐點速度與平均。':'獨立計時配對自己的讀數；圖示位移大小隨時間變化。'));
+    d.stageHint.innerHTML=prose(hint||(view==='collect'?'上下調槽，每次留下一個固定撞擊印記。':view==='measure'?'拖動尺身，靠近任何印記會自動吸附及放大；請自行對準零位。':view==='plot'?(placing?'在中央圖域放置所選點；兩側空白可滑動頁面。':'選資料點，再放點或拖動；兩側空白可滑動頁面。'):view==='speed'?'圖為自己的點及擬合；請在面板計算逐點速度與平均。':'獨立計時配對自己的讀數；圖示位移大小隨時間變化。'));
     if(drag?.kind==='point'){
       const focus=drag.value,zs=Math.max(g.s*8,4),zoom={w:128,h:112,s:zs,ox:64-focus[0]*zs,oy:50-focus[1]*zs};zoom.x=n=>zoom.ox+n*zs;zoom.y=n=>zoom.oy+n*zs;
       d.magnifier.hidden=false;d.magnifier.style.left=drag.previewLeft?'8px':'auto';d.magnifier.style.right=drag.previewLeft?'auto':'8px';d.magnifierSvg.setAttribute('viewBox','0 0 128 112');d.magnifierSvg.innerHTML=world(zoom,view,'zoomClip');
     }else d.magnifier.hidden=true;
   }
 
+  function measured(){return M.rulerSlot(controller.state.rows,currentRuler());}
   function drawReadingChoices(g,view){
-    const s=controller.state,i=selected(),row=s?.rows[i],ruler=currentRuler(),values=row?M.rulerChoices(row,ruler):[];
+    const s=controller.state,i=measured(),row=s?.rows[i],ruler=currentRuler(),values=row?M.rulerChoices(row,ruler):[];
+    d.readingChoices.dataset.slot=i??'';
     d.readingChoices.hidden=!editing()||view!=='measure'||!M.rulerAligned(row,ruler)||values.length!==4;
     if(d.readingChoices.hidden)return;
     const active=d.readingChoices.contains(document.activeElement)?document.activeElement:null;
@@ -266,7 +267,7 @@
     }
     d.readingChoices.style.left=left+'px';d.readingChoices.style.top=top+'px';active?.focus({preventScroll:true});
   }
-  const readingButtons=Array.from({length:4},()=>{const b=document.createElement('button');b.type='button';b.className='reading-choice';b.onclick=()=>{const s=controller.state,i=selected();if(!editing()||controller.view!=='measure'||drag||i===null||!M.rulerAligned(s.rows[i],s.ruler))return;const n=Number(b.dataset.reading);if(M.rulerChoices(s.rows[i],s.ruler).includes(n))command({type:'read',slot:i,axis:s.ruler.axis==='x'?0:1,value:n});};d.readingOptions.append(b);return b;});
+  const readingButtons=Array.from({length:4},()=>{const b=document.createElement('button');b.type='button';b.className='reading-choice';b.onclick=()=>{const s=controller.state,i=measured();if(!editing()||controller.view!=='measure'||drag||i===null||!M.rulerAligned(s.rows[i],s.ruler))return;const n=Number(b.dataset.reading);if(M.rulerChoices(s.rows[i],s.ruler).includes(n))command({type:'read',slot:i,axis:s.ruler.axis==='x'?0:1,value:n});};d.readingOptions.append(b);return b;});
   function modelPoint(event){const r=d.stage.getBoundingClientRect();return[(event.clientX-r.left-geometry.ox)/geometry.s,(event.clientY-r.top-geometry.oy)/geometry.s];}
   function resolveDrag(event){
     const p=modelPoint(event), start=drag.startModel, delta=[p[0]-start[0],p[1]-start[1]], clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
@@ -327,7 +328,7 @@
   ['meanV','fitV','gFromClock'].forEach(key=>d[key].addEventListener('change',()=>{const n=numberInput(d[key],{signed:key==='gFromClock'});if(n!==undefined)command({type:'answer',field:key,value:n});}));
   document.querySelectorAll('[data-question]').forEach(e=>e.addEventListener('change',()=>command({type:'conclusion',field:e.dataset.question,value:e.value})));
   d.recordSlot.addEventListener('change',()=>command({type:'setup',value:{slot:+d.recordSlot.value}}));
-  [d.measureSlot,d.plotSlot].forEach(e=>e.addEventListener('change',()=>{placing=false;command({type:'select',slot:e.value===''?null:+e.value});}));
+  d.plotSlot.addEventListener('change',()=>{placing=false;command({type:'select',slot:d.plotSlot.value===''?null:+d.plotSlot.value});});
   d.depthUp.onclick=()=>command({type:'setup',value:{depthMm:Math.max(50,controller.state.setup.depthMm-5)}});
   d.depthDown.onclick=()=>command({type:'setup',value:{depthMm:Math.min(800,controller.state.setup.depthMm+5)}});
   ['x','y'].forEach(axis=>d[axis==='x'?'rulerX':'rulerY'].onclick=()=>command({type:'ruler',value:{...controller.state.ruler,axis}}));

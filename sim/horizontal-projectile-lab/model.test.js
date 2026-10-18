@@ -65,4 +65,18 @@ for(const axis of ['x','y']){
  assert(M.rulerChoices(unsel.rows[0],{axis,zero:displaced}).every(n=>Math.abs(n-mark[along])>5));
 }
 assert(!M.rulerAligned(null,{axis:'x',zero:[0,0]}));
-console.log('Height spacing: 5 cm boundaries, atomic rejection, own-slot redo, legacy resume; selected-only ruler snapping passed.');
+for(const axis of ['x','y'])for(const selectedSlot of [null,0,1]){
+ const s=M.clone(spaced);s.selectedSlot=selectedSlot;s.ruler.axis=axis;const before=M.clone(s),along=axis==='x'?0:1,across=1-along;
+ for(let i=0;i<2;i++){
+  const p=M.impact(s.rows[i].depthMm,s.rows[i].speedOffsetPpm),target=[Math.round(p.x),p.y],raw=target.slice();raw[along]=50;raw[across]+=7;
+  assert.equal(M.rulerSlot(s.rows,{axis,zero:raw}),null);
+  const zero=M.snapRuler(s,raw,1,8);assert.equal(zero[across],target[across]);assert.equal(zero[along],50);assert.equal(M.rulerSlot(s.rows,{axis,zero}),i);
+  raw[across]=target[across]+9;assert.deepEqual(M.snapRuler(s,raw,1,8),raw);
+ }
+ assert.deepEqual(s,before);
+ const a=M.impact(s.rows[0].depthMm,s.rows[0].speedOffsetPpm),b=M.impact(s.rows[1].depthMm,s.rows[1].speedOffsetPpm),middle=[0,0];middle[across]=(Math.round(across?a.y:a.x)+Math.round(across?b.y:b.x))/2;
+ assert.equal(M.rulerSlot(s.rows,{axis,zero:middle},100),0);
+ assert.equal(M.rulerSlot(legacy.rows,{axis,zero:[Math.round(a.x),a.y]}),0);
+}
+assert.equal(M.rulerSlot(M.fresh().rows,{axis:'x',zero:[0,0]}),null);
+console.log('Height spacing, legacy resume, automatic nearest ruler targets, ties, thresholds and selection independence passed.');

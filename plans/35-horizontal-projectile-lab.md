@@ -601,3 +601,9 @@ Sites 版使用既有 standalone 行為，刷新開始新作答；Moodle成績�
 - `check:tests`仍246 entries／48 helpers／2 manual；`check`、`package:all`、文件連結及`git diff --check`通過。已提交選擇預覽base `577b3da`／head `005657d`為full、246 entries、packages=all；報告`selection-preview-canvas-preview.json`。中央mobile-scroll helper只改本活動操作契約；其他兩個活動的操作函數與base在正規化換行後完全相同。沒有重跑其他32個browser、GitHub CI、真手機、OS縮放或Moodle，保留原總閘未通過。
 - 同一私人Site及[原網址](https://simlab-horizontal-projectile-lab.ieyp.chatgpt.site)已更新。官方helper推送Sites source `b5ecd9a635fc98ab26138045a8c4661e32ab7a0d`；saved version `appgprj_6ad49418111c819198d79e88cab3e78e~appgver_664e3df435ac81918095e9dea42f660d`，deployment `appgdep_6ad4a071ca148191b06ae8b687f9079f`由原生發布確認`succeeded`。
 - Sites archive `output/sites/horizontal-projectile-lab-canvas-preview-005657d.tar.gz`共18檔，16個runtime資產與已測來源逐byte／SHA-256一致；archive SHA-256為`7c45366d2bb4fcad4fe703b7d3138216ae4d4ed77d5c5a5208b7c1d414ec4241`。資產證據`output/sites/projectile-canvas-preview-assets.json`；後續文件提交不改runtime。
+## 量尺自動辨認印記修訂（2026-10-18）
+
+使用者釐清：量度不先選點。取消量度選單，水平／豎尺按垂直於尺面的距離，自動吸附最近的已記錄印記；距離相同時採用較前的資料列。Canvas預覽、印記名稱及四選項跟隨尺位，點選直接記入對應列。尺零線吸附、錯零位四項全錯、作圖選點及既有評分維持。
+
+目標從當前尺位推導，不改schema或保存選點；拖動只預覽，放手才保存尺位，取消恢復原狀。修改範圍涵蓋model/main/HTML、model及browser測例、mobile-scroll本活動操作契約與fixtures。本次驗證未選點／舊選點不影響兩方向最近吸附、切換印記、對應列讀數、錯零位、觸控取消及來源／SCORM，完成後commit/push及更新原私人Sites。
+

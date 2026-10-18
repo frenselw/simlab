@@ -45,10 +45,15 @@
     return Math.floor(value * 20001) - 10000;
   }
   const heightConflict=(state,depthMm,slot)=>state.rows.findIndex((r,i)=>i!==slot&&r&&Math.abs(r.depthMm-depthMm)<50);
+  function rulerSlot(rows,ruler,tolerance=0){
+    const across=ruler.axis==='x'?1:0;let slot=null,distance=Infinity;
+    rows.forEach((row,i)=>{if(!row)return;const p=impact(row.depthMm,row.speedOffsetPpm),d=Math.abs(Math.round(across?p.y:p.x)-ruler.zero[across]);if(d<=tolerance&&d<distance){slot=i;distance=d;}});
+    return slot;
+  }
   function snapRuler(state,raw,scale,threshold){
     const along=state.ruler.axis==='x'?0:1,result=raw.slice();
     if(Math.abs(raw[along])*scale<=threshold)result[along]=0;
-    const row=state.rows[state.selectedSlot];if(!row)return result;
+    const slot=rulerSlot(state.rows,{axis:state.ruler.axis,zero:raw},threshold/scale),row=state.rows[slot];if(!row)return result;
     const mark=impact(row.depthMm,row.speedOffsetPpm),axis=1-along,target=Math.round(axis?mark.y:mark.x);
     if(Math.abs(target-raw[axis])*scale<=threshold)result[axis]=target;
     return result;
@@ -122,5 +127,5 @@
     }
     return s;
   }
-  return Object.freeze({G,H,IDEAL,SPEED,VIEWS,QUESTIONS,clone,integer,mean,fresh,velocity,impact,rulerChoices,drawOffset,heightConflict,snapRuler,rulerAligned,fit,predict,timeFit,included,change});
+  return Object.freeze({G,H,IDEAL,SPEED,VIEWS,QUESTIONS,clone,integer,mean,fresh,velocity,impact,rulerChoices,drawOffset,heightConflict,rulerSlot,snapRuler,rulerAligned,fit,predict,timeFit,included,change});
 });
