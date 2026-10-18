@@ -584,3 +584,10 @@ Sites 版使用既有 standalone 行為，刷新開始新作答；Moodle成績�
 - 四個活動Node入口及mobile-scroll契約、`check:tests`、`check`、文件連結及`git diff --check`通過。已提交選擇預覽base `8325eec`／head `1c8be34`為affected、214 entries、單一活動package，報告`selection-preview-mobile-space.json`。本次沒有重跑全部213個Node、其餘32個browser、GitHub CI、實際OS縮放、實體電話或Moodle；先前213項通過屬上一版證據，不以選擇預覽冒充本次完整CI。原總閘維持未勾選。
 - 同一Site `appgprj_6ad49418111c819198d79e88cab3e78e`保留owner-private權限及[原網址](https://simlab-horizontal-projectile-lab.ieyp.chatgpt.site)。官方helper已推送Sites source `3061193b8b8cb2194a451a477421d598cbc360a7`；saved version為`appgprj_6ad49418111c819198d79e88cab3e78e~appgver_d2ae63133c2881919e36bb7b19c0b27e`，deployment `appgdep_6ad498f36f7881919328ae2a8589aef1`由原生發布確認`succeeded`。
 - Sites archive `output/sites/horizontal-projectile-lab-mobile-space-1c8be34.tar.gz`共18檔；16個runtime資產與上述已測版本逐byte／SHA-256一致，根入口及hosting identity保持。Archive SHA-256為`beb250213f39a328841633332f73adc1569f20605b9d9c294c91d6f95ea2d7cb`；資產證據`output/sites/projectile-mobile-space-assets.json`。後續文件提交不改runtime。
+
+## 使用者釐清：預覽只在畫布，零線亦吸附（2026-10-18）
+
+- 取消所有panel fallback；預覽及四選項只放在畫布內，水平／豎直尺對齊所選印記才自動顯示，移開隱藏。尺未對齊時不再出現拖尺角落放大鏡；作圖的精細拖點預覽保留。
+- 小畫布使用並排的放大尺面／四選項，豎尺旁有空間時改直排卡；依測量點選左右／上下位置並限制在畫布內。極短窄iframe的量度步改雙欄，使預覽留在畫布，維持44px選項。這項使用者指示取代先前小畫面移到面板的設計。
+- 沿量度方向的尺零刻度靠近原點基準線時亦吸附；即水平尺對x=0、豎直尺對y=0。零線吸附不依賴選點；對印記方向的吸附仍須選點。零位離開吸附範圍時仍可錯置，預覽仍顯示四個錯誤位移，不代為記錄或改讀數。
+- 範圍：活動model/main/HTML/CSS及既有model/browser測例、既有mobile-scroll操作預覽契約、本計劃與同站更新。評分、schema、模型物理及資產數保持。驗證零線／印記兩方向吸附、未選點、閾值邊界、Canvas內預覽及四選項、移開即隱藏、錯零位、手機及極短iframe、可信拖放／取消、source／SCORM，再commit/push及更新既有私人Sites。

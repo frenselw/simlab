@@ -46,8 +46,10 @@
   }
   const heightConflict=(state,depthMm,slot)=>state.rows.findIndex((r,i)=>i!==slot&&r&&Math.abs(r.depthMm-depthMm)<50);
   function snapRuler(state,raw,scale,threshold){
-    const row=state.rows[state.selectedSlot];if(!row)return raw.slice();
-    const mark=impact(row.depthMm,row.speedOffsetPpm),axis=state.ruler.axis==='x'?1:0,target=Math.round(axis?mark.y:mark.x),result=raw.slice();
+    const along=state.ruler.axis==='x'?0:1,result=raw.slice();
+    if(Math.abs(raw[along])*scale<=threshold)result[along]=0;
+    const row=state.rows[state.selectedSlot];if(!row)return result;
+    const mark=impact(row.depthMm,row.speedOffsetPpm),axis=1-along,target=Math.round(axis?mark.y:mark.x);
     if(Math.abs(target-raw[axis])*scale<=threshold)result[axis]=target;
     return result;
   }

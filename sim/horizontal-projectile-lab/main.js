@@ -139,7 +139,7 @@
     const s=controller.state;if(!s)return'';
     const x=g.x,y=g.y,scale=g.s, time=view==='motion', q=1000*scale;
     const line=(x1,y1,x2,y2,color='#dbe2eb',width=1,arrow=false)=>`<path d="M${x1},${y1}L${x2},${y2}" stroke="${color}" stroke-width="${width}" fill="none"${arrow?` marker-end="url(#${clipId}Arrow)"`:''}/>`;
-    const labelSize=innerWidth>=900?24:16;
+    const labelSize=g.labelSize??(innerWidth>=900?24:16);
     const text=(px,py,t,color='#354a64',anchor='start',tex=null)=>{
       const point=String(t).match(/^P([₁₂₃₄₅₆])$/);
       const expression=tex??(point?`P_{${'₁₂₃₄₅₆'.indexOf(point[1])+1}}`:String(t).trim()!==''&&Number.isFinite(Number(t))?V.number(Number(t)):null);
@@ -237,7 +237,7 @@
     d.plotInputSurface.hidden=!editing()||view!=='plot'||!placing||!eligible;
     d.plotInputSurface.style.cssText=`left:${g.x(0)}px;top:${g.y(0)}px;width:${1000*g.s}px;height:${1000*g.s}px`;
     d.stageHint.innerHTML=prose(hint||(view==='collect'?'上下調槽，每次留下一個固定撞擊印記。':view==='measure'?'拖動尺身，對齊所選印記會自動吸附及放大；請自行對準零位。':view==='plot'?(placing?'在中央圖域放置所選點；兩側空白可滑動頁面。':'選資料點，再放點或拖動；兩側空白可滑動頁面。'):view==='speed'?'圖為自己的點及擬合；請在面板計算逐點速度與平均。':'獨立計時配對自己的讀數；圖示位移大小隨時間變化。'));
-    if(drag&&drag.kind!=='catcher'&&(drag.kind!=='ruler'||d.readingChoices.hidden)){
+    if(drag?.kind==='point'){
       const focus=drag.value,zs=Math.max(g.s*8,4),zoom={w:128,h:112,s:zs,ox:64-focus[0]*zs,oy:50-focus[1]*zs};zoom.x=n=>zoom.ox+n*zs;zoom.y=n=>zoom.oy+n*zs;
       d.magnifier.hidden=false;d.magnifier.style.left=drag.previewLeft?'8px':'auto';d.magnifier.style.right=drag.previewLeft?'auto':'8px';d.magnifierSvg.setAttribute('viewBox','0 0 128 112');d.magnifierSvg.innerHTML=world(zoom,view,'zoomClip');
     }else d.magnifier.hidden=true;
@@ -249,19 +249,19 @@
     if(d.readingChoices.hidden)return;
     const active=d.readingChoices.contains(document.activeElement)?document.activeElement:null;
     const axis=ruler.axis==='x'?0:1,p=M.impact(row.depthMm,row.speedOffsetPpm),size=innerWidth>=900?24:16;
-    const thickness=Math.max(size+28,CircuitMath.measure('100',size).width+24),cardWidth=innerWidth>=900?270:190;
+    const thickness=Math.max(size+28,CircuitMath.measure('100',size).width+24),compact=innerWidth<900||g.h<380,tiny=compact&&g.h<240;
     const target=[g.x(axis?ruler.zero[0]:p.x),g.y(axis?p.y:ruler.zero[1])];
+    const sideSpace=Math.max(g.w-target[0]-thickness-16,target[0]-16),stacked=compact&&(g.w<280||(axis&&sideSpace>=156&&g.h>=240));
+    const cardWidth=compact?Math.min(g.w-(tiny?8:16),stacked&&g.w>=280?Math.min(220,sideSpace):360):270;
+    d.readingChoices.classList.toggle('compact',compact);d.readingChoices.classList.toggle('stacked',stacked);d.readingChoices.classList.toggle('tiny',tiny);d.readingChoices.style.width=cardWidth+'px';
     d.readingChoiceTitle.innerHTML=math(`P_{${i+1}}\\;${axis?'y':'x'}`,pn(i)+' '+s.ruler.axis)+' 讀數';
     readingButtons.forEach((b,j)=>{const n=values[j],html=math(V.number(n/10)+'\\,\\mathrm{cm}',fmt(n/10)+' cm');if(b.innerHTML!==html)b.innerHTML=html;b.dataset.reading=n;b.disabled=Boolean(drag);b.setAttribute('aria-label',`${pn(i)} ${ruler.axis} ${fmt(n/10)} 厘米`);b.setAttribute('aria-pressed',String(row.read[axis]===n));});
-    let fallback=g.h<390||(axis&&target[0]+thickness+12+cardWidth>g.w-32);
-    const host=fallback?d.readingFallback:d.stage;if(d.readingChoices.parentElement!==host)host.append(d.readingChoices);d.readingChoices.classList.toggle('in-panel',fallback);
-    let box=d.readingChoices.getBoundingClientRect(),left=axis?target[0]+thickness+12:Math.max(32,Math.min(g.w-32-box.width,target[0]+18)),top=axis?Math.max(4,Math.min(g.h-box.height-40,target[1]-18)):target[1]+thickness+12;
-    if(!axis&&top+box.height>g.h-40)top=target[1]-box.height-12;
-    if(!fallback&&(top<4||top+box.height>g.h-40)){
-      fallback=true;d.readingFallback.append(d.readingChoices);d.readingChoices.classList.add('in-panel');
-    }
+    const box=d.readingChoices.getBoundingClientRect(),clamp=(n,max)=>Math.max(4,Math.min(max-4,n));
+    const beside=axis?[target[0]+thickness+8,target[0]-box.width-8].find(x=>x>=4&&x+box.width<=g.w-4):undefined;
+    const below=target[1]+(axis?8:thickness+8),above=target[1]-box.height-8;
+    const left=beside??clamp(target[0]+12,g.w-box.width),top=beside!==undefined?clamp(target[1]-18,g.h-box.height):clamp(below+box.height<=g.h-4?below:above,g.h-box.height);
     {
-      const width=d.readingPreview.clientWidth,height=d.readingPreview.clientHeight,zs=Math.max(g.s*8,4),focus=axis?[ruler.zero[0],p.y]:[p.x,ruler.zero[1]],zoom={w:width,h:height,s:zs,ox:width/2-focus[0]*zs,oy:height/2-focus[1]*zs};zoom.x=n=>zoom.ox+n*zs;zoom.y=n=>zoom.oy+n*zs;
+      const width=d.readingPreview.clientWidth,height=d.readingPreview.clientHeight,zs=Math.max(g.s*8,4),focus=axis?[ruler.zero[0],p.y]:[p.x,ruler.zero[1]],labelSize=compact?16:size,zoomThickness=Math.max(labelSize+28,CircuitMath.measure('100',labelSize).width+24),focusY=axis?height/2:Math.max(6,Math.min(height/2,height-zoomThickness-4)),zoom={w:width,h:height,s:zs,ox:width/2-focus[0]*zs,oy:focusY-focus[1]*zs,labelSize};zoom.x=n=>zoom.ox+n*zs;zoom.y=n=>zoom.oy+n*zs;
       d.readingPreviewSvg.setAttribute('viewBox',`0 0 ${width} ${height}`);d.readingPreviewSvg.innerHTML=world(zoom,'measure','readingClip');
     }
     d.readingChoices.style.left=left+'px';d.readingChoices.style.top=top+'px';active?.focus({preventScroll:true});

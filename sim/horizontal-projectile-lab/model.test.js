@@ -49,16 +49,20 @@ for(const depthMm of [155,195,200,245])assert.throws(()=>M.change(spaced,{type:'
 spaced=M.change(spaced,{type:'record',slot:1,depthMm:250,ppm:0});assert.equal(spaced.rows[1].depthMm,250);
 assert.doesNotThrow(()=>M.change(spaced,{type:'record',slot:0,depthMm:200,ppm:10}));
 const legacy=M.clone(spaced);legacy.rows[1]=M.clone(legacy.rows[0]);assert.deepEqual(P.decode(T.snapshot(legacy),'draft'),legacy);assert.doesNotThrow(()=>M.change(legacy,{type:'record',slot:1,depthMm:250,ppm:0}));
-const unsel=M.clone(spaced);unsel.selectedSlot=null;assert.deepEqual(M.snapRuler(unsel,[5,6],1,12),[5,6]);
+const unsel=M.clone(spaced);unsel.selectedSlot=null;assert.deepEqual(M.snapRuler(unsel,[5,6],1,12),[0,6]);
+unsel.ruler.axis='y';assert.deepEqual(M.snapRuler(unsel,[5,6],1,12),[5,0]);unsel.ruler.axis='x';
 unsel.selectedSlot=0;
 for(const axis of ['x','y']){
  unsel.ruler.axis=axis;const p=M.impact(unsel.rows[0].depthMm,unsel.rows[0].speedOffsetPpm),mark=[Math.round(p.x),p.y],along=axis==='x'?0:1,across=1-along;
  for(const offset of [0,1,10,50]){
   const raw=mark.slice();raw[along]=offset;raw[across]+=8;
-  const snapped=M.snapRuler(unsel,raw,1,12);assert.equal(snapped[along],offset);assert.equal(snapped[across],mark[across]);
+  const snapped=M.snapRuler(unsel,raw,1,12);assert.equal(snapped[along],offset<=12?0:offset);assert.equal(snapped[across],mark[across]);
   assert(M.rulerAligned(unsel.rows[0],{axis,zero:snapped}));assert(!M.rulerAligned(unsel.rows[0],{axis,zero:raw}));
  }
- assert.deepEqual(M.snapRuler(unsel,[5,6],1,12),[5,6]);
+ const near=[5,6],expected=near.slice();expected[along]=0;assert.deepEqual(M.snapRuler(unsel,near,1,12),expected);
+ for(const offset of [-13,-12,12,13]){const raw=mark.slice();raw[along]=offset;const result=M.snapRuler(unsel,raw,1,12);assert.equal(result[along],Math.abs(offset)<=12?0:offset);}
+ const wrong=mark.slice();wrong[along]=100;const displaced=M.snapRuler(unsel,wrong,.3,12);assert.equal(displaced[along],100);assert(M.rulerAligned(unsel.rows[0],{axis,zero:displaced}));
+ assert(M.rulerChoices(unsel.rows[0],{axis,zero:displaced}).every(n=>Math.abs(n-mark[along])>5));
 }
 assert(!M.rulerAligned(null,{axis:'x',zero:[0,0]}));
 console.log('Height spacing: 5 cm boundaries, atomic rejection, own-slot redo, legacy resume; selected-only ruler snapping passed.');

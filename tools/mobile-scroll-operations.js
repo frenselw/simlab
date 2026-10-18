@@ -127,7 +127,10 @@ async function runProjectileOperations({cdp,childEval,observation,prepare,delay}
     await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[touch(point.x,point.y)]});
     for(let i=1;i<=6;i++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[touch(point.x+dx*i/6,point.y+dy*i/6)]});await delay(20);samples.push(await observation());}
     const preview=await childEval('!document.getElementById("magnifier").hidden||!document.getElementById("readingChoices").hidden');
-    if(selector!=='#catcherHandle'&&!preview)issues.push('required precision preview absent');
+    if(selector==='#rulerBodyTarget'){
+      const alignment=await childEval(`(()=>{const s=window.__projectileApp.getState(),g=window.__projectileApp.getGeometry(),r=s.rows[s.selectedSlot],p=r?window.ProjectileModel.impact(r.depthMm,r.speedOffsetPpm):null,e=document.querySelector('#scene [data-reading-target]'),horizontal=s.ruler.axis==='x',expected=p?(horizontal?g.oy+p.y*g.s:g.ox+Math.round(p.x)*g.s):null;return{aligned:!!e&&Math.abs(+e.getAttribute(horizontal?'cy':'cx')-expected)<1e-5,inCanvas:document.getElementById('readingChoices').parentElement.id==='stage',corner:!document.getElementById('magnifier').hidden};})()`);
+      if(preview!==alignment.aligned||!alignment.inCanvas||alignment.corner)issues.push('ruler preview must be in canvas exactly when aligned');
+    }else if(selector!=='#catcherHandle'&&!preview)issues.push('required precision preview absent');
     if(ending==='cancel')await cdp.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});
     else{
       if(ending==='blur')await childEval('window.dispatchEvent(new window.Event("blur"))');
