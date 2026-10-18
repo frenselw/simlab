@@ -1,6 +1,6 @@
 # 平拋運動：軌跡量度與擬合實驗
 
-狀態：**2026-10-18 計劃稿；尚未實作。** 本次只建立專用分支及計劃。
+狀態：**2026-10-18 計劃稿，已完成兩份獨立完整審查及修訂覆核；尚未實作。** 本分支目前只有計劃及審查修訂。
 
 - 分支：`codex/horizontal-projectile-lab`。
 - 起點：本機 `main`，`f7ab989ca59b72ebe6a7691129320c4768f6fcf8`；未宣稱已同步遠端。
@@ -10,7 +10,7 @@
 
 ## 建議的學生體驗
 
-1. **設置與取點**：直接進入實驗裝置。學生上下拖動接球槽，按「釋放鋼珠」；球由斜槽同一標記靜止釋放，經水平出口飛出，撞槽後在共同記錄紙上留下 P₁。
+1. **設置與取點**：直接進入實驗裝置。學生上下拖動接球槽，按「釋放鋼珠」；球由斜槽同一標記靜止釋放，經水平出口飛出、撞槽留下接觸痕跡。模擬再將該印記按球心基準轉記至共同記錄紙，標為 P₁；以短提示「將本次印記轉記到記錄紙」說明這是模擬提供的轉記功能。
 2. **重複實驗**：改變槽高，最多記錄六點。舊印記不隨槽移動；可以選一個點重做。提示分散高低取點，不代學生安排正確位置。
 3. **量度**：記錄紙近景以出口球心 O 為原點，向右為 x、向下為 y。拖動可切換水平／豎直的直尺，讀取並填寫各點座標；印記不直接顯示正確數值。
 4. **作圖與擬合**：根據自己的表格逐點放到 x–y 圖，可顯示資料點折線，再比較一般直線及一般二次函數擬合。所有曲線只用學生已放置的點，不用理想答案修正錯點。
@@ -207,7 +207,9 @@ Apply [diagrams/notation](00-shared-platform-and-style.md#diagrams-and-notation)
 
 計算採follow-through：t對自己的y，v對自己的x及所填正t，平均對兩個所填v；擬合換算對自己的k／α。物理真值準確度另給分，不因上游錯將所有後續運算清零。缺真實依賴則只有該項0。
 
-證據題問「哪種數據證據支持模型」：水平為x–t近直線且斜率穩定；豎直為y–t二次項對應g/2、一次項近零且出口水平。概念題可在資料不足時回答，不依完成數鎖住。平方換算須已成功square fit且k>0；g換算須已揭示時鐘且三個不同t的y讀數。
+證據題問「哪種數據特徵可支持這個運動模型」：水平為x–t近直線且斜率穩定；豎直為y–t二次項對應g/2、一次項近零且出口水平。類型題亦明示「在本活動水平拋出、只有重力作用的理想模型下」。兩者評一般物理知識，不預設學生自己的錯誤／不足數據已支持結論，不能寫成「你的數據顯示……」。概念題可在資料不足時回答，不依完成數鎖住。平方換算須已成功square fit且k>0；g換算須已揭示時鐘且三個不同t的y讀數。
+
+由自己的二次擬合算出負的g估值，表示這組量度不支持所假設的自由落體模型，不代表真實重力加速度變成負值。允許輸入並按2α給運算部分分；接近正9.80的真值分另計。合法但很大的速度／加速度估值同樣保留，不為符合真值而截斷結果。
 
 | Quantity / constant | 容差 | 內／外邊界例 |
 |---|---|---|
@@ -225,7 +227,7 @@ Draft只有`edit`、`check`；五步由`view`表示。submitted／pending／comm
 
 | Phase / variant | Current step | Required semantic state | Absent / retained data | Legal continuation / final-check route |
 |---|---|---|---|---|
-| edit／全新、已調深度未投球 | collect | 六null slot、預設或已調setup | 無觀測及答案 | 釋放或check空白提交 |
+| edit／零觀測：全新、已調深度，或曾在其他步作答後返回 | collect | 六null slot、合法setup | 全新時答案空；其他步的合法概念答案、軌跡選項、模型選擇／資料不足擬合操作及clockShown可保留 | 釋放並保留獨立答案，或check空白／部分提交 |
 | edit／部分、滿六點、待重做 | collect | 1–6記錄及下一slot／深度 | 保留其他已答內容；未撞槽不先刪舊點 | 調槽／釋放或check |
 | edit／無點、未量、x-only、y-only、完整 | measure | selectedSlot合法或null | 缺讀數明確null，不強制未來答案空白 | 選點／讀數／回取點或check |
 | edit／無可放點、未放、部分、完整 | plot | 每個point依賴完整read | 未擬合；錯點可保留 | 放點／回量度或check |
@@ -234,7 +236,7 @@ Draft只有`edit`、`check`；五步由`view`表示。submitted／pending／comm
 | edit／擬合成功 | plot | attempted=true且可重算 | 係數由點派生 | 改點／換模型或check |
 | edit／估速空白、單卡、部分、全答、不可算 | speed | 卡引用完整read的不同slot或null | y=0／所填0仍合法 | 選點／填值／回量度或check |
 | edit／計時未揭示 | motion | clockShown=false | gFromClock=null；概念可答 | 顯示時間／答題或check |
-| edit／揭示，無資料／不足秩／可擬合 | motion | clockShown=true | 不補缺的read；保留已有答案 | 回量度／答題／填g或check |
+| edit／揭示，無資料／不足秩／可擬合（正、零或負α） | motion | clockShown=true | 不補缺的read；保留已有答案，負或大估值亦可保存 | 回量度／答題／填g或check |
 | edit／check返回，套用以上每種invariant | 任一view | returnToCheck=true | 完整保留合法舊答案 | 改一次再返回check |
 | check／空白、部分、完整 | 保留來源view | returnToCheck=false | 不要求任何上游完成 | edit指定view或submit |
 | review／空白、部分、完整 | 只讀 | validated、rescored review | 無編輯／reset | 檢視圖／答案或fullscreen |
@@ -250,12 +252,14 @@ Draft只有`edit`、`check`；五步由`view`表示。submitted／pending／comm
 | 改讀數 | row存在 | 保留原point供核對；清引用卡t/v及meanV、fit.attempted／fitV；改y清gFromClock。清空read另清該point及引用卡slot |
 | 放／改／刪圖點 | 完整read | 存mm座標／null；清fit.attempted／fitV，不改讀數／兩點估速 |
 | 換模型／按擬合 | editable | 換模型清attempted／fitV；按擬合置attempted=true，成功／失敗重算 |
-| 換估速slot／改計算 | 合法不同slot | 換slot清卡t/v；改t清該v；改v清meanV；另一卡保留 |
+| 換估速slot／改計算 | 合法不同slot | 換slot原子清該卡t/v及meanV；改／清t原子清該卡v及meanV；改／清v亦清meanV；另一卡保留 |
 | 顯示時間 | editable，零記錄亦可 | clockShown=true；新記錄亦可查看，不改量度／估速 |
 | 清本圖 | editable、確認 | 清points、fit、fitV、trajectory；保留觀測、讀數、兩點估速、分運動 |
 | 清本次實驗 | editable、確認 | 回新edit/collect，所有答案及觀測清空 |
 | check→edit→check | 可編輯 | 正確保存view／returnToCheck，不生成完成或得分旗標 |
 | submit | check及明確操作 | 清暫態、canonical review重算後交shared；結果鎖定依outcome |
+
+依賴清除直接更新同一份權威狀態，不依靠程式修改輸入欄會觸發input/change事件。任何原因使一卡v改變或清除（包括換slot、改t、改read及重做印記），meanV都在同一次更新清除，保存前不可留下「缺v但有平均值」的狀態。
 
 ## Persistence contract
 
@@ -270,7 +274,7 @@ Draft只有`edit`、`check`；五步由`view`表示。submitted／pending／comm
 | `fit` | `{model:nullOrEnum,attempted:boolean}`；enum=`linear\|quadratic\|square`；model=null必須attempted=false |
 | `trajectory` | `null\|line\|parabola\|circle\|other` |
 | `calculations` | 恆兩個`{slot:nullOrInteger0to5,t:nullOrNumber,v:nullOrNumber}`；slot非null需指向完整read，兩卡引用不重複；slot=null時t/v皆null |
-| 計算number域 | t=0–10s；v、meanV、fitV=0–100m/s；gFromClock=0–100m/s²；最多3位小數，全部finite。0是合法錯答，不是未答 |
+| 計算number域 | t=0–10s；v、meanV、fitV為有限非負m/s數字，gFromClock為可正可負的有限m/s²數字；結果欄不設100或其他任意幅值上限。一般小數輸入最多3位，亦接受等價有限科學記數法。0是合法錯答，不是未答；非有限運算顯示無法計算，不截斷或偽造答案 |
 | `meanV`／`fitV` | null或上述number；meanV非null需兩卡v非null；fitV非null需attempted=true且成功square fit、k>0，是否算對由scorer判斷 |
 | `clockShown`／`gFromClock` | boolean／nullOrNumber；gFromClock非null需已揭示且可由現有y/time重建二次擬合；不因α負而拒絕學生錯讀數 |
 | `conclusions` | `{horizontal,hEvidence,vertical,vEvidence}`，各null或所屬enum，見下列 |
@@ -286,7 +290,7 @@ Draft只有`edit`、`check`；五步由`view`表示。submitted／pending／comm
 | Transient | 動畫／RAF、pointer／capture、拖動中preview、hover、confirmation、camera及fullscreen；不保存。拖動完成才save，取消回復 |
 | Derived | 真實位置、刻度、P₁–P₆／DOM id、擬合係數／RMSE／成敗、計時圖、完成數及分數；從權威資料重建，不信任cache |
 | Version compatibility | 首版僅v1，其他版本明確拒絕；未來變更先定migration及保留rubric，不靜默改評 |
-| Size | 最多六觀測／點、兩計算、短enum；不存歷史／截圖／筆畫／係數cache。最大draft、review及shared pending envelope實測UTF-8 **≤4000 bytes**，目前未實測 |
+| Size | 最多六觀測／點、兩計算、短enum；不存歷史／截圖／筆畫／係數cache或原始數字輸入字串。最大draft、review及shared pending envelope實測UTF-8 **≤4000 bytes**，包含極大有限數字的JSON表示；目前未實測 |
 | Invalid finished review | 鎖定，只顯示可信LMS summary，不能重開空白 |
 | Invalid pending-final | 深層decoder、rescorer或canonical answer不符時`quarantinePending()`；不retry／clear／reopen |
 | Invalid editable draft | 首版採technical load lock，保留資料供排查，不自動清除 |
@@ -323,6 +327,9 @@ Apply all relevant [verification checks](../docs/simulation-scorm-production-gui
 - [ ] 已知y=1.75x²的三種擬合、錯點、最少點、重複x、退化、全y相同、零／負k、非有限數；不能把少點精確插值當證明。
 - [ ] 改學生y只改推算時間／擬合、不改clockMs；改深度影響新觀測。未揭示不顯時間，揭示但零資料仍合法。
 - [ ] 滿分／untouched／單讀數／單概念、取樣跨度、duplicates、容差邊界、follow-through及所有依賴修改／清除。
+- [ ] 兩卡及meanV完整後，分別換slot、改／清t、改／清v、改read及重做印記；每次同一更新清除相依meanV，production round-trip後可再填並提交。
+- [ ] 零觀測前進motion、揭示時鐘並答概念／前進plot嘗試資料不足擬合，再返回collect；production round-trip後釋放第一球，獨立概念答案與合法操作仍保留。
+- [ ] 派生答案域：x=500mm、所填t=0.001s可填v=500m/s；square點(1,1)、(1000,0)mm可填約70000m/s；α<0時可填同樣為負值的2α、正確換算得部分分而真值分為0；很大正／負g亦不截斷。每例均涵蓋輸入、scoring、保存及恢復，非有限值另拒絕。
 - [ ] 正式UI走完取點→量度→描點→擬合→估速→計時→提交，並測重做／reset取消及確認；source與真實ZIP同樣執行。
 
 - [ ] Scoring covers blank/partial answers, component independence, extras, penalties and tolerance boundaries.
@@ -387,3 +394,19 @@ Follow the production guide's [registration procedure](../docs/simulation-scorm-
 - 2026-10-18 文件檢查：17個本地Markdown連結及fragment皆可解析；20個表格欄數一致、無未填範本欄或行尾空白。
 - `npm.cmd run check:tests` 通過：241 entries（209 node、32 browser）、48 helpers、2 manual。這是既有registry有效性檢查，沒有執行新活動測試。
 - 物理常數、rubric、schema容量、瀏覽器、SCORM套件、Moodle及實體手機均是待實作／待驗收，不表示已有通過證據。
+
+## 2026-10-18 兩份獨立完整計劃審查及跟進
+
+兩位sub-agents各自審查完整計劃，涵蓋需求、物理／教學、操作、評分、保存／SCORM、手機與測試／包裝；兩位均未提出P0／P1，獨立指出相同兩項P2一致性問題。子代理的檔案工具未載入，因此由主agent提供全部章節及規範內容，主agent再對照實際文件核實引文與數值；不是子代理執行過程式測試的證據。
+
+| 項目 | 核實及最小跟進 | 狀態 |
+|---|---|---|
+| R1：平均速度相依資料失效 | 完整meanV後改slot／t會清v卻可能留meanV；明訂所有v變動都原子清meanV，不依input事件連鎖，補round-trip續作測例 | 已修訂計劃 |
+| R2：派生答案範圍與follow-through衝突 | 以現有fitting核算出約70000m/s、負g及大幅值g；移除結果欄任意100上限，g估值可帶符號，物理準確度仍獨立評分，補輸入／保存測例 | 已修訂計劃 |
+| R3：零觀測但已有獨立答案 | 主agent補核、第一位覆核：零記錄仍可先答概念／嘗試擬合再返回collect；擴充該列及合法續作fixture | 已修訂計劃 |
+| C1：印記轉記呈現 | 採納第二位可選建議，用一句提示區分接球槽接觸痕跡及球心位置轉記，不增加新工具 | 已修訂計劃 |
+| C2：一般判據與自己的資料 | 採納第二位可選建議，題幹明示理想模型／哪種特徵可支持，不宣稱學生錯誤數據支持正解 | 已修訂計劃 |
+
+修訂後兩位均覆核R1、R2、R3已解決，C1／C2合適，未發現仍須在實作前修正的問題。覆核針對所提供的修訂內容及先前完整計劃，不表示活動已通過測試。
+
+主agent本次驗證：17個本地連結／fragment、21個表格欄數及行尾空白檢查通過，`git diff --check`通過；以實際既有fitting.js及合法深度事件時間核算，兩點法可得500m/s、平方擬合約70000m/s、負g約−3.921m/s²、近時間錯讀數可得約±1000000m/s²，數值assertions通過。這些核算確認原規格矛盾，不等同新活動的輸入、評分、保存或瀏覽器驗收；新增測例仍保持未勾選。
