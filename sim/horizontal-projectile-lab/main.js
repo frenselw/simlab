@@ -107,7 +107,7 @@
     const term=(n,v,first=false)=>`${n<0?'−':first?'':'+'} ${esc(fmt(Math.abs(n)))}${v?` <var>${v}</var>`:''}`;
     const quad=model==='quadratic'||model==='timeY';
     const equation=quad?`${term(c[0],variable,true)}² ${term(c[1],variable)} ${term(c[2],'')}`:model==='square'?`${term(c[0],'x',true)}²`:`${term(c[0],variable,true)} ${term(c[1],'')}`;
-    return `<p class="math">${model==='timeX'?'<var>x</var>':'<var>y</var>'} = ${equation}</p><p>使用${f.n}點；RMSE = ${esc(fmt(f.rmse))} m。${quad?'保留一次項與截距，請解讀其物理意義。':''}</p>`;
+    return `<p class="math">${model==='timeX'?'<var>x</var>':'<var>y</var>'} = ${equation}</p><p>擬合式中，<var>x</var>、<var>y</var>以 m 表示，<var>t</var>以 s 表示；圖上位移刻度以 cm 表示。</p><p>使用${f.n}點；RMSE = ${esc(fmt(f.rmse))} m。${quad?'保留一次項與截距，請解讀其物理意義。':''}</p>`;
   }
   function makeGeometry(view){
     const w=d.stage.clientWidth,h=d.stage.clientHeight;

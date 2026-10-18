@@ -44,13 +44,14 @@ async function completeFlow(base,label){
   await click('#next');
   for(let i=0;i<6;i++){await input('#plotSlot',i);await click('#keyboardPoint');const r=(await state()).rows[i];await input('#pointX',r.read[0]/10);await input('#pointY',r.read[1]/10);}
   await input('#fitModel','quadratic');await click('#fitButton');assert(await call('return ProjectileModel.fit(app.getState()).ok;'));
+  assert(await call('return d.getElementById("fitResult").textContent.includes("以 m 表示")&&d.getElementById("fitResult").textContent.includes("以 cm 表示");'));
   await input('#trajectory','parabola');await input('#fitModel','square');await click('#fitButton');await screenshot(label+'-trajectory');await click('#next');
   for(let i=0;i<6;i++){const r=(await state()).rows[i],t=Number(Math.sqrt(2*r.read[1]/1000/M.G).toFixed(3));await input(`#calc-t-${i}`,t);await input(`#calc-v-${i}`,Number((r.read[0]/1000/t).toFixed(3)));}
   const s=await state();await input('#meanV',Number(M.mean(s.calculations.map(c=>c.v)).toFixed(3)));await input('#fitV',Number(Math.sqrt(M.G/(2*M.fit(s).coefficients[0])).toFixed(3)));
   await click('#next');await click('#showClock');const q=await state();await input('#gFromClock',Number((2*M.timeFit(q,1).coefficients[0]).toFixed(3)));
   for(const value of['uniform','linear-x-time','free-fall','quadratic-y-time-zero-initial'])await click(`input[value="${value}"]`);
   assert.deepEqual((await state()).rows.map(r=>r.speedOffsetPpm),recorded.rows.map(r=>r.speedOffsetPpm));
-  await click('#timeY');await screenshot(label+'-time');await click('#checkButton');await click('#submitButton');
+  await click('#timeY');assert(await call('return d.getElementById("timeFitResult").textContent.includes("以 s 表示");'));await screenshot(label+'-time');await click('#checkButton');await click('#submitButton');
   assert.equal(await call('return app.controller.result.score;'),100);assert.equal(await call("return w.__lmsValues['cmi.core.score.raw'];"),'100');
   assert.equal(await call('return app.controller.mode;'),'review');assert.equal(await call("return Boolean(d.querySelector('#clearAll').getClientRects().length);"),false);
   report.flows.push({label,kind:'six-point-complete',score:100,ppm:recorded.rows.map(r=>r.speedOffsetPpm)});
@@ -118,6 +119,11 @@ async function touchDrag(selector,dx,dy,ending='touchEnd'){
 }
 async function interactions(base,label){
   await viewport(390,600);
+  const first=M.change(M.fresh(),{type:'record',slot:0,depthMm:200,ppm:0});first.view='plot';first.rows[0].read=[300,200];await open(base,first);await click('#placePoint');
+  const centre=await call('const g=app.getGeometry(),r=d.getElementById("stage").getBoundingClientRect();return{x:r.left+g.ox+500*g.s,y:r.top+g.oy+500*g.s};');
+  await cdp.send('Input.dispatchMouseEvent',{type:'mousePressed',button:'right',clickCount:1,...centre});await cdp.send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'right',clickCount:1,...centre});await cdp.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape'});assert.equal((await state()).rows[0].point,null);
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...centre,id:52,radiusX:3,radiusY:3,force:1}]});await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});assert.deepEqual((await state()).rows[0].point,[500,500]);assert.equal(await call('return d.getElementById("plotInputSurface").hidden;'),true);
+  report.gestures.push({label,kind:'central-placement/trusted-touch/right-button-ignored',passed:true});
   for(const [view,target,dx,dy]of[['collect','#catcherHandle',0,30],['measure','#rulerHandle',35,20],['plot','[data-point-slot="0"]',28,18]]){
     const s=T.filled();s.view=view;s.selectedSlot=0;
     for(const ending of['touchEnd','touchCancel']){await open(base,s);report.gestures.push({label,view,...await touchDrag(target,dx,dy,ending)});}
