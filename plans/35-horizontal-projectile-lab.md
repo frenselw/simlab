@@ -6,6 +6,12 @@
 - 本次只刪提示，不改model、rubric或schema（仍3/1/3）。維持至少兩個有限派生速度才可填平均，以實際有效列數作分母；少於六列不按比例扣平均分，平均運算4及準確4仍可全得。缺印記每列少取樣1及兩讀數6，另依原跨度規則計分；例如四個正確完整點且跨度至少50cm、其餘正確，總分86。已記錄但未讀完整的列只按各讀數是否正確給分，不將它誤算成缺印記。既有draft/review/pending不變。
 - 範圍限index/main、相應scoring測例／browser斷言及本計劃；新增兩至五列有效速度仍可得平均8分、零／一列平均0分，以及四點86分實際提交測例。沿用既有登記，執行四個活動Node、source＋解壓SCORM含手機可信touch、check:tests／committed selection preview、check／活動打包／文件與diff，再更新同一私人Sites、commit/push。刪除靜態提示不改拖動或捲動契約，不重跑T1–T3全矩陣或無關活動；真機及Moodle仍未實測。
 
+### 無平均提示版驗證與發布
+
+- Runtime head `0ce7b60e6cd5caa7d45da9de3f1166def700cbbd`已推送；四個活動Node入口通過，新增0至6有效列的平均評分及review round-trip斷言，2至6列平均均8分，分散四點總86分。正式source＋真正解壓SCORM通過104個版面、26組流程、48組操作觀測；兩版均實際輸入四點平均、提交86分，平均兩項各4分，檢查頁沒有「納入」提示。平均輸入及單位保留、formula與included區域移除；報告`output/playwright/horizontal-projectile-lab/report.json`，截圖`source-average-without-hints.png`／`package-average-without-hints.png`。
+- `check:tests`仍246 entries／48 helpers／2 manual，`check`、活動17檔SCORM、文件與diff檢查通過；ZIP runtime逐byte等於來源，16資產hash為`9ca11d1740823ffd9fd47d74d5653e2251e66330543a91e84c284b545535bdd1`。Committed selection preview base `09a02bf`／head `0ce7b60`為affected、214 entries、單一活動package，存於`selection-preview-mean-no-hints.json`；本次只執行相關四個Node與本活動browser，不將選擇預覽當其他209 Node／32 browser通過證據。T1–T3完整矩陣、真機及Moodle未重驗。
+- [原私人Sites](https://simlab-horizontal-projectile-lab.ieyp.chatgpt.site)已更新，owner-private維持。官方helper推送Site source `486bcbab8422549ffa7f7130a77e97ff00e8ff46`，saved version `appgprj_6ad49418111c819198d79e88cab3e78e~appgver_4653b92343f48191a3a0752f05390c53`，deployment `appgdep_6ad4d2f55e9c8191aba4538e034c57e0`原生回傳`succeeded`。Archive `output/sites/horizontal-projectile-lab-mean-no-hints-0ce7b60.tar.gz`共18檔，16 runtime與根redirect逐byte核對，hosting metadata等同來源JSON；SHA-256 `7c67ba93c79c7b8b408b10f1348d6353fdc9e882eb30d9b4d7311eb115e8daed`，資產證據`output/sites/projectile-mean-no-hints-assets.json`。後續文件提交不改runtime。
+
 ## 移除反比例選項（2026-10-18；本節優先）
 
 - 依最新要求，新作答只提供一次函數與二次函數，兩者繼續將原點納入擬合。其餘四步、100分rubric、公式／平均、隨機速率及測試模式不改，不新增依賴或manifest資產。
