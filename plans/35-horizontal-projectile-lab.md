@@ -11,6 +11,12 @@
 - 版本策略：權威schema不新增欄位，以既有rubricVersion保存評分契約。validator僅接受schema3配rubric3/4，舊schema1/2仍須對應原rubric。既有rubric3的draft續作／review／pending保持原分，不自動升級；新實驗與明確清除後重做用rubric4。四個view、edit/check/return、review/pending沿用現行矩陣；增加兩種rubric的production round-trip、合法續作／提交／frozen重試及錯版拒絕。
 - 測試0至6有效點、六印記未讀齊、零時間、錯公式follow-through、錯平均、四點新82分／舊86分、完整100分、空白0分及新舊review／pending。範圍為現有model fresh版本、scoring、persistence validator、既有四Node及browser入口；依賴／manifest／手勢及量尺幾何不改。執行source＋解壓SCORM完整browser（含可信touch），不重跑T1–T3全矩陣或無關活動；真手機／Moodle仍未實測。
 
+### 精簡面板及六點平均驗證與發布
+
+- Runtime head `ae62bf57cdcfeafeb1f0a40e8d76cab686fe742a`已commit/push。四個Node入口通過：0至6有效點、缺單軸／零時間／錯平均、錯公式follow-through、rubric3/4各phase共1128組production draft round-trip及合法續作；舊draft續作／review與新舊部分作答四提交結果及frozen重試通過。正式source＋真正解壓SCORM browser通過104個版面、34組流程及192組操作／幾何觀測；兩版均實際提交新兩點68分／四點82分／六點100分，平均兩分項分別4/0、4/0、4/4；舊rubric3四點86分及重新載入後可信review不變。保留可信touch、空白／部分提交、紅黑點重合及舊版回顧。報告`output/playwright/horizontal-projectile-lab/report.json`，runtime hash `88514aa3fa9e9233a58a245b01dd81f7ec1906d065ee0630fb5e0f9dc2533def`；已目視手機`source-average-concise-panel.png`，沒有重複操作提示。
+- `check:tests`為246 entries／48 helpers／2 manual，`check`、17檔活動SCORM、文件連結及diff檢查通過；ZIP與來源runtime逐byte相同。Committed selection preview base `a08f3e8`／head `ae62bf5`為affected、214 entries、單一活動package，存於`output/selection-preview-concise-six-point.json`。本輪只實際重跑四個相關Node及本活動browser，未冒稱其餘209 Node／32 browser、T1–T3全矩陣、GitHub CI、真手機或Moodle通過。
+- [原私人Sites](https://simlab-horizontal-projectile-lab.ieyp.chatgpt.site)已更新，owner-private保持。官方helper已推送Site source `4dbdaa4e59d345ef4809b650fe8dae2f9b408593`，saved version `appgprj_6ad49418111c819198d79e88cab3e78e~appgver_7bb431abad14819185f79eeab23f331d`，deployment `appgdep_6ad4eb7595ac8191aeddf32061ba86f2`原生回傳`succeeded`。Archive `output/sites/horizontal-projectile-lab-concise-six-point-ae62bf5.tar.gz`共18檔，16個runtime及根redirect逐byte核對，hosting metadata等同來源JSON；SHA-256 `a31dca3058bddc00814dc3e12c73cc28420ef0be8e47c896125ff8696703f13f`，證據`output/sites/projectile-concise-six-point-assets.json`。後續文件提交不改runtime。
+
 ## 吸附後讀尺紅黑點重合（2026-10-18；本節優先）
 
 - 修正整毫米吸附與帶小數實際落點在放大窗中的橫向偏移。只在已對齊印記時，將尺邊的垂直於量度方向之顯示座標對準實際落點；主圖及放大窗共用相同幾何，紅點與黑點中心完全重合。沿尺方向零位及刻度位置不變，不修改實際落點。
