@@ -2,7 +2,7 @@
 
 ## 減少重複操作的新版工作流程（2026-10-18；本節取代下文相關舊規格）
 
-- 讀尺選項以目前尺上讀數為中心，相距1–2mm（四項通常跨度3mm；邊界或錯零位時略移），不再相隔1–2cm。對正零線時唯一正確答案為四捨五入至整mm的讀數；新版讀數容差0.5mm。錯零位仍顯示四個不等於正確整mm讀數的選項。±1%投球波動及實際印記不改。
+- 讀尺選項以目前尺上讀數為中心，相距1–2mm（四項通常跨度3mm；邊界或錯零位時略移），不再相隔1–2cm。對正零線時唯一正確答案為四捨五入至整mm的讀數，恰半格向上；最大捨入差0.5mm，以唯一整mm值評分。錯零位仍顯示四個不等於正確整mm讀數的選項。±1%投球波動及實際印記不改。
 - 印記及資料點名稱優先左上，若超出畫布則左方或上方；保持TeX與清晰字體。新圖域只根據學生read的完整兩軸配對自動描點，不使用物理真值修正；單軸讀數不補0。取消手動放點、拖點及相關surface，整個非互動畫布可供host捲動，沒有作圖精細拖動或放大鏡的需求。
 - 第3步仍由學生選直線／一般二次／過原點平方模型並明確執行擬合，之後判斷軌跡類型。重讀或重投會即時更新資料點並使擬合及擬合速度失效；不改其餘概念答案。空白、少點、退化資料可照常檢查提交，擬合失敗保持明確未成立。
 - 第4步各選一次時間公式及水平初速度公式（各四選一，TeX radio）；已選公式直接套用所有完整讀數，錯公式照算且不預先揭示正誤。時間選項sqrt(2y/g)、sqrt(y/g)、sqrt(4y/g)、sqrt(2x/g)；速度選項x/t、y/t、2x/t、x/(2t)。公式未選、缺軸或時間非正時顯示未有結果，不顯示Infinity。結果只由read及公式推導，不保存派生數字。保留平均初速度只填一次、由擬合係數估速及獨立計時對照；採用錯公式的平均運算分仍可follow-through。
@@ -11,7 +11,15 @@
 - 版本策略：已提交或pending的v1保留原validator與rubric，回顧及重試不改分；v1未完成draft拒絕以v2續作，不覆寫原紀錄，顯示需舊版活動或教師開新attempt，避免將手動答案冒認成公式選擇。Sites standalone刷新本來就開始新練習，無舊draft遷移。全部新版phase×view、空白／單軸／少點／全部公式及零時間／錯公式／有效和失敗擬合／check返回／review／pending要production round-trip並執行合法續作；非法版本、欄位、依賴、數值另驗，payload<=4000 bytes。
 - 範圍包括model/scoring/persistence/main/index/styles、既有test-support及四個Node入口、正式browser入口、mobile-scroll本活動fixtures／操作契約、catalogue說明及本計劃；shared SCORM／activity-flow、fitting與本地TeX依賴不改，不新增依賴。登記沿用既有入口；執行check:tests、committed selection preview、適當Node／source+ZIP browser、T0–T3手機各階段與兩種剩餘拖動及中斷、package、diff及文件檢查，再更新原私人Sites並commit/push。真Moodle／實體手機維持獨立未驗收。
 
-狀態：**2026-10-18 預覽及四選項已固定在畫布內，對測量點及原點零線均可吸附；手機版與同一私人Sites已更新。** 現行來源／SCORM與觸控證據見文末；前述歷史驗收不替代本次。真Moodle／實體手機及全專案browser總閘未宣稱通過。
+### 新版最終驗證及發布
+
+- 已推送runtime head `c51b4dd5c9b92ac4a9ea9800a07a54ffd1622ac2`。新model/scoring/persistence/lifecycle入口通過：完整100分、空白0分、近似讀數唯一正解、16種公式配對及未選／零時間、錯公式平均follow-through、取點／讀數／公式變更的失效關係，以及660組新版draft round-trip與實際公式續作。新draft/review/pending最大測例為1050／949／1212 bytes。v1已提交回顧保留100分及原容差，v1 pending可驗證重試；v1 draft保持技術鎖定且未有任何save覆寫。
+- 全部213個Node入口三批各71項通過：`output/ci-tests/projectile-workflow-node-{1,2,3}/report.json`。正式browser同一committed head的source及真正解壓SCORM通過100個版面、20組流程及50組操作／幾何觀測，報告`output/playwright/horizontal-projectile-lab/report.json`。包括六點量度至100分提交、沒有手動圖點或逐點輸入、錯讀數[100,300]照樣畫在該位置、錯公式照算、清公式後結果變空、blank/partial、resume、四提交結果、舊review實際渲染及未完成舊draft不覆寫。已視察手機近似讀數／左上點名與自動曲線／公式版面截圖。
+- T1／T2／T3×source/package×320×500及390×844，完整19 profiles（初始、五步各已答／未答、豎尺、兩方向預覽、退化擬合、check、submitted、pending、committed）通過228 cases／3540 gesture checks；六份報告均completed=true、status=passed且errors／issues皆空。報告`workflow-T{1,2,3}-{source,package}.json`，摘要`workflow-acceptance-summary.json`同browser目錄。非互動圖域／面板、尺身及接球槽的可信完成、cancel、lost capture、blur、第二指均核對每move及release後owner、答案及suspend；新自動圖點沒有舊放點surface或拖點target。其他活動操作函數未變。
+- 六份touch報告17檔digest皆為`5ed8a9898a56181f942e6c1d24978879b387ba66a1a80d529cdb0cb2b64997cd`；正式browser16資產hash為`dc39dc4b18008347b835f62b15732cc1b92f6d228f32fa420c8372da052799c8`。最終SCORM17檔與來源逐byte相同。`check:tests`仍246 entries／48 helpers／2 manual；`check`、`package:all`、文件連結及diff空白檢查通過。已提交選擇預覽base `bcb0006`／head `c51b4dd`為full、246 entries、packages=all，存於`selection-preview-workflow.json`。未重跑其他32個browser、GitHub CI、OS縮放、真Moodle或實體手機；舊全專案／Moodle總閘不改稱通過。
+- [原私人Sites](https://simlab-horizontal-projectile-lab.ieyp.chatgpt.site)已發布成功，owner-private權限保持。官方helper已推送Sites source `7e9a667710839d692e3c0f1cdd48a1d23904cf2d`；saved version `appgprj_6ad49418111c819198d79e88cab3e78e~appgver_f211fa2e441881918b6fd5244f171b7a`，deployment `appgdep_6ad4ab87b2248191820b408ef5d69f1a`原生回傳`succeeded`。Archive `output/sites/horizontal-projectile-lab-workflow-c51b4dd.tar.gz`共18檔，16個runtime資產逐byte核對已測來源，根入口及hosting identity不變；SHA-256 `6e12a9a892037cb0b19f51dad5000751818252a8c698053c858c63743902dcd5`，資產證據`output/sites/projectile-workflow-assets.json`。後續文件提交不改runtime。
+
+狀態：**2026-10-18 新版近似選項、自動描點、選公式批次估速及同站部署已完成，現行證據見上節。** 下文保留原規格及歷史驗證供追溯；與本節衝突時以本節為準。真Moodle／實體手機及全專案browser總閘未宣稱通過。
 
 - 分支：`codex/horizontal-projectile-lab`。
 - 起點：本機 `main`，`f7ab989ca59b72ebe6a7691129320c4768f6fcf8`；未宣稱已同步遠端。
