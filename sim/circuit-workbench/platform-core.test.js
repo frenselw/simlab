@@ -144,6 +144,23 @@ test('probe pointer sequences never start editing, change history or select tran
   context.probeMode=false;target.meta={kind:'junction',id:'shared'};dispatch('pointerdown',event());assert.equal(context.drag?.kind,'junction','normal editing remains available outside probe mode');
  }
 });
+
+test('touch taps keep the inspector mounted until click; mouse and completed drags still refresh it',()=>{
+ const fs=require('node:fs'),vm=require('node:vm'),Family=require('./circuit-household-components'),source=fs.readFileSync(require.resolve('./circuit-editor'),'utf8'),events=source.slice(source.indexOf('  on(document,"pointerdown"'),source.indexOf('  function undo('));
+ for(const analysis of ['dc','transient','household'])for(const pointerType of ['touch','mouse'])for(const panelOpen of [true,false])for(const moved of [false,true]){
+  const d=M.empty(analysis),c=M.add(d,analysis==='household'?'house-switch':'switch',200,200),history=M.history(d),nodes=new Map(),listeners=new Map(),captured=new Set();let rebuilt=0,clicks=0;
+  const target={meta:{kind:'body',id:c.id},closest:s=>s==='.hit'?target:null,setPointerCapture:id=>captured.add(id),hasPointerCapture:id=>captured.has(id),releasePointerCapture:id=>captured.delete(id)},surface={contains:e=>e===target,hasPointerCapture:()=>false,classList:{add(){},remove(){}}},document={activeElement:null},window={},host={contains:()=>true};
+  const $=id=>{if(!nodes.has(id))nodes.set(id,{contains:()=>false,hidden:true});return nodes.get(id);};
+  const context=vm.createContext({M,R,Family,history,surface,document,window,host,$,camera:{x:0,y:0,scale:1},autoFit:false,household:analysis==='household',selection:null,selectedConnection:null,probeMode:false,drag:null,previewDoc:null,paramSession:null,discardZoneAt:()=>null,meterPreview:null,panMode:false,wireMode:false,spacePan:false,touchBlocked:false,touchOrigin:null,touches:new Map(),cameraGesture:null,suppressClick:false,releasedMeta:null,blankMouseDown:null,targets:new Map(),activeHost:host,analysis:{},readableMeter:()=>false,render:(inspector=true)=>{if(inspector)rebuilt++;},owned:()=>true,releaseTouches(){},selectedWire:()=>null,selectedComponent:()=>history.get().components.find(x=>x.id===context.selection?.id),wireAllowed:()=>true,allow:()=>true,world:(x,y)=>({x,y}),cancel(){},execute:command=>{assert.equal(command.type,'toggleSwitch');history.change(doc=>doc.components.find(x=>x.id===command.id).params.closed=!doc.components.find(x=>x.id===command.id).params.closed);clicks++;context.render();},on:(owner,event,fn)=>listeners.set((owner===document?'document':owner===window?'window':'surface')+':'+event,fn)});
+  vm.runInContext(events,context);const event={target,clientX:200,clientY:200,pointerId:1,pointerType,isPrimary:true,button:0,buttons:1,detail:1,preventDefault(){}},dispatch=name=>{listeners.get('document:'+name)?.(event);listeners.get('surface:'+name)?.(event);};
+  dispatch('pointerdown');assert(context.drag);context.drag.moved=moved;dispatch('pointerup');assert.equal(history.get().components[0].params.closed,c.params.closed,'no model change before click');
+  if(pointerType==='touch'&&!moved)assert.equal(rebuilt,0,'inspector rebuild before the native click risks suppressing iPad taps');else assert(rebuilt>0,'mouse and completed drags keep their inspector refresh');
+  // Model the suspected failure: a visible rebuilt inspector can prevent a touch click.
+  if(!(pointerType==='touch'&&panelOpen&&rebuilt&&!moved))listeners.get('surface:click')(event);
+  assert.equal(clicks,moved?0:1);assert.equal(history.get().components[0].params.closed,moved?c.params.closed:!c.params.closed);if(!moved)assert(rebuilt>0,'click synchronizes the inspector');
+ }
+});
+
 test('probe coordinates resolve actual visible endpoints despite overlapping body and port hit areas',()=>{
  const fs=require('node:fs'),vm=require('node:vm'),G=require('./circuit-routing'),source=fs.readFileSync(require.resolve('./circuit-editor'),'utf8'),pick=source.slice(source.indexOf('  function probeEndpointAt('),source.indexOf('  function probePort(')),fit=source.slice(source.indexOf('  function fit('),source.indexOf('  function focusPoint('));
  for(const analysis of ['dc','transient','household'])for(const [width,height]of [[1280,500],[390,280],[320,280],[320,100]]){
