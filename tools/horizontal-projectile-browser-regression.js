@@ -12,7 +12,7 @@ const call=code=>H.evaluate(cdp,`(()=>{const w=window,d=document,app=w.__project
 const wait=async(fn,label)=>{for(let i=0;i<160;i++){try{if(await fn())return;}catch(_){}await H.delay(35);}throw Error('Timeout: '+label);};
 async function viewport(width,height){await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:false});await cdp.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:width<600});await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:2});}
 async function preload(){await cdp.send('Page.addScriptToEvaluateOnNewDocument',{source:`(()=>{
-  const p=new URLSearchParams(location.search);Math.random=()=>.65;
+  const p=new URLSearchParams(location.search);Math.random=()=>p.has('draw')?Number(p.get('draw')):.65;
   if(p.has('deny'))Object.defineProperty(window,'localStorage',{get(){throw new DOMException('Denied','SecurityError');}});
   if(p.has('fixture')){const durable=JSON.parse(p.get('fixture')),values={...durable};let error='0';window.__lmsValues=durable;window.__failFinal=false;window.__failFinish=false;
     window.API={LMSInitialize:()=> 'true',LMSGetValue:k=>(error='0',values[k]||''),LMSSetValue:(k,v)=>{if(window.__failFinal&&k==='cmi.core.score.raw'){error='351';return 'false';}values[k]=String(v);error='0';return 'true';},LMSCommit:()=>{Object.assign(durable,values);return 'true';},LMSFinish:()=>window.__failFinish?'false':'true',LMSGetLastError:()=>error,LMSGetErrorString:()=>'',LMSGetDiagnostic:()=>''};}
@@ -156,7 +156,7 @@ async function flows(base,label){
   const review=T.snapshot(T.filled(),'review'),values={'cmi.core.lesson_status':'passed','cmi.core.score.raw':'100','cmi.suspend_data':JSON.stringify(review)};
   await cdp.send('Page.navigate',{url:`${base}/${slug}/index.html?fixture=${encodeURIComponent(JSON.stringify(values))}`});await wait(()=>call("return app?.controller.mode==='review';"),'review restore');assert.equal(await call('return app.controller.trusted;'),true);
   for(const checkpoint of['partial','check','submitted']){
-    await open(base,null,true,'deny=1');await shot(200);
+    await open(base,null,true,'test=0&deny=1');await shot(200);
     if(checkpoint!=='partial')await click('#checkButton');if(checkpoint==='submitted')await click('#submitButton');
     await cdp.send('Page.reload',{});await wait(()=>call("return app?.controller.mode==='edit';"),'standalone fresh');assert.equal((await state()).rows.filter(Boolean).length,0);
   }
@@ -247,6 +247,27 @@ async function directTouchMatrix(base,label){
     report.gestures.push({label,kind:'T0-direct-'+phase,gestures,passed:true});
   }
 }
+async function launchAndPreview(base,label){
+  for(const [width,height]of[[1280,800],[390,844],[320,500],[320,225]])for(const view of ['collect','measure','plot']){
+    await viewport(width,height);const s=M.practice(M.fresh(-300000),()=>.5);s.view=view;if(view==='measure')s.ruler.zero=[0,50];await open(base,s);
+    const labels=await call('const g=app.getGeometry(),r=d.getElementById("stage").getBoundingClientRect();return [...d.querySelectorAll("#scene [data-point-label]")].map(e=>{const b=e.getBoundingClientRect();return{slot:+e.dataset.pointLabel,left:b.left-r.left,right:b.right-r.left,top:b.top-r.top,bottom:b.bottom-r.top,ax:g.ox,ay:g.oy,end:g.ox+1000*g.s};});');
+    for(const b of labels)assert(!(b.right>=b.ax-2&&b.left<=b.end+10&&b.top<=b.ay+4&&b.bottom>=b.ay-(width>=900?24:16)-10),JSON.stringify({width,height,view,b}));
+    const first=labels.find(l=>l.slot===0);assert(first);if(first.right>=first.ax-2)assert(first.top>first.ay+4);if(width===390&&view==='measure')await screenshot(label+'-label-beside-axis');
+    report.layouts.push({label,width,height,view,kind:'low-mark-label-avoids-horizontal-axis',labels});
+  }
+  await viewport(390,844);await open(base,null,true,'draw=0');const slow=await state();assert.equal(slow.launchOffsetPpm,-300000);assert.equal(slow.view,'plot');assert.equal(slow.rows.filter(Boolean).length,6);assert(Object.values(slow.formulas).every(v=>v===null));assert.equal(slow.fit.model,null);assert.equal(slow.meanV,null);assert.equal(slow.clockShown,false);assert(Object.values(slow.conclusions).every(v=>v===null));
+  for(const r of slow.rows){const p=M.impact(r.depthMm,r.speedOffsetPpm);assert.deepEqual(r.read,[Math.round(p.x),p.y]);}
+  assert(await call('return !d.getElementById("modeControls").hidden&&d.getElementById("status").textContent.includes("測試模式");'));
+  const demoState=await state(),panel=await call('const p=d.getElementById("controlPanel"),r=p.getBoundingClientRect();p.scrollTop=0;return{x:r.left+8,y:r.top+r.height*.65};'),touch=y=>({x:panel.x,y,id:911,radiusX:3,radiusY:3,force:1});
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[touch(panel.y)]});for(let i=1;i<=6;i++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[touch(panel.y-i*10)]});await H.delay(20);}await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await H.delay(400);assert(await call('return d.getElementById("controlPanel").scrollTop>0&&scrollY===0;'));assert.deepEqual(await state(),demoState);
+  await open(base,null,true,'draw=.999999');const fast=await state();assert.equal(fast.launchOffsetPpm,0);assert(M.impact(fast.rows[5].depthMm,fast.rows[5].speedOffsetPpm).x>M.impact(slow.rows[5].depthMm,slow.rows[5].speedOffsetPpm).x+150);
+  await call('Math.random=()=>.1;');await click('#clearAll');assert.equal((await state()).launchOffsetPpm,M.drawLaunchOffset(()=>.1));assert.equal((await state()).view,'plot');assert.equal((await state()).rows.filter(Boolean).length,6);
+  await screenshot(label+'-test-mode-third-stage');await click('#modeToggle');await wait(()=>call('return app?.getState()?.view==="collect"&&app.getState().rows.every(r=>r===null);'),'normal mode');assert.equal(await call('return ProjectileScoring.score(app.getState()).score;'),0);
+  await click('#modeToggle');await wait(()=>call('return app?.getState()?.view==="plot"&&app.getState().rows.every(Boolean);'),'test mode');await click('#checkButton');await click('#submitButton');assert(await call('return app.controller.mode==="review"&&d.getElementById("modeControls").hidden&&!d.getElementById("clearAll").getClientRects().length;'));
+  await cdp.send('Page.reload',{});await wait(()=>call('return app?.controller.mode==="edit"&&app.getState().view==="plot";'),'fresh test preview');assert.equal((await state()).fit.model,null);
+  await open(base,null,false,'&test=1');assert((await state()).rows.every(r=>r===null));assert(await call('return d.getElementById("modeControls").hidden;'));await click('#checkButton');await click('#submitButton');assert.equal(await call('return app.controller.result.score;'),0);
+  report.flows.push({label,kind:'random-new-run/constant-baseline/test-prefill-only-first-two-stages/reset/mode-switch/no-LMS-autofill/no-review-reset',passed:true});
+}
 async function main(){
   fs.mkdirSync(out,{recursive:true});const temp=fs.realpathSync(os.tmpdir());
   try{
@@ -265,7 +286,7 @@ async function main(){
     cdp.on('Runtime.exceptionThrown',e=>report.errors.push(e.exceptionDetails?.exception?.description||e.exceptionDetails?.text));report.browser=await cdp.send('Browser.getVersion');
     for(const [label,directory]of[['source',path.join(root,'sim')],['package',extracted.packageDirectory]]){
       server=H.createServer(directory);await H.listenServer(server);const base=`http://127.0.0.1:${server.address().port}`;
-      console.log('projectile browser: '+label);await layoutMatrix(base,label);await readingFlow(base,label);await rulerRevision(base,label);await completeFlow(base,label);
+      console.log('projectile browser: '+label);await layoutMatrix(base,label);await readingFlow(base,label);await rulerRevision(base,label);await completeFlow(base,label);await launchAndPreview(base,label);
       if(!process.argv.includes('--smoke')){await flows(base,label);await edgeFlows(base,label);await interactions(base,label);await directTouchMatrix(base,label);}
       await H.closeServer(server);server=null;
     }

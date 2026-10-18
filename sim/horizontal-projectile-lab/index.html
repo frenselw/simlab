@@ -22,10 +22,11 @@
     <p id="stageHint">調整接球槽，從固定標記釋放鋼珠。</p>
   </section>
   <section id="controlPanel" class="sim-panel" aria-label="操作面板">
+    <section id="modeControls" hidden><p id="modeMessage"></p><button id="modeToggle" type="button"></button></section>
     <div id="notice" role="status" hidden></div><button id="saveRetry" hidden type="button">重試保存</button>
     <section id="resultPanel" hidden><h2 id="resultTitle"></h2><p id="scoreText"></p><button id="retryFinal" hidden type="button">重試提交</button></section>
     <section data-panel="collect">
-      <h2>1. 調槽取點</h2><p>每次從斜槽同一位置由靜止釋放，出口速率有約<span data-formula="\pm1\%" aria-label="正負百分之一"></span>的輕微波動。取六個高低分散的印記。</p>
+      <h2>1. 調槽取點</h2><p>每輪新實驗會隨機設定出口基準速率；同一輪從相同位置釋放，每球速率只有約<span data-formula="\pm1\%" aria-label="正負百分之一"></span>的輕微波動。取六個高低分散的印記。</p>
       <label>記錄位置 <select id="recordSlot"></select></label>
       <div class="button-row"><button id="depthUp" type="button">槽向上</button><button id="depthDown" type="button">槽向下</button><button id="release" class="primary" type="button">釋放鋼珠</button></div>
       <p id="heightNotice" role="status" hidden></p><p id="recordCount"></p><ol id="recordList"></ol>

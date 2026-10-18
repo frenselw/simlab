@@ -15,7 +15,7 @@
     start(){
       try{
         const attempt=this.scorm.loadAttempt(P.ACTIVITY), startup=this.flow.startup(attempt);
-        if(startup==='editable'){this.state=attempt.state==='draft'?P.decode(attempt.snapshot,'draft'):M.fresh();this.mode=this.state.phase;if(attempt.state==='new')this.save();}
+        if(startup==='editable'){this.state=attempt.state==='draft'?P.decode(attempt.snapshot,'draft'):M.fresh(M.drawLaunchOffset());this.mode=this.state.phase;if(attempt.state==='new')this.save();}
         else if(startup==='review'){
           this.mode='mismatch';this.result={...this.flow.recordedResult(attempt),maxScore:100};this.notice='已完成紀錄未能核對，保持只讀，僅顯示可信的已記錄摘要。';
           try{const s=P.decode(attempt.snapshot,'review'),result=S.score(s);if(this.flow.reviewResult(result,attempt.snapshot,attempt).trusted){this.state=s;this.result=result;this.trusted=true;this.mode='review';this.notice='';}}catch(_){}
@@ -49,7 +49,7 @@
       this.emit();
     }
     check(){if(!this.editable)return;this.state=P.navigate(this.state,this.view,true);this.mode='check';this.save();this.emit();}
-    clear(){if(!this.editable)return;this.state=M.fresh();this.mode='edit';this.save();this.emit();}
+    clear(){if(!this.editable)return;this.state=M.fresh(M.drawLaunchOffset());this.mode='edit';this.save();this.emit();}
     retrySave(){this.save();this.emit();}
     submit(){
       if(this.mode!=='check'||this.unsaved)return;

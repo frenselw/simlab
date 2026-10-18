@@ -19,8 +19,8 @@
   const clone = value => JSON.parse(JSON.stringify(value));
   const integer = (v, min, max) => Number.isInteger(v) && v >= min && v <= max;
   const mean = values => values.reduce((average, value, i) => average + (value - average) / (i + 1), 0);
-  function fresh() {
-    return { schemaVersion:2, modelVersion:1, rubricVersion:2, rows:Array(6).fill(null), fit:{model:null,attempted:false}, trajectory:null,
+  function fresh(launchOffsetPpm=0) {
+    return { schemaVersion:2, modelVersion:1, rubricVersion:2, launchOffsetPpm, rows:Array(6).fill(null), fit:{model:null,attempted:false}, trajectory:null,
       formulas:{time:null,speed:null}, meanV:null, fitV:null, clockShown:false, gFromClock:null,
       conclusions:Object.fromEntries(Object.keys(QUESTIONS).map(k=>[k,null])), phase:'edit', view:'collect', returnToCheck:false,
       setup:{depthMm:200,slot:0}, ruler:{axis:'x',zero:[0,0]} };
@@ -47,6 +47,22 @@
     const value = random();
     if (!Number.isFinite(value) || value < 0 || value >= 1) throw new Error('Invalid random draw');
     return Math.floor(value * 20001) - 10000;
+  }
+  function drawLaunchOffset(random=Math.random){
+    const value=random();if(!Number.isFinite(value)||value<0||value>=1)throw new Error('Invalid random draw');
+    return Math.floor(value*300001)-300000;
+  }
+  const observedOffset=(base,jitter)=>Math.round(base+(1+base/1000000)*jitter);
+  const offsetBounds=state=>[-10000,10000].map(jitter=>observedOffset(state.launchOffsetPpm??0,jitter));
+  const referenceSpeed=state=>velocity(state.schemaVersion===1?0:state.launchOffsetPpm??0);
+  function practice(state,random=Math.random){
+    if(state.phase!=='edit'||state.rows.some(Boolean))throw new Error('Practice needs an empty experiment');
+    let s=clone(state);
+    [50,150,300,450,650,800].forEach((depthMm,slot)=>{
+      const ppm=observedOffset(s.launchOffsetPpm??0,drawOffset(random));s=change(s,{type:'record',slot,depthMm,ppm});
+      const p=impact(depthMm,ppm);[p.x,p.y].forEach((n,axis)=>{s=change(s,{type:'read',slot,axis,value:Math.round(n)});});
+    });
+    s.view='plot';return s;
   }
   const heightConflict=(state,depthMm,slot)=>state.rows.findIndex((r,i)=>i!==slot&&r&&Math.abs(r.depthMm-depthMm)<50);
   function rulerSlot(rows,ruler,tolerance=0){
@@ -96,7 +112,8 @@
     switch (action.type) {
       case 'setup': s.setup = {...s.setup,...action.value}; break;
       case 'record': {
-        if (!integer(i,0,5) || !integer(action.depthMm,50,800) || action.depthMm%5 || !integer(action.ppm,-10000,10000)) throw new Error('Invalid observation');
+        const [min,max]=offsetBounds(s);
+        if (!integer(i,0,5) || !integer(action.depthMm,50,800) || action.depthMm%5 || !integer(action.ppm,min,max)) throw new Error('Invalid observation');
         if(heightConflict(s,action.depthMm,i)>=0)throw new Error('Observation heights must be at least 5 cm apart');
         s.meanV=null;
         s.rows[i] = {depthMm:action.depthMm,speedOffsetPpm:action.ppm,clockMs:impact(action.depthMm,action.ppm).clockMs,read:[null,null]};
@@ -121,11 +138,12 @@
         s[action.field] = action.value; break;
       case 'conclusion': if (!QUESTIONS[action.field]) throw new Error('Invalid conclusion'); s.conclusions[action.field] = action.value; break;
       case 'clock': s.clockShown = true; break;
+      case 'practice': return practice(s);
       case 'ruler': s.ruler = clone(action.value); break;
       case 'clearPlot': s.fit={model:null,attempted:false}; s.fitV=null; s.trajectory=null; break;
       default: throw new Error('Unknown action');
     }
     return s;
   }
-  return Object.freeze({G,H,IDEAL,SPEED,VIEWS,FORMULAS,QUESTIONS,clone,integer,mean,fresh,velocity,impact,rulerChoices,drawOffset,heightConflict,rulerSlot,snapRuler,rulerAligned,points,calculations,fit,predict,timeFit,included,change});
+  return Object.freeze({G,H,IDEAL,SPEED,VIEWS,FORMULAS,QUESTIONS,clone,integer,mean,fresh,velocity,impact,rulerChoices,drawOffset,drawLaunchOffset,observedOffset,offsetBounds,referenceSpeed,practice,heightConflict,rulerSlot,snapRuler,rulerAligned,points,calculations,fit,predict,timeFit,included,change});
 });

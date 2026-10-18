@@ -19,3 +19,13 @@ const bad=M.clone(pending);bad.payload.reviewJson=JSON.stringify({...inner,answe
 fake=T.fake();c=start(fake);fake.failSave=true;c.command({type:'clock'});assert(c.unsaved);c.check();c.submit();assert.equal(c.mode,'check');fake.failSave=false;c.retrySave();assert(!c.unsaved);
 c.handleOutcome({activityState:'retry',retryable:false});assert.equal(c.mode,'technical');
 console.log('Projectile lifecycle: startup, all submission outcomes, frozen retry/quarantine, mismatch and failed-save locks passed.');
+const originalRandom=Math.random;
+try{
+ Math.random=()=>0;const first=start(T.fake());assert.equal(first.state.launchOffsetPpm,-300000);
+ Math.random=()=>.99;first.navigate('plot');assert.equal(first.state.launchOffsetPpm,-300000);
+ const resumed=start(T.fake({state:'draft',snapshot:first.draftSnapshot()}));assert.equal(resumed.state.launchOffsetPpm,-300000);
+ resumed.clear();assert.equal(resumed.state.launchOffsetPpm,M.drawLaunchOffset(()=>.99));assert(resumed.state.rows.every(r=>r===null));
+ const draft=M.practice(M.fresh(-300000),()=>.65),review=T.snapshot(draft,'review'),snap={version:1,activity:P.ACTIVITY,kind:'pending-final',payload:{score:review.score,maxScore:100,passed:review.passed,reviewJson:JSON.stringify(review)}};
+ const f=T.fake({state:'pending-final',snapshot:snap}),c=start(f);assert.equal(c.state.launchOffsetPpm,-300000);f.final=review;c.retryFinal();assert.equal(c.mode,'review');assert.equal(c.state.launchOffsetPpm,-300000);
+}finally{Math.random=originalRandom;}
+console.log('Random baseline is drawn only for new experiments, retained on resume and final retry.');

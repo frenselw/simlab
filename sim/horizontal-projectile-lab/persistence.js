@@ -5,7 +5,7 @@
 })(typeof window==='undefined'?globalThis:window,function(M){
   'use strict';
   const ACTIVITY='horizontal-projectile-lab', MAX_BYTES=4000;
-  const fields=s=>['schemaVersion','modelVersion','rubricVersion','rows','fit','trajectory',s?.schemaVersion===1?'calculations':'formulas','meanV','fitV','clockShown','gFromClock','conclusions'];
+  const fields=s=>['schemaVersion','modelVersion','rubricVersion',...(s?.schemaVersion===2&&Object.hasOwn(s,'launchOffsetPpm')?['launchOffsetPpm']:[]),'rows','fit','trajectory',s?.schemaVersion===1?'calculations':'formulas','meanV','fitV','clockShown','gFromClock','conclusions'];
   const draftFields=['phase','view','returnToCheck','setup','ruler'];
   const bytes=o=>new TextEncoder().encode(JSON.stringify(o)).length;
   const fail=()=>{throw new Error('Invalid projectile snapshot');};
@@ -19,6 +19,7 @@
     const legacy=s.schemaVersion===1;
     check(Array.isArray(s.rows)&&s.rows.length===6);
     if(!legacy){
+      check(!Object.hasOwn(s,'launchOffsetPpm')||M.integer(s.launchOffsetPpm,-300000,0));
       check(!['calculations','selectedSlot','connectPoints'].some(k=>Object.hasOwn(s,k)));
       keys(s.formulas,['time','speed']);
       for(const key of ['time','speed'])check(choice(s.formulas[key],M.FORMULAS[key].map(f=>f.id)));
@@ -26,7 +27,8 @@
     s.rows.forEach(r=>{
       if(r===null)return;
       keys(r,['depthMm','speedOffsetPpm','clockMs','read',...(legacy?['point']:[])]);
-      check(M.integer(r.depthMm,50,800)&&r.depthMm%5===0&&M.integer(r.speedOffsetPpm,-10000,10000));
+      const [min,max]=legacy?[-10000,10000]:M.offsetBounds(s);
+      check(M.integer(r.depthMm,50,800)&&r.depthMm%5===0&&M.integer(r.speedOffsetPpm,min,max));
       check(r.clockMs===M.impact(r.depthMm,r.speedOffsetPpm).clockMs);
       check(Array.isArray(r.read)&&r.read.length===2&&r.read.every(v=>v===null||M.integer(v,0,1000)));
       if(legacy)check(r.point===null||(Array.isArray(r.point)&&r.point.length===2&&r.point.every(v=>M.integer(v,0,1000))&&!r.read.includes(null)));

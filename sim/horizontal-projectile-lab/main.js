@@ -8,6 +8,10 @@
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const fmt=V.format;
   const pn=i=>'P'+'₁₂₃₄₅₆'[i];
+  // Temporary standalone preview default; turn off after the later stages are approved.
+  const TEMPORARY_TEST_DEFAULT=true;
+  const testParameter=new URLSearchParams(location.search).get('test');
+  const testing=()=>SimScorm.isStandalone()&&(testParameter==='1'||(TEMPORARY_TEST_DEFAULT&&testParameter!=='0'));
   const controller=new ProjectileRuntime.Controller(SimScorm,SimActivityFlow,render);
   let drag=null, run=null, frame=0, timeAxis=0, geometry=null, hint='';
   const diagnostics={downs:0,moves:0,ups:0,cancels:0,trustedTouch:0};
@@ -33,6 +37,7 @@
   function cancelFlight(){if(run)hint='投球已取消，保留上次完成的印記。';if(frame)cancelAnimationFrame(frame);frame=0;run=null;}
   function navigate(view){cancelDrag();cancelFlight();hint='';controller.navigate(view);d.controlPanel.scrollTop=0;}
   function check(){cancelDrag();cancelFlight();controller.check();d.controlPanel.scrollTop=0;}
+  function prepareTesting(){if(testing()&&editing()&&controller.state.rows.every(r=>r===null))controller.command({type:'practice'});}
   function value(el,value){if(document.activeElement!==el)el.value=value===null||value===undefined?'':String(value);}
   function options(el,list,selected){
     const html=list.map(([v,label])=>`<option value="${v}">${label}</option>`).join('');
@@ -47,6 +52,10 @@
     if(d.stageHint.parentElement!==hintHost){if(hintHost===d.controlPanel)hintHost.insertBefore(d.stageHint,d.notice);else hintHost.append(d.stageHint);}
     d.stageHint.hidden=checking||!s;
     d.status.textContent=controller.mode==='review'?'已提交 · 只讀回顧':controller.mode==='committed'?'結果已記錄':controller.mode==='frozen'?'提交待確認':'取點、量度與擬合';
+    if(testing())d.status.textContent=controller.mode==='edit'||controller.mode==='check'?'測試模式':'測試模式 · '+d.status.textContent;
+    d.modeControls.hidden=!SimScorm.isStandalone()||locked;
+    d.modeMessage.textContent=testing()?'測試模式：已自動完成取點及讀尺，後續答案留空供測試。重新整理會產生另一組實驗數據。':'一般模式：從空白開始，手動取點及讀尺。';
+    d.modeToggle.textContent=testing()?'切換一般模式（重新開始）':'切換測試模式（重新開始）';
     d.progress.textContent=s?`${M.VIEWS.indexOf(view)+1} / 5 ${names[M.VIEWS.indexOf(view)]}`:'';
     d.notice.hidden=!controller.notice;d.notice.innerHTML=prose(controller.notice);
     d.saveRetry.hidden=!controller.editable||!controller.unsaved;
@@ -147,18 +156,20 @@
     const pointLabel=(px,py,i)=>{
       if(px<0||px>g.w||py<0||py>g.h)return'';
       const metrics=CircuitMath.measure(`P_{${i+1}}`,labelSize),width=metrics.width;
-      const candidates=[[px-10,py-10,'end'],[px-10,py+labelSize*.35,'end'],[px,py-10,'middle']];
+      const leftBaseline=Math.max(py+(metrics.ascent-metrics.descent)/2,y(0)+6+metrics.ascent);
+      const candidates=[[px-10,py-10,'end'],[px-10,leftBaseline,'end'],[px,py-10,'middle']];
       let rulerBox=null;
       if(view==='measure'){
         const r=currentRuler(),horizontal=r.axis==='x',pad=labelSize+4,thickness=Math.max(labelSize+28,CircuitMath.measure('100',labelSize).width+24);
         rulerBox={left:x(r.zero[0])-(horizontal?pad:0),top:y(r.zero[1])-(horizontal?0:pad)};
         rulerBox.right=rulerBox.left+(horizontal?q+2*pad:thickness);rulerBox.bottom=rulerBox.top+(horizontal?thickness:q+2*pad);
-        candidates.push([Math.min(px-10,rulerBox.left-8),py-10,'end'],[Math.min(px-10,rulerBox.left-8),py+labelSize*.35,'end']);
+        candidates.push([Math.min(px-10,rulerBox.left-8),leftBaseline,'end'],[Math.min(px-10,rulerBox.left-8),py-10,'end']);
       }
       const chosen=candidates.find(([lx,ly,anchor])=>{
         const left=lx-(anchor==='end'?width:width/2),right=left+width,top=ly-metrics.ascent,bottom=ly+metrics.descent;
-        return left>=4&&right<=g.w-4&&top>=4&&bottom<=g.h-4&&(!rulerBox||right<rulerBox.left||left>rulerBox.right||bottom<rulerBox.top||top>rulerBox.bottom);
-      })??candidates[0];
+        const crossesAxis=right>=x(0)-2&&left<=x(1000)+10&&top<=y(0)+4&&bottom>=y(0)-labelSize-10;
+        return left>=4&&right<=g.w-4&&top>=4&&bottom<=g.h-4&&!crossesAxis&&(!rulerBox||right<rulerBox.left||left>rulerBox.right||bottom<rulerBox.top||top>rulerBox.bottom);
+      })??candidates[1];
       return text(chosen[0],chosen[1],pn(i),'#354a64',chosen[2]).replace('<g ',`<g data-point-label="${i}" `);
     };
     let html=`<defs><clipPath id="${clipId}"><rect x="${x(0)}" y="${y(0)}" width="${q}" height="${q}"/></clipPath><marker id="${clipId}Arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#263b55"/></marker></defs><rect width="${g.w}" height="${g.h}" fill="#fff"/>`;
@@ -189,7 +200,7 @@
     if(plot){
       const points=M.points(s).map((p,i)=>p?{i,p}:null).filter(Boolean);
       if(s.fit.attempted){const f=M.fit(s);if(f.ok)html+=curve(u=>M.predict(s,f,u/1000)*1000,'#157c75');}
-      if(controller.trusted)html+=curve(u=>M.G/(2*M.SPEED**2)*(u/1000)**2*1000,'#b3542d',true);
+      if(controller.trusted)html+=curve(u=>M.G/(2*M.referenceSpeed(s)**2)*(u/1000)**2*1000,'#b3542d',true);
       points.forEach(({i,p})=>{html+=`<circle data-plot-point="${i}" cx="${x(p[0])}" cy="${y(p[1])}" r="6" fill="#1764b1"/>`;html+=pointLabel(x(p[0]),y(p[1]),i);});
       return html;
     }
@@ -336,12 +347,13 @@
   d.next.onclick=()=>controller.view==='motion'?check():navigate(M.VIEWS[Math.min(4,M.VIEWS.indexOf(controller.view)+1)]);
   d.checkButton.onclick=check;d.returnCheck.onclick=check;d.submitButton.onclick=()=>controller.submit();d.retryFinal.onclick=()=>controller.retryFinal();d.saveRetry.onclick=()=>controller.retrySave();
   document.querySelectorAll('[data-go]').forEach(e=>e.onclick=()=>navigate(e.dataset.go));
-  d.clearAll.onclick=()=>{cancelDrag();cancelFlight();if(confirm('清除本次全部印記、讀數及答案？'))controller.clear();else render();};
+  d.clearAll.onclick=()=>{cancelDrag();cancelFlight();if(confirm('清除本次全部印記、讀數及答案？')){controller.clear();prepareTesting();}else render();};
+  d.modeToggle.onclick=()=>{const url=new URL(location.href);url.searchParams.set('test',testing()?'0':'1');location.replace(url.href);};
   d.release.onclick=()=>{
     if(!editing()||run)return;const {slot,depthMm}=controller.state.setup;
     if(M.heightConflict(controller.state,depthMm,slot)>=0){render();return;}
     if(controller.state.rows[slot]&&!confirm(`重做${pn(slot)}會清除此點的讀數及相應自動結果，並更新相關擬合。繼續？`))return;
-    const ppm=M.drawOffset(), reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const ppm=M.observedOffset(controller.state.launchOffsetPpm??0,M.drawOffset()), reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
     run={slot,depthMm,ppm,impact:M.impact(depthMm,ppm),started:performance.now(),ramp:reduced?20:900,slow:reduced ? 0.1 : 4};hint='鋼珠正在滾出水平出口……';render();
     const tick=()=>{
       if(!run)return;
@@ -353,4 +365,5 @@
   new ResizeObserver(()=>{cancelDrag();cancelFlight();render();}).observe(d.stage);
   window.__projectileApp={getState:()=>M.clone(controller.state),controller,getGeometry:()=>geometry?{s:geometry.s,ox:geometry.ox,oy:geometry.oy,w:geometry.w,h:geometry.h}:null,getDiagnostics:()=>({...diagnostics}),isRunning:()=>Boolean(run)};
   controller.start();
+  prepareTesting();
 })().catch(error=>{document.getElementById('notice').hidden=false;document.getElementById('notice').textContent='數學排版未能載入，請重新載入活動。';console.error(error);});

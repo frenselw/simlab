@@ -41,7 +41,7 @@
     const f=s.fit.attempted?M.fit(s):null;
     const fitV=s.fit.model==='square'&&f?.ok&&f.coefficients[0]>0?Math.sqrt(M.G/(2*f.coefficients[0])):NaN;
     award('由擬合係數換算速度 / m/s',1,near(s.fitV,fitV,.02,.02),Number.isFinite(fitV)?fitV:null,s.fitV);
-    award('擬合速度準確度 / m/s',2,Number.isFinite(fitV)&&near(s.fitV,M.SPEED,0,.1),M.SPEED,s.fitV);
+    award('擬合速度準確度 / m/s',2,Number.isFinite(fitV)&&near(s.fitV,M.referenceSpeed(s),0,.1),M.referenceSpeed(s),s.fitV);
     const correct={horizontal:'uniform',hEvidence:'linear-x-time',vertical:'free-fall',vEvidence:'quadratic-y-time-zero-initial'};
     Object.keys(correct).forEach(k=>award(M.QUESTIONS[k][0],6,s.conclusions[k]===correct[k],M.QUESTIONS[k][1].find(p=>p[0]===correct[k])[1],s.conclusions[k]));
     const yf=s.clockShown?M.timeFit(s,1):null, estimate=yf?.ok?2*yf.coefficients[0]:NaN;

@@ -1,5 +1,14 @@
 # 平拋運動：軌跡量度與擬合實驗
 
+## 橫軸避讓、每輪隨機初速度及暫時測試模式（2026-10-18；本節優先）
+
+- 點名候選先左上，再左邊／上方；排除與橫軸及其數字區域相交的文字框。靠近橫軸時左方候選下移至軸下安全位置，不再強行放左上。原有畫布邊界及尺身避讓維持，沒有新拖動目標。
+- 保留同一輪每球約±1%速率波動，另在新實驗／清除重做時抽一次launchOffsetPpm∈[-300000,0]，基準速率為既有SPEED×(1+launchOffsetPpm/1e6)，約1.16–1.66m/s；每球總offset=round(base+(1+base/1e6)×jitter)，jitter∈[-10000,10000]。同一輪base不再抽，實際速率仍低於固定斜槽的理想能量上限；新增差異視為新一輪虛擬裝置的出口速率設定。時間／重力不改。投球動畫、印記、量尺、評分及參考曲線全用同一實際offset／本輪base，不向學生預先揭示速度答案。
+- schemaVersion=2／modelVersion=1／rubricVersion=2維持，增加可選權威欄launchOffsetPpm（draft及review均保存）。缺少此欄的既有v2一律base=0，原資料及分數保持；v1保持原範圍及rubric。新版每列speedOffsetPpm必須落在本輪base對應±1%範圍，M.change(record)同樣驗證；不改row shape、時間或read單位。測試正常／極端／缺欄舊v2的round-trip、平均及擬合真值、resume不重抽、pending重試及4000-byte上限。
+- 使用者要求暫時預填第一、二部分：獨立網站預設測試模式，網址test=0可回一般模式，頁面亦有切換按鈕並說明重新開始。測試模式只在SimScorm.isStandalone()且全新空白edit狀態自動產生六個分散高度、各自約±1%波動印記及整mm正確read，然後進入plot。formulas、fit、trajectory、平均、計時揭示及概念題全部保持未答。清除重做後再預填並抽新base，重新整理亦為新一輪；不保存測試模式或舊standalone作答。
+- 自動預填是使用者明確要求的暫時開發示例，不代表學生已完成量度。頁面標示「測試模式」，切換一般模式即正常空白練習；正式LMS連線完全不自動預填、沒有模式切換控制，仍可空白0分提交。已提交／pending狀態不提供切換或重做按鈕。之後移除預填可關閉main中的暫時default，再刪除專用practice動作／提示；不將測試答案硬寫入正式fresh()。
+- 範圍：model/main/index/styles/scoring/persistence/ui-runtime、既有四個Node入口及browser入口、必要fixtures和本計劃；shared SCORM／activity-flow、題目評分分配、依賴及manifest資產數不改。驗證橫軸避讓（桌面／手機／短iframe／兩尺）、隨機上下界／同輪與跨輪、一般空白與測試預填／重做／切換、Moodle無預填、source與解壓SCORM及適用觸控。沿用既有測試登記，執行check:tests、committed selection preview、相關Node／browser、check/package及文件檢查；再更新同一私人Sites、commit及push。實體手機／Moodle實機另列未驗。
+
 ## 減少重複操作的新版工作流程（2026-10-18；本節取代下文相關舊規格）
 
 - 讀尺選項以目前尺上讀數為中心，相距1–2mm（四項通常跨度3mm；邊界或錯零位時略移），不再相隔1–2cm。對正零線時唯一正確答案為四捨五入至整mm的讀數，恰半格向上；最大捨入差0.5mm，以唯一整mm值評分。錯零位仍顯示四個不等於正確整mm讀數的選項。±1%投球波動及實際印記不改。

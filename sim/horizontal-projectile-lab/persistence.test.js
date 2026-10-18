@@ -7,6 +7,8 @@ for(const model of[null,'linear','quadratic','square'])for(const attempted of[fa
 for(const n of[1,2,3,4,5,6]){const s=T.filled();for(let i=n;i<6;i++)s.rows[i]=null;s.meanV=n>=2?M.mean(M.calculations(s).slice(0,n).map(c=>c.v)):null;s.fitV=null;s.gFromClock=null;variants.push(s);}
 for(const time of [null,...M.FORMULAS.time.map(f=>f.id)])for(const speed of [null,...M.FORMULAS.speed.map(f=>f.id)]){const s=T.filled();s.formulas={time,speed};s.meanV=null;variants.push(s);}
 const zero=T.filled();zero.rows.forEach(r=>r.read=[0,0]);zero.fitV=zero.meanV=zero.gFromClock=null;zero.fit.attempted=true;variants.push(zero);
+for(const base of [-300000,-150000,0])variants.push(M.practice(M.fresh(base),()=>.65));
+const priorV2=T.filled();delete priorV2.launchOffsetPpm;variants.push(priorV2);assert.equal(S.score(P.decode(T.snapshot(priorV2),'draft')).score,100);
 let cases=0;
 for(const base of variants)for(const view of M.VIEWS)for(const phase of['edit','check'])for(const returning of[false,true]){
   if(phase==='check'&&returning)continue;
@@ -19,6 +21,8 @@ for(const base of variants)for(const view of M.VIEWS)for(const phase of['edit','
 const corrupt=[s=>delete s.rows,s=>s.rows[0].speedOffsetPpm=10001,s=>s.rows[0].clockMs++,s=>s.rows[0].read[0]=NaN,s=>s.rows[0].point=[10,20],s=>s.calculations=[],s=>s.formulas.time='unknown',s=>delete s.formulas.speed,s=>s.selectedSlot=0,s=>s.schemaVersion=3,s=>s.rubricVersion=1,s=>s.phase='unknown',s=>s.clockShown=false,s=>s.conclusions.horizontal='wrong',s=>s.fit.attempted=false,s=>s.meanV=Infinity,s=>s.trajectory='ellipse'];
 for(const mutate of corrupt){const s=T.filled();mutate(s);assert.throws(()=>P.draft(s),String(mutate));}
 const legacy=T.legacyFilled(),oldReview=T.snapshot(legacy,'review');assert.equal(S.score(P.decode(oldReview,'review')).score,100);
+for(const value of [null,1,-300001,NaN,Infinity]){const s=T.filled();s.launchOffsetPpm=value;assert.throws(()=>P.draft(s));}
+const mixed=M.practice(M.fresh(-300000),()=>.5);mixed.rows[0].speedOffsetPpm=0;assert.throws(()=>P.draft(mixed));
 assert.throws(()=>P.decode({version:1,activity:P.ACTIVITY,kind:'draft',answer:legacy},'draft'),/Legacy draft/);assert.throws(()=>P.editableFromReview(P.review(legacy)));
 const max=T.filled();max.meanV=max.fitV=max.gFromClock=Number.MAX_VALUE;max.ruler.zero=[-100,1000];
 const draft=T.snapshot(max),review=T.snapshot(max,'review'),pending={version:1,activity:P.ACTIVITY,kind:'pending-final',payload:{score:review.score,maxScore:100,passed:review.passed,reviewJson:JSON.stringify(review)}};

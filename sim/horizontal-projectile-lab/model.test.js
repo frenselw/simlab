@@ -91,4 +91,17 @@ for(const axis of ['x','y'])for(const selectedSlot of [null,0,1]){
  assert.equal(M.rulerSlot(legacy.rows,{axis,zero:[Math.round(a.x),a.y]}),0);
 }
 assert.equal(M.rulerSlot(M.fresh().rows,{axis:'x',zero:[0,0]}),null);
+assert.equal(M.drawLaunchOffset(()=>0),-300000);assert.equal(M.drawLaunchOffset(()=>1-Number.EPSILON),0);
+for(const n of [-1,1,NaN,Infinity])assert.throws(()=>M.drawLaunchOffset(()=>n));
+for(const base of [-300000,-150000,0]){
+ const start=M.fresh(base),demo=M.practice(start,()=>.65);P.draft(demo);assert.equal(demo.view,'plot');assert.equal(demo.launchOffsetPpm,base);assert.equal(M.points(demo).filter(Boolean).length,6);
+ assert.deepEqual(demo.formulas,{time:null,speed:null});assert.deepEqual(demo.fit,{model:null,attempted:false});assert.equal(demo.meanV,null);assert.equal(demo.clockShown,false);assert(Object.values(demo.conclusions).every(v=>v===null));assert(start.rows.every(v=>v===null));assert.throws(()=>M.practice(demo));
+ for(const jitter of [-10000,0,10000]){
+  const ppm=M.observedOffset(base,jitter),p=M.impact(800,ppm);assert(Math.abs(p.v/M.referenceSpeed(start)-(1+jitter/1e6))<.000001);assert(p.v<=M.IDEAL);assert.equal(p.t,M.impact(800,0).t);
+  const saved=M.change(start,{type:'record',slot:0,depthMm:800,ppm});P.draft(saved);assert.equal(saved.rows[0].speedOffsetPpm,ppm);
+ }
+ const [low,high]=M.offsetBounds(start);for(const ppm of [low-1,high+1])assert.throws(()=>M.change(start,{type:'record',slot:0,depthMm:800,ppm}));
+}
+assert(M.impact(800,M.observedOffset(-300000,0)).x<M.impact(800,M.observedOffset(0,0)).x);
+console.log('Per-experiment random launch offsets, one-percent within-run scatter and test-only measurements passed.');
 console.log('Height spacing, legacy resume, automatic nearest ruler targets, ties, thresholds and selection independence passed.');
