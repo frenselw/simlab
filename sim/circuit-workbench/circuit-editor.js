@@ -636,7 +636,8 @@
     const before=selection&&M.clone(selection);selection={...meta};drag={...meta,pointerId:e.pointerId,pointerType:e.pointerType,target:t,down:world(e.clientX,e.clientY),x:e.clientX,y:e.clientY,lastX:e.clientX,lastY:e.clientY,baseDoc:M.clone(d),selectionBefore:before,tapMeta,connectionBefore:selectedConnection,moved:false,snap:null,limited:false};
     if(readOnly)drag.kind="meterread";
     if(meta.kind==="wire"){const w=d.wires.find(w=>w.id===meta.id);drag.wholeWire=!M.attached(d,w,"from")&&!M.attached(d,w,"to");}
-    if(meta.kind==="wireend")drag.start=M.endpoints(d).get(d.wires.find(w=>w.id===meta.id)[meta.end]);t.setPointerCapture(e.pointerId);render();
+    // Keep the inspector stable until native click; iPad can cancel taps when it gains visible controls.
+    if(meta.kind==="wireend")drag.start=M.endpoints(d).get(d.wires.find(w=>w.id===meta.id)[meta.end]);t.setPointerCapture(e.pointerId);render(e.pointerType!=="touch");
   });
   on(surface,"mousedown",e=>{
     // Native mousedown supplies the OS double-click count; pointerdown supplies capture ID.
@@ -695,7 +696,7 @@
     }
     if(preview&&done.moved&&change(doc=>Object.assign(doc,preview)))notify(done.limited?"導線已拉盡；移近元件或用另一條導線接長。":done.snap?done.kind==="body"?["元件已接線：",...connectionLabel(done.snap.id),"。"]:["端點已接好：",...connectionLabel(done.snap.id),"。拖另一端繼續接線。"]:done.kind==="wireend"?"未接上的端點已留在畫布，可再拿起接線。":done.kind==="wire"?"導線位置／線形已更新。":"位置已更新，接線保持連接。");
     if(paramSession){discardParamPreview();previewDoc=null;analysis=solve(history.get());}
-    render();
+    render(done.pointerType!=="touch"||done.moved);
   });
   on(surface,"lostpointercapture",e=>{if(drag?.pointerId===e.pointerId||(cameraGesture?.ids.includes(e.pointerId)&&!surface.hasPointerCapture(e.pointerId)))cancel(true);});
   on(window,"blur",()=>{spacePan=false;spacePanUsed=false;cancel();touches.clear();touchOrigin=null;touchBlocked=false;render(false);});

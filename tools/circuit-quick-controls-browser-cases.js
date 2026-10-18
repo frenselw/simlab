@@ -148,6 +148,23 @@ async function compactFooterCases(h,source,transient=false){
     const result=await h.inside(`(()=>{const footer=document.querySelector('.stage-bottom'),r=footer.getBoundingClientRect(),controls=[...footer.querySelectorAll('button,input,output')].filter(e=>e.getBoundingClientRect().width>0),boxes=controls.map(e=>e.getBoundingClientRect());return {height:r.height,overflow:document.documentElement.scrollWidth-innerWidth,rows:getComputedStyle(footer).gridTemplateRows,targets:boxes.every(b=>b.width>=44&&b.height>=44&&b.left>=r.left&&b.right<=r.right+.1&&b.top>=r.top&&b.bottom<=r.bottom+.1),overlap:boxes.some((a,i)=>boxes.slice(i+1).some(b=>Math.min(a.right,b.right)-Math.max(a.left,b.left)>.1&&Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)>.1))};})()`);
     assert.equal(result.rows,'44px 44px');assert(result.height<=105);assert(result.overflow<=1);assert(result.targets);assert(!result.overlap);checks+=5;return result;
   }
+  for(const [width,height]of [[834,1194],[1194,834],[390,844]])for(const panelOpen of [true,false]){
+    await h.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:2,mobile:true});await h.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:2});
+    await h.call('loadDocument('+JSON.stringify(fixture)+')');if(transient)await h.call('setPlayback({paused:true})');await h.delay(80);
+    if(await h.inside('!document.getElementById("app").classList.contains("panel-hidden")')!==panelOpen)await tap(control('panelToggle'));
+    const sw=fixture.components.find(c=>c.type==='switch');assert(sw);const initial=sw.params.closed;
+    for(let n=0;n<2;n++){
+      await h.inside('window.__heldInspectorChildren=[...document.querySelector("[data-circuit-id=properties]").children]');
+      const p=await h.point('[data-hit="body:'+sw.id+'"]',true),id=970000+n;
+      await h.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...p,id,radiusX:2,radiusY:2,force:1}]});await h.delay(80);
+      assert(await h.inside('(()=>{const p=document.querySelector("[data-circuit-id=properties]");return p.children.length===__heldInspectorChildren.length&&__heldInspectorChildren.every((e,i)=>e===p.children[i]);})()'),'touch down preserves inspector DOM until native click');checks++;
+      assert.equal((await h.call('getDocument()')).components.find(c=>c.id===sw.id).params.closed,n?!initial:initial);checks++;
+      await h.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await h.delay(100);
+      const expected=n?initial:!initial;assert.equal((await h.call('getDocument()')).components.find(c=>c.id===sw.id).params.closed,expected);checks++;
+      assert.equal(await h.inside('document.querySelector("[data-circuit-id=properties] [data-param=closed]").value'),String(expected));checks++;
+    }
+    console.log(source+' '+(transient?'AC':'DC')+' touch inspector '+width+'x'+height+' panel '+panelOpen+': passed');
+  }
   for(const width of [320,360,384,390,480]){
     await h.send('Emulation.setDeviceMetricsOverride',{width,height:700,deviceScaleFactor:1,mobile:true});await h.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:2});
     await h.call('loadDocument('+JSON.stringify(fixture)+')');if(transient)await h.call('setPlayback({paused:true})');await h.delay(80);

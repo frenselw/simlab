@@ -872,3 +872,13 @@ c3af3b2 的 Quality 38931745075 仍在手機同一步 line 526 失敗，其餘�
 - `node tools/circuit-household-browser-regression.js --heat-smoke` 在 source／ZIP 各通過四組檢查：1280×900、390×900、320×500 的可信滑鼠／觸控短接、實物／符號可見火焰、正常 >5 A 不誤標、暫停／慢速／減少動態、保存恢復／解除故障、保險絲及 RCD 正常播放切斷；斷路器按既有 0.02 s 切斷，重設未修故障會重新發熱。自動切斷後按原 5 Hz scene 更新清除效果。短畫布以火焰主體可見面積驗收，裝飾煙線可超出邊緣；沿用既有圖形位置，不修改版面。已目視桌面與窄手機。browser 入口重建及核對五包；證據 `output/playwright/circuit-household/results.json`、`*-short-heat-*.png`。未執行完整 browser／CI、真手機或 Moodle。
 - Committed selection preview：base `ceb603fe9a852afb24ebb5c0ba5e85528cf9a140` → runtime head `aa53bfdb8a1020dca86170abd19b8b69d007b945`，`node tools/run-tests.js --base=main --head=HEAD --plan` 為 `affected`，選中 221 個 circuit-family consumers 及五個 circuit packages，沒有 full fallback；完整輸出 `output/household-short-heat-selection.json`。這是選取證據，不代表已執行全部選取項目或遠端 CI。
 - 發布：DC／AC／Household Sites version 36／37／33 均由已推送 runtime 同步全部資產、官方 helper 封裝及原生私人部署成功；來源、版本與 deployment 記於 [Sites 發布紀錄](../docs/circuit-workbench-sites.md#最近更新household-短路發熱效果2026-10-17)。
+
+### 快捷選單只顯示選單（2026-10-18）
+
+- 使用者要求：家電種類等列舉參數不顯示左右加減掣，只保留原生選單；連續數值參數繼續使用原有步進控制。沿用既有 :has(select:not([hidden])) 樣式判斷，隱藏整個按鈕觸控／Tab 區域，選單恢復完整圓角；不新增設定、JS 分支或資料。
+- Scope：家庭 stylesheet、既有家庭 browser owner 及本紀錄；舊 browser fixtures 所有按加減改種類／額定電流／姿勢的操作改用選單，保留既有名稱、舊值遷移、手部錨點、原線、歷史、恢復及只讀斷言。模型、保存、評分不改，assessment／rubric／SCORM N/A。
+- 驗證決定：既有 owner 加 --quick-choice-only（完整 owner 同樣執行）在 source／ZIP 的 1280／834／390／320 寬驗家電／人體／額定電流選單、隱藏加減掣、44 px、無水平溢出、鍵盤切換及只讀；既有 --review-fixes-only 驗舊家電選項及續作。數值加減沿用未改 DC／AC 既有 quick-controls 證據；本輪不重跑未改的求解／iPad 點按流程。重建五包、check:tests 與 committed selection preview，真手機／Moodle／網站發布另列。
+
+- 已執行：check／check:tests（241 entries）與 quick-controls 6 群組通過；新增 --quick-choice-only source／ZIP 共 82 個 checks，當中 32 組為四寬度 × 四類選單 × 來源／ZIP，驗完全隱藏加減掣、44 px、8 px 圓角、鍵盤切換／只讀及無水平溢出；--review-fixes-only source／ZIP 共 78 個 checks 通過，保留舊家電／自訂名稱、原生鍵盤、undo／redo、保存恢復及續作。已目視 390 px 熱水器選單，截圖 output/playwright/circuit-household/*-choice-only-heater-*.png；新增 fixture 先按 elementFromPoint 確認命中元件本體，避免 834 px 的 44 px 接孔覆蓋誤點。五包由既有 browser owner 重建／逐檔核對；完整新增／相鄰結果另保存在原工作區 output/playwright/household-choice-results.json、household-choice-legacy-results.json 及相同前綴 log。未執行全站／家庭完整 owner／真手機／Moodle，也未更新網站。
+
+- Committed selection preview：base `6497f9c7319a79f3473ac470e5888913b4c64f3b` → runtime head `01ccadd50ea7c79abe90fed5dda0208b60871965`，模式 `affected`，包含家庭 browser owner 及 5 個電路包；完整輸出保存於原工作區 output/playwright/household-choice-selection.json。後續紀錄提交不改 runtime／test；選取預覽不代表完整 CI 已執行。
