@@ -81,7 +81,7 @@ async function readingFlow(base,label){
     await viewport(width,height);const s=T.filled();s.view='measure';s.ruler.zero=[0,s.rows[0].depthMm];await open(base,s);
     const initial=await state(),p=M.impact(initial.rows[0].depthMm,initial.rows[0].speedOffsetPpm),correct=Math.round(p.x);
     const metrics=await call(`const card=d.getElementById('readingChoices'),r=card.getBoundingClientRect(),o=d.querySelector('[data-origin]');return{font:parseFloat(getComputedStyle(d.body).fontSize),origin:!!o,math:d.querySelectorAll('#scene [data-tex]').length,formula:[...d.querySelectorAll('[data-formula]')].every(e=>e.querySelector('svg[data-tex]')),parent:card.parentElement.id,card:[r.left,r.top,r.right,r.bottom],buttons:[...d.querySelectorAll('.reading-choice')].map(e=>({value:+e.dataset.reading,height:e.getBoundingClientRect().height,math:!!e.querySelector('svg[data-tex]')}))};`);
-    assert(metrics.font>=(width>=900?21:18));assert(metrics.origin&&metrics.math>0&&metrics.formula);assert.equal(metrics.buttons.length,4);assert(metrics.buttons.every(b=>b.height>=44&&b.math));assert.equal(metrics.buttons.filter(b=>b.value===correct).length,1);assert.equal(Math.max(...metrics.buttons.map(b=>b.value))-Math.min(...metrics.buttons.map(b=>b.value)),3);
+    assert(metrics.font>=(width>=900?21:18));assert(metrics.origin&&metrics.math>0&&metrics.formula);assert.equal(metrics.buttons.length,4);assert(metrics.buttons.every(b=>b.height>=44&&b.math));assert.equal(metrics.buttons.filter(b=>b.value===correct).length,1);assert.equal(Math.max(...metrics.buttons.map(b=>b.value))-Math.min(...metrics.buttons.map(b=>b.value)),9);
     assert.equal(metrics.parent,'stage');const canvas=await call(`const r=d.getElementById('stage').getBoundingClientRect();return{left:r.left,right:r.right,top:r.top,bottom:r.bottom};`);assert(metrics.card[0]>=canvas.left&&metrics.card[2]<=canvas.right&&metrics.card[1]>=canvas.top&&metrics.card[3]<=canvas.bottom,JSON.stringify({width,height,metrics,canvas}));
     const wrong=metrics.buttons.find(b=>b.value!==correct).value;await click(`[data-reading="${wrong}"]`,true);assert.equal((await state()).rows[0].read[0],wrong);assert.equal((await state()).fit.attempted,false);assert.equal((await state()).meanV,null);
     await call('app.controller.command({type:"ruler",value:{axis:"x",zero:[1,50]}});');
@@ -96,6 +96,10 @@ async function readingFlow(base,label){
   }
 }
 async function rulerRevision(base,label){
+  await viewport(390,844);const example=M.practice(M.fresh(-80000),()=>.5);example.view='measure';example.ruler.zero=[0,150];await open(base,example);
+  const values=await call('return [...d.querySelectorAll(".reading-choice")].map(e=>+e.dataset.reading).sort((a,b)=>a-b);');assert.deepEqual(values,[261,264,267,270]);await screenshot(label+'-three-mm-reading-options');
+  await click('[data-reading="267"]',true);assert.equal((await state()).rows[1].read[0],267);
+  report.flows.push({label,kind:'three-mm-spaced-options/26.7-cm-example/correct-choice',values,passed:true});
   await viewport(1280,800);await open(base);await cdp.send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
   assert(await call('return !d.getElementById("scene").textContent.includes("固定釋放標記");'));
   await shot(200);assert(await call('return d.getElementById("release").disabled&&!d.getElementById("heightNotice").hidden;'));

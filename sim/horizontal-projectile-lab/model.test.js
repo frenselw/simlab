@@ -27,7 +27,8 @@ const row=T.filled().rows[0],x=Math.round(M.impact(row.depthMm,row.speedOffsetPp
 for(const axis of ['x','y']){
   const actual=axis==='x'?x:row.depthMm;
   for(const zero of [[0,0],[1,1],[-1,-1],[10,10],[20,20],[50,50],[-100,-100],[1000,1000]]){
-    const ruler={axis,zero},choices=M.rulerChoices(row,ruler),local=actual-zero[axis==='x'?0:1];
+    const ruler={axis,zero},choices=M.rulerChoices(row,ruler),local=actual-zero[axis==='x'?0:1],sorted=choices.slice().sort((a,b)=>a-b);
+    assert(sorted.slice(1).every((n,i)=>n-sorted[i]>=3));
     assert.equal(choices.length,4);assert.equal(new Set(choices).size,4);assert(choices.every(v=>M.integer(v,0,1000)));if(zero[axis==='x'?0:1]===0)assert(choices.includes(local));assert.deepEqual(choices,M.rulerChoices(row,ruler));
     if(zero[0]===0)assert.equal(choices.filter(v=>SCORE_NEAR(v,actual)).length,1);else assert(choices.every(v=>!SCORE_NEAR(v,actual)));
   }
@@ -75,8 +76,10 @@ for(const time of [null,...M.FORMULAS.time.map(f=>f.id)]){
  q.rows[0].read=[10,null];assert.deepEqual(M.calculations(q)[0],{t:null,v:null});
 }
 for(const axis of ['x','y']){
- const values=M.rulerChoices(row,{axis,zero:[0,0]});assert.equal(Math.max(...values)-Math.min(...values),3);assert.equal(values.filter(n=>SCORE_NEAR(n,axis==='x'?x:row.depthMm)).length,1);
+ const values=M.rulerChoices(row,{axis,zero:[0,0]});assert.equal(Math.max(...values)-Math.min(...values),9);assert.equal(values.filter(n=>SCORE_NEAR(n,axis==='x'?x:row.depthMm)).length,1);
 }
+const example=M.practice(M.fresh(-80000),()=>.5).rows[1];
+assert.deepEqual(M.rulerChoices(example,{axis:'x',zero:[0,150]}).sort((a,b)=>a-b),[261,264,267,270]);
 for(const axis of ['x','y'])for(const selectedSlot of [null,0,1]){
  const s=M.clone(spaced);s.selectedSlot=selectedSlot;s.ruler.axis=axis;const before=M.clone(s),along=axis==='x'?0:1,across=1-along;
  for(let i=0;i<2;i++){

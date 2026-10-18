@@ -34,7 +34,7 @@
     const p=impact(row.depthMm,row.speedOffsetPpm),axis=ruler.axis==='x'?0:1;
     const actual=Math.round(axis?p.y:p.x),reading=Math.max(0,Math.min(1000,actual-ruler.zero[axis])),values=[];
     // New readings are assessed to the nearest millimetre; a wrong zero never supplies that answer.
-    for(let distance=0;values.length<4;distance++)for(const n of distance?[reading-distance,reading+distance]:[reading]){
+    for(let distance=0;values.length<4;distance+=3)for(const n of distance?[reading-distance,reading+distance]:[reading]){
       if(integer(n,0,1000)&&(ruler.zero[axis]===0||n!==actual))values.push(n);
       if(values.length===4)break;
     }
