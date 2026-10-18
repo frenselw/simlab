@@ -4,7 +4,11 @@
   const d=Object.fromEntries([...document.querySelectorAll('[id]')].map(e=>[e.id,e]));
   const names=['取點','量度','軌跡','估速與平均','計時對照'];
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const fmt=n=>Number.isFinite(n)?Number(n.toPrecision(5)).toString():'—';
+  const fmt=n=>{
+    if(!Number.isFinite(n))return '—';
+    const rounded=n.toPrecision(5),numeric=Number(rounded);
+    return Number.isFinite(numeric)?numeric.toString():rounded;
+  };
   const pn=i=>'P'+'₁₂₃₄₅₆'[i];
   const controller=new ProjectileRuntime.Controller(SimScorm,SimActivityFlow,render);
   let drag=null, run=null, frame=0, placing=false, readingZoom=false, timeAxis=0, geometry=null, hint='';

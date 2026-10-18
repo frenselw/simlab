@@ -87,21 +87,31 @@ async function flows(base,label){
   report.flows.push({label,kind:'blank-each-view/pending/finish/resume/finished/standalone-denied-storage',passed:true});
 }
 async function edgeFlows(base,label){
+  for(const kind of['blocked','unsupported'])for(const height of[225,500]){
+    await viewport(320,height);await open(base);
+    await call(kind==='blocked'?'Object.defineProperty(d,"fullscreenEnabled",{value:false});':'for(const key of ["requestFullscreen","webkitRequestFullscreen"])Object.defineProperty(d.getElementById("app"),key,{value:undefined});');
+    await click('#fullscreenButton',true);
+    const metrics=await call('const p=d.getElementById("controlPanel").getBoundingClientRect(),s=d.getElementById("fullscreenStatus");return{bottom:p.bottom,height:p.height,viewport:innerHeight,error:s.dataset.fullscreenError,visible:!s.hidden&&s.getBoundingClientRect().height>0};');
+    assert.equal(metrics.error,kind);assert(metrics.visible);assert(metrics.height>=95&&metrics.bottom<=height+1,JSON.stringify({kind,height,metrics}));
+  }
   await viewport(390,600);await open(base);await cdp.send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'no-preference'}]});
   await click('#release',true);assert(await call('return app.isRunning()&&["depthUp","depthDown","recordSlot","catcherHandle"].every(id=>d.getElementById(id).disabled);'));
   const original=await state();await call('d.getElementById("catcherHandle").dispatchEvent(new KeyboardEvent("keydown",{key:"ArrowDown"}));');assert.deepEqual(await state(),original);
   await click('#checkButton');assert.equal(await call('return app.isRunning();'),false);assert.equal((await state()).rows.filter(Boolean).length,0);
   await click('[data-go="collect"]');assert.equal(await call('return d.getElementById("depthDown").disabled;'),false);
   await click('#release',true);await viewport(390,500);await H.delay(90);assert.equal(await call('return app.isRunning();'),false);assert.equal((await state()).rows.filter(Boolean).length,0);assert.equal(await call('return d.getElementById("depthDown").disabled;'),false);
+  await shot(200);assert.equal((await state()).rows[0].clockMs,M.impact(200,0).clockMs);
   const s=T.filled();s.view='measure';s.selectedSlot=0;await open(base,s);const before=await state();
   await click('#readingZoom');assert.equal(await call('return d.getElementById("magnifier").hidden;'),false);assert.deepEqual(await state(),before);
   await click('#rulerY');assert.equal(await call('return d.getElementById("magnifier").hidden;'),false);await screenshot(label+'-reading-zoom');await click('#next');assert.equal(await call('return d.getElementById("magnifier").hidden;'),true);
   await click('#checkButton');await click('[data-go="collect"]');const old=await state();acceptDialog=false;await click('#release');assert.deepEqual(await state(),old);assert.equal(await call('return app.isRunning();'),false);
   await click('#clearAll');assert.deepEqual(await state(),old);acceptDialog=true;await click('#clearAll');assert.equal((await state()).rows.filter(Boolean).length,0);
   await click('#checkButton');await click('[data-go="motion"]');await click('#showClock');await click('input[value="uniform"]');await click('#checkButton');await click('[data-go="collect"]');await cdp.send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});await shot(200);assert((await state()).clockShown);assert.equal((await state()).conclusions.horizontal,'uniform');
-  const large=T.filled();large.view='speed';await open(base,large);await input('#calc-t-0',.001);await input('#calc-v-0',500);await input('#meanV',M.mean((await state()).calculations.map(c=>c.v)));assert.equal((await state()).calculations[0].v,500);
-  const values=await call('return w.__lmsValues;');await cdp.send('Page.navigate',{url:`${base}/${slug}/index.html?fixture=${encodeURIComponent(JSON.stringify(values))}`});await wait(()=>call('return app?.getState()?.calculations[0].v===500;'),'large speed resume');
+  const large=T.filled();large.view='speed';await open(base,large);await input('#calc-t-0',.001);await input('#calc-v-0',500);await input('#meanV',Number.MAX_VALUE);assert.equal((await state()).calculations[0].v,500);
+  await click('#checkButton');assert(await call('return !d.getElementById("checkSummary").textContent.includes("Infinity")&&d.getElementById("checkSummary").textContent.includes("1.7977e+308");'));await click('[data-go="speed"]');
+  const values=await call('return w.__lmsValues;');await cdp.send('Page.navigate',{url:`${base}/${slug}/index.html?fixture=${encodeURIComponent(JSON.stringify(values))}`});await wait(()=>call('return app?.getState()?.calculations[0].v===500;'),'large speed resume');assert.equal((await state()).meanV,Number.MAX_VALUE);
   const negative=M.fresh();[50,200,450].forEach((depth,i)=>{negative.rows[i]={depthMm:depth,speedOffsetPpm:0,clockMs:M.impact(depth,0).clockMs,read:[null,[300,280,220][i]],point:null};});negative.view='motion';negative.clockShown=true;await open(base,negative);const g=2*M.timeFit(negative,1).coefficients[0];await input('#gFromClock',g);assert.equal((await state()).gFromClock,g);await click('#checkButton');await click('#submitButton');assert.equal(await call('return app.controller.result.detail.find(x=>x.name==="由時間擬合換算加速度 / m/s²").points;'),3);
+  await open(base,negative);await input('#gFromClock',-Number.MAX_VALUE);await click('#checkButton');await click('#submitButton');assert.equal((await state()).gFromClock,-Number.MAX_VALUE);assert(await call('return !d.getElementById("feedbackList").textContent.includes("Infinity")&&d.getElementById("feedbackList").textContent.includes("-1.7977e+308");'));
   report.flows.push({label,kind:'flight-lock/cancel/resize/ruler-reading-zoom/confirm-cancel/clear/zero-observation-continuation/large-speed/negative-g',passed:true});
 }
 async function touchDrag(selector,dx,dy,ending='touchEnd'){

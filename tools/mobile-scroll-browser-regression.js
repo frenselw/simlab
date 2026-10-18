@@ -423,9 +423,11 @@ async function main() {
 }
 
 if(require.main===module)main().catch(error=>{report.errors.push(error.message);console.error(error.stack);process.exitCode=1;}).finally(async()=>{
-  try{await H.stopChrome(chrome,null);}catch(error){console.error(error.message);process.exitCode=1;}cdp?.close();
+  try{await H.stopChrome(chrome,cdp);}catch(error){report.errors.push(error.message);console.error(error.message);process.exitCode=1;}cdp?.close();
   if(server)await H.closeServer(server);
-  if(profile&&fs.existsSync(profile)){const temp=fs.realpathSync(os.tmpdir());H.validateOwnedDirectory(profile,temp,/^simlab-scroll-audit-chrome-[A-Za-z0-9]+$/,'audit profile');fs.rmSync(profile,{recursive:true,force:true,maxRetries:5,retryDelay:250});}
-  for(const dir of packageRoots){H.validateOwnedDirectory(dir,fs.realpathSync(os.tmpdir()),/^simlab-scroll-audit-package-[A-Za-z0-9]+$/,'audit package');fs.rmSync(dir,{recursive:true,force:true,maxRetries:5,retryDelay:250});}
+  try{
+    if(profile&&fs.existsSync(profile)){const temp=fs.realpathSync(os.tmpdir());H.validateOwnedDirectory(profile,temp,/^simlab-scroll-audit-chrome-[A-Za-z0-9]+$/,'audit profile');fs.rmSync(profile,{recursive:true,force:true,maxRetries:5,retryDelay:250});}
+    for(const dir of packageRoots){H.validateOwnedDirectory(dir,fs.realpathSync(os.tmpdir()),/^simlab-scroll-audit-package-[A-Za-z0-9]+$/,'audit package');fs.rmSync(dir,{recursive:true,force:true,maxRetries:5,retryDelay:250});}
+  }catch(error){report.errors.push(error.message);console.error(error.message);process.exitCode=1;}
   report.status=process.exitCode?'failed':report.completed?'passed':'incomplete';persistReport();
 });

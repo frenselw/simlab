@@ -16,4 +16,7 @@ assert.equal(M.change(newRow,{type:'record',slot:5,depthMm:800,ppm:10}).meanV,ne
 assert.equal(M.mean(Array(6).fill(Number.MAX_VALUE)),Number.MAX_VALUE);
 const oldClock=s.rows[0].clockMs;assert.equal(M.change(s,{type:'read',slot:0,axis:1,value:800}).rows[0].clockMs,oldClock);
 s=M.change(s,{type:'read',slot:0,axis:1,value:null});assert.equal(s.rows[0].point,null);assert.deepEqual(s.calculations[0],{t:null,v:null});
+const parabola=M.fresh();[[200,70],[400,280],[600,630]].forEach((point,i)=>{parabola.rows[i]={depthMm:50+i*50,speedOffsetPpm:0,clockMs:M.impact(50+i*50,0).clockMs,read:point.slice(),point};});
+for(const model of['square','quadratic']){parabola.fit={model,attempted:true};const f=M.fit(parabola);assert(f.ok);assert(Math.abs(f.coefficients[0]-1.75)<1e-12);assert(f.rmse<1e-12);}
+parabola.fit.model='linear';assert(M.fit(parabola).rmse>.01);
 console.log('Projectile model: noise, energy, fixed clocks and atomic dependencies passed.');
