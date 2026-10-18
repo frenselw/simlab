@@ -57,7 +57,7 @@
   categories: ["Mechanics"],
   description: "調整接球槽留下鋼珠印記，量度與描出軌跡，逐點估算初速度及平均，再以擬合與計時研究分運動。",
   tags: ["physics", "mechanics", "projectile-motion", "measurement", "curve-fitting", "scorm"],
-  status: "planned"
+  status: "active"
 }
 ```
 
@@ -140,7 +140,7 @@ Apply [diagrams/notation](00-shared-platform-and-style.md#diagrams-and-notation)
 
 | Decision | Activity specification and reason |
 |---|---|
-| Notation | x、y、t、g、v₀為約定方向的標量；cm表格、SI公式；k／A／α避免與加速度a混淆；共用math字體、斜體變量、正體單位、真正上下標 |
+| Notation | x、y、t、g、v₀為約定方向的標量；cm表格／圖軸、SI公式，數值擬合式旁明示位置以m、時間以s表示；k／A／α避免與加速度a混淆；共用math字體、斜體變量、正體單位、真正上下標 |
 | Arrow graphics | x向右、y向下軸箭頭，O在出口球心；無學生矢量作圖。若有出口箭頭只表方向、不顯示未知速度大小 |
 | Snap | 槽5mm步距；尺可對齊可見O／所選印記投影；圖點只吸公開1cm格。mouse8px、touch/pen12px CSS門檻，不吸答案／理想軌跡；與評分容差分開 |
 | Snap release | mouse移3px、touch/pen6px才開始拖，輕觸保留原值；用最近可見對齊線／公開格點，預覽與放手同一幾何。實作沒有加入初稿建議的1.5倍黏附遲滯：窄屏1cm格距遠小於12px，避免圖點被黏住而難以移動 |
@@ -332,28 +332,28 @@ Apply all relevant [verification checks](../docs/simulation-scorm-production-gui
 
 本活動另外必測：
 
-- [ ] 鋼珠理想滾動上限、v參考及±1%速率邊界、vy(0)=0、各深度碰撞、球心／槽面差、cm/mm/m、動畫跨幀及慢放不改時鐘。
-- [ ] 偏移只在每次釋放抽一次；以可注入的測試random驗最小／中央／最大及非有限／越界拒絕。相同depth配不同offset有預期水平散布，最大速率不超理想能量上限；每次飛行vx固定、時鐘和y不受速率波動影響。
-- [ ] 每個有偏移的記錄production round-trip後動畫重播／印記／真值／分數完全相同，restore、重繪、擬合、retry不抽random；新投球／重做才換偏移，舊點不變；量度完全對準帶差異印記不得被扣讀數分。
-- [ ] 純數學已知y=1.75x²的三種擬合，以及新v參考／含微散布資料的代表曲線；錯點、最少點、重複x、退化、全y相同、零／負k、非有限數。含誤差不要求零RMSE；不能把少點精確插值當證明。
-- [ ] 改學生y只改推算時間／擬合、不改clockMs；改深度影響新觀測。未揭示不顯時間，揭示但零資料仍合法。
-- [ ] 滿分／untouched／單讀數／單概念、取樣跨度、duplicates、容差邊界、follow-through及所有依賴修改／清除。
-- [ ] 六行逐點計算的空白／單行／2–5行／六行狀態，平均的n及納入編號正確；包含0／錯值、不排離群值，未填不補0。平均運算分對全部已填v，準確度分對同組真實vᵢ平均；部分提交只失未答項。
-- [ ] 已答meanV後新增／改／清一行v、改／清t、改read及重做已有速度的印記，原子清相依meanV，production round-trip後可再填並提交；其他行保留。僅新增尚未計速的印記，不清仍有效的舊平均。
-- [ ] 零觀測前進motion、揭示時鐘並答概念／前進plot嘗試資料不足擬合，再返回collect；production round-trip後釋放第一球，獨立概念答案與合法操作仍保留。
-- [ ] 派生答案域：x=500mm、所填t=0.001s可填v=500m/s；square點(1,1)、(1000,0)mm可填約70000m/s；α<0時可填同樣為負值的2α、正確換算得部分分而真值分為0；很大正／負g亦不截斷。每例均涵蓋輸入、scoring、保存及恢復，非有限值另拒絕。
-- [ ] 正式UI走完取點→量度→描點→擬合→估速→計時→提交，並測重做／reset取消及確認；source與真實ZIP同樣執行。
+- [x] 鋼珠理想滾動上限、v參考及±1%速率邊界、vy(0)=0、各深度碰撞、球心／槽面差、cm/mm/m、動畫跨幀及慢放不改時鐘。
+- [x] 偏移只在每次釋放抽一次；以可注入的測試random驗最小／中央／最大及非有限／越界拒絕。相同depth配不同offset有預期水平散布，最大速率不超理想能量上限；每次飛行vx固定、時鐘和y不受速率波動影響。
+- [x] 每個有偏移的記錄production round-trip後動畫重播／印記／真值／分數完全相同，restore、重繪、擬合、retry不抽random；新投球／重做才換偏移，舊點不變；量度完全對準帶差異印記不得被扣讀數分。
+- [x] 純數學已知y=1.75x²的三種擬合，以及新v參考／含微散布資料的代表曲線；錯點、最少點、重複x、退化、全y相同、零／負k、非有限數。含誤差不要求零RMSE；不能把少點精確插值當證明。
+- [x] 改學生y只改推算時間／擬合、不改clockMs；改深度影響新觀測。未揭示不顯時間，揭示但零資料仍合法。
+- [x] 滿分／untouched／單讀數／單概念、取樣跨度、duplicates、容差邊界、follow-through及所有依賴修改／清除。
+- [x] 六行逐點計算的空白／單行／2–5行／六行狀態，平均的n及納入編號正確；包含0／錯值、不排離群值，未填不補0。平均運算分對全部已填v，準確度分對同組真實vᵢ平均；部分提交只失未答項。
+- [x] 已答meanV後新增／改／清一行v、改／清t、改read及重做已有速度的印記，原子清相依meanV，production round-trip後可再填並提交；其他行保留。僅新增尚未計速的印記，不清仍有效的舊平均。
+- [x] 零觀測前進motion、揭示時鐘並答概念／前進plot嘗試資料不足擬合，再返回collect；production round-trip後釋放第一球，獨立概念答案與合法操作仍保留。
+- [x] 派生答案域：x=500mm、所填t=0.001s可填v=500m/s；square點(1,1)、(1000,0)mm可填約70000m/s；α<0時可填同樣為負值的2α、正確換算得部分分而真值分為0；很大正／負g亦不截斷。每例均涵蓋輸入、scoring、保存及恢復，非有限值另拒絕。
+- [x] 正式UI走完取點→量度→描點→擬合→估速→計時→提交，並測重做／reset取消及確認；source與真實ZIP同樣執行。
 
-- [ ] Scoring covers blank/partial answers, component independence, extras, penalties and tolerance boundaries.
-- [ ] Every editable phase can reach final check and submit blank/partial work; scored/pending states have no erase/restart route.
-- [ ] Production encode/decode/restore round-trip covers **every** matrix row with production-shaped fixtures, equal score and execution of one legal continuation.
-- [ ] Invalid matrix combinations, numbers, enums, dependencies and authoritative keys fail closed; derived IDs rebuild; version policy and 4000-byte ceiling are tested.
-- [ ] Production startup/submission/render logic covers all outcomes above, invalid finished review, pending retry and trust mismatch/unknown status; source checks alone are insufficient.
-- [ ] Source and extracted SCORM standalone refresh clears partial/check/submitted work and permits redraw/submission, including old draft/review/pending/corrupt checkpoints and denied browser storage; separate Moodle cases retain same-attempt work.
+- [x] Scoring covers blank/partial answers, component independence, extras, penalties and tolerance boundaries.
+- [x] Every editable phase can reach final check and submit blank/partial work; scored/pending states have no erase/restart route.
+- [x] Production encode/decode/restore round-trip covers **every** matrix row with production-shaped fixtures, equal score and execution of one legal continuation.
+- [x] Invalid matrix combinations, numbers, enums, dependencies and authoritative keys fail closed; derived IDs rebuild; version policy and 4000-byte ceiling are tested.
+- [x] Production startup/submission/render logic covers all outcomes above, invalid finished review, pending retry and trust mismatch/unknown status; source checks alone are insufficient.
+- [x] Source and extracted SCORM standalone refresh clears partial/check/submitted work and permits redraw/submission, including old draft/review/pending/corrupt checkpoints and denied browser storage; separate Moodle cases retain same-attempt work.
 - [ ] Phone typography, arrow/label geometry, snap and required previews work in the planned viewport/zoom matrix.
-- [ ] Shared fullscreen button enters/exits with trusted click/tap on source and extracted SCORM, synchronizes external exits, remains reachable in review/pending, preserves answers/SCORM state, and visibly handles unsupported/denied requests; header text/navigation stay unobstructed.
+- [x] Shared fullscreen button enters/exits with trusted click/tap on source and extracted SCORM, synchronizes external exits, remains reachable in review/pending, preserves answers/SCORM state, and visibly handles unsupported/denied requests; header text/navigation stay unobstructed.
 - [ ] Every phase/mode's applicable gesture rows pass with trusted input on **source and extracted SCORM** in T0–T3; record every owner's metrics, move/release samples, visual blank/overlay geometry, panel boundaries and unchanged learner work. Missing or failed acceptance cases fail the runner.
-- [ ] Every new test and browser owner is registered in `tools/test-registry.js`; runtime dependencies are in the manifest or registered standalone asset list, and metadata is in `sim/config.js`.
+- [x] Every new test and browser owner is registered in `tools/test-registry.js`; runtime dependencies are in the manifest or registered standalone asset list, and metadata is in `sim/config.js`.
 
 ### Test registration and CI selection evidence
 
@@ -366,12 +366,12 @@ Follow the production guide's [registration procedure](../docs/simulation-scorm-
 | Browser entries / owner | `{file:'tools/horizontal-projectile-browser-regression.js',kind:'browser',scope:'horizontal-projectile-lab'}`；一入口含source/package，無args變體 |
 | Case helpers | 先擴充上述現有mobile-scroll helpers；若實作確需新`*-browser-cases.js`，登記literal consumer及scope，不把helper冒充已跑test |
 | Separate manual gates | 保留既有mobile-scroll-browser-regression manual gate及理由，加入活動profiles／operations；完整T0–T3不能由CI省略，T4另外記真實證據 |
-| Registration check | 實作後`npm.cmd run check:tests`通過：246 entries（213 node、33 browser）、48 helpers、2 manual |
+| Registration check | 實作後`npm.cmd run check:tests`通過：246 entries（213 node、33 browser）、48 helpers、2 manual；沿用既有mobile-scroll manual gate，沒有新增未登記的正式入口 |
 | CI selection preview | 實作commit後記實際base/head、`npm run test:affected -- --base=<sha> --head=<sha> --plan`結果及browser/packages；registry/catalogue新增預期full coverage |
 | Actual GitHub verification | 未執行、無run link；實作首次registry/catalogue變更需要完整驗證，不把文件分支當活動CI通過 |
 
-- [ ] Registration validation passes; every new formal entry/helper is accounted for, and any separate manual gate has a reason.
-- [ ] The committed selection preview includes the owning browser suite and all asset consumers, or records the expected full scope for registry/catalogue/shared changes.
+- [x] Registration validation passes; every new formal entry/helper is accounted for, and any separate manual gate has a reason.
+- [x] The committed selection preview includes the owning browser suite and all asset consumers, or records the expected full scope for registry/catalogue/shared changes.
 - [ ] Required source/package scenarios were executed; CI selection evidence does not replace real-phone or Moodle acceptance.
 
 ## 實作次序
@@ -384,13 +384,13 @@ Follow the production guide's [registration procedure](../docs/simulation-scorm-
 
 ## Package-ready checklist
 
-- [ ] Above decisions, state matrix and test evidence are complete; required keyboard alternatives work.
+- [x] Above decisions, state matrix and test evidence are complete; required keyboard alternatives work.
 - [ ] Phone, tablet and desktop layouts, short iframe, toolbar/keyboard changes and 200% zoom preserve readable content and reachable actions.
 - [ ] `npm run check`, `npm test` and `npm run package:all` pass; record commands, results and artifact paths.
-- [ ] `git diff --check` and the PR diff against its actual base pass.
-- [ ] ZIP has root `imsmanifest.xml`, every runtime asset is declared and no development-only files ship.
+- [x] `git diff --check` and the PR diff against its actual base pass.
+- [x] ZIP has root `imsmanifest.xml`, every runtime asset is declared and no development-only files ship.
 - [ ] Built/extracted launch smoke and the full applicable trusted-touch matrix pass; use the documented Git Bash route on Windows.
-- [ ] Assessment risk and any trusted validation requirement are recorded.
+- [x] Assessment risk and any trusted validation requirement are recorded.
 
 ## Moodle-ready checklist
 
@@ -432,3 +432,45 @@ Follow the production guide's [registration procedure](../docs/simulation-scorm-
 - 每次出口速率約±1%波動，帶動落點小散布，該次偏移保存於觀測；同次飛行仍水平勻速。加入很小的平均耗散，使整個波動區間不超理想滾動能量上限。
 - 同步更新物理、評分真值、依賴清除、phase、尚未發布的v1 schema及測試決定；不新增runtime程式或額外誤差設定選項。
 - 本次文件檢查通過：17個連結／fragment、21個表格欄數、行尾空白及`git diff --check`；主文已無兩卡／固定同一落點舊規格。公式核算確認v參考≈1.65659m/s、±1%範圍≈1.64002–1.67315m/s且不超理想上限，同深度水平落點比例同為±1%；固定對稱偏移樣本的六點平均及既有擬合模組換算均通過assertions，rubric仍100分。這是文件／公式核對，沒有執行新活動或重新雙人審查。
+
+## 2026-10-18 實作、獨立審查及本地證據
+
+已在本分支新增完整靜態活動及SCORM 1.2 manifest。七個runtime檔重用shared SCORM、activity-flow、fullscreen及既有數學fitting，不新增npm或CDN依賴。`784ddcc`保存首次完整實作，`2ef1f95`保存審查跟進的單位修正；其後提交補驗收記錄及測例。
+
+### 一位sub-agent的實作審查
+
+依使用者要求，只開一位實作審查agent。由於其環境不能讀檔，由主agent提供model、scoring、persistence、ui-runtime完整正文及main核心邏輯；HTML/CSS、模板、shared runtime及測試／包裝工具提供摘要。子代理未執行測試，也沒有宣稱逐行審查摘要所涵蓋的檔案；主agent另外讀取實際檔案並執行下列驗證。
+
+| 發現／跟進 | 修正及覆核 |
+|---|---|
+| P2：圖軸cm與數值擬合式m的單位未充分區分 | 在`fitText()`的方程旁統一明示x/y用m、t用s，圖軸位移用cm；所有五種擬合共用。來源及套件流程assert位置／時間單位說明。子代理覆核此P2已關閉，未見衍生矛盾。 |
+| P2：極大有限答案顯示成Infinity | 格式化先驗證五位有效數的轉換；若會溢出，保留有效的指數字串。加入MAX_VALUE平均、恢復及負MAX_VALUE的g回饋測例；子代理覆核修正合理。 |
+| P2：首次放點在pointerdown寫入，取消仍留點 | 改用持續掛載的surface及pointer capture，按下只預覽，pointerup才提交；touchcancel、失去capture、blur、第二指均保留完整答案及suspend資料。來源／套件及嵌入測例補齊；子代理覆核此問題已關閉。 |
+| 主agent自查：投球中仍可按鈕／鍵盤改槽 | 同時鎖槽位置／記錄slot／握柄及鍵盤，開始、完成及取消投球時render解鎖；保留導航取消。測試包含check取消、resize取消、正常慢放完成及時鐘不變。審查agent另確認修法完整。 |
+| 主agent自查：未改圖點卻清擬合、取消清除後介面不同步 | 相同座標只更新選取、不使fitV失效；取消清除／拖動、鍵盤聚焦既有點亦重畫，拒絕清除時恢復已取消投球的控制項。子代理覆核確切修訂描述未見衍生缺陷；model及source/package browser驗證。 |
+| 手機量尺讀數可用性 | 增加主動放大尺上讀數，顯示所選印記在目前尺上的真實投影；每mm至少4CSSpx，不顯示正確數值、不改作答。另補座標方向箭頭及正常尺標間距。 |
+
+除上述已關閉項，子代理在所讀核心中未提出其他可重現P1/P2。這是文字審查，不取代瀏覽器、Moodle或實體電話證據。
+
+### 已完成的活動驗證
+
+- `model.test.js`：理想滾動能量上限、±1%邊界／抽樣拒絕、撞槽位置與獨立時鐘、相依答案原子失效；另驗已知y=1.75x²的平方／二次正確係數及直線殘差。
+- `scoring.test.js`：100／空白0／部分分、容差邊界、以自己錯讀數轉繪及後續運算、全組平均、500m/s／約70000m/s／負g合法跟進計算。
+- `persistence.test.js`：270個draft變體production round-trip、等分與實際合法續作，review還原、非法shape／數值／版本／相依拒絕。含極端有限數的draft/review/pending分別1487/1347/1638 UTF-8 bytes，均低於4000。
+- `lifecycle.test.js`：new/draft/review/pending及技術狀態；success/committed/frozen/retry四結果，可信度不符保持只讀，pending驗證失敗quarantine，保存失敗保留作答並阻止未保存提交。
+- 正式browser入口同時執行source及真正build/extracted ZIP，逐asset byte比較，保存runtime SHA-256及Chrome版本。十個viewport各五view共100個版面：320×500、390×500、390×600、390×844、900×650、1280×800、640×400、667×375、320×400、320×225；面板最尾可達、document無競爭range。640×400是1280×800在200%時的等效CSS可用域，並非OS瀏覽器縮放或實體裝置證據。
+- 來源／套件正式UI各走六次投球→讀數→親自描點→直線／二次／平方擬合→六行估速／平均→獨立計時／概念→100分提交；各步空白提交0、pending及finish重試、draft／review恢復、standalone拒絕storage下partial/check/submitted刷新全新。包括大速度／負g輸入、確認取消／清除、零觀測先答概念再投球。
+- 同入口驗真CDP touch放點、槽／尺／點完整拖放及取消、右鍵不放點、鍵盤、兩側≥32px、短iframe的fullscreen blocked/unsupported可見訊息及面板可達；T0直接頁面各view/check/review/frozen/committed的面板／邊界／空白觸控及鎖定狀態fullscreen不改答案。
+- 活動browser正式報告：`output/playwright/horizontal-projectile-lab/report.json`；裝置／軌跡／時間圖／手機／放大尺截圖在同目錄。
+
+### 本地完整回歸與觸控矩陣
+
+`npm.cmd run check:tests`、`npm.cmd run check`、`npm.cmd run package:all`及`git diff --check`已通過；所有SCORM ZIP已成功建立，新活動ZIP含root imsmanifest及12個runtime資產，共13檔，開發測試不入包。套件：`output/horizontal-projectile-lab-scorm.zip`。
+
+已提交selection preview：base `f7ab989ca59b72ebe6a7691129320c4768f6fcf8`，head `784ddcc9933ac894460a5139bb6c1906b0e4a990`；`npm.cmd run test:affected -- --base=<base> --head=<head> --plan`回傳full、246 entries、packages=all（catalogue變更），含本活動四個Node及一個browser入口。報告：`output/playwright/horizontal-projectile-lab/selection-preview-784ddcc.json`。最終head另補同一選擇預覽。
+
+完整本地回歸的初次Node執行212/213通過；既有force-composition persistence長測例在120秒期限附近逾時，300秒單項重跑以118.1秒通過。完整213項Node重跑全部通過（每項300秒，未修改測例或runner），報告`output/ci-tests/projectile-all-node-final/report.json`；最後圖點修改另重跑本活動四個Node入口及mobile-scroll契約測試，全部通過。
+
+全部33個browser入口分批執行；原始大分批在完成電路組後中止重複排隊，其餘19項另分三批，不能把中止報告當CI全綠。家庭電路保護掣closed/tripped、交流電路效能budget、來源電路relay過渡狀態及駕駛活動嵌入恢復的Persistence.decode檢查失敗；相關活動／shared runtime沒有本分支改動，尚未判定根因，不能宣稱全專案回歸或CI通過。原始報告保留於`output/ci-tests/projectile-browser-{1,2}`及`projectile-other-browser-{1,2,3}`。
+
+真Moodle學生帳戶、實體手機T4、OS實際200%縮放及GitHub CI尚未驗收；保持Moodle-ready未勾選。
