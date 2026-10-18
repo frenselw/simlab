@@ -143,7 +143,7 @@
     const step=q<180?500:200;
     for(let i=0;i<=1000;i+=step){html+=line(x(i),y(0),x(i),y(1000))+line(x(0),y(i),x(1000),y(i));if(i>0)html+=text(x(i),time?y(1000)+17:y(0)-6,time?fmt(i/1000*.45):i/10,'#53647b','middle')+text(x(0)-5,y(i)+4,time?(1000-i)/10:i/10,'#53647b','end');}
     if(time)html+=text(x(0)-4,y(0)-6,'100','#263b55','end');
-    else html+=`<circle data-origin="true" cx="${x(0)}" cy="${y(0)}" r="6" fill="#b13f25" stroke="#fff" stroke-width="2"/>`+text(x(0)+10,Math.max(labelSize,y(0)-30),'O(0,0)','#a3321e','start','O(0,0)');
+    else html+=`<circle data-origin="true" cx="${x(0)}" cy="${y(0)}" r="6" fill="#b13f25" stroke="#fff" stroke-width="2"/>`+text(x(0)+10,clipId==='sceneClip'?Math.max(labelSize,y(0)-30):y(0)-30,'O(0,0)','#a3321e','start','O(0,0)');
     if(time){html+=line(x(0),y(1000),x(1000)+8,y(1000),'#263b55',1.5,true)+line(x(0),y(1000),x(0),y(0)-8,'#263b55',1.5,true)+text(x(0)+5,y(0)+17,`${timeAxis===0?'x':'y'} / cm`,'#263b55','start',`${timeAxis===0?'x':'y'} / \\mathrm{cm}`)+text(x(1000),y(1000)+34,'t / s','#263b55','end','t / \\mathrm{s}');}
     else html+=line(x(0),y(0),x(1000)+8,y(0),'#263b55',1.5,true)+line(x(0),y(0),x(0),y(1000)+8,'#263b55',1.5,true)+text(x(1000),y(0)-42,'x / cm','#263b55','end','x / \\mathrm{cm}')+text(x(0)+5,y(1000)+28,'y / cm','#263b55','start','y / \\mathrm{cm}');
     const plot=view==='plot'||view==='speed';
