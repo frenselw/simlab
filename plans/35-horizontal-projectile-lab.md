@@ -566,3 +566,11 @@ Moodle、實體手機、OS實際200%縮放及全專案browser總閘仍未驗收�
 直接複製已測試版本的16個 manifest runtime 資產，逐byte／SHA-256核對來源；保留原活動及共用檔的相對路徑。根 `index.html` 只跳往活動入口並保留 query/hash，已用執行斷言驗證。官方 Sites source helper 負責獨立 Git commit／push及封裝，再由私人發布工具確認成功；tar內18檔含上述16資產、根入口及hosting metadata，已逐byte檢查。資產證據為`output/sites/projectile-assets.json`。
 
 Sites 版使用既有 standalone 行為，刷新開始新作答；Moodle成績及同一次作答恢復須使用SCORM包。本次純部署沿用上一節的來源／解壓ZIP與觸控驗證，沒有更改runtime或重跑完整browser、真手機及Moodle。
+
+## 手機畫布空間修訂（2026-10-18）
+
+- 手機畫布按裝置的實際範圍（含斜槽）或完整0–100cm座標範圍等比例放大，減少固定留白；橫／豎比例保持相同，不改物理、尺位或學生資料。桌面維持原配置。
+- 一般手機直向畫布改為視窗高度62%與畫面寬度加56px之較小者，保留至少96px可捲動面板；短iframe維持既有重排。手機提示移到面板，讓畫布不再為提示預留底部大段空間。
+- 移除手機header對全螢幕按鈕的重複右側預留，沿用共用header既有空間，避免320px寬標題換行擠壓畫布；文字大小維持。
+- 作圖區兩側保留至少32 CSS px的捲動條。所有指標轉換、吸附、尺面及放大預覽繼續共用同一geometry；拖動時camera固定，resize取消拖動。
+- 範圍僅main的排版／geometry、活動CSS、既有browser入口的空間利用及邊界斷言、計劃與同一Sites部署。模型、評分、保存schema、manifest及依賴不變。驗證手機各步的圖域大小、字／軸／斜槽未截斷、讀尺／取點／作圖、來源及解壓ZIP、可信觸控與中斷，再更新既有私人Sites，commit及push。

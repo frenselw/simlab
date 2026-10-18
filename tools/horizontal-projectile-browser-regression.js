@@ -129,6 +129,15 @@ async function layoutMatrix(base,label){
       const metrics=await call(`const panel=d.getElementById('controlPanel'),p=panel.getBoundingClientRect(),root=d.scrollingElement,button=d.getElementById('fullscreenButton').getBoundingClientRect();panel.scrollTop=panel.scrollHeight;return{rootRange:root.scrollHeight-root.clientHeight,rootX:root.scrollWidth-root.clientWidth,panel:[p.top,p.bottom,p.height],viewport:w.innerHeight,lastReachable:panel.scrollTop>=panel.scrollHeight-panel.clientHeight-1,fullscreen:[button.left,button.top,button.right,button.bottom]};`);
       assert(metrics.rootRange<=1&&metrics.rootX<=1,JSON.stringify({label,width,height,view,metrics}));assert(metrics.panel[2]>=95&&metrics.panel[0]>=-1&&metrics.panel[1]<=height+1,JSON.stringify({width,height,view,metrics}));assert(metrics.lastReachable);
       assert(metrics.fullscreen[0]>=0&&metrics.fullscreen[2]<=width+1&&metrics.fullscreen[3]<=height,JSON.stringify({label,width,height,view,metrics}));
+      if(width<900&&height>420){
+        const geometry=await call(`const g=app.getGeometry(),stage=d.getElementById('stage').getBoundingClientRect(),box=e=>{const r=e.getBoundingClientRect();return{left:r.left-stage.left,top:r.top-stage.top,right:r.right-stage.left,bottom:r.bottom-stage.top};};return{...g,hintHost:d.getElementById('stageHint').parentElement.id,labels:[...d.querySelectorAll('#scene [data-tex]')].map(box),ball:d.querySelector('#scene circle[fill="#677586"]')?box(d.querySelector('#scene circle[fill="#677586"]')):null};`);
+        assert.equal(geometry.hintHost,'controlPanel');const oldScale=Math.min((geometry.w-108)/(view==='collect'?1300:1100),(geometry.h-124)/(view==='collect'?1300:1100));assert(geometry.s>=oldScale*1.2,JSON.stringify({width,height,view,geometry}));
+        assert(geometry.ox+1000*geometry.s<=geometry.w-32+1&&geometry.oy+1000*geometry.s<=geometry.h-39);
+        if(view!=='collect')assert(geometry.ox>=32);
+        for(const b of [...geometry.labels,...(geometry.ball?[geometry.ball]:[])])assert(b.left>=-1&&b.top>=-1&&b.right<=geometry.w+1&&b.bottom<=geometry.h+1,JSON.stringify({width,height,view,b,geometry}));
+        metrics.geometry=geometry;
+        if(width===320&&height===500||width===390&&height===844){await call('d.getElementById("controlPanel").scrollTop=0;');await screenshot(label+'-mobile-space-'+view+'-'+width);}
+      }
       report.layouts.push({label,width,height,view,...metrics});
     }
   }

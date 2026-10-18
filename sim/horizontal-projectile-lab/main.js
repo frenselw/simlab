@@ -46,6 +46,9 @@
     if(locked){cancelDrag();cancelFlight();placing=false;}
     d.app.classList.toggle('checking',checking||!s);
     d.app.classList.toggle('measuring',view==='measure'&&!checking&&Boolean(s));
+    const hintHost=innerWidth<900&&innerHeight>420?d.controlPanel:d.stage;
+    if(d.stageHint.parentElement!==hintHost){if(hintHost===d.controlPanel)hintHost.insertBefore(d.stageHint,d.notice);else hintHost.append(d.stageHint);}
+    d.stageHint.hidden=checking||!s;
     d.status.textContent=controller.mode==='review'?'已提交 · 只讀回顧':controller.mode==='committed'?'結果已記錄':controller.mode==='frozen'?'提交待確認':'取點、量度與擬合';
     d.progress.textContent=s?`${M.VIEWS.indexOf(view)+1} / 5 ${names[M.VIEWS.indexOf(view)]}`:'';
     d.notice.hidden=!controller.notice;d.notice.innerHTML=prose(controller.notice);
@@ -118,6 +121,14 @@
 
   function makeGeometry(view){
     const w=d.stage.clientWidth,h=d.stage.clientHeight;
+    if(innerWidth<900&&h>=150){
+      const collect=view==='collect',left=collect?16:40,right=32,top=58,bottom=d.stageHint.parentElement===d.stage?88:40,spanX=collect?1260:1000;
+      const scale=Math.max(.01,Math.min((w-left-right)/spanX,(h-top-bottom)/1000,collect?(h-16-bottom)/1220:Infinity));
+      const originTop=collect?Math.max(top,16+220*scale):top;
+      const ox=left+(w-left-right-spanX*scale)/2+(collect?260:0)*scale;
+      const oy=originTop+(h-originTop-bottom-1000*scale)/2;
+      return{w,h,s:scale,ox,oy,x:n=>ox+n*scale,y:n=>oy+n*scale};
+    }
     const extent=view==='collect'?1300:1100;
     const scale=Math.max(.01,Math.min((w-108)/extent,(h-124)/extent));
     const left=(w-extent*scale)/2,top=60;
