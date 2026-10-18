@@ -6,6 +6,12 @@
 - 只改活動model.rulerChoices()生成距離及相關既有model／browser斷言；尺面放大比例、吸附、拖動／touch、物理波動、正確整mm讀數、rubric與schema（3/1/3）不改。舊draft/read保持原值，還原時重建新選項，不把舊答案改成新選項。共用程式／manifest無改動。
 - 驗證3mm最小間隔、一般9mm跨度、26.7cm實例、水平／豎直與正零／錯零／邊界四選項及唯一正解，並保留production round-trip／舊分數。執行四個活動Node、source＋解壓SCORM browser含手機可信touch讀尺及新版截圖、check:tests／committed selection preview、check／活動package／文件與diff，再更新同一私人Sites、commit/push。觸控surface與幾何無變，不重跑T1–T3全矩陣或無關活動；真機／Moodle限制保留。
 
+### 3mm選項驗證與發布
+
+- Runtime head `042b1301301079c20c92913e93bb39e8eb873d73`已推送；四個活動Node入口通過，包含水平／豎直、正零／錯零／尺端四項互異及至少3mm間隔、正常9mm跨度、26.7cm實例，並保留564組draft round-trip／續作及舊版分數。正式source＋真正解壓SCORM通過104個版面、28組流程、48組操作觀測；兩版均於390×844顯示261/264/267/270mm並成功點選267mm，原有四尺寸正零唯一正解／錯零全錯／可信touch選項／還原／只讀均通過。已目視`source-three-mm-reading-options.png`：手機放大窗內選項清楚，無新增幾何或拖動surface。報告`output/playwright/horizontal-projectile-lab/report.json`。
+- `check:tests`仍246 entries／48 helpers／2 manual，`check`、17檔活動SCORM、文件及diff檢查通過；ZIP runtime逐byte等於來源，16資產hash為`64dcf8beece93abd2cfff43b23384f7752cb36f67ea7d6b94bd972297d43b0e6`。Committed selection preview base `1bb9a8e`／head `042b130`為affected、214 entries、單一活動package，存於`selection-preview-three-mm.json`；僅四個相關Node與本活動browser實際重跑，其他209 Node／32 browser、T1–T3完整矩陣、真手機及Moodle未重驗。
+- [原私人Sites](https://simlab-horizontal-projectile-lab.ieyp.chatgpt.site)已更新，owner-private維持。官方helper推送Site source `03cc60899e7ba4537db902f3c2650203f0c7e1fa`，saved version `appgprj_6ad49418111c819198d79e88cab3e78e~appgver_b99da65f3fc8819184205c805ef884f7`，deployment `appgdep_6ad4d4a689948191af6cd794a3039a01`原生回傳`succeeded`。Archive `output/sites/horizontal-projectile-lab-three-mm-042b130.tar.gz`共18檔，16 runtime與根redirect逐byte核對、hosting metadata等同來源JSON，SHA-256 `826969a8e93d09c038ba5d5d1a7da0fd8130848416b98dac783f2fb978a2df7f`；資產證據`output/sites/projectile-three-mm-assets.json`。後續文件提交不改runtime。
+
 ## 平均初速度不提供解法提示（2026-10-18；本節優先）
 
 - 移除速度表下方的納入點名／n、缺列不補零／錯公式有限結果保留說明，以及平均公式。只保留平均初速度名稱、TeX符號／單位與一次輸入；檢查頁不另提示平均所用n。其他公式選擇、四步、測試預填及量尺不改。
