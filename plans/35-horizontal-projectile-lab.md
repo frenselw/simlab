@@ -1,6 +1,6 @@
 # 平拋運動：軌跡量度與擬合實驗
 
-狀態：**2026-10-18 已實作；來源／實際 SCORM 套件主線測試及一位 sub-agent 的核心實作審查完成，完整本地回歸與嵌入觸控驗收進行中。** 最終證據見文末；真 Moodle／實體電話尚未驗收。初稿的兩份計劃審查另列為歷史紀錄。
+狀態：**2026-10-18 已實作；一位 sub-agent 的核心審查跟進、來源／實際 SCORM 主線及本地18種狀態的嵌入觸控驗證完成。全專案browser回歸仍有4項失敗，package-ready／Moodle-ready未宣稱通過。** 最終證據見文末；真 Moodle／實體電話尚未驗收。初稿的兩份計劃審查另列為歷史紀錄。
 
 - 分支：`codex/horizontal-projectile-lab`。
 - 起點：本機 `main`，`f7ab989ca59b72ebe6a7691129320c4768f6fcf8`；未宣稱已同步遠端。
@@ -164,22 +164,22 @@ Apply [diagrams/notation](00-shared-platform-and-style.md#diagrams-and-notation)
 
 | Touch starts on | Owner | Activity strategy / region dimensions | Source and packaged evidence |
 |---|---|---|---|
-| 非互動裝置／紙面／圖空白 | Enclosing host | `pan-y`；沒有整面不可見攔截 | 待測 |
-| panel文字／按鈕／頂中底 | Panel only，包括邊界 | 原生overflow、contain；不改host style／scroll | 待測 |
-| 中央圖域，僅放點模式 | Simulation | 只操作所選slot，有明示邊界 | 待測 |
-| 圖空白，非放點／check／review | Enclosing host | overlay關閉，局部合法hit以外可捲 | 待測 |
-| 左捲動條 | Enclosing host | ≥32px及足夠高度，每模式均可達 | 待測 |
-| 右捲動條 | Enclosing host | ≥32px及足夠高度，每模式均可達 | 待測 |
-| 槽、尺、圖點各握柄 | Simulation | 只有目標改變；scroll、viewport、iframe位置不變 | 待測 |
+| 非互動裝置／紙面／圖空白 | Enclosing host | `pan-y`；沒有整面不可見攔截 | T1–T3兩來源、兩尺寸18 profiles均通過，詳見文末 |
+| panel文字／按鈕／頂中底 | Panel only，包括邊界 | 原生overflow、contain；不改host style／scroll | T1–T3兩來源、兩尺寸18 profiles均通過，詳見文末 |
+| 中央圖域，僅放點模式 | Simulation | 只操作所選slot，有明示邊界 | T1–T3兩來源、兩尺寸18 profiles均通過，詳見文末 |
+| 圖空白，非放點／check／review | Enclosing host | overlay關閉，局部合法hit以外可捲 | T1–T3兩來源、兩尺寸18 profiles均通過，詳見文末 |
+| 左捲動條 | Enclosing host | ≥32px及足夠高度，每模式均可達 | T1–T3兩來源、兩尺寸18 profiles均通過，詳見文末 |
+| 右捲動條 | Enclosing host | ≥32px及足夠高度，每模式均可達 | T1–T3兩來源、兩尺寸18 profiles均通過，詳見文末 |
+| 槽、尺、圖點各握柄 | Simulation | 只有目標改變；scroll、viewport、iframe位置不變 | T1–T3兩來源、兩尺寸18 profiles均通過，詳見文末 |
 
 先驗原生路徑及有界document；若不通，辨認真正owner並依指南驗證必要adapter，不盲目寫parent/top捲動或發送無receiver訊息。來源及解壓套件都留trusted touch、engine、逐move/release、非owner不動、canonical state及runner非零失敗退出證據。
 
 | Host case | Frame chain and actual owner selector/window | Origin/sandbox / native path or verified adapter | Source/extracted evidence; deployment/device evidence separately |
 |---|---|---|---|
-| T0 standalone | 直接頁面有界，panel自捲 | 真正無外層range才可將host movement記N/A | 待source/package |
-| T1 direct iframe | 外document → 活動iframe；owner外document.scrollingElement | same-origin中性host，無隱藏轉交 | 待兩種來源 |
-| T2 nested player | 外document → 不捲wrapper → 活動；owner外document | wrapper不能當owner | 待兩種來源 |
-| T3 overflowing element | 有界外window → `#scrollOwner`溢出元素 → wrapper／活動 | 只元素動、所有window不動 | 待兩種來源 |
+| T0 standalone | 直接頁面有界，panel自捲 | 真正無外層range才可將host movement記N/A | 直接頁面兩來源通過，詳見文末 |
+| T1 direct iframe | 外document → 活動iframe；owner外document.scrollingElement | same-origin中性host，無隱藏轉交 | 兩來源各36 cases通過，詳見文末 |
+| T2 nested player | 外document → 不捲wrapper → 活動；owner外document | wrapper不能當owner | 兩來源各36 cases通過，詳見文末 |
+| T3 overflowing element | 有界外window → `#scrollOwner`溢出元素 → wrapper／活動 | 只元素動、所有window不動 | 兩來源各36 cases通過，詳見文末 |
 | T4 Moodle | 實際current-window及有提供的新視窗player | 記實際owner、origin、sandbox及overflow；不可由本機推定 | 待實機部署 |
 
 | Phase / page / scenario / mode | Legal production fixture and UI continuation | Blank points, drawing/orbit bounds, side strips and every target | Host cases / viewports / source-package evidence |
@@ -372,7 +372,7 @@ Follow the production guide's [registration procedure](../docs/simulation-scorm-
 
 - [x] Registration validation passes; every new formal entry/helper is accounted for, and any separate manual gate has a reason.
 - [x] The committed selection preview includes the owning browser suite and all asset consumers, or records the expected full scope for registry/catalogue/shared changes.
-- [ ] Required source/package scenarios were executed; CI selection evidence does not replace real-phone or Moodle acceptance.
+- [x] Required source/package scenarios were executed; CI selection evidence does not replace real-phone or Moodle acceptance.
 
 ## 實作次序
 
@@ -467,10 +467,18 @@ Follow the production guide's [registration procedure](../docs/simulation-scorm-
 
 `npm.cmd run check:tests`、`npm.cmd run check`、`npm.cmd run package:all`及`git diff --check`已通過；所有SCORM ZIP已成功建立，新活動ZIP含root imsmanifest及12個runtime資產，共13檔，開發測試不入包。套件：`output/horizontal-projectile-lab-scorm.zip`。
 
-已提交selection preview：base `f7ab989ca59b72ebe6a7691129320c4768f6fcf8`，head `784ddcc9933ac894460a5139bb6c1906b0e4a990`；`npm.cmd run test:affected -- --base=<base> --head=<head> --plan`回傳full、246 entries、packages=all（catalogue變更），含本活動四個Node及一個browser入口。報告：`output/playwright/horizontal-projectile-lab/selection-preview-784ddcc.json`。最終head另補同一選擇預覽。
+已提交selection preview：base `f7ab989ca59b72ebe6a7691129320c4768f6fcf8`，head `784ddcc9933ac894460a5139bb6c1906b0e4a990`；`npm.cmd run test:affected -- --base=<base> --head=<head> --plan`回傳full、246 entries、packages=all（catalogue變更），含本活動四個Node及一個browser入口。報告：`output/playwright/horizontal-projectile-lab/selection-preview-784ddcc.json`。最終程式head的預覽見下一段。
+
+完成程式及目錄的head `728695b9409546575877425070bcf424b2e3b64f`亦執行相同base/head選擇預覽，結果仍為full、246 entries、packages=all，含全部五個本活動入口；報告`output/playwright/horizontal-projectile-lab/selection-preview-728695b.json`。後續純文件提交不改runtime。正式browser報告記錄啟動當刻的舊HEAD，因此另實算目前12資產的SHA-256 `f428bc62f106fa89a7564647f0dc59bf3f1119f0abd533f77758270ccbfb0485`與報告一致，並逐byte核對最終ZIP一致，未把舊HEAD字樣當成當前commit的CI。
 
 完整本地回歸的初次Node執行212/213通過；既有force-composition persistence長測例在120秒期限附近逾時，300秒單項重跑以118.1秒通過。完整213項Node重跑全部通過（每項300秒，未修改測例或runner），報告`output/ci-tests/projectile-all-node-final/report.json`；最後圖點修改另重跑本活動四個Node入口及mobile-scroll契約測試，全部通過。
 
 全部33個browser入口分批執行；原始大分批在完成電路組後中止重複排隊，其餘19項另分三批，不能把中止報告當CI全綠。家庭電路保護掣closed/tripped、交流電路效能budget、來源電路relay過渡狀態及駕駛活動嵌入恢復的Persistence.decode檢查失敗；相關活動／shared runtime沒有本分支改動，尚未判定根因，不能宣稱全專案回歸或CI通過。原始報告保留於`output/ci-tests/projectile-browser-{1,2}`及`projectile-other-browser-{1,2,3}`。
+
+依入口合併本地報告是29項通過、4項失敗，詳見`output/playwright/horizontal-projectile-lab/global-browser-summary.json`，不是單次完整CI。再執行來源relay小範圍檢查通過19 observations；交流protection-budget小範圍source/ZIP檢查通過134 observations。這兩個針對性通過不抹去原完整組失敗。駕駛完整入口重跑在package面板頂邊range穩定性斷言失敗（662 vs 564），報告`output/ci-tests/projectile-driving-retry/report.json`。不擴張本次範圍去修改其他活動。
+
+最後可信觸控驗證：`c6f6e31`程式版本、兩個viewport（320×500、390×844）、T1／T2／T3各source與真正解壓ZIP，每組18 profiles×2尺寸=36 cases，六組共216 cases全部通過；T0兩來源各2 cases，共220 cases、3448 gesture checks，所有issues／errors皆空，八個報告completed=true及status=passed。18 profiles包括initial、五view各answered/unanswered、直尺豎向、中央放點、擬合失敗、check、submitted、pending與committed。T0更深入的各view及鎖定狀態另由正式browser入口驗證。所有報告13檔runtime digest同為`2cf8b2ad7bf0fc1aa09e9a08b6f6ebf459bb5a45a6eb5c400e5b4f31537d3b6f`；後續只改catalogue／文件，未改runtime。
+
+報告：`output/playwright/horizontal-projectile-lab/touch-T{0,1,2,3}-{source,package}.json`；合併assert摘要`final-acceptance-summary.json`同目錄。逐move及release後20／100／400ms保留owner、host/document/panel、frame、viewport、trusted event、答案及suspend資料；操作含完成、cancel、lostcapture、blur、secondary touch。這是所列18種狀態的本地證據；technical/mismatch的控制器測試不冒充其逐host觸控實測。完整手勢及package-ready總閘因此仍保留未勾選，亦受全專案browser失敗及實際zoom待驗影響。
 
 真Moodle學生帳戶、實體手機T4、OS實際200%縮放及GitHub CI尚未驗收；保持Moodle-ready未勾選。
