@@ -8,6 +8,14 @@
 - 僅在v1/v2鎖定回顧為square補回既有模型名稱；新選單仍只有linear/quadratic，不修改答案、物理、讀數、rubric或保存契約。使用者要求保留暫時測試模式，控制面板不加提示段落。
 - 依舊有四活動Node、mobile-scroll契約測試、source＋解壓SCORM完整browser及相關T1–T3可信touch驗證；helper改動按登記選擇預覽記實際scope，無關browser／真手機／Moodle不冒稱已驗。最後commit/push及更新原私人Sites。
 
+### 本輪驗證與發布
+
+- Runtime head `3b09f71e6bbf1fd0d9f2a3b0db97cb19e6f179e0`。全套213個Node入口通過，包含四活動入口／1128組round-trip續作、mobile-scroll probe正確小數／舊rounded／偏移／錯slot／無目標檢查；報告`output/ci-tests/projectile-audit-node/report.json`。正式source及真正解壓SCORM browser通過104個版面、34組流程及192組操作／幾何觀測；兩版v1/v2回顧均實際核對disabled選單值square、名稱及公式、原100分保留。兩尺主圖／preview同一probe亦逐次在拖動中及放手後核對。報告`output/playwright/horizontal-projectile-lab/report.json`，runtime hash `8e42d8183d32a0b627ce79ad1ef56c292ac86f056dae28679100ff96ca777546`。
+- T1/T2/T3×source/package×320×500及390×844，兩尺preview沿尺移動及submitted三個profiles全部通過，共36 cases／408 gesture checks；六份`audit-T{1,2,3}-{source,package}.json`均completed=true/status=passed、errors及每個issues為空，摘要`audit-touch-summary.json`同browser目錄。可信touch完成、cancel、lostcapture、blur、第二指、host/panel及canonical答案逐move/release均核對。這是本輪所選三個profiles，未冒稱全phase／OS縮放／真手機或Moodle T4通過。
+- `check:tests`為246 entries／48 helpers／2 manual，`check`、全部SCORM打包、文件連結及工作區diff通過；17檔本活動ZIP及18檔Site archive的16個runtime逐byte核對來源。已執行`git diff --check main...3b09f71`、`f7ab989..3b09f71`及`345b580..3b09f71`全範圍，均exit0；不再用最後增量代替完整分支。頁面index/styles、model/scoring/persistence逐byte等同345b580，測試模式保留且無新控制面板說明段落。
+- Committed selection preview base `345b580`／head `3b09f71`為full、246 entries、packages=all（既有mobile-scroll-cases helper的保守fallback）；存於`output/selection-preview-audit-fixes.json`。本輪實際重跑全部213 Node、本活動browser、上述manual範圍及所有SCORM打包；未把預覽當其餘32 browser已通過。新GitHub push的run及checks結果另記交付回覆／`output/projectile-audit-ci.json`，此處不預先聲稱完整CI綠燈。
+- [原私人Sites](https://simlab-horizontal-projectile-lab.ieyp.chatgpt.site)更新成功、owner-private保持。官方helper推送source `694b829ab2836766ab463e2771b2aaf61cf2e810`；saved version `appgprj_6ad49418111c819198d79e88cab3e78e~appgver_0d85844b460481918403dc5688640a31`，deployment `appgdep_6ad4f6cc9b8481919c1c7a7e27f93843`原生回傳succeeded。Archive `output/sites/horizontal-projectile-lab-audit-fixes-3b09f71.tar.gz` SHA-256 `f08f70f2d6ee54247232ae0575f9e70b9a9b0d920638bb0f6cd95a59994956d1`，runtime／根redirect／hosting metadata逐byte或JSON核對，證據`output/sites/projectile-audit-fixes-assets.json`。後續文件提交不改runtime。
+
 ## 控制面板精簡（2026-10-18；本節優先）
 
 - 各步只保留學生任務：六點取樣、對零讀取x/y、選模型及分類、選公式求平均。移除方向鍵／Shift操作說明、吸附機制／錯零選項解釋、重複stage提示、逐點轉記清單及冗長運算說明；保留必要物理條件、5cm取樣限制、進度、暫時測試模式標示及技術／提交狀態。
@@ -334,7 +342,7 @@ Follow the production guide's [registration procedure](../docs/simulation-scorm-
 - [x] 現行四步、rubric4及schema3主表已對照runtime整理；本輪及歷史證據分列，鍵盤操作保留。
 - [ ] Phone, tablet and desktop layouts, short iframe, toolbar/keyboard changes and 200% zoom preserve readable content and reachable actions.
 - [ ] `npm run check`, `npm test` and `npm run package:all` pass; record commands, results and artifact paths.
-- [ ] 完整branch `git diff --check main...HEAD`及原合併基範圍通過；本輪完成後記實際head。歷史勾選只查增量，不能證明此全範圍。
+- [x] 完整branch `git diff --check main...3b09f71`、`f7ab989..3b09f71`及工作區通過；本輪文件提交後再驗HEAD。歷史舊勾選只查增量，已明確更正。
 - [x] ZIP has root `imsmanifest.xml`, every runtime asset is declared and no development-only files ship.
 - [ ] Built/extracted launch smoke and the full applicable trusted-touch matrix pass; use the documented Git Bash route on Windows.
 - [x] Assessment risk and any trusted validation requirement are recorded.
