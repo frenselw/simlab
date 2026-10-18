@@ -27,7 +27,7 @@
             this.finalSnapshot=M.clone(inner);this.state=verified.answer;this.mode='frozen';this.notice='提交尚未確認，答案已凍結。請重試同一份提交。';
           }catch(_){this.scorm.quarantinePending();this.technical('凍結的提交資料未能驗證，已停止重試。請聯絡教師檢查紀錄。');return;}
         }else{this.technical('未能安全載入本次作答，請檢查連線並重新開啟活動。');return;}
-      }catch(_){this.technical('未能還原作答資料；原紀錄保持不變，本頁不會覆寫。');return;}
+      }catch(error){this.technical(error.message==='Legacy draft requires original activity'?'這份未完成紀錄屬於舊版手動作圖活動，請使用原版繼續，或由教師開新一次作答。原紀錄保持不變，本頁不會覆寫。':'未能還原作答資料；原紀錄保持不變，本頁不會覆寫。');return;}
       this.emit();
     }
     validateFinal(snapshot,payload=null){

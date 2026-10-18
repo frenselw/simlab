@@ -9,6 +9,10 @@ for(const state of[M.fresh(),T.filled()]){
 }
 for(const status of['passed','unknown']){const s=T.snapshot(T.filled(),'review');const c=start(T.fake({state:'finished',snapshot:s,score:'12',status}));assert.equal(c.mode,'mismatch');assert(!c.trusted);assert(!c.editable);}
 assert.equal(start(T.fake({state:'finished',snapshot:null,score:'0',status:'failed'})).mode,'mismatch');
+const legacy=T.legacyFilled(),oldReview=T.snapshot(legacy,'review'),oldDraft={version:1,activity:P.ACTIVITY,kind:'draft',answer:legacy};
+const legacyFake=T.fake({state:'draft',snapshot:oldDraft}),old=start(legacyFake);assert.equal(old.mode,'technical');assert.equal(old.state,null);assert.equal(legacyFake.saves.length,0);assert(old.notice.includes('舊版'));
+const oldFinished=start(T.fake({state:'finished',snapshot:oldReview,score:'100',status:'passed'}));assert.equal(oldFinished.mode,'review');assert.equal(oldFinished.result.score,100);assert.equal(oldFinished.command({type:'formula',field:'time',value:'fall'}),false);
+const oldPending={version:1,activity:P.ACTIVITY,kind:'pending-final',payload:{score:100,maxScore:100,passed:true,reviewJson:JSON.stringify(oldReview)}},oldFake=T.fake({state:'pending-final',snapshot:oldPending}),oldFrozen=start(oldFake);assert.equal(oldFrozen.mode,'frozen');oldFake.final=oldReview;oldFrozen.retryFinal();assert.equal(oldFrozen.mode,'review');assert.equal(oldFrozen.result.score,100);
 const inner=T.snapshot(T.filled(),'review'),pending={version:1,activity:P.ACTIVITY,kind:'pending-final',payload:{score:inner.score,maxScore:100,passed:inner.passed,reviewJson:JSON.stringify(inner)}};
 let fake=T.fake({state:'pending-final',snapshot:pending}),c=start(fake);assert.equal(c.mode,'frozen');assert.equal(c.result,null);fake.final=inner;c.retryFinal();assert.equal(c.mode,'review');
 const bad=M.clone(pending);bad.payload.reviewJson=JSON.stringify({...inner,answer:{...inner.answer,meanV:null}});fake=T.fake({state:'pending-final',snapshot:bad});c=start(fake);assert.equal(c.mode,'technical');assert(fake.quarantined);

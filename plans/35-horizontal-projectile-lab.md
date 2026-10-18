@@ -1,5 +1,16 @@
 # 平拋運動：軌跡量度與擬合實驗
 
+## 減少重複操作的新版工作流程（2026-10-18；本節取代下文相關舊規格）
+
+- 讀尺選項以目前尺上讀數為中心，相距1–2mm（四項通常跨度3mm；邊界或錯零位時略移），不再相隔1–2cm。對正零線時唯一正確答案為四捨五入至整mm的讀數；新版讀數容差0.5mm。錯零位仍顯示四個不等於正確整mm讀數的選項。±1%投球波動及實際印記不改。
+- 印記及資料點名稱優先左上，若超出畫布則左方或上方；保持TeX與清晰字體。新圖域只根據學生read的完整兩軸配對自動描點，不使用物理真值修正；單軸讀數不補0。取消手動放點、拖點及相關surface，整個非互動畫布可供host捲動，沒有作圖精細拖動或放大鏡的需求。
+- 第3步仍由學生選直線／一般二次／過原點平方模型並明確執行擬合，之後判斷軌跡類型。重讀或重投會即時更新資料點並使擬合及擬合速度失效；不改其餘概念答案。空白、少點、退化資料可照常檢查提交，擬合失敗保持明確未成立。
+- 第4步各選一次時間公式及水平初速度公式（各四選一，TeX radio）；已選公式直接套用所有完整讀數，錯公式照算且不預先揭示正誤。時間選項sqrt(2y/g)、sqrt(y/g)、sqrt(4y/g)、sqrt(2x/g)；速度選項x/t、y/t、2x/t、x/(2t)。公式未選、缺軸或時間非正時顯示未有結果，不顯示Infinity。結果只由read及公式推導，不保存派生數字。保留平均初速度只填一次、由擬合係數估速及獨立計時對照；採用錯公式的平均運算分仍可follow-through。
+- 評分風險維持formative／low-risk，瀏覽器不含秘密，無高風險正式評核聲稱。新版100分：取樣10、12個讀數24、選擇二次類模型6及成功執行擬合6、兩個正確公式各6、軌跡4、平均運算2及準確3、擬合估速3、四個物理概念24、時間擬合加速度6。取消手動轉繪及逐點運算分；未答為0，公式及概念可獨立得分，明確提交／凍結／只讀契約保留。
+- 新答案schemaVersion=2、modelVersion=1、rubricVersion=2：rows六列null或{depthMm,speedOffsetPpm,clockMs,read:[mm|null,mm|null]}；fit、trajectory、meanV、fitV、clockShown、gFromClock、conclusions維持；新增formulas:{time:null|四個合法ID,speed:null|四個合法ID}；不再保存point、calculations、selectedSlot或connectPoints。draft保留phase/view/returnToCheck/setup/ruler，review只留權威答案。公式變更清平均，讀數／投球變更清相關平均、擬合／fitV，豎讀數變更另清gFromClock；重選同值不清。meanV需至少兩個有限派生速度；fitV、gFromClock繼續依其有效擬合。
+- 版本策略：已提交或pending的v1保留原validator與rubric，回顧及重試不改分；v1未完成draft拒絕以v2續作，不覆寫原紀錄，顯示需舊版活動或教師開新attempt，避免將手動答案冒認成公式選擇。Sites standalone刷新本來就開始新練習，無舊draft遷移。全部新版phase×view、空白／單軸／少點／全部公式及零時間／錯公式／有效和失敗擬合／check返回／review／pending要production round-trip並執行合法續作；非法版本、欄位、依賴、數值另驗，payload<=4000 bytes。
+- 範圍包括model/scoring/persistence/main/index/styles、既有test-support及四個Node入口、正式browser入口、mobile-scroll本活動fixtures／操作契約、catalogue說明及本計劃；shared SCORM／activity-flow、fitting與本地TeX依賴不改，不新增依賴。登記沿用既有入口；執行check:tests、committed selection preview、適當Node／source+ZIP browser、T0–T3手機各階段與兩種剩餘拖動及中斷、package、diff及文件檢查，再更新原私人Sites並commit/push。真Moodle／實體手機維持獨立未驗收。
+
 狀態：**2026-10-18 預覽及四選項已固定在畫布內，對測量點及原點零線均可吸附；手機版與同一私人Sites已更新。** 現行來源／SCORM與觸控證據見文末；前述歷史驗收不替代本次。真Moodle／實體手機及全專案browser總閘未宣稱通過。
 
 - 分支：`codex/horizontal-projectile-lab`。

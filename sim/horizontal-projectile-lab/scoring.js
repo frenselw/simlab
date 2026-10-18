@@ -15,18 +15,26 @@
     const span=depths.length?depths.at(-1)-depths[0]:0;
     detail.push({name:'取樣跨度',max:4,points:span>=500?4:span>=250?2:0,expected:'跨度至少50cm'});
     s.rows.forEach((r,i)=>{
-      const actual=r?M.impact(r.depthMm,r.speedOffsetPpm):null, c=s.calculations[i];
+      const actual=r?M.impact(r.depthMm,r.speedOffsetPpm):null, c=s.schemaVersion===1?s.calculations[i]:null;
       for(let axis=0;axis<2;axis++){
-        award(`P${i+1} ${axis?'y':'x'}讀數 / cm`,2,!!r&&near(r.read[axis],axis?actual.y:actual.x,5),actual?(axis?actual.y:actual.x)/10:null,r?.read[axis]===null?null:r?.read[axis]/10);
-        award(`P${i+1} ${axis?'y':'x'}轉繪 / cm`,1,!!r?.point&&near(r.point[axis],r.read[axis],5),r?.read[axis]===null?null:r?.read[axis]/10,r?.point?.[axis]/10);
+        const position=actual?(axis?actual.y:actual.x):null,target=s.schemaVersion===1?position:position===null?null:Math.round(position);
+        award(`P${i+1} ${axis?'y':'x'}讀數 / cm`,2,!!r&&(s.schemaVersion===1?near(r.read[axis],target,5):r.read[axis]===target),target===null?null:target/10,r?.read[axis]==null?null:r.read[axis]/10);
+        if(s.schemaVersion===1)award(`P${i+1} ${axis?'y':'x'}轉繪 / cm`,1,!!r?.point&&near(r.point[axis],r.read[axis],5),r?.read[axis]===null?null:r?.read[axis]/10,r?.point?.[axis]/10);
       }
+      if(s.schemaVersion!==1)return;
       const t=r&&r.read[1]>0?Math.sqrt(2*r.read[1]/1000/M.G):NaN;
       award(`P${i+1} 時間 / s`,1,near(c.t,t,.002,.02),Number.isFinite(t)?t:null,c.t);
       const v=r&&c.t>0&&r.read[0]!==null?r.read[0]/1000/c.t:NaN;
       award(`P${i+1} 初速度 / m/s`,1,near(c.v,v,.02,.02),Number.isFinite(v)?v:null,c.v);
     });
+    if(s.schemaVersion===2){
+      award('時間公式',6,s.formulas.time==='fall','t=√(2y/g)',s.formulas.time);
+      award('水平初速度公式',6,s.formulas.speed==='horizontal','v₀=x/t',s.formulas.speed);
+      award('選擇二次類擬合模型',6,['quadratic','square'].includes(s.fit.model),'一般二次函數或過原點平方模型',s.fit.model);
+      award('成功執行資料擬合',6,s.fit.attempted&&M.fit(s).ok,'以自己的完整讀數完成有效擬合',s.fit.attempted?'已執行':'未執行');
+    }
     award('軌跡類型',4,s.trajectory==='parabola','拋物線',s.trajectory);
-    const indices=M.included(s), avg=indices.length>=2?M.mean(indices.map(i=>s.calculations[i].v)):NaN;
+    const calculations=M.calculations(s),indices=M.included(s), avg=indices.length>=2?M.mean(indices.map(i=>calculations[i].v)):NaN;
     const trueAvg=indices.length>=2?M.mean(indices.map(i=>M.velocity(s.rows[i].speedOffsetPpm))):NaN;
     award('平均初速度運算 / m/s',2,near(s.meanV,avg,.02,.02),Number.isFinite(avg)?avg:null,s.meanV);
     award('平均初速度準確度 / m/s',3,near(s.meanV,trueAvg,0,.1),Number.isFinite(trueAvg)?trueAvg:null,s.meanV);
@@ -40,7 +48,7 @@
     award('由時間擬合換算加速度 / m/s²',3,near(s.gFromClock,estimate,.1,.02),Number.isFinite(estimate)?estimate:null,s.gFromClock);
     award('重力加速度準確度 / m/s²',3,Number.isFinite(estimate)&&near(s.gFromClock,M.G,0,.1),M.G,s.gFromClock);
     const total=detail.reduce((n,d)=>n+d.points,0);
-    return {score:Math.min(100,Math.max(0,total)),maxScore:100,passed:total>=60,completed:true,feedback:'比較量度、轉繪、計算及物理結論的分項回饋。',detail};
+    return {score:Math.min(100,Math.max(0,total)),maxScore:100,passed:total>=60,completed:true,feedback:'比較量度、擬合、公式及物理結論的分項回饋。',detail};
   }
   return Object.freeze({score,near});
 });

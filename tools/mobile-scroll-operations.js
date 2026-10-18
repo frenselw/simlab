@@ -119,8 +119,7 @@ async function runProjectileOperations({cdp,childEval,observation,prepare,delay}
   const results=[],selector=spec.projectileTarget,[dx,dy]=spec.projectileDelta;
   for(const ending of['complete','cancel','lostcapture','blur','secondary']){
     await prepare('stage','middle');
-    if(selector==='#plotInputSurface')await childEval('(()=>{if(document.getElementById("plotInputSurface").hidden)document.getElementById("placePoint").click();})()');
-    const point=await childEval(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});if(!e||!e.getClientRects().length)throw Error('Missing projectile drag target');const r=e.getBoundingClientRect(),f=frameOffset(),surface=${JSON.stringify(selector)}==='#plotInputSurface';let x=r.left+r.width*(surface ? 0.85 : 0.5),y=r.top+r.height*(surface ? 0.2 : 0.5);
+    const point=await childEval(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});if(!e||!e.getClientRects().length)throw Error('Missing projectile drag target');const r=e.getBoundingClientRect(),f=frameOffset();let x=r.left+r.width*.5,y=r.top+r.height*.5;
       if(${JSON.stringify(selector)}==='#rulerBodyTarget'){
         const stage=document.getElementById('stage').getBoundingClientRect(),left=Math.max(r.left,stage.left,0),right=Math.min(r.right,stage.right,innerWidth),top=Math.max(r.top,stage.top,0),bottom=Math.min(r.bottom,stage.bottom,innerHeight);
         const exposed=[];for(const fy of [.5,.2,.8,.05,.95])for(const fx of [.5,.2,.8]){const px=left+(right-left)*fx,py=top+(bottom-top)*fy;if(document.elementFromPoint(px,py)===e)exposed.push([px,py]);}
@@ -132,11 +131,11 @@ async function runProjectileOperations({cdp,childEval,observation,prepare,delay}
     if(!point.hit||point.touchAction!=='none')issues.push('projectile target not exposed with touch ownership');
     await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[touch(point.x,point.y)]});
     for(let i=1;i<=6;i++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[touch(point.x+dx*i/6,point.y+dy*i/6)]});await delay(20);samples.push(await observation());}
-    const preview=await childEval('!document.getElementById("magnifier").hidden||!document.getElementById("readingChoices").hidden');
+    const preview=await childEval('!document.getElementById("readingChoices").hidden');
     if(selector==='#rulerBodyTarget'){
-      const alignment=await childEval(`(()=>{const s=window.__projectileApp.getState(),g=window.__projectileApp.getGeometry(),e=document.querySelector('#scene [data-reading-target]'),r=s.rows[e?.dataset.readingSlot],p=r?window.ProjectileModel.impact(r.depthMm,r.speedOffsetPpm):null,horizontal=s.ruler.axis==='x',expected=p?(horizontal?g.oy+p.y*g.s:g.ox+Math.round(p.x)*g.s):null;return{aligned:!!e&&Math.abs(+e.getAttribute(horizontal?'cy':'cx')-expected)<1e-5,inCanvas:document.getElementById('readingChoices').parentElement.id==='stage',corner:!document.getElementById('magnifier').hidden};})()`);
+      const alignment=await childEval(`(()=>{const s=window.__projectileApp.getState(),g=window.__projectileApp.getGeometry(),e=document.querySelector('#scene [data-reading-target]'),r=s.rows[e?.dataset.readingSlot],p=r?window.ProjectileModel.impact(r.depthMm,r.speedOffsetPpm):null,horizontal=s.ruler.axis==='x',expected=p?(horizontal?g.oy+p.y*g.s:g.ox+Math.round(p.x)*g.s):null;return{aligned:!!e&&Math.abs(+e.getAttribute(horizontal?'cy':'cx')-expected)<1e-5,inCanvas:document.getElementById('readingChoices').parentElement.id==='stage',corner:!!document.getElementById('magnifier')};})()`);
       if(preview!==alignment.aligned||!alignment.inCanvas||alignment.corner)issues.push('ruler preview must be in canvas exactly when aligned');
-    }else if(selector!=='#catcherHandle'&&!preview)issues.push('required precision preview absent');
+    }
     if(ending==='cancel')await cdp.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});
     else{
       if(ending==='blur')await childEval('window.dispatchEvent(new window.Event("blur"))');
@@ -151,7 +150,6 @@ async function runProjectileOperations({cdp,childEval,observation,prepare,delay}
       if(sample.iframe&&before.iframe&&(Math.abs(sample.iframe.x-before.iframe.x)>1.1||Math.abs(sample.iframe.y-before.iframe.y)>1.1))issues.push('projectile drag moved iframe');
     }
     if(!after.events.some(e=>e.type==='pointerdown'&&e.isTrusted&&e.pointerType==='touch'))issues.push('projectile drag not trusted');
-    if(await childEval('!document.getElementById("magnifier").hidden'))issues.push('projectile preview not cleared');
     const oldState=before.state.hooks.__projectileApp,newState=after.state.hooks.__projectileApp;
     if(ending==='complete'){
       if(JSON.stringify(oldState)===JSON.stringify(newState))issues.push('projectile drag did not change intended work');

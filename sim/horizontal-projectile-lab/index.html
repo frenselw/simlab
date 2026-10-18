@@ -16,12 +16,9 @@
   </header>
   <section id="stage" class="sim-stage" aria-label="平拋實驗舞台">
     <svg id="scene" role="img" aria-label="實驗裝置及記錄紙"></svg>
-    <div id="plotInputSurface" hidden aria-label="放置所選資料點"></div>
     <button id="catcherHandle" class="handle catcher" aria-label="上下移動接球槽" type="button">↕</button>
     <button id="rulerBodyTarget" class="ruler-body-target" aria-label="拖動尺身，亦可用方向鍵移動" type="button" hidden></button>
-    <div id="pointHandles"></div>
     <div id="readingChoices" class="reading-choices" hidden role="group" aria-labelledby="readingChoiceTitle"><p id="readingChoiceTitle"></p><div id="readingPreview" aria-label="尺面放大預覽"><svg id="readingPreviewSvg" role="img" aria-label="所選印記在目前尺上的放大讀數位置"></svg></div><div id="readingOptions"></div></div>
-    <div id="magnifier" hidden aria-hidden="true"><svg id="magnifierSvg"></svg></div>
     <p id="stageHint">調整接球槽，從固定標記釋放鋼珠。</p>
   </section>
   <section id="controlPanel" class="sim-panel" aria-label="操作面板">
@@ -39,17 +36,15 @@
       <p>零刻度靠近原點基準線時會自動吸附；零位錯誤時，四個選項都不是正確位移。放大尺面及選項只會在畫布的測量點旁顯示。</p><div id="readTable"></div>
     </section>
     <section data-panel="plot" hidden>
-      <h2>3. 描點與擬合</h2><p>依自己的讀數放點。拖動或用方向鍵移<span data-formula="1\,\mathrm{cm}"></span>、Shift移<span data-formula="1\,\mathrm{mm}"></span>；圖點只吸附公開網格。</p>
-      <label>要畫的點 <select id="plotSlot"></select></label><div class="button-row"><button id="placePoint" type="button">在圖上放點</button><button id="keyboardPoint" type="button">放點後用鍵盤調整</button><button id="removePoint" type="button">刪除此點</button></div>
-      <div class="two-fields"><label>圖點<span data-formula="x / \mathrm{cm}"></span><input id="pointX" type="number" min="0" max="100" step="0.1" inputmode="decimal"></label><label>圖點<span data-formula="y / \mathrm{cm}"></span><input id="pointY" type="number" min="0" max="100" step="0.1" inputmode="decimal"></label></div>
-      <label class="inline"><input id="connectPoints" type="checkbox">顯示資料點連線（非擬合）</label>
+      <h2>3. 擬合與軌跡</h2><p>已量好兩個座標的點會全部自動顯示；位置完全依照你的讀數。選擇模型並擬合，再判斷這些點接近哪一類曲線。</p><p id="plotCount"></p>
       <label>擬合模型<select id="fitModel"><option value="">請選擇</option><option value="linear">一般直線</option><option value="quadratic">一般二次函數</option><option value="square">過原點平方模型</option></select></label>
       <p id="fitFormula" class="math"></p><button id="fitButton" type="button">擬合自己的點</button><div id="fitResult" aria-live="polite"></div>
       <p>二次模型參數較多，偏差較小本身不足以證明物理關係；比較原點、切線及物理條件。</p>
-      <label>軌跡類型<select id="trajectory"><option value="">請選擇</option><option value="line">直線</option><option value="parabola">拋物線</option><option value="circle">圓弧</option><option value="other">其他曲線</option></select></label><button id="clearPlot" type="button">清除本圖</button>
+      <label>軌跡類型<select id="trajectory"><option value="">請選擇</option><option value="line">直線</option><option value="parabola">拋物線</option><option value="circle">圓弧</option><option value="other">其他曲線</option></select></label><button id="clearPlot" type="button">清除擬合及分類</button>
     </section>
     <section data-panel="speed" hidden>
-      <h2>4. 逐點估速與平均</h2><p>暫採用豎直自由落體模型，<span data-formula="t=\sqrt{\frac{2y}{g}}"></span>、<span data-formula="v_0=\frac{x}{t}"></span>，<span data-formula="g=9.80\,\mathrm{m}\,\mathrm{s}^{-2}"></span>。將<span data-formula="\mathrm{cm}"></span>換成<span data-formula="\mathrm{m}"></span>。</p>
+      <h2>4. 選公式估速與平均</h2><p>暫採用豎直自由落體模型，<span data-formula="g=9.80\,\mathrm{m}\,\mathrm{s}^{-2}"></span>。各選一個時間及水平初速度公式，系統會先換算單位，再套用到全部完整讀數。錯公式亦會照算，請自行判斷。</p>
+      <div id="formulaChoices"></div><p id="calculationNotice"></p>
       <div id="speedTable"></div><p id="included"></p>
       <p>平均初速度：<span data-formula="\bar v_0=\frac{v_{0,1}+\cdots+v_{0,n}}{n}"></span></p><label>平均初速度<span data-formula="\bar v_0 / (\mathrm{m}\,\mathrm{s}^{-1})"></span><input id="meanV" type="number" min="0" step="any" inputmode="decimal"></label>
       <p>若<span data-formula="y=kx^2"></span>，代表速度<span data-formula="v_0=\sqrt{\frac{g}{2k}}"></span>。</p><p id="speedFit"></p><label>由平方擬合估算速度<span data-formula="v_0 / (\mathrm{m}\,\mathrm{s}^{-1})"></span><input id="fitV" type="number" min="0" step="any" inputmode="decimal"></label>
@@ -63,7 +58,7 @@
     </section>
     <section id="checkPanel" hidden><h2>檢查目前作答</h2><p>未答項為0，已完成的獨立部分保留得分。可以返回修改，或提交目前答案。</p><div id="checkSummary"></div><div id="checkReturn"></div><button id="submitButton" class="primary" type="button">提交目前答案</button></section>
     <div id="editFooter" class="footer"><div class="button-row"><button id="previous" type="button">上一步</button><button id="next" class="primary" type="button">下一步</button></div><button id="returnCheck" hidden type="button">返回檢查</button><button id="clearAll" type="button">清除本次實驗</button></div>
-    <section id="feedback" hidden><h2>分項回饋</h2><p>讀數以當次印記為準，轉繪以自己的表格為準。運算正確與接近物理真值分開計分。</p><div id="feedbackList"></div></section>
+    <section id="feedback" hidden><h2>分項回饋</h2><p>資料點依你的讀數自動繪出；比較讀尺、公式選擇、擬合及物理結論。平均運算與接近物理真值分開計分。</p><div id="feedbackList"></div></section>
   </section>
 </main>
 </body></html>

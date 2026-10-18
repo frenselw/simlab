@@ -46,7 +46,7 @@ async function alignRuler(axis,offset=0,fraction=.65,slot=0){
   await cdp.send('Input.dispatchMouseEvent',{type:'mouseMoved',button:'left',buttons:1,x:start.x+raw[0]*g.s,y:start.y+raw[1]*g.s});
   assert.deepEqual(await state(),before);assert(await call('return !d.getElementById("readingChoices").hidden&&d.querySelectorAll("#readingOptions button:disabled").length===4;'));
   await cdp.send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,x:start.x+raw[0]*g.s,y:start.y+raw[1]*g.s});
-  assert.deepEqual((await state()).ruler,{axis,zero});assert.equal(await call('return +d.getElementById("readingChoices").dataset.slot;'),slot);assert.equal((await state()).selectedSlot,before.selectedSlot);assert(await call('return !d.getElementById("measureSlot");'));assert(await call('return !d.getElementById("readingChoices").hidden&&!d.getElementById("readingPreview").hidden;'));
+  assert.deepEqual((await state()).ruler,{axis,zero});assert.equal(await call('return +d.getElementById("readingChoices").dataset.slot;'),slot);assert(await call('return !d.getElementById("measureSlot");'));assert(await call('return !d.getElementById("readingChoices").hidden&&!d.getElementById("readingPreview").hidden;'));
 }
 async function completeFlow(base,label){
   await viewport(1000,800);await open(base);await cdp.send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
@@ -57,12 +57,12 @@ async function completeFlow(base,label){
     for(const axis of ['x','y']){await alignRuler(axis,0,.65,i);const row=recorded.rows[i],p=M.impact(row.depthMm,row.speedOffsetPpm),n=Math.round(axis==='x'?p.x:p.y);await click(`[data-reading="${n}"]`);}
   }
   await click('#next');
-  for(let i=0;i<6;i++){await input('#plotSlot',i);await click('#keyboardPoint');const r=(await state()).rows[i];await input('#pointX',r.read[0]/10);await input('#pointY',r.read[1]/10);}
+  assert.equal(await call('return d.querySelectorAll("#scene [data-plot-point]").length;'),6);assert(await call('return !d.getElementById("plotSlot")&&!d.getElementById("plotInputSurface");'));
   await input('#fitModel','quadratic');await click('#fitButton');assert(await call('return ProjectileModel.fit(app.getState()).ok;'));
   assert(await call(`return d.getElementById("fitResult").querySelector('[data-math="m"]')&&d.getElementById("fitResult").querySelector('[data-math="cm"]');`));
   await input('#trajectory','parabola');await input('#fitModel','square');await click('#fitButton');await screenshot(label+'-trajectory');await click('#next');
-  for(let i=0;i<6;i++){const r=(await state()).rows[i],t=Number(Math.sqrt(2*r.read[1]/1000/M.G).toFixed(3));await input(`#calc-t-${i}`,t);await input(`#calc-v-${i}`,Number((r.read[0]/1000/t).toFixed(3)));}
-  const s=await state();await input('#meanV',Number(M.mean(s.calculations.map(c=>c.v)).toFixed(3)));await input('#fitV',Number(Math.sqrt(M.G/(2*M.fit(s).coefficients[0])).toFixed(3)));
+  await click('[data-formula-choice="time"][value="fall"]',true);await click('[data-formula-choice="speed"][value="horizontal"]',true);
+  const s=await state();await input('#meanV',Number(M.mean(M.calculations(s).map(c=>c.v)).toFixed(3)));await input('#fitV',Number(Math.sqrt(M.G/(2*M.fit(s).coefficients[0])).toFixed(3)));
   await click('#next');await click('#showClock');const q=await state();await input('#gFromClock',Number((2*M.timeFit(q,1).coefficients[0]).toFixed(3)));
   for(const value of['uniform','linear-x-time','free-fall','quadratic-y-time-zero-initial'])await click(`input[value="${value}"]`);
   assert.deepEqual((await state()).rows.map(r=>r.speedOffsetPpm),recorded.rows.map(r=>r.speedOffsetPpm));
@@ -73,14 +73,14 @@ async function completeFlow(base,label){
 }
 async function readingFlow(base,label){
   for(const [width,height]of[[1280,800],[390,600],[320,500],[320,225]]){
-    await viewport(width,height);const s=T.filled();s.view='measure';s.selectedSlot=null;s.ruler.zero=[0,s.rows[0].depthMm];await open(base,s);
+    await viewport(width,height);const s=T.filled();s.view='measure';s.ruler.zero=[0,s.rows[0].depthMm];await open(base,s);
     const initial=await state(),p=M.impact(initial.rows[0].depthMm,initial.rows[0].speedOffsetPpm),correct=Math.round(p.x);
     const metrics=await call(`const card=d.getElementById('readingChoices'),r=card.getBoundingClientRect(),o=d.querySelector('[data-origin]');return{font:parseFloat(getComputedStyle(d.body).fontSize),origin:!!o,math:d.querySelectorAll('#scene [data-tex]').length,formula:[...d.querySelectorAll('[data-formula]')].every(e=>e.querySelector('svg[data-tex]')),parent:card.parentElement.id,card:[r.left,r.top,r.right,r.bottom],buttons:[...d.querySelectorAll('.reading-choice')].map(e=>({value:+e.dataset.reading,height:e.getBoundingClientRect().height,math:!!e.querySelector('svg[data-tex]')}))};`);
-    assert(metrics.font>=(width>=900?21:18));assert(metrics.origin&&metrics.math>0&&metrics.formula);assert.equal(metrics.buttons.length,4);assert(metrics.buttons.every(b=>b.height>=44&&b.math));assert.equal(metrics.buttons.filter(b=>Math.abs(b.value-correct)<=5).length,1);
+    assert(metrics.font>=(width>=900?21:18));assert(metrics.origin&&metrics.math>0&&metrics.formula);assert.equal(metrics.buttons.length,4);assert(metrics.buttons.every(b=>b.height>=44&&b.math));assert.equal(metrics.buttons.filter(b=>b.value===correct).length,1);assert.equal(Math.max(...metrics.buttons.map(b=>b.value))-Math.min(...metrics.buttons.map(b=>b.value)),3);
     assert.equal(metrics.parent,'stage');const canvas=await call(`const r=d.getElementById('stage').getBoundingClientRect();return{left:r.left,right:r.right,top:r.top,bottom:r.bottom};`);assert(metrics.card[0]>=canvas.left&&metrics.card[2]<=canvas.right&&metrics.card[1]>=canvas.top&&metrics.card[3]<=canvas.bottom,JSON.stringify({width,height,metrics,canvas}));
-    const wrong=metrics.buttons.find(b=>Math.abs(b.value-correct)>5).value;await click(`[data-reading="${wrong}"]`,true);assert.equal((await state()).rows[0].read[0],wrong);assert.equal((await state()).calculations[0].v,null);assert.equal((await state()).meanV,null);
+    const wrong=metrics.buttons.find(b=>b.value!==correct).value;await click(`[data-reading="${wrong}"]`,true);assert.equal((await state()).rows[0].read[0],wrong);assert.equal((await state()).fit.attempted,false);assert.equal((await state()).meanV,null);
     await call('app.controller.command({type:"ruler",value:{axis:"x",zero:[1,50]}});');
-    const off=await call('return [...d.querySelectorAll(".reading-choice")].map(b=>+b.dataset.reading);');assert(off.every(n=>Math.abs(n-correct)>5));await click(`[data-reading="${off[0]}"]`,true);assert.equal((await state()).rows[0].read[0],off[0]);
+    const off=await call('return [...d.querySelectorAll(".reading-choice")].map(b=>+b.dataset.reading);');assert(off.every(n=>n!==correct));await click(`[data-reading="${off[0]}"]`,true);assert.equal((await state()).rows[0].read[0],off[0]);
     if(width===1280)await screenshot(label+'-reading-misaligned');
     await alignRuler('x');await click(`[data-reading="${correct}"]`,true);assert.equal((await state()).rows[0].read[0],correct);
     await alignRuler('y');const mark=await rect(`[data-reading="${initial.rows[0].depthMm}"]`),touch={...mark,id:817,radiusX:2,radiusY:2,force:1};await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[touch]});await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});assert.equal((await state()).rows[0].read[1],initial.rows[0].depthMm);
@@ -105,10 +105,11 @@ async function rulerRevision(base,label){
   }
   await call('w.dispatchEvent(new Event("blur"));');await cdp.send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,x:handle.x,y:handle.y+95*g.s});assert.deepEqual(await state(),unchanged);assert(await call('return d.getElementById("heightNotice").hidden&&!d.getElementById("release").disabled;'));
   for(const [width,height]of[[1280,800],[390,844],[320,500]])for(const axis of['x','y']){
-    await viewport(width,height);const s=T.filled();s.view='measure';s.selectedSlot=5;s.ruler.axis=axis;await open(base,s);
+    await viewport(width,height);const s=T.filled();s.view='measure';s.ruler.axis=axis;await open(base,s);
     assert(await call('return !d.getElementById("rulerHandle")&&!d.getElementById("readingZoom")&&!d.getElementById("readingZoomInline")&&d.getElementById("readingChoices").hidden;'));
     for(const fraction of [.2,.8]){
       await alignRuler(axis,0,fraction);const saved=await state();
+      const labels=await call('const boxes=[...d.querySelectorAll("#scene [data-impact-mark]")].map(e=>e.getBoundingClientRect());return [...d.querySelectorAll("#scene [data-point-label]")].map(e=>{const r=e.getBoundingClientRect(),p=boxes[+e.dataset.pointLabel];return{left:r.left,right:r.right,top:r.top,bottom:r.bottom,px:p.left+p.width/2,py:p.top+p.height/2};});');for(const l of labels)assert(l.right<=l.px-6||l.bottom<=l.py-6,JSON.stringify(l));
       const geometry=await call(`const box=e=>{const r=e.getBoundingClientRect();return{left:r.left,right:r.right,top:r.top,bottom:r.bottom};},body=box(d.querySelector('#scene [data-ruler-body]')),target=box(d.getElementById('rulerBodyTarget'));return{body,target,labels:[...d.querySelectorAll('#scene [data-ruler-value]')].map(box),background:getComputedStyle(d.getElementById('rulerBodyTarget')).backgroundColor};`);
       const b=geometry.body;assert(Object.keys(b).every(k=>Math.abs(geometry.target[k]-b[k])<1),JSON.stringify(geometry));assert.equal(geometry.background,'rgba(0, 0, 0, 0)');for(const r of geometry.labels)assert(r.left>=b.left-1&&r.right<=b.right+1&&r.top>=b.top-1&&r.bottom<=b.bottom+1,JSON.stringify({b,r,axis,width}));
       assert(await call('return !d.getElementById("readingChoices").hidden&&d.querySelectorAll("#readingPreviewSvg [data-ruler-value]").length>0&&[...d.querySelectorAll("[data-impact-mark]")].every(e=>+e.getAttribute("r")>=6);'));assert.deepEqual(await state(),saved);
@@ -116,7 +117,7 @@ async function rulerRevision(base,label){
       await alignRuler(axis,50,fraction);const moved=await state(),row=moved.rows[0],actual=Math.round(axis==='x'?M.impact(row.depthMm,row.speedOffsetPpm).x:row.depthMm);
       const choices=await call('return [...d.querySelectorAll(".reading-choice")].map(e=>+e.dataset.reading);');assert.equal(choices.length,4);assert(choices.every(n=>Math.abs(n-actual)>5));assert.equal(moved.ruler.zero[axis==='x'?0:1],50);
       if(width===1280)await screenshot(label+'-ruler-wrong-zero-'+axis);
-      await call(`app.controller.command({type:'ruler',value:{axis:${JSON.stringify(axis)},zero:[200,200]}});`);assert(await call('return d.getElementById("readingChoices").hidden&&d.getElementById("magnifier").hidden&&d.getElementById("readingChoices").parentElement.id==="stage";'));
+      await call(`app.controller.command({type:'ruler',value:{axis:${JSON.stringify(axis)},zero:[200,200]}});`);assert(await call('return d.getElementById("readingChoices").hidden&&!d.getElementById("magnifier")&&d.getElementById("readingChoices").parentElement.id==="stage";'));
       report.gestures.push({label,kind:'whole-ruler-drag/auto-preview/perpendicular-snap/wrong-zero-all-wrong',width,height,axis,fraction,geometry,passed:true});
     }
   }
@@ -160,6 +161,11 @@ async function flows(base,label){
     await cdp.send('Page.reload',{});await wait(()=>call("return app?.controller.mode==='edit';"),'standalone fresh');assert.equal((await state()).rows.filter(Boolean).length,0);
   }
   report.flows.push({label,kind:'blank-each-view/pending/finish/resume/finished/standalone-denied-storage',passed:true});
+  const legacy=T.snapshot(T.legacyFilled(),'review'),oldValues={'cmi.core.lesson_status':'passed','cmi.core.score.raw':'100','cmi.suspend_data':JSON.stringify(legacy)};
+  await cdp.send('Page.navigate',{url:`${base}/${slug}/index.html?fixture=${encodeURIComponent(JSON.stringify(oldValues))}`});await wait(()=>call("return app?.controller.mode==='review';"),'legacy review');await click('[data-go="plot"]');assert.equal(await call('return d.querySelectorAll("#scene [data-plot-point]").length;'),6);await click('[data-go="speed"]');assert.equal(await call('return app.controller.result.score;'),100);assert(await call('return [...d.querySelectorAll("[data-formula-choice]")].every(e=>e.disabled)&&d.getElementById("calc-v-0").querySelector("svg");'));
+  const oldDraft={version:1,activity:P.ACTIVITY,kind:'draft',answer:T.legacyFilled()},unfinished={'cmi.core.lesson_status':'incomplete','cmi.suspend_data':JSON.stringify(oldDraft)};
+  await cdp.send('Page.navigate',{url:`${base}/${slug}/index.html?fixture=${encodeURIComponent(JSON.stringify(unfinished))}`});await wait(()=>call("return app?.controller.mode==='technical';"),'legacy draft lock');assert.equal(await call('return w.__lmsValues["cmi.suspend_data"];'),unfinished['cmi.suspend_data']);assert.equal(await state(),null);
+  report.flows.push({label,kind:'legacy-review-original-score-and-render/unfinished-draft-not-overwritten',passed:true});
 }
 async function edgeFlows(base,label){
   for(const kind of['blocked','unsupported'])for(const height of[225,500]){
@@ -177,16 +183,16 @@ async function edgeFlows(base,label){
   await click('#release',true);await viewport(390,500);await H.delay(90);assert.equal(await call('return app.isRunning();'),false);assert.equal((await state()).rows.filter(Boolean).length,0);assert.equal(await call('return d.getElementById("depthDown").disabled;'),false);
   await click('#release',true);acceptDialog=false;await click('#clearAll');acceptDialog=true;assert.equal(await call('return app.isRunning();'),false);assert.equal(await call('return d.getElementById("release").disabled||d.getElementById("depthDown").disabled;'),false);assert.equal((await state()).rows.filter(Boolean).length,0);
   await shot(200);assert.equal((await state()).rows[0].clockMs,M.impact(200,0).clockMs);
-  const s=T.filled();s.view='measure';s.selectedSlot=null;s.ruler.zero=[0,s.rows[0].depthMm];await open(base,s);const before=await state();
+  const s=T.filled();s.view='measure';s.ruler.zero=[0,s.rows[0].depthMm];await open(base,s);const before=await state();
   assert(await call('return !d.getElementById("readingChoices").hidden;'));assert.deepEqual(await state(),before);
   await click('#rulerY');assert(await call('return d.getElementById("readingChoices").hidden;'));await alignRuler('y');await screenshot(label+'-reading-auto-zoom');await click('#next');assert(await call('return d.getElementById("readingChoices").hidden;'));
   await click('#checkButton');await click('[data-go="collect"]');const old=await state();acceptDialog=false;await click('#release');assert.deepEqual(await state(),old);assert.equal(await call('return app.isRunning();'),false);
   await click('#clearAll');assert.deepEqual(await state(),old);acceptDialog=true;await click('#clearAll');assert.equal((await state()).rows.filter(Boolean).length,0);
   await click('#checkButton');await click('[data-go="motion"]');await click('#showClock');await click('input[value="uniform"]');await click('#checkButton');await click('[data-go="collect"]');await cdp.send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});await shot(200);assert((await state()).clockShown);assert.equal((await state()).conclusions.horizontal,'uniform');
-  const large=T.filled();large.view='speed';await open(base,large);await input('#calc-t-0',.001);await input('#calc-v-0',500);await input('#meanV',Number.MAX_VALUE);assert.equal((await state()).calculations[0].v,500);
+  const large=T.filled();large.view='speed';await open(base,large);await input('#meanV',Number.MAX_VALUE);
   await click('#checkButton');assert(await call(`return !d.getElementById("checkSummary").textContent.includes("Infinity")&&Boolean(d.getElementById("checkSummary").querySelector('[data-math="1.7977e+308 m/s"]'));`));await click('[data-go="speed"]');
-  const values=await call('return w.__lmsValues;');await cdp.send('Page.navigate',{url:`${base}/${slug}/index.html?fixture=${encodeURIComponent(JSON.stringify(values))}`});await wait(()=>call('return app?.getState()?.calculations[0].v===500;'),'large speed resume');assert.equal((await state()).meanV,Number.MAX_VALUE);
-  const negative=M.fresh();[50,200,450].forEach((depth,i)=>{negative.rows[i]={depthMm:depth,speedOffsetPpm:0,clockMs:M.impact(depth,0).clockMs,read:[null,[300,280,220][i]],point:null};});negative.view='motion';negative.clockShown=true;await open(base,negative);const g=2*M.timeFit(negative,1).coefficients[0];await input('#gFromClock',g);assert.equal((await state()).gFromClock,g);await click('#checkButton');await click('#submitButton');assert.equal(await call('return app.controller.result.detail.find(x=>x.name==="由時間擬合換算加速度 / m/s²").points;'),3);
+  const values=await call('return w.__lmsValues;');await cdp.send('Page.navigate',{url:`${base}/${slug}/index.html?fixture=${encodeURIComponent(JSON.stringify(values))}`});await wait(()=>call('return app?.getState()?.meanV===Number.MAX_VALUE;'),'large speed resume');assert.equal((await state()).meanV,Number.MAX_VALUE);
+  const negative=M.fresh();[50,200,450].forEach((depth,i)=>{negative.rows[i]={depthMm:depth,speedOffsetPpm:0,clockMs:M.impact(depth,0).clockMs,read:[null,[300,280,220][i]],};});negative.view='motion';negative.clockShown=true;await open(base,negative);const g=2*M.timeFit(negative,1).coefficients[0];await input('#gFromClock',g);assert.equal((await state()).gFromClock,g);await click('#checkButton');await click('#submitButton');assert.equal(await call('return app.controller.result.detail.find(x=>x.name==="由時間擬合換算加速度 / m/s²").points;'),3);
   await open(base,negative);await input('#gFromClock',-Number.MAX_VALUE);await click('#checkButton');await click('#submitButton');assert.equal((await state()).gFromClock,-Number.MAX_VALUE);assert(await call(`return !d.getElementById("feedbackList").textContent.includes("Infinity")&&Boolean(d.getElementById("feedbackList").querySelector('[data-math="-1.7977e+308"]'));`));
   report.flows.push({label,kind:'flight-lock/cancel/resize/ruler-reading-zoom/confirm-cancel/clear/zero-observation-continuation/large-speed/negative-g',passed:true});
 }
@@ -195,43 +201,28 @@ async function touchDrag(selector,dx,dy,ending='touchEnd'){
   const p=(x,y,id=91)=>({x,y,id,radiusX:2,radiusY:2,force:1});
   await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[p(start.x,start.y)]});
   for(let i=1;i<=6;i++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[p(start.x+dx*i/6,start.y+dy*i/6)]});await H.delay(15);}
-  const preview=await call('return !d.getElementById("magnifier").hidden||!d.getElementById("readingChoices").hidden;');
+  const preview=await call('return !!d.getElementById("magnifier")||!d.getElementById("readingChoices").hidden;');
   await cdp.send('Input.dispatchTouchEvent',{type:ending,touchPoints:[]});await H.delay(90);
   const after=await state(),metricsAfter=await call('return {page:scrollY,panel:d.getElementById("controlPanel").scrollTop,diag:app.getDiagnostics()};');
   assert.equal(metricsBefore.page,metricsAfter.page);assert.equal(metricsBefore.panel,metricsAfter.panel);assert(metricsAfter.diag.trustedTouch>metricsBefore.diag.trustedTouch);
-  assert.equal(await call('return d.getElementById("magnifier").hidden;'),true);
+  assert.equal(await call('return !d.getElementById("magnifier");'),true);
   if(ending==='touchCancel')assert.deepEqual(after,before);else {assert.notDeepEqual(after,before);assert(metricsAfter.diag.ups>metricsBefore.diag.ups);assert.equal(metricsAfter.diag.cancels,metricsBefore.diag.cancels);}
   return{selector,ending,preview,metricsBefore,metricsAfter};
 }
 async function interactions(base,label){
-  await viewport(390,600);
-  const focusFixture=T.filled();focusFixture.view='plot';focusFixture.selectedSlot=0;await open(base,focusFixture);const focused=await state();await click('#placePoint');await click('#keyboardPoint');assert.deepEqual(await state(),focused);assert.equal(await call('return d.getElementById("plotInputSurface").hidden;'),true);
-  await click('#placePoint');acceptDialog=false;await click('#clearPlot');acceptDialog=true;assert.deepEqual(await state(),focused);assert.equal(await call('return d.getElementById("plotInputSurface").hidden;'),true);
-  const first=M.change(M.fresh(),{type:'record',slot:0,depthMm:200,ppm:0});first.view='plot';first.rows[0].read=[300,200];await open(base,first);await click('#placePoint');
-  const centre=await call('const g=app.getGeometry(),r=d.getElementById("stage").getBoundingClientRect();return{x:r.left+g.ox+500*g.s,y:r.top+g.oy+500*g.s};');
-  await cdp.send('Input.dispatchMouseEvent',{type:'mousePressed',button:'right',clickCount:1,...centre});await cdp.send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'right',clickCount:1,...centre});await cdp.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape'});assert.equal((await state()).rows[0].point,null);
-  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...centre,id:52,radiusX:3,radiusY:3,force:1}]});await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});assert.deepEqual((await state()).rows[0].point,[500,500]);assert.equal(await call('return d.getElementById("plotInputSurface").hidden;'),true);
-  report.gestures.push({label,kind:'central-placement/trusted-touch/right-button-ignored',passed:true});
-  for(const ending of['touchCancel','blur','lostcapture','secondary','complete']){
-    const fixture=T.filled();fixture.view='plot';fixture.selectedSlot=0;await open(base,fixture);await click('#placePoint');
-    const before=await state(),suspend=await call('return w.__lmsValues["cmi.suspend_data"];');
-    const p=await call('const g=app.getGeometry(),r=d.getElementById("stage").getBoundingClientRect();w.__placementId=null;d.getElementById("plotInputSurface").addEventListener("pointerdown",e=>w.__placementId=e.pointerId,{once:true});return{x:r.left+g.ox+900*g.s,y:r.top+g.oy+300*g.s};');
-    const point=(id=52)=>({...p,id,radiusX:3,radiusY:3,force:1});await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[point()]});assert.deepEqual(await state(),before);assert.equal(await call('return d.getElementById("magnifier").hidden;'),false);
-    if(ending==='lostcapture')await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{...point(),x:p.x+1,y:p.y+1}]});
-    if(ending==='touchCancel')await cdp.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});
-    else{if(ending==='blur')await call('w.dispatchEvent(new Event("blur"));');if(ending==='lostcapture')await call('d.getElementById("plotInputSurface").releasePointerCapture(w.__placementId);');if(ending==='secondary')await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[point(),{...point(53),x:p.x-45}]});await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});}
-    await H.delay(60);if(ending==='complete'){assert.notDeepEqual((await state()).rows[0].point,before.rows[0].point);assert.equal((await state()).fit.attempted,false);}else{assert.deepEqual(await state(),before);assert.equal(await call('return w.__lmsValues["cmi.suspend_data"];'),suspend);}
-    assert.equal(await call('return d.getElementById("magnifier").hidden;'),true);report.gestures.push({label,kind:'new-placement-'+ending,passed:true});
+  await viewport(390,600);const fixture=T.filled();fixture.view='plot';fixture.rows[0].read=[100,300];fixture.meanV=fixture.fitV=null;fixture.fit.attempted=false;await open(base,fixture);
+  const points=await call('const g=app.getGeometry();return [...d.querySelectorAll("#scene [data-plot-point]")].map(e=>({slot:+e.dataset.plotPoint,x:(+e.getAttribute("cx")-g.ox)/g.s,y:(+e.getAttribute("cy")-g.oy)/g.s}));');
+  assert.equal(points.length,6);assert(Math.abs(points[0].x-100)<1e-8&&Math.abs(points[0].y-300)<1e-8);assert(await call('return !d.getElementById("plotInputSurface")&&!d.querySelector("[data-point-slot]");'));
+  const saved=await state(),suspend=await call('return w.__lmsValues["cmi.suspend_data"];'),p=await call('const g=app.getGeometry(),r=d.getElementById("stage").getBoundingClientRect();return{x:r.left+g.ox+500*g.s,y:r.top+g.oy+500*g.s};');
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...p,id:52,radiusX:3,radiusY:3,force:1}]});await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});assert.deepEqual(await state(),saved);assert.equal(await call('return w.__lmsValues["cmi.suspend_data"];'),suspend);
+  await click('#next');assert(await call('return d.querySelectorAll("#speedTable input").length===0&&d.querySelectorAll("#formulaChoices input[type=radio]").length===8;'));
+  await click('[data-formula-choice="speed"][value="double"]',true);const wrong=await state(),expected=M.calculations(wrong);assert.equal(expected[0].v,2*.1/Math.sqrt(2*.3/M.G));assert.equal(wrong.meanV,null);assert(await call('return d.getElementById("calc-v-0").querySelector("[data-math]")!==null;'));
+  await click('[data-clear-formula="time"]');assert(M.calculations(await state()).every(c=>c.t===null&&c.v===null));await click('#checkButton');await click('#submitButton');assert.equal(await call('return app.controller.mode;'),'review');
+  report.flows.push({label,kind:'auto-points-use-own-readings/no-point-editing/formula-choice/wrong-formula/clear/partial-submit',passed:true});
+  for(const [view,target,dx,dy]of[['collect','#catcherHandle',0,30],['measure','#rulerBodyTarget',35,20]])for(const ending of['touchEnd','touchCancel']){
+    const s=T.filled();s.view=view;await open(base,s);report.gestures.push({label,view,...await touchDrag(target,dx,dy,ending)});
   }
-  for(const [view,target,dx,dy]of[['collect','#catcherHandle',0,30],['measure','#rulerBodyTarget',35,20],['plot','[data-point-slot="0"]',28,18]]){
-    const s=T.filled();s.view=view;s.selectedSlot=0;
-    for(const ending of['touchEnd','touchCancel']){await open(base,s);report.gestures.push({label,view,...await touchDrag(target,dx,dy,ending)});}
-  }
-  const s=T.filled();s.view='plot';s.selectedSlot=0;await open(base,s);await click('#placePoint');
-  const strips=await call('const s=d.getElementById("stage").getBoundingClientRect(),e=d.getElementById("plotInputSurface").getBoundingClientRect();return[e.left-s.left,s.right-e.right];');assert(strips.every(v=>v>=32));
-  await call("d.querySelector('[data-point-slot=\"0\"]').focus();");const old=(await state()).rows[0].point;await cdp.send('Input.dispatchKeyEvent',{type:'keyDown',key:'ArrowRight',code:'ArrowRight'});await cdp.send('Input.dispatchKeyEvent',{type:'keyUp',key:'ArrowRight',code:'ArrowRight'});assert.equal((await state()).rows[0].point[0],old[0]+10);
   await click('#checkButton');const frozen=await state();await click('#fullscreenButton',true);await wait(()=>call('return Boolean(d.fullscreenElement);'),'fullscreen entry');assert.deepEqual(await state(),frozen);await cdp.send('Runtime.evaluate',{expression:'document.exitFullscreen()',awaitPromise:true});await wait(()=>call('return !d.fullscreenElement;'),'external fullscreen exit');
-  report.gestures.push({label,kind:'keyboard/32px-side-strips/fullscreen-retains-answers',passed:true});
 }
 async function directTouchMatrix(base,label){
   await viewport(390,600);

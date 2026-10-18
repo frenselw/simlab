@@ -6,18 +6,19 @@ for(const d of[50,200,800])for(const ppm of[-10000,0,10000]){
   const p=M.impact(d,ppm);assert(p.v<=M.IDEAL);assert.equal(p.y,d);assert(Math.abs(.5*M.G*p.t*p.t-d/1000)<1e-12);assert(Math.abs(p.x/(M.SPEED*p.t*1000)-(1+ppm/1e6))<1e-12);
 }
 let s=T.filled();assert.equal(P.validate(s,'draft'),s);
-for(const type of['calculation','read','record']){
-  const action=type==='calculation'?{type,slot:0,field:'t',value:.3}:type==='read'?{type,slot:0,axis:0,value:100}:{type,slot:0,depthMm:50,ppm:123};
-  const n=M.change(s,action);assert.equal(n.meanV,null);assert.equal(n.calculations[0].v,null);assert.deepEqual(n.calculations[1],s.calculations[1]);P.draft(n);
+for(const type of['formula','read','record']){
+  const action=type==='formula'?{type,field:'time',value:'half'}:type==='read'?{type,slot:0,axis:0,value:100}:{type,slot:0,depthMm:50,ppm:123};
+  const n=M.change(s,action);assert.equal(n.meanV,null);if(type!=='formula')assert.deepEqual(M.calculations(n)[1],M.calculations(s)[1]);P.draft(n);
 }
-const c=M.change(s,{type:'clearPlot'});assert.equal(c.fitV,null);assert.equal(c.meanV,s.meanV);assert.deepEqual(c.calculations,s.calculations);
-const unchanged=M.change(s,{type:'point',slot:0,value:s.rows[0].point.slice()});assert.deepEqual(unchanged.fit,s.fit);assert.equal(unchanged.fitV,s.fitV);
-const newRow=M.clone(s);newRow.rows[5]=null;newRow.calculations[5]={t:null,v:null};newRow.meanV=M.mean(newRow.calculations.slice(0,5).map(v=>v.v));
-assert.equal(M.change(newRow,{type:'record',slot:5,depthMm:800,ppm:10}).meanV,newRow.meanV);
+const c=M.change(s,{type:'clearPlot'});assert.equal(c.fitV,null);assert.equal(c.meanV,s.meanV);assert.deepEqual(M.points(c),M.points(s));
+const unchanged=M.change(s,{type:'read',slot:0,axis:0,value:s.rows[0].read[0]});assert.deepEqual(unchanged,s);
+assert.deepEqual(M.change(s,{type:'formula',field:'time',value:'fall'}),s);
+for(const type of ['point','calculation','select','connect'])assert.throws(()=>M.change(s,{type}));
+assert.throws(()=>M.change(s,{type:'formula',field:'time',value:'unknown'}));
 assert.equal(M.mean(Array(6).fill(Number.MAX_VALUE)),Number.MAX_VALUE);
 const oldClock=s.rows[0].clockMs;assert.equal(M.change(s,{type:'read',slot:0,axis:1,value:800}).rows[0].clockMs,oldClock);
-s=M.change(s,{type:'read',slot:0,axis:1,value:null});assert.equal(s.rows[0].point,null);assert.deepEqual(s.calculations[0],{t:null,v:null});
-const parabola=M.fresh();[[200,70],[400,280],[600,630]].forEach((point,i)=>{parabola.rows[i]={depthMm:50+i*50,speedOffsetPpm:0,clockMs:M.impact(50+i*50,0).clockMs,read:point.slice(),point};});
+s=M.change(s,{type:'read',slot:0,axis:1,value:null});assert.equal(M.points(s)[0],null);assert.deepEqual(M.calculations(s)[0],{t:null,v:null});
+const parabola=M.fresh();[[200,70],[400,280],[600,630]].forEach((point,i)=>{parabola.rows[i]={depthMm:50+i*50,speedOffsetPpm:0,clockMs:M.impact(50+i*50,0).clockMs,read:point.slice()};});
 for(const model of['square','quadratic']){parabola.fit={model,attempted:true};const f=M.fit(parabola);assert(f.ok);assert(Math.abs(f.coefficients[0]-1.75)<1e-12);assert(f.rmse<1e-12);}
 parabola.fit.model='linear';assert(M.fit(parabola).rmse>.01);
 console.log('Projectile model: noise, energy, fixed clocks and atomic dependencies passed.');
@@ -31,7 +32,7 @@ for(const axis of ['x','y']){
     if(zero[0]===0)assert.equal(choices.filter(v=>SCORE_NEAR(v,actual)).length,1);else assert(choices.every(v=>!SCORE_NEAR(v,actual)));
   }
 }
-function SCORE_NEAR(a,b){return Math.abs(a-b)<=5;}
+function SCORE_NEAR(a,b){return a===b;}
 assert.deepEqual(M.rulerChoices(null,{axis:'x',zero:[0,0]}),[]);
 assert.equal(M.rulerChoices(row,{axis:'x',zero:[1000,0]}).length,4);
 for(const depth of [50,800])for(const offset of [-10000,10000])for(const axis of ['x','y']){
@@ -65,6 +66,17 @@ for(const axis of ['x','y']){
  assert(M.rulerChoices(unsel.rows[0],{axis,zero:displaced}).every(n=>Math.abs(n-mark[along])>5));
 }
 assert(!M.rulerAligned(null,{axis:'x',zero:[0,0]}));
+for(const time of M.FORMULAS.time)for(const speed of M.FORMULAS.speed){
+ const q=T.filled();q.formulas={time:time.id,speed:speed.id};const [x,y]=q.rows[0].read.map(n=>n/1000),t={fall:Math.sqrt(2*y/M.G),half:Math.sqrt(y/M.G),double:Math.sqrt(4*y/M.G),horizontal:Math.sqrt(2*x/M.G)}[time.id];
+ const v={horizontal:x/t,vertical:y/t,double:2*x/t,half:x/(2*t)}[speed.id];assert.deepEqual(M.calculations(q)[0],{t,v});
+}
+for(const time of [null,...M.FORMULAS.time.map(f=>f.id)]){
+ const q=T.filled();q.formulas.time=time;q.rows[0].read=[0,0];assert.equal(M.calculations(q)[0].t,time===null?null:0);assert.equal(M.calculations(q)[0].v,null);
+ q.rows[0].read=[10,null];assert.deepEqual(M.calculations(q)[0],{t:null,v:null});
+}
+for(const axis of ['x','y']){
+ const values=M.rulerChoices(row,{axis,zero:[0,0]});assert.equal(Math.max(...values)-Math.min(...values),3);assert.equal(values.filter(n=>SCORE_NEAR(n,axis==='x'?x:row.depthMm)).length,1);
+}
 for(const axis of ['x','y'])for(const selectedSlot of [null,0,1]){
  const s=M.clone(spaced);s.selectedSlot=selectedSlot;s.ruler.axis=axis;const before=M.clone(s),along=axis==='x'?0:1,across=1-along;
  for(let i=0;i<2;i++){
