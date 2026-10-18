@@ -1,5 +1,11 @@
 # 平拋運動：軌跡量度與擬合實驗
 
+## 移除反比例選項（2026-10-18；本節優先）
+
+- 依最新要求，新作答只提供一次函數與二次函數，兩者繼續將原點納入擬合。其餘四步、100分rubric、公式／平均、隨機速率及測試模式不改，不新增依賴或manifest資產。
+- schemaVersion/modelVersion/rubricVersion仍3/1/3，權威欄與phase矩陣沿用四步版。為保留已保存v3反比例作答及原分數，decoder與既有失敗擬合結果仍接受inverse；不將它默認為另一模型、不清空紀錄。還原時顯示選項已移除，學生可改選一次／二次或清除；原review／pending維持只讀及同payload重試。新model動作拒絕inverse，舊inverse狀態不提供再擬合按鈕；檢查及部分提交仍可用。
+- 範圍只及活動index/main/model、相關既有測試／browser入口及本計劃。執行四個活動Node入口、source＋解壓SCORM瀏覽器（包括手機可信touch、舊inverse還原後重選及原review分數）、check:tests、committed selection preview、check／活動打包／文件與diff檢查，再更新同一私人Sites及commit/push。此選單刪項不改拖動／捲動／其他phase；不額外重跑上一版T1–T3全矩陣或其他活動測試，實機／Moodle限制保留。
+
 ## 四步簡化及原點擬合（2026-10-18；本節優先）
 
 - 四步依次取點、量度、擬合、公式與平均；刪除第五步、獨立計時概念題及由擬合估速比較。保留兩個公式各選一次、自動套用六列讀數，以及一次平均初速度輸入。暫不新增方程解讀問題。測試模式仍只預填前兩步，隨機速率、量尺及點名避讓不改。

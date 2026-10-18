@@ -129,7 +129,9 @@
         if (s.rows[i].read[action.axis] === action.value) return s;
         s.rows[i].read[action.axis] = action.value; s.meanV=null; invalidateFit(s);
         break;
-      case 'model': s.fit.model = action.value; invalidateFit(s); break;
+      case 'model':
+        if(action.value!==null&&!['linear','quadratic'].includes(action.value))throw new Error('Invalid fit model');
+        s.fit.model = action.value; invalidateFit(s); break;
       case 'fit': s.fit.attempted = true; break;
       case 'formula':
         if(!FORMULAS[action.field]||(action.value!==null&&!FORMULAS[action.field].some(f=>f.id===action.value)))throw new Error('Invalid formula');

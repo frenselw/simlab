@@ -115,6 +115,8 @@ for(const model of ['linear','quadratic']){
  s.rows[0].read=[0,0];s.rows[1].read=[0,0];assert.equal(M.fit(s).n,5);
 }
 const inverse=T.filled();inverse.fit={model:'inverse',attempted:true};assert(!M.fit(inverse).ok);assert.equal(M.fit(inverse).n,7);assert(M.fit(inverse).message.includes('沒有定義'));
+assert.throws(()=>M.change(T.filled(),{type:'model',value:'inverse'}));
+assert.equal(M.change(inverse,{type:'model',value:'quadratic'}).fit.model,'quadratic');
 assert.deepEqual(M.VIEWS,['collect','measure','plot','speed']);
 for(const action of [{type:'clock'},{type:'conclusion',field:'horizontal',value:'uniform'},{type:'answer',field:'fitV',value:1}])assert.throws(()=>M.change(T.filled(),action));
 console.log('Origin participates once in linear/quadratic fits; inverse never discards the origin.');

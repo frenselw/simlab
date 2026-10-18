@@ -88,9 +88,9 @@
     d.meanV.disabled=locked||indices.length<2;
     const fit=s.fit.attempted?M.fit(s):null;
     d.fitModel.value=s.fit.model??'';d.trajectory.value=s.trajectory??'';
-    d.fitFormula.innerHTML=s.fit.model?math({linear:'y=mx+b',quadratic:'y=Ax^2+Bx+C',square:'y=kx^2',inverse:'y=\\frac{k}{x}'}[s.fit.model]):'';
+    d.fitFormula.innerHTML=s.fit.model==='inverse'?(locked?'原作答：反比例函數（此選項已移除）。':'此紀錄使用已移除的反比例選項，請改選一次或二次函數。'):s.fit.model?math({linear:'y=mx+b',quadratic:'y=Ax^2+Bx+C',square:'y=kx^2'}[s.fit.model]):'';
     d.fitResult.innerHTML=fit?fitText(fit,s.fit.model):'尚未擬合。修改讀數後需要重新擬合。';
-    d.fitButton.disabled=locked||s.fit.model===null;
+    d.fitButton.disabled=locked||s.fit.model===null||s.fit.model==='inverse';
     [d.recordSlot,d.depthUp,d.depthDown,d.release,d.rulerX,d.rulerY,d.rulerHome,d.fitModel,d.trajectory,d.clearPlot].forEach(e=>e.disabled=locked);
     [d.recordSlot,d.depthUp,d.depthDown,d.catcherHandle].forEach(e=>e.disabled=locked||Boolean(run));
     d.previous.disabled=M.VIEWS.indexOf(view)===0;d.next.textContent=view===M.VIEWS.at(-1)?'檢查目前作答':'下一步';d.returnCheck.hidden=!s.returnToCheck;

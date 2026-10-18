@@ -62,10 +62,9 @@ async function completeFlow(base,label){
   assert(await call(`return d.getElementById("fitResult").querySelector('[data-math="m"]');`));
   assert.equal((await call('return ProjectileModel.fit(app.getState());')).n,7);
   assert(await call('return d.querySelectorAll("#scene [data-origin]").length===1&&d.querySelectorAll("[data-panel]").length===4&&d.getElementById("progress").textContent.includes("/ 4");'));
-  assert.deepEqual(await call('return [...d.getElementById("fitModel").options].map(o=>o.value);'),['','linear','quadratic','inverse']);
+  assert.deepEqual(await call('return [...d.getElementById("fitModel").options].map(o=>o.value);'),['','linear','quadratic']);
   assert(await call('return !d.getElementById("fitV")&&!d.getElementById("questions")&&!d.querySelector("[data-go=motion]")&&!/RMSE|係數|複雜/.test(d.getElementById("fitResult").textContent);'));
   await input('#fitModel','linear');await click('#fitButton');assert.equal((await call('return ProjectileModel.fit(app.getState());')).n,7);
-  await input('#fitModel','inverse');await click('#fitButton');assert(await call('return !ProjectileModel.fit(app.getState()).ok&&d.getElementById("fitResult").textContent.includes("沒有定義");'));
   await input('#fitModel','quadratic');await click('#fitButton');
   await input('#trajectory','parabola');await screenshot(label+'-trajectory');await click('#next');
   await click('[data-formula-choice="time"][value="fall"]',true);await click('[data-formula-choice="speed"][value="horizontal"]',true);
@@ -151,6 +150,15 @@ async function layoutMatrix(base,label){
   await viewport(390,600);const s=T.filled();s.view='measure';await open(base,s);await screenshot(label+'-phone');
 }
 async function flows(base,label){
+  for(const attempted of [false,true]){
+    const retired=T.filled();retired.view='plot';retired.fit={model:'inverse',attempted};await open(base,retired);
+    assert.deepEqual(await state(),retired);assert(await call('return d.getElementById("fitButton").disabled&&d.getElementById("fitFormula").textContent.includes("已移除")&&!d.querySelector("#fitModel option[value=inverse]");'));
+    await input('#fitModel','quadratic');await click('#fitButton');assert((await call('return ProjectileModel.fit(app.getState());')).ok);
+    await click('#checkButton');await click('#submitButton');assert.equal(await call('return app.controller.result.score;'),100);
+    await open(base,retired);await click('#checkButton');await click('#submitButton');const score=await call('return app.controller.result.score;');assert.equal(score,80);
+    const values=await call('return w.__lmsValues;');await cdp.send('Page.navigate',{url:`${base}/${slug}/index.html?fixture=${encodeURIComponent(JSON.stringify(values))}`});await wait(()=>call('return app?.controller.mode==="review";'),'retired inverse review');await click('[data-go="plot"]');assert.equal(await call('return app.controller.result.score;'),score);assert(await call('return d.getElementById("fitFormula").textContent.includes("原作答");'));
+  }
+  report.flows.push({label,kind:'removed-inverse-not-offered/retained-draft-reselection/original-review-score',passed:true});
   for(const view of M.VIEWS){const s=M.fresh();s.view=view;await open(base,s);await click('#checkButton');await click('#submitButton');assert.equal(await call('return app.controller.result.score;'),0);}
   await open(base,T.filled());await click('#checkButton');await call('w.__failFinal=true;');await click('#submitButton');assert.equal(await call('return app.controller.mode;'),'frozen');assert.equal(await call('return app.controller.result;'),null);
   const pending=await call("return JSON.parse(w.__lmsValues['cmi.suspend_data']);");assert.equal(pending.kind,'pending-final');
