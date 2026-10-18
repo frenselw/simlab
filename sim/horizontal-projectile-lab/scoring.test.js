@@ -1,0 +1,17 @@
+'use strict';
+const assert=require('node:assert/strict'),M=require('./model.js'),S=require('./scoring.js'),P=require('./persistence.js'),T=require('./test-support.js');
+assert.equal(S.score(M.fresh()).score,0);assert.equal(S.score(T.filled()).score,100);
+let one=M.change(M.fresh(),{type:'record',slot:0,depthMm:800,ppm:10000});
+one=M.change(one,{type:'read',slot:0,axis:0,value:Math.round(M.impact(800,10000).x)});
+assert.equal(S.score(one).detail.find(d=>d.name.startsWith('P1 x讀數')).points,2);
+assert(S.near(305,300,5));assert(!S.near(306,300,5));assert(S.near(.204,.2,.002,.02));assert(!S.near(.205,.2,.002,.02));assert(S.near(10.78,9.8,0,.1));assert(!S.near(10.781,9.8,0,.1));
+const full=T.filled();full.rows[0].read[0]+=100;full.rows[0].point[0]=full.rows[0].read[0];full.fitV=null;
+assert.equal(S.score(full).detail.find(d=>d.name==='P1 x轉繪 / cm').points,1);
+let extreme=T.filled();extreme.calculations[0]={t:.001,v:extreme.rows[0].read[0]};extreme.meanV=M.mean(extreme.calculations.map(c=>c.v));P.draft(extreme);
+assert.equal(S.score(extreme).detail.find(d=>d.name==='P1 初速度 / m/s').points,1);
+assert.equal(S.score(extreme).detail.find(d=>d.name==='平均初速度運算 / m/s').points,2);
+let negative=M.fresh();[50,200,450].forEach((depth,i)=>{negative=M.change(negative,{type:'record',slot:i,depthMm:depth,ppm:0});negative=M.change(negative,{type:'read',slot:i,axis:1,value:[300,280,220][i]});});
+negative.clockShown=true;negative.gFromClock=2*M.timeFit(negative,1).coefficients[0];P.draft(negative);
+const result=S.score(negative);assert(negative.gFromClock<0);assert.equal(result.detail.find(d=>d.name==='由時間擬合換算加速度 / m/s²').points,3);assert.equal(result.detail.find(d=>d.name==='重力加速度準確度 / m/s²').points,0);
+let fit=M.fresh();[50,800].forEach((depth,i)=>{fit=M.change(fit,{type:'record',slot:i,depthMm:depth,ppm:0});fit.rows[i].read=[1,1];fit.rows[i].point=i?[1000,0]:[1,1];});fit.fit={model:'square',attempted:true};fit.fitV=Math.sqrt(M.G/(2*M.fit(fit).coefficients[0]));P.draft(fit);assert(fit.fitV>69999);assert.equal(S.score(fit).detail.find(d=>d.name==='由擬合係數換算速度 / m/s').points,1);
+console.log('Projectile scoring: 100/blank/partial, tolerance boundaries, follow-through and large/negative answers passed.');

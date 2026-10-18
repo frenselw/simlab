@@ -2,6 +2,9 @@
 // Each entry is an explicit legal UI path or a production encode/decode/restore.
 const centre=require("../sim/centre-of-mass-investigation-lab/generator.js");
 const second=require("../sim/newtons-second-law-investigation-lab/test-support.js");
+const projectile=require('../sim/horizontal-projectile-lab/test-support.js');
+const projectileModel=require('../sim/horizontal-projectile-lab/model.js');
+const projectilePersistence=require('../sim/horizontal-projectile-lab/persistence.js');
 const click=(id,selectors,extra={})=>({id,prepare:selectors.map(s=>`click(${JSON.stringify(s)});`).join(""),...extra});
 const submit=(check,button)=>[
   click("check",[check]),click("submitted",[check,button]),
@@ -33,6 +36,25 @@ function mirror(id,kinds,extra={}) {
   return {id,settleMs:400,prepare:prepare+kinds.slice(1).map(k=>`click('[data-action="add"][data-segment="${k}"]');`).join(''),...extra};
 }
 function activityProfiles(slug) {
+  if(slug==='horizontal-projectile-lab'){
+    const restored=(id,state,continuation,extra={})=>({id,prepare:`const s=${JSON.stringify(projectilePersistence.draft(state))};window.ProjectilePersistence.validate(s,'draft');return restore('horizontal-projectile-lab',s);`,continue:continuation,...extra});
+    const filled=projectile.filled();filled.selectedSlot=0;
+    const profiles=[{id:'initial',projectileTarget:'#catcherHandle',projectileDelta:[0,-25]}];
+    for(const view of projectileModel.VIEWS){
+      const s={...projectileModel.clone(filled),view};
+      profiles.push(restored(view+'-answered',s,['#checkButton',`[data-go="${view}"]`],view==='collect'?{projectileTarget:'#catcherHandle',projectileDelta:[0,-25]}:view==='measure'?{projectileTarget:'#rulerHandle',projectileDelta:[35,25]}:view==='plot'?{projectileTarget:'[data-point-slot="0"]',projectileDelta:[28,18]}:{}));
+      const blank={...projectileModel.fresh(),view};profiles.push(restored(view+'-unanswered',blank,['#checkButton',`[data-go="${view}"]`]));
+    }
+    profiles.push(restored('measure-vertical',{...projectileModel.clone(filled),view:'measure'},['#checkButton','[data-go="measure"]','#rulerY'],{projectileTarget:'#rulerHandle',projectileDelta:[30,25]}));
+    profiles.push(restored('plot-placement',{...projectileModel.clone(filled),view:'plot'},['#checkButton','[data-go="plot"]','#placePoint']));
+    const failed={...projectileModel.clone(filled),view:'plot',fit:{model:'quadratic',attempted:true},fitV:null};failed.rows.forEach(r=>r.point=[500,500]);
+    profiles.push(restored('plot-fit-failure',failed,['#checkButton','[data-go="plot"]']));
+    for(const [id,extra]of[['check',{}],['submitted',{}],['pending',{}],['committed',{}]]){
+      const prepare=id==='pending'?"auditHost.__failFinal=true;":id==='committed'?"auditHost.API.LMSFinish=()=> 'false';":'';
+      profiles.push({id,prepare:`const s=${JSON.stringify(projectilePersistence.draft(filled))};return restore('horizontal-projectile-lab',s);`,continue:['#checkButton',...(id==='check'?[]:['#submitButton'])],beforeContinue:prepare,...extra,...(id==='check'?{noStageReason:'正式check頁將舞台track設為零，全高面板展示檢查內容。'}:{})});
+    }
+    return profiles;
+  }
   if(slug==="newtons-third-law-fullscreen-test")slug="newtons-third-law-reaction-force-lab";
   const initial={id:"initial"};
   if(slug.startsWith("force-equilibrium"))return [initial,...Array.from({length:5},(_,i)=>click(`question-${i+1}`,[`#questionNav button:nth-child(${i+1})`])),...Array.from({length:5},(_,i)=>({id:`question-${i+1}-partial`,prepare:`click('#questionNav button:nth-child(${i+1})');click('[data-add-kind]:not(:disabled)');`,handoffTarget:".origin-hit:not([hidden])"})),...submit("#checkButton","#submitButton")];

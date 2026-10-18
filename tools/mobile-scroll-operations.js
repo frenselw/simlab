@@ -114,4 +114,41 @@ async function runHouseholdOperations({cdp,childEval,observation,prepare,delay})
   }finally{await childEval(`(()=>{${actor}.setReadOnly(false);${actor}.restoreSession(${JSON.stringify(saved)});return true;})()`);}
   return results;
 }
-module.exports={runMirrorOperations,runHouseholdOperations};
+async function runProjectileOperations({cdp,childEval,observation,prepare,delay},spec){
+  if(!spec.projectileTarget)return[];
+  const results=[],selector=spec.projectileTarget,[dx,dy]=spec.projectileDelta;
+  for(const ending of['complete','cancel','lostcapture','blur','secondary']){
+    await prepare('stage','middle');
+    const point=await childEval(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});if(!e||!e.getClientRects().length)throw Error('Missing projectile drag target');const r=e.getBoundingClientRect(),f=frameOffset(),x=r.left+r.width/2,y=r.top+r.height/2;return{x:x+f.left,y:y+f.top,hit:document.elementFromPoint(x,y)===e,touchAction:getComputedStyle(e).touchAction};})()`);
+    const before=await observation(),samples=[],issues=[],id=9001;
+    const touch=(x,y,key=id)=>({x,y,id:key,radiusX:2,radiusY:2,force:1});
+    if(!point.hit||point.touchAction!=='none')issues.push('projectile target not exposed with touch ownership');
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[touch(point.x,point.y)]});
+    for(let i=1;i<=6;i++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[touch(point.x+dx*i/6,point.y+dy*i/6)]});await delay(20);samples.push(await observation());}
+    const preview=await childEval('!document.getElementById("magnifier").hidden');
+    if(selector!=='#catcherHandle'&&!preview)issues.push('required precision preview absent');
+    if(ending==='cancel')await cdp.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});
+    else{
+      if(ending==='blur')await childEval('window.dispatchEvent(new window.Event("blur"))');
+      if(ending==='lostcapture')await childEval(`(()=>{const e=document.querySelector(${JSON.stringify(selector)}),id=window.__auditEvents.find(e=>e.type==='pointerdown'&&e.pointerType==='touch')?.pointerId;if(id==null||!e.hasPointerCapture(id))throw Error('Missing capture');e.releasePointerCapture(id);})()`);
+      if(ending==='secondary')await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[touch(point.x+dx,point.y+dy),touch(point.x-45,point.y,9002)]});
+      await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    }
+    for(const ms of[20,100,400]){await delay(ms===20?20:ms===100?80:300);samples.push(await observation());}
+    const after=await observation();
+    for(const sample of[...samples,after]){
+      for(const key of['host','document','panel','outerWindow'])if(Math.abs(sample[key]-before[key])>1.1)issues.push('projectile drag moved '+key);
+      if(sample.iframe&&before.iframe&&(Math.abs(sample.iframe.x-before.iframe.x)>1.1||Math.abs(sample.iframe.y-before.iframe.y)>1.1))issues.push('projectile drag moved iframe');
+    }
+    if(!after.events.some(e=>e.type==='pointerdown'&&e.isTrusted&&e.pointerType==='touch'))issues.push('projectile drag not trusted');
+    if(await childEval('!document.getElementById("magnifier").hidden'))issues.push('projectile preview not cleared');
+    const oldState=before.state.hooks.__projectileApp,newState=after.state.hooks.__projectileApp;
+    if(ending==='complete'){
+      if(JSON.stringify(oldState)===JSON.stringify(newState))issues.push('projectile drag did not change intended work');
+      if(!after.events.some(e=>e.type==='pointerup'&&e.isTrusted)||after.events.some(e=>e.type==='pointercancel'))issues.push('projectile completion missed pointerup');
+    }else if(JSON.stringify(oldState)!==JSON.stringify(newState)||before.state.suspend!==after.state.suspend)issues.push('projectile interruption changed saved work');
+    results.push({case:'projectile-'+selector+'-'+ending,point,preview,before,after,samples,issues:[...new Set(issues)]});
+  }
+  return results;
+}
+module.exports={runMirrorOperations,runHouseholdOperations,runProjectileOperations};

@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>平拋運動：軌跡量度與擬合實驗</title><link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../shared/styles.css"><link rel="stylesheet" href="styles.css">
+  <script defer src="../shared/scorm.js"></script><script defer src="../shared/activity-flow.js"></script><script defer src="../shared/fullscreen.js"></script>
+  <script defer src="../newtons-second-law-investigation-lab/fitting.js"></script><script defer src="model.js"></script><script defer src="scoring.js"></script><script defer src="persistence.js"></script><script defer src="ui-runtime.js"></script><script defer src="main.js"></script>
+</head>
+<body>
+<main id="app" class="sim-app" data-sim-fullscreen-target>
+  <header class="sim-header" data-sim-fullscreen>
+    <div><h1>平拋運動實驗</h1><p id="status">取點、量度與擬合</p></div>
+    <div class="header-actions"><span id="progress">1 / 5 取點</span><button id="checkButton" type="button">檢查作答</button></div>
+  </header>
+  <section id="stage" class="sim-stage" aria-label="平拋實驗舞台">
+    <svg id="scene" role="img" aria-label="實驗裝置及記錄紙"></svg>
+    <div id="plotInputSurface" hidden aria-label="放置所選資料點"></div>
+    <button id="catcherHandle" class="handle catcher" aria-label="上下移動接球槽" type="button">↕</button>
+    <button id="rulerHandle" class="handle ruler" aria-label="移動直尺零刻度" type="button" hidden>✥</button>
+    <div id="pointHandles"></div>
+    <div id="magnifier" hidden aria-hidden="true"><svg id="magnifierSvg"></svg></div>
+    <p id="stageHint">調整接球槽，從固定標記釋放鋼珠。</p>
+  </section>
+  <section id="controlPanel" class="sim-panel" aria-label="操作面板">
+    <div id="notice" role="status" hidden></div><button id="saveRetry" hidden type="button">重試保存</button>
+    <section id="resultPanel" hidden><h2 id="resultTitle"></h2><p id="scoreText"></p><button id="retryFinal" hidden type="button">重試提交</button></section>
+    <section data-panel="collect">
+      <h2>1. 調槽取點</h2><p>每次從相同標記由靜止釋放，出口速率有約±1%的輕微波動。取六個高低分散的印記。</p>
+      <label>記錄位置 <select id="recordSlot"></select></label>
+      <div class="button-row"><button id="depthUp" type="button">槽向上</button><button id="depthDown" type="button">槽向下</button><button id="release" class="primary" type="button">釋放鋼珠</button></div>
+      <p id="recordCount"></p><ol id="recordList"></ol>
+    </section>
+    <section data-panel="measure" hidden>
+      <h2>2. 用尺讀取印記</h2><p>原點O為出口球心。量至圓點中心：<var>x</var>向右，<var>y</var>向下。可拖尺或用方向鍵；Shift加大移動。</p>
+      <label>目前印記 <select id="measureSlot"></select></label><div class="button-row"><button id="rulerX" type="button">水平尺</button><button id="rulerY" type="button">豎直尺</button><button id="rulerHome" type="button">尺歸原點</button><button id="readingZoom" type="button" aria-pressed="false">放大尺上讀數</button></div>
+      <div id="readTable"></div>
+    </section>
+    <section data-panel="plot" hidden>
+      <h2>3. 描點與擬合</h2><p>依自己的讀數放點。拖動或用方向鍵移1cm、Shift移1mm；圖點只吸附公開網格。</p>
+      <label>要畫的點 <select id="plotSlot"></select></label><div class="button-row"><button id="placePoint" type="button">在圖上放點</button><button id="keyboardPoint" type="button">放點後用鍵盤調整</button><button id="removePoint" type="button">刪除此點</button></div>
+      <div class="two-fields"><label>圖點x / cm<input id="pointX" type="number" min="0" max="100" step="0.1" inputmode="decimal"></label><label>圖點y / cm<input id="pointY" type="number" min="0" max="100" step="0.1" inputmode="decimal"></label></div>
+      <label class="inline"><input id="connectPoints" type="checkbox">顯示資料點連線（非擬合）</label>
+      <label>擬合模型<select id="fitModel"><option value="">請選擇</option><option value="linear">一般直線</option><option value="quadratic">一般二次函數</option><option value="square">過原點平方模型</option></select></label>
+      <p id="fitFormula" class="math"></p><button id="fitButton" type="button">擬合自己的點</button><div id="fitResult" aria-live="polite"></div>
+      <p>二次模型參數較多，偏差較小本身不足以證明物理關係；比較原點、切線及物理條件。</p>
+      <label>軌跡類型<select id="trajectory"><option value="">請選擇</option><option value="line">直線</option><option value="parabola">拋物線</option><option value="circle">圓弧</option><option value="other">其他曲線</option></select></label><button id="clearPlot" type="button">清除本圖</button>
+    </section>
+    <section data-panel="speed" hidden>
+      <h2>4. 逐點估速與平均</h2><p>暫採用豎直自由落體模型，<span class="math"><var>t</var> = √(2<var>y</var>/<var>g</var>)</span>、<span class="math"><var>v</var>₀ = <var>x</var>/<var>t</var></span>，<var>g</var> = 9.80 m/s²。將cm換成m。</p>
+      <div id="speedTable"></div><p id="included"></p>
+      <p class="math">平均初速度 = 所有已填初速度之和 ÷ <var>n</var></p><label>平均初速度 / m/s<input id="meanV" type="number" min="0" step="any" inputmode="decimal"></label>
+      <p class="math">若 <var>y</var> = <var>kx</var>²，代表速度 = √(<var>g</var>/(2<var>k</var>))</p><p id="speedFit"></p><label>由平方擬合估算速度 / m/s<input id="fitV" type="number" min="0" step="any" inputmode="decimal"></label>
+    </section>
+    <section data-panel="motion" hidden>
+      <h2>5. 獨立計時對照</h2><p>利用離軌至撞槽的計時器，配對自己的讀數。時間沒有用你的y反算；多次投球有輕微速率差異，有限數據只支持與模型相符。</p>
+      <button id="showClock" type="button">顯示計時記錄</button><div id="clockTable"></div>
+      <div class="button-row"><button id="timeX" type="button">x–t 圖</button><button id="timeY" type="button">y–t 圖</button></div><div id="timeFitResult"></div>
+      <p class="math"><var>y</var> = <var>αt</var>² + <var>βt</var> + <var>γ</var>，加速度估值 = 2<var>α</var></p><label>由時間擬合求加速度 / m/s²<input id="gFromClock" type="number" step="any" inputmode="decimal"></label>
+      <p>負估值表示這組讀數不支持向下自由落體模型，請回看量度；運算分與接近真值的分數分開。</p><div id="questions"></div>
+    </section>
+    <section id="checkPanel" hidden><h2>檢查目前作答</h2><p>未答項為0，已完成的獨立部分保留得分。可以返回修改，或提交目前答案。</p><div id="checkSummary"></div><div id="checkReturn"></div><button id="submitButton" class="primary" type="button">提交目前答案</button></section>
+    <div id="editFooter" class="footer"><div class="button-row"><button id="previous" type="button">上一步</button><button id="next" class="primary" type="button">下一步</button></div><button id="returnCheck" hidden type="button">返回檢查</button><button id="clearAll" type="button">清除本次實驗</button></div>
+    <section id="feedback" hidden><h2>分項回饋</h2><p>讀數以當次印記為準，轉繪以自己的表格為準。運算正確與接近物理真值分開計分。</p><div id="feedbackList"></div></section>
+  </section>
+</main>
+</body></html>

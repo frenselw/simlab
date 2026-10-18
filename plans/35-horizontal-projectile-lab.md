@@ -1,6 +1,6 @@
 # 平拋運動：軌跡量度與擬合實驗
 
-狀態：**2026-10-18 計劃稿；已按使用者追加要求加入逐點估速、全組平均及約±1%投球差異，尚未實作。** 初稿的兩份獨立審查為歷史紀錄，未代表本次追加規格已重新雙人審查。
+狀態：**2026-10-18 已實作；來源／實際 SCORM 套件主線測試及一位 sub-agent 的核心實作審查完成，完整本地回歸與嵌入觸控驗收進行中。** 最終證據見文末；真 Moodle／實體電話尚未驗收。初稿的兩份計劃審查另列為歷史紀錄。
 
 - 分支：`codex/horizontal-projectile-lab`。
 - 起點：本機 `main`，`f7ab989ca59b72ebe6a7691129320c4768f6fcf8`；未宣稱已同步遠端。
@@ -28,7 +28,7 @@
 | Delivery scope / package | Assessed SCORM 1.2；`sim/manifests/horizontal-projectile-lab.xml`；`npm run package -- horizontal-projectile-lab` |
 | Learner task / main interactions | 調槽、投球、六點記錄、拖尺／換向、讀數輸入、描點、擬合、估速、計時對照及提交 |
 | Shared subject core / activity outer layer | 本活動擁有平拋模型、答案、rubric、保存；重用既有純數學擬合，不建立通用實驗編輯器 |
-| Runtime files / libraries and justification | 原生 HTML/CSS/JS、SVG、Pointer Events；`index.html`、`styles.css`、`main.js`、`model.js`、`scoring.js`、`persistence.js`；依賴下表共用檔，不加 runtime library |
+| Runtime files / libraries and justification | 原生 HTML/CSS/JS、SVG、Pointer Events；`index.html`、`styles.css`、`main.js`、`model.js`、`scoring.js`、`persistence.js`、`ui-runtime.js`；最後一檔集中真正的啟動／提交邏輯，供瀏覽器及 Node 測試共用；依賴下表共用檔，不加 runtime library |
 | Assessment risk / trusted validation | `formative`，100 分、60 分達標；瀏覽器端評分不防竄改。本版不作高風險考試，server validation N/A，不包含秘密 |
 | Out of scope | 斜拋、可變 g／釋放高度、飛行阻力、反彈、自轉顯示、隨機題庫、額外座標／計時噪聲、完整不確定度傳播、跨 attempt 歷史、匯出及另一套教師工作台；本版只加入下述約±1%出口速率波動 |
 
@@ -38,10 +38,10 @@
 
 | 路徑 | 計劃改動／依賴 |
 |---|---|
-| `sim/horizontal-projectile-lab/` | 上述六個 runtime 檔及 model／scoring／persistence／lifecycle 測試 |
+| `sim/horizontal-projectile-lab/` | 上述七個 runtime 檔、model／scoring／persistence／lifecycle 測試及共用測試 fixture `test-support.js` |
 | `sim/shared/styles.css`、`scorm.js`、`activity-flow.js`、`fullscreen.js` | 現成依賴，沿用 API／樣式 |
 | `sim/newtons-second-law-investigation-lab/fitting.js` | 直接相對載入 `NewtonFitting.fit/predict`；已有直線、二次、過原點擬合。平方模型將 x 轉成 x² 再用 `origin`，不複製 QR 解法或搬動原 callers |
-| `sim/config.js`、`sim/manifests/horizontal-projectile-lab.xml` | 實作時新增 metadata／全部 runtime 資產；本次只在文件記錄 |
+| `sim/config.js`、`sim/manifests/horizontal-projectile-lab.xml` | 已新增 metadata／全部 runtime 資產；不打包開發測試檔 |
 | `tools/horizontal-projectile-browser-regression.js` | 正式入口同時覆蓋 source 及實際解壓 ZIP |
 | `tools/mobile-scroll-cases.js`、`mobile-scroll-operations.js`、`mobile-scroll-browser-regression.js` | 加入本活動合法 fixtures、每種目標及狀態觀測，重用 T0–T3 hosts |
 | `tools/test-registry.js` | 登記每個新 test／browser owner；manifest 提供擬合檔的反向消費關係 |
@@ -143,14 +143,14 @@ Apply [diagrams/notation](00-shared-platform-and-style.md#diagrams-and-notation)
 | Notation | x、y、t、g、v₀為約定方向的標量；cm表格、SI公式；k／A／α避免與加速度a混淆；共用math字體、斜體變量、正體單位、真正上下標 |
 | Arrow graphics | x向右、y向下軸箭頭，O在出口球心；無學生矢量作圖。若有出口箭頭只表方向、不顯示未知速度大小 |
 | Snap | 槽5mm步距；尺可對齊可見O／所選印記投影；圖點只吸公開1cm格。mouse8px、touch/pen12px CSS門檻，不吸答案／理想軌跡；與評分容差分開 |
-| Snap release | mouse移3px、touch/pen6px才開始拖，輕觸保留原值；離目標超過進入門檻1.5倍才解除；預覽與放手同一幾何 |
-| Touch preview | 尺零線／讀數、圖點會被手指遮住，需角落約128×112px、4–8倍真實局部放大；不顯答案、不攔輸入。粗調槽及按鈕無精細遮蔽，不需預覽 |
+| Snap release | mouse移3px、touch/pen6px才開始拖，輕觸保留原值；用最近可見對齊線／公開格點，預覽與放手同一幾何。實作沒有加入初稿建議的1.5倍黏附遲滯：窄屏1cm格距遠小於12px，避免圖點被黏住而難以移動 |
+| Touch preview | 尺零線／讀數、圖點會被手指遮住，角落128×112px真實局部放大，至少4 CSS px/mm，使用同一場景；不顯座標答案、不攔輸入。另有「放大尺上讀數」按鈕，聚焦所選印記在目前尺上的投影，學生仍須讀刻度。粗調槽及按鈕無精細遮蔽，不需預覽 |
 
-尺以按鈕切水平／豎直，不加任意旋轉；預覽在release、cancel、lost capture、blur、導航及鎖定時清除，拖動相機固定。
+尺以按鈕切水平／豎直，不加任意旋轉；拖動預覽在release、cancel、lost capture、blur、導航及鎖定時清除，拖動相機固定。學生主動開啟的靜態讀數放大可在換尺時保留，blur／resize／導航／鎖定時關閉，不保存或評分。
 
 ## Touch gesture ownership contract
 
-依[完整手勢契約](../docs/simulation-scorm-production-guide.md#selective-touch-gesture-ownership)驗收；以下selector為實作約定，像素及owner尚未實測。
+依[完整手勢契約](../docs/simulation-scorm-production-guide.md#selective-touch-gesture-ownership)驗收；以下selector已實作，像素及 owner 的已執行證據見文末。
 
 | Target type / modes | Visible footprint, selector, hit area/halo and size | Stable capture target / pre-pointerdown touch-action | Keyboard alternative |
 |---|---|---|---|
@@ -283,7 +283,7 @@ Draft只有`edit`、`check`；五步由`view`表示。submitted／pending／comm
 | `fit` | `{model:nullOrEnum,attempted:boolean}`；enum=`linear\|quadratic\|square`；model=null必須attempted=false |
 | `trajectory` | `null\|line\|parabola\|circle\|other` |
 | `calculations` | 長度恆6的`{t:nullOrNumber,v:nullOrNumber}`陣列，與rows同index對應，不另存slot引用；任何t/v非null需該row存在且read完整，row空或read未完整時該行t/v都null |
-| 計算number域 | t=0–10s；v、meanV、fitV為有限非負m/s數字，gFromClock為可正可負的有限m/s²數字；結果欄不設100或其他任意幅值上限。一般小數輸入最多3位，亦接受等價有限科學記數法。0是合法錯答，不是未答；非有限運算顯示無法計算，不截斷或偽造答案 |
+| 計算number域 | t=0–10s；v、meanV、fitV為有限非負m/s數字，gFromClock為可正可負的有限m/s²數字；結果欄不設100或其他任意幅值上限。原生number欄用step=any，保留有限數值，不強行截成三位小數；亦接受有限科學記數法。0是合法錯答，不是未答；非有限運算不截斷或偽造答案 |
 | `meanV`／`fitV` | null或上述number；meanV非null需至少兩行v非null，納入全部非null速度，集合／n只由該陣列重建；fitV非null需attempted=true且成功square fit、k>0，是否算對由scorer判斷 |
 | `clockShown`／`gFromClock` | boolean／nullOrNumber；gFromClock非null需已揭示且可由現有y/time重建二次擬合；不因α負而拒絕學生錯讀數 |
 | `conclusions` | `{horizontal,hEvidence,vertical,vEvidence}`，各null或所屬enum，見下列 |
@@ -361,12 +361,12 @@ Follow the production guide's [registration procedure](../docs/simulation-scorm-
 
 | Item | Activity decision / executed evidence |
 |---|---|
-| Runtime resource declaration | `sim/manifests/horizontal-projectile-lab.xml`列六活動檔、四shared檔及既有fitting.js；若實際HTML引用config或其他資產亦明列 |
+| Runtime resource declaration | `sim/manifests/horizontal-projectile-lab.xml`列七活動檔、四shared檔及既有fitting.js，共12個 runtime 資產；ZIP另有root `imsmanifest.xml`，沒有引用catalogue或外部CDN |
 | Logical test entries | `sim/horizontal-projectile-lab/model.test.js`、`scoring.test.js`、`persistence.test.js`、`lifecycle.test.js`；kind=node，scope繼承slug，涵蓋上述非平凡邏輯 |
 | Browser entries / owner | `{file:'tools/horizontal-projectile-browser-regression.js',kind:'browser',scope:'horizontal-projectile-lab'}`；一入口含source/package，無args變體 |
 | Case helpers | 先擴充上述現有mobile-scroll helpers；若實作確需新`*-browser-cases.js`，登記literal consumer及scope，不把helper冒充已跑test |
 | Separate manual gates | 保留既有mobile-scroll-browser-regression manual gate及理由，加入活動profiles／operations；完整T0–T3不能由CI省略，T4另外記真實證據 |
-| Registration check | 本次文件階段證據在文末；實作新registry後須重新跑`npm run check:tests` |
+| Registration check | 實作後`npm.cmd run check:tests`通過：246 entries（213 node、33 browser）、48 helpers、2 manual |
 | CI selection preview | 實作commit後記實際base/head、`npm run test:affected -- --base=<sha> --head=<sha> --plan`結果及browser/packages；registry/catalogue新增預期full coverage |
 | Actual GitHub verification | 未執行、無run link；實作首次registry/catalogue變更需要完整驗證，不把文件分支當活動CI通過 |
 
@@ -400,7 +400,7 @@ Follow the production guide's [registration procedure](../docs/simulation-scorm-
 - Server-side validation：N/A，本版僅形成性評核，不作高風險用途。
 - [ ] Moodle and physical-device evidence is recorded separately from local checks; list any unverified item explicitly.
 
-## 本次計劃工作記錄
+## 歷史：計劃階段工作記錄（非實作驗收）
 
 - 已建立專用分支，只新增本計劃；runtime、catalogue、manifest及registry尚未修改。
 - 2026-10-18 文件檢查：17個本地Markdown連結及fragment皆可解析；20個表格欄數一致、無未填範本欄或行尾空白。
