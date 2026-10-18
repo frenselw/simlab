@@ -10,7 +10,7 @@ for(const type of['formula','read','record']){
   const action=type==='formula'?{type,field:'time',value:'half'}:type==='read'?{type,slot:0,axis:0,value:100}:{type,slot:0,depthMm:50,ppm:123};
   const n=M.change(s,action);assert.equal(n.meanV,null);if(type!=='formula')assert.deepEqual(M.calculations(n)[1],M.calculations(s)[1]);P.draft(n);
 }
-const c=M.change(s,{type:'clearPlot'});assert.equal(c.fitV,null);assert.equal(c.meanV,s.meanV);assert.deepEqual(M.points(c),M.points(s));
+const c=M.change(s,{type:'clearPlot'});assert.equal(c.fit.attempted,false);assert.equal(c.meanV,s.meanV);assert.deepEqual(M.points(c),M.points(s));
 const unchanged=M.change(s,{type:'read',slot:0,axis:0,value:s.rows[0].read[0]});assert.deepEqual(unchanged,s);
 assert.deepEqual(M.change(s,{type:'formula',field:'time',value:'fall'}),s);
 for(const type of ['point','calculation','select','connect'])assert.throws(()=>M.change(s,{type}));
@@ -19,7 +19,7 @@ assert.equal(M.mean(Array(6).fill(Number.MAX_VALUE)),Number.MAX_VALUE);
 const oldClock=s.rows[0].clockMs;assert.equal(M.change(s,{type:'read',slot:0,axis:1,value:800}).rows[0].clockMs,oldClock);
 s=M.change(s,{type:'read',slot:0,axis:1,value:null});assert.equal(M.points(s)[0],null);assert.deepEqual(M.calculations(s)[0],{t:null,v:null});
 const parabola=M.fresh();[[200,70],[400,280],[600,630]].forEach((point,i)=>{parabola.rows[i]={depthMm:50+i*50,speedOffsetPpm:0,clockMs:M.impact(50+i*50,0).clockMs,read:point.slice()};});
-for(const model of['square','quadratic']){parabola.fit={model,attempted:true};const f=M.fit(parabola);assert(f.ok);assert(Math.abs(f.coefficients[0]-1.75)<1e-12);assert(f.rmse<1e-12);}
+for(const model of['quadratic']){parabola.fit={model,attempted:true};const f=M.fit(parabola);assert(f.ok);assert(Math.abs(f.coefficients[0]-1.75)<1e-12);assert(f.rmse<1e-12);}
 parabola.fit.model='linear';assert(M.fit(parabola).rmse>.01);
 console.log('Projectile model: noise, energy, fixed clocks and atomic dependencies passed.');
 
@@ -95,7 +95,7 @@ assert.equal(M.drawLaunchOffset(()=>0),-300000);assert.equal(M.drawLaunchOffset(
 for(const n of [-1,1,NaN,Infinity])assert.throws(()=>M.drawLaunchOffset(()=>n));
 for(const base of [-300000,-150000,0]){
  const start=M.fresh(base),demo=M.practice(start,()=>.65);P.draft(demo);assert.equal(demo.view,'plot');assert.equal(demo.launchOffsetPpm,base);assert.equal(M.points(demo).filter(Boolean).length,6);
- assert.deepEqual(demo.formulas,{time:null,speed:null});assert.deepEqual(demo.fit,{model:null,attempted:false});assert.equal(demo.meanV,null);assert.equal(demo.clockShown,false);assert(Object.values(demo.conclusions).every(v=>v===null));assert(start.rows.every(v=>v===null));assert.throws(()=>M.practice(demo));
+ assert.deepEqual(demo.formulas,{time:null,speed:null});assert.deepEqual(demo.fit,{model:null,attempted:false});assert.equal(demo.meanV,null);assert(!Object.hasOwn(demo,'clockShown'));assert(!Object.hasOwn(demo,'conclusions'));assert(start.rows.every(v=>v===null));assert.throws(()=>M.practice(demo));
  for(const jitter of [-10000,0,10000]){
   const ppm=M.observedOffset(base,jitter),p=M.impact(800,ppm);assert(Math.abs(p.v/M.referenceSpeed(start)-(1+jitter/1e6))<.000001);assert(p.v<=M.IDEAL);assert.equal(p.t,M.impact(800,0).t);
   const saved=M.change(start,{type:'record',slot:0,depthMm:800,ppm});P.draft(saved);assert.equal(saved.rows[0].speedOffsetPpm,ppm);
@@ -105,3 +105,16 @@ for(const base of [-300000,-150000,0]){
 assert(M.impact(800,M.observedOffset(-300000,0)).x<M.impact(800,M.observedOffset(0,0)).x);
 console.log('Per-experiment random launch offsets, one-percent within-run scatter and test-only measurements passed.');
 console.log('Height spacing, legacy resume, automatic nearest ruler targets, ties, thresholds and selection independence passed.');
+
+// The known origin participates in the same ordinary least-squares fit.
+const F=require('../newtons-second-law-investigation-lab/fitting.js');
+for(const model of ['linear','quadratic']){
+ const s=T.filled();s.fit={model,attempted:true};const data=M.points(s).filter(Boolean).map(p=>p.map(n=>n/1000));
+ const actual=M.fit(s),expected=F.fit(model,[[0,0],...data]);assert(actual.ok);assert.equal(actual.n,7);assert.deepEqual(actual.coefficients,expected.coefficients);
+ assert.notDeepEqual(actual.coefficients,F.fit(model,data).coefficients);
+ s.rows[0].read=[0,0];s.rows[1].read=[0,0];assert.equal(M.fit(s).n,5);
+}
+const inverse=T.filled();inverse.fit={model:'inverse',attempted:true};assert(!M.fit(inverse).ok);assert.equal(M.fit(inverse).n,7);assert(M.fit(inverse).message.includes('沒有定義'));
+assert.deepEqual(M.VIEWS,['collect','measure','plot','speed']);
+for(const action of [{type:'clock'},{type:'conclusion',field:'horizontal',value:'uniform'},{type:'answer',field:'fitV',value:1}])assert.throws(()=>M.change(T.filled(),action));
+console.log('Origin participates once in linear/quadratic fits; inverse never discards the origin.');

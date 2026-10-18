@@ -5,7 +5,7 @@
 })(typeof window === 'undefined' ? globalThis : window, function (F) {
   'use strict';
   const G = 9.8, H = 0.2, IDEAL = Math.sqrt(10 * G * H / 7), SPEED = 0.99 * IDEAL;
-  const VIEWS = ['collect', 'measure', 'plot', 'speed', 'motion'];
+  const VIEWS = ['collect', 'measure', 'plot', 'speed'];
   const FORMULAS={
     time:[{id:'fall',tex:'t=\\sqrt{\\frac{2y}{g}}',calculate:(x,y)=>Math.sqrt(2*y/G)},{id:'half',tex:'t=\\sqrt{\\frac{y}{g}}',calculate:(x,y)=>Math.sqrt(y/G)},{id:'double',tex:'t=\\sqrt{\\frac{4y}{g}}',calculate:(x,y)=>Math.sqrt(4*y/G)},{id:'horizontal',tex:'t=\\sqrt{\\frac{2x}{g}}',calculate:x=>Math.sqrt(2*x/G)}],
     speed:[{id:'vertical',tex:'v_0=\\frac{y}{t}',calculate:(x,y,t)=>y/t},{id:'double',tex:'v_0=\\frac{2x}{t}',calculate:(x,y,t)=>2*x/t},{id:'horizontal',tex:'v_0=\\frac{x}{t}',calculate:(x,y,t)=>x/t},{id:'half',tex:'v_0=\\frac{x}{2t}',calculate:(x,y,t)=>x/(2*t)}]
@@ -20,9 +20,8 @@
   const integer = (v, min, max) => Number.isInteger(v) && v >= min && v <= max;
   const mean = values => values.reduce((average, value, i) => average + (value - average) / (i + 1), 0);
   function fresh(launchOffsetPpm=0) {
-    return { schemaVersion:2, modelVersion:1, rubricVersion:2, launchOffsetPpm, rows:Array(6).fill(null), fit:{model:null,attempted:false}, trajectory:null,
-      formulas:{time:null,speed:null}, meanV:null, fitV:null, clockShown:false, gFromClock:null,
-      conclusions:Object.fromEntries(Object.keys(QUESTIONS).map(k=>[k,null])), phase:'edit', view:'collect', returnToCheck:false,
+    return { schemaVersion:3, modelVersion:1, rubricVersion:3, launchOffsetPpm, rows:Array(6).fill(null), fit:{model:null,attempted:false}, trajectory:null,
+      formulas:{time:null,speed:null}, meanV:null, phase:'edit', view:'collect', returnToCheck:false,
       setup:{depthMm:200,slot:0}, ruler:{axis:'x',zero:[0,0]} };
   }
   function velocity(ppm) { return SPEED * (1 + ppm / 1000000); }
@@ -86,7 +85,11 @@
   function fit(state) {
     const model = state.fit.model;
     if (!model) return {ok:false,message:'先選擇擬合模型。',n:0};
-    const data = points(state).filter(Boolean).map(p=>p.map(n=>n/1000));
+    let data = points(state).filter(Boolean).map(p=>p.map(n=>n/1000));
+    if(state.schemaVersion===3){
+      data=[[0,0],...data.filter(([x,y])=>x!==0||y!==0)];
+      if(model==='inverse')return{ok:false,message:'原點的橫座標為零，反比例函數在此沒有定義，不適合這組資料。',n:data.length};
+    }
     return F.fit(model === 'square' ? 'origin' : model, model === 'square' ? data.map(([x,y])=>[x*x,y]) : data);
   }
   function predict(state, result, x) { return F.predict(state.fit.model === 'square' ? 'origin' : state.fit.model, result.coefficients, state.fit.model === 'square' ? x*x : x); }
@@ -105,10 +108,10 @@
     });
   }
   function included(state) { return calculations(state).map((c,i)=>c.v === null ? null : i).filter(i=>i !== null); }
-  function invalidateFit(s) { s.fit.attempted = false; s.fitV = null; }
+  function invalidateFit(s) { s.fit.attempted = false; }
   function change(state, action) {
     const s = clone(state), i = action.slot;
-    if (s.phase !== 'edit'||s.schemaVersion!==2) throw new Error('Not editable');
+    if (s.phase !== 'edit'||s.schemaVersion!==3) throw new Error('Not editable');
     switch (action.type) {
       case 'setup': s.setup = {...s.setup,...action.value}; break;
       case 'record': {
@@ -117,7 +120,7 @@
         if(heightConflict(s,action.depthMm,i)>=0)throw new Error('Observation heights must be at least 5 cm apart');
         s.meanV=null;
         s.rows[i] = {depthMm:action.depthMm,speedOffsetPpm:action.ppm,clockMs:impact(action.depthMm,action.ppm).clockMs,read:[null,null]};
-        invalidateFit(s); s.gFromClock = null;
+        invalidateFit(s);
         const next = s.rows.findIndex(r=>r === null); if (next >= 0) s.setup.slot = next;
         break;
       }
@@ -125,7 +128,6 @@
         if (!s.rows[i] || !integer(action.axis,0,1)) throw new Error('Missing observation');
         if (s.rows[i].read[action.axis] === action.value) return s;
         s.rows[i].read[action.axis] = action.value; s.meanV=null; invalidateFit(s);
-        if (action.axis === 1) s.gFromClock = null;
         break;
       case 'model': s.fit.model = action.value; invalidateFit(s); break;
       case 'fit': s.fit.attempted = true; break;
@@ -134,13 +136,11 @@
         if(s.formulas[action.field]===action.value)return s;
         s.formulas[action.field]=action.value;s.meanV=null;break;
       case 'answer':
-        if (!['meanV','fitV','gFromClock','trajectory'].includes(action.field)) throw new Error('Invalid answer');
+        if (!['meanV','trajectory'].includes(action.field)) throw new Error('Invalid answer');
         s[action.field] = action.value; break;
-      case 'conclusion': if (!QUESTIONS[action.field]) throw new Error('Invalid conclusion'); s.conclusions[action.field] = action.value; break;
-      case 'clock': s.clockShown = true; break;
       case 'practice': return practice(s);
       case 'ruler': s.ruler = clone(action.value); break;
-      case 'clearPlot': s.fit={model:null,attempted:false}; s.fitV=null; s.trajectory=null; break;
+      case 'clearPlot': s.fit={model:null,attempted:false}; s.trajectory=null; break;
       default: throw new Error('Unknown action');
     }
     return s;

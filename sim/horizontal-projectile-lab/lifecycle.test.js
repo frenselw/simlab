@@ -4,7 +4,7 @@ const start=(fake)=>{const c=new R.Controller(fake,Flow);c.start();return c;};
 for(const state of['new','read-error','inconsistent']){const f=T.fake({state}),c=start(f);assert.equal(c.mode,state==='new'?'edit':'technical');assert.equal(Boolean(f.provider),state==='new');}
 for(const state of[M.fresh(),T.filled()]){
   const review=T.snapshot(state,'review');const f=T.fake({state:'finished',snapshot:review,score:String(review.score),status:review.passed?'passed':'failed'}),c=start(f);
-  assert.equal(c.mode,'review');assert(c.trusted);assert.equal(c.command({type:'clock'}),false);c.clear();assert.equal(c.mode,'review');
+  assert.equal(c.mode,'review');assert(c.trusted);assert.equal(c.command({type:'formula',field:'speed',value:'vertical'}),false);c.clear();assert.equal(c.mode,'review');
   for(const mode of['success','committed','frozen','retry']){const fake=T.fake(),x=start(fake);x.state=M.clone(state);x.check();fake.nextOutcome=mode;x.submit();assert.equal(x.mode,{success:'review',committed:'committed',frozen:'frozen',retry:'check'}[mode]);assert.equal(x.trusted,mode==='success'||mode==='committed');if(mode==='frozen'||mode==='committed'){assert.equal(fake.provider,null);x.retryFinal();assert.equal(x.mode,'review');}}
 }
 for(const status of['passed','unknown']){const s=T.snapshot(T.filled(),'review');const c=start(T.fake({state:'finished',snapshot:s,score:'12',status}));assert.equal(c.mode,'mismatch');assert(!c.trusted);assert(!c.editable);}
@@ -16,7 +16,7 @@ const oldPending={version:1,activity:P.ACTIVITY,kind:'pending-final',payload:{sc
 const inner=T.snapshot(T.filled(),'review'),pending={version:1,activity:P.ACTIVITY,kind:'pending-final',payload:{score:inner.score,maxScore:100,passed:inner.passed,reviewJson:JSON.stringify(inner)}};
 let fake=T.fake({state:'pending-final',snapshot:pending}),c=start(fake);assert.equal(c.mode,'frozen');assert.equal(c.result,null);fake.final=inner;c.retryFinal();assert.equal(c.mode,'review');
 const bad=M.clone(pending);bad.payload.reviewJson=JSON.stringify({...inner,answer:{...inner.answer,meanV:null}});fake=T.fake({state:'pending-final',snapshot:bad});c=start(fake);assert.equal(c.mode,'technical');assert(fake.quarantined);
-fake=T.fake();c=start(fake);fake.failSave=true;c.command({type:'clock'});assert(c.unsaved);c.check();c.submit();assert.equal(c.mode,'check');fake.failSave=false;c.retrySave();assert(!c.unsaved);
+fake=T.fake();c=start(fake);fake.failSave=true;c.command({type:'formula',field:'speed',value:'vertical'});assert(c.unsaved);c.check();c.submit();assert.equal(c.mode,'check');fake.failSave=false;c.retrySave();assert(!c.unsaved);
 c.handleOutcome({activityState:'retry',retryable:false});assert.equal(c.mode,'technical');
 console.log('Projectile lifecycle: startup, all submission outcomes, frozen retry/quarantine, mismatch and failed-save locks passed.');
 const originalRandom=Math.random;
@@ -29,3 +29,12 @@ try{
  const f=T.fake({state:'pending-final',snapshot:snap}),c=start(f);assert.equal(c.state.launchOffsetPpm,-300000);f.final=review;c.retryFinal();assert.equal(c.mode,'review');assert.equal(c.state.launchOffsetPpm,-300000);
 }finally{Math.random=originalRandom;}
 console.log('Random baseline is drawn only for new experiments, retained on resume and final retry.');
+
+for(const legacy of [T.legacyV2Filled()]){
+ const review=T.snapshot(legacy,'review'),draft={version:1,activity:P.ACTIVITY,kind:'draft',answer:legacy};
+ const blocked=T.fake({state:'draft',snapshot:draft}),old=start(blocked);assert.equal(old.mode,'technical');assert.equal(blocked.saves.length,0);
+ const finished=start(T.fake({state:'finished',snapshot:review,score:'100',status:'passed'}));assert.equal(finished.mode,'review');assert.equal(finished.result.score,100);
+ const pending={version:1,activity:P.ACTIVITY,kind:'pending-final',payload:{score:100,maxScore:100,passed:true,reviewJson:JSON.stringify(review)}};
+ const f=T.fake({state:'pending-final',snapshot:pending}),c=start(f);assert.equal(c.mode,'frozen');f.final=review;c.retryFinal();assert.equal(c.mode,'review');assert.equal(c.result.score,100);
+}
+for(const view of M.VIEWS){const f=T.fake(),c=start(f);c.navigate(view);c.check();assert.equal(c.state.view,view);c.submit();assert.equal(c.mode,'review');assert.equal(c.result.score,0);}

@@ -59,14 +59,19 @@ async function completeFlow(base,label){
   await click('#next');
   assert.equal(await call('return d.querySelectorAll("#scene [data-plot-point]").length;'),6);assert(await call('return !d.getElementById("plotSlot")&&!d.getElementById("plotInputSurface");'));
   await input('#fitModel','quadratic');await click('#fitButton');assert(await call('return ProjectileModel.fit(app.getState()).ok;'));
-  assert(await call(`return d.getElementById("fitResult").querySelector('[data-math="m"]')&&d.getElementById("fitResult").querySelector('[data-math="cm"]');`));
-  await input('#trajectory','parabola');await input('#fitModel','square');await click('#fitButton');await screenshot(label+'-trajectory');await click('#next');
+  assert(await call(`return d.getElementById("fitResult").querySelector('[data-math="m"]');`));
+  assert.equal((await call('return ProjectileModel.fit(app.getState());')).n,7);
+  assert(await call('return d.querySelectorAll("#scene [data-origin]").length===1&&d.querySelectorAll("[data-panel]").length===4&&d.getElementById("progress").textContent.includes("/ 4");'));
+  assert.deepEqual(await call('return [...d.getElementById("fitModel").options].map(o=>o.value);'),['','linear','quadratic','inverse']);
+  assert(await call('return !d.getElementById("fitV")&&!d.getElementById("questions")&&!d.querySelector("[data-go=motion]")&&!/RMSE|係數|複雜/.test(d.getElementById("fitResult").textContent);'));
+  await input('#fitModel','linear');await click('#fitButton');assert.equal((await call('return ProjectileModel.fit(app.getState());')).n,7);
+  await input('#fitModel','inverse');await click('#fitButton');assert(await call('return !ProjectileModel.fit(app.getState()).ok&&d.getElementById("fitResult").textContent.includes("沒有定義");'));
+  await input('#fitModel','quadratic');await click('#fitButton');
+  await input('#trajectory','parabola');await screenshot(label+'-trajectory');await click('#next');
   await click('[data-formula-choice="time"][value="fall"]',true);await click('[data-formula-choice="speed"][value="horizontal"]',true);
-  const s=await state();await input('#meanV',Number(M.mean(M.calculations(s).map(c=>c.v)).toFixed(3)));await input('#fitV',Number(Math.sqrt(M.G/(2*M.fit(s).coefficients[0])).toFixed(3)));
-  await click('#next');await click('#showClock');const q=await state();await input('#gFromClock',Number((2*M.timeFit(q,1).coefficients[0]).toFixed(3)));
-  for(const value of['uniform','linear-x-time','free-fall','quadratic-y-time-zero-initial'])await click(`input[value="${value}"]`);
+  const s=await state();await input('#meanV',Number(M.mean(M.calculations(s).map(c=>c.v)).toFixed(3)));
   assert.deepEqual((await state()).rows.map(r=>r.speedOffsetPpm),recorded.rows.map(r=>r.speedOffsetPpm));
-  await click('#timeY');assert(await call(`return Boolean(d.getElementById("timeFitResult").querySelector('[data-math="s"]'));`));await screenshot(label+'-time');await click('#checkButton');await click('#submitButton');
+  await screenshot(label+'-speed');await click('#next');assert.equal(await call('return app.controller.mode;'),'check');await click('#submitButton');
   assert.equal(await call('return app.controller.result.score;'),100);assert.equal(await call("return w.__lmsValues['cmi.core.score.raw'];"),'100');
   assert.equal(await call('return app.controller.mode;'),'review');assert.equal(await call("return Boolean(d.querySelector('#clearAll').getClientRects().length);"),false);
   report.flows.push({label,kind:'six-point-complete',score:100,ppm:recorded.rows.map(r=>r.speedOffsetPpm)});
@@ -161,10 +166,12 @@ async function flows(base,label){
     await cdp.send('Page.reload',{});await wait(()=>call("return app?.controller.mode==='edit';"),'standalone fresh');assert.equal((await state()).rows.filter(Boolean).length,0);
   }
   report.flows.push({label,kind:'blank-each-view/pending/finish/resume/finished/standalone-denied-storage',passed:true});
-  const legacy=T.snapshot(T.legacyFilled(),'review'),oldValues={'cmi.core.lesson_status':'passed','cmi.core.score.raw':'100','cmi.suspend_data':JSON.stringify(legacy)};
+  for(const old of [T.legacyFilled(),T.legacyV2Filled()]){
+  const legacy=T.snapshot(old,'review'),oldValues={'cmi.core.lesson_status':'passed','cmi.core.score.raw':'100','cmi.suspend_data':JSON.stringify(legacy)};
   await cdp.send('Page.navigate',{url:`${base}/${slug}/index.html?fixture=${encodeURIComponent(JSON.stringify(oldValues))}`});await wait(()=>call("return app?.controller.mode==='review';"),'legacy review');await click('[data-go="plot"]');assert.equal(await call('return d.querySelectorAll("#scene [data-plot-point]").length;'),6);await click('[data-go="speed"]');assert.equal(await call('return app.controller.result.score;'),100);assert(await call('return [...d.querySelectorAll("[data-formula-choice]")].every(e=>e.disabled)&&d.getElementById("calc-v-0").querySelector("svg");'));
-  const oldDraft={version:1,activity:P.ACTIVITY,kind:'draft',answer:T.legacyFilled()},unfinished={'cmi.core.lesson_status':'incomplete','cmi.suspend_data':JSON.stringify(oldDraft)};
+  const oldDraft={version:1,activity:P.ACTIVITY,kind:'draft',answer:old},unfinished={'cmi.core.lesson_status':'incomplete','cmi.suspend_data':JSON.stringify(oldDraft)};
   await cdp.send('Page.navigate',{url:`${base}/${slug}/index.html?fixture=${encodeURIComponent(JSON.stringify(unfinished))}`});await wait(()=>call("return app?.controller.mode==='technical';"),'legacy draft lock');assert.equal(await call('return w.__lmsValues["cmi.suspend_data"];'),unfinished['cmi.suspend_data']);assert.equal(await state(),null);
+  }
   report.flows.push({label,kind:'legacy-review-original-score-and-render/unfinished-draft-not-overwritten',passed:true});
 }
 async function edgeFlows(base,label){
@@ -188,13 +195,11 @@ async function edgeFlows(base,label){
   await click('#rulerY');assert(await call('return d.getElementById("readingChoices").hidden;'));await alignRuler('y');await screenshot(label+'-reading-auto-zoom');await click('#next');assert(await call('return d.getElementById("readingChoices").hidden;'));
   await click('#checkButton');await click('[data-go="collect"]');const old=await state();acceptDialog=false;await click('#release');assert.deepEqual(await state(),old);assert.equal(await call('return app.isRunning();'),false);
   await click('#clearAll');assert.deepEqual(await state(),old);acceptDialog=true;await click('#clearAll');assert.equal((await state()).rows.filter(Boolean).length,0);
-  await click('#checkButton');await click('[data-go="motion"]');await click('#showClock');await click('input[value="uniform"]');await click('#checkButton');await click('[data-go="collect"]');await cdp.send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});await shot(200);assert((await state()).clockShown);assert.equal((await state()).conclusions.horizontal,'uniform');
+  await click('#checkButton');await click('[data-go="speed"]');await click('[data-formula-choice="time"][value="half"]');await click('#checkButton');await click('[data-go="collect"]');await cdp.send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});await shot(200);assert.equal((await state()).formulas.time,'half');
   const large=T.filled();large.view='speed';await open(base,large);await input('#meanV',Number.MAX_VALUE);
   await click('#checkButton');assert(await call(`return !d.getElementById("checkSummary").textContent.includes("Infinity")&&Boolean(d.getElementById("checkSummary").querySelector('[data-math="1.7977e+308 m/s"]'));`));await click('[data-go="speed"]');
   const values=await call('return w.__lmsValues;');await cdp.send('Page.navigate',{url:`${base}/${slug}/index.html?fixture=${encodeURIComponent(JSON.stringify(values))}`});await wait(()=>call('return app?.getState()?.meanV===Number.MAX_VALUE;'),'large speed resume');assert.equal((await state()).meanV,Number.MAX_VALUE);
-  const negative=M.fresh();[50,200,450].forEach((depth,i)=>{negative.rows[i]={depthMm:depth,speedOffsetPpm:0,clockMs:M.impact(depth,0).clockMs,read:[null,[300,280,220][i]],};});negative.view='motion';negative.clockShown=true;await open(base,negative);const g=2*M.timeFit(negative,1).coefficients[0];await input('#gFromClock',g);assert.equal((await state()).gFromClock,g);await click('#checkButton');await click('#submitButton');assert.equal(await call('return app.controller.result.detail.find(x=>x.name==="由時間擬合換算加速度 / m/s²").points;'),3);
-  await open(base,negative);await input('#gFromClock',-Number.MAX_VALUE);await click('#checkButton');await click('#submitButton');assert.equal((await state()).gFromClock,-Number.MAX_VALUE);assert(await call(`return !d.getElementById("feedbackList").textContent.includes("Infinity")&&Boolean(d.getElementById("feedbackList").querySelector('[data-math="-1.7977e+308"]'));`));
-  report.flows.push({label,kind:'flight-lock/cancel/resize/ruler-reading-zoom/confirm-cancel/clear/zero-observation-continuation/large-speed/negative-g',passed:true});
+  report.flows.push({label,kind:'flight-lock/cancel/resize/ruler-reading-zoom/confirm-cancel/clear/zero-observation-continuation/large-speed/formula-retained',passed:true});
 }
 async function touchDrag(selector,dx,dy,ending='touchEnd'){
   const start=await rect(selector),before=await state(),metricsBefore=await call('return {page:scrollY,panel:d.getElementById("controlPanel").scrollTop,diag:app.getDiagnostics()};');
@@ -210,7 +215,7 @@ async function touchDrag(selector,dx,dy,ending='touchEnd'){
   return{selector,ending,preview,metricsBefore,metricsAfter};
 }
 async function interactions(base,label){
-  await viewport(390,600);const fixture=T.filled();fixture.view='plot';fixture.rows[0].read=[100,300];fixture.meanV=fixture.fitV=null;fixture.fit.attempted=false;await open(base,fixture);
+  await viewport(390,600);const fixture=T.filled();fixture.view='plot';fixture.rows[0].read=[100,300];fixture.meanV=null;fixture.fit.attempted=false;await open(base,fixture);
   const points=await call('const g=app.getGeometry();return [...d.querySelectorAll("#scene [data-plot-point]")].map(e=>({slot:+e.dataset.plotPoint,x:(+e.getAttribute("cx")-g.ox)/g.s,y:(+e.getAttribute("cy")-g.oy)/g.s}));');
   assert.equal(points.length,6);assert(Math.abs(points[0].x-100)<1e-8&&Math.abs(points[0].y-300)<1e-8);assert(await call('return !d.getElementById("plotInputSurface")&&!d.querySelector("[data-point-slot]");'));
   const saved=await state(),suspend=await call('return w.__lmsValues["cmi.suspend_data"];'),p=await call('const g=app.getGeometry(),r=d.getElementById("stage").getBoundingClientRect();return{x:r.left+g.ox+500*g.s,y:r.top+g.oy+500*g.s};');
@@ -259,7 +264,7 @@ async function launchAndPreview(base,label){
     }
     report.layouts.push({label,width,height,view,kind:'low-mark-label-avoids-horizontal-axis',labels});
   }
-  await viewport(390,844);await open(base,null,true,'draw=0');const slow=await state();assert.equal(slow.launchOffsetPpm,-300000);assert.equal(slow.view,'plot');assert.equal(slow.rows.filter(Boolean).length,6);assert(Object.values(slow.formulas).every(v=>v===null));assert.equal(slow.fit.model,null);assert.equal(slow.meanV,null);assert.equal(slow.clockShown,false);assert(Object.values(slow.conclusions).every(v=>v===null));
+  await viewport(390,844);await open(base,null,true,'draw=0');const slow=await state();assert.equal(slow.launchOffsetPpm,-300000);assert.equal(slow.view,'plot');assert.equal(slow.rows.filter(Boolean).length,6);assert(Object.values(slow.formulas).every(v=>v===null));assert.equal(slow.fit.model,null);assert.equal(slow.meanV,null);assert(!Object.hasOwn(slow,'clockShown'));assert(!Object.hasOwn(slow,'conclusions'));
   for(const r of slow.rows){const p=M.impact(r.depthMm,r.speedOffsetPpm);assert.deepEqual(r.read,[Math.round(p.x),p.y]);}
   assert(await call('return !d.getElementById("modeControls").hidden&&d.getElementById("status").textContent.includes("測試模式");'));
   const demoState=await state(),panel=await call('const p=d.getElementById("controlPanel"),r=p.getBoundingClientRect();p.scrollTop=0;return{x:r.left+8,y:r.top+r.height*.65};'),touch=y=>({x:panel.x,y,id:911,radiusX:3,radiusY:3,force:1});

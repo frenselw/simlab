@@ -4,7 +4,7 @@
   const M=ProjectileModel, P=ProjectilePersistence, S=ProjectileScoring, V=ProjectilePresentation;
   const math=V.math, prose=V.prose;
   const d=Object.fromEntries([...document.querySelectorAll('[id]')].map(e=>[e.id,e]));
-  const names=['取點','量度','軌跡','估速與平均','計時對照'];
+  const names=['取點','量度','軌跡','估速與平均'];
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const fmt=V.format;
   const pn=i=>'P'+'₁₂₃₄₅₆'[i];
@@ -13,14 +13,13 @@
   const testParameter=new URLSearchParams(location.search).get('test');
   const testing=()=>SimScorm.isStandalone()&&(testParameter==='1'||(TEMPORARY_TEST_DEFAULT&&testParameter!=='0'));
   const controller=new ProjectileRuntime.Controller(SimScorm,SimActivityFlow,render);
-  let drag=null, run=null, frame=0, timeAxis=0, geometry=null, hint='';
+  let drag=null, run=null, frame=0, geometry=null, hint='';
   const diagnostics={downs:0,moves:0,ups:0,cancels:0,trustedTouch:0};
   function rowsTable(kind){
     return Array.from({length:6},(_,i)=>`<div class="data-row"><span>${math(`P_{${i+1}}`,pn(i))}</span>${(kind==='read'?[['x','x'],['y','y']]:[['t','t'],['v','v_0']]).map(([key,symbol])=>`<label>${math(symbol+' / '+V.unit(kind==='read'?'cm':key==='t'?'s':'m/s'))}<output id="${kind==='read'?'read':'calc'}-${key}-${i}">—</output>${kind==='read'?`<button type="button" data-clear-read="${i}" data-axis="${key==='x'?0:1}" aria-label="清除${pn(i)}${key}讀數">清除</button>`:''}</label>`).join('')}</div>`).join('');
   }
   d.readTable.innerHTML=rowsTable('read');d.speedTable.innerHTML=rowsTable('calc');
   d.formulaChoices.innerHTML=Object.entries(M.FORMULAS).map(([key,formulas])=>`<fieldset><legend>${key==='time'?'時間公式':'水平初速度公式'}</legend>${formulas.map(f=>`<label><input type="radio" name="formula-${key}" data-formula-choice="${key}" value="${f.id}"><span>${math(f.tex)}</span></label>`).join('')}<button type="button" data-clear-formula="${key}">清除此公式選擇</button></fieldset>`).join('');
-  d.questions.innerHTML=Object.entries(M.QUESTIONS).map(([key,[title,options]])=>`<fieldset><legend>${prose(title)}</legend>${options.map(([value,label])=>`<label><input type="radio" name="${key}" data-question="${key}" value="${value}"><span>${prose(label)}</span></label>`).join('')}</fieldset>`).join('');
   d.checkReturn.innerHTML=M.VIEWS.map((v,i)=>`<button type="button" data-go="${v}">返回${names[i]}</button>`).join(' ');
   const reviewNav=document.createElement('div');reviewNav.className='button-row';reviewNav.innerHTML=M.VIEWS.map((v,i)=>`<button type="button" data-go="${v}">${names[i]}</button>`).join('');d.resultPanel.append(reviewNav);
   document.querySelectorAll('[data-formula]').forEach(e=>e.innerHTML=math(e.dataset.formula,e.getAttribute('aria-label')||e.dataset.formula));
@@ -56,7 +55,7 @@
     d.modeControls.hidden=!SimScorm.isStandalone()||locked;
     d.modeMessage.textContent=testing()?'測試模式：已自動完成取點及讀尺，後續答案留空供測試。重新整理會產生另一組實驗數據。':'一般模式：從空白開始，手動取點及讀尺。';
     d.modeToggle.textContent=testing()?'切換一般模式（重新開始）':'切換測試模式（重新開始）';
-    d.progress.textContent=s?`${M.VIEWS.indexOf(view)+1} / 5 ${names[M.VIEWS.indexOf(view)]}`:'';
+    d.progress.textContent=s?`${M.VIEWS.indexOf(view)+1} / ${M.VIEWS.length} ${names[M.VIEWS.indexOf(view)]}`:'';
     d.notice.hidden=!controller.notice;d.notice.innerHTML=prose(controller.notice);
     d.saveRetry.hidden=!controller.editable||!controller.unsaved;
     d.checkButton.hidden=locked;d.checkButton.textContent=checking?'檢查作答':'檢查作答';
@@ -72,7 +71,7 @@
     const records=s.rows.map((r,i)=>r?[i,`第${i+1}點 · 已記錄`]:null).filter(Boolean);
     const calculations=M.calculations(s),points=M.points(s);
     options(d.recordSlot,s.rows.map((r,i)=>[i,`第${i+1}點 · ${r?'已有印記（重做）':'空白'}`]),s.setup?.slot??0);
-    d.plotCount.textContent=`已自動顯示 ${points.filter(Boolean).length} / 6 個完整讀數點。未量好的點不補零；如需改位置，返回量度修改讀數。`;
+    d.plotCount.textContent=`已自動顯示 ${points.filter(Boolean).length} / 6 個完整讀數點，另加入原點。未量好的點不補零。`;
     d.recordCount.innerHTML=`已留下 ${records.length} / 6 個印記。高度相隔至少${math("5\\,\\mathrm{cm}","5 cm")}。槽微調每次${math("0.5\\,\\mathrm{cm}","0.5 cm")}；建議取高低分散的位置。`;
     d.recordList.innerHTML=records.map(([i])=>`<li>${math(`P_{${i+1}}`,pn(i))}：已將印記轉記到記錄紙</li>`).join('');
     for(let i=0;i<6;i++){
@@ -85,30 +84,23 @@
     d.calculationNotice.textContent=s.schemaVersion===1?'舊版手動計算結果（只讀）。':'只顯示所選公式的運算結果，不代表公式正確。缺少讀數或公式時顯示「—」；時間為零時不能除以時間。平均初速度只需填一次。';
     const indices=M.included(s);
     d.included.innerHTML=`納入全部有效速度結果：${indices.length?indices.map(i=>math(`P_{${i+1}}`,pn(i))).join("、"):"尚無"}；${math(`n=${indices.length}`)}。未有結果的列不補0，錯公式的有限結果亦不自動刪除。`;
-    ['meanV','fitV','gFromClock'].forEach(key=>value(d[key],s[key]));
+    value(d.meanV,s.meanV);
     d.meanV.disabled=locked||indices.length<2;
-    const fit=s.fit.attempted?M.fit(s):null, speedAllowed=s.fit.model==='square'&&fit?.ok&&fit.coefficients[0]>0;
-    d.fitV.disabled=locked||!speedAllowed;
-    d.speedFit.innerHTML=speedAllowed?`自己的平方擬合：${math(`k=${V.number(fit.coefficients[0])}\\,\\mathrm{m}^{-1}`)}；請自行換算。`:'先在軌跡步驟選平方模型並完成有效擬合。';
+    const fit=s.fit.attempted?M.fit(s):null;
     d.fitModel.value=s.fit.model??'';d.trajectory.value=s.trajectory??'';
-    d.fitFormula.innerHTML=s.fit.model?math({linear:'y=mx+b',quadratic:'y=Ax^2+Bx+C',square:'y=kx^2'}[s.fit.model]):'';
+    d.fitFormula.innerHTML=s.fit.model?math({linear:'y=mx+b',quadratic:'y=Ax^2+Bx+C',square:'y=kx^2',inverse:'y=\\frac{k}{x}'}[s.fit.model]):'';
     d.fitResult.innerHTML=fit?fitText(fit,s.fit.model):'尚未擬合。修改讀數後需要重新擬合。';
     d.fitButton.disabled=locked||s.fit.model===null;
-    d.showClock.disabled=locked||s.clockShown;d.showClock.textContent=s.clockShown?'已顯示計時記錄':'顯示計時記錄';
-    d.clockTable.innerHTML=s.clockShown?records.map(([i])=>`<div>${math(`P_{${i+1}}`,pn(i))}：${math(`${(s.rows[i].clockMs/1000).toFixed(3)}\\,\\mathrm{s}`)}</div>`).join('')||'尚未記錄任何投球。':'計時記錄尚未揭示。';
-    d.timeFitResult.innerHTML=s.clockShown?fitText(M.timeFit(s,timeAxis),timeAxis===0?'timeX':'timeY'):'先顯示獨立計時記錄。';
-    d.gFromClock.disabled=locked||!s.clockShown||!M.timeFit(s,1).ok;
-    Object.keys(M.QUESTIONS).forEach(k=>document.querySelectorAll(`[data-question="${k}"]`).forEach(e=>{e.checked=s.conclusions[k]===e.value;e.disabled=locked;}));
     [d.recordSlot,d.depthUp,d.depthDown,d.release,d.rulerX,d.rulerY,d.rulerHome,d.fitModel,d.trajectory,d.clearPlot].forEach(e=>e.disabled=locked);
     [d.recordSlot,d.depthUp,d.depthDown,d.catcherHandle].forEach(e=>e.disabled=locked||Boolean(run));
-    d.previous.disabled=M.VIEWS.indexOf(view)===0;d.next.textContent=view==='motion'?'檢查目前作答':'下一步';d.returnCheck.hidden=!s.returnToCheck;
+    d.previous.disabled=M.VIEWS.indexOf(view)===0;d.next.textContent=view===M.VIEWS.at(-1)?'檢查目前作答':'下一步';d.returnCheck.hidden=!s.returnToCheck;
     if(checking){
       const reads=s.rows.reduce((n,r)=>n+(r?r.read.filter(v=>v!==null).length:0),0);
-      d.checkSummary.innerHTML=`<p>印記 ${records.length}/6；座標讀數 ${reads}/12；自動圖點 ${points.filter(Boolean).length}/6；公式 ${Object.values(s.formulas??{}).filter(Boolean).length}/2；速度結果 ${indices.length}/6。</p><p>平均初速度：${s.meanV===null?'未答':math(V.number(s.meanV)+'\\,\\mathrm{m}\\,\\mathrm{s}^{-1}',fmt(s.meanV)+' m/s')}；納入${math(`n=${indices.length}`)}。概念題 ${Object.values(s.conclusions).filter(Boolean).length}/4。</p><p>擬合：${s.fit.attempted?'已執行':'未執行'}；平方擬合估速：${s.fitV===null?'未答':'已答'}；時間擬合加速度：${s.gFromClock===null?'未答':'已答'}；軌跡類型：${s.trajectory===null?'未答':'已答'}。</p>`;
+      d.checkSummary.innerHTML=`<p>印記 ${records.length}/6；座標讀數 ${reads}/12；自動圖點 ${points.filter(Boolean).length}/6；公式 ${Object.values(s.formulas??{}).filter(Boolean).length}/2；速度結果 ${indices.length}/6。</p><p>平均初速度：${s.meanV===null?'未答':math(V.number(s.meanV)+'\\,\\mathrm{m}\\,\\mathrm{s}^{-1}',fmt(s.meanV)+' m/s')}；納入${math(`n=${indices.length}`)}。</p><p>擬合：${s.fit.attempted?'已執行':'未執行'}；軌跡類型：${s.trajectory===null?'未答':'已答'}。</p>`;
       d.submitButton.disabled=controller.unsaved;
     }
     if(controller.trusted){
-      const labels=Object.fromEntries(Object.values(M.QUESTIONS).flatMap(q=>q[1]).concat([['parabola','拋物線'],['line','直線'],['circle','圓弧'],['other','其他曲線'],['linear','一般直線'],['quadratic','一般二次函數'],['square','過原點平方模型']]));
+      const labels=Object.fromEntries(Object.values(M.QUESTIONS).flatMap(q=>q[1]).concat([['parabola','拋物線'],['line','直線'],['circle','圓弧'],['other','其他曲線'],['linear','一般直線'],['quadratic','一般二次函數'],['square','過原點平方模型'],['inverse','反比例函數']]));
       d.feedbackList.innerHTML=controller.result.detail.map(f=>{
         const formulaKey=f.name==='時間公式'?'time':f.name==='水平初速度公式'?'speed':null,formula=formulaKey?M.FORMULAS[formulaKey].find(o=>o.id===f.answer):null;
         const answer=formulaKey?(formula?math(formula.tex):'未答'):f.answer==null?'未答':typeof f.answer==='number'?math(V.number(f.answer),fmt(f.answer)):prose(labels[f.answer]??f.answer);
@@ -120,11 +112,11 @@
   }
   function fitText(f,model){
     if(!f.ok)return `<p>${esc(f.message)}</p>`;
-    const c=f.coefficients,variable=model.startsWith('time')?'t':'x';
+    const c=f.coefficients;
     const term=(n,v,first=false)=>`${n<0?'-':first?'':'+'}${V.number(Math.abs(n))}${v}`;
-    const quad=model==='quadratic'||model==='timeY';
-    const equation=quad?`${term(c[0],variable+'^2',true)}${term(c[1],variable)}${term(c[2],'')}`:model==='square'?term(c[0],'x^2',true):`${term(c[0],variable,true)}${term(c[1],'')}`;
-    return `<p>${math((model==='timeX'?'x':'y')+'='+equation)}</p><p>擬合式中，${math('x')}、${math('y')}以 ${math('\\mathrm{m}','m')} 表示，${math('t')}以 ${math('\\mathrm{s}','s')} 表示；圖上位移刻度以 ${math('\\mathrm{cm}','cm')} 表示。</p><p>使用${f.n}點；${math('\\mathrm{RMSE}='+V.number(f.rmse)+'\\,\\mathrm{m}','RMSE = '+fmt(f.rmse)+' m')}。${quad?'保留一次項與截距，請解讀其物理意義。':''}</p>`;
+    const quad=model==='quadratic';
+    const equation=quad?`${term(c[0],'x^2',true)}${term(c[1],'x')}${term(c[2],'')}`:model==='square'?term(c[0],'x^2',true):`${term(c[0],'x',true)}${term(c[1],'')}`;
+    return `<p>${math('y='+equation)}</p><p>${math('x,y')}：${math('\\mathrm{m}','m')}。</p>`;
   }
 
   function makeGeometry(view){
@@ -145,7 +137,7 @@
   }
   function world(g,view,clipId){
     const s=controller.state;if(!s)return'';
-    const x=g.x,y=g.y,scale=g.s, time=view==='motion', q=1000*scale;
+    const x=g.x,y=g.y,scale=g.s, q=1000*scale;
     const line=(x1,y1,x2,y2,color='#dbe2eb',width=1,arrow=false)=>`<path d="M${x1},${y1}L${x2},${y2}" stroke="${color}" stroke-width="${width}" fill="none"${arrow?` marker-end="url(#${clipId}Arrow)"`:''}/>`;
     const labelSize=g.labelSize??(innerWidth>=900?24:16);
     const text=(px,py,t,color='#354a64',anchor='start',tex=null)=>{
@@ -174,11 +166,9 @@
     };
     let html=`<defs><clipPath id="${clipId}"><rect x="${x(0)}" y="${y(0)}" width="${q}" height="${q}"/></clipPath><marker id="${clipId}Arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#263b55"/></marker></defs><rect width="${g.w}" height="${g.h}" fill="#fff"/>`;
     const step=q<180?500:200;
-    for(let i=0;i<=1000;i+=step){html+=line(x(i),y(0),x(i),y(1000))+line(x(0),y(i),x(1000),y(i));if(i>0)html+=text(x(i),time?y(1000)+17:y(0)-6,time?fmt(i/1000*.45):i/10,'#53647b','middle')+text(x(0)-5,y(i)+4,time?(1000-i)/10:i/10,'#53647b','end');}
-    if(time)html+=text(x(0)-4,y(0)-6,'100','#263b55','end');
-    else html+=`<circle data-origin="true" cx="${x(0)}" cy="${y(0)}" r="6" fill="#b13f25" stroke="#fff" stroke-width="2"/>`+text(x(0)+10,clipId==='sceneClip'?Math.max(labelSize,y(0)-30):y(0)-30,'O(0,0)','#a3321e','start','O(0,0)');
-    if(time){html+=line(x(0),y(1000),x(1000)+8,y(1000),'#263b55',1.5,true)+line(x(0),y(1000),x(0),y(0)-8,'#263b55',1.5,true)+text(x(0)+5,y(0)+17,`${timeAxis===0?'x':'y'} / cm`,'#263b55','start',`${timeAxis===0?'x':'y'} / \\mathrm{cm}`)+text(x(1000),y(1000)+34,'t / s','#263b55','end','t / \\mathrm{s}');}
-    else html+=line(x(0),y(0),x(1000)+8,y(0),'#263b55',1.5,true)+line(x(0),y(0),x(0),y(1000)+8,'#263b55',1.5,true)+text(x(1000),y(0)-42,'x / cm','#263b55','end','x / \\mathrm{cm}')+text(x(0)+5,y(1000)+28,'y / cm','#263b55','start','y / \\mathrm{cm}');
+    for(let i=0;i<=1000;i+=step){html+=line(x(i),y(0),x(i),y(1000))+line(x(0),y(i),x(1000),y(i));if(i>0)html+=text(x(i),y(0)-6,i/10,'#53647b','middle')+text(x(0)-5,y(i)+4,i/10,'#53647b','end');}
+    html+=`<circle data-origin="true" cx="${x(0)}" cy="${y(0)}" r="6" fill="#b13f25" stroke="#fff" stroke-width="2"/>`+text(x(0)+10,clipId==='sceneClip'?Math.max(labelSize,y(0)-30):y(0)-30,'O(0,0)','#a3321e','start','O(0,0)');
+    html+=line(x(0),y(0),x(1000)+8,y(0),'#263b55',1.5,true)+line(x(0),y(0),x(0),y(1000)+8,'#263b55',1.5,true)+text(x(1000),y(0)-42,'x / cm','#263b55','end','x / \\mathrm{cm}')+text(x(0)+5,y(1000)+28,'y / cm','#263b55','start','y / \\mathrm{cm}');
     const plot=view==='plot'||view==='speed';
     const curve=(fn,color,dash='')=>{
       let path='',connected=false;
@@ -189,18 +179,10 @@
       }
       return `<path clip-path="url(#${clipId})" d="${path}" fill="none" stroke="${color}" stroke-width="2" ${dash?'stroke-dasharray="6 4"':''}/>`;
     };
-    if(time){
-      if(s.clockShown){
-        const f=M.timeFit(s,timeAxis);
-        if(f.ok)html+=curve(u=>1000-NewtonFitting.predict(timeAxis===0?'linear':'quadratic',f.coefficients,u/1000*.45)*1000,'#157c75');
-        s.rows.forEach(r=>{if(r&&r.read[timeAxis]!==null)html+=`<circle cx="${x(r.clockMs/450*1000)}" cy="${y(1000-r.read[timeAxis])}" r="6" fill="#1764b1"/>`;});
-      }
-      return html;
-    }
     if(plot){
       const points=M.points(s).map((p,i)=>p?{i,p}:null).filter(Boolean);
       if(s.fit.attempted){const f=M.fit(s);if(f.ok)html+=curve(u=>M.predict(s,f,u/1000)*1000,'#157c75');}
-      if(controller.trusted)html+=curve(u=>M.G/(2*M.referenceSpeed(s)**2)*(u/1000)**2*1000,'#b3542d',true);
+      if(controller.trusted&&s.schemaVersion<3)html+=curve(u=>M.G/(2*M.referenceSpeed(s)**2)*(u/1000)**2*1000,'#b3542d',true);
       points.forEach(({i,p})=>{html+=`<circle data-plot-point="${i}" cx="${x(p[0])}" cy="${y(p[1])}" r="6" fill="#1764b1"/>`;html+=pointLabel(x(p[0]),y(p[1]),i);});
       return html;
     }
@@ -333,8 +315,7 @@
   document.querySelectorAll('[data-clear-read]').forEach(e=>e.onclick=()=>command({type:'read',slot:+e.dataset.clearRead,axis:+e.dataset.axis,value:null}));
   document.querySelectorAll('[data-formula-choice]').forEach(e=>e.addEventListener('change',()=>command({type:'formula',field:e.dataset.formulaChoice,value:e.value})));
   document.querySelectorAll('[data-clear-formula]').forEach(e=>e.onclick=()=>command({type:'formula',field:e.dataset.clearFormula,value:null}));
-  ['meanV','fitV','gFromClock'].forEach(key=>d[key].addEventListener('change',()=>{const n=numberInput(d[key],{signed:key==='gFromClock'});if(n!==undefined)command({type:'answer',field:key,value:n});}));
-  document.querySelectorAll('[data-question]').forEach(e=>e.addEventListener('change',()=>command({type:'conclusion',field:e.dataset.question,value:e.value})));
+  d.meanV.addEventListener('change',()=>{const n=numberInput(d.meanV);if(n!==undefined)command({type:'answer',field:'meanV',value:n});});
   d.recordSlot.addEventListener('change',()=>command({type:'setup',value:{slot:+d.recordSlot.value}}));
   d.depthUp.onclick=()=>command({type:'setup',value:{depthMm:Math.max(50,controller.state.setup.depthMm-5)}});
   d.depthDown.onclick=()=>command({type:'setup',value:{depthMm:Math.min(800,controller.state.setup.depthMm+5)}});
@@ -342,9 +323,8 @@
   d.rulerHome.onclick=()=>command({type:'ruler',value:{...controller.state.ruler,zero:[0,0]}});
   d.fitModel.onchange=()=>command({type:'model',value:d.fitModel.value||null});d.fitButton.onclick=()=>command({type:'fit'});d.trajectory.onchange=()=>command({type:'answer',field:'trajectory',value:d.trajectory.value||null});
   d.clearPlot.onclick=()=>{cancelDrag();if(confirm('清除擬合及軌跡分類？印記、讀數、自動圖點及速度結果保留。'))command({type:'clearPlot'});drawStage();};
-  d.showClock.onclick=()=>command({type:'clock'});d.timeX.onclick=()=>{timeAxis=0;render();};d.timeY.onclick=()=>{timeAxis=1;render();};
   d.previous.onclick=()=>navigate(M.VIEWS[Math.max(0,M.VIEWS.indexOf(controller.view)-1)]);
-  d.next.onclick=()=>controller.view==='motion'?check():navigate(M.VIEWS[Math.min(4,M.VIEWS.indexOf(controller.view)+1)]);
+  d.next.onclick=()=>controller.view===M.VIEWS.at(-1)?check():navigate(M.VIEWS[Math.min(M.VIEWS.length-1,M.VIEWS.indexOf(controller.view)+1)]);
   d.checkButton.onclick=check;d.returnCheck.onclick=check;d.submitButton.onclick=()=>controller.submit();d.retryFinal.onclick=()=>controller.retryFinal();d.saveRetry.onclick=()=>controller.retrySave();
   document.querySelectorAll('[data-go]').forEach(e=>e.onclick=()=>navigate(e.dataset.go));
   d.clearAll.onclick=()=>{cancelDrag();cancelFlight();if(confirm('清除本次全部印記、讀數及答案？')){controller.clear();prepareTesting();}else render();};

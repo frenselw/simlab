@@ -5,7 +5,7 @@
 })(typeof window==='undefined'?globalThis:window,function(M){
   'use strict';
   const ACTIVITY='horizontal-projectile-lab', MAX_BYTES=4000;
-  const fields=s=>['schemaVersion','modelVersion','rubricVersion',...(s?.schemaVersion===2&&Object.hasOwn(s,'launchOffsetPpm')?['launchOffsetPpm']:[]),'rows','fit','trajectory',s?.schemaVersion===1?'calculations':'formulas','meanV','fitV','clockShown','gFromClock','conclusions'];
+  const fields=s=>['schemaVersion','modelVersion','rubricVersion',...(s?.schemaVersion>=2&&Object.hasOwn(s,'launchOffsetPpm')?['launchOffsetPpm']:[]),'rows','fit','trajectory',s?.schemaVersion===1?'calculations':'formulas','meanV',...(s?.schemaVersion===3?[]:['fitV','clockShown','gFromClock','conclusions'])];
   const draftFields=['phase','view','returnToCheck','setup','ruler'];
   const bytes=o=>new TextEncoder().encode(JSON.stringify(o)).length;
   const fail=()=>{throw new Error('Invalid projectile snapshot');};
@@ -15,7 +15,7 @@
   const keys=(v,required)=>check(v&&typeof v==='object'&&!Array.isArray(v)&&required.every(k=>Object.hasOwn(v,k)));
   function validate(s,kind){
     check(kind==='draft'||kind==='review'); keys(s,fields(s));
-    check([1,2].includes(s.schemaVersion)&&s.modelVersion===1&&s.rubricVersion===s.schemaVersion);
+    check([1,2,3].includes(s.schemaVersion)&&s.modelVersion===1&&s.rubricVersion===s.schemaVersion);
     const legacy=s.schemaVersion===1;
     check(Array.isArray(s.rows)&&s.rows.length===6);
     if(!legacy){
@@ -38,16 +38,20 @@
       keys(c,['t','v']); check(number(c.t)&&number(c.v)&&(c.t===null||c.t<=10));
       if(c.t!==null||c.v!==null)check(s.rows[i]&&!s.rows[i].read.includes(null));
     });}
-    keys(s.fit,['model','attempted']);check(choice(s.fit.model,['linear','quadratic','square'])&&typeof s.fit.attempted==='boolean'&&(s.fit.model!==null||!s.fit.attempted));
+    keys(s.fit,['model','attempted']);check(choice(s.fit.model,s.schemaVersion===3?['linear','quadratic','inverse']:['linear','quadratic','square'])&&typeof s.fit.attempted==='boolean'&&(s.fit.model!==null||!s.fit.attempted));
     check(choice(s.trajectory,['line','parabola','circle','other']));
-    check(number(s.meanV)&&number(s.fitV)&&number(s.gFromClock,true)&&typeof s.clockShown==='boolean');
+    check(number(s.meanV));
     if(s.meanV!==null)check(M.included(s).length>=2);
+    if(s.schemaVersion===3)check(!['fitV','clockShown','gFromClock','conclusions'].some(k=>Object.hasOwn(s,k)));
+    else{
+    check(number(s.fitV)&&number(s.gFromClock,true)&&typeof s.clockShown==='boolean');
     if(s.fitV!==null){const f=M.fit(s);check(s.fit.attempted&&s.fit.model==='square'&&f.ok&&f.coefficients[0]>0);}
     if(s.gFromClock!==null)check(s.clockShown&&M.timeFit(s,1).ok);
     keys(s.conclusions,Object.keys(M.QUESTIONS));
     Object.entries(M.QUESTIONS).forEach(([k,q])=>check(choice(s.conclusions[k],q[1].map(o=>o[0]))));
+    }
     if(kind==='draft'){
-      keys(s,draftFields);check(['edit','check'].includes(s.phase)&&M.VIEWS.includes(s.view)&&typeof s.returnToCheck==='boolean'&&(s.phase!=='check'||!s.returnToCheck));
+      keys(s,draftFields);check(['edit','check'].includes(s.phase)&&(M.VIEWS.includes(s.view)||(s.schemaVersion<3&&s.view==='motion'))&&typeof s.returnToCheck==='boolean'&&(s.phase!=='check'||!s.returnToCheck));
       keys(s.setup,['depthMm','slot']);check(M.integer(s.setup.depthMm,50,800)&&s.setup.depthMm%5===0&&M.integer(s.setup.slot,0,5));
       if(legacy)check(s.selectedSlot===null||(M.integer(s.selectedSlot,0,5)&&s.rows[s.selectedSlot]!==null));
       keys(s.ruler,['axis','zero']);check(['x','y'].includes(s.ruler.axis)&&Array.isArray(s.ruler.zero)&&s.ruler.zero.length===2&&s.ruler.zero.every(n=>M.integer(n,-100,1000)));
@@ -57,13 +61,13 @@
     return s;
   }
   function review(s){validate(s,Object.hasOwn(s,'phase')?'draft':'review');return M.clone(Object.fromEntries(fields(s).map(k=>[k,s[k]])));}
-  function draft(s){check(s?.schemaVersion===2);validate(s,'draft');return M.clone(Object.fromEntries([...fields(s),...draftFields].map(k=>[k,s[k]])));}
+  function draft(s){check(s?.schemaVersion===3);validate(s,'draft');return M.clone(Object.fromEntries([...fields(s),...draftFields].map(k=>[k,s[k]])));}
   function decode(snapshot,kind){
     check(snapshot?.version===1&&snapshot.activity===ACTIVITY&&snapshot.kind===kind&&bytes(snapshot)<=MAX_BYTES);
-    if(kind==='draft'&&snapshot.answer?.schemaVersion===1)throw new Error('Legacy draft requires original activity');
+    if(kind==='draft'&&[1,2].includes(snapshot.answer?.schemaVersion))throw new Error('Legacy draft requires original activity');
     validate(snapshot.answer,kind);return kind==='draft'?draft(snapshot.answer):review(snapshot.answer);
   }
-  function editableFromReview(s){check(s?.schemaVersion===2);return {...M.fresh(),...review(s)};}
+  function editableFromReview(s){check(s?.schemaVersion===3);return {...M.fresh(),...review(s)};}
   function navigate(s,view,checkView=false){
     const n=draft(s);check(M.VIEWS.includes(view));
     n.returnToCheck=!checkView&&(s.phase==='check'||s.returnToCheck);n.phase=checkView?'check':'edit';n.view=view;return draft(n);

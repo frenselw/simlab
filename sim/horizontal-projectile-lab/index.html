@@ -12,7 +12,7 @@
 <main id="app" class="sim-app" data-sim-fullscreen-target>
   <header class="sim-header" data-sim-fullscreen>
     <div><h1>平拋運動實驗</h1><p id="status">取點、量度與擬合</p></div>
-    <div class="header-actions"><span id="progress">1 / 5 取點</span><button id="checkButton" type="button">檢查作答</button></div>
+    <div class="header-actions"><span id="progress">1 / 4 取點</span><button id="checkButton" type="button">檢查作答</button></div>
   </header>
   <section id="stage" class="sim-stage" aria-label="平拋實驗舞台">
     <svg id="scene" role="img" aria-label="實驗裝置及記錄紙"></svg>
@@ -37,10 +37,9 @@
       <p>零刻度靠近原點基準線時會自動吸附；零位錯誤時，四個選項都不是正確位移。放大尺面及選項只會在畫布的測量點旁顯示。</p><div id="readTable"></div>
     </section>
     <section data-panel="plot" hidden>
-      <h2>3. 擬合與軌跡</h2><p>已量好兩個座標的點會全部自動顯示；位置完全依照你的讀數。選擇模型並擬合，再判斷這些點接近哪一類曲線。</p><p id="plotCount"></p>
-      <label>擬合模型<select id="fitModel"><option value="">請選擇</option><option value="linear">一般直線</option><option value="quadratic">一般二次函數</option><option value="square">過原點平方模型</option></select></label>
+      <h2>3. 擬合與軌跡</h2><p>已量好兩個座標的點會全部自動顯示；位置完全依照你的讀數。連同原點一起選模型擬合，再判斷軌跡類型。</p><p id="plotCount"></p>
+      <label>擬合模型<select id="fitModel"><option value="">請選擇</option><option value="linear">一次函數（直線）</option><option value="quadratic">二次函數</option><option value="inverse">反比例函數</option></select></label>
       <p id="fitFormula" class="math"></p><button id="fitButton" type="button">擬合自己的點</button><div id="fitResult" aria-live="polite"></div>
-      <p>二次模型參數較多，偏差較小本身不足以證明物理關係；比較原點、切線及物理條件。</p>
       <label>軌跡類型<select id="trajectory"><option value="">請選擇</option><option value="line">直線</option><option value="parabola">拋物線</option><option value="circle">圓弧</option><option value="other">其他曲線</option></select></label><button id="clearPlot" type="button">清除擬合及分類</button>
     </section>
     <section data-panel="speed" hidden>
@@ -48,18 +47,10 @@
       <div id="formulaChoices"></div><p id="calculationNotice"></p>
       <div id="speedTable"></div><p id="included"></p>
       <p>平均初速度：<span data-formula="\bar v_0=\frac{v_{0,1}+\cdots+v_{0,n}}{n}"></span></p><label>平均初速度<span data-formula="\bar v_0 / (\mathrm{m}\,\mathrm{s}^{-1})"></span><input id="meanV" type="number" min="0" step="any" inputmode="decimal"></label>
-      <p>若<span data-formula="y=kx^2"></span>，代表速度<span data-formula="v_0=\sqrt{\frac{g}{2k}}"></span>。</p><p id="speedFit"></p><label>由平方擬合估算速度<span data-formula="v_0 / (\mathrm{m}\,\mathrm{s}^{-1})"></span><input id="fitV" type="number" min="0" step="any" inputmode="decimal"></label>
-    </section>
-    <section data-panel="motion" hidden>
-      <h2>5. 獨立計時對照</h2><p>利用離軌至撞槽的計時器，配對自己的讀數。時間沒有用你的<span data-formula="y"></span>反算；多次投球有輕微速率差異，有限數據只支持與模型相符。</p>
-      <button id="showClock" type="button">顯示計時記錄</button><div id="clockTable"></div>
-      <div class="button-row"><button id="timeX" type="button"><span data-formula="x-t"></span> 圖</button><button id="timeY" type="button"><span data-formula="y-t"></span> 圖</button></div><div id="timeFitResult"></div>
-      <p><span data-formula="y=\alpha t^2+\beta t+\gamma"></span>，加速度估值<span data-formula="g_{\mathrm{fit}}=2\alpha"></span>。</p><label>由時間擬合求加速度<span data-formula="g_{\mathrm{fit}} / (\mathrm{m}\,\mathrm{s}^{-2})"></span><input id="gFromClock" type="number" step="any" inputmode="decimal"></label>
-      <p>負估值表示這組讀數不支持向下自由落體模型，請回看量度；運算分與接近真值的分數分開。</p><div id="questions"></div>
     </section>
     <section id="checkPanel" hidden><h2>檢查目前作答</h2><p>未答項為0，已完成的獨立部分保留得分。可以返回修改，或提交目前答案。</p><div id="checkSummary"></div><div id="checkReturn"></div><button id="submitButton" class="primary" type="button">提交目前答案</button></section>
     <div id="editFooter" class="footer"><div class="button-row"><button id="previous" type="button">上一步</button><button id="next" class="primary" type="button">下一步</button></div><button id="returnCheck" hidden type="button">返回檢查</button><button id="clearAll" type="button">清除本次實驗</button></div>
-    <section id="feedback" hidden><h2>分項回饋</h2><p>資料點依你的讀數自動繪出；比較讀尺、公式選擇、擬合及物理結論。平均運算與接近物理真值分開計分。</p><div id="feedbackList"></div></section>
+    <section id="feedback" hidden><h2>分項回饋</h2><p>資料點依你的讀數自動繪出；查看讀尺、公式選擇、擬合及平均初速度。平均運算與接近物理真值分開計分。</p><div id="feedbackList"></div></section>
   </section>
 </main>
 </body></html>

@@ -1,5 +1,23 @@
 # 平拋運動：軌跡量度與擬合實驗
 
+## 四步簡化及原點擬合（2026-10-18；本節優先）
+
+- 四步依次取點、量度、擬合、公式與平均；刪除第五步、獨立計時概念題及由擬合估速比較。保留兩個公式各選一次、自動套用六列讀數，以及一次平均初速度輸入。暫不新增方程解讀問題。測試模式仍只預填前兩步，隨機速率、量尺及點名避讓不改。
+- 只提供一次函數、二次函數、反比例函數。新擬合資料為學生完整read（mm轉m）加已知原點一次；若已有[0,0]仍只保留一次原點。一次／二次均為一般最小二乘，加入原點是一筆已知觀測，並非另設強制零截距模型。反比例在x=0沒有定義，顯示不適合這組包含原點的資料，不刪除原點或產生虛構曲線。明確按擬合才顯示結果；只顯示方程及座標單位，不再解釋係數、RMSE或模型複雜性。
+- 風險仍為formative／low-risk，無秘密或可信伺服器評核。新版100分：分散取樣10、十二讀數各3分共36、二次模型選擇10、成功執行擬合10、拋物線分類10、兩公式各8共16、平均運算4及接近實際平均4。空白0分、部分獨立得分、錯公式平均運算follow-through；及格60，不新增作答門檻。
+- schemaVersion=3、modelVersion=1、rubricVersion=3；權威欄為launchOffsetPpm（可選舊缺省0）、rows、fit、trajectory、formulas、meanV。刪除fitV／clockShown／gFromClock／conclusions；draft另含phase/view/returnToCheck/setup/ruler。view只collect/measure/plot/speed；fit.model為null/linear/quadratic/inverse；review不含暫存phase。外層SCORM envelope維持version1。既有v1/v2已提交與pending保留原validator、擬合和評分供只讀回顧／同payload重試；舊未完成draft不遷移及不覆寫，顯示需原版或教師開新attempt。
+
+| 可保存狀態 | 必要／可空資料 | 合法續作 |
+|---|---|---|
+| edit × 四view | 空白、單軸、少點、正誤公式、有效／失敗擬合均合法；平均需兩個有限速度 | 修改本步、前後步或檢查 |
+| edit × 返回檢查 | 原答案可保留，returnToCheck=true | 修改或返回檢查 |
+| check × 四view | 保留部分答案，returnToCheck=false | 返回任一步或明確提交 |
+| review v1/v2/v3 | 版本對應的權威答案及原rubric，無可編輯欄 | 只讀四步／分項回饋 |
+| pending v1/v2/v3 | 同一合法review及原分數，凍結 | 驗證後重試同份payload |
+
+- 資料依賴：讀數／投球改動清平均及擬合attempted；改模型清擬合attempted；改公式清平均；未量好的列不補零。origin為派生已知基準，不存入rows或增加速度計算列。新版拒絕刪除欄混入權威答案及motion view；舊review不改解讀。保存／還原上限4000 bytes，無standalone持久答案。
+- 範圍：活動model/scoring/persistence/main/index、必要styles、四個既有Node入口／test-support、正式browser與mobile fixtures、catalogue文字及本計劃。沿用共用fitting/SCORM/flow/TeX及16項manifest，不加依賴。驗證原點影響擬合、反比失敗、四步末步導航、空白／部分／100分、所有phase round-trip及續作、舊v1/v2 review和pending不改分、手機source與解壓SCORM。執行check:tests、committed selection preview、相關Node/browser、package/check及文件檢查，再更新同一私人Sites、commit/push。未實測真手機／Moodle的限制另列。
+
 ## 橫軸避讓、每輪隨機初速度及暫時測試模式（2026-10-18；本節優先）
 
 - 點名候選先左上，再左邊／上方；排除與橫軸及其數字區域相交的文字框。靠近橫軸時左方候選下移至軸下安全位置，不再強行放左上。原有畫布邊界及尺身避讓維持，沒有新拖動目標。
