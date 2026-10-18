@@ -48,7 +48,7 @@ function activityProfiles(slug) {
     profiles.push(restored('measure-vertical',{...projectileModel.clone(filled),view:'measure'},['#checkButton','[data-go="measure"]','#rulerY'],{projectileTarget:'#rulerBodyTarget',projectileDelta:[30,25]}));
     for(const axis of ['x','y']){
       const s={...projectileModel.clone(filled),view:'measure'},p=projectileModel.impact(s.rows[0].depthMm,s.rows[0].speedOffsetPpm);s.ruler={axis,zero:axis==='x'?[0,p.y]:[Math.round(p.x),0]};
-      profiles.push(restored('measure-preview-'+axis,s,['#checkButton','[data-go="measure"]'],{projectileTarget:'#rulerBodyTarget',projectileDelta:[30,25]}));
+      profiles.push(restored('measure-preview-'+axis,s,['#checkButton','[data-go="measure"]'],{projectileTarget:'#rulerBodyTarget',projectileDelta:axis==='x'?[30,0]:[0,25]}));
     }
     const failed={...projectileModel.clone(filled),view:'plot',fit:{model:'quadratic',attempted:true}};failed.rows.forEach(r=>r.read=[500,500]);
     profiles.push(restored('plot-fit-failure',failed,['#checkButton','[data-go="plot"]']));

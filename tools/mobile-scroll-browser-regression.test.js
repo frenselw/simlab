@@ -30,3 +30,19 @@ assert.ok(panelTraceIssues(before,{...panelTrace,samples:[{host:0,outerWindow:0,
 assert.ok(gestureIssues(before,{...before,panel:70,events:[...after.events,{type:"click",isTrusted:true}]},[{...sample(200),panel:70}],{region:"panel",direction:"up",position:"middle"}).includes("panel swipe activated a control"),"a drag from a button must not activate it");
 
 console.log("Mobile scroll acceptance rejects reversals, wrong owners, host style locks, control activation, state edits and missing trusted coverage.");
+
+const {projectileReadingGeometry}=require('./mobile-scroll-operations.js'),vm=require('node:vm');
+const M=require('../sim/horizontal-projectile-lab/model.js'),T=require('../sim/horizontal-projectile-lab/test-support.js');
+for(const axis of ['x','y'])for(const slot of [0,1]){
+  const s=T.filled();s.ruler.axis=axis;const p=M.impact(s.rows[slot].depthMm,s.rows[slot].speedOffsetPpm),g={ox:40,oy:60,s:.5};
+  const circle=(cx,cy)=>({dataset:{readingSlot:String(slot)},getAttribute:k=>({cx,cy})[k]});
+  let target=circle(g.ox+p.x*g.s,g.oy+p.y*g.s),red=circle(100,70),mark=circle(100,70);
+  const document={querySelector:selector=>selector.startsWith('#scene')?target:red,querySelectorAll:()=>s.rows.map((_,i)=>i===slot?mark:circle(10*i,5*i)),getElementById:id=>id==='readingChoices'?{parentElement:{id:'stage'}}:null};
+  const window={ProjectileModel:M,__projectileApp:{getState:()=>s,getGeometry:()=>g}},probe=()=>vm.runInNewContext(`(${projectileReadingGeometry.toString()})()`,{document,window});
+  assert(probe().aligned&&probe().previewAligned,'fractional physical mark must align in both directions');
+  target=circle(g.ox+Math.round(p.x)*g.s,g.oy+p.y*g.s);assert(!probe().aligned,'old rounded ruler position must fail');
+  target=circle(g.ox+p.x*g.s,g.oy+p.y*g.s);red=circle(101,70);assert(!probe().previewAligned,'offset preview must fail');
+  red=circle(100,70);red.dataset.readingSlot='5';assert(!probe().previewAligned,'a different preview slot must fail');
+  target=null;assert(!probe().aligned&&!probe().previewAligned,'no target must stay unaligned');
+}
+console.log('Projectile probes accept exact fractional positions and reject rounded, offset, wrong-slot and missing reading targets.');

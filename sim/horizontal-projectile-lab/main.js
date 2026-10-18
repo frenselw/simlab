@@ -86,6 +86,10 @@
     value(d.meanV,s.meanV);
     d.meanV.disabled=locked||indices.length<2;
     const fit=s.fit.attempted?M.fit(s):null;
+    const legacySquare=locked&&s.schemaVersion<3&&s.fit.model==='square';
+    if(legacySquare&&!d.fitModel.querySelector('[data-legacy-model]')){
+      const option=document.createElement('option');option.value='square';option.textContent='過原點平方模型';option.dataset.legacyModel='true';d.fitModel.append(option);
+    }else if(!legacySquare)d.fitModel.querySelector('[data-legacy-model]')?.remove();
     d.fitModel.value=s.fit.model??'';d.trajectory.value=s.trajectory??'';
     d.fitFormula.innerHTML=s.fit.model==='inverse'?(locked?'原作答：反比例函數（此選項已移除）。':'此紀錄使用已移除的反比例選項，請改選一次或二次函數。'):s.fit.model?math({linear:'y=mx+b',quadratic:'y=Ax^2+Bx+C',square:'y=kx^2'}[s.fit.model]):'';
     d.fitResult.innerHTML=fit?fitText(fit,s.fit.model):'尚未擬合。';

@@ -4,6 +4,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 const {spawn,spawnSync}=require('node:child_process');
 const {XMLParser}=require('fast-xml-parser');
 const H=require('./position-time-browser-regression.js');
+const {projectileReadingGeometry}=require('./mobile-scroll-operations.js');
 const M=require('../sim/horizontal-projectile-lab/model.js'),P=require('../sim/horizontal-projectile-lab/persistence.js'),T=require('../sim/horizontal-projectile-lab/test-support.js');
 const root=path.resolve(__dirname,'..'),slug=P.ACTIVITY,out=path.join(root,'output/playwright',slug);
 const report={errors:[],flows:[],layouts:[],gestures:[],completed:false};
@@ -38,6 +39,7 @@ async function assertReadingAlignment(){
     return{id,red:['cx','cy'].map(k=>+target.getAttribute(k)),black:['cx','cy'].map(k=>+mark.getAttribute(k)),edge:+body.getAttribute(app.getState().ruler.axis==='x'?'y':'x')};
   });`);
   for(const item of geometry){assert.deepEqual(item.red,item.black,JSON.stringify(item));assert.equal(item.edge,item.red[saved.ruler.axis==='x'?1:0],JSON.stringify(item));}
+  const probe=await call(`return (${projectileReadingGeometry.toString()})();`);assert(probe.aligned&&probe.previewAligned&&probe.inCanvas&&!probe.corner,JSON.stringify(probe));
   assert.deepEqual(await state(),saved);assert.equal(await call('return w.__lmsValues["cmi.suspend_data"];'),suspend);
   return geometry;
 }
@@ -214,7 +216,7 @@ async function flows(base,label){
   report.flows.push({label,kind:'blank-each-view/pending/finish/resume/finished/standalone-denied-storage',passed:true});
   for(const old of [T.legacyFilled(),T.legacyV2Filled()]){
   const legacy=T.snapshot(old,'review'),oldValues={'cmi.core.lesson_status':'passed','cmi.core.score.raw':'100','cmi.suspend_data':JSON.stringify(legacy)};
-  await cdp.send('Page.navigate',{url:`${base}/${slug}/index.html?fixture=${encodeURIComponent(JSON.stringify(oldValues))}`});await wait(()=>call("return app?.controller.mode==='review';"),'legacy review');await click('[data-go="plot"]');assert.equal(await call('return d.querySelectorAll("#scene [data-plot-point]").length;'),6);await click('[data-go="speed"]');assert.equal(await call('return app.controller.result.score;'),100);assert(await call('return [...d.querySelectorAll("[data-formula-choice]")].every(e=>e.disabled)&&d.getElementById("calc-v-0").querySelector("svg");'));
+  await cdp.send('Page.navigate',{url:`${base}/${slug}/index.html?fixture=${encodeURIComponent(JSON.stringify(oldValues))}`});await wait(()=>call("return app?.controller.mode==='review';"),'legacy review');await click('[data-go="plot"]');assert.equal(await call('return d.querySelectorAll("#scene [data-plot-point]").length;'),6);assert(await call('const e=d.getElementById("fitModel");return e.disabled&&e.value==="square"&&e.selectedOptions[0].textContent==="過原點平方模型"&&d.getElementById("fitFormula").querySelector("svg[data-tex]");'));await screenshot(label+'-legacy-square-'+old.schemaVersion);await click('[data-go="speed"]');assert.equal(await call('return app.controller.result.score;'),100);assert(await call('return [...d.querySelectorAll("[data-formula-choice]")].every(e=>e.disabled)&&d.getElementById("calc-v-0").querySelector("svg");'));
   const oldDraft={version:1,activity:P.ACTIVITY,kind:'draft',answer:old},unfinished={'cmi.core.lesson_status':'incomplete','cmi.suspend_data':JSON.stringify(oldDraft)};
   await cdp.send('Page.navigate',{url:`${base}/${slug}/index.html?fixture=${encodeURIComponent(JSON.stringify(unfinished))}`});await wait(()=>call("return app?.controller.mode==='technical';"),'legacy draft lock');assert.equal(await call('return w.__lmsValues["cmi.suspend_data"];'),unfinished['cmi.suspend_data']);assert.equal(await state(),null);
   }
