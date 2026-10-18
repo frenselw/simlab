@@ -18,16 +18,20 @@ teacher JSON export/import is a document operation, not automatic answer persist
 Reuse an existing subject core through configuration. For circuits, use
 `CircuitEditor.mount(host, config)` and the
 [activity authoring guide](circuit-activity-authoring.md). The core owns wiring,
-snapping, drawing, navigation and the selected DC/time analysis; the outer activity owns its task,
+snapping, drawing, navigation and the selected DC, transient or household analysis;
+the outer activity owns its task,
 allowed components/actions, authoritative answer schema, checks, feedback, rubric
 and SCORM integration. Keep activity permissions in trusted local configuration,
 separate from imported answers. Do not copy the editor into each activity.
 
+The [current architecture map](circuit-workbench-architecture-review.md#現行入口與交付物)
+lists the three implemented workbenches and their analysis/document boundaries.
 The [AC authoring guide](circuit-ac-workbench.md) defines the optional transient
-backend, v7/session state, measurement windows and observation controls. DC v6
-and its static checks retain their original scope. `npm run package:circuit-platform`
-rebuilds both standalone workbenches and the two DC assessed consumers; the AC
-tool uses its own asset list and has no assessment manifest.
+backend, v7/session state, measurement windows and observation controls; the
+[household guide](circuit-household-workbench.md) owns its RMS model, v8 document
+and v2 session envelope. DC v6 and its static checks retain their original scope.
+High-voltage transmission is an existing AC preset using ideal transformers and
+finite line resistance; it does not introduce another backend or assessed activity.
 
 Every assessed wrapper still follows this guide's complete persistence, trust,
 submission and Moodle contracts. Configuration examples without scoring are
@@ -35,10 +39,13 @@ technical demonstrations, not accepted SCORM activities. Add the actual shared
 core files to each wrapper's manifest; referencing a sibling directory during
 development does not package that dependency automatically.
 
-The teacher circuit workbench declares its runtime in
-`sim/circuit-workbench/assets.json`; `npm run package:circuit` builds and checks
-its standalone ZIP. It has no `imsmanifest.xml`. `npm run package:all` builds
-SCORM manifests only. A core fix is shared by source consumers immediately;
+Each teacher circuit workbench declares its runtime in its own `assets.json`.
+`npm run package:circuit-platform` synchronizes those three lists and the two DC
+activity manifests, rebuilds all five ZIPs, and checks packaged files against
+source and HTML/CSS dependencies. `npm run package:circuit` builds only the DC
+standalone ZIP. Standalone workbenches have no `imsmanifest.xml`;
+`npm run package:all` builds SCORM manifests only.
+A core fix is shared by source consumers immediately;
 previously built ZIPs must be rebuilt before delivery. Test source and extracted
 artifacts for runtime changes and report physical-device/Moodle evidence separately.
 

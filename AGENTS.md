@@ -30,6 +30,10 @@ govern any exceptions. Mark old implementation gaps and historical evidence clea
   [authoring guide](docs/circuit-activity-authoring.md) and
   [architecture notes](docs/circuit-workbench-architecture-review.md) before changing
   the core. Keep task configuration, checks and SCORM in the activity outer layer.
+  DC, AC and household workbenches already share this core; high-voltage
+  transmission is an AC preset, not a fourth workbench. Use the
+  [current architecture map](docs/circuit-workbench-architecture-review.md#現行入口與交付物)
+  and the relevant AC/household guide for backend and snapshot boundaries.
 - Apply the baseline's three-region layout, dependency-based navigation,
   notation, arrows, snapping, and touch-preview decisions. Mobile layout and
   trusted-touch verification are required, including usable side scroll strips
@@ -81,7 +85,10 @@ output/         generated packages, screenshots, temporary checks
 ```
 
 SCORM package roots contain `imsmanifest.xml`; shared files remain accessible by
-relative path. The standalone circuit package uses
-`sim/circuit-workbench/assets.json` and `npm run package:circuit`.
+relative path. Each circuit workbench declares its standalone runtime in its own
+`assets.json`. `npm run package:circuit-platform` rebuilds all three standalone
+ZIPs and the two DC SCORM ZIPs, checking source/dependency consistency;
+`npm run package:circuit` builds only the DC standalone ZIP. `package:all` builds
+SCORM packages only. Standalone ZIPs have no `imsmanifest.xml`.
 Browser tooling, including Windows-specific setup, is documented once in the
 production guide.

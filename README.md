@@ -46,11 +46,15 @@ the plan. Local browser evidence does not establish real-phone or Moodle readine
 The [交流電路工作台](sim/circuit-ac-workbench/index.html) adds configurable AC
 sources, generator/flux observations, capacitors, inductors, SPDT switches,
 ideal and coupled transformers, LED direction demonstrations, RMS instruments,
-waveforms/cursors and LC energy exchange. It shares wiring, dragging, permission
+waveform tools and LC energy exchange. Its high-voltage transmission preset
+compares direct transmission with ideal step-up/step-down transformers and
+finite line resistance, using identical sources and loads. Delivered load power
+differs between the two circuits; the comparison does not hold delivered power
+constant. It shares wiring, dragging, permission
 checks and drawing with the DC editor. [Two unscored embedding examples](sim/circuit-ac-workbench/activity-examples.html)
 demonstrate fixed profiles and dynamic checkpoint restoration.
 
-`npm run package:circuit-platform` rebuilds both workbenches and the two DC SCORM
+`npm run package:circuit-platform` rebuilds all three workbenches and the two DC SCORM
 packages, with source/ZIP byte checks. Upload `circuit-ac-workbench-standalone.zip`
 as a Moodle File resource and select `circuit-ac-workbench/index.html` as its main
 file. Formal AC SCORM questions and scoring are a later activity-specific step.
@@ -58,9 +62,37 @@ See the [AC implementation plan](plans/32-circuit-ac-workbench.md) and
 [authoring/physics guide](docs/circuit-ac-workbench.md) for interfaces, model
 limits and local versus real Moodle/device acceptance.
 
+## Household circuit workbench
+
+The [家庭電路工作台](sim/circuit-household-workbench/index.html) uses the same
+editor with a household RMS model for L/N/E wiring, appliances, earthing,
+human contact, faults, protection timing and electrical energy. Its concept
+examples allow rewiring and mistakes; it has no scoring or submission.
+See the [household maintenance guide](docs/circuit-household-workbench.md) and
+[implementation plan](plans/33-circuit-household-workbench.md) for model limits,
+document/session formats and verification evidence.
+
+## Circuit standalone packages
+
+Run `npm run package:circuit-platform` to build and verify all five circuit ZIPs:
+
+| Workbench | Standalone ZIP in `output/` | Launch file after extraction |
+|---|---|---|
+| DC | `circuit-workbench-standalone.zip` | `circuit-workbench/index.html` |
+| AC, including high-voltage transmission | `circuit-ac-workbench-standalone.zip` | `circuit-ac-workbench/index.html` |
+| Household | `circuit-household-workbench-standalone.zip` | `circuit-household-workbench/index.html` |
+
+Keep every folder in each archive together: AC and household also include shared
+files under `circuit-workbench/`. These three ZIPs are standalone tools, without
+`imsmanifest.xml`; in Moodle use a File resource with the launch file above.
+The same command also builds the two assessed DC SCORM packages.
+High-voltage transmission is an AC example, with no separate entry or package.
+For backend ownership and shared changes, use the
+[current architecture map](docs/circuit-workbench-architecture-review.md#現行入口與交付物).
+
 ## Current activities
 
-The workbench above and the student activities below are registered in
+The three workbenches above and the student activities below are registered in
 `sim/config.js`, which records their status. The catalogue also contains an
 isolated fullscreen test version of the third-law activity.
 
@@ -168,7 +200,7 @@ practice keeps answers in memory; refreshing starts a fresh session. Moodle
 restores work within the same attempt, with completed attempts kept read-only
 until Moodle supplies a new attempt. See the shared
 [refresh and resume contract](docs/simulation-scorm-production-guide.md#standalone-refresh-and-moodle-resume).
-The teacher workbench also starts fresh on refresh; reopening a circuit is an
+All three teacher workbenches also start fresh on refresh; reopening a circuit is an
 explicit JSON import.
 
 ## SCORM packaging
@@ -205,9 +237,10 @@ npm test
 npm run package:all
 ```
 
-The standalone circuit ZIP has its own asset list and builder;
-`package:all` builds SCORM manifests only. After a shared circuit-core change,
-rebuild the standalone ZIP and any SCORM packages that include that core.
+Each standalone circuit ZIP has its own asset list; `package:all` builds SCORM
+manifests only. After a shared circuit-core change, run
+`npm run package:circuit-platform` to rebuild all three workbenches and both DC
+SCORM consumers with source/ZIP consistency checks.
 
 ## Browser checks
 

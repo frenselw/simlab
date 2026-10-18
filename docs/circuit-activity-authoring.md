@@ -2,13 +2,15 @@
 
 交流時間後端及其配置、動態 snapshot、面板插槽與物理界限見[交流作者說明](circuit-ac-workbench.md)。以下 DC 例子及靜態 checks 保持其原範圍；正式 AC SCORM 題目及 rubric 尚未制定。
 
-家庭概念工作台亦使用同一入口，以 `analysis: 'household'` 選取有效值後端；十一類家庭元件、接線限制、接觸、計時及 v2 封套（相容 v1）／v8 電路文件見[家庭作者與維護指引](circuit-household-workbench.md)。它是非評分工作台；DC／AC 入口無需載入家庭模組，不能把其文件當作 DC／AC snapshot。
+家庭概念工作台亦使用同一入口，以 `analysis: 'household'` 選取有效值後端；家庭元件（含三位拖板）、接線限制、接觸、計時及 v2 封套（相容 v1）／v8 電路文件見[家庭作者與維護指引](circuit-household-workbench.md)。它是非評分工作台；DC／AC 入口無需載入家庭模組，不能把其文件當作 DC／AC snapshot。
+
+三個工作台均已實作；入口、後端及交付物見[現行架構表](circuit-workbench-architecture-review.md#現行入口與交付物)。高壓輸電已是 AC 的 `transmission` 課堂預設，沿用 AC 編輯器及時間模型，不另建工作台或評分流程。
 
 `CircuitEditor.mount(host, config)` 是現已實作的入口。教師版的 `main.js` 也使用它；學生版不必複製畫布、接線、手勢、儀表或求解程式。可先開啟 `sim/circuit-workbench/activity-examples.html`，試用四種配置；實際可複用的設定在 `activity-profiles.js`。
 
 ## 最快開始
 
-複製 `activity-examples.html` 作為新活動的外層，保留共用 CSS／scripts 的相對路徑，將最後的 `activity-examples.js` 改成自己的活動程式。若放在另一個活動資料夾，所有共用依賴改指向 `../circuit-workbench/`，並在該活動 manifest 列出。宿主需要明確高度，例如 `height:70dvh`；編輯器填滿宿主，不控制外層頁面捲動。 左右捲頁把手在純滑鼠（hover＋fine pointer）環境隱藏；具有coarse pointer的觸控裝置保留32px原生pan-y區域，包括具觸控能力的混合裝置。判斷按輸入能力而非視窗寬度。
+複製 `activity-examples.html` 作為新活動的外層，保留共用 CSS／scripts 的相對路徑，將最後的 `activity-examples.js` 改成自己的活動程式。若放在另一個活動資料夾，所有共用依賴改指向 `../circuit-workbench/`，並在該活動 manifest 列出。宿主需要明確高度，例如 `height:70dvh`；編輯器填滿宿主，不控制外層頁面捲動。左右底角捲頁把手在純滑鼠（hover＋fine pointer）環境隱藏；具有 coarse pointer 的觸控裝置保留 32×64 CSS px 原生 `pan-y` 把手，包括具觸控能力的混合裝置；畫布仍全闊，不扣除全高側帶。判斷按輸入能力而非視窗寬度；DC／AC 與家庭空白區的手勢差異見各自指引。
 
 ```js
 const config = CircuitActivityProfiles.create('two-lamps');
@@ -207,13 +209,15 @@ D3／D4 已有兩個正式 consumer：[兩燈串聯計劃](../plans/30-circuit-d
 
 `wirePointLimit` 是可信 config 的可選容量（整數 1–96，預設 96）。活動需要較小線形時，編輯器在 preview／history commit 前把超限路徑取樣成折線；保持原頂點次序、兩端、接線關係、阻值，折線長度不增加。恢復則嚴格拒絕超限文件，不在 decoder 暗中改形狀。D3 設 8，Float64 base64 無損保存實際文件；教師維持 96。任何新活動採用此選項，均須證明自己的最壞 draft、review 和真實 pending-final 不超過 4000 UTF-8 bytes。
 
-`runtime-assets.json` 是 21 個核心依賴的唯一清單；`ac-runtime-assets.json` 是可選交流依賴的唯一清單（目前10個：9個JS及1個CSS），責任見[AC維護指引](circuit-ac-workbench.md#依賴與檔案責任)。`npm run package:circuit-platform` 將它們與各入口自己的依賴合併，更新 DC／AC 教師的 `assets.json` 及兩份 DC SCORM manifest，再用原本的 packager 重建四包。共用依賴新增／刪除只改中央清單，不在各入口的 manifest 抄程式。工具逐檔比對 ZIP 和來源、核對 HTML／CSS 引用，並產生 `output/circuit-platform-build.json` 的 core／AC 擴展及套件指紋。發布時仍須把新版 ZIP 上載到各 Moodle 活動／File resource；已部署的舊 ZIP 不會自動更新。
+`runtime-assets.json` 是共用核心依賴的唯一清單；`ac-runtime-assets.json` 是可選交流依賴的唯一清單，責任見[AC 維護指引](circuit-ac-workbench.md#依賴與檔案責任)。家庭附加模組由 `tools/package-circuit-platform.js` 的 `householdCore` 管理。`npm run package:circuit-platform` 將它們與各入口自己的依賴合併，更新 DC／AC／家庭的 `assets.json` 及兩份 DC SCORM manifest，重建三個 standalone 及兩個 SCORM 共五包。共用依賴新增／刪除只改其所屬清單，不在各入口手抄。工具逐檔比對 ZIP 和來源、核對 HTML／CSS 引用，並產生 `output/circuit-platform-build.json` 的 core／AC／household 擴展及套件指紋。發布時仍須把新版 ZIP 上載到各 Moodle 活動／File resource；已部署的 Moodle／Sites 不會自動更新。
+
+共用接線、手勢、權限或 renderer 修改須檢查 DC、AC、家庭及兩個 DC 評量 consumer；AC／家庭專用物理及狀態修改由各自 owner 驗證，按實際共用依賴補相鄰回歸。測試與 helper 登記在 `tools/test-registry.js`，`tools/run-tests.js` 執行與選取，避免另建一份測試清單。文件修訂核對來源、連結及 diff；不因純文件變動重跑全部 browser 或宣稱新的產品驗收。
 
 驗證命令：`npm run test:circuit-activities`（活動 scoring、codec、實際共享 SCORM runtime、source／ZIP 瀏覽器），`npm run check`（JS／manifest），共用核心的既有測試仍在 `npm test`。本地 iframe／模擬 LMS 不能替代真 Moodle 或實體手機 gate。
 
 新活動引用 `../circuit-workbench/` 的原始核心，以配置裁剪工具及權限；不要把核心複製進活動資料夾。題目判斷使用已提交編輯的 document 與 solver analysis，不以粒子速度、指針暫態位置或畫面距離作為物理答案。每個電氣連通區的流動示意速度會自適應；不同電路或工作點之間不能以動畫快慢比較絕對電流。
 
-新增活動仍須自己的計劃、目錄登記、rubric、精簡持久化及 SCORM manifest。manifest 要列出實際使用的共用 CSS／scripts、MathJax、全螢幕等依賴；教師 `assets.json` 是獨立包的清單，不會替活動補齊依賴。核心更新後重建引用它的活動 ZIP；檢查來源和解壓成品，不能只改來源便沿用舊包。整體責任及未實作的交流擴展方向見[架構與維護說明](circuit-workbench-architecture-review.md)。
+新增評量活動仍須自己的計劃、目錄登記、rubric、精簡持久化及 SCORM manifest。manifest 要列出實際使用的共用 CSS／scripts、MathJax、全螢幕等依賴；教師 `assets.json` 是獨立包的清單，不會替活動補齊依賴。核心更新後重建引用它的活動 ZIP；檢查來源和解壓成品，不能只改來源便沿用舊包。整體責任及現行分析後端邊界見[架構與維護說明](circuit-workbench-architecture-review.md)。
 
 ## 驗證範圍
 

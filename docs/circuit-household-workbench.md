@@ -5,7 +5,7 @@
 ## 共用接合
 
 - `analysis: 'household'` 明確選取家庭有效值模型；DC 的 v6 及 AC 的 v7 不作隱式轉換。家庭 runtime 只由家庭入口載入，DC／AC 不增加家庭依賴。
-- [元件](../sim/circuit-workbench/circuit-household-components.js)登記十一類器件、端子及同一套實物／符號 SVG；家電款式、功率、故障及人物站立狀態使用既有檢視器與快捷選項。
+- [元件](../sim/circuit-workbench/circuit-household-components.js)登記十二類器件（含後續加入的三位拖板）、端子及同一套實物／符號 SVG；家電款式、功率、故障及人物站立狀態使用既有檢視器與快捷選項。
 - [接線規則](../sim/circuit-workbench/household-connections.js)供模型、接線提交、元件吸附及匯入共用。供電端固定身份與家電引線預定用途分開；家電兩條工作線的九種接法、外殼引線錯接及未接均合法；供電側 L／N／E 互接、開關／保險絲錯串 N／E 亦保留，按有限線路阻抗求解。
 - [模型](../sim/circuit-workbench/household-model.js)使用共用 solver 的線性網絡求解能力；擁有接觸、保護計時、事件及電能。對地電勢使用供電等效地；懸浮電勢不自行設成零。
 - [介面補充](../sim/circuit-workbench/circuit-household-ui.js)只接入既有畫布、選取檢視器、說明及一行觀察，不另造編輯器或題目流程。「圖上標示」保留共用的導線電流、電勢方向全顯示／全隱藏及電勢色彩；L／N／E 圖例附加在原區域，不能清掉原控制。選取導線或元件後也可各別開啟標示，初始保持關閉以免擠滿畫布。

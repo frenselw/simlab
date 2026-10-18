@@ -1,4 +1,4 @@
-# 電路工作台共用架構審視（2026-10-14 更新）
+# 電路工作台共用架構與維護（2026-10-18 更新）
 
 **現行狀態：** [交流實作計劃](../plans/32-circuit-ac-workbench.md)已加入第二個時間後端，共用同一editor／profile／圖形及手勢；DC v6保持，AC v7明確transient。AC模組是可選依賴，以 `ac-runtime-assets.json` 為準，DC獨立入口不需要載入。API、檔案責任及界限見[交流作者與維護指引](circuit-ac-workbench.md)。歷史驗證依其日期／版本解讀，不能當作最新版全套通過。
 
@@ -7,6 +7,20 @@
 計劃第 47 節移除了記錄／圖像，第 48 節完成共用重構；其後加入元件本體吸附、快捷參數並完成整體審核。記錄表、擬合、CSV 及實驗模組維持移除，沒有加回基礎編輯器。
 
 家庭有效值後端現已接入相同 editor／profile／renderer；幾何使用獨立 v8 文件，動態權威狀態使用 `simlab-household-concepts` v2 封套（相容匯入 v1）。家庭元件及規則為按需依賴；家庭端子身份保持固定，但供電側與家電端均允許錯接，家庭有限線路阻抗及保護模型按實際回路求解。詳見[家庭維護指引](circuit-household-workbench.md)，其驗收另記於[家庭計劃](../plans/33-circuit-household-workbench.md)。
+
+## 現行入口與交付物
+
+三個非評量工作台均已實作並登記為 `active`，目前進入既有功能維護及按需擴充；此狀態不代表最新版完整驗收、真手機或 Moodle gate 已通過。各計劃保存對應版本的執行證據。
+
+| 入口（`sim/` 下） | 模型及權威狀態 | 指引與決策 |
+|---|---|---|
+| `circuit-workbench/index.html` | `analysis:'dc'`，DC 穩態及有限機械繼電器狀態；document v6 | [DC 使用與核心](circuit-workbench-core.md)、[計劃](../plans/28-circuit-workbench.md) |
+| `circuit-ac-workbench/index.html` | `analysis:'transient'`，時間步進；document v7 與 session 分開 | [AC 作者與維護](circuit-ac-workbench.md)、[計劃](../plans/32-circuit-ac-workbench.md) |
+| `circuit-household-workbench/index.html` | `analysis:'household'`，家庭有效值、接觸、保護事件及電能；document v8、v2 封套 | [家庭維護](circuit-household-workbench.md)、[計劃](../plans/33-circuit-household-workbench.md) |
+
+高壓輸電已作為 AC 的 `transmission` 預設加入「變壓器與互感」，沿用理想變壓器、有限線阻及 AC 時間後端，不另建第四個工作台或求解器。它比較相同電源及負載的直接／升降壓輸電，實際送達功率不同；精確條件及限制見 [AC 課堂預設](circuit-ac-workbench.md#課堂預設與教學界限)。AC／家庭正式評分活動的題目、rubric 及 codec 仍需另定，不能把已有工作台／示例當作已交付的 SCORM 評量。
+
+`npm run package:circuit-platform` 現在重建五包：三個工作台 standalone ZIP，以及 `circuit-dc-series-build`、`circuit-dc-rheostat-adjust` 兩個 SCORM ZIP。三個工作台各用自己的 `assets.json`，沒有 `imsmanifest.xml`；Moodle 以 File resource 選各自入口。共用 runtime 清單為 `runtime-assets.json`，可選 AC 模組為 `ac-runtime-assets.json`；家庭附加模組由 `tools/package-circuit-platform.js` 的 `householdCore` 管理，產生各入口清單。`output/circuit-platform-build.json` 記錄逐檔一致性及套件指紋；重建不會更新已發布的 Moodle／Sites。
 
 ## 已形成的三層
 
@@ -38,7 +52,7 @@
 
 ## 後續維護與交流版本邊界
 
-2026-10-07 的後續路線見 [DC 共用核心與 SCORM 架構計劃](../plans/29-circuit-platform-dc-scorm.md)。D1／D2 已加入無內部頂欄的嵌入配置、學生工具箱款式歧義檢查，並把短路／過載判斷集中到 solver。2026-10-08 按使用者要求延續 D3–D5，新增[兩燈串聯](../plans/30-circuit-dc-series-build.md)及[滑片調參](../plans/31-circuit-dc-rheostat-adjust.md)兩個評量入口，各自擁有評分及保存，共用 `circuit-activity-runtime.js`／`circuit-activity-page.js` 接合 SCORM。`wirePointLimit` 讓活動以有限的實際線形保存，教師預設不變；`runtime-assets.json` 與 `package:circuit-platform` 當時實證一份核心供三個DC包重建；加入AC後目前統一重建四包。真 Moodle／實機證據獨立於 package-ready，不能由本地瀏覽器推定。AC非評量工作台及兩個教學示例已實作；正式AC評分、家庭及高壓輸電活動仍未定案，未實作接口不能當成可用API。
+2026-10-07 的 DC 階段路線見 [DC 共用核心與 SCORM 架構計劃](../plans/29-circuit-platform-dc-scorm.md)。D1／D2 已加入無內部頂欄的嵌入配置、學生工具箱款式歧義檢查，並把短路／過載判斷集中到 solver。2026-10-08 延續 D3–D5，新增[兩燈串聯](../plans/30-circuit-dc-series-build.md)及[滑片調參](../plans/31-circuit-dc-rheostat-adjust.md)兩個評量入口，各自擁有評分及保存，共用 `circuit-activity-runtime.js`／`circuit-activity-page.js` 接合 SCORM。`wirePointLimit` 讓活動以有限的實際線形保存，教師預設不變；當時的三個 DC 包同源重建已擴展至上列五包。AC／家庭及輸電示例的現行範圍由各自指引擁有，舊 DC 階段的「待討論」不代表這些工作台尚未實作。真 Moodle／實機證據仍獨立於 package-ready。
 
 目前 DC 依賴與責任如下：
 
@@ -58,7 +72,7 @@ DC穩態方程及v6文件語義保持自己的邊界；AC明確選時間後端�
 | 責任 | 擁有者／邊界 |
 |---|---|
 | 操作／配置 | 同一 `CircuitEditor`及profile選`dc`或`transient`；接線、相機、權限、只讀及卸載共用 |
-| 時間模型 | `CircuitTransient.Session`擁有積分、事件及權威physics；無保護session v2、啟用交流電源保護為v3（逐源限制／停機及複核時間），modelRevision 1、AC doc v7；舊 snapshot 遷移按 [AC 指引](circuit-ac-workbench.md#時間與動態狀態) |
+| 時間模型 | `CircuitTransient.Session` 擁有積分、事件及權威 physics；無保護 session v2／modelRevision 1，啟用交流電源保護為 v5／modelRevision 2（逐源調節／停機、複核時間及保護量測歷史），AC document 仍為 v7／modelRevision 1；舊 snapshot 遷移按 [AC 指引](circuit-ac-workbench.md#版本與保存內容) |
 | 量測／歷史 | `CircuitObservation`按接受時間步求RMS／峰值／磁通觀察，波形及觀察配置有界，非權威physics |
 | 顯示 | 共用renderer／Math處理電流、標籤及字形；AC display、場圖、連續發電機及scope/UI模組處理時間模式呈現 |
 | 活動 | 預設及無評分例子在AC presets／outer scripts；題目、rubric、codec及SCORM仍由正式活動自己的外層擁有 |
@@ -69,7 +83,7 @@ DC穩態方程及v6文件語義保持自己的邊界；AC明確選時間後端�
 
 ## 保留的邊界
 
-- 活動配置是可信本地程式，DC答案使用嚴格v6 document（2026-10-06加入單線及新線預設電阻；v1–v5匯入補0 Ω，保留接線／接孔遷移）；AC使用明確v7／modelRevision，兩種後端文件不能互相冒用。導線電阻走既有直流電阻支路，學生預設固定，外層可明確開放逐線調整；相機、粒子、慣性、浮窗與選取仍為暫態。合法未答及部分接線能保存、恢復並繼續操作。
+- 活動配置是可信本地程式，DC 答案使用嚴格 v6 document（v1–v5 匯入補 0 Ω，保留接線／接孔遷移）；AC 使用明確 v7／modelRevision，家庭使用 v8 及自己的封套。各後端文件不能互相冒用，顯式轉換只採各指引已支援的路徑。DC／AC 導線電阻沿用有限電阻支路，學生預設固定，外層可明確開放逐線調整；家庭線路阻抗另依家庭模型處理。相機、粒子、指針慣性、浮窗與選取仍為暫態；合法未答及部分接線能保存、恢復並繼續操作。
 - `series` 是單支路元件的拓撲檢查，`connected` 只驗證必要共接，三點滑片效果亦有取樣界限；複雜題目可用自訂 check 配合相同求解器。它們不是適用於所有電路的評分 rubric。
 - 目前沒有「在求解中存在、卻看不見又能吸附」的隱藏元件模式。未提供的元件不在工具箱，預置文件只包含本題要顯示的元件；特殊隱藏模型需由活動明確設計，不能只把圖形藏起來。
 - 新穩態元件仍可透過 registry 自訂端子／支路及 render 本體，工具箱依配置建立。內部流動路徑和某些儀表說明仍採內建型別分派；新元件要補適合自己的顯示。2026-10-07 已新增繼電器的有限機械延時：instance relay Map 控制先斷後通，由既有 DC solver 求解當前拓撲；五孔線圈與 SPDT 觸點保持隔離。這不包含線圈電感／反電動勢或接點彈跳；電容／電感電氣瞬態已在AC時間後端另有步進、能量及session；時間後端目前不支援該DC機械繼電器，不能把此近似當作完整線圈瞬態模型。

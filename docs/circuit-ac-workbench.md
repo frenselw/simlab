@@ -3,7 +3,7 @@
 交流入口為 `sim/circuit-ac-workbench/index.html`；實作及驗收決策見[交流計劃](../plans/32-circuit-ac-workbench.md)。它與 DC 使用同一 `CircuitEditor`，但明確選用時間分析後端。工作台及兩個配置示例均不評分；正式 SCORM 題目、rubric 及活動 codec 另定。
 
 
-本文件是現行作者與維護指引；[交流計劃](../plans/32-circuit-ac-workbench.md)保存設計決策及逐次驗證記錄。以下規格已於2026-10-12按本分支程式、資產清單、預設及codec整理；歷史測試數字不等於最新版完整驗收。
+本文件是現行作者與維護指引；[交流計劃](../plans/32-circuit-ac-workbench.md)保存設計決策及逐次驗證記錄。規格於 2026-10-12 整理後持續補入後續改動；2026-10-18 核對三工作台交付、現行 session 版本及高壓輸電定位。歷史測試數字不等於最新版完整驗收。
 
 ## 目前介面與共用邊界
 
@@ -17,7 +17,7 @@
 | 波形 | 可移動小儀器及探頭，軸拖動／鍵盤調量尺；沒有常駐游標、相位讀值或固定下方波形區 |
 | 時間與保存 | 單步／reset保留受權限控制的API，沒有內建按鈕；document、session、觀察工具及顯示副本分開，正式AC評分仍由活動另定 |
 
-修改共用外觀或操作時在共用檔案改一次，核對DC及AC；時間模型及本題教學內容分別留在AC後端及活動外層。不要為兩個入口複製renderer或editor。
+修改共用外觀或操作時在共用檔案改一次，核對 DC、AC、家庭及受影響的 DC 評量 consumer；時間模型及本題教學內容分別留在 AC 後端及活動外層。各入口不複製 renderer 或 editor，完整分工見[現行架構表](circuit-workbench-architecture-review.md#現行入口與交付物)。
 
 讀值面板原先只讓四類元件用條形，其餘純文字；條形又跟隨100ms面板
 重畫，約10Hz。現時统一AC電源/開關/負載/電表；數字和全圖最多5Hz，
@@ -31,9 +31,9 @@ CW-20：真正重啟時間時，正常/限流電源reviewAt重排為新時間加
 
 ## 開啟及部署
 
-Live Server 可直接開交流入口。`npm run package:circuit-platform` 統一重建 DC 工作台、AC 工作台及兩個 DC SCORM 活動，核對共用來源與每包依賴。AC standalone ZIP 上載 Moodle **File resource**，主檔 `circuit-ac-workbench/index.html`；它沒有 `imsmanifest.xml`，不能當成已評分 SCO。
+Live Server 可直接開交流入口。`npm run package:circuit-platform` 統一重建 DC、AC、家庭三個 standalone 工作台及兩個 DC SCORM 活動共五包，核對共用來源與每包依賴。AC standalone ZIP 上載 Moodle **File resource**，主檔 `circuit-ac-workbench/index.html`；它沒有 `imsmanifest.xml`，不能當成已評分 SCO。
 
-預設涵蓋交流有效值、發電機及反向 LED、C/L、通斷自感、理想／線性變壓器、直流互感、充電後 LC、阻尼及空白畫布。共通操作沿用 DC 的位置：文件、設定及復原在頂欄；接線、手掌工具及播放在畫布上方；旋轉、複製、刪除與縮放在畫布底部。工具箱提供電壓圖／電流圖，可拖到畫布邊緣；預設不佔固定圖區。手機小圖可摺起或開啟大圖，控制面板仍獨立捲動。兩側捲頁區供觸控裝置的Moodle外層捲動；純滑鼠桌面隱藏，不再佔畫布或文字避讓空間。
+預設涵蓋交流有效值、發電機及反向 LED、C/L、通斷自感、理想／線性變壓器、直流互感、高壓輸電、充電後 LC、阻尼及空白畫布。高壓輸電位於「變壓器與互感」，是既有 AC 後端的非評量示例，沒有獨立入口、套件或 rubric；比較條件見[課堂預設與教學界限](#課堂預設與教學界限)。共通操作沿用 DC 的位置：文件、設定及復原在頂欄；接線、手掌工具及播放在畫布上方；旋轉、複製、刪除與縮放在畫布底部。工具箱提供電壓圖／電流圖，可拖到畫布邊緣；預設不佔固定圖區。手機小圖可摺起或開啟大圖，控制面板仍獨立捲動。左右底角 32×64 CSS px 捲頁把手供觸控裝置的 Moodle 外層捲動，畫布維持全闊；純滑鼠桌面隱藏。
 
 教師工作台預設啟動、按真實時間播放，預設 1 Hz；常用頻率為 0.1–2 Hz，另有「50 Hz · 真實交流」按鈕及課堂預設。頻率變更保留當刻相位，不以慢播代替低頻。數值輸入、滑塊、快捷按鈕及編輯命令使用相同的控制限制。時間求解器仍保留原數值能力與舊文件相容性，沒有把舊檔中的其他頻率偷偷改寫。
 
@@ -541,9 +541,9 @@ CW-21／22（2026-10-13）：靈敏電流計面板的電流、RMS及錶讀值一
 | 共用箭頭／導線標示 | `component-flow.test.js`、`wire-current-labels.test.js` | 同時核對DC／AC及各自包，不只AC入口 |
 | 純文件 | 指令、路徑、清單、版本、連結及`git diff --check` | 不重跑模擬或browser |
 
-較大物理／權限／保存變更再選相鄰回歸；正式package-ready／Moodle-ready仍按[production guide](simulation-scorm-production-guide.md#verification-checklists)執行完整gate。`npm run test:circuit-ac`是廣泛回歸入口（transient、platform及整個AC browser），不是每次小修的預設。新增Node測試登記 `tools/run-tests.js`；新增browser專項接回既有完整入口，新增runtime檔更新資產清單。
+較大物理／權限／保存變更再選相鄰回歸；正式package-ready／Moodle-ready仍按[production guide](simulation-scorm-production-guide.md#verification-checklists)執行完整gate。`npm run test:circuit-ac`是廣泛回歸入口（transient、platform及整個AC browser），不是每次小修的預設。新增測試及 helper 登記 `tools/test-registry.js`，由 `tools/run-tests.js` 執行與選取；新增 browser 專項接回既有完整入口，新增 runtime 檔更新資產清單。
 
-核心修改不會更新已部署ZIP。需要交付成品時執行 `npm run package:circuit-platform` 重建四包並核對來源／依賴；有共用改動時檢查DC及AC，活動題目／codec變更再核對其活動包。工作台ZIP屬File resource，正式評量包及Moodle／實機gate分別處理。
+核心修改不會更新已部署 ZIP。需要交付成品時執行 `npm run package:circuit-platform` 重建五包並核對來源／依賴；有共用改動時檢查 DC、AC、家庭及受影響的評量 consumer，活動題目／codec 變更再核對其活動包。工作台 ZIP 屬 File resource，正式評量包及 Moodle／實機 gate 分別處理。
 
 ### 已記錄證據與未完成gate
 
