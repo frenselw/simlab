@@ -1,6 +1,6 @@
 # 平拋運動：軌跡量度與擬合實驗
 
-狀態：**2026-10-18 已完成尺身拖動、單方向吸附及自動放大四選一、拖槽即時提示與放大球／資料點。** 現行來源／SCORM與觸控證據見文末；前述歷史驗收不替代本次。真Moodle／實體手機及全專案browser總閘未宣稱通過。
+狀態：**2026-10-18 已完成手機畫布放大及減少留白，既有拖尺自動預覽／取點／作圖通過回歸，同一私人Sites已更新。** 現行來源／SCORM與觸控證據見文末；前述歷史驗收不替代本次。真Moodle／實體手機及全專案browser總閘未宣稱通過。
 
 - 分支：`codex/horizontal-projectile-lab`。
 - 起點：本機 `main`，`f7ab989ca59b72ebe6a7691129320c4768f6fcf8`；未宣稱已同步遠端。
@@ -574,3 +574,13 @@ Sites 版使用既有 standalone 行為，刷新開始新作答；Moodle成績�
 - 移除手機header對全螢幕按鈕的重複右側預留，沿用共用header既有空間，避免320px寬標題換行擠壓畫布；文字大小維持。
 - 作圖區兩側保留至少32 CSS px的捲動條。所有指標轉換、吸附、尺面及放大預覽繼續共用同一geometry；拖動時camera固定，resize取消拖動。
 - 範圍僅main的排版／geometry、活動CSS、既有browser入口的空間利用及邊界斷言、計劃與同一Sites部署。模型、評分、保存schema、manifest及依賴不變。驗證手機各步的圖域大小、字／軸／斜槽未截斷、讀尺／取點／作圖、來源及解壓ZIP、可信觸控與中斷，再更新既有私人Sites，commit及push。
+
+### 手機版最終證據及 Sites 更新
+
+- 已推送程式head `1c8be34f8fcad868dc957d28685e2f88e409698e`。390×844的座標圖為318px闊（約82%畫面），含斜槽的裝置範圍約342px闊（約88%）；320×500的座標圖為211px、裝置圖的座標部分約207px。文字未縮小，原點、軸標、刻度、鋼珠及印記實際SVG範圍均在畫布內；一般手機各步的geometry比舊公式在同一畫布至少大20%。來源／SCORM截圖為`output/playwright/horizontal-projectile-lab/{source,package}-mobile-space-<view>-{320,390}.png`，已視察兩尺寸。
+- 正式browser完整來源及真正解壓ZIP通過：100個版面、16組流程、68組操作／幾何觀測，含空白／部分、六點到100分、四結果／只讀／重試、手機新圖域邊界、原有自動預覽及fullscreen；報告`output/playwright/horizontal-projectile-lab/report.json`。新增40個一般手機view的放大比例、標籤及鋼珠邊界檢查，未新增正式入口。
+- T1／T2／T3×source/package×320×500及390×844×八profiles，96 cases／1764 gesture checks全數completed=true、status=passed，errors／issues皆空。八profiles為取點、量尺、豎尺、兩方向自動預覽、已描點、首次放點及計時；逐move及放手後核對host／panel／viewport、可信事件、答案及suspend，含完成、cancel、lost capture、blur、第二指。報告`mobile-space-T{1,2,3}-{source,package}.json`同目錄；摘要`mobile-space-acceptance-summary.json`。
+- 六份touch報告的17檔digest皆為`cbbfb8efa238d9a50a42be788deb6b6e2ec29f4cd410d5d19b96490cd7a3fc2f`；正式browser16資產hash為`1a7348d247bf2459582fd3d7c0210c151e6fcab283451f4a7e196328f3948b1c`。最終SCORM17檔與來源逐byte相同。
+- 四個活動Node入口及mobile-scroll契約、`check:tests`、`check`、文件連結及`git diff --check`通過。已提交選擇預覽base `8325eec`／head `1c8be34`為affected、214 entries、單一活動package，報告`selection-preview-mobile-space.json`。本次沒有重跑全部213個Node、其餘32個browser、GitHub CI、實際OS縮放、實體電話或Moodle；先前213項通過屬上一版證據，不以選擇預覽冒充本次完整CI。原總閘維持未勾選。
+- 同一Site `appgprj_6ad49418111c819198d79e88cab3e78e`保留owner-private權限及[原網址](https://simlab-horizontal-projectile-lab.ieyp.chatgpt.site)。官方helper已推送Sites source `3061193b8b8cb2194a451a477421d598cbc360a7`；saved version為`appgprj_6ad49418111c819198d79e88cab3e78e~appgver_d2ae63133c2881919e36bb7b19c0b27e`，deployment `appgdep_6ad498f36f7881919328ae2a8589aef1`由原生發布確認`succeeded`。
+- Sites archive `output/sites/horizontal-projectile-lab-mobile-space-1c8be34.tar.gz`共18檔；16個runtime資產與上述已測版本逐byte／SHA-256一致，根入口及hosting identity保持。Archive SHA-256為`beb250213f39a328841633332f73adc1569f20605b9d9c294c91d6f95ea2d7cb`；資產證據`output/sites/projectile-mobile-space-assets.json`。後續文件提交不改runtime。
