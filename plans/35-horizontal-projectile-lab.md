@@ -1,6 +1,6 @@
 # 平拋運動：軌跡量度與擬合實驗
 
-狀態：**2026-10-18 已完成手機畫布放大及減少留白，既有拖尺自動預覽／取點／作圖通過回歸，同一私人Sites已更新。** 現行來源／SCORM與觸控證據見文末；前述歷史驗收不替代本次。真Moodle／實體手機及全專案browser總閘未宣稱通過。
+狀態：**2026-10-18 預覽及四選項已固定在畫布內，對測量點及原點零線均可吸附；手機版與同一私人Sites已更新。** 現行來源／SCORM與觸控證據見文末；前述歷史驗收不替代本次。真Moodle／實體手機及全專案browser總閘未宣稱通過。
 
 - 分支：`codex/horizontal-projectile-lab`。
 - 起點：本機 `main`，`f7ab989ca59b72ebe6a7691129320c4768f6fcf8`；未宣稱已同步遠端。
@@ -12,7 +12,7 @@
 
 1. **設置與取點**：直接進入實驗裝置。學生上下拖動接球槽，按「釋放鋼珠」；球由斜槽同一標記靜止釋放，經水平出口飛出、撞槽留下接觸痕跡。模擬再將該印記按球心基準轉記至共同記錄紙，呈現為一個固定的深色小圓點 P₁；以短提示「將本次印記轉記到記錄紙」說明這是模擬提供的轉記功能。每次只留下撞擊的一點，投球階段不自動畫出完整軌跡。
 2. **重複實驗**：改變槽高，最多記錄六點。舊印記不隨槽移動；可以選一個點重做。每次投球的出口速率圍繞同一參考值約±1%波動，同高重做可見輕微落點散布，並非每次完全重疊。提示分散高低取點，不代學生安排正確位置。
-3. **量度**：記錄紙近景以出口球心 O 為原點，向右為 x、向下為 y。拖動水平／豎直尺身，量度O至每個圓點中心的水平距離x及向下距離y；對齊所選印記時只吸附垂直於尺的方向，自動顯示放大尺面及四選項，放手後點選記入表格。沿尺方向的零位對準時僅一項正確；零位錯置時四項皆錯，不自動改正零位。
+3. **量度**：記錄紙近景以出口球心 O 為原點，向右為 x、向下為 y。拖動水平／豎直尺身，量度O至每個圓點中心的水平距離x及向下距離y；對齊所選印記時吸附垂直於尺的方向，只在畫布的測量點旁顯示放大尺面及四選項，放手後點選記入表格。沿尺方向的零刻度靠近原點基準線時亦吸附；對零時僅一項正確，遠離零線的錯位可使四項皆錯，不自動改讀數。
 4. **作圖與擬合**：根據自己的表格逐點放到 x–y 圖，可顯示資料點折線，再比較一般直線及一般二次函數擬合。所有曲線只用學生已放置的點，不用理想答案修正錯點。
 5. **逐點估速及平均**：先明示「暫採用豎直自由落體模型」，表格每個印記各填tᵢ及初速度估值v₀ᵢ；六點齊備時取得六個速度，再由學生計算平均初速度 v̄₀ = (v₀₁ + ⋯ + v₀ₙ)/n。畫面列出本次納入的點與n；另用受限模型 y = kx² 的擬合係數估一個代表速度，與平均比較。
 6. **獨立計時對照**：按「顯示計時記錄」，揭示離軌至撞槽的模擬時鐘讀數。以自己的量度配對時間，觀察 x–t 直線及 y–t 二次擬合，研究水平勻速、豎直自由落體並估計 g。
@@ -107,7 +107,7 @@ Apply [layout](00-shared-platform-and-style.md#layout) and [mobile interaction](
 | Fullscreen (mandatory) | 外層main標記 `data-sim-fullscreen-target`、header標記 `data-sim-fullscreen`，manifest列shared/fullscreen.js；右上44px目標與標題／進度不重疊 |
 | Desktop / tablet | ≥900 CSS px 並排，panel 25–30rem；主文21px、圖上標籤24px；較窄直向上下排列 |
 | Control-panel classification | `bounded split-panel`，拖尺、作圖、填表需要同時看見舞台 |
-| Phone stage and controls | 一般舞台約44dvh，量尺約55dvh；尺面及讀數／放大卡放不下時移入panel，維持44px選項。panel至少96px且可到最後控制；短橫向可雙欄，不縮字或增加舞台scroller。 |
+| Phone stage and controls | 一般手機畫布取62dvh與畫面寬度加56px之較小者；預覽／四選項永遠在畫布內，按空間改並排／直排，維持44px選項。panel至少96px且可到最後控制；極短窄iframe的量度步用雙欄，預覽仍在畫布，不增加舞台scroller。 |
 | Phone text | 主文／控制18px、圖標16px實際顯示；細尺刻度透過4–8倍預覽辨識 |
 | Viewports | 320×500、390×500、390×600、390×844、桌面／平板、320×400及320×225短iframe、橫向、工具列／鍵盤、200% zoom |
 | Scroll topology | 活動document有界、無競爭縱向range；panel獨立捲動且邊界不轉host；T0–T4 owner逐項記錄，未實測不宣稱通過 |
@@ -156,8 +156,8 @@ Apply [diagrams/notation](00-shared-platform-and-style.md#diagrams-and-notation)
 | Target type / modes | Visible footprint, selector, hit area/halo and size | Stable capture target / pre-pointerdown touch-action | Keyboard alternative |
 |---|---|---|---|
 | 接球槽／collect | `#catcherHandle`，槽側44×44px HTML握柄，不覆蓋整槽／背景 | 持續掛載，`touch-action:none` | 方向鍵5mm、Shift25mm，面板±按鈕 |
-| 水平／豎直尺／measure | `#rulerBodyTarget`，透明操作面完全覆蓋實際尺身；尺外讓host捲 | 持續掛載，`none`；只吸附所選點的垂直於尺方向，自動預覽 | 方向鍵1mm、Shift10mm；換向按鈕 |
-| 新／舊圖點／plot | `[data-point-slot]`，可見10px點、局部44×44px hit；相近點可面板選P編號 | 持續掛載HTML目標，`none` | 「放置此點」在可見中央起始，再方向鍵1cm、Shift1mm；也可數字微調同一圖域 |
+| 水平／豎直尺／measure | `#rulerBodyTarget`，透明操作面完全覆蓋實際尺身；尺外讓host捲 | 持續掛載，`none`；對所選點方向及沿尺方向零線吸附，僅對齊印記才在畫布自動預覽 | 方向鍵1mm、Shift10mm；換向按鈕 |
+| 新／舊圖點／plot | `[data-point-slot]`，可見14px點／選取18px，局部44×44px hit；相近點可面板選P編號 | 持續掛載HTML目標，`none` | 「放置此點」在可見中央起始，再方向鍵1cm、Shift1mm；也可數字微調同一圖域 |
 | 首次點選放點／plot | `#plotInputSurface`，只在「放置所選點」模式開啟中央有邊界圖域，放下即退出 | 固定面，操作前已有`none` | 同上；不是自動放到量度答案 |
 | 按鈕／讀數／選項 | 原生control，≥44px，面板適合小數的輸入鍵盤 | 原生操作；panel `pan-y`，不全域鎖host | Tab／Enter／原生輸入 |
 
@@ -591,3 +591,13 @@ Sites 版使用既有 standalone 行為，刷新開始新作答；Moodle成績�
 - 小畫布使用並排的放大尺面／四選項，豎尺旁有空間時改直排卡；依測量點選左右／上下位置並限制在畫布內。極短窄iframe的量度步改雙欄，使預覽留在畫布，維持44px選項。這項使用者指示取代先前小畫面移到面板的設計。
 - 沿量度方向的尺零刻度靠近原點基準線時亦吸附；即水平尺對x=0、豎直尺對y=0。零線吸附不依賴選點；對印記方向的吸附仍須選點。零位離開吸附範圍時仍可錯置，預覽仍顯示四個錯誤位移，不代為記錄或改讀數。
 - 範圍：活動model/main/HTML/CSS及既有model/browser測例、既有mobile-scroll操作預覽契約、本計劃與同站更新。評分、schema、模型物理及資產數保持。驗證零線／印記兩方向吸附、未選點、閾值邊界、Canvas內預覽及四選項、移開即隱藏、錯零位、手機及極短iframe、可信拖放／取消、source／SCORM，再commit/push及更新既有私人Sites。
+
+### 畫布預覽及零線吸附的最終驗證
+
+- 程式head `005657d0029690c69d355b95f2b7f235e78a8535`已推送。Model測試驗證水平／豎直的零線、正負閾值邊界、未選印記時僅對零線吸附、兩方向同時吸附及遠離零線仍可錯置；四選項／原評分及保存相容性保留。全部213個Node入口三批各71項通過，每項300秒，報告`output/ci-tests/projectile-canvas-preview-node-{1,2,3}/report.json`；沒有改長測試或runner。
+- 正式browser的來源及真正解壓SCORM通過100個版面、16組流程及68組操作／幾何觀測。實際滑鼠拖動以零位偏5mm接近零線，放手後核對吸附至0；保留錯位50mm的四項皆錯。預覽四選項在1280×800、390×600、320×500及320×225均assert為stage子元素且完全在畫布內，選項≥44px，SVG放大尺刻度可見；移開時預覽及尺的角落放大鏡皆隱藏。包含完整100分、空白／部分／review／重試及既有手機放大圖域檢查。已視察`{source,package}-canvas-reading-<width>x<height>.png`及兩方向手機預覽；極短iframe使用雙欄與精簡卡，沒有把卡移入panel。
+- T1／T2／T3×source/package×320×500及390×844×四讀尺profiles：48 cases／912 gesture checks全數completed=true、status=passed，errors／issues皆空。新契約用實際SVG尺邊與印記座標獨立判斷對齊，只在對齊時要求畫布預覽；未對齊時不得出現預覽。完成、取消、lost capture、blur及第二指均核對host／panel、答案及suspend。報告`output/playwright/horizontal-projectile-lab/canvas-preview-T{1,2,3}-{source,package}.json`，摘要`canvas-preview-acceptance-summary.json`同目錄。
+- 六份touch報告17檔digest皆為`2905fa93c3c2871a123ab2397e5da0a59ebf9123a959ea1168ec0a35913284e7`；正式browser16資產hash為`c0e380a7de102d3294faed9db85b0cdcec6b2d7a354a073ad9723fc69fb4fd2d`。最終SCORM仍17檔，與來源逐byte相同。
+- `check:tests`仍246 entries／48 helpers／2 manual；`check`、`package:all`、文件連結及`git diff --check`通過。已提交選擇預覽base `577b3da`／head `005657d`為full、246 entries、packages=all；報告`selection-preview-canvas-preview.json`。中央mobile-scroll helper只改本活動操作契約；其他兩個活動的操作函數與base在正規化換行後完全相同。沒有重跑其他32個browser、GitHub CI、真手機、OS縮放或Moodle，保留原總閘未通過。
+- 同一私人Site及[原網址](https://simlab-horizontal-projectile-lab.ieyp.chatgpt.site)已更新。官方helper推送Sites source `b5ecd9a635fc98ab26138045a8c4661e32ab7a0d`；saved version `appgprj_6ad49418111c819198d79e88cab3e78e~appgver_664e3df435ac81918095e9dea42f660d`，deployment `appgdep_6ad4a071ca148191b06ae8b687f9079f`由原生發布確認`succeeded`。
+- Sites archive `output/sites/horizontal-projectile-lab-canvas-preview-005657d.tar.gz`共18檔，16個runtime資產與已測來源逐byte／SHA-256一致；archive SHA-256為`7c45366d2bb4fcad4fe703b7d3138216ae4d4ed77d5c5a5208b7c1d414ec4241`。資產證據`output/sites/projectile-canvas-preview-assets.json`；後續文件提交不改runtime。
