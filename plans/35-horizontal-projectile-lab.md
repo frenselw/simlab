@@ -1,6 +1,6 @@
 # 平拋運動：軌跡量度與擬合實驗
 
-狀態：**2026-10-18 已完成LaTeX、大字、固定原點及畫布四選一讀尺修訂；本次來源／實際SCORM測試、36個讀尺觸控場景及全部213項Node通過。** 本次證據見文末；上一版220 cases為歷史。真Moodle／實體手機及全專案browser總閘仍未宣稱通過。
+狀態：**2026-10-18 已完成5cm取樣間隔、選點後吸附、透明把手、尺字留邊及讀數點旁放大預覽；來源／SCORM、213項Node及48個讀尺觸控場景通過。** 現行證據見文末；前述歷史驗收不替代本次。真Moodle／實體手機及全專案browser總閘未宣稱通過。
 
 - 分支：`codex/horizontal-projectile-lab`。
 - 起點：本機 `main`，`f7ab989ca59b72ebe6a7691129320c4768f6fcf8`；未宣稱已同步遠端。
@@ -107,7 +107,7 @@ Apply [layout](00-shared-platform-and-style.md#layout) and [mobile interaction](
 | Fullscreen (mandatory) | 外層main標記 `data-sim-fullscreen-target`、header標記 `data-sim-fullscreen`，manifest列shared/fullscreen.js；右上44px目標與標題／進度不重疊 |
 | Desktop / tablet | ≥900 CSS px 並排，panel 25–30rem；主文21px、圖上標籤24px；較窄直向上下排列 |
 | Control-panel classification | `bounded split-panel`，拖尺、作圖、填表需要同時看見舞台 |
-| Phone stage and controls | 一般舞台約44dvh，量尺約55dvh；舞台低於180px時四選一原組移入panel以保持44px操作。按header及可用高度調整；panel至少96px且可到最後控制；短橫向可雙欄，不能縮字或增加舞台scroller |
+| Phone stage and controls | 一般舞台約44dvh，量尺約55dvh；尺面及讀數／放大卡放不下時移入panel，維持44px選項。panel至少96px且可到最後控制；短橫向可雙欄，不縮字或增加舞台scroller。 |
 | Phone text | 主文／控制18px、圖標16px實際顯示；細尺刻度透過4–8倍預覽辨識 |
 | Viewports | 320×500、390×500、390×600、390×844、桌面／平板、320×400及320×225短iframe、橫向、工具列／鍵盤、200% zoom |
 | Scroll topology | 活動document有界、無競爭縱向range；panel獨立捲動且邊界不轉host；T0–T4 owner逐項記錄，未實測不宣稱通過 |
@@ -143,9 +143,9 @@ Apply [diagrams/notation](00-shared-platform-and-style.md#diagrams-and-notation)
 |---|---|
 | Notation | x、y、t、g、v₀為約定方向的標量；cm表格／圖軸、SI公式，數值擬合式旁明示位置以m、時間以s表示；k／A／α避免與加速度a混淆；所有物理量、點標籤、數學符號、刻度數值及單位均使用LaTeX經現成本地MathJax轉成SVG；面板／舞台／放大鏡／回饋一致 |
 | Arrow graphics | x向右、y向下軸箭頭，從初頁明顯標示紅色O(0,0)在出口球心；無學生矢量作圖。若有出口箭頭只表方向、不顯示未知速度大小 |
-| Snap | 槽5mm步距；尺可對齊可見O／所選印記投影；圖點只吸公開1cm格。mouse8px、touch/pen12px CSS門檻，不吸答案／理想軌跡；與評分容差分開 |
+| Snap | 槽5mm步距；已選有效印記時尺才吸附可見O／該點投影，未選點可自由移尺；圖點只吸公開1cm格。mouse8px、touch/pen12px CSS門檻，不吸答案／理想軌跡；與評分容差分開 |
 | Snap release | mouse移3px、touch/pen6px才開始拖，輕觸保留原值；用最近可見對齊線／公開格點，預覽與放手同一幾何。實作沒有加入初稿建議的1.5倍黏附遲滯：窄屏1cm格距遠小於12px，避免圖點被黏住而難以移動 |
-| Touch preview | 尺零線／讀數、圖點會被手指遮住，角落128×112px真實局部放大，至少4 CSS px/mm，使用同一場景；不顯座標答案、不攔輸入。另有「放大尺上讀數」按鈕，聚焦所選印記在目前尺上的投影，學生仍須讀刻度。粗調槽及按鈕無精細遮蔽，不需預覽 |
+| Touch preview | 拖尺／拖圖點保留角落128×112px真實自動放大鏡，至少4 CSS px/mm，取消／放手清除。按「放大尺上讀數」或讀數卡的「放大」時，在讀數點附近的同一卡中顯示真實尺面Preview Window（桌面高150px、手機120px），可收起，不顯示額外答案、不改作答；空間不足移入panel。預覽不接管手勢，零位把手44px透明目標位於零字左上方。 |
 
 尺以按鈕切水平／豎直，不加任意旋轉；拖動預覽在release、cancel、lost capture、blur、導航及鎖定時清除，拖動相機固定。學生主動開啟的靜態讀數放大可在換尺時保留，blur／resize／導航／鎖定時關閉，不保存或評分。
 
@@ -514,3 +514,15 @@ Follow the production guide's [registration procedure](../docs/simulation-scorm-
 - 零位把手保持44px觸控區，但只畫小型透明圖示，放在零刻度左上方，與零數字／尺面分離。尺身加厚及兩端留邊，讓所有數字完全在尺身內，避免豎尺的100及0突邊。
 - 原有放大按鈕及讀數卡新增同一放大開關；靜態Preview Window嵌在讀數點附近的卡內，使用真實尺面、同一零位及所選點投影，至少4 CSS px/mm。可收起；不給額外正確讀數、不改答案。拖動時仍用原有自動放大鏡，放手／取消清除。小畫面若卡放不下則沿用panel fallback，保留44px選項。
 - 範圍：活動model/main/HTML/CSS及既有model／browser測例、活動計劃；共用SCORM、擬合、MathJax、保存schema及manifest資產數不變。測試包含50mm邊界／重做／非法record拒絕、未選點不吸附、兩尺方向零字與把手不重疊、尺數字在尺身內、Preview可見／對應所選點／不改答案及source/package與受影響touch cases。完成後commit及push。
+
+### 本次最終驗證與跟進
+
+- 核心程式`46d73c7`：高度距離及選點後吸附測例通過；保留舊重複高度snapshot恢復、原v1評分及自己slot重做。全部213個Node入口分三批（各71項，每項300秒），全數passed：`output/ci-tests/projectile-ruler-node-{1,2,3}/report.json`。其後兩項main畫面修正不改Node所測model／scoring／persistence／controller，既有mobile-scroll契約另重跑通過。
+- UI跟進`b6b79af`修正只讀回顧沒有setup時的高度提示；`cd62011`修正放大預覽不能把離開視窗的原點標籤強拉入畫面，保留真實幾何，加入相應斷言。這兩項由本次完整UI／截圖測試發現並完成跟進。
+- `cd62011`來源及真正解壓SCORM的正式browser全部通過：100個版面、16組流程、56組操作／幾何觀測；包含5cm邊界／disabled及程式觸發都不能多取點、兩尺所有數字在尺身內、零字與把手不相交、透明背景、真實就近放大／收起不改答案、四結果／review及既有完整100分作答。報告`output/playwright/horizontal-projectile-lab/report.json`，桌面／手機兩方向Preview截圖同目錄。
+- `09c6bc2`只新增本活動水平／豎直靜態預覽兩個合法touch profiles，沒有新增正式test入口。T1／T2／T3×source/package×兩尺寸（320×500、390×844）×四profiles（水平尺、豎直尺、兩方向開啟Preview），48 cases、912 gesture checks全數通過，completed=true、status=passed，issues/errors皆空。報告`ruler-final-T{1,2,3}-{source,package}.json`；摘要`ruler-touch-summary.json`同目錄。
+- 六個touch報告17檔digest同為`33c00269b965c9f9429d7cba4b3f7405bd9efc3da37fd59488c3b8ff6a552e44`；正式browser16資產內容hash `e674879def2906737410274990babdef7877e3f21be2fa4e85c4ec4f0932b3f0`，與最終來源／ZIP逐byte核對一致。ZIP仍17檔，新增零個依賴。
+- `check:tests`仍246 entries／48 helpers／2 manual；`npm.cmd run check`、`package:all`、文件連結及`git diff --check`通過。保存的首輪失敗／中止報告不列為最終通過；上述最後固定版本報告才是本次證據。
+- 原純活動改動選擇預覽：base `9aa8da5`、head `46d73c7`為affected、214 entries、單一package。加入中央mobile-scroll案例後，head `09c6bc2`的保守選擇為full、246 entries、packages=all；報告`selection-preview-ruler-final.json`同目錄。另用git base載入舊helper並逐JSON比較，確認26個其他catalogue活動的fixtures完全不變；本次只執行全部Node、本活動browser與相關manual cases，其餘32個browser未重跑，不宣稱全專案／GitHub CI通過。
+
+Moodle、實體手機、OS實際200%縮放及全專案browser總閘仍未驗收。完成後依使用者常設指示commit並push至同一分支，保留本機附件不入版控。
