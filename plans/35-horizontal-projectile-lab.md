@@ -6,6 +6,12 @@
 - 形成性評量、100分rubric、依賴、四步／phase／variant矩陣及權威snapshot沿用現行版本（schema/model/rubric 3/1/3）。整毫米ruler.zero、讀數選項、答案、物理模型及評分不變；顯示校正屬瞬態派生資料，不持久化，不遷移舊答案。
 - 範圍限main繪圖、既有browser入口及本計劃，不新增依賴或測試入口。驗證兩尺方向、六點含小數兩側、正／錯沿尺零位、主圖與preview中心重合、尺邊一致、拖動中及放手後；對照原選項、權威狀態及分數。沿用四個Node入口檢查評分／production round-trip及合法續作，執行source＋真正解壓SCORM browser含可信touch、check:tests、check／package、committed selection preview及diff，再commit/push並更新原有私人Sites。未改手勢流程或觸控surface尺寸，不重跑無關活動或T1–T3全矩陣；真手機／Moodle仍須另驗。
 
+### 重合修正驗證與發布
+
+- Runtime head `24f775a0a03add53328dce3c619cd6389211ce1a`已commit/push。四個活動Node入口通過，包括564組draft round-trip／合法續作、空白／部分／100分及舊版分數；model、scoring及persistence逐byte等同base `5ceb8b8`。正式source＋真正解壓SCORM browser通過104個版面、28組流程及192組操作／幾何觀測；新增144組（三尺寸×六點×兩尺×正／錯零位×source/package）主圖與preview紅黑中心精確相等、尺邊一致、resize前後權威狀態／分數／選項不變，既有拖尺中與放手後亦逐次核對重合，原有可信touch及提交流程通過。報告`output/playwright/horizontal-projectile-lab/report.json`，runtime hash `9e5d08a3495c00feedc4fcefc4298322cd74bc1f7e84002dbcb23b2923c87c8f`；已目視手機`source-reading-centres-aligned.png`。
+- `check:tests`為246 entries／48 helpers／2 manual，`check`、17檔活動SCORM、文件連結及diff檢查通過；ZIP與來源runtime逐byte相同。Committed selection preview base `5ceb8b8`／head `24f775a`為affected、214 entries、單一活動package，存於`output/selection-preview-ruler-alignment.json`。本輪只實際重跑四個相關Node及本活動browser；未將選擇預覽冒稱其餘209 Node／32 browser、T1–T3全矩陣、GitHub CI、真手機或Moodle通過。
+- [原私人Sites](https://simlab-horizontal-projectile-lab.ieyp.chatgpt.site)已更新，owner-private維持。官方helper已推送Site source `71d1f02bd8d0130789715e2403217eb0db862702`，saved version `appgprj_6ad49418111c819198d79e88cab3e78e~appgver_929db6c907088191bc6469d59188a362`，deployment `appgdep_6ad4e93a525c8191b8d3f93b9d44a7c3`原生回傳`succeeded`。Archive `output/sites/horizontal-projectile-lab-ruler-alignment-24f775a.tar.gz`共18檔，16個runtime及根redirect逐byte核對，hosting metadata等同來源JSON，無macOS附加檔；SHA-256 `5c899d193e2538d3a3a3796b1453607804a7b578a18d492244787d7778e58e0b`，證據`output/sites/projectile-ruler-alignment-assets.json`。後續文件提交不改runtime。
+
 ## 讀尺選項稍為拉開（2026-10-18；本節優先）
 
 - 干擾值以目前尺面讀數為基準，由相隔1mm改為3mm（0.3cm），一般四項跨度9mm；錯零位須排除真正位移時可略為加闊，邊界向尺域內補足四項。仍只用整mm、四個互異及0–1000mm尺域，正零位唯一正確、錯零位四項全錯；不回到1–2cm的大間隔。例26.7cm可顯示26.1／26.4／26.7／27.0cm，順序仍按幾何輪換。
