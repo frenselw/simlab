@@ -1,14 +1,12 @@
-(function () {
+(async function () {
   'use strict';
-  const M=ProjectileModel, P=ProjectilePersistence, S=ProjectileScoring;
+  await CircuitMath.ready();
+  const M=ProjectileModel, P=ProjectilePersistence, S=ProjectileScoring, V=ProjectilePresentation;
+  const math=V.math, prose=V.prose;
   const d=Object.fromEntries([...document.querySelectorAll('[id]')].map(e=>[e.id,e]));
   const names=['取點','量度','軌跡','估速與平均','計時對照'];
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const fmt=n=>{
-    if(!Number.isFinite(n))return '—';
-    const rounded=n.toPrecision(5),numeric=Number(rounded);
-    return Number.isFinite(numeric)?numeric.toString():rounded;
-  };
+  const fmt=V.format;
   const pn=i=>'P'+'₁₂₃₄₅₆'[i];
   const controller=new ProjectileRuntime.Controller(SimScorm,SimActivityFlow,render);
   let drag=null, run=null, frame=0, placing=false, readingZoom=false, timeAxis=0, geometry=null, hint='';
@@ -17,12 +15,13 @@
     const b=document.createElement('button');b.type='button';b.className='handle point-handle';b.dataset.pointSlot=i;b.setAttribute('aria-label',`移動${pn(i)}圖點`);b.hidden=true;d.pointHandles.append(b);return b;
   });
   function rowsTable(kind){
-    return Array.from({length:6},(_,i)=>`<div class="data-row"><span>${pn(i)}</span>${(kind==='read'?[['x','x / cm'],['y','y / cm']]:[['t','t / s'],['v','v₀ / m/s']]).map(([key,label])=>`<label>${label}<input id="${kind}-${key}-${i}" data-${kind}="${i}" data-field="${key}" aria-label="${pn(i)} ${label}" type="number" min="0" ${kind==='read'?'max="100" step="0.1"':'step="any"'} inputmode="decimal"></label>`).join('')}</div>`).join('');
+    return Array.from({length:6},(_,i)=>`<div class="data-row"><span>${math(`P_{${i+1}}`,pn(i))}</span>${(kind==='read'?[['x','x'],['y','y']]:[['t','t'],['v','v_0']]).map(([key,symbol])=>`<label>${math(symbol+' / '+V.unit(kind==='read'?'cm':key==='t'?'s':'m/s'))}${kind==='read'?`<output id="read-${key}-${i}">—</output><button type="button" data-clear-read="${i}" data-axis="${key==='x'?0:1}" aria-label="清除${pn(i)}${key}讀數">清除</button>`:`<input id="calc-${key}-${i}" data-calc="${i}" data-field="${key}" aria-label="${pn(i)} ${key==='t'?'時間，秒':'初速度，米每秒'}" type="number" min="0" step="any" inputmode="decimal">`}</label>`).join('')}</div>`).join('');
   }
   d.readTable.innerHTML=rowsTable('read');d.speedTable.innerHTML=rowsTable('calc');
-  d.questions.innerHTML=Object.entries(M.QUESTIONS).map(([key,[title,options]])=>`<fieldset><legend>${title}</legend>${options.map(([value,label])=>`<label><input type="radio" name="${key}" data-question="${key}" value="${value}"><span>${label}</span></label>`).join('')}</fieldset>`).join('');
+  d.questions.innerHTML=Object.entries(M.QUESTIONS).map(([key,[title,options]])=>`<fieldset><legend>${prose(title)}</legend>${options.map(([value,label])=>`<label><input type="radio" name="${key}" data-question="${key}" value="${value}"><span>${prose(label)}</span></label>`).join('')}</fieldset>`).join('');
   d.checkReturn.innerHTML=M.VIEWS.map((v,i)=>`<button type="button" data-go="${v}">返回${names[i]}</button>`).join(' ');
   const reviewNav=document.createElement('div');reviewNav.className='button-row';reviewNav.innerHTML=M.VIEWS.map((v,i)=>`<button type="button" data-go="${v}">${names[i]}</button>`).join('');d.resultPanel.append(reviewNav);
+  document.querySelectorAll('[data-formula]').forEach(e=>e.innerHTML=math(e.dataset.formula,e.getAttribute('aria-label')||e.dataset.formula));
   const editing=()=>controller.mode==='edit';
   const command=action=>{
     const interrupted=Boolean(drag);if(interrupted)cancelDrag();
@@ -46,9 +45,10 @@
     const s=controller.state, locked=!controller.editable, view=controller.view, checking=controller.mode==='check';
     if(locked){cancelDrag();cancelFlight();placing=false;readingZoom=false;}
     d.app.classList.toggle('checking',checking||!s);
+    d.app.classList.toggle('measuring',view==='measure'&&!checking&&Boolean(s));
     d.status.textContent=controller.mode==='review'?'已提交 · 只讀回顧':controller.mode==='committed'?'結果已記錄':controller.mode==='frozen'?'提交待確認':'取點、量度與擬合';
     d.progress.textContent=s?`${M.VIEWS.indexOf(view)+1} / 5 ${names[M.VIEWS.indexOf(view)]}`:'';
-    d.notice.hidden=!controller.notice;d.notice.textContent=controller.notice;
+    d.notice.hidden=!controller.notice;d.notice.innerHTML=prose(controller.notice);
     d.saveRetry.hidden=!controller.editable||!controller.unsaved;
     d.checkButton.hidden=locked;d.checkButton.textContent=checking?'檢查作答':'檢查作答';
     d.checkPanel.hidden=!checking;d.editFooter.hidden=locked||checking;
@@ -60,28 +60,28 @@
     document.querySelectorAll('[data-panel]').forEach(e=>{e.hidden=!s||checking||e.dataset.panel!==view;});
     d.feedback.hidden=!controller.trusted;
     if(!s){drawStage();return;}
-    const records=s.rows.map((r,i)=>r?[i,`${pn(i)} · 已記錄`]:null).filter(Boolean);
-    const complete=s.rows.map((r,i)=>r&&!r.read.includes(null)?[i,pn(i)]:null).filter(Boolean);
-    options(d.recordSlot,s.rows.map((r,i)=>[i,`${pn(i)} · ${r?'已有印記（重做）':'空白'}`]),s.setup?.slot??0);
+    const records=s.rows.map((r,i)=>r?[i,`第${i+1}點 · 已記錄`]:null).filter(Boolean);
+    const complete=s.rows.map((r,i)=>r&&!r.read.includes(null)?[i,`第${i+1}點`]:null).filter(Boolean);
+    options(d.recordSlot,s.rows.map((r,i)=>[i,`第${i+1}點 · ${r?'已有印記（重做）':'空白'}`]),s.setup?.slot??0);
     options(d.measureSlot,[['','選擇印記'],...records],selected());
     options(d.plotSlot,[['','選擇已有完整讀數的點'],...complete],selected());
     d.readingZoom.disabled=locked||selected()===null;d.readingZoom.setAttribute('aria-pressed',String(readingZoom));
-    d.recordCount.textContent=`已留下 ${records.length} / 6 個印記。槽微調每次0.5cm；建議取高低分散的位置。`;
-    d.recordList.innerHTML=records.map(([i])=>`<li>${pn(i)}：已將印記轉記到記錄紙</li>`).join('');
+    d.recordCount.innerHTML=`已留下 ${records.length} / 6 個印記。槽微調每次${math("0.5\\,\\mathrm{cm}","0.5 cm")}；建議取高低分散的位置。`;
+    d.recordList.innerHTML=records.map(([i])=>`<li>${math(`P_{${i+1}}`,pn(i))}：已將印記轉記到記錄紙</li>`).join('');
     for(let i=0;i<6;i++){
       const r=s.rows[i];
-      ['x','y'].forEach((key,axis)=>{const e=document.getElementById(`read-${key}-${i}`);value(e,r?.read[axis]===null?null:r?.read[axis]/10);e.disabled=locked||!r;});
+      ['x','y'].forEach((key,axis)=>{const e=document.getElementById(`read-${key}-${i}`),n=r?.read[axis];e.innerHTML=n==null?'—':math(V.number(n/10)+'\\,\\mathrm{cm}',fmt(n/10)+' cm');document.querySelector(`[data-clear-read="${i}"][data-axis="${axis}"]`).disabled=locked||n==null;});
       ['t','v'].forEach(key=>{const e=document.getElementById(`calc-${key}-${i}`);value(e,s.calculations[i][key]);e.disabled=locked||!r||r.read.includes(null);});
     }
     const indices=M.included(s);
-    d.included.textContent=`納入全部已填速度：${indices.length?indices.map(pn).join('、'):'尚無'}；n = ${indices.length}。未填列不補0，已填錯值亦不自動刪除。`;
+    d.included.innerHTML=`納入全部已填速度：${indices.length?indices.map(i=>math(`P_{${i+1}}`,pn(i))).join("、"):"尚無"}；${math(`n=${indices.length}`)}。未填列不補0，已填錯值亦不自動刪除。`;
     ['meanV','fitV','gFromClock'].forEach(key=>value(d[key],s[key]));
     d.meanV.disabled=locked||indices.length<2;
     const fit=s.fit.attempted?M.fit(s):null, speedAllowed=s.fit.model==='square'&&fit?.ok&&fit.coefficients[0]>0;
     d.fitV.disabled=locked||!speedAllowed;
-    d.speedFit.textContent=speedAllowed?`自己的平方擬合：k = ${fmt(fit.coefficients[0])} m⁻¹；請自行換算。`:'先在軌跡步驟選平方模型並完成有效擬合。';
+    d.speedFit.innerHTML=speedAllowed?`自己的平方擬合：${math(`k=${V.number(fit.coefficients[0])}\\,\\mathrm{m}^{-1}`)}；請自行換算。`:'先在軌跡步驟選平方模型並完成有效擬合。';
     d.fitModel.value=s.fit.model??'';d.trajectory.value=s.trajectory??'';d.connectPoints.checked=s.connectPoints??false;
-    d.fitFormula.innerHTML=s.fit.model==='linear'?'<var>y</var> = <var>mx</var> + <var>b</var>':s.fit.model==='quadratic'?'<var>y</var> = <var>Ax</var>² + <var>Bx</var> + <var>C</var>':s.fit.model==='square'?'<var>y</var> = <var>kx</var>²':'';
+    d.fitFormula.innerHTML=s.fit.model?math({linear:'y=mx+b',quadratic:'y=Ax^2+Bx+C',square:'y=kx^2'}[s.fit.model]):'';
     d.fitResult.innerHTML=fit?fitText(fit,s.fit.model):'尚未擬合。改點後需要重新擬合。';
     const point=s.rows[selected()]?.point;
     value(d.pointX,point?point[0]/10:null);value(d.pointY,point?point[1]/10:null);
@@ -90,7 +90,7 @@
     d.removePoint.disabled=locked||!point;d.pointX.disabled=locked||!point;d.pointY.disabled=locked||!point;
     d.fitButton.disabled=locked||s.fit.model===null;
     d.showClock.disabled=locked||s.clockShown;d.showClock.textContent=s.clockShown?'已顯示計時記錄':'顯示計時記錄';
-    d.clockTable.innerHTML=s.clockShown?records.map(([i])=>`<div>${pn(i)}：${(s.rows[i].clockMs/1000).toFixed(3)} s</div>`).join('')||'尚未記錄任何投球。':'計時記錄尚未揭示。';
+    d.clockTable.innerHTML=s.clockShown?records.map(([i])=>`<div>${math(`P_{${i+1}}`,pn(i))}：${math(`${(s.rows[i].clockMs/1000).toFixed(3)}\\,\\mathrm{s}`)}</div>`).join('')||'尚未記錄任何投球。':'計時記錄尚未揭示。';
     d.timeFitResult.innerHTML=s.clockShown?fitText(M.timeFit(s,timeAxis),timeAxis===0?'timeX':'timeY'):'先顯示獨立計時記錄。';
     d.gFromClock.disabled=locked||!s.clockShown||!M.timeFit(s,1).ok;
     Object.keys(M.QUESTIONS).forEach(k=>document.querySelectorAll(`[data-question="${k}"]`).forEach(e=>{e.checked=s.conclusions[k]===e.value;e.disabled=locked;}));
@@ -100,28 +100,29 @@
     d.previous.disabled=M.VIEWS.indexOf(view)===0;d.next.textContent=view==='motion'?'檢查目前作答':'下一步';d.returnCheck.hidden=!s.returnToCheck;
     if(checking){
       const reads=s.rows.reduce((n,r)=>n+(r?r.read.filter(v=>v!==null).length:0),0), points=s.rows.filter(r=>r?.point).length, times=s.calculations.filter(c=>c.t!==null).length;
-      d.checkSummary.innerHTML=`<p>印記 ${records.length}/6；座標讀數 ${reads}/12；圖點 ${points}/6；時間 ${times}/6；速度 ${indices.length}/6。</p><p>平均初速度：${s.meanV===null?'未答':esc(fmt(s.meanV))+' m/s'}；納入n=${indices.length}。概念題 ${Object.values(s.conclusions).filter(Boolean).length}/4。</p><p>平方擬合估速：${s.fitV===null?'未答':'已答'}；時間擬合加速度：${s.gFromClock===null?'未答':'已答'}；軌跡類型：${s.trajectory===null?'未答':'已答'}。</p>`;
+      d.checkSummary.innerHTML=`<p>印記 ${records.length}/6；座標讀數 ${reads}/12；圖點 ${points}/6；時間 ${times}/6；速度 ${indices.length}/6。</p><p>平均初速度：${s.meanV===null?'未答':math(V.number(s.meanV)+'\\,\\mathrm{m}\\,\\mathrm{s}^{-1}',fmt(s.meanV)+' m/s')}；納入${math(`n=${indices.length}`)}。概念題 ${Object.values(s.conclusions).filter(Boolean).length}/4。</p><p>平方擬合估速：${s.fitV===null?'未答':'已答'}；時間擬合加速度：${s.gFromClock===null?'未答':'已答'}；軌跡類型：${s.trajectory===null?'未答':'已答'}。</p>`;
       d.submitButton.disabled=controller.unsaved;
     }
     if(controller.trusted){
       const labels=Object.fromEntries(Object.values(M.QUESTIONS).flatMap(q=>q[1]).concat([['parabola','拋物線'],['line','直線'],['circle','圓弧'],['other','其他曲線']]));
-      d.feedbackList.innerHTML=controller.result.detail.map(f=>`<details><summary>${esc(f.name)}：${f.points} / ${f.max}</summary><p>你的作答：${f.answer===null||f.answer===undefined?'未答':esc(typeof f.answer==='number'?fmt(f.answer):labels[f.answer]??f.answer)}；參考：${f.expected===null?'所需資料不足':esc(typeof f.expected==='number'?fmt(f.expected):f.expected)}</p></details>`).join('');
+      d.feedbackList.innerHTML=controller.result.detail.map(f=>`<details><summary>${prose(f.name)}：${f.points} / ${f.max}</summary><p>你的作答：${f.answer===null||f.answer===undefined?'未答':typeof f.answer==='number'?math(V.number(f.answer),fmt(f.answer)):prose(labels[f.answer]??f.answer)}；參考：${f.expected===null?'所需資料不足':typeof f.expected==='number'?math(V.number(f.expected),fmt(f.expected)):prose(f.expected)}</p></details>`).join('');
     }
     drawStage();
   }
   function fitText(f,model){
     if(!f.ok)return `<p>${esc(f.message)}</p>`;
     const c=f.coefficients,variable=model.startsWith('time')?'t':'x';
-    const term=(n,v,first=false)=>`${n<0?'−':first?'':'+'} ${esc(fmt(Math.abs(n)))}${v?` <var>${v}</var>`:''}`;
+    const term=(n,v,first=false)=>`${n<0?'-':first?'':'+'}${V.number(Math.abs(n))}${v}`;
     const quad=model==='quadratic'||model==='timeY';
-    const equation=quad?`${term(c[0],variable,true)}² ${term(c[1],variable)} ${term(c[2],'')}`:model==='square'?`${term(c[0],'x',true)}²`:`${term(c[0],variable,true)} ${term(c[1],'')}`;
-    return `<p class="math">${model==='timeX'?'<var>x</var>':'<var>y</var>'} = ${equation}</p><p>擬合式中，<var>x</var>、<var>y</var>以 m 表示，<var>t</var>以 s 表示；圖上位移刻度以 cm 表示。</p><p>使用${f.n}點；RMSE = ${esc(fmt(f.rmse))} m。${quad?'保留一次項與截距，請解讀其物理意義。':''}</p>`;
+    const equation=quad?`${term(c[0],variable+'^2',true)}${term(c[1],variable)}${term(c[2],'')}`:model==='square'?term(c[0],'x^2',true):`${term(c[0],variable,true)}${term(c[1],'')}`;
+    return `<p>${math((model==='timeX'?'x':'y')+'='+equation)}</p><p>擬合式中，${math('x')}、${math('y')}以 ${math('\\mathrm{m}','m')} 表示，${math('t')}以 ${math('\\mathrm{s}','s')} 表示；圖上位移刻度以 ${math('\\mathrm{cm}','cm')} 表示。</p><p>使用${f.n}點；${math('\\mathrm{RMSE}='+V.number(f.rmse)+'\\,\\mathrm{m}','RMSE = '+fmt(f.rmse)+' m')}。${quad?'保留一次項與截距，請解讀其物理意義。':''}</p>`;
   }
+
   function makeGeometry(view){
     const w=d.stage.clientWidth,h=d.stage.clientHeight;
     const extent=view==='collect'?1300:1100;
-    const scale=Math.max(.01,Math.min((w-108)/extent,(h-88)/extent));
-    const left=(w-extent*scale)/2,top=40;
+    const scale=Math.max(.01,Math.min((w-108)/extent,(h-124)/extent));
+    const left=(w-extent*scale)/2,top=60;
     const ox=left+(view==='collect'?300:50)*scale,oy=top+(view==='collect'?250:30)*scale;
     return{w,h,s:scale,ox,oy,x:n=>ox+n*scale,y:n=>oy+n*scale};
   }
@@ -129,13 +130,19 @@
     const s=controller.state;if(!s)return'';
     const x=g.x,y=g.y,scale=g.s, time=view==='motion', q=1000*scale;
     const line=(x1,y1,x2,y2,color='#dbe2eb',width=1,arrow=false)=>`<path d="M${x1},${y1}L${x2},${y2}" stroke="${color}" stroke-width="${width}" fill="none"${arrow?` marker-end="url(#${clipId}Arrow)"`:''}/>`;
-    const text=(px,py,t,color='#354a64',anchor='start')=>`<text x="${px}" y="${py}" font-size="14" fill="${color}" text-anchor="${anchor}">${esc(t)}</text>`;
+    const labelSize=innerWidth>=900?24:16;
+    const text=(px,py,t,color='#354a64',anchor='start',tex=null)=>{
+      const point=String(t).match(/^P([₁₂₃₄₅₆])$/);
+      const expression=tex??(point?`P_{${'₁₂₃₄₅₆'.indexOf(point[1])+1}}`:String(t).trim()!==''&&Number.isFinite(Number(t))?V.number(Number(t)):null);
+      return expression!==null?CircuitMath.svg(px,py,{tex:expression,text:String(t)},labelSize,`fill="${color}" text-anchor="${anchor}"`):`<text x="${px}" y="${py}" font-size="${labelSize}" fill="${color}" text-anchor="${anchor}">${esc(t)}</text>`;
+    };
     let html=`<defs><clipPath id="${clipId}"><rect x="${x(0)}" y="${y(0)}" width="${q}" height="${q}"/></clipPath><marker id="${clipId}Arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#263b55"/></marker></defs><rect width="${g.w}" height="${g.h}" fill="#fff"/>`;
     const step=q<180?500:200;
     for(let i=0;i<=1000;i+=step){html+=line(x(i),y(0),x(i),y(1000))+line(x(0),y(i),x(1000),y(i));if(i>0)html+=text(x(i),time?y(1000)+17:y(0)-6,time?fmt(i/1000*.45):i/10,'#53647b','middle')+text(x(0)-5,y(i)+4,time?(1000-i)/10:i/10,'#53647b','end');}
-    html+=text(x(0)-4,y(0)-6,time?'100':'O','#263b55','end');
-    if(time){html+=line(x(0),y(1000),x(1000)+8,y(1000),'#263b55',1.5,true)+line(x(0),y(1000),x(0),y(0)-8,'#263b55',1.5,true)+text(x(0)+5,y(0)+17,`${timeAxis===0?'x':'y'} / cm`)+text(x(1000),y(1000)+34,'t / s','#263b55','end');}
-    else html+=line(x(0),y(0),x(1000)+8,y(0),'#263b55',1.5,true)+line(x(0),y(0),x(0),y(1000)+8,'#263b55',1.5,true)+text(x(1000),y(0)-23,'x / cm','#263b55','end')+text(x(0)+5,y(1000)+20,'y / cm');
+    if(time)html+=text(x(0)-4,y(0)-6,'100','#263b55','end');
+    else html+=`<circle data-origin="true" cx="${x(0)}" cy="${y(0)}" r="6" fill="#b13f25" stroke="#fff" stroke-width="2"/>`+text(x(0)+10,Math.max(labelSize,y(0)-30),'O(0,0)','#a3321e','start','O(0,0)');
+    if(time){html+=line(x(0),y(1000),x(1000)+8,y(1000),'#263b55',1.5,true)+line(x(0),y(1000),x(0),y(0)-8,'#263b55',1.5,true)+text(x(0)+5,y(0)+17,`${timeAxis===0?'x':'y'} / cm`,'#263b55','start',`${timeAxis===0?'x':'y'} / \\mathrm{cm}`)+text(x(1000),y(1000)+34,'t / s','#263b55','end','t / \\mathrm{s}');}
+    else html+=line(x(0),y(0),x(1000)+8,y(0),'#263b55',1.5,true)+line(x(0),y(0),x(0),y(1000)+8,'#263b55',1.5,true)+text(x(1000),y(0)-42,'x / cm','#263b55','end','x / \\mathrm{cm}')+text(x(0)+5,y(1000)+28,'y / cm','#263b55','start','y / \\mathrm{cm}');
     const plot=view==='plot'||view==='speed';
     const curve=(fn,color,dash='')=>{
       let path='',connected=false;
@@ -162,7 +169,7 @@
       points.forEach(({i,p})=>{html+=`<circle cx="${x(p[0])}" cy="${y(p[1])}" r="4" fill="#1764b1"/>`;if(q>100||selected()===i)html+=text(x(p[0])+8,y(p[1])-7,pn(i));});
       return html;
     }
-    s.rows.forEach((r,i)=>{if(r){const p=M.impact(r.depthMm,r.speedOffsetPpm);html+=`<circle cx="${x(p.x)}" cy="${y(p.y)}" r="3" fill="#182333"/>`;if(q>100||selected()===i)html+=text(x(p.x)+8,y(p.y)-6,pn(i));}});
+    s.rows.forEach((r,i)=>{if(r){const p=M.impact(r.depthMm,r.speedOffsetPpm);html+=`<circle cx="${x(p.x)}" cy="${y(p.y)}" r="3" fill="#182333"/>`;if(q>100||selected()===i)html+=text(x(p.x)+8,y(p.y)+(p.y*scale<labelSize*2?labelSize*.35:-8),pn(i));}});
     if(view==='collect'){
       const depth=drag?.kind==='catcher'?drag.value:s.setup?.depthMm??200;
       html+=`<path d="M${x(-240)},${y(-190)}C${x(-160)},${y(-190)} ${x(-160)},${y(10)} ${x(-40)},${y(10)}L${x(0)},${y(10)}" fill="none" stroke="#52677e" stroke-width="5"/>`;
@@ -174,7 +181,7 @@
         else{const t=Math.min(run.impact.t,(elapsed-run.ramp)/run.slow/1000);ball=[M.velocity(run.ppm)*t*1000,.5*M.G*t*t*1000];}
       }
       html+=`<circle cx="${x(ball[0])}" cy="${y(ball[1])}" r="${Math.max(3,10*scale)}" fill="#677586" stroke="#172438"/>`;
-      if(q>110)html+=text(x(-240),y(-215),'固定釋放標記')+text(x(500),y(depth+10)-8,'接球槽','#1764b1');
+      if(q>110)html+=text(x(-240),y(-215),'固定釋放標記')+text(x(500),y(depth+10)+labelSize+8,'接球槽','#1764b1');
     }
     if(view==='measure'){
       const ruler=drag?.kind==='ruler'?{...s.ruler,zero:drag.value}:s.ruler??{axis:'x',zero:[0,0]},[rx,ry]=ruler.zero, horizontal=ruler.axis==='x';
@@ -186,21 +193,22 @@
         ticks+=horizontal?`M${rxp+pos},${ryp}v${len}`:`M${rxp},${ryp+pos}h${len}`;
       }
       html+=`<path d="${ticks}" stroke="#654c17" stroke-width=".7" fill="none"/>`;
-      const spacing=[10,20,50,100,200,500,1000].find(mm=>mm*scale>=30)??1000;
+      const spacing=[10,20,50,100,200,500,1000].find(mm=>mm*scale>=labelSize*2)??1000;
       for(let mm=0;mm<=1000;mm+=spacing)html+=text(rxp+(horizontal?mm*scale:14),ryp+(horizontal?20:mm*scale+4),mm/10,'#654c17',horizontal?'middle':'start');
-      const actual=s.rows[selected()];if(actual){const p=M.impact(actual.depthMm,actual.speedOffsetPpm);html+=line(x(p.x),y(0),x(p.x),y(p.y),'#a5b0bf')+line(x(0),y(p.y),x(p.x),y(p.y),'#a5b0bf');}
+      const actual=s.rows[selected()];if(actual){const p=M.impact(actual.depthMm,actual.speedOffsetPpm),px=horizontal?x(p.x):rxp,py=horizontal?ryp:y(p.y);html+=line(x(p.x),y(p.y),px,py,'#8d6e37')+`<circle data-reading-target="true" cx="${px}" cy="${py}" r="5" fill="#a3321e" stroke="#fff" stroke-width="1.5"/>`;}
     }
     return html;
   }
   function position(e,x,y){e.style.left=x+'px';e.style.top=y+'px';}
   function drawStage(){
-    const s=controller.state;if(!s){d.scene.innerHTML='';d.catcherHandle.hidden=d.rulerHandle.hidden=true;pointButtons.forEach(b=>b.hidden=true);return;}
+    const s=controller.state;if(!s){d.scene.innerHTML='';d.readingChoices.hidden=true;d.catcherHandle.hidden=d.rulerHandle.hidden=true;pointButtons.forEach(b=>b.hidden=true);return;}
     const view=controller.view;geometry=makeGeometry(view);const g=geometry;
     d.scene.setAttribute('viewBox',`0 0 ${g.w} ${g.h}`);d.scene.innerHTML=world(g,view,'sceneClip');
     d.catcherHandle.hidden=!editing()||view!=='collect';d.rulerHandle.hidden=!editing()||view!=='measure';
     const depth=drag?.kind==='catcher'?drag.value:s.setup?.depthMm??200;
     position(d.catcherHandle,Math.min(g.w-24,g.x(900)),Math.max(23,Math.min(g.h-24,g.y(depth+10))));
-    const zero=drag?.kind==='ruler'?drag.value:s.ruler?.zero??[0,0];position(d.rulerHandle,g.x(zero[0]),g.y(zero[1])+22);
+    const zero=drag?.kind==='ruler'?drag.value:s.ruler?.zero??[0,0];position(d.rulerHandle,Math.max(23,Math.min(g.w-23,g.x(zero[0])-22)),Math.max(23,Math.min(g.h-55,g.y(zero[1])+22)));
+    drawReadingChoices(g,view);
     pointButtons.forEach((b,i)=>{
       const p=drag?.kind==='point'&&drag.index===i?drag.value:s.rows[i]?.point;
       b.hidden=!editing()||view!=='plot'||!p;b.setAttribute('aria-pressed',String(selected()===i));b.style.zIndex=selected()===i?'4':'3';if(p)position(b,g.x(p[0]),g.y(p[1]));
@@ -208,7 +216,7 @@
     const p=selected(),eligible=p!==null&&s.rows[p]&&!s.rows[p].read.includes(null);
     d.plotInputSurface.hidden=!editing()||view!=='plot'||!placing||!eligible;
     d.plotInputSurface.style.cssText=`left:${g.x(0)}px;top:${g.y(0)}px;width:${1000*g.s}px;height:${1000*g.s}px`;
-    d.stageHint.textContent=hint||(view==='collect'?'上下調槽，每次留下一個固定撞擊印記。':view==='measure'?'量圓點中心：x向右、y向下；拖尺時可看放大鏡。':view==='plot'?(placing?'在中央圖域放置所選點；兩側空白可滑動頁面。':'選資料點，再放點或拖動；兩側空白可滑動頁面。'):view==='speed'?'圖為自己的點及擬合；請在面板計算逐點速度與平均。':'獨立計時配對自己的讀數；圖示位移大小隨時間變化。');
+    d.stageHint.innerHTML=prose(hint||(view==='collect'?'上下調槽，每次留下一個固定撞擊印記。':view==='measure'?'拖動零刻度旁把手，對準原點後，在紅色讀數點旁揀選讀數。':view==='plot'?(placing?'在中央圖域放置所選點；兩側空白可滑動頁面。':'選資料點，再放點或拖動；兩側空白可滑動頁面。'):view==='speed'?'圖為自己的點及擬合；請在面板計算逐點速度與平均。':'獨立計時配對自己的讀數；圖示位移大小隨時間變化。'));
     const mark=view==='measure'&&readingZoom&&s.rows[selected()]?M.impact(s.rows[selected()].depthMm,s.rows[selected()].speedOffsetPpm):null;
     if((drag&&drag.kind!=='catcher')||mark){
       const focus=drag&&drag.kind!=='catcher'?drag.value:s.ruler.axis==='x'?[mark.x,s.ruler.zero[1]]:[s.ruler.zero[0],mark.y];
@@ -216,6 +224,22 @@
       d.magnifier.hidden=false;d.magnifier.style.left=drag?.previewLeft?'8px':'auto';d.magnifier.style.right=drag?.previewLeft?'auto':'8px';d.magnifierSvg.setAttribute('viewBox','0 0 128 112');d.magnifierSvg.innerHTML=world(zoom,view,'zoomClip');
     }else d.magnifier.hidden=true;
   }
+  function drawReadingChoices(g,view){
+    const s=controller.state,i=selected(),row=s?.rows[i],values=row?M.rulerChoices(row,s.ruler):[];
+    d.readingChoices.hidden=!editing()||view!=='measure'||!row||Boolean(drag)||values.length!==4;
+    if(d.readingChoices.hidden)return;
+    const fallback=g.h<180;
+    const host=fallback?d.readingFallback:d.stage;if(d.readingChoices.parentElement!==host)host.append(d.readingChoices);d.readingChoices.classList.toggle('in-panel',fallback);
+    const axis=s.ruler.axis==='x'?0:1,p=M.impact(row.depthMm,row.speedOffsetPpm);
+    const target=[g.x(axis?s.ruler.zero[0]:p.x),g.y(axis?p.y:s.ruler.zero[1])];
+    d.readingChoiceTitle.innerHTML=math(`P_{${i+1}}\\;${axis?'y':'x'}`,pn(i)+' '+s.ruler.axis)+'：選擇尺上讀數';
+    readingButtons.forEach((b,j)=>{const n=values[j],html=math(V.number(n/10)+'\\,\\mathrm{cm}',fmt(n/10)+' cm');if(b.innerHTML!==html)b.innerHTML=html;b.dataset.reading=n;b.setAttribute('aria-label',`${pn(i)} ${s.ruler.axis} ${fmt(n/10)} 厘米`);b.setAttribute('aria-pressed',String(row.read[axis]===n));});
+    const box=d.readingChoices.getBoundingClientRect(),width=box.width,height=box.height;
+    const left=Math.max(32,Math.min(g.w-32-width,target[0]+18)),below=target[1]+30;
+    const top=below+height<=g.h-32?below:Math.max(4,target[1]-height-18);
+    d.readingChoices.style.left=left+'px';d.readingChoices.style.top=top+'px';
+  }
+  const readingButtons=Array.from({length:4},()=>{const b=document.createElement('button');b.type='button';b.className='reading-choice';b.onclick=()=>{const s=controller.state,i=selected();if(!editing()||controller.view!=='measure'||drag||i===null)return;const n=Number(b.dataset.reading);if(M.rulerChoices(s.rows[i],s.ruler).includes(n))command({type:'read',slot:i,axis:s.ruler.axis==='x'?0:1,value:n});};d.readingOptions.append(b);return b;});
   function modelPoint(event){const r=d.stage.getBoundingClientRect();return[(event.clientX-r.left-geometry.ox)/geometry.s,(event.clientY-r.top-geometry.oy)/geometry.s];}
   function resolveDrag(event){
     const p=modelPoint(event), start=drag.startModel, delta=[p[0]-start[0],p[1]-start[1]], clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
@@ -234,7 +258,7 @@
     diagnostics.downs++;if(event.isTrusted&&event.pointerType==='touch')diagnostics.trustedTouch++;
     drag={kind,index,placement,before:M.clone(before),value:M.clone(before),id:event.pointerId,target:event.currentTarget,start:[event.clientX,event.clientY],startModel:modelPoint(event),moved:false,previewLeft:event.clientX>d.stage.getBoundingClientRect().left+d.stage.clientWidth/2};
     event.currentTarget.setPointerCapture(event.pointerId);event.preventDefault();
-    if(placement)drawStage();
+    if(placement||kind==='ruler')drawStage();
   }
   function moveDrag(event){if(!drag||event.pointerId!==drag.id)return;const distance=Math.hypot(event.clientX-drag.start[0],event.clientY-drag.start[1]);if(!drag.moved&&distance<(event.pointerType==='mouse'?3:6))return;drag.moved=true;drag.value=resolveDrag(event);diagnostics.moves++;drawStage();}
   function finishDrag(event){
@@ -271,7 +295,7 @@
     }
     return scale===1?n:Math.round(n*scale);
   }
-  document.querySelectorAll('[data-read]').forEach(e=>e.addEventListener('change',()=>{const n=numberInput(e,{max:100,scale:10});if(n!==undefined)command({type:'read',slot:+e.dataset.read,axis:e.dataset.field==='x'?0:1,value:n});}));
+  document.querySelectorAll('[data-clear-read]').forEach(e=>e.onclick=()=>command({type:'read',slot:+e.dataset.clearRead,axis:+e.dataset.axis,value:null}));
   document.querySelectorAll('[data-calc]').forEach(e=>e.addEventListener('change',()=>{const n=numberInput(e,e.dataset.field==='t'?{max:10}:{});if(n!==undefined)command({type:'calculation',slot:+e.dataset.calc,field:e.dataset.field,value:n});}));
   ['meanV','fitV','gFromClock'].forEach(key=>d[key].addEventListener('change',()=>{const n=numberInput(d[key],{signed:key==='gFromClock'});if(n!==undefined)command({type:'answer',field:key,value:n});}));
   document.querySelectorAll('[data-question]').forEach(e=>e.addEventListener('change',()=>command({type:'conclusion',field:e.dataset.question,value:e.value})));
@@ -310,4 +334,4 @@
   new ResizeObserver(()=>{cancelDrag();cancelFlight();readingZoom=false;render();}).observe(d.stage);
   window.__projectileApp={getState:()=>M.clone(controller.state),controller,getGeometry:()=>geometry?{s:geometry.s,ox:geometry.ox,oy:geometry.oy,w:geometry.w,h:geometry.h}:null,getDiagnostics:()=>({...diagnostics}),isRunning:()=>Boolean(run)};
   controller.start();
-})();
+})().catch(error=>{document.getElementById('notice').hidden=false;document.getElementById('notice').textContent='數學排版未能載入，請重新載入活動。';console.error(error);});

@@ -26,6 +26,16 @@
     const t = Math.sqrt(2 * depthMm / 1000 / G), v = velocity(ppm);
     return {x:v*t*1000,y:depthMm,t,v,clockMs:Math.round(t*1000)};
   }
+  function rulerChoices(row,ruler){
+    if(!row)return[];
+    const p=impact(row.depthMm,row.speedOffsetPpm),axis=ruler.axis==='x'?0:1;
+    const reading=Math.round((axis?p.y:p.x)-ruler.zero[axis]);
+    if(reading<0||reading>1000)return[];
+    // Distractors follow the moved scale, never the true displacement from O.
+    const values=[reading,...[-10,10,-20,20,-30,30].map(d=>reading+d).filter(v=>v>=0&&v<=1000)].slice(0,4).sort((a,b)=>a-b);
+    const turn=Math.abs(Math.round(p.x)+row.depthMm+ruler.zero[0]+3*ruler.zero[1])%4;
+    return values.slice(turn).concat(values.slice(0,turn));
+  }
   function drawOffset(random = Math.random) {
     const value = random();
     if (!Number.isFinite(value) || value < 0 || value >= 1) throw new Error('Invalid random draw');
@@ -94,5 +104,5 @@
     }
     return s;
   }
-  return Object.freeze({G,H,IDEAL,SPEED,VIEWS,QUESTIONS,clone,integer,mean,fresh,velocity,impact,drawOffset,fit,predict,timeFit,included,change});
+  return Object.freeze({G,H,IDEAL,SPEED,VIEWS,QUESTIONS,clone,integer,mean,fresh,velocity,impact,rulerChoices,drawOffset,fit,predict,timeFit,included,change});
 });

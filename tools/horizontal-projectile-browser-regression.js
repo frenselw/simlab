@@ -40,21 +40,43 @@ async function completeFlow(base,label){
   for(const depth of[50,150,300,450,650,800])await shot(depth);
   const recorded=await state();assert.equal(recorded.rows.filter(Boolean).length,6);
   await screenshot(label+'-apparatus');await click('#next');
-  for(let i=0;i<6;i++){const row=recorded.rows[i],p=M.impact(row.depthMm,row.speedOffsetPpm);await input(`#read-x-${i}`,Math.round(p.x)/10);await input(`#read-y-${i}`,row.depthMm/10);}
+  for(let i=0;i<6;i++){
+    await input('#measureSlot',i);await click('#rulerHome');
+    for(const axis of ['x','y']){await click(axis==='x'?'#rulerX':'#rulerY');const row=recorded.rows[i],p=M.impact(row.depthMm,row.speedOffsetPpm),n=Math.round(axis==='x'?p.x:p.y);await click(`[data-reading="${n}"]`);}
+  }
   await click('#next');
   for(let i=0;i<6;i++){await input('#plotSlot',i);await click('#keyboardPoint');const r=(await state()).rows[i];await input('#pointX',r.read[0]/10);await input('#pointY',r.read[1]/10);}
   await input('#fitModel','quadratic');await click('#fitButton');assert(await call('return ProjectileModel.fit(app.getState()).ok;'));
-  assert(await call('return d.getElementById("fitResult").textContent.includes("以 m 表示")&&d.getElementById("fitResult").textContent.includes("以 cm 表示");'));
+  assert(await call(`return d.getElementById("fitResult").querySelector('[data-math="m"]')&&d.getElementById("fitResult").querySelector('[data-math="cm"]');`));
   await input('#trajectory','parabola');await input('#fitModel','square');await click('#fitButton');await screenshot(label+'-trajectory');await click('#next');
   for(let i=0;i<6;i++){const r=(await state()).rows[i],t=Number(Math.sqrt(2*r.read[1]/1000/M.G).toFixed(3));await input(`#calc-t-${i}`,t);await input(`#calc-v-${i}`,Number((r.read[0]/1000/t).toFixed(3)));}
   const s=await state();await input('#meanV',Number(M.mean(s.calculations.map(c=>c.v)).toFixed(3)));await input('#fitV',Number(Math.sqrt(M.G/(2*M.fit(s).coefficients[0])).toFixed(3)));
   await click('#next');await click('#showClock');const q=await state();await input('#gFromClock',Number((2*M.timeFit(q,1).coefficients[0]).toFixed(3)));
   for(const value of['uniform','linear-x-time','free-fall','quadratic-y-time-zero-initial'])await click(`input[value="${value}"]`);
   assert.deepEqual((await state()).rows.map(r=>r.speedOffsetPpm),recorded.rows.map(r=>r.speedOffsetPpm));
-  await click('#timeY');assert(await call('return d.getElementById("timeFitResult").textContent.includes("以 s 表示");'));await screenshot(label+'-time');await click('#checkButton');await click('#submitButton');
+  await click('#timeY');assert(await call(`return Boolean(d.getElementById("timeFitResult").querySelector('[data-math="s"]'));`));await screenshot(label+'-time');await click('#checkButton');await click('#submitButton');
   assert.equal(await call('return app.controller.result.score;'),100);assert.equal(await call("return w.__lmsValues['cmi.core.score.raw'];"),'100');
   assert.equal(await call('return app.controller.mode;'),'review');assert.equal(await call("return Boolean(d.querySelector('#clearAll').getClientRects().length);"),false);
   report.flows.push({label,kind:'six-point-complete',score:100,ppm:recorded.rows.map(r=>r.speedOffsetPpm)});
+}
+async function readingFlow(base,label){
+  for(const [width,height]of[[1280,800],[390,600],[320,500],[320,225]]){
+    await viewport(width,height);const s=T.filled();s.view='measure';s.selectedSlot=0;await open(base,s);
+    const initial=await state(),p=M.impact(initial.rows[0].depthMm,initial.rows[0].speedOffsetPpm),correct=Math.round(p.x);
+    const metrics=await call(`const card=d.getElementById('readingChoices'),r=card.getBoundingClientRect(),o=d.querySelector('[data-origin]');return{font:parseFloat(getComputedStyle(d.body).fontSize),origin:!!o,math:d.querySelectorAll('#scene [data-tex]').length,formula:[...d.querySelectorAll('[data-formula]')].every(e=>e.querySelector('svg[data-tex]')),parent:card.parentElement.id,card:[r.left,r.top,r.right,r.bottom],buttons:[...d.querySelectorAll('.reading-choice')].map(e=>({value:+e.dataset.reading,height:e.getBoundingClientRect().height,math:!!e.querySelector('svg[data-tex]')}))};`);
+    assert(metrics.font>=(width>=900?21:18));assert(metrics.origin&&metrics.math>0&&metrics.formula);assert.equal(metrics.buttons.length,4);assert(metrics.buttons.every(b=>b.height>=44&&b.math));assert.equal(metrics.buttons.filter(b=>Math.abs(b.value-correct)<=5).length,1);
+    assert.equal(metrics.parent,height===225?'readingFallback':'stage');if(height!==225){assert(metrics.card[0]>=32&&metrics.card[2]<=width-32+1&&metrics.card[1]>=0&&metrics.card[3]<=height);}
+    const wrong=metrics.buttons.find(b=>Math.abs(b.value-correct)>5).value;await click(`[data-reading="${wrong}"]`,true);assert.equal((await state()).rows[0].read[0],wrong);assert.equal((await state()).calculations[0].v,null);assert.equal((await state()).meanV,null);
+    await call('app.controller.command({type:"ruler",value:{axis:"x",zero:[50,50]}});');
+    const off=await call('return [...d.querySelectorAll(".reading-choice")].map(b=>+b.dataset.reading);');assert(off.every(n=>Math.abs(n-correct)>5));await click(`[data-reading="${off[0]}"]`,true);assert.equal((await state()).rows[0].read[0],off[0]);
+    if(width===1280)await screenshot(label+'-reading-misaligned');
+    await click('#rulerHome');await click(`[data-reading="${correct}"]`,true);assert.equal((await state()).rows[0].read[0],correct);
+    await click('#rulerY');const mark=await rect(`[data-reading="${initial.rows[0].depthMm}"]`),touch={...mark,id:817,radiusX:2,radiusY:2,force:1};await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[touch]});await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});assert.equal((await state()).rows[0].read[1],initial.rows[0].depthMm);
+    const saved=await call('return w.__lmsValues;'),before=await state();await cdp.send('Page.navigate',{url:`${base}/${slug}/index.html?fixture=${encodeURIComponent(JSON.stringify(saved))}`});await wait(()=>call('return Boolean(app?.getState());'),'reading resume');assert.deepEqual(await state(),before);
+    if(width!==320)await screenshot(label+'-reading-choices-'+width);
+    await click('#checkButton');await click('#submitButton');await click('[data-go="measure"]');assert(await call('return d.getElementById("readingChoices").hidden&&[...d.querySelectorAll("[data-clear-read]")].every(e=>e.disabled);'));
+    report.flows.push({label,kind:'TeX-origin-large-text/own-scale-four-choices/wrong-origin/touch-choice/resume/review',width,height,metrics});
+  }
 }
 async function screenshot(name){const image=await cdp.send('Page.captureScreenshot',{format:'png'});fs.writeFileSync(path.join(out,name+'.png'),Buffer.from(image.data,'base64'));}
 async function layoutMatrix(base,label){
@@ -109,10 +131,10 @@ async function edgeFlows(base,label){
   await click('#clearAll');assert.deepEqual(await state(),old);acceptDialog=true;await click('#clearAll');assert.equal((await state()).rows.filter(Boolean).length,0);
   await click('#checkButton');await click('[data-go="motion"]');await click('#showClock');await click('input[value="uniform"]');await click('#checkButton');await click('[data-go="collect"]');await cdp.send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});await shot(200);assert((await state()).clockShown);assert.equal((await state()).conclusions.horizontal,'uniform');
   const large=T.filled();large.view='speed';await open(base,large);await input('#calc-t-0',.001);await input('#calc-v-0',500);await input('#meanV',Number.MAX_VALUE);assert.equal((await state()).calculations[0].v,500);
-  await click('#checkButton');assert(await call('return !d.getElementById("checkSummary").textContent.includes("Infinity")&&d.getElementById("checkSummary").textContent.includes("1.7977e+308");'));await click('[data-go="speed"]');
+  await click('#checkButton');assert(await call(`return !d.getElementById("checkSummary").textContent.includes("Infinity")&&Boolean(d.getElementById("checkSummary").querySelector('[data-math="1.7977e+308 m/s"]'));`));await click('[data-go="speed"]');
   const values=await call('return w.__lmsValues;');await cdp.send('Page.navigate',{url:`${base}/${slug}/index.html?fixture=${encodeURIComponent(JSON.stringify(values))}`});await wait(()=>call('return app?.getState()?.calculations[0].v===500;'),'large speed resume');assert.equal((await state()).meanV,Number.MAX_VALUE);
   const negative=M.fresh();[50,200,450].forEach((depth,i)=>{negative.rows[i]={depthMm:depth,speedOffsetPpm:0,clockMs:M.impact(depth,0).clockMs,read:[null,[300,280,220][i]],point:null};});negative.view='motion';negative.clockShown=true;await open(base,negative);const g=2*M.timeFit(negative,1).coefficients[0];await input('#gFromClock',g);assert.equal((await state()).gFromClock,g);await click('#checkButton');await click('#submitButton');assert.equal(await call('return app.controller.result.detail.find(x=>x.name==="由時間擬合換算加速度 / m/s²").points;'),3);
-  await open(base,negative);await input('#gFromClock',-Number.MAX_VALUE);await click('#checkButton');await click('#submitButton');assert.equal((await state()).gFromClock,-Number.MAX_VALUE);assert(await call('return !d.getElementById("feedbackList").textContent.includes("Infinity")&&d.getElementById("feedbackList").textContent.includes("-1.7977e+308");'));
+  await open(base,negative);await input('#gFromClock',-Number.MAX_VALUE);await click('#checkButton');await click('#submitButton');assert.equal((await state()).gFromClock,-Number.MAX_VALUE);assert(await call(`return !d.getElementById("feedbackList").textContent.includes("Infinity")&&Boolean(d.getElementById("feedbackList").querySelector('[data-math="-1.7977e+308"]'));`));
   report.flows.push({label,kind:'flight-lock/cancel/resize/ruler-reading-zoom/confirm-cancel/clear/zero-observation-continuation/large-speed/negative-g',passed:true});
 }
 async function touchDrag(selector,dx,dy,ending='touchEnd'){
@@ -186,7 +208,7 @@ async function main(){
   try{
     const manifest=new XMLParser({ignoreAttributes:false}).parse(fs.readFileSync(path.join(root,'sim/manifests',slug+'.xml'),'utf8'));
     const files=manifest.manifest.resources.resource.file.map(f=>f['@_href']);
-    const html=fs.readFileSync(path.join(root,'sim',slug,'index.html'),'utf8');const refs=[...html.matchAll(/(?:src|href)="([^"?#]+\.(?:js|css))"/g)].map(m=>path.posix.normalize(slug+'/'+m[1]));assert.deepEqual(files.filter(f=>!f.endsWith('/index.html')).sort(),refs.sort());
+    const html=fs.readFileSync(path.join(root,'sim',slug,'index.html'),'utf8');const refs=[...html.matchAll(/(?:src|href)="([^"?#]+\.(?:js|css))"/g)].map(m=>path.posix.normalize(slug+'/'+m[1]));assert.deepEqual(files.filter(f=>!f.endsWith('/index.html')&&!f.endsWith('/mathjax-license.txt')).sort(),refs.sort());
     extracted=H.buildAndExtractPackage(temp,{slug,packagePrefix:'simlab-projectile-package-',packageNamePattern:/^simlab-projectile-package-[A-Za-z0-9]+$/});
     for(const file of files)assert.equal(fs.readFileSync(path.join(root,'sim',file),'utf8'),fs.readFileSync(path.join(extracted.packageDirectory,file),'utf8'));
     report.runtimeHash=crypto.createHash('sha256').update(files.map(f=>fs.readFileSync(path.join(root,'sim',f))).join('')).digest('hex');
@@ -199,7 +221,7 @@ async function main(){
     cdp.on('Runtime.exceptionThrown',e=>report.errors.push(e.exceptionDetails?.exception?.description||e.exceptionDetails?.text));report.browser=await cdp.send('Browser.getVersion');
     for(const [label,directory]of[['source',path.join(root,'sim')],['package',extracted.packageDirectory]]){
       server=H.createServer(directory);await H.listenServer(server);const base=`http://127.0.0.1:${server.address().port}`;
-      console.log('projectile browser: '+label);await layoutMatrix(base,label);await completeFlow(base,label);
+      console.log('projectile browser: '+label);await layoutMatrix(base,label);await readingFlow(base,label);await completeFlow(base,label);
       if(!process.argv.includes('--smoke')){await flows(base,label);await edgeFlows(base,label);await interactions(base,label);await directTouchMatrix(base,label);}
       await H.closeServer(server);server=null;
     }

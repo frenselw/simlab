@@ -1,6 +1,6 @@
 # 平拋運動：軌跡量度與擬合實驗
 
-狀態：**2026-10-18 已實作；一位 sub-agent 的核心審查跟進、來源／實際 SCORM 主線及本地18種狀態的嵌入觸控驗證完成。全專案browser回歸仍有4項失敗，package-ready／Moodle-ready未宣稱通過。** 最終證據見文末；真 Moodle／實體電話尚未驗收。初稿的兩份計劃審查另列為歷史紀錄。
+狀態：**2026-10-18 新增LaTeX、大字及畫布四選一讀尺；本次驗證進行中。前一版已實作；一位 sub-agent 的核心審查跟進、來源／實際 SCORM 主線及本地18種狀態的嵌入觸控驗證完成。全專案browser回歸仍有4項失敗，package-ready／Moodle-ready未宣稱通過。** 最終證據見文末；真 Moodle／實體電話尚未驗收。初稿的兩份計劃審查另列為歷史紀錄。
 
 - 分支：`codex/horizontal-projectile-lab`。
 - 起點：本機 `main`，`f7ab989ca59b72ebe6a7691129320c4768f6fcf8`；未宣稱已同步遠端。
@@ -12,7 +12,7 @@
 
 1. **設置與取點**：直接進入實驗裝置。學生上下拖動接球槽，按「釋放鋼珠」；球由斜槽同一標記靜止釋放，經水平出口飛出、撞槽留下接觸痕跡。模擬再將該印記按球心基準轉記至共同記錄紙，呈現為一個固定的深色小圓點 P₁；以短提示「將本次印記轉記到記錄紙」說明這是模擬提供的轉記功能。每次只留下撞擊的一點，投球階段不自動畫出完整軌跡。
 2. **重複實驗**：改變槽高，最多記錄六點。舊印記不隨槽移動；可以選一個點重做。每次投球的出口速率圍繞同一參考值約±1%波動，同高重做可見輕微落點散布，並非每次完全重疊。提示分散高低取點，不代學生安排正確位置。
-3. **量度**：記錄紙近景以出口球心 O 為原點，向右為 x、向下為 y。拖動水平／豎直直尺，量度O至每個圓點中心的水平距離x及向下距離y，填入表格；紙上的投影輔助線只協助對齊，不直接顯示正確數值。
+3. **量度**：記錄紙近景以出口球心 O 為原點，向右為 x、向下為 y。拖動水平／豎直直尺，量度O至每個圓點中心的水平距離x及向下距離y，在印記投影到尺的讀數位置旁點選四個值之一，直接記入表格；四值以目前尺的零位推算。正確對零時僅一項正確；零位錯置可能四項皆錯，不插入絕對真值選項。
 4. **作圖與擬合**：根據自己的表格逐點放到 x–y 圖，可顯示資料點折線，再比較一般直線及一般二次函數擬合。所有曲線只用學生已放置的點，不用理想答案修正錯點。
 5. **逐點估速及平均**：先明示「暫採用豎直自由落體模型」，表格每個印記各填tᵢ及初速度估值v₀ᵢ；六點齊備時取得六個速度，再由學生計算平均初速度 v̄₀ = (v₀₁ + ⋯ + v₀ₙ)/n。畫面列出本次納入的點與n；另用受限模型 y = kx² 的擬合係數估一個代表速度，與平均比較。
 6. **獨立計時對照**：按「顯示計時記錄」，揭示離軌至撞槽的模擬時鐘讀數。以自己的量度配對時間，觀察 x–t 直線及 y–t 二次擬合，研究水平勻速、豎直自由落體並估計 g。
@@ -26,9 +26,9 @@
 |---|---|
 | Slug / learning objective | `horizontal-projectile-lab`；量度及重建平拋軌跡、估算 v₀、比較擬合及分運動證據 |
 | Delivery scope / package | Assessed SCORM 1.2；`sim/manifests/horizontal-projectile-lab.xml`；`npm run package -- horizontal-projectile-lab` |
-| Learner task / main interactions | 調槽、投球、六點記錄、拖尺／換向、讀數輸入、描點、擬合、估速、計時對照及提交 |
+| Learner task / main interactions | 調槽、投球、六點記錄、拖尺／換向、畫布四選一讀數、描點、擬合、估速、計時對照及提交 |
 | Shared subject core / activity outer layer | 本活動擁有平拋模型、答案、rubric、保存；重用既有純數學擬合，不建立通用實驗編輯器 |
-| Runtime files / libraries and justification | 原生 HTML/CSS/JS、SVG、Pointer Events；`index.html`、`styles.css`、`main.js`、`model.js`、`scoring.js`、`persistence.js`、`ui-runtime.js`；最後一檔集中真正的啟動／提交邏輯，供瀏覽器及 Node 測試共用；依賴下表共用檔，不加 runtime library |
+| Runtime files / libraries and justification | 原生 HTML/CSS/JS、SVG、Pointer Events；`index.html`、`styles.css`、`main.js`、`model.js`、`scoring.js`、`persistence.js`、`ui-runtime.js`、`presentation.js`；ui-runtime集中真正的啟動／提交邏輯，供瀏覽器及 Node 測試共用；依賴下表共用檔；按使用者要求重用現成本地MathJax及CircuitMath作TeX→SVG，不加npm依賴、不用CDN |
 | Assessment risk / trusted validation | `formative`，100 分、60 分達標；瀏覽器端評分不防竄改。本版不作高風險考試，server validation N/A，不包含秘密 |
 | Out of scope | 斜拋、可變 g／釋放高度、飛行阻力、反彈、自轉顯示、隨機題庫、額外座標／計時噪聲、完整不確定度傳播、跨 attempt 歷史、匯出及另一套教師工作台；本版只加入下述約±1%出口速率波動 |
 
@@ -38,9 +38,10 @@
 
 | 路徑 | 計劃改動／依賴 |
 |---|---|
-| `sim/horizontal-projectile-lab/` | 上述七個 runtime 檔、model／scoring／persistence／lifecycle 測試及共用測試 fixture `test-support.js` |
+| `sim/horizontal-projectile-lab/` | 上述八個 runtime 檔、model／scoring／persistence／lifecycle 測試及共用測試 fixture `test-support.js` |
 | `sim/shared/styles.css`、`scorm.js`、`activity-flow.js`、`fullscreen.js` | 現成依賴，沿用 API／樣式 |
 | `sim/newtons-second-law-investigation-lab/fitting.js` | 直接相對載入 `NewtonFitting.fit/predict`；已有直線、二次、過原點擬合。平方模型將 x 轉成 x² 再用 `origin`，不複製 QR 解法或搬動原 callers |
+| `sim/circuit-workbench/circuit-math.js`、`mathjax-tex-svg.js`、`mathjax-license.txt` | 只重用現成TeX→SVG排版API及本地bundle，沒有修改電路功能；全部入manifest與ZIP |
 | `sim/config.js`、`sim/manifests/horizontal-projectile-lab.xml` | 已新增 metadata／全部 runtime 資產；不打包開發測試檔 |
 | `tools/horizontal-projectile-browser-regression.js` | 正式入口同時覆蓋 source 及實際解壓 ZIP |
 | `tools/mobile-scroll-cases.js`、`mobile-scroll-operations.js`、`mobile-scroll-browser-regression.js` | 加入本活動合法 fixtures、每種目標及狀態觀測，重用 T0–T3 hosts |
@@ -104,10 +105,10 @@ Apply [layout](00-shared-platform-and-style.md#layout) and [mobile interaction](
 |---|---|
 | Three regions | Header：緊湊標題、進度、檢查及fullscreen；stage：裝置／記錄紙／圖；panel：操作、表格、計算／結論 |
 | Fullscreen (mandatory) | 外層main標記 `data-sim-fullscreen-target`、header標記 `data-sim-fullscreen`，manifest列shared/fullscreen.js；右上44px目標與標題／進度不重疊 |
-| Desktop / tablet | ≥900 CSS px 並排，panel 20–24rem；較窄直向上下排列 |
+| Desktop / tablet | ≥900 CSS px 並排，panel 25–30rem；主文21px、圖上標籤24px；較窄直向上下排列 |
 | Control-panel classification | `bounded split-panel`，拖尺、作圖、填表需要同時看見舞台 |
-| Phone stage and controls | 舞台約44dvh，按header及可用高度調整；panel至少96px且可到最後控制；短橫向可雙欄，不能縮字或增加舞台scroller |
-| Phone text | 主文／控制16px，次要／圖標至少14px實際顯示；細尺刻度透過4–8倍預覽辨識 |
+| Phone stage and controls | 一般舞台約44dvh，量尺約55dvh；舞台低於180px時四選一原組移入panel以保持44px操作。按header及可用高度調整；panel至少96px且可到最後控制；短橫向可雙欄，不能縮字或增加舞台scroller |
+| Phone text | 主文／控制18px、圖標16px實際顯示；細尺刻度透過4–8倍預覽辨識 |
 | Viewports | 320×500、390×500、390×600、390×844、桌面／平板、320×400及320×225短iframe、橫向、工具列／鍵盤、200% zoom |
 | Scroll topology | 活動document有界、無競爭縱向range；panel獨立捲動且邊界不轉host；T0–T4 owner逐項記錄，未實測不宣稱通過 |
 
@@ -128,7 +129,7 @@ Apply [navigation](00-shared-platform-and-style.md#navigation) and [submission/r
 | Step / question | Required upstream data and why | If missing or changed | Legal next actions / final-check route |
 |---|---|---|---|
 | collect | 無上游；選空slot或重做點 | 六點滿時不能默默覆寫最舊點 | 調槽、釋放、下一步、check |
-| measure | 該slot有撞槽記錄 | 無點留空；x／y可各自未答 | 拖尺、輸入、返回／下一步、check |
+| measure | 該slot有撞槽記錄 | 無點留空；x／y可各自未答 | 拖尺、點選讀數、清除某讀數、返回／下一步、check |
 | plot | 該點兩讀數都非空才可放點 | 不補缺數，不修錯點 | 放／拖點、擬合、返回／下一步、check |
 | speed | 每個記錄slot對應自己的tᵢ／v₀ᵢ，需該點讀數完整；平均需至少兩個已填速度 | y=0合法但不可反算；缺依賴不製造答案，不可挑選性排除已填速度 | 逐行填t、v，再填全組平均／擬合估速，或check |
 | motion | 揭示記錄後才有時間圖；各擬合需足夠秩 | 無／少資料留空；概念題仍可答 | 顯示時間、查看圖、填g／答題、check |
@@ -140,8 +141,8 @@ Apply [diagrams/notation](00-shared-platform-and-style.md#diagrams-and-notation)
 
 | Decision | Activity specification and reason |
 |---|---|
-| Notation | x、y、t、g、v₀為約定方向的標量；cm表格／圖軸、SI公式，數值擬合式旁明示位置以m、時間以s表示；k／A／α避免與加速度a混淆；共用math字體、斜體變量、正體單位、真正上下標 |
-| Arrow graphics | x向右、y向下軸箭頭，O在出口球心；無學生矢量作圖。若有出口箭頭只表方向、不顯示未知速度大小 |
+| Notation | x、y、t、g、v₀為約定方向的標量；cm表格／圖軸、SI公式，數值擬合式旁明示位置以m、時間以s表示；k／A／α避免與加速度a混淆；所有物理量、點標籤、數學符號、刻度數值及單位均使用LaTeX經現成本地MathJax轉成SVG；面板／舞台／放大鏡／回饋一致 |
+| Arrow graphics | x向右、y向下軸箭頭，從初頁明顯標示紅色O(0,0)在出口球心；無學生矢量作圖。若有出口箭頭只表方向、不顯示未知速度大小 |
 | Snap | 槽5mm步距；尺可對齊可見O／所選印記投影；圖點只吸公開1cm格。mouse8px、touch/pen12px CSS門檻，不吸答案／理想軌跡；與評分容差分開 |
 | Snap release | mouse移3px、touch/pen6px才開始拖，輕觸保留原值；用最近可見對齊線／公開格點，預覽與放手同一幾何。實作沒有加入初稿建議的1.5倍黏附遲滯：窄屏1cm格距遠小於12px，避免圖點被黏住而難以移動 |
 | Touch preview | 尺零線／讀數、圖點會被手指遮住，角落128×112px真實局部放大，至少4 CSS px/mm，使用同一場景；不顯座標答案、不攔輸入。另有「放大尺上讀數」按鈕，聚焦所選印記在目前尺上的投影，學生仍須讀刻度。粗調槽及按鈕無精細遮蔽，不需預覽 |
@@ -482,3 +483,14 @@ Follow the production guide's [registration procedure](../docs/simulation-scorm-
 報告：`output/playwright/horizontal-projectile-lab/touch-T{0,1,2,3}-{source,package}.json`；合併assert摘要`final-acceptance-summary.json`同目錄。逐move及release後20／100／400ms保留owner、host/document/panel、frame、viewport、trusted event、答案及suspend資料；操作含完成、cancel、lostcapture、blur、secondary touch。這是所列18種狀態的本地證據；technical/mismatch的控制器測試不冒充其逐host觸控實測。完整手勢及package-ready總閘因此仍保留未勾選，亦受全專案browser失敗及實際zoom待驗影響。
 
 真Moodle學生帳戶、實體手機T4、OS實際200%縮放及GitHub CI尚未驗收；保持Moodle-ready未勾選。
+
+## 2026-10-18 使用者修訂：LaTeX、大字、原點及四選一讀尺
+
+本節以後的驗證才對應本次程式；上述220 cases等結果屬上一版歷史，不能沿用宣稱本次通過。
+
+- 四選一只使用目前尺上讀數的整mm值及相隔10–30mm的干擾值，四項互異且順序由目前幾何決定；不抽新的投球random、不使用答案補選項。讀數超出0–1000mm尺域時不顯選項，學生須移尺。
+- 零位對準時只有一項落在原讀數5mm評分容差；錯位50mm／100mm等情況可以四項全錯。選項本身不標正誤；記錄只有原有read欄位，既有評分及schema v1不改，舊attempt能恢復。移尺保留已選讀數；再選新值沿用原子失效邏輯，清除讀數可保留未答。
+- 四按鈕保持同一DOM且不在pointerdown寫答案；拖動時隱藏，mouseup／touchend後重算。鍵盤可Tab選值、方向鍵移尺；錯位不會獲自動修正。零位把手48px（桌面52px），舞台保留兩側32px捲動條，讀數卡只攔自己的可見區域。
+- 桌面21px主文、24px圖標；手機18px主文、16px圖標。極短iframe的選項移入面板，普通手機在印記尺上投影附近顯示。原點固定於水平出口球心，以紅點及LaTeX O(0,0)表示。
+- 影響範圍：活動HTML/CSS/main/model/presentation、manifest、既有model及browser測試；共用SCORM、MathJax及電路runtime不改。manifest共16資產（含本地MathJax授權），ZIP另有root manifest，共17檔。
+- 測試決定：既有model入口增加對零／錯位／四值互異／尺端／超尺／有限極值TeX檢查；browser主線改走畫布選讀數，新增滑鼠／touch選值、錯位不補真值、原點／大字／TeX幾何／短屏fallback／保存及只讀檢查；重跑來源與解壓ZIP、既有生命週期及受影響觸控profiles。不新增正式test入口，registry無新增項目。
