@@ -83,7 +83,6 @@
     document.querySelectorAll('[data-clear-formula]').forEach(e=>e.disabled=locked||s.formulas?.[e.dataset.clearFormula]==null);
     d.calculationNotice.textContent=s.schemaVersion===1?'舊版手動計算結果（只讀）。':'只顯示所選公式的運算結果，不代表公式正確。缺少讀數或公式時顯示「—」；時間為零時不能除以時間。平均初速度只需填一次。';
     const indices=M.included(s);
-    d.included.innerHTML=`納入全部有效速度結果：${indices.length?indices.map(i=>math(`P_{${i+1}}`,pn(i))).join("、"):"尚無"}；${math(`n=${indices.length}`)}。未有結果的列不補0，錯公式的有限結果亦不自動刪除。`;
     value(d.meanV,s.meanV);
     d.meanV.disabled=locked||indices.length<2;
     const fit=s.fit.attempted?M.fit(s):null;
@@ -96,7 +95,7 @@
     d.previous.disabled=M.VIEWS.indexOf(view)===0;d.next.textContent=view===M.VIEWS.at(-1)?'檢查目前作答':'下一步';d.returnCheck.hidden=!s.returnToCheck;
     if(checking){
       const reads=s.rows.reduce((n,r)=>n+(r?r.read.filter(v=>v!==null).length:0),0);
-      d.checkSummary.innerHTML=`<p>印記 ${records.length}/6；座標讀數 ${reads}/12；自動圖點 ${points.filter(Boolean).length}/6；公式 ${Object.values(s.formulas??{}).filter(Boolean).length}/2；速度結果 ${indices.length}/6。</p><p>平均初速度：${s.meanV===null?'未答':math(V.number(s.meanV)+'\\,\\mathrm{m}\\,\\mathrm{s}^{-1}',fmt(s.meanV)+' m/s')}；納入${math(`n=${indices.length}`)}。</p><p>擬合：${s.fit.attempted?'已執行':'未執行'}；軌跡類型：${s.trajectory===null?'未答':'已答'}。</p>`;
+      d.checkSummary.innerHTML=`<p>印記 ${records.length}/6；座標讀數 ${reads}/12；自動圖點 ${points.filter(Boolean).length}/6；公式 ${Object.values(s.formulas??{}).filter(Boolean).length}/2；速度結果 ${indices.length}/6。</p><p>平均初速度：${s.meanV===null?'未答':math(V.number(s.meanV)+'\\,\\mathrm{m}\\,\\mathrm{s}^{-1}',fmt(s.meanV)+' m/s')}。</p><p>擬合：${s.fit.attempted?'已執行':'未執行'}；軌跡類型：${s.trajectory===null?'未答':'已答'}。</p>`;
       d.submitButton.disabled=controller.unsaved;
     }
     if(controller.trusted){

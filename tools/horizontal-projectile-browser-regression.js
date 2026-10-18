@@ -67,6 +67,7 @@ async function completeFlow(base,label){
   await input('#fitModel','linear');await click('#fitButton');assert.equal((await call('return ProjectileModel.fit(app.getState());')).n,7);
   await input('#fitModel','quadratic');await click('#fitButton');
   await input('#trajectory','parabola');await screenshot(label+'-trajectory');await click('#next');
+  assert(await call('return !d.getElementById("included")&&d.querySelectorAll("#meanV").length===1&&![...d.querySelectorAll("[data-formula]")].some(e=>e.dataset.formula.startsWith("\\\\bar v_0="));'));
   await click('[data-formula-choice="time"][value="fall"]',true);await click('[data-formula-choice="speed"][value="horizontal"]',true);
   const s=await state();await input('#meanV',Number(M.mean(M.calculations(s).map(c=>c.v)).toFixed(3)));
   assert.deepEqual((await state()).rows.map(r=>r.speedOffsetPpm),recorded.rows.map(r=>r.speedOffsetPpm));
@@ -150,6 +151,11 @@ async function layoutMatrix(base,label){
   await viewport(390,600);const s=T.filled();s.view='measure';await open(base,s);await screenshot(label+'-phone');
 }
 async function flows(base,label){
+  const four=T.filled();four.rows[1]=four.rows[3]=null;four.meanV=null;four.view='speed';await open(base,four);
+  assert(!(await call('return d.getElementById("meanV").disabled;')));const avg=M.mean(M.calculations(four).filter(c=>c.v!==null).map(c=>c.v));await input('#meanV',Number(avg.toFixed(3)));await screenshot(label+'-average-without-hints');
+  await click('#checkButton');assert(await call('return !d.getElementById("checkSummary").textContent.includes("納入");'));await click('#submitButton');assert.equal(await call('return app.controller.result.score;'),86);
+  const detail=await call('return app.controller.result.detail.filter(d=>d.name.startsWith("平均初速度"));');assert(detail.every(d=>d.points===4));
+  report.flows.push({label,kind:'no-mean-hints/four-point-mean-full-eight/86-total',passed:true});
   for(const attempted of [false,true]){
     const retired=T.filled();retired.view='plot';retired.fit={model:'inverse',attempted};await open(base,retired);
     assert.deepEqual(await state(),retired);assert(await call('return d.getElementById("fitButton").disabled&&d.getElementById("fitFormula").textContent.includes("已移除")&&!d.querySelector("#fitModel option[value=inverse]");'));

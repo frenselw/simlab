@@ -20,3 +20,12 @@ console.log('Projectile scoring: close readings, blank/partial, formula choices,
 const oldV2=T.legacyV2Filled();assert.equal(S.score(oldV2).score,100);assert.equal(M.fit(oldV2).n,6);assert.equal(part(oldV2,'擬合速度準確度 / m/s'),2);
 const inverse=T.filled();inverse.fit={model:'inverse',attempted:true};assert.equal(part(inverse,'成功執行資料擬合'),0);assert.equal(part(inverse,'選擇二次函數擬合'),0);
 assert(!S.score(T.filled()).detail.some(d=>/時間擬合|擬合速度|哪種/.test(d.name)));
+for(let count=0;count<=6;count++){
+ const s=T.filled(),slots=[0,5,1,2,3,4].slice(0,count);s.rows=s.rows.map((r,i)=>slots.includes(i)?r:null);
+ s.meanV=count>=2?M.mean(M.calculations(s).filter(c=>c.v!==null).map(c=>c.v)):null;P.draft(s);
+ assert.equal(part(s,'平均初速度運算 / m/s'),count>=2?4:0);
+ assert.equal(part(s,'平均初速度準確度 / m/s'),count>=2?4:0);
+ if(count>=2)assert.equal(S.score(s).score,100-7*(6-count));
+ assert.equal(S.score(P.decode(T.snapshot(s,'review'),'review')).score,S.score(s).score);
+}
+console.log('Two to six valid velocities retain full mean credit; missing observations lose sampling/reading marks, including four-point 86.');
