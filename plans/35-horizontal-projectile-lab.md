@@ -1,6 +1,6 @@
 # 平拋運動：軌跡量度與擬合實驗
 
-狀態：**2026-10-18 新增LaTeX、大字及畫布四選一讀尺；本次驗證進行中。前一版已實作；一位 sub-agent 的核心審查跟進、來源／實際 SCORM 主線及本地18種狀態的嵌入觸控驗證完成。全專案browser回歸仍有4項失敗，package-ready／Moodle-ready未宣稱通過。** 最終證據見文末；真 Moodle／實體電話尚未驗收。初稿的兩份計劃審查另列為歷史紀錄。
+狀態：**2026-10-18 已完成LaTeX、大字、固定原點及畫布四選一讀尺修訂；本次來源／實際SCORM測試、36個讀尺觸控場景及全部213項Node通過。** 本次證據見文末；上一版220 cases為歷史。真Moodle／實體手機及全專案browser總閘仍未宣稱通過。
 
 - 分支：`codex/horizontal-projectile-lab`。
 - 起點：本機 `main`，`f7ab989ca59b72ebe6a7691129320c4768f6fcf8`；未宣稱已同步遠端。
@@ -362,7 +362,7 @@ Follow the production guide's [registration procedure](../docs/simulation-scorm-
 
 | Item | Activity decision / executed evidence |
 |---|---|
-| Runtime resource declaration | `sim/manifests/horizontal-projectile-lab.xml`列七活動檔、四shared檔及既有fitting.js，共12個 runtime 資產；ZIP另有root `imsmanifest.xml`，沒有引用catalogue或外部CDN |
+| Runtime resource declaration | `sim/manifests/horizontal-projectile-lab.xml`列八活動檔、四shared檔、既有fitting.js、本地CircuitMath／MathJax及授權，共16個 runtime 資產；ZIP另有root `imsmanifest.xml`，沒有引用catalogue或外部CDN |
 | Logical test entries | `sim/horizontal-projectile-lab/model.test.js`、`scoring.test.js`、`persistence.test.js`、`lifecycle.test.js`；kind=node，scope繼承slug，涵蓋上述非平凡邏輯 |
 | Browser entries / owner | `{file:'tools/horizontal-projectile-browser-regression.js',kind:'browser',scope:'horizontal-projectile-lab'}`；一入口含source/package，無args變體 |
 | Case helpers | 先擴充上述現有mobile-scroll helpers；若實作確需新`*-browser-cases.js`，登記literal consumer及scope，不把helper冒充已跑test |
@@ -494,3 +494,15 @@ Follow the production guide's [registration procedure](../docs/simulation-scorm-
 - 桌面21px主文、24px圖標；手機18px主文、16px圖標。極短iframe的選項移入面板，普通手機在印記尺上投影附近顯示。原點固定於水平出口球心，以紅點及LaTeX O(0,0)表示。
 - 影響範圍：活動HTML/CSS/main/model/presentation、manifest、既有model及browser測試；共用SCORM、MathJax及電路runtime不改。manifest共16資產（含本地MathJax授權），ZIP另有root manifest，共17檔。
 - 測試決定：既有model入口增加對零／錯位／四值互異／尺端／超尺／有限極值TeX檢查；browser主線改走畫布選讀數，新增滑鼠／touch選值、錯位不補真值、原點／大字／TeX幾何／短屏fallback／保存及只讀檢查；重跑來源與解壓ZIP、既有生命週期及受影響觸控profiles。不新增正式test入口，registry無新增項目。
+
+### 本次已完成的來源／套件證據
+
+- 程式commit：`d98ffab27f1c05c14091c3c785605ad541021929`；沒有改既有SCORM、MathJax及電路runtime。`check:tests`仍為246 entries（213 Node、33 browser）；本次沒有新增正式入口。
+- 四個活動Node入口及既有mobile-scroll契約測試通過；包含四個選項互異、對零時唯一正確、錯位50／100mm時全部錯、尺兩端／超尺、巨量有限數TeX與原有270個保存變體。
+- 正式browser入口source／build+extracted ZIP全部通過：100個版面、14組流程、44組操作／T0手勢觀測。新增四個viewport（1280×800、390×600、320×500、320×225）的四選一：先錯選、錯位不補真值、重新對零、真實滑鼠／touch選值、重新載入保留、提交後禁止編輯；亦assert公式轉成SVG、字體、原點、44px按鈕、短iframe面板fallback。
+- 六個T1／T2／T3×source/package報告，每個含水平尺已答、空白、豎直尺三profiles×兩尺寸（320×500、390×844），合共36 cases、624 gesture checks，completed=true、status=passed、issues/errors皆空。完整拖動、取消、失焦、第二指及lost capture的逐move／release觀測均保留。報告為`output/playwright/horizontal-projectile-lab/latex-complete-T{1,2,3}-{source,package}.json`，摘要`latex-touch-summary.json`。
+- 六份可信觸控報告的17檔digest皆為`2f9c547ec8380e0d8f035119c8c03b673df2b0bf5d54a51de860b60b14dead06`；正式browser的16資產內容hash為`7ebba7a208163525d2137b0e189f2fa5326e114a9e77eaa3f8fdb9734b1b0dd5`，另逐byte核對目前ZIP與來源一致，含17檔。本次先前因文字避讓／提示排版尚有修改而中止的中間測試，不列為最終通過證據。
+- `npm.cmd run check`、`npm.cmd run package:all`、`git diff --check`及文件連結檢查通過。已視察實際桌面／手機／讀數／裝置截圖；一般viewport的讀數卡在舞台，320×225移到panel，沒有以縮小按鈕處理。
+- 已提交的影響選擇預覽：base `bd1b978`、head `d98ffab`，mode=affected、packages=[horizontal-projectile-lab]、214 entries（全部213 Node及本活動browser）；報告`selection-preview-latex.json`。本地Node按原登記入口分三批、每批71項執行，每項300秒期限，合計213個互異入口全部通過，未修改測例或runner。報告`output/ci-tests/projectile-latex-node-{1,2,3}/report.json`，三份status皆passed；選擇預覽不是GitHub CI。
+
+本次沒有重跑其餘32個browser入口、整個220 cases歷史矩陣、GitHub CI、OS實際200%縮放或實體手機／Moodle；上一版全專案4項browser失敗未在本次宣稱修復，原package-ready／Moodle-ready總閘仍未通過。
