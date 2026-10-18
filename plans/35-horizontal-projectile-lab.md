@@ -9,6 +9,16 @@
 - 自動預填是使用者明確要求的暫時開發示例，不代表學生已完成量度。頁面標示「測試模式」，切換一般模式即正常空白練習；正式LMS連線完全不自動預填、沒有模式切換控制，仍可空白0分提交。已提交／pending狀態不提供切換或重做按鈕。之後移除預填可關閉main中的暫時default，再刪除專用practice動作／提示；不將測試答案硬寫入正式fresh()。
 - 範圍：model/main/index/styles/scoring/persistence/ui-runtime、既有四個Node入口及browser入口、必要fixtures和本計劃；shared SCORM／activity-flow、題目評分分配、依賴及manifest資產數不改。驗證橫軸避讓（桌面／手機／短iframe／兩尺）、隨機上下界／同輪與跨輪、一般空白與測試預填／重做／切換、Moodle無預填、source與解壓SCORM及適用觸控。沿用既有測試登記，執行check:tests、committed selection preview、相關Node／browser、check/package及文件檢查；再更新同一私人Sites、commit及push。實體手機／Moodle實機另列未驗。
 
+### 本次最終證據及測試入口
+
+- Runtime head `2f512c2d7b760aa75d2d7233be90c8046fbdb956`已推送。四個活動Node入口通過：隨機上下界、同輪±1%相對波動及能量上限、快慢射程差、測試模式只產生六列印記/read、後續答案保持未答、平均／擬合評分使用本輪真值、720組draft round-trip及實際續作、舊v2缺base保留100分、無效base／混輪offset拒絕，以及resume／pending retry不重抽base。最大數字測例draft/review/pending為1070／969／1234 bytes，全部測例仍在4000-byte內；本次沒有重跑其他209個Node入口。
+- 正式browser同一head的source及真正解壓SCORM通過124個版面、22組流程、50組操作觀測；`output/playwright/horizontal-projectile-lab/report.json`。新增四尺寸×collect/measure/plot的低點名稱實際字框檢查，排除橫軸及刻度數字帶；量度版另逐一斷言名稱不與尺身相交。窄畫面必要時使用畫布最左可見空間，仍保留整個字框。已視察`source-label-beside-axis.png`及`source-test-mode-third-stage.png`：第一點名稱位於軸下左方／尺外，測試模式直接顯示六個自動圖點及模式提示。
+- Browser驗證standalone預設測試模式、最慢／最快兩次基準射程相差超過150mm、清除重做抽新base且重新預填、切換一般模式為空白0分、切回預填、提交後不顯示模式／清除按鈕、刷新後重新開始測試資料，以及test=1在LMS下仍空白0分且隱藏模式控制。測試模式面板亦以可信touch滑動，答案及外層scroll不變。後續formulas／fit／mean／clockShown／conclusions未自動作答；保留既有空白／部分、四提交結果及舊review測例。
+- 最終T1／T2／T3×source/package×320×500及390×844，四個相關profiles（initial、measure-preview-x/y、plot-answered）通過48 cases／852 gesture checks，completed=true／status=passed，errors及issues皆空。每move／release後核對host/panel/iframe、答案及suspend；接球槽及兩尺方向包含完成、cancel、lost capture、blur、第二指。報告`preview-final-T{1,2,3}-{source,package}.json`，摘要`preview-acceptance-summary.json`同browser目錄。這是本次變更的觸控範圍；其他phase的完整19-profile紀錄仍屬上一版，沒有冒稱本次重跑。
+- 六份touch報告17檔digest皆為`f1526de2073e37ec21d3a85a0e8757fd5bb44004d467f6eae55829ec0107cc03`；正式browser16資產hash為`9c230b414fea751b4c2f62d0bb2cd0bb0c575dee9e17cd4042a1db42f364bef2`。最終SCORM17檔與來源逐byte相同。`check:tests`為246 entries／48 helpers／2 manual，`check`、`package:all`、文件及diff檢查通過。Committed selection preview base `8ca5618`／head `2f512c2`為affected、214 entries、單一活動package，存於`selection-preview-final-preview.json`。沒有宣稱全部213 Node、其他32 browser、GitHub CI、OS縮放、真手機或Moodle實機通過；先前總閘維持。
+- [原有私人Sites](https://simlab-horizontal-projectile-lab.ieyp.chatgpt.site)已更新，現在根入口預設進入測試模式。一般模式可用頁面切換，或活動入口帶test=0；切換會重新開始。移除暫時預填時先將main的`TEMPORARY_TEST_DEFAULT`設false，正式刪除時再移除practice動作及modeControls；不要將示例當學生答案遷移。
+- Sites source `7fc95823cfa4eb852517df6332f1f0f7a2c2afd4`由官方helper推送，saved version `appgprj_6ad49418111c819198d79e88cab3e78e~appgver_8522723bd79c8191b85ca20be11d059c`，deployment `appgdep_6ad4b4da1b988191b063912e1fb245d7`原生回傳`succeeded`；owner-private權限保持。Archive `output/sites/horizontal-projectile-lab-test-preview-2f512c2.tar.gz`共18檔，16個runtime資產逐byte核對已測版本，根入口及hosting identity不改；SHA-256 `6950c7377213a7ca39d562a56f6a97025f65d82868dfb226f9ee2270da345d54`，資產證據`output/sites/projectile-test-preview-assets.json`。後續文件提交不改runtime。
+
 ## 減少重複操作的新版工作流程（2026-10-18；本節取代下文相關舊規格）
 
 - 讀尺選項以目前尺上讀數為中心，相距1–2mm（四項通常跨度3mm；邊界或錯零位時略移），不再相隔1–2cm。對正零線時唯一正確答案為四捨五入至整mm的讀數，恰半格向上；最大捨入差0.5mm，以唯一整mm值評分。錯零位仍顯示四個不等於正確整mm讀數的選項。±1%投球波動及實際印記不改。
