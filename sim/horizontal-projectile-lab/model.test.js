@@ -42,3 +42,13 @@ const V=require('./presentation.js');
 for(const tex of ['O(0,0)','t=\\sqrt{\\frac{2y}{g}}','v_0 / (\\mathrm{m}\\,\\mathrm{s}^{-1})',V.number(Number.MAX_VALUE),V.number(-Number.MAX_VALUE)])assert(!V.math(tex).includes('merror'));
 assert(!V.number(Number.MAX_VALUE).includes('Infinity'));assert(V.prose('P1 x–t，9.80 m/s²').includes('data-tex'));
 console.log('Ruler choices: own-scale values, unique aligned answer, wrong-origin distractors, endpoints and TeX passed.');
+
+let spaced=M.change(M.fresh(),{type:'record',slot:0,depthMm:200,ppm:0});
+assert.equal(M.heightConflict(spaced,200,1),0);assert.equal(M.heightConflict(spaced,245,1),0);assert.equal(M.heightConflict(spaced,250,1),-1);
+for(const depthMm of [155,195,200,245])assert.throws(()=>M.change(spaced,{type:'record',slot:1,depthMm,ppm:0}));
+spaced=M.change(spaced,{type:'record',slot:1,depthMm:250,ppm:0});assert.equal(spaced.rows[1].depthMm,250);
+assert.doesNotThrow(()=>M.change(spaced,{type:'record',slot:0,depthMm:200,ppm:10}));
+const legacy=M.clone(spaced);legacy.rows[1]=M.clone(legacy.rows[0]);assert.deepEqual(P.decode(T.snapshot(legacy),'draft'),legacy);assert.doesNotThrow(()=>M.change(legacy,{type:'record',slot:1,depthMm:250,ppm:0}));
+const unsel=M.clone(spaced);unsel.selectedSlot=null;assert.deepEqual(M.snapRuler(unsel,[5,6],1,12),[5,6]);
+unsel.selectedSlot=0;assert.deepEqual(M.snapRuler(unsel,[5,6],1,12),[0,0]);assert.deepEqual(M.snapRuler(unsel,[30,35],1,12),[30,35]);
+console.log('Height spacing: 5 cm boundaries, atomic rejection, own-slot redo, legacy resume; selected-only ruler snapping passed.');

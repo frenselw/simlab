@@ -41,6 +41,12 @@
     if (!Number.isFinite(value) || value < 0 || value >= 1) throw new Error('Invalid random draw');
     return Math.floor(value * 20001) - 10000;
   }
+  const heightConflict=(state,depthMm,slot)=>state.rows.findIndex((r,i)=>i!==slot&&r&&Math.abs(r.depthMm-depthMm)<50);
+  function snapRuler(state,raw,scale,threshold){
+    const row=state.rows[state.selectedSlot];if(!row)return raw.slice();
+    const mark=impact(row.depthMm,row.speedOffsetPpm),targets=[[0,0],[Math.round(mark.x),Math.round(mark.y)]];
+    return raw.map((v,axis)=>{const nearest=targets.map(t=>t[axis]).sort((a,b)=>Math.abs(a-v)-Math.abs(b-v))[0];return Math.abs(nearest-v)*scale<=threshold?nearest:v;});
+  }
   function fit(state) {
     const model = state.fit.model;
     if (!model) return {ok:false,message:'先選擇擬合模型。',n:0};
@@ -66,6 +72,7 @@
       case 'select': s.selectedSlot = i; break;
       case 'record': {
         if (!integer(i,0,5) || !integer(action.depthMm,50,800) || action.depthMm%5 || !integer(action.ppm,-10000,10000)) throw new Error('Invalid observation');
+        if(heightConflict(s,action.depthMm,i)>=0)throw new Error('Observation heights must be at least 5 cm apart');
         clearCalculation(s,i);
         s.rows[i] = {depthMm:action.depthMm,speedOffsetPpm:action.ppm,clockMs:impact(action.depthMm,action.ppm).clockMs,read:[null,null],point:null};
         s.selectedSlot = i; invalidateFit(s); s.gFromClock = null;
@@ -104,5 +111,5 @@
     }
     return s;
   }
-  return Object.freeze({G,H,IDEAL,SPEED,VIEWS,QUESTIONS,clone,integer,mean,fresh,velocity,impact,rulerChoices,drawOffset,fit,predict,timeFit,included,change});
+  return Object.freeze({G,H,IDEAL,SPEED,VIEWS,QUESTIONS,clone,integer,mean,fresh,velocity,impact,rulerChoices,drawOffset,heightConflict,snapRuler,fit,predict,timeFit,included,change});
 });

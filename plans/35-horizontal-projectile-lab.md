@@ -506,3 +506,11 @@ Follow the production guide's [registration procedure](../docs/simulation-scorm-
 - 已提交的影響選擇預覽：base `bd1b978`、head `d98ffab`，mode=affected、packages=[horizontal-projectile-lab]、214 entries（全部213 Node及本活動browser）；報告`selection-preview-latex.json`。本地Node按原登記入口分三批、每批71項執行，每項300秒期限，合計213個互異入口全部通過，未修改測例或runner。報告`output/ci-tests/projectile-latex-node-{1,2,3}/report.json`，三份status皆passed；選擇預覽不是GitHub CI。
 
 本次沒有重跑其餘32個browser入口、整個220 cases歷史矩陣、GitHub CI、OS實際200%縮放或實體手機／Moodle；上一版全專案4項browser失敗未在本次宣稱修復，原package-ready／Moodle-ready總閘仍未通過。
+
+## 2026-10-18 再修訂：取樣距離與尺面可讀性
+
+- 移除畫布的「固定釋放標記」文字。新增取樣須與其他已記錄slot的深度相隔至少50mm；正好50mm可接受，不足50mm禁止釋放，model再次驗證；重做自己slot不算新增同高資料。保留舊v1 draft/review（可能有近距離點）的恢復及既有評分，不回溯破壞舊attempt。
+- 水平／豎直尺只有已選有效印記才吸附O及該點投影；未選點仍可自由移尺，不自動吸附。
+- 零位把手保持44px觸控區，但只畫小型透明圖示，放在零刻度左上方，與零數字／尺面分離。尺身加厚及兩端留邊，讓所有數字完全在尺身內，避免豎尺的100及0突邊。
+- 原有放大按鈕及讀數卡新增同一放大開關；靜態Preview Window嵌在讀數點附近的卡內，使用真實尺面、同一零位及所選點投影，至少4 CSS px/mm。可收起；不給額外正確讀數、不改答案。拖動時仍用原有自動放大鏡，放手／取消清除。小畫面若卡放不下則沿用panel fallback，保留44px選項。
+- 範圍：活動model/main/HTML/CSS及既有model／browser測例、活動計劃；共用SCORM、擬合、MathJax、保存schema及manifest資產數不變。測試包含50mm邊界／重做／非法record拒絕、未選點不吸附、兩尺方向零字與把手不重疊、尺數字在尺身內、Preview可見／對應所選點／不改答案及source/package與受影響touch cases。完成後commit及push。

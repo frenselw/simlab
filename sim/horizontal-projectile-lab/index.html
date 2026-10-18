@@ -20,7 +20,7 @@
     <button id="catcherHandle" class="handle catcher" aria-label="上下移動接球槽" type="button">↕</button>
     <button id="rulerHandle" class="handle ruler" aria-label="移動直尺零刻度" type="button" hidden>✥</button>
     <div id="pointHandles"></div>
-    <div id="readingChoices" class="reading-choices" hidden role="group" aria-labelledby="readingChoiceTitle"><p id="readingChoiceTitle"></p><div id="readingOptions"></div></div>
+    <div id="readingChoices" class="reading-choices" hidden role="group" aria-labelledby="readingChoiceTitle"><div class="reading-card-header"><p id="readingChoiceTitle"></p><button id="readingZoomInline" type="button" aria-pressed="false">放大尺面</button></div><div id="readingPreview" hidden aria-label="尺面放大預覽"><svg id="readingPreviewSvg" role="img" aria-label="所選印記在目前尺上的放大讀數位置"></svg></div><div id="readingOptions"></div></div>
     <div id="magnifier" hidden aria-hidden="true"><svg id="magnifierSvg"></svg></div>
     <p id="stageHint">調整接球槽，從固定標記釋放鋼珠。</p>
   </section>
@@ -28,10 +28,10 @@
     <div id="notice" role="status" hidden></div><button id="saveRetry" hidden type="button">重試保存</button>
     <section id="resultPanel" hidden><h2 id="resultTitle"></h2><p id="scoreText"></p><button id="retryFinal" hidden type="button">重試提交</button></section>
     <section data-panel="collect">
-      <h2>1. 調槽取點</h2><p>每次從相同標記由靜止釋放，出口速率有約<span data-formula="\pm1\%" aria-label="正負百分之一"></span>的輕微波動。取六個高低分散的印記。</p>
+      <h2>1. 調槽取點</h2><p>每次從斜槽同一位置由靜止釋放，出口速率有約<span data-formula="\pm1\%" aria-label="正負百分之一"></span>的輕微波動。取六個高低分散的印記。</p>
       <label>記錄位置 <select id="recordSlot"></select></label>
       <div class="button-row"><button id="depthUp" type="button">槽向上</button><button id="depthDown" type="button">槽向下</button><button id="release" class="primary" type="button">釋放鋼珠</button></div>
-      <p id="recordCount"></p><ol id="recordList"></ol>
+      <p id="heightNotice" role="status" hidden></p><p id="recordCount"></p><ol id="recordList"></ol>
     </section>
     <section data-panel="measure" hidden>
       <h2>2. 用尺讀取印記</h2><p>固定原點<span data-formula="O(0,0)"></span>係出口球心。<span data-formula="x"></span>向右，<span data-formula="y"></span>向下。拖動零刻度旁把手，把尺對準原點，再點選紅色讀數點旁的四個數值之一。可用方向鍵移尺，Shift加大移動。</p>

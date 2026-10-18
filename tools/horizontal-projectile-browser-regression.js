@@ -65,7 +65,7 @@ async function readingFlow(base,label){
     const initial=await state(),p=M.impact(initial.rows[0].depthMm,initial.rows[0].speedOffsetPpm),correct=Math.round(p.x);
     const metrics=await call(`const card=d.getElementById('readingChoices'),r=card.getBoundingClientRect(),o=d.querySelector('[data-origin]');return{font:parseFloat(getComputedStyle(d.body).fontSize),origin:!!o,math:d.querySelectorAll('#scene [data-tex]').length,formula:[...d.querySelectorAll('[data-formula]')].every(e=>e.querySelector('svg[data-tex]')),parent:card.parentElement.id,card:[r.left,r.top,r.right,r.bottom],buttons:[...d.querySelectorAll('.reading-choice')].map(e=>({value:+e.dataset.reading,height:e.getBoundingClientRect().height,math:!!e.querySelector('svg[data-tex]')}))};`);
     assert(metrics.font>=(width>=900?21:18));assert(metrics.origin&&metrics.math>0&&metrics.formula);assert.equal(metrics.buttons.length,4);assert(metrics.buttons.every(b=>b.height>=44&&b.math));assert.equal(metrics.buttons.filter(b=>Math.abs(b.value-correct)<=5).length,1);
-    assert.equal(metrics.parent,height===225?'readingFallback':'stage');if(height!==225){assert(metrics.card[0]>=32&&metrics.card[2]<=width-32+1&&metrics.card[1]>=0&&metrics.card[3]<=height);}
+    assert.equal(metrics.parent,(height===225||height===500)?'readingFallback':'stage');if(metrics.parent==='stage'){assert(metrics.card[0]>=32&&metrics.card[2]<=width-32+1&&metrics.card[1]>=0&&metrics.card[3]<=height);}
     const wrong=metrics.buttons.find(b=>Math.abs(b.value-correct)>5).value;await click(`[data-reading="${wrong}"]`,true);assert.equal((await state()).rows[0].read[0],wrong);assert.equal((await state()).calculations[0].v,null);assert.equal((await state()).meanV,null);
     await call('app.controller.command({type:"ruler",value:{axis:"x",zero:[50,50]}});');
     const off=await call('return [...d.querySelectorAll(".reading-choice")].map(b=>+b.dataset.reading);');assert(off.every(n=>Math.abs(n-correct)>5));await click(`[data-reading="${off[0]}"]`,true);assert.equal((await state()).rows[0].read[0],off[0]);
@@ -77,6 +77,23 @@ async function readingFlow(base,label){
     await click('#checkButton');await click('#submitButton');await click('[data-go="measure"]');assert(await call('return d.getElementById("readingChoices").hidden&&[...d.querySelectorAll("[data-clear-read]")].every(e=>e.disabled);'));
     report.flows.push({label,kind:'TeX-origin-large-text/own-scale-four-choices/wrong-origin/touch-choice/resume/review',width,height,metrics});
   }
+}
+async function rulerRevision(base,label){
+  await viewport(1280,800);await open(base);await cdp.send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
+  assert(await call('return !d.getElementById("scene").textContent.includes("固定釋放標記");'));
+  await shot(200);assert(await call('return d.getElementById("release").disabled&&!d.getElementById("heightNotice").hidden;'));
+  const before=await state();await call('d.getElementById("release").onclick();');assert.deepEqual(await state(),before);assert.equal(await call('return app.isRunning();'),false);
+  await call('for(let n=0;n<9;n++)d.getElementById("depthDown").click();');assert(await call('return d.getElementById("release").disabled;'));await click('#depthDown');assert.equal(await call('return d.getElementById("release").disabled;'),false);await click('#release');await wait(()=>call('return !app.isRunning();'),'5 cm boundary shot');assert.equal((await state()).rows[1].depthMm,250);
+  for(const [width,height]of[[1280,800],[390,844],[320,500]])for(const axis of['x','y']){
+    await viewport(width,height);const s=T.filled();s.view='measure';s.selectedSlot=0;s.ruler.axis=axis;await open(base,s);
+    const geometry=await call(`const box=e=>{const r=e.getBoundingClientRect();return{left:r.left,right:r.right,top:r.top,bottom:r.bottom};},body=box(d.querySelector('#scene [data-ruler-body]')),zero=box(d.querySelector('#scene [data-ruler-value="0"]')),handle=box(d.getElementById('rulerHandle'));return{body,zero,handle,labels:[...d.querySelectorAll('#scene [data-ruler-value]')].map(box),background:getComputedStyle(d.getElementById('rulerHandle')).backgroundColor};`);
+    const b=geometry.body,z=geometry.zero,h=geometry.handle;assert(h.right<=z.left||h.left>=z.right||h.bottom<=z.top||h.top>=z.bottom,JSON.stringify(geometry));assert.equal(geometry.background,'rgba(0, 0, 0, 0)');for(const r of geometry.labels)assert(r.left>=b.left-1&&r.right<=b.right+1&&r.top>=b.top-1&&r.bottom<=b.bottom+1,JSON.stringify({b,r,axis,width}));
+    const saved=await state();await click('#readingZoomInline',true);assert(await call('return !d.getElementById("readingPreview").hidden&&d.querySelectorAll("#readingPreviewSvg [data-ruler-value]").length>0;'));assert.deepEqual(await state(),saved);
+    if(width===1280||width===390){assert(await call('return d.getElementById("readingChoices").parentElement.id==="stage";'));await screenshot(label+'-ruler-preview-'+axis+'-'+width);}
+    await click('#readingZoomInline',true);assert(await call('return d.getElementById("readingPreview").hidden;'));assert.deepEqual(await state(),saved);
+    report.gestures.push({label,kind:'ruler-contained-labels/clear-zero/nearby-preview',width,height,axis,geometry,passed:true});
+  }
+  report.flows.push({label,kind:'5cm-height-guard/disabled-release/model-preserves-legacy/transparent-ruler/selected-zoom',passed:true});
 }
 async function screenshot(name){const image=await cdp.send('Page.captureScreenshot',{format:'png'});fs.writeFileSync(path.join(out,name+'.png'),Buffer.from(image.data,'base64'));}
 async function layoutMatrix(base,label){
@@ -125,8 +142,8 @@ async function edgeFlows(base,label){
   await click('#release',true);acceptDialog=false;await click('#clearAll');acceptDialog=true;assert.equal(await call('return app.isRunning();'),false);assert.equal(await call('return d.getElementById("release").disabled||d.getElementById("depthDown").disabled;'),false);assert.equal((await state()).rows.filter(Boolean).length,0);
   await shot(200);assert.equal((await state()).rows[0].clockMs,M.impact(200,0).clockMs);
   const s=T.filled();s.view='measure';s.selectedSlot=0;await open(base,s);const before=await state();
-  await click('#readingZoom');assert.equal(await call('return d.getElementById("magnifier").hidden;'),false);assert.deepEqual(await state(),before);
-  await click('#rulerY');assert.equal(await call('return d.getElementById("magnifier").hidden;'),false);await screenshot(label+'-reading-zoom');await click('#next');assert.equal(await call('return d.getElementById("magnifier").hidden;'),true);
+  await click('#readingZoom');assert.equal(await call('return d.getElementById("readingPreview").hidden;'),false);assert.deepEqual(await state(),before);
+  await click('#rulerY');assert.equal(await call('return d.getElementById("readingPreview").hidden;'),false);await screenshot(label+'-reading-zoom');await click('#next');assert.equal(await call('return d.getElementById("readingPreview").hidden;'),true);
   await click('#checkButton');await click('[data-go="collect"]');const old=await state();acceptDialog=false;await click('#release');assert.deepEqual(await state(),old);assert.equal(await call('return app.isRunning();'),false);
   await click('#clearAll');assert.deepEqual(await state(),old);acceptDialog=true;await click('#clearAll');assert.equal((await state()).rows.filter(Boolean).length,0);
   await click('#checkButton');await click('[data-go="motion"]');await click('#showClock');await click('input[value="uniform"]');await click('#checkButton');await click('[data-go="collect"]');await cdp.send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});await shot(200);assert((await state()).clockShown);assert.equal((await state()).conclusions.horizontal,'uniform');
@@ -221,7 +238,7 @@ async function main(){
     cdp.on('Runtime.exceptionThrown',e=>report.errors.push(e.exceptionDetails?.exception?.description||e.exceptionDetails?.text));report.browser=await cdp.send('Browser.getVersion');
     for(const [label,directory]of[['source',path.join(root,'sim')],['package',extracted.packageDirectory]]){
       server=H.createServer(directory);await H.listenServer(server);const base=`http://127.0.0.1:${server.address().port}`;
-      console.log('projectile browser: '+label);await layoutMatrix(base,label);await readingFlow(base,label);await completeFlow(base,label);
+      console.log('projectile browser: '+label);await layoutMatrix(base,label);await readingFlow(base,label);await rulerRevision(base,label);await completeFlow(base,label);
       if(!process.argv.includes('--smoke')){await flows(base,label);await edgeFlows(base,label);await interactions(base,label);await directTouchMatrix(base,label);}
       await H.closeServer(server);server=null;
     }
