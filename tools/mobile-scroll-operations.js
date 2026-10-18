@@ -120,7 +120,13 @@ async function runProjectileOperations({cdp,childEval,observation,prepare,delay}
   for(const ending of['complete','cancel','lostcapture','blur','secondary']){
     await prepare('stage','middle');
     if(selector==='#plotInputSurface')await childEval('(()=>{if(document.getElementById("plotInputSurface").hidden)document.getElementById("placePoint").click();})()');
-    const point=await childEval(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});if(!e||!e.getClientRects().length)throw Error('Missing projectile drag target');const r=e.getBoundingClientRect(),f=frameOffset(),surface=${JSON.stringify(selector)}==='#plotInputSurface';const x=r.left+r.width*(surface ? 0.85 : 0.5),y=r.top+r.height*(surface ? 0.2 : 0.5);return{x:x+f.left,y:y+f.top,hit:document.elementFromPoint(x,y)===e,touchAction:getComputedStyle(e).touchAction};})()`);
+    const point=await childEval(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});if(!e||!e.getClientRects().length)throw Error('Missing projectile drag target');const r=e.getBoundingClientRect(),f=frameOffset(),surface=${JSON.stringify(selector)}==='#plotInputSurface';let x=r.left+r.width*(surface ? 0.85 : 0.5),y=r.top+r.height*(surface ? 0.2 : 0.5);
+      if(${JSON.stringify(selector)}==='#rulerBodyTarget'){
+        const stage=document.getElementById('stage').getBoundingClientRect(),left=Math.max(r.left,stage.left,0),right=Math.min(r.right,stage.right,innerWidth),top=Math.max(r.top,stage.top,0),bottom=Math.min(r.bottom,stage.bottom,innerHeight);
+        const exposed=[];for(const fy of [.5,.2,.8,.05,.95])for(const fx of [.5,.2,.8]){const px=left+(right-left)*fx,py=top+(bottom-top)*fy;if(document.elementFromPoint(px,py)===e)exposed.push([px,py]);}
+        if(!exposed.length)throw Error('No exposed ruler body beside reading preview');[x,y]=exposed[0];
+      }
+      return{x:x+f.left,y:y+f.top,hit:document.elementFromPoint(x,y)===e,touchAction:getComputedStyle(e).touchAction};})()`);
     const before=await observation(),samples=[],issues=[],id=9001;
     const touch=(x,y,key=id)=>({x,y,id:key,radiusX:2,radiusY:2,force:1});
     if(!point.hit||point.touchAction!=='none')issues.push('projectile target not exposed with touch ownership');
