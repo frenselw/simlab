@@ -6,6 +6,12 @@
 - schemaVersion/modelVersion/rubricVersion仍3/1/3，權威欄與phase矩陣沿用四步版。為保留已保存v3反比例作答及原分數，decoder與既有失敗擬合結果仍接受inverse；不將它默認為另一模型、不清空紀錄。還原時顯示選項已移除，學生可改選一次／二次或清除；原review／pending維持只讀及同payload重試。新model動作拒絕inverse，舊inverse狀態不提供再擬合按鈕；檢查及部分提交仍可用。
 - 範圍只及活動index/main/model、相關既有測試／browser入口及本計劃。執行四個活動Node入口、source＋解壓SCORM瀏覽器（包括手機可信touch、舊inverse還原後重選及原review分數）、check:tests、committed selection preview、check／活動打包／文件與diff檢查，再更新同一私人Sites及commit/push。此選單刪項不改拖動／捲動／其他phase；不額外重跑上一版T1–T3全矩陣或其他活動測試，實機／Moodle限制保留。
 
+### 兩模型版驗證與發布
+
+- Runtime head `6f057360a34da4683a4b2b5b6b7ee83dfe3e102e`已推送。四個活動Node入口通過（564組draft round-trip／續作及v3舊inverse的四提交結果／pending同payload重試）；新model動作拒絕inverse，舊答案保留。正式source＋真正解壓SCORM通過104個版面、24組流程、48組操作觀測；新增舊inverse未擬合／已嘗試兩種draft逐一還原、改選二次後100分提交、保留原作答80分及刷新只讀review。手機可信touch仍由正式browser執行；報告`output/playwright/horizontal-projectile-lab/report.json`。目視桌面擬合畫面正常，無新增版面元件。
+- `check:tests`仍246 entries／48 helpers／2 manual，`check`、活動17檔SCORM及文件／diff檢查通過；最終ZIP的16 runtime資產逐byte等於來源，資產hash為`83b7861419480ec3205cb8d1e3bd837331d67247a82eed4ceca7ea5289ecc89f`。Committed selection preview base `a19260a`／head `6f05736`為affected、214 entries、單一活動package，存於`selection-preview-no-inverse.json`；這是選擇證據，不代表本次執行其他209 Node或32 browser。T1–T3完整矩陣、OS縮放、真手機及Moodle均未重驗。
+- [原私人Sites](https://simlab-horizontal-projectile-lab.ieyp.chatgpt.site)已更新，owner-private維持。官方helper推送Site source `c084b6840306571921bfd7bd1a8c881381b8df67`，saved version `appgprj_6ad49418111c819198d79e88cab3e78e~appgver_7315646cef6081919fef7ed2cd7c40a6`，deployment `appgdep_6ad4d15027f88191812aedb197f86de3`原生回傳`succeeded`。Archive `output/sites/horizontal-projectile-lab-no-inverse-6f05736.tar.gz`共18檔；16 runtime及根redirect逐byte核對、hosting metadata等同來源JSON，SHA-256 `eeb66b3d2fea99fc0f8750c8af1d688ae1053a402bdcead78b68a788b61e8c36`。資產證據`output/sites/projectile-no-inverse-assets.json`；後續文件提交不改runtime。
+
 ## 四步簡化及原點擬合（2026-10-18；本節優先）
 
 - 四步依次取點、量度、擬合、公式與平均；刪除第五步、獨立計時概念題及由擬合估速比較。保留兩個公式各選一次、自動套用六列讀數，以及一次平均初速度輸入。暫不新增方程解讀問題。測試模式仍只預填前兩步，隨機速率、量尺及點名避讓不改。
