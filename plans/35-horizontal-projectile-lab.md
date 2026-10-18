@@ -607,3 +607,11 @@ Sites 版使用既有 standalone 行為，刷新開始新作答；Moodle成績�
 
 目標從當前尺位推導，不改schema或保存選點；拖動只預覽，放手才保存尺位，取消恢復原狀。修改範圍涵蓋model/main/HTML、model及browser測例、mobile-scroll本活動操作契約與fixtures。本次驗證未選點／舊選點不影響兩方向最近吸附、切換印記、對應列讀數、錯零位、觸控取消及來源／SCORM，完成後commit/push及更新原私人Sites。
 
+### 自動辨認印記的最終證據
+
+- Runtime commit `c451ccf02bf9f4a24b5e22d539f025469788d4f5`及觸控測試修訂 `90706f6c6b27f86e18aaa1c2d3fe1722a5b1bdb6`均已推送。量度完全不讀取selectedSlot，原作圖選點及draft/review schema維持。Model斷言涵蓋最近點、兩方向、未選點／舊選點、閾值外、等距及舊重疊印記的穩定選擇，並核對操作不修改傳入狀態。
+- 正式browser來源及真正解壓SCORM通過100個版面、16組流程及68組操作／幾何觀測；六點完整作答直接移尺、選項記入對應列後可得100分，沒有量度選單。未選點及舊選點下的兩方向吸附／放大、錯零位、手機／極短iframe、resume、review及原有提交四結果通過。報告`output/playwright/horizontal-projectile-lab/report.json`於commit前啟動，git metadata仍為`f0c0d8c`，實測16資產hash `45e7b0fd1f76122502fd5d5ebf34ca96428ba547b018ca5a18bd48d7f33f5f28`與最後runtime逐byte相同；不以舊git metadata冒充舊版測試。已視察390×600畫布內自動豎尺預覽截圖。
+- 首輪觸控測試在自動切換印記後，固定尺身中央落手被移動後的選項遮擋，導致Missing capture。測試改為在可見尺身內找實際命中尺身的位置，無外露尺身即失敗；沒有放寬捕捉、可信事件或取消保存斷言。單獨320×500豎尺預覽復測通過，完整T1／T2／T3×source/package×320×500及390×844×四量尺profiles重新通過48 cases／912 gesture checks，全部completed=true、status=passed，errors／issues皆空。報告`auto-target-T{1,2,3}-{source,package}.json`及`auto-target-focus-vertical.json`均在同一browser輸出目錄；摘要`auto-target-acceptance-summary.json`。
+- 六份touch報告17檔digest皆為`ede5a63c6f0674a86a4f47c2968596c317fc5b3b0bf62e9d5cb07932922e4438`，最終SCORM17檔與來源逐byte相同。全部213個Node入口通過（`output/ci-tests/projectile-auto-target-node-{1,2,3}/report.json`）；測試helper修正後亦重跑mobile-scroll契約及全部上述觸控檢查。`check:tests`為246 entries／48 helpers／2 manual；`check`、`package:all`、文件連結及diff空白檢查通過。已提交選擇預覽base `f0c0d8c`／head `90706f6`為full、246 entries、packages=all，存於`selection-preview-auto-target.json`；其他活動操作函數未變。沒有重跑其他32個browser、GitHub CI、真手機、OS縮放或Moodle，原總閘維持未通過。
+- 已更新[原有私人Sites](https://simlab-horizontal-projectile-lab.ieyp.chatgpt.site)，保留owner-private權限。官方helper已推送Sites source `83e9d9507a0ffa5a596ca09759931901274ee74f`；saved version `appgprj_6ad49418111c819198d79e88cab3e78e~appgver_e800af4493088191a5610a437476f0f8`，deployment `appgdep_6ad4a47815bc8191b822fdbda9ddb89e`原生回傳`succeeded`。Archive `output/sites/horizontal-projectile-lab-auto-target-c451ccf.tar.gz`共18檔，含與已測來源相同的16個runtime資產、根入口及hosting metadata；SHA-256 `a278508009157e1a0b98d6143308bbe70a369da3ca0de59dbfb4fa17420c4e70`，資產證據`output/sites/projectile-auto-target-assets.json`。後續文件提交不改runtime。
+
