@@ -163,12 +163,12 @@
         const r=currentRuler(),horizontal=r.axis==='x',pad=labelSize+4,thickness=Math.max(labelSize+28,CircuitMath.measure('100',labelSize).width+24);
         rulerBox={left:x(r.zero[0])-(horizontal?pad:0),top:y(r.zero[1])-(horizontal?0:pad)};
         rulerBox.right=rulerBox.left+(horizontal?q+2*pad:thickness);rulerBox.bottom=rulerBox.top+(horizontal?thickness:q+2*pad);
-        candidates.push([Math.min(px-10,rulerBox.left-8),leftBaseline,'end'],[Math.min(px-10,rulerBox.left-8),py-10,'end']);
+        candidates.push([Math.min(px-10,rulerBox.left-2),leftBaseline,'end'],[Math.min(px-10,rulerBox.left-2),py-10,'end']);
       }
       const chosen=candidates.find(([lx,ly,anchor])=>{
         const left=lx-(anchor==='end'?width:width/2),right=left+width,top=ly-metrics.ascent,bottom=ly+metrics.descent;
         const crossesAxis=right>=x(0)-2&&left<=x(1000)+10&&top<=y(0)+4&&bottom>=y(0)-labelSize-10;
-        return left>=4&&right<=g.w-4&&top>=4&&bottom<=g.h-4&&!crossesAxis&&(!rulerBox||right<rulerBox.left||left>rulerBox.right||bottom<rulerBox.top||top>rulerBox.bottom);
+        return left>=2&&right<=g.w-2&&top>=4&&bottom<=g.h-4&&!crossesAxis&&(!rulerBox||right<rulerBox.left||left>rulerBox.right||bottom<rulerBox.top||top>rulerBox.bottom);
       })??candidates[1];
       return text(chosen[0],chosen[1],pn(i),'#354a64',chosen[2]).replace('<g ',`<g data-point-label="${i}" `);
     };

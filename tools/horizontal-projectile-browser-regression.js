@@ -253,6 +253,10 @@ async function launchAndPreview(base,label){
     const labels=await call('const g=app.getGeometry(),r=d.getElementById("stage").getBoundingClientRect();return [...d.querySelectorAll("#scene [data-point-label]")].map(e=>{const b=e.getBoundingClientRect();return{slot:+e.dataset.pointLabel,left:b.left-r.left,right:b.right-r.left,top:b.top-r.top,bottom:b.bottom-r.top,ax:g.ox,ay:g.oy,end:g.ox+1000*g.s};});');
     for(const b of labels)assert(!(b.right>=b.ax-2&&b.left<=b.end+10&&b.top<=b.ay+4&&b.bottom>=b.ay-(width>=900?24:16)-10),JSON.stringify({width,height,view,b}));
     const first=labels.find(l=>l.slot===0);assert(first);if(first.right>=first.ax-2)assert(first.top>first.ay+4);if(width===390&&view==='measure')await screenshot(label+'-label-beside-axis');
+    if(view==='measure'){
+      const body=await call('const r=d.querySelector("#scene [data-ruler-body]").getBoundingClientRect(),s=d.getElementById("stage").getBoundingClientRect();return{left:r.left-s.left,right:r.right-s.left,top:r.top-s.top,bottom:r.bottom-s.top};');
+      for(const b of labels)assert(b.right<body.left||b.left>body.right||b.bottom<body.top||b.top>body.bottom,JSON.stringify({width,height,b,body}));
+    }
     report.layouts.push({label,width,height,view,kind:'low-mark-label-avoids-horizontal-axis',labels});
   }
   await viewport(390,844);await open(base,null,true,'draw=0');const slow=await state();assert.equal(slow.launchOffsetPpm,-300000);assert.equal(slow.view,'plot');assert.equal(slow.rows.filter(Boolean).length,6);assert(Object.values(slow.formulas).every(v=>v===null));assert.equal(slow.fit.model,null);assert.equal(slow.meanV,null);assert.equal(slow.clockShown,false);assert(Object.values(slow.conclusions).every(v=>v===null));
