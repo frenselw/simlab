@@ -548,3 +548,21 @@ Moodle、實體手機、OS實際200%縮放及全專案browser總閘仍未驗收�
 - `check:tests`仍246 entries／48 helpers／2 manual；`check`、`package:all`、文件連結與`git diff --check`通過。已提交選擇預覽base `77aee64`／head `6e3cc5b`為full、246 entries、packages=all，報告`selection-preview-auto-ruler.json`。中央helper的改動只涉及本活動分支；另與base逐JSON比較26個其他活動的fixtures完全不變。
 
 本次沒有重跑其他32個browser入口、GitHub CI、OS實際200%縮放、實體電話或Moodle。保留原package-ready／Moodle-ready總閘未通過，不以本地成功取代外部驗收；先前未完成／失敗的中間報告不計入上述證據。後續文件提交不改runtime。
+
+## Sites 部署（2026-10-18）
+
+依使用者要求，新建本活動的獨立 Site：[平拋運動實驗](https://simlab-horizontal-projectile-lab.ieyp.chatgpt.site)。新站保留擁有者私人存取，需用擁有者帳戶登入，並非公開學生入口。根目錄原有 hosting identity 屬靜摩擦活動，保持原樣。
+
+| 項目 | 已確認結果 |
+|---|---|
+| Site project ID | `appgprj_6ad49418111c819198d79e88cab3e78e` |
+| SimLab 來源 | 已推送 `2ad600906f20d4e79740457a27ddb106a955726b` |
+| 已推送 Sites source commit | `cf196624910d4238bf6e4f3beb95a8aa42407b66` |
+| saved version | `appgprj_6ad49418111c819198d79e88cab3e78e~appgver_5155c5cbd7c08191af027a7141bb96a2` |
+| deployment | `appgdep_6ad494742a888191af26cc793f08b171`，原生發布回傳 `succeeded` |
+| 本機獨立 checkout | `output/sites/horizontal-projectile-lab/`；內含自己的 `.openai/hosting.json` |
+| archive | `output/sites/horizontal-projectile-lab-2ad6009.tar.gz` |
+
+直接複製已測試版本的16個 manifest runtime 資產，逐byte／SHA-256核對來源；保留原活動及共用檔的相對路徑。根 `index.html` 只跳往活動入口並保留 query/hash，已用執行斷言驗證。官方 Sites source helper 負責獨立 Git commit／push及封裝，再由私人發布工具確認成功；tar內18檔含上述16資產、根入口及hosting metadata，已逐byte檢查。資產證據為`output/sites/projectile-assets.json`。
+
+Sites 版使用既有 standalone 行為，刷新開始新作答；Moodle成績及同一次作答恢復須使用SCORM包。本次純部署沿用上一節的來源／解壓ZIP與觸控驗證，沒有更改runtime或重跑完整browser、真手機及Moodle。
