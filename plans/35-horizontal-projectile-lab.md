@@ -18,6 +18,14 @@
 - 資料依賴：讀數／投球改動清平均及擬合attempted；改模型清擬合attempted；改公式清平均；未量好的列不補零。origin為派生已知基準，不存入rows或增加速度計算列。新版拒絕刪除欄混入權威答案及motion view；舊review不改解讀。保存／還原上限4000 bytes，無standalone持久答案。
 - 範圍：活動model/scoring/persistence/main/index、必要styles、四個既有Node入口／test-support、正式browser與mobile fixtures、catalogue文字及本計劃。沿用共用fitting/SCORM/flow/TeX及16項manifest，不加依賴。驗證原點影響擬合、反比失敗、四步末步導航、空白／部分／100分、所有phase round-trip及續作、舊v1/v2 review和pending不改分、手機source與解壓SCORM。執行check:tests、committed selection preview、相關Node/browser、package/check及文件檢查，再更新同一私人Sites、commit/push。未實測真手機／Moodle的限制另列。
 
+### 四步版驗證與發布
+
+- 已推送runtime head `558688f75ff5f20299687b8771a89612aa701d18`。四個活動Node入口通過：原點只加入一次、一般直線／二次擬合與含原點的共用fitting結果相同、反比不得略去原點、新100分／空白0分／錯公式平均follow-through、四步空白提交、564組draft round-trip及實際公式續作。v1/v2原100分review、pending同payload重試及未完成draft不覆寫均通過；v3拒絕已刪欄位及motion view。最大測例draft/review/pending為853／752／993 bytes。全部213 Node入口三批各71項通過，報告`output/ci-tests/projectile-four-stages-node-{1,2,3}/report.json`。
+- 正式browser於同一head的source及真正解壓SCORM通過104個版面、22組流程、48組操作觀測，報告`output/playwright/horizontal-projectile-lab/report.json`。新增三種選單／原點參與兩種有效擬合／反比原點失敗、移除第五步與fitV控制、第四步直接檢查、完整100分流程；保留量尺／輕微波動／暫時預填、blank/partial、四提交結果及兩個舊版review的實際渲染與舊draft不覆寫。已目視`source-trajectory.png`及`source-mobile-space-plot-320.png`：原點、六點及曲線清楚，四步進度及簡短方程正常。
+- 本次觸控範圍為第三／四步已答與未答、擬合失敗、check、submitted、pending、committed九個profiles；T1/T2/T3×source/package×320×500及390×844通過108 cases／1500 gesture checks。六份`four-stages-T{1,2,3}-{source,package}.json`均completed=true／status=passed、errors與每個issues皆空；摘要`four-stages-acceptance-summary.json`。首兩步兩種拖動的中斷路徑由正式browser及上一輪完整touch證據覆蓋，本次不冒稱重跑這兩步的全部iframe profiles。
+- 六份touch報告17檔digest皆`19e38a54b51541ea53d7165e771827894d747f81980d21c21afe25f36e25d32f`，正式browser16資產hash為`f3d0034394439ba4dc014619fbcab2154e06c3fe87f1f3dbd7208debef61f91a`；最終SCORM17檔逐byte等於來源。`check:tests`為246 entries／48 helpers／2 manual，`check`、全部24個package、文件及diff檢查通過。Committed selection preview base `9f05e10`／head `558688f`為full、246 entries、packages=all，存於`selection-preview-four-stages.json`。未重跑其他32 browser、GitHub CI、OS縮放、實體手機或真Moodle，不改稱其總閘通過。
+- [原有私人Sites](https://simlab-horizontal-projectile-lab.ieyp.chatgpt.site)已更新，owner-private權限保持。官方helper推送Site source `1749e7d7d25282122dc8df872fa63d2f64e16db4`，saved version `appgprj_6ad49418111c819198d79e88cab3e78e~appgver_1d5f29a9762c8191b22ce5a22d861ace`，deployment `appgdep_6ad4bb9bf9f48191af490e2bfdaa54aa`原生回傳`succeeded`。Archive `output/sites/horizontal-projectile-lab-four-stages-558688f.tar.gz`共18檔，16個runtime資產及根redirect逐byte核對，生成hosting metadata與來源JSON相同；SHA-256 `fa59d44e7bae5f6d9d096f98429ee94d8ce46ed5aea9f36427ac8575676bad27`，資產證據`output/sites/projectile-four-stages-assets.json`。預設仍暫時測試模式，只完成首兩步；一般模式與Moodle仍從空白開始。後續文件提交不改runtime。
+
 ## 橫軸避讓、每輪隨機初速度及暫時測試模式（2026-10-18；本節優先）
 
 - 點名候選先左上，再左邊／上方；排除與橫軸及其數字區域相交的文字框。靠近橫軸時左方候選下移至軸下安全位置，不再強行放左上。原有畫布邊界及尺身避讓維持，沒有新拖動目標。
