@@ -9,7 +9,7 @@
   const fmt=V.format;
   const pn=i=>'P'+'₁₂₃₄₅₆'[i];
   const controller=new ProjectileRuntime.Controller(SimScorm,SimActivityFlow,render);
-  let drag=null, run=null, frame=0, placing=false, readingZoom=false, timeAxis=0, geometry=null, hint='';
+  let drag=null, run=null, frame=0, placing=false, timeAxis=0, geometry=null, hint='';
   const diagnostics={downs:0,moves:0,ups:0,cancels:0,trustedTouch:0};
   const pointButtons=Array.from({length:6},(_,i)=>{
     const b=document.createElement('button');b.type='button';b.className='handle point-handle';b.dataset.pointSlot=i;b.setAttribute('aria-label',`移動${pn(i)}圖點`);b.hidden=true;d.pointHandles.append(b);return b;
@@ -33,8 +33,8 @@
     if(old){diagnostics.cancels++;try{old.target.releasePointerCapture(old.id);}catch(_){} }
   }
   function cancelFlight(){if(run)hint='投球已取消，保留上次完成的印記。';if(frame)cancelAnimationFrame(frame);frame=0;run=null;}
-  function navigate(view){cancelDrag();cancelFlight();placing=false;readingZoom=false;hint='';controller.navigate(view);d.controlPanel.scrollTop=0;}
-  function check(){cancelDrag();cancelFlight();placing=false;readingZoom=false;controller.check();d.controlPanel.scrollTop=0;}
+  function navigate(view){cancelDrag();cancelFlight();placing=false;hint='';controller.navigate(view);d.controlPanel.scrollTop=0;}
+  function check(){cancelDrag();cancelFlight();placing=false;controller.check();d.controlPanel.scrollTop=0;}
   function value(el,value){if(document.activeElement!==el)el.value=value===null||value===undefined?'':String(value);}
   function options(el,list,selected){
     const html=list.map(([v,label])=>`<option value="${v}">${label}</option>`).join('');
@@ -43,7 +43,7 @@
   function selected(){const i=controller.state?.selectedSlot;return i!==null&&i!==undefined?i:null;}
   function render(){
     const s=controller.state, locked=!controller.editable, view=controller.view, checking=controller.mode==='check';
-    if(locked){cancelDrag();cancelFlight();placing=false;readingZoom=false;}
+    if(locked){cancelDrag();cancelFlight();placing=false;}
     d.app.classList.toggle('checking',checking||!s);
     d.app.classList.toggle('measuring',view==='measure'&&!checking&&Boolean(s));
     d.status.textContent=controller.mode==='review'?'已提交 · 只讀回顧':controller.mode==='committed'?'結果已記錄':controller.mode==='frozen'?'提交待確認':'取點、量度與擬合';
@@ -65,7 +65,6 @@
     options(d.recordSlot,s.rows.map((r,i)=>[i,`第${i+1}點 · ${r?'已有印記（重做）':'空白'}`]),s.setup?.slot??0);
     options(d.measureSlot,[['','選擇印記'],...records],selected());
     options(d.plotSlot,[['','選擇已有完整讀數的點'],...complete],selected());
-    d.readingZoom.disabled=locked||selected()===null;d.readingZoom.setAttribute('aria-pressed',String(readingZoom));
     d.recordCount.innerHTML=`已留下 ${records.length} / 6 個印記。高度相隔至少${math("5\\,\\mathrm{cm}","5 cm")}。槽微調每次${math("0.5\\,\\mathrm{cm}","0.5 cm")}；建議取高低分散的位置。`;
     d.recordList.innerHTML=records.map(([i])=>`<li>${math(`P_{${i+1}}`,pn(i))}：已將印記轉記到記錄紙</li>`).join('');
     for(let i=0;i<6;i++){
@@ -96,10 +95,6 @@
     Object.keys(M.QUESTIONS).forEach(k=>document.querySelectorAll(`[data-question="${k}"]`).forEach(e=>{e.checked=s.conclusions[k]===e.value;e.disabled=locked;}));
     [d.recordSlot,d.depthUp,d.depthDown,d.release,d.measureSlot,d.rulerX,d.rulerY,d.rulerHome,d.plotSlot,d.fitModel,d.trajectory,d.connectPoints,d.clearPlot].forEach(e=>e.disabled=locked);
     [d.recordSlot,d.depthUp,d.depthDown,d.catcherHandle].forEach(e=>e.disabled=locked||Boolean(run));
-    const conflict=s.setup?M.heightConflict(s,s.setup.depthMm,s.setup.slot):-1;
-    d.release.disabled=locked||Boolean(run)||conflict>=0;
-    d.heightNotice.hidden=locked||conflict<0;
-    d.heightNotice.innerHTML=conflict<0?'':`此高度與第${conflict+1}點相距不足${math('5\\,\\mathrm{cm}','5 cm')}，請上下調槽。`;
     d.previous.disabled=M.VIEWS.indexOf(view)===0;d.next.textContent=view==='motion'?'檢查目前作答':'下一步';d.returnCheck.hidden=!s.returnToCheck;
     if(checking){
       const reads=s.rows.reduce((n,r)=>n+(r?r.read.filter(v=>v!==null).length:0),0), points=s.rows.filter(r=>r?.point).length, times=s.calculations.filter(c=>c.t!==null).length;
@@ -160,7 +155,7 @@
       if(s.clockShown){
         const f=M.timeFit(s,timeAxis);
         if(f.ok)html+=curve(u=>1000-NewtonFitting.predict(timeAxis===0?'linear':'quadratic',f.coefficients,u/1000*.45)*1000,'#157c75');
-        s.rows.forEach(r=>{if(r&&r.read[timeAxis]!==null)html+=`<circle cx="${x(r.clockMs/450*1000)}" cy="${y(1000-r.read[timeAxis])}" r="4" fill="#1764b1"/>`;});
+        s.rows.forEach(r=>{if(r&&r.read[timeAxis]!==null)html+=`<circle cx="${x(r.clockMs/450*1000)}" cy="${y(1000-r.read[timeAxis])}" r="6" fill="#1764b1"/>`;});
       }
       return html;
     }
@@ -169,10 +164,10 @@
       if(s.connectPoints&&points.length)html+=`<path d="${points.slice().sort((a,b)=>a.p[0]-b.p[0]).map(({p},i)=>`${i?'L':'M'}${x(p[0])},${y(p[1])}`).join('')}" fill="none" stroke="#8b98a8" stroke-dasharray="3 4"/>`;
       if(s.fit.attempted){const f=M.fit(s);if(f.ok)html+=curve(u=>M.predict(s,f,u/1000)*1000,'#157c75');}
       if(controller.trusted)html+=curve(u=>M.G/(2*M.SPEED**2)*(u/1000)**2*1000,'#b3542d',true);
-      points.forEach(({i,p})=>{html+=`<circle cx="${x(p[0])}" cy="${y(p[1])}" r="4" fill="#1764b1"/>`;if(q>100||selected()===i)html+=text(x(p[0])+8,y(p[1])-7,pn(i));});
+      points.forEach(({i,p})=>{html+=`<circle cx="${x(p[0])}" cy="${y(p[1])}" r="6" fill="#1764b1"/>`;if(q>100||selected()===i)html+=text(x(p[0])+8,y(p[1])-7,pn(i));});
       return html;
     }
-    s.rows.forEach((r,i)=>{if(r){const p=M.impact(r.depthMm,r.speedOffsetPpm);html+=`<circle cx="${x(p.x)}" cy="${y(p.y)}" r="3" fill="#182333"/>`;if(q>100||selected()===i)html+=text(x(p.x)+8,y(p.y)+(p.y*scale<labelSize*2?labelSize*.35:-8),pn(i));}});
+    s.rows.forEach((r,i)=>{if(r){const p=M.impact(r.depthMm,r.speedOffsetPpm);html+=`<circle cx="${x(p.x)}" cy="${y(p.y)}" data-impact-mark="true" r="6" fill="#182333"/>`;if(q>100||selected()===i)html+=text(x(p.x)+8,y(p.y)+(p.y*scale<labelSize*2?labelSize*.35:-8),pn(i));}});
     if(view==='collect'){
       const depth=drag?.kind==='catcher'?drag.value:s.setup?.depthMm??200;
       html+=`<path d="M${x(-240)},${y(-190)}C${x(-160)},${y(-190)} ${x(-160)},${y(10)} ${x(-40)},${y(10)}L${x(0)},${y(10)}" fill="none" stroke="#52677e" stroke-width="5"/>`;
@@ -183,11 +178,11 @@
         if(elapsed<run.ramp){const u=elapsed/run.ramp;if(u<.85){const v=u/.85,a=1-v;ball=[a*a*a*-240+3*a*a*v*-160+3*a*v*v*-160+v*v*v*-40,a*a*a*-200+3*a*a*v*-200];}else ball=[-40+(u-.85)/.15*40,0];}
         else{const t=Math.min(run.impact.t,(elapsed-run.ramp)/run.slow/1000);ball=[M.velocity(run.ppm)*t*1000,.5*M.G*t*t*1000];}
       }
-      html+=`<circle cx="${x(ball[0])}" cy="${y(ball[1])}" r="${Math.max(3,10*scale)}" fill="#677586" stroke="#172438"/>`;
+      html+=`<circle cx="${x(ball[0])}" cy="${y(ball[1])}" r="${Math.max(7,12*scale)}" fill="#677586" stroke="#172438"/>`;
       if(q>110)html+=text(x(500),y(depth+10)+labelSize+8,'接球槽','#1764b1');
     }
     if(view==='measure'){
-      const ruler=drag?.kind==='ruler'?{...s.ruler,zero:drag.value}:s.ruler??{axis:'x',zero:[0,0]},[rx,ry]=ruler.zero, horizontal=ruler.axis==='x';
+      const ruler=currentRuler(),[rx,ry]=ruler.zero, horizontal=ruler.axis==='x';
       const rxp=x(rx),ryp=y(ry),pad=labelSize+4,thickness=Math.max(labelSize+28,CircuitMath.measure('100',labelSize).width+24);
       html+=`<rect data-ruler-body="true" x="${rxp-(horizontal?pad:0)}" y="${ryp-(horizontal?0:pad)}" width="${horizontal?q+2*pad:thickness}" height="${horizontal?thickness:q+2*pad}" fill="#f9e5ab" fill-opacity=".82" stroke="#a88a3e"/>`;
       let ticks='';
@@ -203,14 +198,25 @@
     return html;
   }
   function position(e,x,y){e.style.left=x+'px';e.style.top=y+'px';}
+  function currentRuler(){return drag?.kind==='ruler'?{...controller.state.ruler,zero:drag.value}:controller.state.ruler??{axis:'x',zero:[0,0]};}
+  function heightFeedback(depth){
+    const s=controller.state,conflict=s.setup?M.heightConflict(s,depth,s.setup.slot):-1;
+    d.release.disabled=!controller.editable||Boolean(run)||Boolean(drag)||conflict>=0;
+    d.heightNotice.hidden=!editing()||(conflict<0&&drag?.kind!=='catcher');
+    d.heightNotice.dataset.valid=String(conflict<0);
+    const html=conflict<0?'此高度可以取樣。':`此高度與第${conflict+1}點相距不足${math('5\\,\\mathrm{cm}','5 cm')}，請上下調槽。`;
+    if(d.heightNotice.innerHTML!==html)d.heightNotice.innerHTML=html;
+  }
   function drawStage(){
-    const s=controller.state;if(!s){d.scene.innerHTML='';d.readingChoices.hidden=true;d.catcherHandle.hidden=d.rulerHandle.hidden=true;pointButtons.forEach(b=>b.hidden=true);return;}
+    const s=controller.state;if(!s){d.scene.innerHTML='';d.readingChoices.hidden=true;d.catcherHandle.hidden=d.rulerBodyTarget.hidden=true;pointButtons.forEach(b=>b.hidden=true);return;}
     const view=controller.view;geometry=makeGeometry(view);const g=geometry;
     d.scene.setAttribute('viewBox',`0 0 ${g.w} ${g.h}`);d.scene.innerHTML=world(g,view,'sceneClip');
-    d.catcherHandle.hidden=!editing()||view!=='collect';d.rulerHandle.hidden=!editing()||view!=='measure';
+    d.catcherHandle.hidden=!editing()||view!=='collect';d.rulerBodyTarget.hidden=!editing()||view!=='measure';
     const depth=drag?.kind==='catcher'?drag.value:s.setup?.depthMm??200;
+    heightFeedback(depth);
     position(d.catcherHandle,Math.min(g.w-24,g.x(900)),Math.max(23,Math.min(g.h-24,g.y(depth+10))));
-    const zero=drag?.kind==='ruler'?drag.value:s.ruler?.zero??[0,0];position(d.rulerHandle,Math.max(23,Math.min(g.w-23,g.x(zero[0])-36)),Math.max(23,Math.min(g.h-55,g.y(zero[1])-36)));
+    const body=d.scene.querySelector('[data-ruler-body]');
+    if(body){const b=body.getBBox();position(d.rulerBodyTarget,b.x,b.y);d.rulerBodyTarget.style.width=b.width+'px';d.rulerBodyTarget.style.height=b.height+'px';}
     drawReadingChoices(g,view);
     pointButtons.forEach((b,i)=>{
       const p=drag?.kind==='point'&&drag.index===i?drag.value:s.rows[i]?.point;
@@ -219,40 +225,37 @@
     const p=selected(),eligible=p!==null&&s.rows[p]&&!s.rows[p].read.includes(null);
     d.plotInputSurface.hidden=!editing()||view!=='plot'||!placing||!eligible;
     d.plotInputSurface.style.cssText=`left:${g.x(0)}px;top:${g.y(0)}px;width:${1000*g.s}px;height:${1000*g.s}px`;
-    d.stageHint.innerHTML=prose(hint||(view==='collect'?'上下調槽，每次留下一個固定撞擊印記。':view==='measure'?'拖動零刻度旁把手，對準原點後，在紅色讀數點旁揀選讀數。':view==='plot'?(placing?'在中央圖域放置所選點；兩側空白可滑動頁面。':'選資料點，再放點或拖動；兩側空白可滑動頁面。'):view==='speed'?'圖為自己的點及擬合；請在面板計算逐點速度與平均。':'獨立計時配對自己的讀數；圖示位移大小隨時間變化。'));
-    if(drag&&drag.kind!=='catcher'){
+    d.stageHint.innerHTML=prose(hint||(view==='collect'?'上下調槽，每次留下一個固定撞擊印記。':view==='measure'?'拖動尺身，對齊所選印記會自動吸附及放大；請自行對準零位。':view==='plot'?(placing?'在中央圖域放置所選點；兩側空白可滑動頁面。':'選資料點，再放點或拖動；兩側空白可滑動頁面。'):view==='speed'?'圖為自己的點及擬合；請在面板計算逐點速度與平均。':'獨立計時配對自己的讀數；圖示位移大小隨時間變化。'));
+    if(drag&&drag.kind!=='catcher'&&(drag.kind!=='ruler'||d.readingChoices.hidden)){
       const focus=drag.value,zs=Math.max(g.s*8,4),zoom={w:128,h:112,s:zs,ox:64-focus[0]*zs,oy:50-focus[1]*zs};zoom.x=n=>zoom.ox+n*zs;zoom.y=n=>zoom.oy+n*zs;
       d.magnifier.hidden=false;d.magnifier.style.left=drag.previewLeft?'8px':'auto';d.magnifier.style.right=drag.previewLeft?'auto':'8px';d.magnifierSvg.setAttribute('viewBox','0 0 128 112');d.magnifierSvg.innerHTML=world(zoom,view,'zoomClip');
     }else d.magnifier.hidden=true;
   }
 
   function drawReadingChoices(g,view){
-    const s=controller.state,i=selected(),row=s?.rows[i],values=row?M.rulerChoices(row,s.ruler):[];
-    d.readingChoices.hidden=!editing()||view!=='measure'||!row||Boolean(drag)||values.length!==4;
-    d.readingPreview.hidden=!readingZoom;
+    const s=controller.state,i=selected(),row=s?.rows[i],ruler=currentRuler(),values=row?M.rulerChoices(row,ruler):[];
+    d.readingChoices.hidden=!editing()||view!=='measure'||!M.rulerAligned(row,ruler)||values.length!==4;
     if(d.readingChoices.hidden)return;
     const active=d.readingChoices.contains(document.activeElement)?document.activeElement:null;
-    d.readingPreview.hidden=!readingZoom;
-    d.readingZoomInline.textContent=readingZoom?'收起':'放大';d.readingZoomInline.setAttribute('aria-pressed',String(readingZoom));
-    const axis=s.ruler.axis==='x'?0:1,p=M.impact(row.depthMm,row.speedOffsetPpm),size=innerWidth>=900?24:16;
+    const axis=ruler.axis==='x'?0:1,p=M.impact(row.depthMm,row.speedOffsetPpm),size=innerWidth>=900?24:16;
     const thickness=Math.max(size+28,CircuitMath.measure('100',size).width+24),cardWidth=innerWidth>=900?270:190;
-    const target=[g.x(axis?s.ruler.zero[0]:p.x),g.y(axis?p.y:s.ruler.zero[1])];
+    const target=[g.x(axis?ruler.zero[0]:p.x),g.y(axis?p.y:ruler.zero[1])];
     d.readingChoiceTitle.innerHTML=math(`P_{${i+1}}\\;${axis?'y':'x'}`,pn(i)+' '+s.ruler.axis)+' 讀數';
-    readingButtons.forEach((b,j)=>{const n=values[j],html=math(V.number(n/10)+'\\,\\mathrm{cm}',fmt(n/10)+' cm');if(b.innerHTML!==html)b.innerHTML=html;b.dataset.reading=n;b.setAttribute('aria-label',`${pn(i)} ${s.ruler.axis} ${fmt(n/10)} 厘米`);b.setAttribute('aria-pressed',String(row.read[axis]===n));});
-    let fallback=g.h<(readingZoom?390:300)||(axis&&target[0]+thickness+12+cardWidth>g.w-32);
+    readingButtons.forEach((b,j)=>{const n=values[j],html=math(V.number(n/10)+'\\,\\mathrm{cm}',fmt(n/10)+' cm');if(b.innerHTML!==html)b.innerHTML=html;b.dataset.reading=n;b.disabled=Boolean(drag);b.setAttribute('aria-label',`${pn(i)} ${ruler.axis} ${fmt(n/10)} 厘米`);b.setAttribute('aria-pressed',String(row.read[axis]===n));});
+    let fallback=g.h<390||(axis&&target[0]+thickness+12+cardWidth>g.w-32);
     const host=fallback?d.readingFallback:d.stage;if(d.readingChoices.parentElement!==host)host.append(d.readingChoices);d.readingChoices.classList.toggle('in-panel',fallback);
     let box=d.readingChoices.getBoundingClientRect(),left=axis?target[0]+thickness+12:Math.max(32,Math.min(g.w-32-box.width,target[0]+18)),top=axis?Math.max(4,Math.min(g.h-box.height-40,target[1]-18)):target[1]+thickness+12;
     if(!axis&&top+box.height>g.h-40)top=target[1]-box.height-12;
     if(!fallback&&(top<4||top+box.height>g.h-40)){
       fallback=true;d.readingFallback.append(d.readingChoices);d.readingChoices.classList.add('in-panel');
     }
-    if(readingZoom){
-      const width=d.readingPreview.clientWidth,height=d.readingPreview.clientHeight,zs=Math.max(g.s*8,4),focus=axis?[s.ruler.zero[0],p.y]:[p.x,s.ruler.zero[1]],zoom={w:width,h:height,s:zs,ox:width/2-focus[0]*zs,oy:height/2-focus[1]*zs};zoom.x=n=>zoom.ox+n*zs;zoom.y=n=>zoom.oy+n*zs;
+    {
+      const width=d.readingPreview.clientWidth,height=d.readingPreview.clientHeight,zs=Math.max(g.s*8,4),focus=axis?[ruler.zero[0],p.y]:[p.x,ruler.zero[1]],zoom={w:width,h:height,s:zs,ox:width/2-focus[0]*zs,oy:height/2-focus[1]*zs};zoom.x=n=>zoom.ox+n*zs;zoom.y=n=>zoom.oy+n*zs;
       d.readingPreviewSvg.setAttribute('viewBox',`0 0 ${width} ${height}`);d.readingPreviewSvg.innerHTML=world(zoom,'measure','readingClip');
     }
     d.readingChoices.style.left=left+'px';d.readingChoices.style.top=top+'px';active?.focus({preventScroll:true});
   }
-  const readingButtons=Array.from({length:4},()=>{const b=document.createElement('button');b.type='button';b.className='reading-choice';b.onclick=()=>{const s=controller.state,i=selected();if(!editing()||controller.view!=='measure'||drag||i===null)return;const n=Number(b.dataset.reading);if(M.rulerChoices(s.rows[i],s.ruler).includes(n))command({type:'read',slot:i,axis:s.ruler.axis==='x'?0:1,value:n});};d.readingOptions.append(b);return b;});
+  const readingButtons=Array.from({length:4},()=>{const b=document.createElement('button');b.type='button';b.className='reading-choice';b.onclick=()=>{const s=controller.state,i=selected();if(!editing()||controller.view!=='measure'||drag||i===null||!M.rulerAligned(s.rows[i],s.ruler))return;const n=Number(b.dataset.reading);if(M.rulerChoices(s.rows[i],s.ruler).includes(n))command({type:'read',slot:i,axis:s.ruler.axis==='x'?0:1,value:n});};d.readingOptions.append(b);return b;});
   function modelPoint(event){const r=d.stage.getBoundingClientRect();return[(event.clientX-r.left-geometry.ox)/geometry.s,(event.clientY-r.top-geometry.oy)/geometry.s];}
   function resolveDrag(event){
     const p=modelPoint(event), start=drag.startModel, delta=[p[0]-start[0],p[1]-start[1]], clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
@@ -285,7 +288,7 @@
     drawStage();
   }
   function attachDrag(element,kind,index=null){element.addEventListener('pointerdown',e=>beginDrag(e,kind,index));element.addEventListener('pointermove',moveDrag);['pointerup','pointercancel','lostpointercapture'].forEach(t=>element.addEventListener(t,finishDrag));}
-  attachDrag(d.catcherHandle,'catcher');attachDrag(d.rulerHandle,'ruler');pointButtons.forEach((b,i)=>attachDrag(b,'point',i));
+  attachDrag(d.catcherHandle,'catcher');attachDrag(d.rulerBodyTarget,'ruler');pointButtons.forEach((b,i)=>attachDrag(b,'point',i));
   document.addEventListener('pointerdown',e=>{if(drag&&e.pointerId!==drag.id){cancelDrag();drawStage();}},true);
   d.plotInputSurface.addEventListener('pointerdown',e=>{
     if(!editing()||!placing||e.button!==0||e.isPrimary===false)return;const p=modelPoint(e);if(p.some(v=>v<0||v>1000))return;
@@ -299,7 +302,7 @@
     else if(kind==='ruler'){const r=controller.state.ruler,n=event.shiftKey?10:1;command({type:'ruler',value:{axis:r.axis,zero:[clamp(r.zero[0]+dx*n,-100,1000),clamp(r.zero[1]+dy*n,-100,1000)]}});}
     else{const p=controller.state.rows[index].point,n=event.shiftKey?1:10;command({type:'point',slot:index,value:[clamp(p[0]+dx*n,0,1000),clamp(p[1]+dy*n,0,1000)]});}
   }
-  d.catcherHandle.addEventListener('keydown',e=>keyboard(e,'catcher'));d.rulerHandle.addEventListener('keydown',e=>keyboard(e,'ruler'));pointButtons.forEach((b,i)=>b.addEventListener('keydown',e=>keyboard(e,'point',i)));
+  d.catcherHandle.addEventListener('keydown',e=>keyboard(e,'catcher'));d.rulerBodyTarget.addEventListener('keydown',e=>keyboard(e,'ruler'));pointButtons.forEach((b,i)=>b.addEventListener('keydown',e=>keyboard(e,'point',i)));
   function numberInput(e,options={}){
     if(e.value.trim()==='')return null;
     const n=Number(e.value),scale=options.scale??1;
@@ -318,7 +321,6 @@
   d.depthDown.onclick=()=>command({type:'setup',value:{depthMm:Math.min(800,controller.state.setup.depthMm+5)}});
   ['x','y'].forEach(axis=>d[axis==='x'?'rulerX':'rulerY'].onclick=()=>command({type:'ruler',value:{...controller.state.ruler,axis}}));
   d.rulerHome.onclick=()=>command({type:'ruler',value:{...controller.state.ruler,zero:[0,0]}});
-  d.readingZoom.onclick=d.readingZoomInline.onclick=()=>{readingZoom=!readingZoom;render();};
   d.placePoint.onclick=()=>{placing=!placing;drawStage();};
   d.keyboardPoint.onclick=()=>{const i=selected();if(i===null)return;placing=false;if(!command({type:'point',slot:i,value:controller.state.rows[i].point??[500,500]}))drawStage();pointButtons[i].focus();};
   d.removePoint.onclick=()=>command({type:'point',slot:selected(),value:null});
@@ -344,8 +346,8 @@
       drawStage();frame=requestAnimationFrame(tick);
     };frame=requestAnimationFrame(tick);
   };
-  window.addEventListener('blur',()=>{cancelDrag();cancelFlight();readingZoom=false;render();});
-  new ResizeObserver(()=>{cancelDrag();cancelFlight();readingZoom=false;render();}).observe(d.stage);
+  window.addEventListener('blur',()=>{cancelDrag();cancelFlight();render();});
+  new ResizeObserver(()=>{cancelDrag();cancelFlight();render();}).observe(d.stage);
   window.__projectileApp={getState:()=>M.clone(controller.state),controller,getGeometry:()=>geometry?{s:geometry.s,ox:geometry.ox,oy:geometry.oy,w:geometry.w,h:geometry.h}:null,getDiagnostics:()=>({...diagnostics}),isRunning:()=>Boolean(run)};
   controller.start();
 })().catch(error=>{document.getElementById('notice').hidden=false;document.getElementById('notice').textContent='數學排版未能載入，請重新載入活動。';console.error(error);});

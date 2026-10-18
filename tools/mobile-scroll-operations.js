@@ -126,7 +126,7 @@ async function runProjectileOperations({cdp,childEval,observation,prepare,delay}
     if(!point.hit||point.touchAction!=='none')issues.push('projectile target not exposed with touch ownership');
     await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[touch(point.x,point.y)]});
     for(let i=1;i<=6;i++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[touch(point.x+dx*i/6,point.y+dy*i/6)]});await delay(20);samples.push(await observation());}
-    const preview=await childEval('!document.getElementById("magnifier").hidden');
+    const preview=await childEval('!document.getElementById("magnifier").hidden||!document.getElementById("readingChoices").hidden');
     if(selector!=='#catcherHandle'&&!preview)issues.push('required precision preview absent');
     if(ending==='cancel')await cdp.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});
     else{

@@ -1,6 +1,6 @@
 # 平拋運動：軌跡量度與擬合實驗
 
-狀態：**2026-10-18 已完成5cm取樣間隔、選點後吸附、透明把手、尺字留邊及讀數點旁放大預覽；來源／SCORM、213項Node及48個讀尺觸控場景通過。** 現行證據見文末；前述歷史驗收不替代本次。真Moodle／實體手機及全專案browser總閘未宣稱通過。
+狀態：**2026-10-18 尺身拖動、單方向吸附及自動放大四選一、拖槽即時提示與放大球／資料點已實作，正在驗證。** 現行證據見文末；前述歷史驗收不替代本次。真Moodle／實體手機及全專案browser總閘未宣稱通過。
 
 - 分支：`codex/horizontal-projectile-lab`。
 - 起點：本機 `main`，`f7ab989ca59b72ebe6a7691129320c4768f6fcf8`；未宣稱已同步遠端。
@@ -156,7 +156,7 @@ Apply [diagrams/notation](00-shared-platform-and-style.md#diagrams-and-notation)
 | Target type / modes | Visible footprint, selector, hit area/halo and size | Stable capture target / pre-pointerdown touch-action | Keyboard alternative |
 |---|---|---|---|
 | 接球槽／collect | `#catcherHandle`，槽側44×44px HTML握柄，不覆蓋整槽／背景 | 持續掛載，`touch-action:none` | 方向鍵5mm、Shift25mm，面板±按鈕 |
-| 水平／豎直尺／measure | `#rulerHandle`，44×44px局部握柄；尺其餘部分讓host捲 | 持續掛載，`none` | 方向鍵1mm、Shift10mm；換向按鈕 |
+| 水平／豎直尺／measure | `#rulerBodyTarget`，透明操作面完全覆蓋實際尺身；尺外讓host捲 | 持續掛載，`none`；只吸附所選點的垂直於尺方向，自動預覽 | 方向鍵1mm、Shift10mm；換向按鈕 |
 | 新／舊圖點／plot | `[data-point-slot]`，可見10px點、局部44×44px hit；相近點可面板選P編號 | 持續掛載HTML目標，`none` | 「放置此點」在可見中央起始，再方向鍵1cm、Shift1mm；也可數字微調同一圖域 |
 | 首次點選放點／plot | `#plotInputSurface`，只在「放置所選點」模式開啟中央有邊界圖域，放下即退出 | 固定面，操作前已有`none` | 同上；不是自動放到量度答案 |
 | 按鈕／讀數／選項 | 原生control，≥44px，面板適合小數的輸入鍵盤 | 原生操作；panel `pan-y`，不全域鎖host | Tab／Enter／原生輸入 |
@@ -526,3 +526,13 @@ Follow the production guide's [registration procedure](../docs/simulation-scorm-
 - 原純活動改動選擇預覽：base `9aa8da5`、head `46d73c7`為affected、214 entries、單一package。加入中央mobile-scroll案例後，head `09c6bc2`的保守選擇為full、246 entries、packages=all；報告`selection-preview-ruler-final.json`同目錄。另用git base載入舊helper並逐JSON比較，確認26個其他catalogue活動的fixtures完全不變；本次只執行全部Node、本活動browser與相關manual cases，其餘32個browser未重跑，不宣稱全專案／GitHub CI通過。
 
 Moodle、實體手機、OS實際200%縮放及全專案browser總閘仍未驗收。完成後依使用者常設指示commit並push至同一分支，保留本機附件不入版控。
+
+## 2026-10-18 使用者釐清：尺身拖動及自動預覽
+
+本節取代上兩節的把手、手動放大及雙軸吸附設計；其驗證屬歷史。
+
+- 整個可見尺身可拖動，移除獨立把手及放大按鈕。保留方向鍵操作及尺身以外的捲動區。
+- 已選印記時，水平尺只吸附其高度、豎直尺只吸附其水平位置；不自動改正沿尺方向的零位。對齊即自動出現真實尺面放大及四選項，拖動期間亦可見，放手後才可選答案；離開對齊位置則隱藏。小畫面放不下時沿用面板預覽。
+- 零位沿量度方向為0時只有一項正確；其他位置四項均須避開既有5mm評分容差。候選值以目前尺上讀數為中心，限制0–1000mm，保留四個不同值；不因錯位補入正確位移。這只改選項生成，不改既有評分、schema或舊attempt。
+- 槽拖動逐move在面板顯示可取樣／高度不足；pointerup才保存位置，取消恢復原位置及提示。增大鋼珠及所有資料點，物理中心及判分保持不變。
+- 影響範圍：活動model/main/HTML/CSS及既有model/browser測例、中央mobile-scroll內本活動的fixtures／操作預覽斷言；無新依賴、資產或正式test入口。驗證零位錯1／10／50mm及尺端、兩方向吸附與預覽、尺身多處真實拖動、拖槽放手前提示及取消、來源／解壓ZIP、可信touch中斷、生命週期及套件檢查。完成後commit及push。

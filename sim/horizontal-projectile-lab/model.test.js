@@ -25,15 +25,15 @@ console.log('Projectile model: noise, energy, fixed clocks and atomic dependenci
 const row=T.filled().rows[0],x=Math.round(M.impact(row.depthMm,row.speedOffsetPpm).x);
 for(const axis of ['x','y']){
   const actual=axis==='x'?x:row.depthMm;
-  for(const zero of [[0,0],[50,50],[-100,-100]]){
+  for(const zero of [[0,0],[1,1],[-1,-1],[10,10],[20,20],[50,50],[-100,-100],[1000,1000]]){
     const ruler={axis,zero},choices=M.rulerChoices(row,ruler),local=actual-zero[axis==='x'?0:1];
-    assert.equal(choices.length,4);assert.equal(new Set(choices).size,4);assert(choices.every(v=>M.integer(v,0,1000)));assert(choices.includes(local));assert.deepEqual(choices,M.rulerChoices(row,ruler));
+    assert.equal(choices.length,4);assert.equal(new Set(choices).size,4);assert(choices.every(v=>M.integer(v,0,1000)));if(zero[axis==='x'?0:1]===0)assert(choices.includes(local));assert.deepEqual(choices,M.rulerChoices(row,ruler));
     if(zero[0]===0)assert.equal(choices.filter(v=>SCORE_NEAR(v,actual)).length,1);else assert(choices.every(v=>!SCORE_NEAR(v,actual)));
   }
 }
 function SCORE_NEAR(a,b){return Math.abs(a-b)<=5;}
 assert.deepEqual(M.rulerChoices(null,{axis:'x',zero:[0,0]}),[]);
-assert.deepEqual(M.rulerChoices(row,{axis:'x',zero:[1000,0]}),[]);
+assert.equal(M.rulerChoices(row,{axis:'x',zero:[1000,0]}).length,4);
 for(const depth of [50,800])for(const offset of [-10000,10000])for(const axis of ['x','y']){
  const r={depthMm:depth,speedOffsetPpm:offset},p=M.impact(depth,offset),zero=axis==='x'?[Math.round(p.x),0]:[0,depth];
  assert.equal(new Set(M.rulerChoices(r,{axis,zero})).size,4);
@@ -50,5 +50,15 @@ spaced=M.change(spaced,{type:'record',slot:1,depthMm:250,ppm:0});assert.equal(sp
 assert.doesNotThrow(()=>M.change(spaced,{type:'record',slot:0,depthMm:200,ppm:10}));
 const legacy=M.clone(spaced);legacy.rows[1]=M.clone(legacy.rows[0]);assert.deepEqual(P.decode(T.snapshot(legacy),'draft'),legacy);assert.doesNotThrow(()=>M.change(legacy,{type:'record',slot:1,depthMm:250,ppm:0}));
 const unsel=M.clone(spaced);unsel.selectedSlot=null;assert.deepEqual(M.snapRuler(unsel,[5,6],1,12),[5,6]);
-unsel.selectedSlot=0;assert.deepEqual(M.snapRuler(unsel,[5,6],1,12),[0,0]);assert.deepEqual(M.snapRuler(unsel,[30,35],1,12),[30,35]);
+unsel.selectedSlot=0;
+for(const axis of ['x','y']){
+ unsel.ruler.axis=axis;const p=M.impact(unsel.rows[0].depthMm,unsel.rows[0].speedOffsetPpm),mark=[Math.round(p.x),p.y],along=axis==='x'?0:1,across=1-along;
+ for(const offset of [0,1,10,50]){
+  const raw=mark.slice();raw[along]=offset;raw[across]+=8;
+  const snapped=M.snapRuler(unsel,raw,1,12);assert.equal(snapped[along],offset);assert.equal(snapped[across],mark[across]);
+  assert(M.rulerAligned(unsel.rows[0],{axis,zero:snapped}));assert(!M.rulerAligned(unsel.rows[0],{axis,zero:raw}));
+ }
+ assert.deepEqual(M.snapRuler(unsel,[5,6],1,12),[5,6]);
+}
+assert(!M.rulerAligned(null,{axis:'x',zero:[0,0]}));
 console.log('Height spacing: 5 cm boundaries, atomic rejection, own-slot redo, legacy resume; selected-only ruler snapping passed.');

@@ -35,14 +35,26 @@ async function shot(depth){
   await call(`const target=${depth};while(app.getState().setup.depthMm!==target){d.getElementById(app.getState().setup.depthMm<target?'depthDown':'depthUp').click();}`);
   await click('#release',true);await wait(()=>call('return !app.isRunning();'),'shot');
 }
+async function alignRuler(axis,offset=0,fraction=.65){
+  await click(axis==='x'?'#rulerX':'#rulerY');await click('#rulerHome');
+  const before=await state(),r=before.rows[before.selectedSlot],p=M.impact(r.depthMm,r.speedOffsetPpm),zero=axis==='x'?[offset,p.y]:[Math.round(p.x),offset];
+  const g=await call('return app.getGeometry();');
+  if(Math.hypot(...zero)*g.s<6){await call(`app.controller.command({type:'ruler',value:${JSON.stringify({axis,zero})}});`);return;}
+  const start=await call(`const e=d.getElementById('rulerBodyTarget'),r=e.getBoundingClientRect(),stage=d.getElementById('stage').getBoundingClientRect();const left=Math.max(r.left,stage.left),right=Math.min(r.right,stage.right),top=Math.max(r.top,stage.top),bottom=Math.min(r.bottom,stage.bottom);return{x:left+(right-left)*${fraction},y:top+(bottom-top)*${fraction},hit:!!e&&d.elementFromPoint(left+(right-left)*${fraction},top+(bottom-top)*${fraction})===e};`);
+  assert(start.hit);await cdp.send('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,x:start.x,y:start.y});
+  await cdp.send('Input.dispatchMouseEvent',{type:'mouseMoved',button:'left',buttons:1,x:start.x+zero[0]*g.s,y:start.y+zero[1]*g.s});
+  assert.deepEqual(await state(),before);assert(await call('return !d.getElementById("readingChoices").hidden&&d.querySelectorAll("#readingOptions button:disabled").length===4;'));
+  await cdp.send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,x:start.x+zero[0]*g.s,y:start.y+zero[1]*g.s});
+  assert.deepEqual((await state()).ruler,{axis,zero});assert(await call('return !d.getElementById("readingChoices").hidden&&!d.getElementById("readingPreview").hidden;'));
+}
 async function completeFlow(base,label){
   await viewport(1000,800);await open(base);await cdp.send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
   for(const depth of[50,150,300,450,650,800])await shot(depth);
   const recorded=await state();assert.equal(recorded.rows.filter(Boolean).length,6);
   await screenshot(label+'-apparatus');await click('#next');
   for(let i=0;i<6;i++){
-    await input('#measureSlot',i);await click('#rulerHome');
-    for(const axis of ['x','y']){await click(axis==='x'?'#rulerX':'#rulerY');const row=recorded.rows[i],p=M.impact(row.depthMm,row.speedOffsetPpm),n=Math.round(axis==='x'?p.x:p.y);await click(`[data-reading="${n}"]`);}
+    await input('#measureSlot',i);
+    for(const axis of ['x','y']){await alignRuler(axis);const row=recorded.rows[i],p=M.impact(row.depthMm,row.speedOffsetPpm),n=Math.round(axis==='x'?p.x:p.y);await click(`[data-reading="${n}"]`);}
   }
   await click('#next');
   for(let i=0;i<6;i++){await input('#plotSlot',i);await click('#keyboardPoint');const r=(await state()).rows[i];await input('#pointX',r.read[0]/10);await input('#pointY',r.read[1]/10);}
@@ -61,17 +73,17 @@ async function completeFlow(base,label){
 }
 async function readingFlow(base,label){
   for(const [width,height]of[[1280,800],[390,600],[320,500],[320,225]]){
-    await viewport(width,height);const s=T.filled();s.view='measure';s.selectedSlot=0;await open(base,s);
+    await viewport(width,height);const s=T.filled();s.view='measure';s.selectedSlot=0;s.ruler.zero=[0,s.rows[0].depthMm];await open(base,s);
     const initial=await state(),p=M.impact(initial.rows[0].depthMm,initial.rows[0].speedOffsetPpm),correct=Math.round(p.x);
     const metrics=await call(`const card=d.getElementById('readingChoices'),r=card.getBoundingClientRect(),o=d.querySelector('[data-origin]');return{font:parseFloat(getComputedStyle(d.body).fontSize),origin:!!o,math:d.querySelectorAll('#scene [data-tex]').length,formula:[...d.querySelectorAll('[data-formula]')].every(e=>e.querySelector('svg[data-tex]')),parent:card.parentElement.id,card:[r.left,r.top,r.right,r.bottom],buttons:[...d.querySelectorAll('.reading-choice')].map(e=>({value:+e.dataset.reading,height:e.getBoundingClientRect().height,math:!!e.querySelector('svg[data-tex]')}))};`);
     assert(metrics.font>=(width>=900?21:18));assert(metrics.origin&&metrics.math>0&&metrics.formula);assert.equal(metrics.buttons.length,4);assert(metrics.buttons.every(b=>b.height>=44&&b.math));assert.equal(metrics.buttons.filter(b=>Math.abs(b.value-correct)<=5).length,1);
-    assert.equal(metrics.parent,(height===225||height===500)?'readingFallback':'stage');if(metrics.parent==='stage'){assert(metrics.card[0]>=32&&metrics.card[2]<=width-32+1&&metrics.card[1]>=0&&metrics.card[3]<=height);}
+    assert.equal(metrics.parent,height<=600?'readingFallback':'stage');if(metrics.parent==='stage'){assert(metrics.card[0]>=32&&metrics.card[2]<=width-32+1&&metrics.card[1]>=0&&metrics.card[3]<=height);}
     const wrong=metrics.buttons.find(b=>Math.abs(b.value-correct)>5).value;await click(`[data-reading="${wrong}"]`,true);assert.equal((await state()).rows[0].read[0],wrong);assert.equal((await state()).calculations[0].v,null);assert.equal((await state()).meanV,null);
-    await call('app.controller.command({type:"ruler",value:{axis:"x",zero:[50,50]}});');
+    await call('app.controller.command({type:"ruler",value:{axis:"x",zero:[1,50]}});');
     const off=await call('return [...d.querySelectorAll(".reading-choice")].map(b=>+b.dataset.reading);');assert(off.every(n=>Math.abs(n-correct)>5));await click(`[data-reading="${off[0]}"]`,true);assert.equal((await state()).rows[0].read[0],off[0]);
     if(width===1280)await screenshot(label+'-reading-misaligned');
-    await click('#rulerHome');await click(`[data-reading="${correct}"]`,true);assert.equal((await state()).rows[0].read[0],correct);
-    await click('#rulerY');const mark=await rect(`[data-reading="${initial.rows[0].depthMm}"]`),touch={...mark,id:817,radiusX:2,radiusY:2,force:1};await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[touch]});await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});assert.equal((await state()).rows[0].read[1],initial.rows[0].depthMm);
+    await alignRuler('x');await click(`[data-reading="${correct}"]`,true);assert.equal((await state()).rows[0].read[0],correct);
+    await alignRuler('y');const mark=await rect(`[data-reading="${initial.rows[0].depthMm}"]`),touch={...mark,id:817,radiusX:2,radiusY:2,force:1};await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[touch]});await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});assert.equal((await state()).rows[0].read[1],initial.rows[0].depthMm);
     const saved=await call('return w.__lmsValues;'),before=await state();await cdp.send('Page.navigate',{url:`${base}/${slug}/index.html?fixture=${encodeURIComponent(JSON.stringify(saved))}`});await wait(()=>call('return Boolean(app?.getState());'),'reading resume');assert.deepEqual(await state(),before);
     if(width!==320)await screenshot(label+'-reading-choices-'+width);
     await click('#checkButton');await click('#submitButton');await click('[data-go="measure"]');assert(await call('return d.getElementById("readingChoices").hidden&&[...d.querySelectorAll("[data-clear-read]")].every(e=>e.disabled);'));
@@ -84,15 +96,28 @@ async function rulerRevision(base,label){
   await shot(200);assert(await call('return d.getElementById("release").disabled&&!d.getElementById("heightNotice").hidden;'));
   const before=await state();await call('d.getElementById("release").onclick();');assert.deepEqual(await state(),before);assert.equal(await call('return app.isRunning();'),false);
   await call('for(let n=0;n<9;n++)d.getElementById("depthDown").click();');assert(await call('return d.getElementById("release").disabled;'));await click('#depthDown');assert.equal(await call('return d.getElementById("release").disabled;'),false);await click('#release');await wait(()=>call('return !app.isRunning();'),'5 cm boundary shot');assert.equal((await state()).rows[1].depthMm,250);
+  const live=T.filled();live.view='collect';live.setup={slot:0,depthMm:50};await open(base,live);
+  const unchanged=await state(),suspend=await call('return w.__lmsValues["cmi.suspend_data"];'),handle=await rect('#catcherHandle'),g=await call('return app.getGeometry();');
+  await cdp.send('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,...handle});
+  for(const [depth,valid]of[[150,false],[100,true],[145,false]]){
+    await cdp.send('Input.dispatchMouseEvent',{type:'mouseMoved',button:'left',buttons:1,x:handle.x,y:handle.y+(depth-50)*g.s});
+    assert(await call(`return !d.getElementById('heightNotice').hidden&&d.getElementById('heightNotice').dataset.valid===${JSON.stringify(String(valid))};`));assert.deepEqual(await state(),unchanged);assert.equal(await call('return w.__lmsValues["cmi.suspend_data"];'),suspend);
+  }
+  await call('w.dispatchEvent(new Event("blur"));');await cdp.send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,x:handle.x,y:handle.y+95*g.s});assert.deepEqual(await state(),unchanged);assert(await call('return d.getElementById("heightNotice").hidden&&!d.getElementById("release").disabled;'));
   for(const [width,height]of[[1280,800],[390,844],[320,500]])for(const axis of['x','y']){
     await viewport(width,height);const s=T.filled();s.view='measure';s.selectedSlot=0;s.ruler.axis=axis;await open(base,s);
-    const geometry=await call(`const box=e=>{const r=e.getBoundingClientRect();return{left:r.left,right:r.right,top:r.top,bottom:r.bottom};},body=box(d.querySelector('#scene [data-ruler-body]')),zero=box(d.querySelector('#scene [data-ruler-value="0"]')),handle=box(d.getElementById('rulerHandle'));return{body,zero,handle,labels:[...d.querySelectorAll('#scene [data-ruler-value]')].map(box),background:getComputedStyle(d.getElementById('rulerHandle')).backgroundColor};`);
-    const b=geometry.body,z=geometry.zero,h=geometry.handle;assert(h.right<=z.left||h.left>=z.right||h.bottom<=z.top||h.top>=z.bottom,JSON.stringify(geometry));assert.equal(geometry.background,'rgba(0, 0, 0, 0)');for(const r of geometry.labels)assert(r.left>=b.left-1&&r.right<=b.right+1&&r.top>=b.top-1&&r.bottom<=b.bottom+1,JSON.stringify({b,r,axis,width}));
-    const saved=await state();await click('#readingZoomInline',true);assert(await call('return !d.getElementById("readingPreview").hidden&&d.querySelectorAll("#readingPreviewSvg [data-ruler-value]").length>0;'));assert.deepEqual(await state(),saved);
-    if(axis==='y')assert(await call(`const svg=d.getElementById('readingPreviewSvg'),origin=svg.querySelector('[data-math="O(0,0)"]');return origin.getBoundingClientRect().bottom<=svg.getBoundingClientRect().top;`));
-    if(width===1280||width===390){assert(await call('return d.getElementById("readingChoices").parentElement.id==="stage";'));await screenshot(label+'-ruler-preview-'+axis+'-'+width);}
-    await click('#readingZoomInline',true);assert(await call('return d.getElementById("readingPreview").hidden;'));assert.deepEqual(await state(),saved);
-    report.gestures.push({label,kind:'ruler-contained-labels/clear-zero/nearby-preview',width,height,axis,geometry,passed:true});
+    assert(await call('return !d.getElementById("rulerHandle")&&!d.getElementById("readingZoom")&&!d.getElementById("readingZoomInline")&&d.getElementById("readingChoices").hidden;'));
+    for(const fraction of [.2,.8]){
+      await alignRuler(axis,0,fraction);const saved=await state();
+      const geometry=await call(`const box=e=>{const r=e.getBoundingClientRect();return{left:r.left,right:r.right,top:r.top,bottom:r.bottom};},body=box(d.querySelector('#scene [data-ruler-body]')),target=box(d.getElementById('rulerBodyTarget'));return{body,target,labels:[...d.querySelectorAll('#scene [data-ruler-value]')].map(box),background:getComputedStyle(d.getElementById('rulerBodyTarget')).backgroundColor};`);
+      const b=geometry.body;assert(Object.keys(b).every(k=>Math.abs(geometry.target[k]-b[k])<1),JSON.stringify(geometry));assert.equal(geometry.background,'rgba(0, 0, 0, 0)');for(const r of geometry.labels)assert(r.left>=b.left-1&&r.right<=b.right+1&&r.top>=b.top-1&&r.bottom<=b.bottom+1,JSON.stringify({b,r,axis,width}));
+      assert(await call('return !d.getElementById("readingChoices").hidden&&d.querySelectorAll("#readingPreviewSvg [data-ruler-value]").length>0&&[...d.querySelectorAll("[data-impact-mark]")].every(e=>+e.getAttribute("r")>=6);'));assert.deepEqual(await state(),saved);
+      if(width===1280||width===390)await screenshot(label+'-ruler-auto-preview-'+axis+'-'+width);
+      await alignRuler(axis,50,fraction);const moved=await state(),row=moved.rows[0],actual=Math.round(axis==='x'?M.impact(row.depthMm,row.speedOffsetPpm).x:row.depthMm);
+      const choices=await call('return [...d.querySelectorAll(".reading-choice")].map(e=>+e.dataset.reading);');assert.equal(choices.length,4);assert(choices.every(n=>Math.abs(n-actual)>5));assert.equal(moved.ruler.zero[axis==='x'?0:1],50);
+      if(width===1280)await screenshot(label+'-ruler-wrong-zero-'+axis);
+      report.gestures.push({label,kind:'whole-ruler-drag/auto-preview/perpendicular-snap/wrong-zero-all-wrong',width,height,axis,fraction,geometry,passed:true});
+    }
   }
   report.flows.push({label,kind:'5cm-height-guard/disabled-release/model-preserves-legacy/transparent-ruler/selected-zoom',passed:true});
 }
@@ -142,9 +167,9 @@ async function edgeFlows(base,label){
   await click('#release',true);await viewport(390,500);await H.delay(90);assert.equal(await call('return app.isRunning();'),false);assert.equal((await state()).rows.filter(Boolean).length,0);assert.equal(await call('return d.getElementById("depthDown").disabled;'),false);
   await click('#release',true);acceptDialog=false;await click('#clearAll');acceptDialog=true;assert.equal(await call('return app.isRunning();'),false);assert.equal(await call('return d.getElementById("release").disabled||d.getElementById("depthDown").disabled;'),false);assert.equal((await state()).rows.filter(Boolean).length,0);
   await shot(200);assert.equal((await state()).rows[0].clockMs,M.impact(200,0).clockMs);
-  const s=T.filled();s.view='measure';s.selectedSlot=0;await open(base,s);const before=await state();
-  await click('#readingZoom');assert.equal(await call('return d.getElementById("readingPreview").hidden;'),false);assert.deepEqual(await state(),before);
-  await click('#rulerY');assert.equal(await call('return d.getElementById("readingPreview").hidden;'),false);await screenshot(label+'-reading-zoom');await click('#next');assert.equal(await call('return d.getElementById("readingPreview").hidden;'),true);
+  const s=T.filled();s.view='measure';s.selectedSlot=0;s.ruler.zero=[0,s.rows[0].depthMm];await open(base,s);const before=await state();
+  assert(await call('return !d.getElementById("readingChoices").hidden;'));assert.deepEqual(await state(),before);
+  await click('#rulerY');assert(await call('return d.getElementById("readingChoices").hidden;'));await alignRuler('y');await screenshot(label+'-reading-auto-zoom');await click('#next');assert(await call('return d.getElementById("readingChoices").hidden;'));
   await click('#checkButton');await click('[data-go="collect"]');const old=await state();acceptDialog=false;await click('#release');assert.deepEqual(await state(),old);assert.equal(await call('return app.isRunning();'),false);
   await click('#clearAll');assert.deepEqual(await state(),old);acceptDialog=true;await click('#clearAll');assert.equal((await state()).rows.filter(Boolean).length,0);
   await click('#checkButton');await click('[data-go="motion"]');await click('#showClock');await click('input[value="uniform"]');await click('#checkButton');await click('[data-go="collect"]');await cdp.send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});await shot(200);assert((await state()).clockShown);assert.equal((await state()).conclusions.horizontal,'uniform');
@@ -160,7 +185,7 @@ async function touchDrag(selector,dx,dy,ending='touchEnd'){
   const p=(x,y,id=91)=>({x,y,id,radiusX:2,radiusY:2,force:1});
   await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[p(start.x,start.y)]});
   for(let i=1;i<=6;i++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[p(start.x+dx*i/6,start.y+dy*i/6)]});await H.delay(15);}
-  const preview=await call('return !d.getElementById("magnifier").hidden;');
+  const preview=await call('return !d.getElementById("magnifier").hidden||!d.getElementById("readingChoices").hidden;');
   await cdp.send('Input.dispatchTouchEvent',{type:ending,touchPoints:[]});await H.delay(90);
   const after=await state(),metricsAfter=await call('return {page:scrollY,panel:d.getElementById("controlPanel").scrollTop,diag:app.getDiagnostics()};');
   assert.equal(metricsBefore.page,metricsAfter.page);assert.equal(metricsBefore.panel,metricsAfter.panel);assert(metricsAfter.diag.trustedTouch>metricsBefore.diag.trustedTouch);
@@ -188,7 +213,7 @@ async function interactions(base,label){
     await H.delay(60);if(ending==='complete'){assert.notDeepEqual((await state()).rows[0].point,before.rows[0].point);assert.equal((await state()).fit.attempted,false);}else{assert.deepEqual(await state(),before);assert.equal(await call('return w.__lmsValues["cmi.suspend_data"];'),suspend);}
     assert.equal(await call('return d.getElementById("magnifier").hidden;'),true);report.gestures.push({label,kind:'new-placement-'+ending,passed:true});
   }
-  for(const [view,target,dx,dy]of[['collect','#catcherHandle',0,30],['measure','#rulerHandle',35,20],['plot','[data-point-slot="0"]',28,18]]){
+  for(const [view,target,dx,dy]of[['collect','#catcherHandle',0,30],['measure','#rulerBodyTarget',35,20],['plot','[data-point-slot="0"]',28,18]]){
     const s=T.filled();s.view=view;s.selectedSlot=0;
     for(const ending of['touchEnd','touchCancel']){await open(base,s);report.gestures.push({label,view,...await touchDrag(target,dx,dy,ending)});}
   }

@@ -29,10 +29,13 @@
   function rulerChoices(row,ruler){
     if(!row)return[];
     const p=impact(row.depthMm,row.speedOffsetPpm),axis=ruler.axis==='x'?0:1;
-    const reading=Math.round((axis?p.y:p.x)-ruler.zero[axis]);
-    if(reading<0||reading>1000)return[];
-    // Distractors follow the moved scale, never the true displacement from O.
-    const values=[reading,...[-10,10,-20,20,-30,30].map(d=>reading+d).filter(v=>v>=0&&v<=1000)].slice(0,4).sort((a,b)=>a-b);
+    const actual=Math.round(axis?p.y:p.x),reading=Math.max(0,Math.min(1000,actual-ruler.zero[axis])),values=[];
+    // A misplaced zero must not accidentally offer an answer inside the scoring tolerance.
+    for(let distance=0;values.length<4;distance+=10)for(const n of distance?[reading-distance,reading+distance]:[reading]){
+      if(integer(n,0,1000)&&(ruler.zero[axis]===0||Math.abs(n-actual)>5))values.push(n);
+      if(values.length===4)break;
+    }
+    values.sort((a,b)=>a-b);
     const turn=Math.abs(Math.round(p.x)+row.depthMm+ruler.zero[0]+3*ruler.zero[1])%4;
     return values.slice(turn).concat(values.slice(0,turn));
   }
@@ -44,8 +47,14 @@
   const heightConflict=(state,depthMm,slot)=>state.rows.findIndex((r,i)=>i!==slot&&r&&Math.abs(r.depthMm-depthMm)<50);
   function snapRuler(state,raw,scale,threshold){
     const row=state.rows[state.selectedSlot];if(!row)return raw.slice();
-    const mark=impact(row.depthMm,row.speedOffsetPpm),targets=[[0,0],[Math.round(mark.x),Math.round(mark.y)]];
-    return raw.map((v,axis)=>{const nearest=targets.map(t=>t[axis]).sort((a,b)=>Math.abs(a-v)-Math.abs(b-v))[0];return Math.abs(nearest-v)*scale<=threshold?nearest:v;});
+    const mark=impact(row.depthMm,row.speedOffsetPpm),axis=state.ruler.axis==='x'?1:0,target=Math.round(axis?mark.y:mark.x),result=raw.slice();
+    if(Math.abs(target-raw[axis])*scale<=threshold)result[axis]=target;
+    return result;
+  }
+  function rulerAligned(row,ruler){
+    if(!row)return false;
+    const mark=impact(row.depthMm,row.speedOffsetPpm),axis=ruler.axis==='x'?1:0;
+    return ruler.zero[axis]===Math.round(axis?mark.y:mark.x);
   }
   function fit(state) {
     const model = state.fit.model;
@@ -111,5 +120,5 @@
     }
     return s;
   }
-  return Object.freeze({G,H,IDEAL,SPEED,VIEWS,QUESTIONS,clone,integer,mean,fresh,velocity,impact,rulerChoices,drawOffset,heightConflict,snapRuler,fit,predict,timeFit,included,change});
+  return Object.freeze({G,H,IDEAL,SPEED,VIEWS,QUESTIONS,clone,integer,mean,fresh,velocity,impact,rulerChoices,drawOffset,heightConflict,snapRuler,rulerAligned,fit,predict,timeFit,included,change});
 });

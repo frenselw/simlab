@@ -18,9 +18,9 @@
     <svg id="scene" role="img" aria-label="實驗裝置及記錄紙"></svg>
     <div id="plotInputSurface" hidden aria-label="放置所選資料點"></div>
     <button id="catcherHandle" class="handle catcher" aria-label="上下移動接球槽" type="button">↕</button>
-    <button id="rulerHandle" class="handle ruler" aria-label="移動直尺零刻度" type="button" hidden>✥</button>
+    <button id="rulerBodyTarget" class="ruler-body-target" aria-label="拖動尺身，亦可用方向鍵移動" type="button" hidden></button>
     <div id="pointHandles"></div>
-    <div id="readingChoices" class="reading-choices" hidden role="group" aria-labelledby="readingChoiceTitle"><div class="reading-card-header"><p id="readingChoiceTitle"></p><button id="readingZoomInline" type="button" aria-pressed="false">放大尺面</button></div><div id="readingPreview" hidden aria-label="尺面放大預覽"><svg id="readingPreviewSvg" role="img" aria-label="所選印記在目前尺上的放大讀數位置"></svg></div><div id="readingOptions"></div></div>
+    <div id="readingChoices" class="reading-choices" hidden role="group" aria-labelledby="readingChoiceTitle"><p id="readingChoiceTitle"></p><div id="readingPreview" aria-label="尺面放大預覽"><svg id="readingPreviewSvg" role="img" aria-label="所選印記在目前尺上的放大讀數位置"></svg></div><div id="readingOptions"></div></div>
     <div id="magnifier" hidden aria-hidden="true"><svg id="magnifierSvg"></svg></div>
     <p id="stageHint">調整接球槽，從固定標記釋放鋼珠。</p>
   </section>
@@ -34,9 +34,9 @@
       <p id="heightNotice" role="status" hidden></p><p id="recordCount"></p><ol id="recordList"></ol>
     </section>
     <section data-panel="measure" hidden>
-      <h2>2. 用尺讀取印記</h2><p>固定原點<span data-formula="O(0,0)"></span>係出口球心。<span data-formula="x"></span>向右，<span data-formula="y"></span>向下。拖動零刻度旁把手，把尺對準原點，再點選紅色讀數點旁的四個數值之一。可用方向鍵移尺，Shift加大移動。</p>
-      <label>目前印記 <select id="measureSlot"></select></label><div class="button-row"><button id="rulerX" type="button">水平尺</button><button id="rulerY" type="button">豎直尺</button><button id="rulerHome" type="button">尺歸原點</button><button id="readingZoom" type="button" aria-pressed="false">放大尺上讀數</button></div>
-      <p>四個選項來自目前尺的位置；零刻度未對準原點時，可能沒有一個是正確位移。</p><div id="readingFallback"></div><div id="readTable"></div>
+      <h2>2. 用尺讀取印記</h2><p>固定原點<span data-formula="O(0,0)"></span>係出口球心。<span data-formula="x"></span>向右，<span data-formula="y"></span>向下。拖動尺身任何位置，對齊所選印記時會自動吸附並顯示放大尺面及四個選項。放手後點選讀數。可用方向鍵移尺，Shift加大移動。</p>
+      <label>目前印記 <select id="measureSlot"></select></label><div class="button-row"><button id="rulerX" type="button">水平尺</button><button id="rulerY" type="button">豎直尺</button><button id="rulerHome" type="button">尺歸原點</button></div>
+      <p>請自行對準沿量度方向的零刻度；零位錯誤時，四個選項都不是正確位移。</p><div id="readingFallback"></div><div id="readTable"></div>
     </section>
     <section data-panel="plot" hidden>
       <h2>3. 描點與擬合</h2><p>依自己的讀數放點。拖動或用方向鍵移<span data-formula="1\,\mathrm{cm}"></span>、Shift移<span data-formula="1\,\mathrm{mm}"></span>；圖點只吸附公開網格。</p>
