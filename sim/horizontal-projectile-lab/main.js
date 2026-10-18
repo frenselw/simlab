@@ -200,7 +200,9 @@
       if(q>110)html+=text(x(500),y(depth+10)+labelSize+8,'接球槽','#1764b1');
     }
     if(view==='measure'){
-      const ruler=currentRuler(),[rx,ry]=ruler.zero, horizontal=ruler.axis==='x';
+      const ruler=currentRuler(),horizontal=ruler.axis==='x',actual=s.rows[measured()],p=actual?M.impact(actual.depthMm,actual.speedOffsetPpm):null;
+      // Keep saved millimetre snapping/readings; render the perpendicular edge at the exact mark.
+      const rx=!horizontal&&M.rulerAligned(actual,ruler)?p.x:ruler.zero[0],ry=horizontal&&M.rulerAligned(actual,ruler)?p.y:ruler.zero[1];
       const rxp=x(rx),ryp=y(ry),pad=labelSize+4,thickness=Math.max(labelSize+28,CircuitMath.measure('100',labelSize).width+24);
       html+=`<rect data-ruler-body="true" x="${rxp-(horizontal?pad:0)}" y="${ryp-(horizontal?0:pad)}" width="${horizontal?q+2*pad:thickness}" height="${horizontal?thickness:q+2*pad}" fill="#f9e5ab" fill-opacity=".82" stroke="#a88a3e"/>`;
       let ticks='';
@@ -211,7 +213,7 @@
       html+=`<path d="${ticks}" stroke="#654c17" stroke-width=".7" fill="none"/>`;
       const spacing=[10,20,50,100,200,500,1000].find(mm=>mm*scale>=labelSize*2)??1000;
       for(let mm=0;mm<=1000;mm+=spacing)html+=text(rxp+(horizontal?mm*scale:18),ryp+(horizontal?labelSize+22:mm*scale+labelSize*.35),mm/10,'#654c17',horizontal?'middle':'start').replace('<g ',`<g data-ruler-value="${mm}" `);
-      const actual=s.rows[measured()];if(actual){const p=M.impact(actual.depthMm,actual.speedOffsetPpm),px=horizontal?x(p.x):rxp,py=horizontal?ryp:y(p.y);html+=line(x(p.x),y(p.y),px,py,'#8d6e37')+`<circle data-reading-target="true" data-reading-slot="${measured()}" cx="${px}" cy="${py}" r="5" fill="#a3321e" stroke="#fff" stroke-width="1.5"/>`;}
+      if(actual){const px=horizontal?x(p.x):rxp,py=horizontal?ryp:y(p.y);html+=line(x(p.x),y(p.y),px,py,'#8d6e37')+`<circle data-reading-target="true" data-reading-slot="${measured()}" cx="${px}" cy="${py}" r="5" fill="#a3321e" stroke="#fff" stroke-width="1.5"/>`;}
     }
     return html;
   }
@@ -259,7 +261,7 @@
     const below=target[1]+(axis?8:thickness+8),above=target[1]-box.height-8;
     const left=beside??clamp(target[0]+12,g.w-box.width),top=beside!==undefined?clamp(target[1]-18,g.h-box.height):clamp(below+box.height<=g.h-4?below:above,g.h-box.height);
     {
-      const width=d.readingPreview.clientWidth,height=d.readingPreview.clientHeight,zs=Math.max(g.s*8,4),focus=axis?[ruler.zero[0],p.y]:[p.x,ruler.zero[1]],labelSize=compact?16:size,zoomThickness=Math.max(labelSize+28,CircuitMath.measure('100',labelSize).width+24),focusY=axis?height/2:Math.max(6,Math.min(height/2,height-zoomThickness-4)),zoom={w:width,h:height,s:zs,ox:width/2-focus[0]*zs,oy:focusY-focus[1]*zs,labelSize};zoom.x=n=>zoom.ox+n*zs;zoom.y=n=>zoom.oy+n*zs;
+      const width=d.readingPreview.clientWidth,height=d.readingPreview.clientHeight,zs=Math.max(g.s*8,4),focus=[p.x,p.y],labelSize=compact?16:size,zoomThickness=Math.max(labelSize+28,CircuitMath.measure('100',labelSize).width+24),focusY=axis?height/2:Math.max(6,Math.min(height/2,height-zoomThickness-4)),zoom={w:width,h:height,s:zs,ox:width/2-focus[0]*zs,oy:focusY-focus[1]*zs,labelSize};zoom.x=n=>zoom.ox+n*zs;zoom.y=n=>zoom.oy+n*zs;
       d.readingPreviewSvg.setAttribute('viewBox',`0 0 ${width} ${height}`);d.readingPreviewSvg.innerHTML=world(zoom,'measure','readingClip');
     }
     d.readingChoices.style.left=left+'px';d.readingChoices.style.top=top+'px';active?.focus({preventScroll:true});

@@ -31,6 +31,16 @@ async function click(selector,trusted=false){
 async function input(selector,value){await call(`const e=d.querySelector(${JSON.stringify(selector)});if(!e||e.disabled)throw Error('Unavailable input '+${JSON.stringify(selector)});e.value=${JSON.stringify(String(value))};e.dispatchEvent(new Event('change',{bubbles:true}));`);}
 async function rect(selector){return call(`const e=d.querySelector(${JSON.stringify(selector)});if(!e||!e.getClientRects().length)throw Error('Missing target '+${JSON.stringify(selector)});e.scrollIntoView({block:'nearest'});const r=e.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2};`);}
 const state=()=>call('return app.getState();');
+async function assertReadingAlignment(){
+  const saved=await state(),suspend=await call('return w.__lmsValues["cmi.suspend_data"];');
+  const geometry=await call(`return ['scene','readingPreviewSvg'].map(id=>{
+    const svg=d.getElementById(id),target=svg.querySelector('[data-reading-target]'),slot=+target.dataset.readingSlot,mark=svg.querySelectorAll('[data-impact-mark]')[slot],body=svg.querySelector('[data-ruler-body]');
+    return{id,red:['cx','cy'].map(k=>+target.getAttribute(k)),black:['cx','cy'].map(k=>+mark.getAttribute(k)),edge:+body.getAttribute(app.getState().ruler.axis==='x'?'y':'x')};
+  });`);
+  for(const item of geometry){assert.deepEqual(item.red,item.black,JSON.stringify(item));assert.equal(item.edge,item.red[saved.ruler.axis==='x'?1:0],JSON.stringify(item));}
+  assert.deepEqual(await state(),saved);assert.equal(await call('return w.__lmsValues["cmi.suspend_data"];'),suspend);
+  return geometry;
+}
 async function shot(depth){
   await call(`const target=${depth};while(app.getState().setup.depthMm!==target){d.getElementById(app.getState().setup.depthMm<target?'depthDown':'depthUp').click();}`);
   await click('#release',true);await wait(()=>call('return !app.isRunning();'),'shot');
@@ -45,8 +55,10 @@ async function alignRuler(axis,offset=0,fraction=.65,slot=0){
   assert(start.hit);await cdp.send('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,x:start.x,y:start.y});
   await cdp.send('Input.dispatchMouseEvent',{type:'mouseMoved',button:'left',buttons:1,x:start.x+raw[0]*g.s,y:start.y+raw[1]*g.s});
   assert.deepEqual(await state(),before);assert(await call('return !d.getElementById("readingChoices").hidden&&d.querySelectorAll("#readingOptions button:disabled").length===4;'));
+  await assertReadingAlignment();
   await cdp.send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,x:start.x+raw[0]*g.s,y:start.y+raw[1]*g.s});
   assert.deepEqual((await state()).ruler,{axis,zero});assert.equal(await call('return +d.getElementById("readingChoices").dataset.slot;'),slot);assert(await call('return !d.getElementById("measureSlot");'));assert(await call('return !d.getElementById("readingChoices").hidden&&!d.getElementById("readingPreview").hidden;'));
+  await assertReadingAlignment();
 }
 async function completeFlow(base,label){
   await viewport(1000,800);await open(base);await cdp.send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
@@ -96,6 +108,17 @@ async function readingFlow(base,label){
   }
 }
 async function rulerRevision(base,label){
+  for(const [width,height]of[[1280,800],[390,844],[320,225]]){
+    await viewport(width,height);
+    for(let slot=0;slot<6;slot++)for(const axis of['x','y'])for(const offset of[0,50]){
+      const s=T.filled(),p=M.impact(s.rows[slot].depthMm,s.rows[slot].speedOffsetPpm);s.view='measure';s.ruler={axis,zero:axis==='x'?[offset,p.y]:[Math.round(p.x),offset]};
+      await open(base,s);const before=await state(),score=await call('return ProjectileScoring.score(app.getState());'),geometry=await assertReadingAlignment();
+      assert.deepEqual(await call('return [...d.querySelectorAll(".reading-choice")].map(e=>+e.dataset.reading);'),M.rulerChoices(s.rows[slot],s.ruler));
+      await call('w.dispatchEvent(new Event("resize"));');await assertReadingAlignment();assert.deepEqual(await state(),before);assert.deepEqual(await call('return ProjectileScoring.score(app.getState());'),score);
+      report.gestures.push({label,kind:'exact-reading-centres/unchanged-state-score-options',width,height,slot,axis,offset,geometry,passed:true});
+      if(width===390&&slot===1&&axis==='y'&&offset===0)await screenshot(label+'-reading-centres-aligned');
+    }
+  }
   await viewport(390,844);const example=M.practice(M.fresh(-80000),()=>.5);example.view='measure';example.ruler.zero=[0,150];await open(base,example);
   const values=await call('return [...d.querySelectorAll(".reading-choice")].map(e=>+e.dataset.reading).sort((a,b)=>a-b);');assert.deepEqual(values,[261,264,267,270]);await screenshot(label+'-three-mm-reading-options');
   await click('[data-reading="267"]',true);assert.equal((await state()).rows[1].read[0],267);
