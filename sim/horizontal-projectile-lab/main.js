@@ -96,7 +96,7 @@
     Object.keys(M.QUESTIONS).forEach(k=>document.querySelectorAll(`[data-question="${k}"]`).forEach(e=>{e.checked=s.conclusions[k]===e.value;e.disabled=locked;}));
     [d.recordSlot,d.depthUp,d.depthDown,d.release,d.measureSlot,d.rulerX,d.rulerY,d.rulerHome,d.plotSlot,d.fitModel,d.trajectory,d.connectPoints,d.clearPlot].forEach(e=>e.disabled=locked);
     [d.recordSlot,d.depthUp,d.depthDown,d.catcherHandle].forEach(e=>e.disabled=locked||Boolean(run));
-    const conflict=M.heightConflict(s,s.setup.depthMm,s.setup.slot);
+    const conflict=s.setup?M.heightConflict(s,s.setup.depthMm,s.setup.slot):-1;
     d.release.disabled=locked||Boolean(run)||conflict>=0;
     d.heightNotice.hidden=locked||conflict<0;
     d.heightNotice.innerHTML=conflict<0?'':`此高度與第${conflict+1}點相距不足${math('5\\,\\mathrm{cm}','5 cm')}，請上下調槽。`;
