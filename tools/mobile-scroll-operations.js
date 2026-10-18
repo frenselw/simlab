@@ -119,7 +119,8 @@ async function runProjectileOperations({cdp,childEval,observation,prepare,delay}
   const results=[],selector=spec.projectileTarget,[dx,dy]=spec.projectileDelta;
   for(const ending of['complete','cancel','lostcapture','blur','secondary']){
     await prepare('stage','middle');
-    const point=await childEval(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});if(!e||!e.getClientRects().length)throw Error('Missing projectile drag target');const r=e.getBoundingClientRect(),f=frameOffset(),x=r.left+r.width/2,y=r.top+r.height/2;return{x:x+f.left,y:y+f.top,hit:document.elementFromPoint(x,y)===e,touchAction:getComputedStyle(e).touchAction};})()`);
+    if(selector==='#plotInputSurface')await childEval('(()=>{if(document.getElementById("plotInputSurface").hidden)document.getElementById("placePoint").click();})()');
+    const point=await childEval(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});if(!e||!e.getClientRects().length)throw Error('Missing projectile drag target');const r=e.getBoundingClientRect(),f=frameOffset(),surface=${JSON.stringify(selector)}==='#plotInputSurface';const x=r.left+r.width*(surface ? 0.85 : 0.5),y=r.top+r.height*(surface ? 0.2 : 0.5);return{x:x+f.left,y:y+f.top,hit:document.elementFromPoint(x,y)===e,touchAction:getComputedStyle(e).touchAction};})()`);
     const before=await observation(),samples=[],issues=[],id=9001;
     const touch=(x,y,key=id)=>({x,y,id:key,radiusX:2,radiusY:2,force:1});
     if(!point.hit||point.touchAction!=='none')issues.push('projectile target not exposed with touch ownership');

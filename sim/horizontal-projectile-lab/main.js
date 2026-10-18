@@ -24,7 +24,11 @@
   d.checkReturn.innerHTML=M.VIEWS.map((v,i)=>`<button type="button" data-go="${v}">返回${names[i]}</button>`).join(' ');
   const reviewNav=document.createElement('div');reviewNav.className='button-row';reviewNav.innerHTML=M.VIEWS.map((v,i)=>`<button type="button" data-go="${v}">${names[i]}</button>`).join('');d.resultPanel.append(reviewNav);
   const editing=()=>controller.mode==='edit';
-  const command=action=>controller.command(action);
+  const command=action=>{
+    const interrupted=Boolean(drag);if(interrupted)cancelDrag();
+    const changed=controller.command(action);if(interrupted&&!changed)drawStage();
+    return changed;
+  };
   function cancelDrag(){
     const old=drag;drag=null;d.magnifier.hidden=true;
     if(old){diagnostics.cancels++;try{old.target.releasePointerCapture(old.id);}catch(_){} }
@@ -151,7 +155,7 @@
       return html;
     }
     if(plot){
-      const points=s.rows.map((r,i)=>r?.point?{i,p:drag?.kind==='point'&&drag.index===i?drag.value:r.point}:null).filter(Boolean);
+      const points=s.rows.map((r,i)=>{const p=drag?.kind==='point'&&drag.index===i?drag.value:r?.point;return p?{i,p}:null;}).filter(Boolean);
       if(s.connectPoints&&points.length)html+=`<path d="${points.slice().sort((a,b)=>a.p[0]-b.p[0]).map(({p},i)=>`${i?'L':'M'}${x(p[0])},${y(p[1])}`).join('')}" fill="none" stroke="#8b98a8" stroke-dasharray="3 4"/>`;
       if(s.fit.attempted){const f=M.fit(s);if(f.ok)html+=curve(u=>M.predict(s,f,u/1000)*1000,'#157c75');}
       if(controller.trusted)html+=curve(u=>M.G/(2*M.SPEED**2)*(u/1000)**2*1000,'#b3542d',true);
@@ -222,14 +226,15 @@
     const targets=[[0,0]];const r=controller.state.rows[selected()];if(r){const mark=M.impact(r.depthMm,r.speedOffsetPpm);targets.push([Math.round(mark.x),Math.round(mark.y)]);}
     return raw.map((v,axis)=>{const nearest=targets.map(t=>t[axis]).sort((a,b)=>Math.abs(a-v)-Math.abs(b-v))[0];return Math.abs(nearest-v)*geometry.s<=threshold?nearest:v;});
   }
-  function beginDrag(event,kind,index=null){
+  function beginDrag(event,kind,index=null,placement=false){
     if(!editing()||run||event.button!==0||event.isPrimary===false)return;
     if(drag){cancelDrag();drawStage();return;}
-    const s=controller.state,before=kind==='catcher'?s.setup.depthMm:kind==='ruler'?s.ruler.zero:s.rows[index]?.point;
+    const s=controller.state,before=placement?modelPoint(event).map(v=>Math.round(v/10)*10):kind==='catcher'?s.setup.depthMm:kind==='ruler'?s.ruler.zero:s.rows[index]?.point;
     if(before===null||before===undefined)return;
     diagnostics.downs++;if(event.isTrusted&&event.pointerType==='touch')diagnostics.trustedTouch++;
-    drag={kind,index,before:M.clone(before),value:M.clone(before),id:event.pointerId,target:event.currentTarget,start:[event.clientX,event.clientY],startModel:modelPoint(event),moved:false,previewLeft:event.clientX>d.stage.getBoundingClientRect().left+d.stage.clientWidth/2};
+    drag={kind,index,placement,before:M.clone(before),value:M.clone(before),id:event.pointerId,target:event.currentTarget,start:[event.clientX,event.clientY],startModel:modelPoint(event),moved:false,previewLeft:event.clientX>d.stage.getBoundingClientRect().left+d.stage.clientWidth/2};
     event.currentTarget.setPointerCapture(event.pointerId);event.preventDefault();
+    if(placement)drawStage();
   }
   function moveDrag(event){if(!drag||event.pointerId!==drag.id)return;const distance=Math.hypot(event.clientX-drag.start[0],event.clientY-drag.start[1]);if(!drag.moved&&distance<(event.pointerType==='mouse'?3:6))return;drag.moved=true;drag.value=resolveDrag(event);diagnostics.moves++;drawStage();}
   function finishDrag(event){
@@ -237,16 +242,19 @@
     if(event.type!=='pointerup'){cancelDrag();drawStage();return;}
     const previous=drag;if(previous.moved)previous.value=resolveDrag(event);drag=null;d.magnifier.hidden=true;diagnostics.ups++;
     try{previous.target.releasePointerCapture(previous.id);}catch(_){}
-    if(previous.moved){if(previous.kind==='catcher')command({type:'setup',value:{depthMm:previous.value}});else if(previous.kind==='ruler')command({type:'ruler',value:{axis:controller.state.ruler.axis,zero:previous.value}});else command({type:'point',slot:previous.index,value:previous.value});}
-    else if(previous.kind==='point')command({type:'select',slot:previous.index});else drawStage();
+    if(previous.placement)placing=false;
+    if(previous.moved||previous.placement){if(previous.kind==='catcher')command({type:'setup',value:{depthMm:previous.value}});else if(previous.kind==='ruler')command({type:'ruler',value:{axis:controller.state.ruler.axis,zero:previous.value}});else command({type:'point',slot:previous.index,value:previous.value});}
+    else if(previous.kind==='point')command({type:'select',slot:previous.index});
+    drawStage();
   }
   function attachDrag(element,kind,index=null){element.addEventListener('pointerdown',e=>beginDrag(e,kind,index));element.addEventListener('pointermove',moveDrag);['pointerup','pointercancel','lostpointercapture'].forEach(t=>element.addEventListener(t,finishDrag));}
   attachDrag(d.catcherHandle,'catcher');attachDrag(d.rulerHandle,'ruler');pointButtons.forEach((b,i)=>attachDrag(b,'point',i));
   document.addEventListener('pointerdown',e=>{if(drag&&e.pointerId!==drag.id){cancelDrag();drawStage();}},true);
   d.plotInputSurface.addEventListener('pointerdown',e=>{
     if(!editing()||!placing||e.button!==0||e.isPrimary===false)return;const p=modelPoint(e);if(p.some(v=>v<0||v>1000))return;
-    placing=false;command({type:'point',slot:selected(),value:p.map(v=>Math.round(v/10)*10)});e.preventDefault();
+    beginDrag(e,'point',selected(),true);
   });
+  d.plotInputSurface.addEventListener('pointermove',moveDrag);['pointerup','pointercancel','lostpointercapture'].forEach(t=>d.plotInputSurface.addEventListener(t,finishDrag));
   function keyboard(event,kind,index=null){
     if(!editing()||run||!['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(event.key))return;
     event.preventDefault();const dx=event.key==='ArrowLeft'?-1:event.key==='ArrowRight'?1:0,dy=event.key==='ArrowUp'?-1:event.key==='ArrowDown'?1:0,clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
@@ -271,22 +279,22 @@
   [d.measureSlot,d.plotSlot].forEach(e=>e.addEventListener('change',()=>{placing=false;command({type:'select',slot:e.value===''?null:+e.value});}));
   d.depthUp.onclick=()=>command({type:'setup',value:{depthMm:Math.max(50,controller.state.setup.depthMm-5)}});
   d.depthDown.onclick=()=>command({type:'setup',value:{depthMm:Math.min(800,controller.state.setup.depthMm+5)}});
-  ['x','y'].forEach(axis=>d[axis==='x'?'rulerX':'rulerY'].onclick=()=>{cancelDrag();command({type:'ruler',value:{...controller.state.ruler,axis}});});
+  ['x','y'].forEach(axis=>d[axis==='x'?'rulerX':'rulerY'].onclick=()=>command({type:'ruler',value:{...controller.state.ruler,axis}}));
   d.rulerHome.onclick=()=>command({type:'ruler',value:{...controller.state.ruler,zero:[0,0]}});
   d.readingZoom.onclick=()=>{readingZoom=!readingZoom;render();};
   d.placePoint.onclick=()=>{placing=!placing;drawStage();};
-  d.keyboardPoint.onclick=()=>{const i=selected();if(i===null)return;command({type:'point',slot:i,value:controller.state.rows[i].point??[500,500]});pointButtons[i].focus();};
+  d.keyboardPoint.onclick=()=>{const i=selected();if(i===null)return;placing=false;if(!command({type:'point',slot:i,value:controller.state.rows[i].point??[500,500]}))drawStage();pointButtons[i].focus();};
   d.removePoint.onclick=()=>command({type:'point',slot:selected(),value:null});
   [d.pointX,d.pointY].forEach((e,axis)=>e.addEventListener('change',()=>{const n=numberInput(e,{max:100,scale:10}),p=controller.state.rows[selected()]?.point;if(n!==undefined&&n!==null&&p){const v=p.slice();v[axis]=n;command({type:'point',slot:selected(),value:v});}else render();}));
   d.fitModel.onchange=()=>command({type:'model',value:d.fitModel.value||null});d.fitButton.onclick=()=>command({type:'fit'});d.trajectory.onchange=()=>command({type:'answer',field:'trajectory',value:d.trajectory.value||null});
   d.connectPoints.onchange=()=>command({type:'connect',value:d.connectPoints.checked});
-  d.clearPlot.onclick=()=>{cancelDrag();placing=false;if(confirm('清除圖點、擬合及軌跡分類？印記、讀數及逐點估速保留。'))command({type:'clearPlot'});};
+  d.clearPlot.onclick=()=>{cancelDrag();placing=false;if(confirm('清除圖點、擬合及軌跡分類？印記、讀數及逐點估速保留。'))command({type:'clearPlot'});drawStage();};
   d.showClock.onclick=()=>command({type:'clock'});d.timeX.onclick=()=>{timeAxis=0;render();};d.timeY.onclick=()=>{timeAxis=1;render();};
   d.previous.onclick=()=>navigate(M.VIEWS[Math.max(0,M.VIEWS.indexOf(controller.view)-1)]);
   d.next.onclick=()=>controller.view==='motion'?check():navigate(M.VIEWS[Math.min(4,M.VIEWS.indexOf(controller.view)+1)]);
   d.checkButton.onclick=check;d.returnCheck.onclick=check;d.submitButton.onclick=()=>controller.submit();d.retryFinal.onclick=()=>controller.retryFinal();d.saveRetry.onclick=()=>controller.retrySave();
   document.querySelectorAll('[data-go]').forEach(e=>e.onclick=()=>navigate(e.dataset.go));
-  d.clearAll.onclick=()=>{cancelDrag();cancelFlight();if(confirm('清除本次全部印記、讀數、圖點及答案？')){placing=false;controller.clear();}};
+  d.clearAll.onclick=()=>{cancelDrag();cancelFlight();if(confirm('清除本次全部印記、讀數、圖點及答案？')){placing=false;controller.clear();}else render();};
   d.release.onclick=()=>{
     if(!editing()||run)return;const {slot,depthMm}=controller.state.setup;
     if(controller.state.rows[slot]&&!confirm(`重做${pn(slot)}會清除此點的讀數、圖點及計算，並更新相關擬合。繼續？`))return;

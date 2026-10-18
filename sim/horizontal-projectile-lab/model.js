@@ -69,7 +69,11 @@
         if (action.axis === 1) s.gFromClock = null;
         if (action.value === null) s.rows[i].point = null;
         break;
-      case 'point': if (!s.rows[i] || s.rows[i].read.includes(null)) throw new Error('Missing readings'); s.rows[i].point = action.value; s.selectedSlot=i; invalidateFit(s); break;
+      case 'point':
+        if (!s.rows[i] || s.rows[i].read.includes(null)) throw new Error('Missing readings');
+        s.selectedSlot=i;
+        if(JSON.stringify(s.rows[i].point)===JSON.stringify(action.value))break;
+        s.rows[i].point=action.value;invalidateFit(s);break;
       case 'model': s.fit.model = action.value; invalidateFit(s); break;
       case 'fit': s.fit.attempted = true; break;
       case 'calculation':

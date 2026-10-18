@@ -46,7 +46,7 @@ function activityProfiles(slug) {
       const blank={...projectileModel.fresh(),view};profiles.push(restored(view+'-unanswered',blank,['#checkButton',`[data-go="${view}"]`]));
     }
     profiles.push(restored('measure-vertical',{...projectileModel.clone(filled),view:'measure'},['#checkButton','[data-go="measure"]','#rulerY'],{projectileTarget:'#rulerHandle',projectileDelta:[30,25]}));
-    profiles.push(restored('plot-placement',{...projectileModel.clone(filled),view:'plot'},['#checkButton','[data-go="plot"]','#placePoint']));
+    profiles.push(restored('plot-placement',{...projectileModel.clone(filled),view:'plot'},['#checkButton','[data-go="plot"]','#placePoint'],{projectileTarget:'#plotInputSurface',projectileDelta:[8,8]}));
     const failed={...projectileModel.clone(filled),view:'plot',fit:{model:'quadratic',attempted:true},fitV:null};failed.rows.forEach(r=>r.point=[500,500]);
     profiles.push(restored('plot-fit-failure',failed,['#checkButton','[data-go="plot"]']));
     for(const [id,extra]of[['check',{}],['submitted',{}],['pending',{}],['committed',{}]]){

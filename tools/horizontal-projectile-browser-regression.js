@@ -100,6 +100,7 @@ async function edgeFlows(base,label){
   await click('#checkButton');assert.equal(await call('return app.isRunning();'),false);assert.equal((await state()).rows.filter(Boolean).length,0);
   await click('[data-go="collect"]');assert.equal(await call('return d.getElementById("depthDown").disabled;'),false);
   await click('#release',true);await viewport(390,500);await H.delay(90);assert.equal(await call('return app.isRunning();'),false);assert.equal((await state()).rows.filter(Boolean).length,0);assert.equal(await call('return d.getElementById("depthDown").disabled;'),false);
+  await click('#release',true);acceptDialog=false;await click('#clearAll');acceptDialog=true;assert.equal(await call('return app.isRunning();'),false);assert.equal(await call('return d.getElementById("release").disabled||d.getElementById("depthDown").disabled;'),false);assert.equal((await state()).rows.filter(Boolean).length,0);
   await shot(200);assert.equal((await state()).rows[0].clockMs,M.impact(200,0).clockMs);
   const s=T.filled();s.view='measure';s.selectedSlot=0;await open(base,s);const before=await state();
   await click('#readingZoom');assert.equal(await call('return d.getElementById("magnifier").hidden;'),false);assert.deepEqual(await state(),before);
@@ -129,11 +130,24 @@ async function touchDrag(selector,dx,dy,ending='touchEnd'){
 }
 async function interactions(base,label){
   await viewport(390,600);
+  const focusFixture=T.filled();focusFixture.view='plot';focusFixture.selectedSlot=0;await open(base,focusFixture);const focused=await state();await click('#placePoint');await click('#keyboardPoint');assert.deepEqual(await state(),focused);assert.equal(await call('return d.getElementById("plotInputSurface").hidden;'),true);
+  await click('#placePoint');acceptDialog=false;await click('#clearPlot');acceptDialog=true;assert.deepEqual(await state(),focused);assert.equal(await call('return d.getElementById("plotInputSurface").hidden;'),true);
   const first=M.change(M.fresh(),{type:'record',slot:0,depthMm:200,ppm:0});first.view='plot';first.rows[0].read=[300,200];await open(base,first);await click('#placePoint');
   const centre=await call('const g=app.getGeometry(),r=d.getElementById("stage").getBoundingClientRect();return{x:r.left+g.ox+500*g.s,y:r.top+g.oy+500*g.s};');
   await cdp.send('Input.dispatchMouseEvent',{type:'mousePressed',button:'right',clickCount:1,...centre});await cdp.send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'right',clickCount:1,...centre});await cdp.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape'});assert.equal((await state()).rows[0].point,null);
   await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...centre,id:52,radiusX:3,radiusY:3,force:1}]});await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});assert.deepEqual((await state()).rows[0].point,[500,500]);assert.equal(await call('return d.getElementById("plotInputSurface").hidden;'),true);
   report.gestures.push({label,kind:'central-placement/trusted-touch/right-button-ignored',passed:true});
+  for(const ending of['touchCancel','blur','lostcapture','secondary','complete']){
+    const fixture=T.filled();fixture.view='plot';fixture.selectedSlot=0;await open(base,fixture);await click('#placePoint');
+    const before=await state(),suspend=await call('return w.__lmsValues["cmi.suspend_data"];');
+    const p=await call('const g=app.getGeometry(),r=d.getElementById("stage").getBoundingClientRect();w.__placementId=null;d.getElementById("plotInputSurface").addEventListener("pointerdown",e=>w.__placementId=e.pointerId,{once:true});return{x:r.left+g.ox+900*g.s,y:r.top+g.oy+300*g.s};');
+    const point=(id=52)=>({...p,id,radiusX:3,radiusY:3,force:1});await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[point()]});assert.deepEqual(await state(),before);assert.equal(await call('return d.getElementById("magnifier").hidden;'),false);
+    if(ending==='lostcapture')await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{...point(),x:p.x+1,y:p.y+1}]});
+    if(ending==='touchCancel')await cdp.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});
+    else{if(ending==='blur')await call('w.dispatchEvent(new Event("blur"));');if(ending==='lostcapture')await call('d.getElementById("plotInputSurface").releasePointerCapture(w.__placementId);');if(ending==='secondary')await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[point(),{...point(53),x:p.x-45}]});await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});}
+    await H.delay(60);if(ending==='complete'){assert.notDeepEqual((await state()).rows[0].point,before.rows[0].point);assert.equal((await state()).fit.attempted,false);}else{assert.deepEqual(await state(),before);assert.equal(await call('return w.__lmsValues["cmi.suspend_data"];'),suspend);}
+    assert.equal(await call('return d.getElementById("magnifier").hidden;'),true);report.gestures.push({label,kind:'new-placement-'+ending,passed:true});
+  }
   for(const [view,target,dx,dy]of[['collect','#catcherHandle',0,30],['measure','#rulerHandle',35,20],['plot','[data-point-slot="0"]',28,18]]){
     const s=T.filled();s.view=view;s.selectedSlot=0;
     for(const ending of['touchEnd','touchCancel']){await open(base,s);report.gestures.push({label,view,...await touchDrag(target,dx,dy,ending)});}

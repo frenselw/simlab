@@ -11,6 +11,7 @@ for(const type of['calculation','read','record']){
   const n=M.change(s,action);assert.equal(n.meanV,null);assert.equal(n.calculations[0].v,null);assert.deepEqual(n.calculations[1],s.calculations[1]);P.draft(n);
 }
 const c=M.change(s,{type:'clearPlot'});assert.equal(c.fitV,null);assert.equal(c.meanV,s.meanV);assert.deepEqual(c.calculations,s.calculations);
+const unchanged=M.change(s,{type:'point',slot:0,value:s.rows[0].point.slice()});assert.deepEqual(unchanged.fit,s.fit);assert.equal(unchanged.fitV,s.fitV);
 const newRow=M.clone(s);newRow.rows[5]=null;newRow.calculations[5]={t:null,v:null};newRow.meanV=M.mean(newRow.calculations.slice(0,5).map(v=>v.v));
 assert.equal(M.change(newRow,{type:'record',slot:5,depthMm:800,ppm:10}).meanV,newRow.meanV);
 assert.equal(M.mean(Array(6).fill(Number.MAX_VALUE)),Number.MAX_VALUE);
