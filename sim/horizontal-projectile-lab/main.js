@@ -49,11 +49,11 @@
     d.app.classList.toggle('measuring',view==='measure'&&!checking&&Boolean(s));
     const hintHost=innerWidth<900&&innerHeight>420?d.controlPanel:d.stage;
     if(d.stageHint.parentElement!==hintHost){if(hintHost===d.controlPanel)hintHost.insertBefore(d.stageHint,d.notice);else hintHost.append(d.stageHint);}
-    d.stageHint.hidden=checking||!s;
+    d.stageHint.hidden=checking||!s||!hint;
     d.status.textContent=controller.mode==='review'?'已提交 · 只讀回顧':controller.mode==='committed'?'結果已記錄':controller.mode==='frozen'?'提交待確認':'取點、量度與擬合';
     if(testing())d.status.textContent=controller.mode==='edit'||controller.mode==='check'?'測試模式':'測試模式 · '+d.status.textContent;
     d.modeControls.hidden=!SimScorm.isStandalone()||locked;
-    d.modeMessage.textContent=testing()?'測試模式：已自動完成取點及讀尺，後續答案留空供測試。重新整理會產生另一組實驗數據。':'一般模式：從空白開始，手動取點及讀尺。';
+    d.modeMessage.textContent=testing()?'測試模式：已預填取點及讀數。':'一般模式：自行取點及讀數。';
     d.modeToggle.textContent=testing()?'切換一般模式（重新開始）':'切換測試模式（重新開始）';
     d.progress.textContent=s?`${M.VIEWS.indexOf(view)+1} / ${M.VIEWS.length} ${names[M.VIEWS.indexOf(view)]}`:'';
     d.notice.hidden=!controller.notice;d.notice.innerHTML=prose(controller.notice);
@@ -71,9 +71,8 @@
     const records=s.rows.map((r,i)=>r?[i,`第${i+1}點 · 已記錄`]:null).filter(Boolean);
     const calculations=M.calculations(s),points=M.points(s);
     options(d.recordSlot,s.rows.map((r,i)=>[i,`第${i+1}點 · ${r?'已有印記（重做）':'空白'}`]),s.setup?.slot??0);
-    d.plotCount.textContent=`已自動顯示 ${points.filter(Boolean).length} / 6 個完整讀數點，另加入原點。未量好的點不補零。`;
-    d.recordCount.innerHTML=`已留下 ${records.length} / 6 個印記。高度相隔至少${math("5\\,\\mathrm{cm}","5 cm")}。槽微調每次${math("0.5\\,\\mathrm{cm}","0.5 cm")}；建議取高低分散的位置。`;
-    d.recordList.innerHTML=records.map(([i])=>`<li>${math(`P_{${i+1}}`,pn(i))}：已將印記轉記到記錄紙</li>`).join('');
+    d.plotCount.textContent=`已繪出 ${points.filter(Boolean).length} / 6 點及原點。`;
+    d.recordCount.innerHTML=`已取 ${records.length} / 6 點；高度至少相隔${math("5\\,\\mathrm{cm}","5 cm")}。`;
     for(let i=0;i<6;i++){
       const r=s.rows[i];
       ['x','y'].forEach((key,axis)=>{const e=document.getElementById(`read-${key}-${i}`),n=r?.read[axis];e.innerHTML=n==null?'—':math(V.number(n/10)+'\\,\\mathrm{cm}',fmt(n/10)+' cm');document.querySelector(`[data-clear-read="${i}"][data-axis="${axis}"]`).disabled=locked||n==null;});
@@ -81,14 +80,15 @@
     }
     document.querySelectorAll('[data-formula-choice]').forEach(e=>{e.checked=s.formulas?.[e.dataset.formulaChoice]===e.value;e.disabled=locked;});
     document.querySelectorAll('[data-clear-formula]').forEach(e=>e.disabled=locked||s.formulas?.[e.dataset.clearFormula]==null);
-    d.calculationNotice.textContent=s.schemaVersion===1?'舊版手動計算結果（只讀）。':'只顯示所選公式的運算結果，不代表公式正確。缺少讀數或公式時顯示「—」；時間為零時不能除以時間。平均初速度只需填一次。';
+    d.calculationNotice.textContent=s.schemaVersion===1?'舊版手動計算結果（只讀）。':'';
+    d.calculationNotice.hidden=s.schemaVersion!==1;
     const indices=M.included(s);
     value(d.meanV,s.meanV);
     d.meanV.disabled=locked||indices.length<2;
     const fit=s.fit.attempted?M.fit(s):null;
     d.fitModel.value=s.fit.model??'';d.trajectory.value=s.trajectory??'';
     d.fitFormula.innerHTML=s.fit.model==='inverse'?(locked?'原作答：反比例函數（此選項已移除）。':'此紀錄使用已移除的反比例選項，請改選一次或二次函數。'):s.fit.model?math({linear:'y=mx+b',quadratic:'y=Ax^2+Bx+C',square:'y=kx^2'}[s.fit.model]):'';
-    d.fitResult.innerHTML=fit?fitText(fit,s.fit.model):'尚未擬合。修改讀數後需要重新擬合。';
+    d.fitResult.innerHTML=fit?fitText(fit,s.fit.model):'尚未擬合。';
     d.fitButton.disabled=locked||s.fit.model===null||s.fit.model==='inverse';
     [d.recordSlot,d.depthUp,d.depthDown,d.release,d.rulerX,d.rulerY,d.rulerHome,d.fitModel,d.trajectory,d.clearPlot].forEach(e=>e.disabled=locked);
     [d.recordSlot,d.depthUp,d.depthDown,d.catcherHandle].forEach(e=>e.disabled=locked||Boolean(run));
@@ -238,7 +238,7 @@
     const body=d.scene.querySelector('[data-ruler-body]');
     if(body){const b=body.getBBox();position(d.rulerBodyTarget,b.x,b.y);d.rulerBodyTarget.style.width=b.width+'px';d.rulerBodyTarget.style.height=b.height+'px';}
     drawReadingChoices(g,view);
-    d.stageHint.innerHTML=prose(hint||(view==='collect'?'上下調槽，每次留下一個固定撞擊印記。':view==='measure'?'拖動尺身，靠近任何印記會自動吸附及放大；請自行對準零位。':view==='plot'?'資料點已依讀數自動顯示，請選模型擬合及判斷曲線。':view==='speed'?'選擇公式，一次計出全部時間及初速度，再求平均。':'獨立計時配對自己的讀數；圖示位移大小隨時間變化。'));
+    d.stageHint.innerHTML=prose(hint);
   }
 
   function measured(){return M.rulerSlot(controller.state.rows,currentRuler());}

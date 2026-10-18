@@ -17,40 +17,40 @@
   <section id="stage" class="sim-stage" aria-label="平拋實驗舞台">
     <svg id="scene" role="img" aria-label="實驗裝置及記錄紙"></svg>
     <button id="catcherHandle" class="handle catcher" aria-label="上下移動接球槽" type="button">↕</button>
-    <button id="rulerBodyTarget" class="ruler-body-target" aria-label="拖動尺身，亦可用方向鍵移動" type="button" hidden></button>
+    <button id="rulerBodyTarget" class="ruler-body-target" aria-label="移動量尺" type="button" hidden></button>
     <div id="readingChoices" class="reading-choices" hidden role="group" aria-labelledby="readingChoiceTitle"><p id="readingChoiceTitle"></p><div id="readingPreview" aria-label="尺面放大預覽"><svg id="readingPreviewSvg" role="img" aria-label="所選印記在目前尺上的放大讀數位置"></svg></div><div id="readingOptions"></div></div>
-    <p id="stageHint">調整接球槽，從固定標記釋放鋼珠。</p>
+    <p id="stageHint" hidden></p>
   </section>
   <section id="controlPanel" class="sim-panel" aria-label="操作面板">
     <section id="modeControls" hidden><p id="modeMessage"></p><button id="modeToggle" type="button"></button></section>
     <div id="notice" role="status" hidden></div><button id="saveRetry" hidden type="button">重試保存</button>
     <section id="resultPanel" hidden><h2 id="resultTitle"></h2><p id="scoreText"></p><button id="retryFinal" hidden type="button">重試提交</button></section>
     <section data-panel="collect">
-      <h2>1. 調槽取點</h2><p>每輪新實驗會隨機設定出口基準速率；同一輪從相同位置釋放，每球速率只有約<span data-formula="\pm1\%" aria-label="正負百分之一"></span>的輕微波動。取六個高低分散的印記。</p>
+      <h2>1. 調槽取點</h2><p>調整接球槽，取六個高低分散的印記。</p>
       <label>記錄位置 <select id="recordSlot"></select></label>
       <div class="button-row"><button id="depthUp" type="button">槽向上</button><button id="depthDown" type="button">槽向下</button><button id="release" class="primary" type="button">釋放鋼珠</button></div>
-      <p id="heightNotice" role="status" hidden></p><p id="recordCount"></p><ol id="recordList"></ol>
+      <p id="heightNotice" role="status" hidden></p><p id="recordCount"></p>
     </section>
     <section data-panel="measure" hidden>
-      <h2>2. 用尺讀取印記</h2><p>固定原點<span data-formula="O(0,0)"></span>係出口球心。<span data-formula="x"></span>向右，<span data-formula="y"></span>向下。拖動尺身任何位置，靠近任何印記時會自動吸附並顯示放大尺面及四個選項。放手後點選讀數。可用方向鍵移尺，Shift加大移動。</p>
+      <h2>2. 用尺讀取印記</h2><p>對準零位，拖尺量出各點的<span data-formula="x"></span>、<span data-formula="y"></span>位移，再選取讀數。</p>
       <div class="button-row"><button id="rulerX" type="button">水平尺</button><button id="rulerY" type="button">豎直尺</button><button id="rulerHome" type="button">尺歸原點</button></div>
-      <p>零刻度靠近原點基準線時會自動吸附；零位錯誤時，四個選項都不是正確位移。放大尺面及選項只會在畫布的測量點旁顯示。</p><div id="readTable"></div>
+      <div id="readTable"></div>
     </section>
     <section data-panel="plot" hidden>
-      <h2>3. 擬合與軌跡</h2><p>已量好兩個座標的點會全部自動顯示；位置完全依照你的讀數。連同原點一起選模型擬合，再判斷軌跡類型。</p><p id="plotCount"></p>
+      <h2>3. 擬合與軌跡</h2><p>選擇擬合模型，判斷軌跡類型。</p><p id="plotCount"></p>
       <label>擬合模型<select id="fitModel"><option value="">請選擇</option><option value="linear">一次函數（直線）</option><option value="quadratic">二次函數</option></select></label>
       <p id="fitFormula" class="math"></p><button id="fitButton" type="button">擬合自己的點</button><div id="fitResult" aria-live="polite"></div>
       <label>軌跡類型<select id="trajectory"><option value="">請選擇</option><option value="line">直線</option><option value="parabola">拋物線</option><option value="circle">圓弧</option><option value="other">其他曲線</option></select></label><button id="clearPlot" type="button">清除擬合及分類</button>
     </section>
     <section data-panel="speed" hidden>
-      <h2>4. 選公式估速與平均</h2><p>暫採用豎直自由落體模型，<span data-formula="g=9.80\,\mathrm{m}\,\mathrm{s}^{-2}"></span>。各選一個時間及水平初速度公式，系統會先換算單位，再套用到全部完整讀數。錯公式亦會照算，請自行判斷。</p>
+      <h2>4. 選公式估速與平均</h2><p>按自由落體模型，取<span data-formula="g=9.80\,\mathrm{m}\,\mathrm{s}^{-2}"></span>。選擇時間及初速度公式，再求平均初速度。</p>
       <div id="formulaChoices"></div><p id="calculationNotice"></p>
       <div id="speedTable"></div>
       <label>平均初速度<span data-formula="\bar v_0 / (\mathrm{m}\,\mathrm{s}^{-1})"></span><input id="meanV" type="number" min="0" step="any" inputmode="decimal"></label>
     </section>
-    <section id="checkPanel" hidden><h2>檢查目前作答</h2><p>未答項為0，已完成的獨立部分保留得分。可以返回修改，或提交目前答案。</p><div id="checkSummary"></div><div id="checkReturn"></div><button id="submitButton" class="primary" type="button">提交目前答案</button></section>
+    <section id="checkPanel" hidden><h2>檢查目前作答</h2><p>未答項為0分，其餘按完成情況計分。</p><div id="checkSummary"></div><div id="checkReturn"></div><button id="submitButton" class="primary" type="button">提交目前答案</button></section>
     <div id="editFooter" class="footer"><div class="button-row"><button id="previous" type="button">上一步</button><button id="next" class="primary" type="button">下一步</button></div><button id="returnCheck" hidden type="button">返回檢查</button><button id="clearAll" type="button">清除本次實驗</button></div>
-    <section id="feedback" hidden><h2>分項回饋</h2><p>資料點依你的讀數自動繪出；查看讀尺、公式選擇、擬合及平均初速度。平均運算與接近物理真值分開計分。</p><div id="feedbackList"></div></section>
+    <section id="feedback" hidden><h2>分項回饋</h2><p>查看各項得分及參考答案。</p><div id="feedbackList"></div></section>
   </section>
 </main>
 </body></html>

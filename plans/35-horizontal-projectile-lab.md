@@ -1,5 +1,16 @@
 # 平拋運動：軌跡量度與擬合實驗
 
+## 控制面板精簡（2026-10-18；本節優先）
+
+- 各步只保留學生任務：六點取樣、對零讀取x/y、選模型及分類、選公式求平均。移除方向鍵／Shift操作說明、吸附機制／錯零選項解釋、重複stage提示、逐點轉記清單及冗長運算說明；保留必要物理條件、5cm取樣限制、進度、暫時測試模式標示及技術／提交狀態。
+- 文字調整不改操作、物理或讀數；評分依下節使用者選定規則。沿用既有測試入口，檢查source及解壓SCORM各尺寸／流程，記錄check:tests、committed selection preview、check/package及文件／diff，再更新原私人Sites及commit/push；真手機／Moodle另驗。
+
+## 六點平均準確度評分（2026-10-18；本節優先）
+
+- 使用者選定：保留計平均的運算分；量齊六點先可取得準確度分。新實驗rubricVersion=4，schemaVersion/modelVersion仍3/1。運算4分沿用至少兩個有限派生速度、與自己的有效速度平均一致及原容差；準確度4分另要求六列均有完整讀數並產生有限速度，以及原10%準確度容差。六點完整但平均錯誤不給準確度分；僅留下六個印記、缺單軸讀數或零時間均不算完成六點。2至5點仍可填平均、檢查及提交，其他獨立分數保留，不封鎖部分作答。
+- 版本策略：權威schema不新增欄位，以既有rubricVersion保存評分契約。validator僅接受schema3配rubric3/4，舊schema1/2仍須對應原rubric。既有rubric3的draft續作／review／pending保持原分，不自動升級；新實驗與明確清除後重做用rubric4。四個view、edit/check/return、review/pending沿用現行矩陣；增加兩種rubric的production round-trip、合法續作／提交／frozen重試及錯版拒絕。
+- 測試0至6有效點、六印記未讀齊、零時間、錯公式follow-through、錯平均、四點新82分／舊86分、完整100分、空白0分及新舊review／pending。範圍為現有model fresh版本、scoring、persistence validator、既有四Node及browser入口；依賴／manifest／手勢及量尺幾何不改。執行source＋解壓SCORM完整browser（含可信touch），不重跑T1–T3全矩陣或無關活動；真手機／Moodle仍未實測。
+
 ## 吸附後讀尺紅黑點重合（2026-10-18；本節優先）
 
 - 修正整毫米吸附與帶小數實際落點在放大窗中的橫向偏移。只在已對齊印記時，將尺邊的垂直於量度方向之顯示座標對準實際落點；主圖及放大窗共用相同幾何，紅點與黑點中心完全重合。沿尺方向零位及刻度位置不變，不修改實際落點。

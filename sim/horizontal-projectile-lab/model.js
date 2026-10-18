@@ -20,7 +20,7 @@
   const integer = (v, min, max) => Number.isInteger(v) && v >= min && v <= max;
   const mean = values => values.reduce((average, value, i) => average + (value - average) / (i + 1), 0);
   function fresh(launchOffsetPpm=0) {
-    return { schemaVersion:3, modelVersion:1, rubricVersion:3, launchOffsetPpm, rows:Array(6).fill(null), fit:{model:null,attempted:false}, trajectory:null,
+    return { schemaVersion:3, modelVersion:1, rubricVersion:4, launchOffsetPpm, rows:Array(6).fill(null), fit:{model:null,attempted:false}, trajectory:null,
       formulas:{time:null,speed:null}, meanV:null, phase:'edit', view:'collect', returnToCheck:false,
       setup:{depthMm:200,slot:0}, ruler:{axis:'x',zero:[0,0]} };
   }

@@ -178,11 +178,16 @@ async function layoutMatrix(base,label){
   await viewport(390,600);const s=T.filled();s.view='measure';await open(base,s);await screenshot(label+'-phone');
 }
 async function flows(base,label){
-  const four=T.filled();four.rows[1]=four.rows[3]=null;four.meanV=null;four.view='speed';await open(base,four);
-  assert(!(await call('return d.getElementById("meanV").disabled;')));const avg=M.mean(M.calculations(four).filter(c=>c.v!==null).map(c=>c.v));await input('#meanV',Number(avg.toFixed(3)));await screenshot(label+'-average-without-hints');
-  await click('#checkButton');assert(await call('return !d.getElementById("checkSummary").textContent.includes("納入");'));await click('#submitButton');assert.equal(await call('return app.controller.result.score;'),86);
-  const detail=await call('return app.controller.result.detail.filter(d=>d.name.startsWith("平均初速度"));');assert(detail.every(d=>d.points===4));
-  report.flows.push({label,kind:'no-mean-hints/four-point-mean-full-eight/86-total',passed:true});
+  for(const [count,rubricVersion]of[[2,4],[4,4],[6,4],[4,3]]){
+    const s=T.filled(),slots=[0,5,1,2,3,4].slice(0,count);s.rubricVersion=rubricVersion;s.rows=s.rows.map((r,i)=>slots.includes(i)?r:null);s.meanV=null;s.view='speed';await open(base,s);
+    assert(!(await call('return d.getElementById("meanV").disabled;')));const avg=M.mean(M.calculations(s).filter(c=>c.v!==null).map(c=>c.v));await input('#meanV',Number(avg.toFixed(3)));
+    if(count===4&&rubricVersion===4)await screenshot(label+'-average-concise-panel');
+    await click('#checkButton');assert(await call('return !d.getElementById("checkSummary").textContent.includes("納入");'));await click('#submitButton');
+    const expected=100-7*(6-count)-(rubricVersion===4&&count<6?4:0);assert.equal(await call('return app.controller.result.score;'),expected);
+    const detail=await call('return app.controller.result.detail.filter(d=>d.name.startsWith("平均初速度"));');assert.deepEqual(detail.map(d=>d.points),[4,rubricVersion===4&&count<6?0:4]);
+    const values=await call('return w.__lmsValues;');await cdp.send('Page.navigate',{url:`${base}/${slug}/index.html?fixture=${encodeURIComponent(JSON.stringify(values))}`});await wait(()=>call('return app?.controller.mode==="review";'),'mean rubric review');assert(await call('return app.controller.trusted;'));assert.equal(await call('return app.controller.result.score;'),expected);
+    report.flows.push({label,kind:'mean-operation-credit/six-point-accuracy/retained-rubric-review',count,rubricVersion,score:expected,passed:true});
+  }
   for(const attempted of [false,true]){
     const retired=T.filled();retired.view='plot';retired.fit={model:'inverse',attempted};await open(base,retired);
     assert.deepEqual(await state(),retired);assert(await call('return d.getElementById("fitButton").disabled&&d.getElementById("fitFormula").textContent.includes("已移除")&&!d.querySelector("#fitModel option[value=inverse]");'));

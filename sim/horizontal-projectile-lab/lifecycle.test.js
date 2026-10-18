@@ -3,7 +3,9 @@ const assert=require('node:assert/strict'),R=require('./ui-runtime.js'),P=requir
 const start=(fake)=>{const c=new R.Controller(fake,Flow);c.start();return c;};
 for(const state of['new','read-error','inconsistent']){const f=T.fake({state}),c=start(f);assert.equal(c.mode,state==='new'?'edit':'technical');assert.equal(Boolean(f.provider),state==='new');}
 const retired=T.filled();retired.fit={model:'inverse',attempted:true};
-for(const state of[M.fresh(),T.filled(),retired]){
+const partials=[3,4].map(rubricVersion=>{const s=T.filled();s.rubricVersion=rubricVersion;s.rows[1]=s.rows[3]=null;s.meanV=M.mean(M.calculations(s).filter(c=>c.v!==null).map(c=>c.v));return s;});
+for(const s of partials){const c=start(T.fake({state:'draft',snapshot:T.snapshot(s)}));assert.equal(c.state.rubricVersion,s.rubricVersion);c.navigate('speed');c.check();c.submit();assert.equal(c.mode,'review');assert.equal(c.result.score,s.rubricVersion===3?86:82);}
+for(const state of[M.fresh(),T.filled(),retired,...partials]){
   const review=T.snapshot(state,'review');const f=T.fake({state:'finished',snapshot:review,score:String(review.score),status:review.passed?'passed':'failed'}),c=start(f);
   assert.equal(c.mode,'review');assert(c.trusted);assert.equal(c.command({type:'formula',field:'speed',value:'vertical'}),false);c.clear();assert.equal(c.mode,'review');
   for(const mode of['success','committed','frozen','retry']){const fake=T.fake(),x=start(fake);x.state=M.clone(state);x.check();fake.nextOutcome=mode;x.submit();assert.equal(x.mode,{success:'review',committed:'committed',frozen:'frozen',retry:'check'}[mode]);assert.equal(x.trusted,mode==='success'||mode==='committed');if(mode==='frozen'||mode==='committed'){assert.equal(fake.provider,null);x.retryFinal();assert.equal(x.mode,'review');}}

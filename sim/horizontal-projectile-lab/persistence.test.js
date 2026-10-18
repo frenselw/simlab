@@ -8,6 +8,7 @@ for(const n of[1,2,3,4,5,6]){const s=T.filled();for(let i=n;i<6;i++)s.rows[i]=nu
 for(const time of [null,...M.FORMULAS.time.map(f=>f.id)])for(const speed of [null,...M.FORMULAS.speed.map(f=>f.id)]){const s=T.filled();s.formulas={time,speed};s.meanV=null;variants.push(s);}
 const zero=T.filled();zero.rows.forEach(r=>r.read=[0,0]);zero.meanV=null;zero.fit.attempted=true;variants.push(zero);
 for(const base of [-300000,-150000,0])variants.push(M.practice(M.fresh(base),()=>.65));
+for(const s of [...variants])variants.push({...M.clone(s),rubricVersion:3});
 let cases=0;
 for(const base of variants)for(const view of M.VIEWS)for(const phase of['edit','check'])for(const returning of[false,true]){
   if(phase==='check'&&returning)continue;
@@ -17,7 +18,7 @@ for(const base of variants)for(const view of M.VIEWS)for(const phase of['edit','
   if(phase==='check'){c.navigate('speed');assert(c.state.returnToCheck);}assert(c.command({type:'formula',field:'time',value:s.formulas.time==='fall'?'half':'fall'}));assert.deepEqual(c.state.rows,s.rows);c.check();assert.equal(c.mode,'check');
   const review=T.snapshot(s,'review');assert.equal(S.score(P.decode(review,'review')).score,S.score(s).score);cases++;
 }
-const corrupt=[s=>delete s.rows,s=>s.rows[0].speedOffsetPpm=10001,s=>s.rows[0].clockMs++,s=>s.rows[0].read[0]=NaN,s=>s.rows[0].point=[10,20],s=>s.calculations=[],s=>s.formulas.time='unknown',s=>delete s.formulas.speed,s=>s.selectedSlot=0,s=>s.schemaVersion=4,s=>s.rubricVersion=1,s=>s.phase='unknown',s=>s.clockShown=false,s=>s.conclusions={},s=>s.fit.model='square',s=>s.view='motion',s=>s.meanV=Infinity,s=>s.trajectory='ellipse'];
+const corrupt=[s=>delete s.rows,s=>s.rows[0].speedOffsetPpm=10001,s=>s.rows[0].clockMs++,s=>s.rows[0].read[0]=NaN,s=>s.rows[0].point=[10,20],s=>s.calculations=[],s=>s.formulas.time='unknown',s=>delete s.formulas.speed,s=>s.selectedSlot=0,s=>s.schemaVersion=4,s=>s.rubricVersion=1,s=>s.rubricVersion=5,s=>s.phase='unknown',s=>s.clockShown=false,s=>s.conclusions={},s=>s.fit.model='square',s=>s.view='motion',s=>s.meanV=Infinity,s=>s.trajectory='ellipse'];
 for(const mutate of corrupt){const s=T.filled();mutate(s);assert.throws(()=>P.draft(s),String(mutate));}
 const legacy=T.legacyFilled(),oldReview=T.snapshot(legacy,'review');assert.equal(S.score(P.decode(oldReview,'review')).score,100);
 for(const value of [null,1,-300001,NaN,Infinity]){const s=T.filled();s.launchOffsetPpm=value;assert.throws(()=>P.draft(s));}
@@ -32,3 +33,5 @@ console.log(`Projectile persistence: ${cases} draft variants with executed formu
 const oldV2=T.legacyV2Filled();delete oldV2.launchOffsetPpm;const v2Review=T.snapshot(oldV2,'review');assert.equal(S.score(P.decode(v2Review,'review')).score,100);
 assert.throws(()=>P.decode({version:1,activity:P.ACTIVITY,kind:'draft',answer:oldV2},'draft'),/Legacy draft/);assert.throws(()=>P.editableFromReview(P.review(oldV2)));
 for(const model of ['linear','quadratic','inverse']){const s=T.filled();s.fit={model,attempted:true};const restored=P.decode(T.snapshot(s),'draft');assert.deepEqual(M.fit(restored),M.fit(s));assert.equal(P.navigate(restored,'speed').view,'speed');}
+
+for(const s of[T.legacyFilled(),T.legacyV2Filled()]){s.rubricVersion=4;assert.throws(()=>P.review(s));}

@@ -43,7 +43,8 @@
     const calculations=M.calculations(s),indices=M.included(s), avg=indices.length>=2?M.mean(indices.map(i=>calculations[i].v)):NaN;
     const trueAvg=indices.length>=2?M.mean(indices.map(i=>M.velocity(s.rows[i].speedOffsetPpm))):NaN;
     award('平均初速度運算 / m/s',s.schemaVersion===3?4:2,near(s.meanV,avg,.02,.02),Number.isFinite(avg)?avg:null,s.meanV);
-    award('平均初速度準確度 / m/s',s.schemaVersion===3?4:3,near(s.meanV,trueAvg,0,.1),Number.isFinite(trueAvg)?trueAvg:null,s.meanV);
+    const meanComplete=s.rubricVersion!==4||indices.length===6;
+    award('平均初速度準確度 / m/s',s.schemaVersion===3?4:3,meanComplete&&near(s.meanV,trueAvg,0,.1),meanComplete?(Number.isFinite(trueAvg)?trueAvg:null):'須完成六點量度',s.meanV);
     if(s.schemaVersion!==3){
     const f=s.fit.attempted?M.fit(s):null;
     const fitV=s.fit.model==='square'&&f?.ok&&f.coefficients[0]>0?Math.sqrt(M.G/(2*f.coefficients[0])):NaN;

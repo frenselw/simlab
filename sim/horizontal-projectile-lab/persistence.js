@@ -15,7 +15,7 @@
   const keys=(v,required)=>check(v&&typeof v==='object'&&!Array.isArray(v)&&required.every(k=>Object.hasOwn(v,k)));
   function validate(s,kind){
     check(kind==='draft'||kind==='review'); keys(s,fields(s));
-    check([1,2,3].includes(s.schemaVersion)&&s.modelVersion===1&&s.rubricVersion===s.schemaVersion);
+    check([1,2,3].includes(s.schemaVersion)&&s.modelVersion===1&&(s.schemaVersion===3?[3,4].includes(s.rubricVersion):s.rubricVersion===s.schemaVersion));
     const legacy=s.schemaVersion===1;
     check(Array.isArray(s.rows)&&s.rows.length===6);
     if(!legacy){

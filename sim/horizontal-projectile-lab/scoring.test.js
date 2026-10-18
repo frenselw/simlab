@@ -24,8 +24,15 @@ for(let count=0;count<=6;count++){
  const s=T.filled(),slots=[0,5,1,2,3,4].slice(0,count);s.rows=s.rows.map((r,i)=>slots.includes(i)?r:null);
  s.meanV=count>=2?M.mean(M.calculations(s).filter(c=>c.v!==null).map(c=>c.v)):null;P.draft(s);
  assert.equal(part(s,'平均初速度運算 / m/s'),count>=2?4:0);
- assert.equal(part(s,'平均初速度準確度 / m/s'),count>=2?4:0);
- if(count>=2)assert.equal(S.score(s).score,100-7*(6-count));
+ assert.equal(part(s,'平均初速度準確度 / m/s'),count===6?4:0);
+ if(count>=2)assert.equal(S.score(s).score,100-7*(6-count)-(count<6?4:0));
  assert.equal(S.score(P.decode(T.snapshot(s,'review'),'review')).score,S.score(s).score);
 }
-console.log('Two to six valid velocities retain full mean credit; missing observations lose sampling/reading marks, including four-point 86.');
+for(const missing of ['read','zero-time']){
+ const s=T.filled();s.rows[5].read[1]=missing==='read'?null:0;s.meanV=M.mean(M.calculations(s).filter(c=>c.v!==null).map(c=>c.v));P.draft(s);
+ assert.equal(part(s,'平均初速度運算 / m/s'),4);assert.equal(part(s,'平均初速度準確度 / m/s'),0);
+}
+const badMean=T.filled();badMean.meanV=10;assert.equal(part(badMean,'平均初速度運算 / m/s'),0);assert.equal(part(badMean,'平均初速度準確度 / m/s'),0);
+const oldFour=T.filled();oldFour.rubricVersion=3;oldFour.rows[1]=oldFour.rows[3]=null;oldFour.meanV=M.mean(M.calculations(oldFour).filter(c=>c.v!==null).map(c=>c.v));
+assert.equal(S.score(P.decode(T.snapshot(oldFour,'review'),'review')).score,86);assert.equal(part(oldFour,'平均初速度準確度 / m/s'),4);
+console.log('Rubric 4: two to five valid points keep mean operation credit; accuracy needs six complete points. Rubric 3 retains four-point 86.');
