@@ -168,7 +168,7 @@
       const chosen=candidates.find(([lx,ly,anchor])=>{
         const left=lx-(anchor==='end'?width:width/2),right=left+width,top=ly-metrics.ascent,bottom=ly+metrics.descent;
         const crossesAxis=right>=x(0)-2&&left<=x(1000)+10&&top<=y(0)+4&&bottom>=y(0)-labelSize-10;
-        return left>=2&&right<=g.w-2&&top>=4&&bottom<=g.h-4&&!crossesAxis&&(!rulerBox||right<rulerBox.left||left>rulerBox.right||bottom<rulerBox.top||top>rulerBox.bottom);
+        return left>=0&&right<=g.w-2&&top>=4&&bottom<=g.h-4&&!crossesAxis&&(!rulerBox||right<rulerBox.left||left>rulerBox.right||bottom<rulerBox.top||top>rulerBox.bottom);
       })??candidates[1];
       return text(chosen[0],chosen[1],pn(i),'#354a64',chosen[2]).replace('<g ',`<g data-point-label="${i}" `);
     };
