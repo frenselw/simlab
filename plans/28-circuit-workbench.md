@@ -1727,3 +1727,18 @@ bbbd6c8 外部審核確認 320×500 的既有右下線端被捲頁把手攔截�
 - 已執行：新增回歸在 main 失敗、修正後 platform-core 19 群組通過（含 24 組 touch／mouse、箱開關及輕點／已移動序列）；相鄰 activity-core 19、quick-controls 6 群組通過。check／check:tests（241 entries：209 node／32 browser，48 helpers、2 manual）與五包重建／逐檔核對通過。DC／AC 的既有 quick-controls browser owners 在來源／ZIP 均通過，新增 iPad Pro 834×1194／1194×834 及手機 390×844 × 箱開關 × 連續兩次原生 touch 的按住 DOM 身分、放手前不切換、放手後單次切換及屬性欄同步；DC 72 observations，AC 256 observations。相鄰完整 --gesture-smoke 的 source／ZIP 雙指、切換／取消、滑鼠導航及歷史不變通過。證據：output/playwright/circuit-workbench/quick-controls.json、camera-gestures.json，以及 output/playwright/circuit-ac/evidence.json 及原工作區 output/playwright/ipad-panel-ac-quick.log；五包指紋見 output/circuit-platform-build.json。Node 使用 DOM 替身，瀏覽器為本機 Chromium 可信模擬觸控，不能代替真 iPad。未更新已部署網址，未完成真 iPad／Moodle 驗收。
 
 - Committed selection preview：base `f7ab989ca59b72ebe6a7691129320c4768f6fcf8` → runtime head `1c5a315c96f333fd0a8d89c16b940e6d430b3e85`；完整選取輸出保存於原工作區 output/playwright/ipad-panel-selection.json。此證據只證明選取，不等於遠端 CI 或實機驗收；之後的紀錄提交不改 runtime／tests。
+
+### iPad 輕點契約下的滑片 browser fixture（2026-10-20）
+
+- Main Quality 39339040115 的source／package editing均在teaching/sliderPreview讀取不存在的position input失敗；其餘Node／browser jobs通過，aggregate正確拒絕失敗job。這與舊main f6978d0的editing失敗同源，不是新增基線判定或平拋評分錯誤。
+- 先以既有--teaching-smoke --slider-preview-only在來源及真正解壓ZIP重現；舊fixture假設第一次touch pointerdown即建立inspector，而1c5a315的iPad修正明確等原生click後才建欄。修正測試設置為可信tap選中滑片及確認屬性欄，再執行原70／90%按住同步、DOM身分、未提交、單次提交、undo及取消檢查，不降低任何數值／幾何／歷史斷言。
+- 額外驗證手機第一次未選中元件直接拖動仍可完成、放手後出現正確90%欄位及一次undo回復，避免以預選跳過直接拖動功能。產品runtime、iPad輕點延後render、物理、權限、保存、SCORM及評分均不改；assessment／snapshot變更N/A。
+- 沿用既有circuit-teaching helper及DC source/package editing owners，不新增入口或修改CI gate。跑完整teaching source／ZIP、鄰近quick-controls/iPad及相關Node、check／check:tests、文件／diff及committed selection；保留失敗證據，不以單純重跑消除舊assertion。完成後commit/push main，以新run重新驗證全量並建立可信main基線；真iPad／Safari／Moodle保持未驗。
+
+本次驗證及交付：
+
+- 7724c23的既有精準slider預覽在source與實際解壓ZIP均重現相同null.valueAsNumber，CI原log保留於`output/ci-main-7724c23-failed.log`。原因已對照1c5a315的touch延後inspector契約；fixture的undo會清空selection，新增可信tap確認c1及position number欄後，原持續同步／DOM／保存／提交／undo／取消斷言逐字保留。
+- 完整`--teaching-smoke` source＋ZIP通過158 observations；包含原12組live-inspector矩陣與新增8組手機首次未選中直接拖動／放手顯示90%／一次undo。報告`output/playwright/ci-slider-fixed/teaching.json`。相鄰`--quick-controls-smoke` source＋ZIP通過72 observations，包含834×1194、1194×834、390×844×面板開關×連續兩次可信touch的inspector身分及單次切換；報告`output/playwright/ci-slider-nearby/quick-controls.json`。所有原原生事件及數值斷言維持。
+- teaching Node 112 cases、quick-controls 6 groups、platform-core 19 groups及activity-core 19 groups通過；check／check:tests仍246 entries（213 Node／33 browser）、48 helpers／2 manual，文件及diff通過。`git diff --quiet -- sim`確認本輪沒有任何產品runtime變動；沒有重跑其餘Node、全部33 browser或真iPad／Safari／Moodle，不將相關檢查當全站綠燈。
+- 直接commit／push main，沒有新增開發分支或修改gate。Committed selection preview以7724c23與修正提交比較，存於`output/selection-preview-ci-slider-fixture.json`；已登記的teaching helper走circuit-family affected範圍。遠端在新policy尚無合資格main成功receipt時仍會full；新run另記`output/ci-slider-fixture-push.json`，不預先宣稱綠燈。這次以修正後新提交重新驗證，沒有重跑原失敗版本或刪減其失敗紀錄。
+

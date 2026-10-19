@@ -17,6 +17,18 @@ async function teachingCases(h,mode,base,output){
     async function sliderPreview(){
       for(const view of ['real','schematic']){
         const d=M.empty();M.add(d,'rheostat',300,240);d.display.view=view;await h.load(d);await panel();await tap('[data-camera=fit]');
+        if(width<600){
+          const before=await h.save(),start=await h.point('[data-hit="slider:c1"]'),scale=await h.inside('CircuitWorkbench.getInteraction().camera.scale');
+          assert.equal(await h.inside('CircuitWorkbench.getInteraction().selection'),null);
+          await h.touch(start,24*scale,0);near((await h.doc()).components[0].params.position,.9,.011);
+          near(await h.inside('document.querySelector("#properties [data-param=position]").valueAsNumber'),90,1.01);
+          await tap('#undo');assert.equal(await h.save(),before,'first unselected touch drag is one undo');
+          evidence('slider-first-touch-drag',{view,trusted:true,initiallyUnselected:true,position:.9,inspectorAfterRelease:true,oneUndo:true});
+        }
+        // Touch taps deliberately build the inspector after native click, not on pointerdown.
+        await tap('[data-hit="slider:c1"]');
+        assert.equal(await h.inside('CircuitWorkbench.getInteraction().selection?.id'),'c1');
+        assert(await h.inside('!!document.querySelector("#properties input[type=number][data-param=position][data-component=c1]")'),'select the rheostat before checking its live inspector');
         await h.inside('window.__sliderUnsubscribe?.();window.__sliderChanges=0;window.__sliderUnsubscribe=CircuitWorkbench.onChange(()=>__sliderChanges++);');
         const saved=await h.save();
         async function held(cancel=false){
