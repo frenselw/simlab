@@ -13,12 +13,34 @@ function diff(directory,base,head){
  const r=spawnSync('git',['diff','--name-status','-z','--find-renames',base,head,'--'],{cwd:directory,encoding:'utf8'});
  if(r.status!==0)throw Error('CI Git diff failed: '+r.stderr);return parseNameStatus(r.stdout);
 }
-function policyHash(directory=root){
+function testInputFiles(directory){
  const walk=d=>fs.readdirSync(d,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(path.join(d,e.name)):[path.join(d,e.name)]);
- const files=[...walk(path.join(directory,'tools')),...walk(path.join(directory,'.github')),
+ return [...walk(path.join(directory,'tools')),...walk(path.join(directory,'.github')),
   ...walk(path.join(directory,'sim')).filter(f=>f.endsWith('.test.js')),
   ...['package.json','package-lock.json','docs/ci-test-baseline-2026-10-13.json'].map(f=>path.join(directory,f))].sort();
- const h=createHash('sha256');for(const f of files)h.update(path.relative(directory,f)).update(fs.readFileSync(f));return h.digest('hex');
+}
+function inputFingerprint(directory,files,version){
+ const h=createHash('sha256').update(version+'\0');
+ for(const file of files){
+  const name=path.relative(directory,file).split(path.sep).join('/');
+  const content=createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+  h.update(JSON.stringify([name,content])+'\n');
+ }
+ return h.digest('hex');
+}
+function testInputsHash(directory=root){
+ return inputFingerprint(directory,testInputFiles(directory),'simlab-ci-test-inputs-v1');
+}
+function policyHash(directory=root){
+ const {tests,helpers,info}=require('./test-registry');
+ const candidates=new Set([...tests.map(t=>info(t).file),...helpers.map(h=>h.file)]);
+ // Reuse the fail-closed owner mapping; shared infrastructure and unmapped files stay protected.
+ const scoped=new Set([...candidates].filter(file=>{
+  const selection=selectAffected(tests,[file],{assets:new Map()});
+  return selection.mode==='affected'&&selection.entries.some(e=>e.kind==='browser');
+ }));
+ const files=testInputFiles(directory).filter(f=>!scoped.has(path.relative(directory,f).split(path.sep).join('/')));
+ return inputFingerprint(directory,files,'simlab-ci-core-policy-v2');
 }
 function validateMainReceipt(run,receipt,{repository,workflowId,policy}){
  return run.repository?.full_name===repository&&run.workflow_id===workflowId&&run.event==='push'&&run.head_branch==='main'&&
@@ -78,7 +100,7 @@ function eventComparison({event,payload,sha,ref,baseline,directory=root}){
 async function prepare({full=false,directory=root,env=process.env,api=null}={}){
  const {tests}=require('./run-tests');
  require('./test-registry').validateRegistry();
- const sha=commit(directory,'HEAD'),policy=policyHash(directory);
+ const sha=commit(directory,'HEAD'),policy=policyHash(directory),inputsHash=testInputsHash(directory);
  const payload=env.GITHUB_EVENT_PATH?JSON.parse(fs.readFileSync(env.GITHUB_EVENT_PATH,'utf8')):{};
  if(!full&&sha!==env.GITHUB_SHA)throw Error('Tested checkout differs from the event SHA');
  let baseline=null,queryError=null;
@@ -90,6 +112,7 @@ async function prepare({full=false,directory=root,env=process.env,api=null}={}){
  const timingFile=path.join(root,'tools/test-durations.json');
  const durations=fs.existsSync(timingFile)?JSON.parse(fs.readFileSync(timingFile,'utf8')).seconds:{};
  const plan=buildPlan({tests,selection,runId:env.GITHUB_RUN_ID,sha,policyHash:policy,comparison,durations});
+ plan.testInputsHash=inputsHash;
  plan.repository=env.GITHUB_REPOSITORY;plan.workflow=env.GITHUB_WORKFLOW;
  plan.workflowSHA=env.GITHUB_WORKFLOW_SHA||null;plan.workflowRef=env.GITHUB_WORKFLOW_REF||null;
  plan.event=env.GITHUB_EVENT_NAME;plan.branch=env.GITHUB_REF_NAME;
@@ -109,13 +132,14 @@ function fullComparison({event,payload={},sha,directory=root}){
  if(!base)try{base=git(['rev-parse',sha+'^'],directory);method='parent to tested SHA';}catch{}
  return {event,testedSHA:sha,baseSHA:base,headSHA:sha,paths:[],method};
 }
-async function recoverPlan(api,{runId,sha,policy}){
+async function recoverPlan(api,{runId,sha,policy,inputsHash}){
  const artifacts=await api.pages('actions/runs/'+runId+'/artifacts','artifacts');
  const originals=artifacts.filter(a=>a.name==='quality-plan-'+runId&&!a.expired);
  if(originals.length!==1)throw Error('Original immutable plan is missing or duplicated; start a new full verification run');
  const plan=await api.artifactJSON(originals[0],'plan.json');
  const {hash,...data}=plan;
- if(hash!==digest(data)||String(plan.runId)!==String(runId)||plan.sha!==sha||plan.policyHash!==policy){
+ if(hash!==digest(data)||String(plan.runId)!==String(runId)||plan.sha!==sha||plan.policyHash!==policy||
+  typeof inputsHash!=='string'||!inputsHash||plan.testInputsHash!==inputsHash){
   throw Error('Original plan no longer matches this run/checkout/policy');
  }
  return plan;
@@ -126,7 +150,7 @@ async function main(){
  const full=process.argv.includes('--full');
  let plan,reused=false;
  if(Number(process.env.GITHUB_RUN_ATTEMPT||'1')>1){
-  plan=await recoverPlan(client(),{runId:process.env.GITHUB_RUN_ID,sha:commit(root,'HEAD'),policy:policyHash()});
+  plan=await recoverPlan(client(),{runId:process.env.GITHUB_RUN_ID,sha:commit(root,'HEAD'),policy:policyHash(),inputsHash:testInputsHash()});
   reused=true;
  }else plan=await prepare({full});
  fs.mkdirSync(path.join(root,'output/ci-tests'),{recursive:true});
@@ -147,4 +171,4 @@ async function main(){
  console.log(JSON.stringify({scope:plan.scope,sha:plan.sha,jobs:plan.jobs.map(j=>({key:j.key,entries:j.expected.length})),reasons:plan.reasons},null,2));
 }
 if(require.main===module)main().catch(e=>{console.error(e.stack);process.exitCode=1;});
-module.exports={prepare,eventComparison,validateMainReceipt,policyHash,diff,recoverPlan,fullComparison};
+module.exports={prepare,eventComparison,validateMainReceipt,policyHash,testInputsHash,diff,recoverPlan,fullComparison};
