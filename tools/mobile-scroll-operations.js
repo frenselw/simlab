@@ -114,4 +114,62 @@ async function runHouseholdOperations({cdp,childEval,observation,prepare,delay})
   }finally{await childEval(`(()=>{${actor}.setReadOnly(false);${actor}.restoreSession(${JSON.stringify(saved)});return true;})()`);}
   return results;
 }
-module.exports={runMirrorOperations,runHouseholdOperations};
+function projectileReadingGeometry(){
+  const app=window.__projectileApp,s=app.getState(),g=app.getGeometry(),e=document.querySelector('#scene [data-reading-target]'),r=s.rows[e?.dataset.readingSlot],p=r?window.ProjectileModel.impact(r.depthMm,r.speedOffsetPpm):null;
+  const near=(a,b)=>Math.abs(a-b)<1e-5;
+  const red=document.querySelector('#readingPreviewSvg [data-reading-target]'),marks=[...document.querySelectorAll('#readingPreviewSvg [data-impact-mark]')];
+  const mark=e?marks[s.rows.slice(0,+e.dataset.readingSlot).filter(Boolean).length]:null;
+  return{
+    aligned:!!e&&!!p&&near(+e.getAttribute('cx'),g.ox+p.x*g.s)&&near(+e.getAttribute('cy'),g.oy+p.y*g.s),
+    previewAligned:!!e&&!!red&&!!mark&&red.dataset.readingSlot===e.dataset.readingSlot&&near(+red.getAttribute('cx'),+mark.getAttribute('cx'))&&near(+red.getAttribute('cy'),+mark.getAttribute('cy')),
+    inCanvas:document.getElementById('readingChoices').parentElement.id==='stage',corner:!!document.getElementById('magnifier')
+  };
+}
+async function runProjectileOperations({cdp,childEval,observation,prepare,delay},spec){
+  if(!spec.projectileTarget)return[];
+  const results=[],selector=spec.projectileTarget,[dx,dy]=spec.projectileDelta;
+  const previewStart=selector==='#previewRulerTarget'?await childEval('window.__projectileApp.getState().ruler'):null;
+  for(const ending of['complete','cancel','lostcapture','blur','secondary']){
+    if(previewStart)await childEval(`window.__projectileApp.controller.command({type:'ruler',value:${JSON.stringify(previewStart)}})`);
+    await prepare('stage','middle');
+    const point=await childEval(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});if(!e||!e.getClientRects().length)throw Error('Missing projectile drag target');const r=e.getBoundingClientRect(),f=frameOffset();let x=r.left+r.width*.5,y=r.top+r.height*.5;
+      if(${JSON.stringify(selector)}==='#rulerBodyTarget'){
+        const stage=document.getElementById('stage').getBoundingClientRect(),left=Math.max(r.left,stage.left,0),right=Math.min(r.right,stage.right,innerWidth),top=Math.max(r.top,stage.top,0),bottom=Math.min(r.bottom,stage.bottom,innerHeight);
+        const exposed=[];for(const fy of [.5,.2,.8,.05,.95])for(const fx of [.5,.2,.8]){const px=left+(right-left)*fx,py=top+(bottom-top)*fy;if(document.elementFromPoint(px,py)===e)exposed.push([px,py]);}
+        if(!exposed.length)throw Error('No exposed ruler body beside reading preview');[x,y]=exposed[0];
+      }
+      return{x:x+f.left,y:y+f.top,hit:document.elementFromPoint(x,y)===e,touchAction:getComputedStyle(e).touchAction};})()`);
+    const before=await observation(),samples=[],issues=[],id=9001;
+    const touch=(x,y,key=id)=>({x,y,id:key,radiusX:2,radiusY:2,force:1});
+    if(!point.hit||point.touchAction!=='none')issues.push('projectile target not exposed with touch ownership');
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[touch(point.x,point.y)]});
+    for(let i=1;i<=6;i++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[touch(point.x+dx*i/6,point.y+dy*i/6)]});await delay(20);samples.push(await observation());}
+    const preview=await childEval('!document.getElementById("readingChoices").hidden');
+    if(selector==='#rulerBodyTarget'||selector==='#previewRulerTarget'){
+      const alignment=await childEval(`(${projectileReadingGeometry.toString()})()`);
+      if(preview!==alignment.aligned||(preview&&!alignment.previewAligned)||!alignment.inCanvas||alignment.corner)issues.push('ruler preview must be in canvas exactly when aligned');
+    }
+    if(ending==='cancel')await cdp.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});
+    else{
+      if(ending==='blur')await childEval('window.dispatchEvent(new window.Event("blur"))');
+      if(ending==='lostcapture')await childEval(`(()=>{const e=document.querySelector(${JSON.stringify(selector)}),id=window.__auditEvents.find(e=>e.type==='pointerdown'&&e.pointerType==='touch')?.pointerId;if(id==null||!e.hasPointerCapture(id))throw Error('Missing capture');e.releasePointerCapture(id);})()`);
+      if(ending==='secondary')await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[touch(point.x+dx,point.y+dy),touch(point.x-45,point.y,9002)]});
+      await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    }
+    for(const ms of[20,100,400]){await delay(ms===20?20:ms===100?80:300);samples.push(await observation());}
+    const after=await observation();
+    for(const sample of[...samples,after]){
+      for(const key of['host','document','panel','outerWindow'])if(Math.abs(sample[key]-before[key])>1.1)issues.push('projectile drag moved '+key);
+      if(sample.iframe&&before.iframe&&(Math.abs(sample.iframe.x-before.iframe.x)>1.1||Math.abs(sample.iframe.y-before.iframe.y)>1.1))issues.push('projectile drag moved iframe');
+    }
+    if(!after.events.some(e=>e.type==='pointerdown'&&e.isTrusted&&e.pointerType==='touch'))issues.push('projectile drag not trusted');
+    const oldState=before.state.hooks.__projectileApp,newState=after.state.hooks.__projectileApp;
+    if(ending==='complete'){
+      if(JSON.stringify(oldState)===JSON.stringify(newState))issues.push('projectile drag did not change intended work');
+      if(!after.events.some(e=>e.type==='pointerup'&&e.isTrusted)||after.events.some(e=>e.type==='pointercancel'))issues.push('projectile completion missed pointerup');
+    }else if(JSON.stringify(oldState)!==JSON.stringify(newState)||before.state.suspend!==after.state.suspend)issues.push('projectile interruption changed saved work');
+    results.push({case:'projectile-'+selector+'-'+ending,point,preview,before,after,samples,issues:[...new Set(issues)]});
+  }
+  return results;
+}
+module.exports={runMirrorOperations,runHouseholdOperations,runProjectileOperations,projectileReadingGeometry};

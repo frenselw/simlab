@@ -908,6 +908,25 @@ fail rather than substitute a head-only checkout.
 An inherited main/PR base that has not passed under the same policy forces full
 coverage even when the branch's own changes are documentation-only.
 
+The versioned core `policyHash` protects workflows, runner/selector/registry/gate
+code, packaging, shared or unknown helpers/tests, dependencies and the machine
+baseline. Registered tests/helpers with a complete activity browser mapping use
+the existing selector ownership rules: changing their contents selects that
+activity (or its complete consumer family) without invalidating a successful main
+baseline. All fast Node tests still run. Registry changes, missing mappings and
+shared infrastructure remain conservative full-run triggers.
+
+The separate `testInputsHash` covers the complete tools/workflows/test inventory,
+including those scoped activity files, and is bound into the immutable plan.
+Partial reruns require the same tested SHA, core policy and complete test-input
+fingerprint; narrowing main-baseline compatibility does not permit replacing a
+run's tests. Repository/workflow/main-push provenance, complete successful
+receipts, ancestry, exact comparison bases and real PR merge candidates retain
+their existing checks. Missing or unverifiable evidence still forces full.
+The core-policy fingerprint version transition requires a new successful main
+receipt under the new rules. The CI change itself remains full; feature-branch
+successes and old full-input policy fingerprints cannot bootstrap that baseline.
+
 The independent Quality Full `full-check` always runs syntax/manifest checks,
 all registered tests, all SCORM packages and the standalone circuit platform,
 recorded-range diff formatting and tracked-checkout guards. It does not depend

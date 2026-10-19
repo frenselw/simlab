@@ -7,6 +7,21 @@
 
 規劃階段只交付本文件及審核記錄。使用者其後批准補入階段交接條件並開始 P0／P1，達標後連續推進 P2–P4，不逐階段再次詢問。實作範圍為測試、CI、打包驗證及文件；若需要修改模擬本身，先告知使用者。
 
+## 2026-10-20：活動測試變更的基線判定修正
+
+- 本次僅修改CI工具／測試及其文件，物理、評分、學生snapshot與Sites為N/A，不發布學生活動。使用者已授權驗證後commit／push。
+- 原policyHash涵蓋所有tools及sim測試內容，活動測試變動令既有main receipt失效。拆成核心policyHash及完整testInputsHash：只有既有登記、可由selector完整映射到活動browser scope的測試／helper可排除於核心指紋；workflow、選擇器／registry／runner／gate、共用或未知helper、shared測試、依賴與baseline JSON仍屬核心。
+- 不放寬main receipt的repository／workflow／push／main／SHA／完整來源校驗、ancestry、精確比較基點、PR實際merge candidate及API失敗全量規則。完整testInputsHash仍納入不可變plan，rerun必須同SHA／policy／完整測試輸入，不能用未驗證基線或舊版receipt跳過本次核心變更。
+- 本次CI核心修正及舊指紋遷移會全量；需新規則進入main並有成功receipt後，活動測試變更才選跑相關browser／套件，全部快速Node照常必跑。不同分支成功不能冒充main；不自行合併main或啟動額外遠端workflow。
+- 先補既有ci-prepare測試：活動Node／browser／owned helper對核心指紋不變但完整指紋改變，實際prepare＋main receipt採用affected；核心／shared／未知變更仍full，失敗／缺失／偽造／不在ancestry／未驗證base維持拒絕，rerun更換活動測試即拒絕。沿用既有登記，跑CI工具測試、全部Node、check／check:tests、文件／diff及committed selection preview；不將preview或本機測試當新GitHub綠燈。
+
+### 本次驗證及交付
+
+- 全部213個Node入口通過，`output/ci-tests/baseline-policy-fix/report.json`為status=passed、213/213，沒有失敗；包含ci-prepare正式Git／mock GitHub main receipt流程、selector、不可變plan、rerun及aggregate gate檢查。四種活動Node／browser／helper修改均沿用相同核心policy，完整testInputsHash改變且實際prepare選affected；相關browser scope及套件保持，全部快速Node保留。15類核心／共用／未知輸入變更仍全量，缺失／錯policy／錯repository／不完整／API失敗／非ancestor的main證據亦拒絕。
+- 實際建立plan後再次改動活動測試，core policy仍相同，但recoverPlan依完整輸入指紋拒絕；原SHA／run／plan內容、expired／duplicated artifact及PR merge／未驗證main base保護全部保留。指紋使用版本標識及逐檔路徑／內容digest紀錄，避免把不同檔案邊界混為相同輸入。舊receipt沒有自動遷移成新規則的成功基線。
+- check、check:tests（246 entries／213 Node／33 browser／48 helpers／2 manual）、修改文件連結及工作區／完整分支diff通過；沿用既有ci-prepare測試登記，無新增測試入口、相依或workflow。Committed selection preview以62cf599與本輪提交比較，保存`output/selection-preview-ci-baseline-policy.json`；本次修改核心及生產契約，預期full，不代表本機重跑了33 browser或已取得遠端CI成功。
+- 本輪不改sim runtime、不更新Sites、不合併main、不手動觸發其他workflow。新規則需合併main並完成一次新policy的main成功receipt後，後續活動測試改動才能沿用該基線；在此之前仍保守全量。新push CI狀態另記`output/ci-baseline-policy-push.json`，沒有以舊分支綠燈代替新policy驗收。
+
 ## 1. 決策摘要
 
 採用「快速必跑、按影響選跑、完整回歸及發佈驗收」的執行方式。保留有價值的測試，減少無關重跑、固定等待、重複啟動和不均衡分片。先改善報告及基準，再改測試選擇，最後處理最慢的瀏覽器群組。

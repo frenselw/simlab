@@ -5,6 +5,11 @@ const {groups:dcGroups}=require('./circuit-test-groups');
 const root=path.resolve(__dirname,'..');
 
 const registeredTests = [
+  'sim/horizontal-projectile-lab/model.test.js',
+  'sim/horizontal-projectile-lab/scoring.test.js',
+  'sim/horizontal-projectile-lab/persistence.test.js',
+  'sim/horizontal-projectile-lab/lifecycle.test.js',
+  {file:'tools/horizontal-projectile-browser-regression.js',kind:'browser',scope:'horizontal-projectile-lab'},
   'sim/circuit-workbench/audit-followup.test.js',
   'sim/circuit-workbench/household-connections.test.js',
   'sim/circuit-workbench/household-model.test.js',

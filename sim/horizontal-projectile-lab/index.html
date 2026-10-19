@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>平拋運動：軌跡量度與擬合實驗</title><link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../shared/styles.css"><link rel="stylesheet" href="styles.css">
+  <script defer src="../shared/scorm.js"></script><script defer src="../shared/activity-flow.js"></script><script defer src="../shared/fullscreen.js"></script>
+  <script defer src="../circuit-workbench/circuit-math.js"></script><script defer src="../circuit-workbench/mathjax-tex-svg.js"></script><script defer src="presentation.js"></script>
+  <script defer src="../newtons-second-law-investigation-lab/fitting.js"></script><script defer src="model.js"></script><script defer src="scoring.js"></script><script defer src="persistence.js"></script><script defer src="ui-runtime.js"></script><script defer src="main.js"></script>
+</head>
+<body>
+<main id="app" class="sim-app" data-sim-fullscreen-target>
+  <header class="sim-header" data-sim-fullscreen>
+    <div><h1>平拋運動實驗</h1><p id="status">取點、量度與擬合</p></div>
+    <div class="header-actions"><span id="progress">1 / 4 取點</span><button id="checkButton" type="button">檢查作答</button></div>
+  </header>
+  <section id="stage" class="sim-stage" aria-label="平拋實驗舞台">
+    <svg id="scene" role="img" aria-label="實驗裝置及記錄紙"></svg>
+    <button id="catcherHandle" class="handle catcher" aria-label="上下移動接球槽" type="button">↕</button>
+    <button id="rulerBodyTarget" class="ruler-body-target" aria-label="移動量尺" type="button" hidden></button>
+    <button id="previewRulerTarget" class="ruler-body-target preview-ruler-target" aria-label="移動放大尺身" type="button" hidden></button>
+    <div id="readingChoices" class="reading-choices" hidden role="group" aria-labelledby="readingChoiceTitle"><p id="readingChoiceTitle"></p><div id="readingPreview" aria-label="尺面放大預覽"><svg id="readingPreviewSvg" role="img" aria-label="所選印記在目前尺上的放大讀數位置"></svg></div><div id="readingOptions"></div></div>
+    <p id="stageHint" hidden></p>
+  </section>
+  <section id="controlPanel" class="sim-panel" aria-label="操作面板">
+    <div id="notice" role="status" hidden></div><button id="saveRetry" hidden type="button">重試保存</button>
+    <section id="resultPanel" hidden><h2 id="resultTitle"></h2><p id="scoreText"></p><button id="retryFinal" hidden type="button">重試提交</button></section>
+    <section data-panel="collect">
+      <h2>1. 調槽取點</h2><p>調整接球槽，取六個高低分散的印記。</p>
+      <label>記錄位置 <select id="recordSlot"></select></label>
+      <div class="button-row"><button id="depthUp" type="button">槽向上</button><button id="depthDown" type="button">槽向下</button><button id="release" class="primary" type="button">釋放鋼珠</button></div>
+      <p id="heightNotice" role="status" hidden></p><p id="recordCount"></p>
+    </section>
+    <section data-panel="measure" hidden>
+      <h2>2. 用尺讀取印記</h2><p>對準零位，拖尺量出各點的<span data-formula="x"></span>、<span data-formula="y"></span>位移，再選取讀數。</p>
+      <div class="button-row"><button id="rulerX" type="button">水平尺</button><button id="rulerY" type="button">豎直尺</button><button id="rulerHome" type="button">尺歸原點</button></div>
+      <div id="readTable"></div>
+    </section>
+    <section data-panel="plot" hidden>
+      <h2>3. 擬合與軌跡</h2><p>選擇擬合模型，判斷軌跡類型。</p><p id="plotCount"></p>
+      <label>擬合模型<select id="fitModel"><option value="">請選擇</option><option value="linear">一次函數（直線）</option><option value="quadratic">二次函數</option></select></label>
+      <p id="fitFormula" class="math"></p><button id="fitButton" type="button">擬合自己的點</button><div id="fitResult" aria-live="polite"></div>
+      <label>軌跡類型<select id="trajectory"><option value="">請選擇</option><option value="line">直線</option><option value="parabola">拋物線</option><option value="circle">圓弧</option><option value="other">其他曲線</option></select></label><button id="clearPlot" type="button">清除擬合及分類</button>
+    </section>
+    <section data-panel="speed" hidden>
+      <h2>4. 選公式估速與平均</h2><p>按自由落體模型，取<span data-formula="g=9.80\,\mathrm{m}\,\mathrm{s}^{-2}"></span>。選擇時間及初速度公式，再求平均初速度。</p>
+      <div id="formulaChoices"></div><p id="calculationNotice"></p>
+      <div id="speedTable"></div>
+      <label>平均初速度<span data-formula="\bar v_0 / (\mathrm{m}\,\mathrm{s}^{-1})"></span><input id="meanV" type="number" min="0" step="any" inputmode="decimal"></label>
+    </section>
+    <section id="checkPanel" hidden aria-labelledby="checkTitle">
+      <h2 id="checkTitle">檢查目前作答</h2>
+      <p class="check-note">未答項為0分，其餘按完成情況計分。</p>
+      <dl id="checkSummary"></dl>
+      <nav id="checkReturn" aria-label="返回修改作答"></nav>
+      <div class="check-submit"><button id="submitButton" class="primary" type="button">提交目前答案</button></div>
+    </section>
+    <div id="editFooter" class="footer"><div class="button-row"><button id="previous" type="button">上一步</button><button id="next" class="primary" type="button">下一步</button></div><button id="returnCheck" hidden type="button">返回檢查</button><button id="clearAll" type="button">清除本次實驗</button></div>
+    <section id="feedback" hidden><h2>分項回饋</h2><p>查看各項得分及參考答案。</p><div id="feedbackList"></div></section>
+  </section>
+</main>
+</body></html>

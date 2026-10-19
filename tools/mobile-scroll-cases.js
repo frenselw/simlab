@@ -2,6 +2,9 @@
 // Each entry is an explicit legal UI path or a production encode/decode/restore.
 const centre=require("../sim/centre-of-mass-investigation-lab/generator.js");
 const second=require("../sim/newtons-second-law-investigation-lab/test-support.js");
+const projectile=require('../sim/horizontal-projectile-lab/test-support.js');
+const projectileModel=require('../sim/horizontal-projectile-lab/model.js');
+const projectilePersistence=require('../sim/horizontal-projectile-lab/persistence.js');
 const click=(id,selectors,extra={})=>({id,prepare:selectors.map(s=>`click(${JSON.stringify(s)});`).join(""),...extra});
 const submit=(check,button)=>[
   click("check",[check]),click("submitted",[check,button]),
@@ -33,6 +36,28 @@ function mirror(id,kinds,extra={}) {
   return {id,settleMs:400,prepare:prepare+kinds.slice(1).map(k=>`click('[data-action="add"][data-segment="${k}"]');`).join(''),...extra};
 }
 function activityProfiles(slug) {
+  if(slug==='horizontal-projectile-lab'){
+    const restored=(id,state,continuation,extra={})=>({id,prepare:`const s=${JSON.stringify(projectilePersistence.draft(state))};window.ProjectilePersistence.validate(s,'draft');return restore('horizontal-projectile-lab',s);`,continue:continuation,...extra});
+    const filled=projectile.filled();
+    const profiles=[{id:'initial',projectileTarget:'#catcherHandle',projectileDelta:[0,-25]}];
+    for(const view of projectileModel.VIEWS){
+      const s={...projectileModel.clone(filled),view};
+      profiles.push(restored(view+'-answered',s,['#checkButton',`[data-go="${view}"]`],view==='collect'?{projectileTarget:'#catcherHandle',projectileDelta:[0,-25]}:view==='measure'?{projectileTarget:'#rulerBodyTarget',projectileDelta:[35,25]}:{}));
+      const blank={...projectileModel.fresh(),view};profiles.push(restored(view+'-unanswered',blank,['#checkButton',`[data-go="${view}"]`]));
+    }
+    profiles.push(restored('measure-vertical',{...projectileModel.clone(filled),view:'measure'},['#checkButton','[data-go="measure"]','#rulerY'],{projectileTarget:'#rulerBodyTarget',projectileDelta:[30,25]}));
+    for(const axis of ['x','y']){
+      const s={...projectileModel.clone(filled),view:'measure'},p=projectileModel.impact(s.rows[0].depthMm,s.rows[0].speedOffsetPpm);s.ruler={axis,zero:axis==='x'?[0,p.y]:[Math.round(p.x),0]};
+      profiles.push(restored('measure-preview-'+axis,s,['#checkButton','[data-go="measure"]'],{projectileTarget:'#previewRulerTarget',projectileDelta:axis==='x'?[30,0]:[0,25]}));
+    }
+    const failed={...projectileModel.clone(filled),view:'plot',fit:{model:'quadratic',attempted:true}};failed.rows.forEach(r=>r.read=[500,500]);
+    profiles.push(restored('plot-fit-failure',failed,['#checkButton','[data-go="plot"]']));
+    for(const [id,extra]of[['check',{}],['submitted',{}],['pending',{}],['committed',{}]]){
+      const prepare=id==='pending'?"auditHost.__failFinal=true;":id==='committed'?"auditHost.API.LMSFinish=()=> 'false';":'';
+      profiles.push({id,prepare:`const s=${JSON.stringify(projectilePersistence.draft(filled))};return restore('horizontal-projectile-lab',s);`,continue:['#checkButton',...(id==='check'?[]:['#submitButton'])],beforeContinue:prepare,...extra,...(id==='check'?{noStageReason:'正式check頁將舞台track設為零，全高面板展示檢查內容。'}:{})});
+    }
+    return profiles;
+  }
   if(slug==="newtons-third-law-fullscreen-test")slug="newtons-third-law-reaction-force-lab";
   const initial={id:"initial"};
   if(slug.startsWith("force-equilibrium"))return [initial,...Array.from({length:5},(_,i)=>click(`question-${i+1}`,[`#questionNav button:nth-child(${i+1})`])),...Array.from({length:5},(_,i)=>({id:`question-${i+1}-partial`,prepare:`click('#questionNav button:nth-child(${i+1})');click('[data-add-kind]:not(:disabled)');`,handoffTarget:".origin-hit:not([hidden])"})),...submit("#checkButton","#submitButton")];
