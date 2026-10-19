@@ -1,5 +1,17 @@
 # 平拋運動：軌跡量度與擬合實驗
 
+## 檢查頁排版整理（2026-10-19；本節優先）
+
+- 僅整理檢查頁：完成情況改為對齊的名稱／數值清單，返回各步採固定兩欄，提交使用獨立全寬主按鈕；桌面限制閱讀寬度，短屏保留面板捲動。檢查時收起重複檢查鈕及模式切換區，頁首仍標示測試模式；返回編輯後模式切換照常可用。不增加操作說明文字。
+- 不改物理、讀數、評分、rubric4／schema3／model1、權威snapshot、提交／重試生命週期及standalone／Moodle保存契約。暫時預填測試模式保留；共用runtime及manifest相依不變。
+- 沿用既有browser入口核對source及解壓SCORM的空白／部分／完整檢查、返回編輯與提交、窄長／短屏／桌面邊界及可觸控按鈕；重跑活動Node、check／check:tests、打包／文件／完整分支diff，並目視手機截圖。既有未離焦保存與連續讀尺回歸照跑，完成後commit／push並更新原私人Sites。
+
+### 檢查頁驗證與發布
+
+- source＋真正解壓SCORM正式browser通過140個版面、40組流程、360組操作／幾何觀測，completed=true/errors=[]；其中新增36組檢查頁（六尺寸×空白／部分／完整×兩版本）。涵蓋320×225／400、390×600／844、596×1280及1280×800；實際返回四步並保存答案、可信點選提交後核對原評分、短屏可信touch只捲面板且提交鈕可達。原未離焦平均重載、連續讀尺、只讀／pending／重試回歸仍通過。報告沿用`output/playwright/horizontal-projectile-lab/report.json`，runtime hash `6ef6b308599c31824e200ba15faaaa63cfd93637b55ae88a8103805a9b29b74e`。
+- 已目視`source-check-partial-390x844.png`及`source-check-complete-390x844.png`。四個活動Node通過（含1128組保存／續作）；check、check:tests（246 entries／213 node／33 browser／48 helpers／2 manual）、全部24個SCORM打包、文件及工作區／完整分支diff通過。model/scoring/persistence/ui-runtime逐byte等同a34feda；本輪只改活動呈現及既有browser入口，未重跑其餘209 Node或其他32 browser，亦不宣稱真手機／OS200%／Moodle驗收。Committed selection preview以a34feda與本輪提交比較，保存於`output/selection-preview-check-layout.json`；僅代表選擇範圍。
+- 原私人Sites更新成功，owner-private、暫時預填模式保持。官方helper推送source `6e5064dee24173240b5b8a282dcd6e4038eec0e8`；saved version `appgprj_6ad49418111c819198d79e88cab3e78e~appgver_94bcadb1b6688191bcb1b75f89e6450e`，deployment `appgdep_6ad5bdebd8a08191a40ae78ea2ec00be`原生回傳succeeded。18檔archive `output/sites/horizontal-projectile-lab-check-layout.tar.gz` SHA-256 `e1464b79d207e9ee7586ee670b75adc9a56f71c69992b1c72dd64d6833e041a6`，16 runtime與來源／17檔SCORM逐byte相同，根redirect及hosting identity核對，摘要`output/sites/projectile-check-layout-assets.json`。前一提交a34feda的GitHub Quality run 39200849082已核對completed/success；本輪push的CI另核對，不預先聲稱綠燈。
+
 ## 未離焦保存、短屏續量與取樣回饋（2026-10-19；本節優先）
 
 - F1：平均欄有效input即經既有controller command更新state及共享SCORM保存；清空記null，badInput／非有限／負值不覆寫上一有效答案，change保留原有確認／錯誤處理。不新增活動離頁保存，不改standalone刷新全新或Moodle同attempt續作。

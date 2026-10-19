@@ -21,3 +21,24 @@ body{font-size:18px}.sim-header h1{font-size:1.4rem}.sim-header p,.header-action
 @media(max-height:420px) and (max-width:599px){#app.measuring{grid-template-columns:minmax(0,1fr) minmax(150px,46%);grid-template-rows:auto minmax(0,1fr)}#app.measuring .sim-header{grid-column:1/-1;grid-row:1}#app.measuring .sim-stage{grid-column:1;grid-row:2}#app.measuring .sim-panel{grid-column:2;grid-row:2}}
 #modeControls{border-left:4px solid #1764b1;padding:0 10px 10px;margin-bottom:14px;background:#eef5ff}#modeToggle{width:100%}
 .preview-ruler-target{z-index:5}
+
+/* The check page is a single reading column with distinct edit and submit actions. */
+#app.checking .sim-panel{padding:24px 16px 32px;border-left:0}
+#checkPanel{width:100%;max-width:640px;margin:0 auto}
+#checkPanel h2{margin:0 0 6px}
+#checkPanel .check-note{margin:0 0 20px;font-size:1rem;color:var(--color-text-muted);line-height:1.6}
+#checkSummary{margin:0 0 20px;padding:4px 16px;background:#fff;border:1px solid #d5dfeb;border-radius:var(--radius-panel)}
+#checkSummary>div{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:12px;align-items:center;min-height:43px;padding:8px 0}
+#checkSummary>div+div{border-top:1px solid #edf0f5}
+#checkSummary dt{color:#4b5e75;font-size:1rem}
+#checkSummary dd{margin:0;text-align:right;font-size:1rem;font-weight:600;overflow-wrap:anywhere;min-width:0}
+#checkSummary dd .math-inline{max-width:100%;vertical-align:middle}
+#checkReturn{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+#checkReturn button{width:100%;min-width:0;min-height:48px;padding:10px 8px;border-color:#bcc9d9;border-radius:var(--radius-panel);font-size:1rem;line-height:1.4}
+.check-submit{margin-top:20px;padding-top:20px;border-top:1px solid #d5dfeb}
+#submitButton{width:100%;min-height:50px;border-radius:var(--radius-panel);font-weight:600;letter-spacing:.03em}
+#checkReturn button:hover:not(:disabled){background:#edf4fc;border-color:#7796ba}
+#submitButton:hover:not(:disabled){background:#125394;border-color:#125394}
+#checkReturn button:active:not(:disabled),#submitButton:active:not(:disabled){box-shadow:inset 0 2px 3px #17243822}
+@media(min-width:900px){#app.checking .sim-panel{padding:36px 28px 40px}#checkSummary>div{min-height:48px}#checkSummary dt,#checkSummary dd,#checkReturn button{font-size:1.125rem}}
+@media(max-height:420px){#app.checking .sim-panel{padding-top:16px;padding-bottom:20px}}

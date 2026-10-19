@@ -49,7 +49,13 @@
       <div id="speedTable"></div>
       <label>平均初速度<span data-formula="\bar v_0 / (\mathrm{m}\,\mathrm{s}^{-1})"></span><input id="meanV" type="number" min="0" step="any" inputmode="decimal"></label>
     </section>
-    <section id="checkPanel" hidden><h2>檢查目前作答</h2><p>未答項為0分，其餘按完成情況計分。</p><div id="checkSummary"></div><div id="checkReturn"></div><button id="submitButton" class="primary" type="button">提交目前答案</button></section>
+    <section id="checkPanel" hidden aria-labelledby="checkTitle">
+      <h2 id="checkTitle">檢查目前作答</h2>
+      <p class="check-note">未答項為0分，其餘按完成情況計分。</p>
+      <dl id="checkSummary"></dl>
+      <nav id="checkReturn" aria-label="返回修改作答"></nav>
+      <div class="check-submit"><button id="submitButton" class="primary" type="button">提交目前答案</button></div>
+    </section>
     <div id="editFooter" class="footer"><div class="button-row"><button id="previous" type="button">上一步</button><button id="next" class="primary" type="button">下一步</button></div><button id="returnCheck" hidden type="button">返回檢查</button><button id="clearAll" type="button">清除本次實驗</button></div>
     <section id="feedback" hidden><h2>分項回饋</h2><p>查看各項得分及參考答案。</p><div id="feedbackList"></div></section>
   </section>

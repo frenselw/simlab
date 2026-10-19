@@ -52,13 +52,13 @@
     d.stageHint.hidden=checking||!s||!hint;
     d.status.textContent=controller.mode==='review'?'已提交 · 只讀回顧':controller.mode==='committed'?'結果已記錄':controller.mode==='frozen'?'提交待確認':'取點、量度與擬合';
     if(testing())d.status.textContent=controller.mode==='edit'||controller.mode==='check'?'測試模式':'測試模式 · '+d.status.textContent;
-    d.modeControls.hidden=!SimScorm.isStandalone()||locked;
+    d.modeControls.hidden=!SimScorm.isStandalone()||locked||checking;
     d.modeMessage.textContent=testing()?'測試模式：已預填取點及讀數。':'一般模式：自行取點及讀數。';
     d.modeToggle.textContent=testing()?'切換一般模式（重新開始）':'切換測試模式（重新開始）';
     d.progress.textContent=s?`${M.VIEWS.indexOf(view)+1} / ${M.VIEWS.length} ${names[M.VIEWS.indexOf(view)]}`:'';
     d.notice.hidden=!controller.notice;d.notice.innerHTML=prose(controller.notice);
     d.saveRetry.hidden=!controller.editable||!controller.unsaved;
-    d.checkButton.hidden=locked;d.checkButton.textContent=checking?'檢查作答':'檢查作答';
+    d.checkButton.hidden=locked||checking;
     d.checkPanel.hidden=!checking;d.editFooter.hidden=locked||checking;
     d.resultPanel.hidden=controller.editable||controller.mode==='submitting';
     d.resultTitle.textContent=controller.mode==='review'?'已提交 · 只讀回顧':controller.mode==='committed'?'結果已記錄':controller.mode==='frozen'?'提交尚未確認':controller.mode==='mismatch'?'紀錄未能核對':'技術狀態';
@@ -99,7 +99,17 @@
     d.previous.disabled=M.VIEWS.indexOf(view)===0;d.next.textContent=view===M.VIEWS.at(-1)?'檢查目前作答':'下一步';d.returnCheck.hidden=!s.returnToCheck;
     if(checking){
       const reads=s.rows.reduce((n,r)=>n+(r?r.read.filter(v=>v!==null).length:0),0);
-      d.checkSummary.innerHTML=`<p>印記 ${records.length}/6；座標讀數 ${reads}/12；自動圖點 ${points.filter(Boolean).length}/6；公式 ${Object.values(s.formulas??{}).filter(Boolean).length}/2；速度結果 ${indices.length}/6。</p><p>平均初速度：${s.meanV===null?'未答':math(V.number(s.meanV)+'\\,\\mathrm{m}\\,\\mathrm{s}^{-1}',fmt(s.meanV)+' m/s')}。</p><p>擬合：${s.fit.attempted?'已執行':'未執行'}；軌跡類型：${s.trajectory===null?'未答':'已答'}。</p>`;
+      const summary=[
+        ['印記',`${records.length} / 6`],
+        ['座標讀數',`${reads} / 12`],
+        ['自動圖點',`${points.filter(Boolean).length} / 6`],
+        ['公式',`${Object.values(s.formulas??{}).filter(Boolean).length} / 2`],
+        ['速度結果',`${indices.length} / 6`],
+        ['平均初速度',s.meanV===null?'未答':math(V.number(s.meanV)+'\\,\\mathrm{m}\\,\\mathrm{s}^{-1}',fmt(s.meanV)+' m/s')],
+        ['擬合',s.fit.attempted?'已執行':'未執行'],
+        ['軌跡類型',s.trajectory===null?'未答':'已答']
+      ];
+      d.checkSummary.innerHTML=summary.map(([label,answer])=>`<div><dt>${label}</dt><dd>${answer}</dd></div>`).join('');
       d.submitButton.disabled=controller.unsaved;
     }
     if(controller.trusted){

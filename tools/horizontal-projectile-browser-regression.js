@@ -198,6 +198,33 @@ async function rulerRevision(base,label){
   report.flows.push({label,kind:'5cm-height-guard/disabled-release/model-preserves-legacy/transparent-ruler/selected-zoom',passed:true});
 }
 async function screenshot(name){const image=await cdp.send('Page.captureScreenshot',{format:'png'});fs.writeFileSync(path.join(out,name+'.png'),Buffer.from(image.data,'base64'));}
+async function checkPageLayouts(base,label){
+  for(const [width,height]of[[320,225],[320,400],[390,600],[390,844],[596,1280],[1280,800]]){
+    await viewport(width,height);
+    for(const kind of ['blank','partial','complete']){
+      const s=kind==='blank'?M.fresh():T.filled();s.view='speed';
+      if(kind==='partial'){s.rows=s.rows.map((r,i)=>i<2?r:null);s.formulas={time:null,speed:null};s.meanV=null;s.fit={model:null,attempted:false};s.trajectory=null;}
+      await open(base,s);const before=await state();await click('#checkButton',true);
+      const metrics=await call(`const panel=d.getElementById('controlPanel'),root=d.scrollingElement,box=e=>{const r=e.getBoundingClientRect();return{x:r.x,y:r.y,w:r.width,h:r.height};},buttons=[...d.querySelectorAll('#checkReturn button')];return{rootX:root.scrollWidth-root.clientWidth,rootY:root.scrollHeight-root.clientHeight,rows:d.querySelectorAll('#checkSummary>div').length,buttons:buttons.map(box),submit:box(d.getElementById('submitButton')),hidden:d.getElementById('modeControls').hidden&&d.getElementById('checkButton').hidden,summary:d.getElementById('checkSummary').textContent};`);
+      assert(metrics.rootX<=1&&metrics.rootY<=1&&metrics.hidden&&metrics.rows===8,JSON.stringify({label,width,height,kind,metrics}));
+      for(const b of [...metrics.buttons,metrics.submit])assert(b.w>=44&&b.h>=44&&b.x>=0&&b.x+b.w<=width+1);
+      assert(Math.abs(metrics.buttons[0].w-metrics.buttons[1].w)<1&&Math.abs(metrics.buttons[0].y-metrics.buttons[1].y)<1&&metrics.buttons[2].y>=metrics.buttons[0].y+metrics.buttons[0].h+8);
+      await call('d.getElementById("controlPanel").scrollTop=0;');
+      if(width===390&&height===844||width===596)await screenshot(label+'-check-'+kind+'-'+width+'x'+height);
+      if(width===320&&height===225){
+        const p=await call('const r=d.getElementById("checkSummary").getBoundingClientRect();return{x:r.left+20,y:Math.min(w.innerHeight-20,r.top+60)};');
+        await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...p,id:1}]});
+        for(let i=1;i<=6;i++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:p.x,y:p.y-i*12,id:1}]});await H.delay(20);}
+        await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await H.delay(90);
+        assert(await call('return d.getElementById("controlPanel").scrollTop>0&&d.scrollingElement.scrollTop===0;'));
+      }
+      await rect('#submitButton');assert(await call('const r=d.getElementById("submitButton").getBoundingClientRect(),p=d.getElementById("controlPanel").getBoundingClientRect();return r.top>=p.top-1&&r.bottom<=p.bottom+1;'));
+      for(const view of M.VIEWS){await click('#checkReturn [data-go="'+view+'"]',true);const after=await state();assert.equal(after.view,view);assert.deepEqual(after.rows,before.rows);assert.equal(after.meanV,before.meanV);assert.deepEqual(after.formulas,before.formulas);await click('#checkButton',true);}
+      await click('#submitButton',true);assert.equal((await call('return app.controller.result;')).score,require('../sim/horizontal-projectile-lab/scoring.js').score(before).score);
+      report.layouts.push({label,width,height,view:'check',kind,...metrics});
+    }
+  }
+}
 async function layoutMatrix(base,label){
   for(const [width,height]of[[320,500],[390,500],[390,600],[390,844],[900,650],[1280,800],[640,400],[667,375],[320,400],[320,225]]){
     await viewport(width,height);
@@ -383,7 +410,7 @@ async function main(){
     cdp.on('Runtime.exceptionThrown',e=>report.errors.push(e.exceptionDetails?.exception?.description||e.exceptionDetails?.text));report.browser=await cdp.send('Browser.getVersion');
     for(const [label,directory]of[['source',path.join(root,'sim')],['package',extracted.packageDirectory]]){
       server=H.createServer(directory);await H.listenServer(server);const base=`http://127.0.0.1:${server.address().port}`;
-      console.log('projectile browser: '+label);await focusedMeanFlow(base,label);await continuousPreviewFlow(base,label);await layoutMatrix(base,label);await readingFlow(base,label);await rulerRevision(base,label);await completeFlow(base,label);await launchAndPreview(base,label);
+      console.log('projectile browser: '+label);await checkPageLayouts(base,label);await focusedMeanFlow(base,label);await continuousPreviewFlow(base,label);await layoutMatrix(base,label);await readingFlow(base,label);await rulerRevision(base,label);await completeFlow(base,label);await launchAndPreview(base,label);
       if(!process.argv.includes('--smoke')){await flows(base,label);await edgeFlows(base,label);await interactions(base,label);await directTouchMatrix(base,label);}
       await H.closeServer(server);server=null;
     }
