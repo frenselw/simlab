@@ -198,6 +198,20 @@ async function rulerRevision(base,label){
   report.flows.push({label,kind:'5cm-height-guard/disabled-release/model-preserves-legacy/transparent-ruler/selected-zoom',passed:true});
 }
 async function screenshot(name){const image=await cdp.send('Page.captureScreenshot',{format:'png'});fs.writeFileSync(path.join(out,name+'.png'),Buffer.from(image.data,'base64'));}
+async function previewKeyboardFlow(base,label){
+  const key=async(key,modifiers=0)=>{await cdp.send('Input.dispatchKeyEvent',{type:'keyDown',key,code:key,modifiers});await cdp.send('Input.dispatchKeyEvent',{type:'keyUp',key,code:key,modifiers});};
+  for(const [width,height]of[[390,844],[320,225],[1280,800]])for(const axis of ['x','y']){
+    await viewport(width,height);const s=T.filled(),p=M.impact(s.rows[0].depthMm,s.rows[0].speedOffsetPpm);s.view='measure';s.ruler={axis,zero:axis==='x'?[0,50]:[Math.round(p.x),0]};await open(base,s);
+    for(let i=0;i<20&&await call('return d.activeElement.id;')!=='previewRulerTarget';i++)await key('Tab');
+    assert.equal(await call('return d.activeElement.id;'),'previewRulerTarget');
+    const before=await state(),scroll=await call('return [w.scrollX,w.scrollY,d.getElementById("controlPanel").scrollTop];'),forward=axis==='x'?'ArrowDown':'ArrowRight',back=axis==='x'?'ArrowUp':'ArrowLeft',index=axis==='x'?1:0;
+    for(let n=1;n<=2;n++){await key(forward);const after=await state();assert.equal(after.ruler.zero[index],before.ruler.zero[index]+n);assert.equal(await call('return d.activeElement.id;'),'rulerBodyTarget');assert.deepEqual(after.rows,before.rows);assert.equal(after.meanV,before.meanV);assert.deepEqual(await call('return [w.scrollX,w.scrollY,d.getElementById("controlPanel").scrollTop];'),scroll);}
+    await key(back,8);assert.equal((await state()).ruler.zero[index],before.ruler.zero[index]-8);
+    for(let i=0;i<8;i++)await key(forward);assert.deepEqual((await state()).ruler,before.ruler);assert.equal(await call('return d.activeElement.id;'),'rulerBodyTarget');assert(await call('return !d.getElementById("previewRulerTarget").hidden;'));
+    await key(forward);await key(forward);assert.equal((await state()).ruler.zero[index],before.ruler.zero[index]+2);assert.deepEqual(await call('return [w.scrollX,w.scrollY,d.getElementById("controlPanel").scrollTop];'),scroll);
+    report.flows.push({label,kind:'tab-preview/two-arrows/focus-main-without-scroll/shift/re-align/main-ruler-control',width,height,axis,passed:true});
+  }
+}
 async function checkPageLayouts(base,label){
   for(const [width,height]of[[320,225],[320,400],[390,600],[390,844],[596,1280],[1280,800]]){
     await viewport(width,height);
@@ -416,7 +430,7 @@ async function main(){
     cdp.on('Runtime.exceptionThrown',e=>report.errors.push(e.exceptionDetails?.exception?.description||e.exceptionDetails?.text));report.browser=await cdp.send('Browser.getVersion');
     for(const [label,directory]of[['source',path.join(root,'sim')],['package',extracted.packageDirectory]]){
       server=H.createServer(directory);await H.listenServer(server);const base=`http://127.0.0.1:${server.address().port}`;
-      console.log('projectile browser: '+label);await checkPageLayouts(base,label);await focusedMeanFlow(base,label);await continuousPreviewFlow(base,label);await layoutMatrix(base,label);await readingFlow(base,label);await rulerRevision(base,label);await completeFlow(base,label);await launchAndPreview(base,label);
+      console.log('projectile browser: '+label);await previewKeyboardFlow(base,label);await checkPageLayouts(base,label);await focusedMeanFlow(base,label);await continuousPreviewFlow(base,label);await layoutMatrix(base,label);await readingFlow(base,label);await rulerRevision(base,label);await completeFlow(base,label);await launchAndPreview(base,label);
       if(!process.argv.includes('--smoke')){await flows(base,label);await edgeFlows(base,label);await interactions(base,label);await directTouchMatrix(base,label);}
       await H.closeServer(server);server=null;
     }

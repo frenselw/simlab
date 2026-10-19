@@ -1,5 +1,18 @@
 # 平拋運動：軌跡量度與擬合實驗
 
+## 放大尺鍵盤焦點連續性（2026-10-19；本節優先）
+
+- 先以可信Tab及連續兩次方向鍵重現放大尺離開對齊後失焦，再局部修正：若即將隱藏的放大尺target仍持有焦點，且可編輯量度頁的主尺可用，在隱藏前以focus({preventScroll:true})交回主尺。不得重設尺位、吸附、答案或捲動；指標capture中的既有target仍保留至手勢完成。
+- 不修改物理／讀數／評分／snapshot及提交契約，測試模式維持徹底移除。現行主表清除殘留示例／預填及一般模式例外字眼，歷史驗證不改寫成新證據。
+- 沿用活動browser入口，在source＋真正解壓SCORM以Tab進入放大尺、兩方向尺連續兩次跨尺方向鍵、反向返回對齊、Shift步距及主尺對照；檢查焦點、尺位、其他答案及scroll不變。重跑四活動Node、完整活動browser、check／check:tests、打包、文件與完整diff；未新增真手機／Moodle驗收。完成後commit、push及更新原私人Sites。
+
+### 鍵盤修正驗證與發布
+
+- 先在f232c0d的runtime加入真實Tab／方向鍵回歸，第一個來源版案例於第一次微調後失去預期尺控制焦點而失敗；`keyboard-before-fix.json`保留該次未完成報告，不作通過證據。修正只延後設定preview target.hidden，仍聚焦且主尺可用時在隱藏前focus({preventScroll:true})；pointer capture中的target保持原有行為。
+- 最終source＋真正解壓SCORM browser完成140版面、52流程、360組操作／幾何觀測，completed=true/errors=[]；其中12組新鍵盤測例為兩版本×390×844／320×225／1280×800×兩尺。真實Tab進放大尺，第一次跨尺方向微調交回主尺，第二次照常再移1mm；Shift反向10mm、返回對齊後不搶焦點、主尺連續方向鍵均通過，既有答案／平均及document／panel捲動不變。原三項反例、連續觸控、取消／鎖定及正常空白入口回歸仍通過。報告`output/playwright/horizontal-projectile-lab/report.json`，runtime hash `6ea19f2b9d05cbfb052eeaa33f4f42e2e5ea82a830e11528348f3089cd079341`。
+- 四活動Node（含1128組保存／續作）、check、check:tests（246 entries／213 Node／33 browser／48 helpers／2 manual）、24個SCORM打包、文件及工作區／main...HEAD／f7ab989..HEAD完整diff通過。除main焦點處理外runtime逐byte等同f232c0d，不改物理、rubric、snapshot或頁面文字。沿用既有browser登記；committed selection preview以f232c0d與本輪提交比較，保存`output/selection-preview-keyboard-focus.json`，不代替未重跑的其他Node／browser或實體手機／Moodle／Safari／OS縮放驗收。
+- 原私人Sites更新成功，owner-only保持；source `1de4a2491257c6dde9790903fcb8738fd4b19923`，saved version `appgprj_6ad49418111c819198d79e88cab3e78e~appgver_5953de2e93cc8191bf105e98a701621c`，deployment `appgdep_6ad635f181f08191a36ee0faf77afc50`原生succeeded。18檔archive `output/sites/horizontal-projectile-lab-keyboard-focus.tar.gz` SHA-256 `856ff473284b56d6abfe746e9a1908c611dba8d5726cf99bddf4c1446354351f`，16 runtime與來源／17檔SCORM逐byte核對，摘要`output/sites/projectile-keyboard-focus-assets.json`。已核對前一提交f232c0d的Quality run 39244833256為completed/success；本輪新CI另記`output/projectile-keyboard-focus-ci.json`，不預先聲稱綠燈。
+
 ## 正式移除暫時測試模式（2026-10-19；本節優先）
 
 - 依使用者最新要求徹底刪除暫時測試模式：移除預填啟動、query入口、切換控制／文案／樣式，以及runtime model的practice函式、export與action。所有standalone入口（含舊test=1／0連結、根redirect、刷新及清除）正常由collect空白開始，不存在重新開啟測試模式的產品入口。以下歷史「暫時保留」及舊連結記錄只記當時版本，均已失效。
@@ -236,7 +249,7 @@
 
 ## Navigation, submission and reset
 
-collect→measure→plot→speed為依資料操作順序；每步均可直接檢查空白或部分答案，再明確提交，也可返回指定步修改。check不強制完成六點。已記錄或pending結果只讀，沒有清除／重開；合法retry由共享SCORM同payload處理。Standalone刷新清空；Moodle同attempt還原。暫時示例是使用者指定的獨立模式例外，不能出現在正式LMS新attempt。
+collect→measure→plot→speed為依資料操作順序；每步均可直接檢查空白或部分答案，再明確提交，也可返回指定步修改。check不強制完成六點。已記錄或pending結果只讀，沒有清除／重開；合法retry由共享SCORM同payload處理。Standalone刷新清空；Moodle同attempt還原。新attempt由空白開始，沒有預填或模式例外。
 
 ## Gesture ownership matrix
 
@@ -250,7 +263,7 @@ collect→measure→plot→speed為依資料操作順序；每步均可直接檢
 
 ## Scoring and tolerance
 
-現行為schema3/model1/rubric4，100分、60達標、無負分。評最終答案；未答0分，獨立部分分保留，完全空白一般模式0分。舊rubric1/2/3仍使用原規則，不能靜默重評。
+現行為schema3/model1/rubric4，100分、60達標、無負分。評最終答案；未答0分，獨立部分分保留，完全空白作答0分。舊rubric1/2/3仍使用原規則，不能靜默重評。
 
 | Component | 分數 | Current rule |
 |---|---:|---|
@@ -298,7 +311,7 @@ Draft只保存edit/check；四個view為collect/measure/plot/speed，沒有現�
 | formula改／清 | 改該公式並清meanV；不改讀數／fit；重選同值無失效 |
 | model／fit／clearPlot | 換model清attempted；fit置attempted並重算；clearPlot只清fit及trajectory，不清read／meanV |
 | meanV／trajectory | 僅保存該答案；合法有限錯值不截成正解 |
-| clear whole experiment | 只在editable且確認後new fresh，重抽launchOffsetPpm及使用rubric4；暫時測試模式再預填 |
+| clear whole experiment | 只在editable且確認後new fresh，重抽launchOffsetPpm及使用rubric4；回到collect空白作答 |
 | check／submit | check保留權威答案；submit建立canonical review並交共享四回調，不自己commit/finish |
 
 ## Persistence contract
@@ -350,7 +363,7 @@ semantic edit經`saveDraft`，最新狀態由draft provider提供；不新增活
 |---|---|
 | Model / scoring | 物理及random上下界、50mm間距、兩尺3mm選項／錯零位、原點一次參與linear/quadratic、inverse拒絕；空白0／部分分／完整100、0–6有效速度、六印記未讀齊、零時間、錯公式及mean容差；rubric3四點86／rubric4四點82不混用 |
 | Persistence / lifecycle | rubric3/4每view×edit/check/return×空白/部分/完整，production encode/decode/startup後執行合法續作；1128組測例；舊v1/v2 review/pending、四提交結果、失敗save、frozen重試及quarantine；無效version/enum/依賴/非有限及4000-byte邊界另驗 |
-| Browser source + ZIP | 各尺寸／fullscreen、可信拖尺及取消、紅黑點精確重合、錯零位、選讀數／自動描點／選公式／提交；一般空白／示例／Moodle隔離、刷新、舊square模型名稱與原100分、舊rubric3部分分回顧 |
+| Browser source + ZIP | 各尺寸／fullscreen、可信拖尺及取消、紅黑點精確重合、錯零位、選讀數／自動描點／選公式／提交；正常空白啟動／舊test參數不預填／Moodle續作、刷新、舊square模型名稱與原100分、舊rubric3部分分回顧 |
 | Mobile helper | 既有mobile-scroll入口及其Node契約測試；精確小數主圖／preview點位，接受正確對齊並拒絕舊rounded位置、偏移／錯slot／無目標；沿尺拖動仍對齊時保持preview，中斷後所有owner及canonical答案不變 |
 | Registration / packaging | check:tests、check、文件連結、committed selection preview、activity ZIP runtime逐byte比較；git diff --check必核對工作區及main...HEAD／原合併基...HEAD全範圍，不能只用最後增量代替 |
 | Independent gates | T1–T3全phase矩陣、OS實際200%縮放、真手機及Moodle T4僅按實際執行紀錄宣稱；歷史output缺檔不當可重驗證據，需從相同來源重跑或標歷史摘要 |
