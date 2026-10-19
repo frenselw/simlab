@@ -1741,4 +1741,3 @@ bbbd6c8 外部審核確認 320×500 的既有右下線端被捲頁把手攔截�
 - 完整`--teaching-smoke` source＋ZIP通過158 observations；包含原12組live-inspector矩陣與新增8組手機首次未選中直接拖動／放手顯示90%／一次undo。報告`output/playwright/ci-slider-fixed/teaching.json`。相鄰`--quick-controls-smoke` source＋ZIP通過72 observations，包含834×1194、1194×834、390×844×面板開關×連續兩次可信touch的inspector身分及單次切換；報告`output/playwright/ci-slider-nearby/quick-controls.json`。所有原原生事件及數值斷言維持。
 - teaching Node 112 cases、quick-controls 6 groups、platform-core 19 groups及activity-core 19 groups通過；check／check:tests仍246 entries（213 Node／33 browser）、48 helpers／2 manual，文件及diff通過。`git diff --quiet -- sim`確認本輪沒有任何產品runtime變動；沒有重跑其餘Node、全部33 browser或真iPad／Safari／Moodle，不將相關檢查當全站綠燈。
 - 直接commit／push main，沒有新增開發分支或修改gate。Committed selection preview以7724c23與修正提交比較，存於`output/selection-preview-ci-slider-fixture.json`；已登記的teaching helper走circuit-family affected範圍。遠端在新policy尚無合資格main成功receipt時仍會full；新run另記`output/ci-slider-fixture-push.json`，不預先宣稱綠燈。這次以修正後新提交重新驗證，沒有重跑原失敗版本或刪減其失敗紀錄。
-
