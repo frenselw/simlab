@@ -245,9 +245,10 @@
     const previewBody=d.readingChoices.hidden?null:d.readingPreviewSvg.querySelector('[data-ruler-body]');
     const previewCaptured=drag?.target===d.previewRulerTarget;
     d.previewRulerTarget.hidden=!previewBody&&!previewCaptured;
-    if(previewBody){
+    if(previewBody&&!previewCaptured){
       const body=previewBody.getBoundingClientRect(),preview=d.readingPreview.getBoundingClientRect(),stage=d.stage.getBoundingClientRect();
       const left=Math.max(body.left,preview.left+1),top=Math.max(body.top,preview.top+1),right=Math.min(body.right,preview.right-1),bottom=Math.min(body.bottom,preview.bottom-1);
+      d.previewRulerTarget.hidden=right-left<44||bottom-top<44;
       position(d.previewRulerTarget,left-stage.left,top-stage.top);d.previewRulerTarget.style.width=Math.max(0,right-left)+'px';d.previewRulerTarget.style.height=Math.max(0,bottom-top)+'px';
     }
     d.stageHint.innerHTML=prose(hint);

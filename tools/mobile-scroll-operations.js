@@ -128,7 +128,9 @@ function projectileReadingGeometry(){
 async function runProjectileOperations({cdp,childEval,observation,prepare,delay},spec){
   if(!spec.projectileTarget)return[];
   const results=[],selector=spec.projectileTarget,[dx,dy]=spec.projectileDelta;
+  const previewStart=selector==='#previewRulerTarget'?await childEval('window.__projectileApp.getState().ruler'):null;
   for(const ending of['complete','cancel','lostcapture','blur','secondary']){
+    if(previewStart)await childEval(`window.__projectileApp.controller.command({type:'ruler',value:${JSON.stringify(previewStart)}})`);
     await prepare('stage','middle');
     const point=await childEval(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});if(!e||!e.getClientRects().length)throw Error('Missing projectile drag target');const r=e.getBoundingClientRect(),f=frameOffset();let x=r.left+r.width*.5,y=r.top+r.height*.5;
       if(${JSON.stringify(selector)}==='#rulerBodyTarget'){
