@@ -13,7 +13,8 @@ for(const type of['formula','read','record']){
 const c=M.change(s,{type:'clearPlot'});assert.equal(c.fit.attempted,false);assert.equal(c.meanV,s.meanV);assert.deepEqual(M.points(c),M.points(s));
 const unchanged=M.change(s,{type:'read',slot:0,axis:0,value:s.rows[0].read[0]});assert.deepEqual(unchanged,s);
 assert.deepEqual(M.change(s,{type:'formula',field:'time',value:'fall'}),s);
-for(const type of ['point','calculation','select','connect'])assert.throws(()=>M.change(s,{type}));
+assert.equal(M.practice,undefined);
+for(const type of ['practice','point','calculation','select','connect'])assert.throws(()=>M.change(s,{type}));
 assert.throws(()=>M.change(s,{type:'formula',field:'time',value:'unknown'}));
 assert.equal(M.mean(Array(6).fill(Number.MAX_VALUE)),Number.MAX_VALUE);
 const oldClock=s.rows[0].clockMs;assert.equal(M.change(s,{type:'read',slot:0,axis:1,value:800}).rows[0].clockMs,oldClock);
@@ -78,7 +79,7 @@ for(const time of [null,...M.FORMULAS.time.map(f=>f.id)]){
 for(const axis of ['x','y']){
  const values=M.rulerChoices(row,{axis,zero:[0,0]});assert.equal(Math.max(...values)-Math.min(...values),9);assert.equal(values.filter(n=>SCORE_NEAR(n,axis==='x'?x:row.depthMm)).length,1);
 }
-const example=M.practice(M.fresh(-80000),()=>.5).rows[1];
+const example=T.measured(M.fresh(-80000),()=>.5).rows[1];
 assert.deepEqual(M.rulerChoices(example,{axis:'x',zero:[0,150]}).sort((a,b)=>a-b),[261,264,267,270]);
 for(const axis of ['x','y'])for(const selectedSlot of [null,0,1]){
  const s=M.clone(spaced);s.selectedSlot=selectedSlot;s.ruler.axis=axis;const before=M.clone(s),along=axis==='x'?0:1,across=1-along;
@@ -97,8 +98,8 @@ assert.equal(M.rulerSlot(M.fresh().rows,{axis:'x',zero:[0,0]}),null);
 assert.equal(M.drawLaunchOffset(()=>0),-300000);assert.equal(M.drawLaunchOffset(()=>1-Number.EPSILON),0);
 for(const n of [-1,1,NaN,Infinity])assert.throws(()=>M.drawLaunchOffset(()=>n));
 for(const base of [-300000,-150000,0]){
- const start=M.fresh(base),demo=M.practice(start,()=>.65);P.draft(demo);assert.equal(demo.view,'plot');assert.equal(demo.launchOffsetPpm,base);assert.equal(M.points(demo).filter(Boolean).length,6);
- assert.deepEqual(demo.formulas,{time:null,speed:null});assert.deepEqual(demo.fit,{model:null,attempted:false});assert.equal(demo.meanV,null);assert(!Object.hasOwn(demo,'clockShown'));assert(!Object.hasOwn(demo,'conclusions'));assert(start.rows.every(v=>v===null));assert.throws(()=>M.practice(demo));
+ const start=M.fresh(base),demo=T.measured(start,()=>.65);P.draft(demo);assert.equal(demo.view,'plot');assert.equal(demo.launchOffsetPpm,base);assert.equal(M.points(demo).filter(Boolean).length,6);
+ assert.deepEqual(demo.formulas,{time:null,speed:null});assert.deepEqual(demo.fit,{model:null,attempted:false});assert.equal(demo.meanV,null);assert(!Object.hasOwn(demo,'clockShown'));assert(!Object.hasOwn(demo,'conclusions'));assert(start.rows.every(v=>v===null));assert.throws(()=>T.measured(demo));
  for(const jitter of [-10000,0,10000]){
   const ppm=M.observedOffset(base,jitter),p=M.impact(800,ppm);assert(Math.abs(p.v/M.referenceSpeed(start)-(1+jitter/1e6))<.000001);assert(p.v<=M.IDEAL);assert.equal(p.t,M.impact(800,0).t);
   const saved=M.change(start,{type:'record',slot:0,depthMm:800,ppm});P.draft(saved);assert.equal(saved.rows[0].speedOffsetPpm,ppm);

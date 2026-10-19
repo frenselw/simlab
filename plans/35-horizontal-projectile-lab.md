@@ -1,5 +1,18 @@
 # 平拋運動：軌跡量度與擬合實驗
 
+## 正式移除暫時測試模式（2026-10-19；本節優先）
+
+- 依使用者最新要求徹底刪除暫時測試模式：移除預填啟動、query入口、切換控制／文案／樣式，以及runtime model的practice函式、export與action。所有standalone入口（含舊test=1／0連結、根redirect、刷新及清除）正常由collect空白開始，不存在重新開啟測試模式的產品入口。以下歷史「暫時保留」及舊連結記錄只記當時版本，均已失效。
+- 測試資料僅由未打包的test-support建構，沿用合法record/read操作；測試fixture不成為學生活動runtime。物理、讀數、rubric4／schema3／model1與正式評分不改；Moodle同attempt草稿／回顧／pending仍按原snapshot還原，不清除學生已有答案。
+- 沿用四活動Node及source＋解壓SCORM browser入口，新增預設／舊參數無入口、刷新／清除不預填、空白0分及正常取點驗證；原保存、連續拖尺、四提交結果及手機版面回歸照跑。核對manifest及Site archive沒有test-support或模式代碼，check／check:tests／打包／文件／全分支diff後commit、push並更新原私人Sites，不添加控制面板說明。
+
+### 正式版驗證與發布
+
+- 四活動Node通過，1128組保存／續作與舊rubric分數保持；新增斷言runtime沒有practice export，舊practice action拒絕。六點測試fixture移至未發布的test-support，model只刪專用預填函式／action／export；scoring、persistence、ui-runtime逐byte等同b6de036。
+- source＋真正解壓SCORM正式browser通過140版面、40流程、360組操作／幾何觀測，completed=true/errors=[]。預設、test=1、test=0、test=true&mode=test都由collect空白0分開始，無模式DOM／字樣／practice export；每個入口提交空白後刷新仍全新空白。正常釋放鋼珠可取點，清除抽新base但不預填，刷新清空standalone；同attempt Moodle續作、未離焦平均保存、連續讀尺、提交四結果、pending及只讀回顧仍通過。目視`source-normal-entry-empty.png`，報告`output/playwright/horizontal-projectile-lab/report.json`，runtime hash `c7c5e00e031022fb308ec00590dde0ee8dee0627f6f318f2721ba2f02d7573d3`。
+- check、check:tests（246 entries／213 Node／33 browser／48 helpers／2 manual）、全部24個SCORM打包、文件連結及工作區／main...HEAD／f7ab989..HEAD完整diff通過。本輪實際重跑四活動Node與本活動browser；不將登記／selection當作其餘209 Node或32 browser通過。Committed selection preview以b6de036與本輪提交比較，保存`output/selection-preview-normal.json`。未新增真Moodle／實體手機／OS200%驗收。
+- 原私人Sites更新成功，owner-only保持；根redirect指向同一正式入口，保留的舊query亦不能啟動預填。官方helper source `3410262ce9f7e91e26efae67a29dc594e718e785`；saved version `appgprj_6ad49418111c819198d79e88cab3e78e~appgver_7ea9d4b387a08191b8eb3940f9f5d4f2`，deployment `appgdep_6ad5fe9be9c481919e14742b6a8b80d0`原生succeeded。18檔archive `output/sites/horizontal-projectile-lab-normal.tar.gz` SHA-256 `805131ad20c5586b77be73a52fe1fb2306bb500eb5420341298554632c2b092f`；16 runtime與來源／17檔SCORM逐byte相同，archive無test-support／測試模式文案及程式入口，根redirect及hosting metadata核對，摘要`output/sites/projectile-normal-assets.json`。前一提交b6de036的GitHub Quality run 39212403854已核對completed/success，本輪CI另記`output/projectile-normal-ci.json`，不預先宣稱綠燈。
+
 ## 檢查頁排版整理（2026-10-19；本節優先）
 
 - 僅整理檢查頁：完成情況改為對齊的名稱／數值清單，返回各步採固定兩欄，提交使用獨立全寬主按鈕；桌面限制閱讀寬度，短屏保留面板捲動。檢查時收起重複檢查鈕及模式切換區，頁首仍標示測試模式；返回編輯後模式切換照常可用。不增加操作說明文字。
@@ -192,7 +205,7 @@
 | Learner task | 四步：調槽取六點→拖尺選取x/y讀數→自動描點、選模型及軌跡→選公式、填平均初速度→明確檢查及提交 |
 | Runtime / dependencies | 活動八檔：index、styles、main、model、scoring、persistence、ui-runtime、presentation；shared styles/scorm/activity-flow/fullscreen；既有fitting及本地CircuitMath/MathJax/授權。16 runtime資產由manifest宣告；ZIP另有根`imsmanifest.xml` |
 | Catalogue / package | [catalogue](../sim/config.js)為metadata權威來源；[manifest](../sim/manifests/horizontal-projectile-lab.xml)；`npm run package -- horizontal-projectile-lab` |
-| Temporary preview | 使用者要求暫留standalone預設測試模式，預填取點及讀數後進plot；`test=0`或模式鈕可從空白開始。Moodle不預填；只讀／pending不提供切換。示例可取得已有量度分，不冒稱未操作學生答案；正式空白模式仍0分 |
+| 正式啟動 | standalone所有入口由collect空白開始，沒有模式切換／預填或test參數入口。Moodle同attempt草稿／回顧／pending按既有snapshot還原；空白0分 |
 | Out of scope | 手動描／拖圖點、獨立計時探究頁、逐行手填t/v、平方模型新作答、擬合換算速度及分運動概念題均已移除；舊版回顧／重試另保留原資料與rubric |
 
 ## Physics or subject model

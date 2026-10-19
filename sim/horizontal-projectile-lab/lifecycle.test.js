@@ -28,7 +28,7 @@ try{
  Math.random=()=>.99;first.navigate('plot');assert.equal(first.state.launchOffsetPpm,-300000);
  const resumed=start(T.fake({state:'draft',snapshot:first.draftSnapshot()}));assert.equal(resumed.state.launchOffsetPpm,-300000);
  resumed.clear();assert.equal(resumed.state.launchOffsetPpm,M.drawLaunchOffset(()=>.99));assert(resumed.state.rows.every(r=>r===null));
- const draft=M.practice(M.fresh(-300000),()=>.65),review=T.snapshot(draft,'review'),snap={version:1,activity:P.ACTIVITY,kind:'pending-final',payload:{score:review.score,maxScore:100,passed:review.passed,reviewJson:JSON.stringify(review)}};
+ const draft=T.measured(M.fresh(-300000),()=>.65),review=T.snapshot(draft,'review'),snap={version:1,activity:P.ACTIVITY,kind:'pending-final',payload:{score:review.score,maxScore:100,passed:review.passed,reviewJson:JSON.stringify(review)}};
  const f=T.fake({state:'pending-final',snapshot:snap}),c=start(f);assert.equal(c.state.launchOffsetPpm,-300000);f.final=review;c.retryFinal();assert.equal(c.mode,'review');assert.equal(c.state.launchOffsetPpm,-300000);
 }finally{Math.random=originalRandom;}
 console.log('Random baseline is drawn only for new experiments, retained on resume and final retry.');

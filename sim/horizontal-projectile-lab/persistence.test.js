@@ -7,7 +7,7 @@ for(const model of[null,'linear','quadratic','inverse'])for(const attempted of[f
 for(const n of[1,2,3,4,5,6]){const s=T.filled();for(let i=n;i<6;i++)s.rows[i]=null;s.meanV=n>=2?M.mean(M.calculations(s).slice(0,n).map(c=>c.v)):null;variants.push(s);}
 for(const time of [null,...M.FORMULAS.time.map(f=>f.id)])for(const speed of [null,...M.FORMULAS.speed.map(f=>f.id)]){const s=T.filled();s.formulas={time,speed};s.meanV=null;variants.push(s);}
 const zero=T.filled();zero.rows.forEach(r=>r.read=[0,0]);zero.meanV=null;zero.fit.attempted=true;variants.push(zero);
-for(const base of [-300000,-150000,0])variants.push(M.practice(M.fresh(base),()=>.65));
+for(const base of [-300000,-150000,0])variants.push(T.measured(M.fresh(base),()=>.65));
 for(const s of [...variants])variants.push({...M.clone(s),rubricVersion:3});
 let cases=0;
 for(const base of variants)for(const view of M.VIEWS)for(const phase of['edit','check'])for(const returning of[false,true]){
@@ -22,7 +22,7 @@ const corrupt=[s=>delete s.rows,s=>s.rows[0].speedOffsetPpm=10001,s=>s.rows[0].c
 for(const mutate of corrupt){const s=T.filled();mutate(s);assert.throws(()=>P.draft(s),String(mutate));}
 const legacy=T.legacyFilled(),oldReview=T.snapshot(legacy,'review');assert.equal(S.score(P.decode(oldReview,'review')).score,100);
 for(const value of [null,1,-300001,NaN,Infinity]){const s=T.filled();s.launchOffsetPpm=value;assert.throws(()=>P.draft(s));}
-const mixed=M.practice(M.fresh(-300000),()=>.5);mixed.rows[0].speedOffsetPpm=0;assert.throws(()=>P.draft(mixed));
+const mixed=T.measured(M.fresh(-300000),()=>.5);mixed.rows[0].speedOffsetPpm=0;assert.throws(()=>P.draft(mixed));
 assert.throws(()=>P.decode({version:1,activity:P.ACTIVITY,kind:'draft',answer:legacy},'draft'),/Legacy draft/);assert.throws(()=>P.editableFromReview(P.review(legacy)));
 const max=T.filled();max.meanV=Number.MAX_VALUE;max.ruler.zero=[-100,1000];
 const draft=T.snapshot(max),review=T.snapshot(max,'review'),pending={version:1,activity:P.ACTIVITY,kind:'pending-final',payload:{score:review.score,maxScore:100,passed:review.passed,reviewJson:JSON.stringify(review)}};

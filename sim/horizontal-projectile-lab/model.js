@@ -54,15 +54,6 @@
   const observedOffset=(base,jitter)=>Math.round(base+(1+base/1000000)*jitter);
   const offsetBounds=state=>[-10000,10000].map(jitter=>observedOffset(state.launchOffsetPpm??0,jitter));
   const referenceSpeed=state=>velocity(state.schemaVersion===1?0:state.launchOffsetPpm??0);
-  function practice(state,random=Math.random){
-    if(state.phase!=='edit'||state.rows.some(Boolean))throw new Error('Practice needs an empty experiment');
-    let s=clone(state);
-    [50,150,300,450,650,800].forEach((depthMm,slot)=>{
-      const ppm=observedOffset(s.launchOffsetPpm??0,drawOffset(random));s=change(s,{type:'record',slot,depthMm,ppm});
-      const p=impact(depthMm,ppm);[p.x,p.y].forEach((n,axis)=>{s=change(s,{type:'read',slot,axis,value:Math.round(n)});});
-    });
-    s.view='plot';return s;
-  }
   const heightConflict=(state,depthMm,slot)=>state.rows.findIndex((r,i)=>i!==slot&&r&&Math.abs(r.depthMm-depthMm)<50);
   function rulerSlot(rows,ruler,tolerance=0){
     const across=ruler.axis==='x'?1:0;let slot=null,distance=Infinity;
@@ -140,12 +131,11 @@
       case 'answer':
         if (!['meanV','trajectory'].includes(action.field)) throw new Error('Invalid answer');
         s[action.field] = action.value; break;
-      case 'practice': return practice(s);
       case 'ruler': s.ruler = clone(action.value); break;
       case 'clearPlot': s.fit={model:null,attempted:false}; s.trajectory=null; break;
       default: throw new Error('Unknown action');
     }
     return s;
   }
-  return Object.freeze({G,H,IDEAL,SPEED,VIEWS,FORMULAS,QUESTIONS,clone,integer,mean,fresh,velocity,impact,rulerChoices,drawOffset,drawLaunchOffset,observedOffset,offsetBounds,referenceSpeed,practice,heightConflict,rulerSlot,snapRuler,rulerAligned,points,calculations,fit,predict,timeFit,included,change});
+  return Object.freeze({G,H,IDEAL,SPEED,VIEWS,FORMULAS,QUESTIONS,clone,integer,mean,fresh,velocity,impact,rulerChoices,drawOffset,drawLaunchOffset,observedOffset,offsetBounds,referenceSpeed,heightConflict,rulerSlot,snapRuler,rulerAligned,points,calculations,fit,predict,timeFit,included,change});
 });

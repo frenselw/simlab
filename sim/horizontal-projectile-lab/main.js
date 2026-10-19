@@ -8,10 +8,6 @@
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const fmt=V.format;
   const pn=i=>'P'+'₁₂₃₄₅₆'[i];
-  // Temporary standalone preview default; turn off after the later stages are approved.
-  const TEMPORARY_TEST_DEFAULT=true;
-  const testParameter=new URLSearchParams(location.search).get('test');
-  const testing=()=>SimScorm.isStandalone()&&(testParameter==='1'||(TEMPORARY_TEST_DEFAULT&&testParameter!=='0'));
   const controller=new ProjectileRuntime.Controller(SimScorm,SimActivityFlow,render);
   let drag=null, run=null, frame=0, geometry=null, hint='';
   const diagnostics={downs:0,moves:0,ups:0,cancels:0,trustedTouch:0};
@@ -36,7 +32,6 @@
   function cancelFlight(){if(run)hint='投球已取消，保留上次完成的印記。';if(frame)cancelAnimationFrame(frame);frame=0;run=null;}
   function navigate(view){cancelDrag();cancelFlight();hint='';controller.navigate(view);d.controlPanel.scrollTop=0;}
   function check(){cancelDrag();cancelFlight();controller.check();d.controlPanel.scrollTop=0;}
-  function prepareTesting(){if(testing()&&editing()&&controller.state.rows.every(r=>r===null))controller.command({type:'practice'});}
   function value(el,value){if(document.activeElement!==el)el.value=value===null||value===undefined?'':String(value);}
   function options(el,list,selected){
     const html=list.map(([v,label])=>`<option value="${v}">${label}</option>`).join('');
@@ -51,10 +46,6 @@
     if(d.stageHint.parentElement!==hintHost){if(hintHost===d.controlPanel)hintHost.insertBefore(d.stageHint,d.notice);else hintHost.append(d.stageHint);}
     d.stageHint.hidden=checking||!s||!hint;
     d.status.textContent=controller.mode==='review'?'已提交 · 只讀回顧':controller.mode==='committed'?'結果已記錄':controller.mode==='frozen'?'提交待確認':'取點、量度與擬合';
-    if(testing())d.status.textContent=controller.mode==='edit'||controller.mode==='check'?'測試模式':'測試模式 · '+d.status.textContent;
-    d.modeControls.hidden=!SimScorm.isStandalone()||locked||checking;
-    d.modeMessage.textContent=testing()?'測試模式：已預填取點及讀數。':'一般模式：自行取點及讀數。';
-    d.modeToggle.textContent=testing()?'切換一般模式（重新開始）':'切換測試模式（重新開始）';
     d.progress.textContent=s?`${M.VIEWS.indexOf(view)+1} / ${M.VIEWS.length} ${names[M.VIEWS.indexOf(view)]}`:'';
     d.notice.hidden=!controller.notice;d.notice.innerHTML=prose(controller.notice);
     d.saveRetry.hidden=!controller.editable||!controller.unsaved;
@@ -356,8 +347,7 @@
   d.next.onclick=()=>controller.view===M.VIEWS.at(-1)?check():navigate(M.VIEWS[Math.min(M.VIEWS.length-1,M.VIEWS.indexOf(controller.view)+1)]);
   d.checkButton.onclick=check;d.returnCheck.onclick=check;d.submitButton.onclick=()=>controller.submit();d.retryFinal.onclick=()=>controller.retryFinal();d.saveRetry.onclick=()=>controller.retrySave();
   document.querySelectorAll('[data-go]').forEach(e=>e.onclick=()=>navigate(e.dataset.go));
-  d.clearAll.onclick=()=>{cancelDrag();cancelFlight();if(confirm('清除本次全部印記、讀數及答案？')){controller.clear();prepareTesting();}else render();};
-  d.modeToggle.onclick=()=>{const url=new URL(location.href);url.searchParams.set('test',testing()?'0':'1');location.replace(url.href);};
+  d.clearAll.onclick=()=>{cancelDrag();cancelFlight();if(confirm('清除本次全部印記、讀數及答案？'))controller.clear();else render();};
   d.release.onclick=()=>{
     if(!editing()||run)return;const {slot,depthMm}=controller.state.setup;
     if(M.heightConflict(controller.state,depthMm,slot)>=0){render();return;}
@@ -374,5 +364,4 @@
   new ResizeObserver(()=>{cancelDrag();cancelFlight();render();}).observe(d.stage);
   window.__projectileApp={getState:()=>M.clone(controller.state),controller,getGeometry:()=>geometry?{s:geometry.s,ox:geometry.ox,oy:geometry.oy,w:geometry.w,h:geometry.h}:null,getDiagnostics:()=>({...diagnostics}),isRunning:()=>Boolean(run)};
   controller.start();
-  prepareTesting();
 })().catch(error=>{document.getElementById('notice').hidden=false;document.getElementById('notice').textContent='數學排版未能載入，請重新載入活動。';console.error(error);});

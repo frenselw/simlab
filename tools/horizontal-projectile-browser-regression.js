@@ -161,7 +161,7 @@ async function rulerRevision(base,label){
       if(width===390&&slot===1&&axis==='y'&&offset===0)await screenshot(label+'-reading-centres-aligned');
     }
   }
-  await viewport(390,844);const example=M.practice(M.fresh(-80000),()=>.5);example.view='measure';example.ruler.zero=[0,150];await open(base,example);
+  await viewport(390,844);const example=T.measured(M.fresh(-80000),()=>.5);example.view='measure';example.ruler.zero=[0,150];await open(base,example);
   const values=await call('return [...d.querySelectorAll(".reading-choice")].map(e=>+e.dataset.reading).sort((a,b)=>a-b);');assert.deepEqual(values,[261,264,267,270]);await screenshot(label+'-three-mm-reading-options');
   await click('[data-reading="267"]',true);assert.equal((await state()).rows[1].read[0],267);
   report.flows.push({label,kind:'three-mm-spaced-options/26.7-cm-example/correct-choice',values,passed:true});
@@ -205,7 +205,7 @@ async function checkPageLayouts(base,label){
       const s=kind==='blank'?M.fresh():T.filled();s.view='speed';
       if(kind==='partial'){s.rows=s.rows.map((r,i)=>i<2?r:null);s.formulas={time:null,speed:null};s.meanV=null;s.fit={model:null,attempted:false};s.trajectory=null;}
       await open(base,s);const before=await state();await click('#checkButton',true);
-      const metrics=await call(`const panel=d.getElementById('controlPanel'),root=d.scrollingElement,box=e=>{const r=e.getBoundingClientRect();return{x:r.x,y:r.y,w:r.width,h:r.height};},buttons=[...d.querySelectorAll('#checkReturn button')];return{rootX:root.scrollWidth-root.clientWidth,rootY:root.scrollHeight-root.clientHeight,rows:d.querySelectorAll('#checkSummary>div').length,buttons:buttons.map(box),submit:box(d.getElementById('submitButton')),hidden:d.getElementById('modeControls').hidden&&d.getElementById('checkButton').hidden,summary:d.getElementById('checkSummary').textContent};`);
+      const metrics=await call(`const panel=d.getElementById('controlPanel'),root=d.scrollingElement,box=e=>{const r=e.getBoundingClientRect();return{x:r.x,y:r.y,w:r.width,h:r.height};},buttons=[...d.querySelectorAll('#checkReturn button')];return{rootX:root.scrollWidth-root.clientWidth,rootY:root.scrollHeight-root.clientHeight,rows:d.querySelectorAll('#checkSummary>div').length,buttons:buttons.map(box),submit:box(d.getElementById('submitButton')),hidden:!d.getElementById('modeControls')&&d.getElementById('checkButton').hidden,summary:d.getElementById('checkSummary').textContent};`);
       assert(metrics.rootX<=1&&metrics.rootY<=1&&metrics.hidden&&metrics.rows===8,JSON.stringify({label,width,height,kind,metrics}));
       for(const b of [...metrics.buttons,metrics.submit])assert(b.w>=44&&b.h>=44&&b.x>=0&&b.x+b.w<=width+1);
       assert(Math.abs(metrics.buttons[0].w-metrics.buttons[1].w)<1&&Math.abs(metrics.buttons[0].y-metrics.buttons[1].y)<1&&metrics.buttons[2].y>=metrics.buttons[0].y+metrics.buttons[0].h+8);
@@ -369,7 +369,7 @@ async function directTouchMatrix(base,label){
 }
 async function launchAndPreview(base,label){
   for(const [width,height]of[[1280,800],[390,844],[320,500],[320,225]])for(const view of ['collect','measure','plot']){
-    await viewport(width,height);const s=M.practice(M.fresh(-300000),()=>.5);s.view=view;if(view==='measure')s.ruler.zero=[0,50];await open(base,s);
+    await viewport(width,height);const s=T.measured(M.fresh(-300000),()=>.5);s.view=view;if(view==='measure')s.ruler.zero=[0,50];await open(base,s);
     const labels=await call('const g=app.getGeometry(),r=d.getElementById("stage").getBoundingClientRect();return [...d.querySelectorAll("#scene [data-point-label]")].map(e=>{const b=e.getBoundingClientRect();return{slot:+e.dataset.pointLabel,left:b.left-r.left,right:b.right-r.left,top:b.top-r.top,bottom:b.bottom-r.top,ax:g.ox,ay:g.oy,end:g.ox+1000*g.s};});');
     for(const b of labels)assert(!(b.right>=b.ax-2&&b.left<=b.end+10&&b.top<=b.ay+4&&b.bottom>=b.ay-(width>=900?24:16)-10),JSON.stringify({width,height,view,b}));
     const first=labels.find(l=>l.slot===0);assert(first);if(first.right>=first.ax-2)assert(first.top>first.ay+4);if(width===390&&view==='measure')await screenshot(label+'-label-beside-axis');
@@ -379,24 +379,30 @@ async function launchAndPreview(base,label){
     }
     report.layouts.push({label,width,height,view,kind:'low-mark-label-avoids-horizontal-axis',labels});
   }
-  await viewport(390,844);await open(base,null,true,'draw=0');const slow=await state();assert.equal(slow.launchOffsetPpm,-300000);assert.equal(slow.view,'plot');assert.equal(slow.rows.filter(Boolean).length,6);assert(Object.values(slow.formulas).every(v=>v===null));assert.equal(slow.fit.model,null);assert.equal(slow.meanV,null);assert(!Object.hasOwn(slow,'clockShown'));assert(!Object.hasOwn(slow,'conclusions'));
-  for(const r of slow.rows){const p=M.impact(r.depthMm,r.speedOffsetPpm);assert.deepEqual(r.read,[Math.round(p.x),p.y]);}
-  assert(await call('return !d.getElementById("modeControls").hidden&&d.getElementById("status").textContent.includes("測試模式");'));
-  const demoState=await state(),panel=await call('const p=d.getElementById("controlPanel"),r=p.getBoundingClientRect();p.scrollTop=0;return{x:r.left+8,y:r.top+r.height*.65};'),touch=y=>({x:panel.x,y,id:911,radiusX:3,radiusY:3,force:1});
-  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[touch(panel.y)]});for(let i=1;i<=6;i++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[touch(panel.y-i*10)]});await H.delay(20);}await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await H.delay(400);assert(await call('return d.getElementById("controlPanel").scrollTop>0&&scrollY===0;'));assert.deepEqual(await state(),demoState);
-  await open(base,null,true,'draw=.999999');const fast=await state();assert.equal(fast.launchOffsetPpm,0);assert(M.impact(fast.rows[5].depthMm,fast.rows[5].speedOffsetPpm).x>M.impact(slow.rows[5].depthMm,slow.rows[5].speedOffsetPpm).x+150);
-  await call('Math.random=()=>.1;');await click('#clearAll');assert.equal((await state()).launchOffsetPpm,M.drawLaunchOffset(()=>.1));assert.equal((await state()).view,'plot');assert.equal((await state()).rows.filter(Boolean).length,6);
-  await screenshot(label+'-test-mode-third-stage');await click('#modeToggle');await wait(()=>call('return app?.getState()?.view==="collect"&&app.getState().rows.every(r=>r===null);'),'normal mode');assert.equal(await call('return ProjectileScoring.score(app.getState()).score;'),0);
-  await click('#modeToggle');await wait(()=>call('return app?.getState()?.view==="plot"&&app.getState().rows.every(Boolean);'),'test mode');await click('#checkButton');await click('#submitButton');assert(await call('return app.controller.mode==="review"&&d.getElementById("modeControls").hidden&&!d.getElementById("clearAll").getClientRects().length;'));
-  await cdp.send('Page.reload',{});await wait(()=>call('return app?.controller.mode==="edit"&&app.getState().view==="plot";'),'fresh test preview');assert.equal((await state()).fit.model,null);
-  await open(base,null,false,'&test=1');assert((await state()).rows.every(r=>r===null));assert(await call('return d.getElementById("modeControls").hidden;'));await click('#checkButton');await click('#submitButton');assert.equal(await call('return app.controller.result.score;'),0);
-  report.flows.push({label,kind:'random-new-run/constant-baseline/test-prefill-only-first-two-stages/reset/mode-switch/no-LMS-autofill/no-review-reset',passed:true});
+  await viewport(390,844);
+  for(const query of ['', 'test=1', 'test=0', 'test=true&mode=test']){
+    await open(base,null,true,query);const fresh=await state();
+    assert.equal(fresh.view,'collect');assert(fresh.rows.every(r=>r===null));assert.equal(fresh.meanV,null);assert.equal(fresh.fit.model,null);assert(Object.values(fresh.formulas).every(v=>v===null));
+    assert(await call('return !d.querySelector("#modeControls,#modeToggle,#modeMessage")&&!d.body.textContent.includes("測試模式")&&typeof ProjectileModel.practice==="undefined";'));
+    assert.equal(await call('return ProjectileScoring.score(app.getState()).score;'),0);
+    await click('#checkButton');await click('#submitButton');assert.equal(await call('return app.controller.result.score;'),0);
+    await cdp.send('Page.reload',{});await wait(()=>call('return app?.controller.mode==="edit"&&app.getState().view==="collect"&&app.getState().rows.every(r=>r===null);'),'fresh normal entry');
+  }
+  await open(base,null,true,'draw=0&test=1');const slow=await state();assert.equal(slow.launchOffsetPpm,-300000);await shot(800);const slowImpact=M.impact(800,(await state()).rows[0].speedOffsetPpm);
+  await screenshot(label+'-normal-entry-first-mark');
+  await call('Math.random=()=>.1;');await click('#clearAll');const cleared=await state();assert.equal(cleared.launchOffsetPpm,M.drawLaunchOffset(()=>.1));assert.equal(cleared.view,'collect');assert(cleared.rows.every(r=>r===null));assert(Object.values(cleared.formulas).every(v=>v===null));assert.equal(cleared.meanV,null);
+  await open(base,null,true,'draw=.999999');const fast=await state();assert.equal(fast.launchOffsetPpm,0);assert(fast.rows.every(r=>r===null));await shot(800);assert(M.impact(800,(await state()).rows[0].speedOffsetPpm).x>slowImpact.x+150);
+  await cdp.send('Page.reload',{});await wait(()=>call('return app?.controller.mode==="edit"&&app.getState().view==="collect"&&app.getState().rows.every(r=>r===null);'),'standalone fresh without prefill');
+  await screenshot(label+'-normal-entry-empty');
+  await open(base,null,false,'&test=1');assert((await state()).rows.every(r=>r===null));await click('#checkButton');await click('#submitButton');assert.equal(await call('return app.controller.result.score;'),0);
+  report.flows.push({label,kind:'normal-default/removed-query-entry/no-mode-controls/no-practice-action/fresh-reload/empty-clear/normal-launch/no-LMS-autofill',passed:true});
 }
 async function main(){
   fs.mkdirSync(out,{recursive:true});const temp=fs.realpathSync(os.tmpdir());
   try{
     const manifest=new XMLParser({ignoreAttributes:false}).parse(fs.readFileSync(path.join(root,'sim/manifests',slug+'.xml'),'utf8'));
     const files=manifest.manifest.resources.resource.file.map(f=>f['@_href']);
+    for(const file of ['index.html','main.js','model.js','styles.css'])assert(!/TEMPORARY_TEST|prepareTesting|modeControls|modeToggle|測試模式|function practice|case 'practice'/.test(fs.readFileSync(path.join(root,'sim',slug,file),'utf8')),file+' retains test mode');
     const html=fs.readFileSync(path.join(root,'sim',slug,'index.html'),'utf8');const refs=[...html.matchAll(/(?:src|href)="([^"?#]+\.(?:js|css))"/g)].map(m=>path.posix.normalize(slug+'/'+m[1]));assert.deepEqual(files.filter(f=>!f.endsWith('/index.html')&&!f.endsWith('/mathjax-license.txt')).sort(),refs.sort());
     extracted=H.buildAndExtractPackage(temp,{slug,packagePrefix:'simlab-projectile-package-',packageNamePattern:/^simlab-projectile-package-[A-Za-z0-9]+$/});
     for(const file of files)assert.equal(fs.readFileSync(path.join(root,'sim',file),'utf8'),fs.readFileSync(path.join(extracted.packageDirectory,file),'utf8'));
