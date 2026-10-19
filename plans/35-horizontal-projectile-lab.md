@@ -1,5 +1,12 @@
 # 平拋運動：軌跡量度與擬合實驗
 
+## 未離焦保存、短屏續量與取樣回饋（2026-10-19；本節優先）
+
+- F1：平均欄有效input即經既有controller command更新state及共享SCORM保存；清空記null，badInput／非有限／負值不覆寫上一有效答案，change保留原有確認／錯誤處理。不新增活動離頁保存，不改standalone刷新全新或Moodle同attempt續作。
+- F2：主尺仍可拖；放大窗內可見尺身增加同一ruler操作的透明本地target（至少44px），只覆蓋實際放大尺身、不遮四選項、無新說明文字。沿用主圖座標位移及既有吸附、capture、取消／第二指／blur回復，拖動中不保存；從預覽讀完可直接拖往下一印記，不必歸原點。target位於stage而非會隱藏的卡片子樹，預覽暫時失去對齊仍保持原pointer capture至完成／取消。
+- F3：兩個取樣detail補上實際有效高度數及cm跨度，僅補回饋，不改任何分數或rubric。新snapshot shape／schema3/model1/rubric4、舊版分數及版本兼容保持；新target為瞬態，不加入保存欄。
+- 驗證：真實輸入1.657且不離焦→立即Moodle重載，與先檢查對照；0／清空／invalid、失敗保存及只讀保護；短屏320×225／400、390×400、500×400及較大對照，六點×兩尺，選讀數後不歸零直接拖向另一點；檢查新target對準可見放大尺身、44px選項及可信touch全owner／取消路徑。source＋解壓SCORM皆驗，既有Node／browser／manual owner沿用，不新增依賴。保留暫時測試模式，不加控制面板提示；完成後commit/push並更新原私人Sites。
+
 ## 審核四項跟進（2026-10-19；現行主表優先）
 
 - 清除EOF額外空行，更正歷史全分支diff聲明及GitHub CI紀錄；工作區、main...HEAD與原合併基範圍分別驗證。
@@ -188,7 +195,7 @@
 |---|---|
 | Three regions | 全寬header含四步進度、檢查及共享fullscreen；stage及獨立捲動panel。手機上下、桌面左右；短窄measure使用雙欄容納preview及44px選項。panel至少96px可用，最後控制可達 |
 | Diagram / text | x向右、y向下，同一物理比例及固定0–100cm範圍；手機主文18px、圖標16px，TeX由本地bundle呈現。每步保留精煉任務，不新增控制面板說明 |
-| Manipulations | 接球槽44px握柄；尺身透明操作面與可見尺身一致。其他stage區域原生pan-y；panel自行捲且不轉交host。現行沒有自由繪畫／拖點surface，兩側自由畫圖捲動條N/A，尺外空白仍須讓host捲動 |
+| Manipulations | 接球槽44px握柄；主尺及放大尺身透明操作面與各自可見尺身一致，均只用同一ruler操作。其他stage區域原生pan-y；panel自行捲且不轉交host。現行沒有自由繪畫／拖點surface，兩側自由畫圖捲動條N/A，尺外空白仍須讓host捲動 |
 | Keyboard / preview | 槽與尺可方向鍵微調，Shift加大步距；鍵盤維持整mm精確位移，不強制吸附。量尺靠近印記自動在畫布顯示真實放大窗與四選項，拖動中禁選、放手才可選；取消不保存暫態尺位 |
 | Fullscreen | `data-sim-fullscreen-target`及shared fullscreen；所有模式可用，保持同一頁／答案／LMS連線，不保存fullscreen狀態；失敗顯示技術訊息 |
 | Verification | source及真正解壓SCORM覆蓋320×225、320×400/500、390×500/600/844、640×400、667×375、900×650、1280×800；OS實際200%縮放及實體手機不由模擬viewport代替 |
@@ -203,7 +210,7 @@ collect→measure→plot→speed為依資料操作順序；每步均可直接檢
 |---|---|---|
 | Stage空白、非互動圖與尺外區域 | T1/T2外document或T3實際`#scrollOwner`；panel、活動document及答案不變 | 依[手勢契約](../docs/simulation-scorm-production-guide.md#selective-touch-gesture-ownership)；歷史全矩陣不冒稱本輪重跑 |
 | Panel頂／中／底及連續滑動 | 只panel動，host／iframe／stage／答案不動，無host樣式鎖 | T0直接頁及T1–T3中性host，source/package分開 |
-| 槽／兩方向尺身 | 只有該目標動，所有scroll不動；可信touch pointerup完成，cancel／lostcapture／blur／第二指回復原狀 | 本輪至少重跑measure空白、兩尺preview及只讀回顧；沿尺移動仍對齊時須保持preview及紅黑點重合 |
+| 槽／兩方向主尺及放大尺身 | 只有該目標動，所有scroll不動；可信touch pointerup完成，cancel／lostcapture／blur／第二指回復原狀 | 本輪至少重跑measure空白、兩尺preview及只讀回顧；沿尺移動仍對齊時須保持preview及紅黑點重合 |
 | plot／speed／review | 沒有拖點或繪圖層；只讀圖讓host捲，控制按鈕保留各自作用 | source/package舊v1/v2 square唯讀回顧顯示正確模型名、公式及原分；新作答不增加舊模型 |
 | Moodle T4 | 需實測current-window及提供的新視窗、origin/sandbox/frame chain及實際scroll owner | 未驗收；本機T1–T3不能取代真Moodle／真手機 |
 

@@ -11,9 +11,9 @@
     const depths=s.rows.filter(Boolean).map(r=>r.depthMm).sort((a,b)=>a-b);
     let last=-Infinity,count=0;
     depths.forEach(d=>{if(d-last>=(s.schemaVersion===3?50:20)){count++;last=d;}});
-    detail.push({name:'不同高度取樣',max:6,points:count,expected:s.schemaVersion===3?'六個相隔至少5cm的高度':'六個相隔至少2cm的高度'});
+    detail.push({name:'不同高度取樣',max:6,points:count,answer:`${count} 個有效高度`,expected:s.schemaVersion===3?'六個相隔至少5cm的高度':'六個相隔至少2cm的高度'});
     const span=depths.length?depths.at(-1)-depths[0]:0;
-    detail.push({name:'取樣跨度',max:4,points:span>=500?4:span>=250?2:0,expected:'跨度至少50cm'});
+    detail.push({name:'取樣跨度',max:4,points:span>=500?4:span>=250?2:0,answer:`${span/10} cm`,expected:'跨度至少50cm'});
     s.rows.forEach((r,i)=>{
       const actual=r?M.impact(r.depthMm,r.speedOffsetPpm):null, c=s.schemaVersion===1?s.calculations[i]:null;
       for(let axis=0;axis<2;axis++){

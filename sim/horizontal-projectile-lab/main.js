@@ -232,7 +232,7 @@
     if(d.heightNotice.innerHTML!==html)d.heightNotice.innerHTML=html;
   }
   function drawStage(){
-    const s=controller.state;if(!s){d.scene.innerHTML='';d.readingChoices.hidden=true;d.catcherHandle.hidden=d.rulerBodyTarget.hidden=true;return;}
+    const s=controller.state;if(!s){d.scene.innerHTML='';d.readingChoices.hidden=true;d.catcherHandle.hidden=d.rulerBodyTarget.hidden=d.previewRulerTarget.hidden=true;return;}
     const view=controller.view;geometry=makeGeometry(view);const g=geometry;
     d.scene.setAttribute('viewBox',`0 0 ${g.w} ${g.h}`);d.scene.innerHTML=world(g,view,'sceneClip');
     d.catcherHandle.hidden=!editing()||view!=='collect';d.rulerBodyTarget.hidden=!editing()||view!=='measure';
@@ -242,6 +242,14 @@
     const body=d.scene.querySelector('[data-ruler-body]');
     if(body){const b=body.getBBox();position(d.rulerBodyTarget,b.x,b.y);d.rulerBodyTarget.style.width=b.width+'px';d.rulerBodyTarget.style.height=b.height+'px';}
     drawReadingChoices(g,view);
+    const previewBody=d.readingChoices.hidden?null:d.readingPreviewSvg.querySelector('[data-ruler-body]');
+    const previewCaptured=drag?.target===d.previewRulerTarget;
+    d.previewRulerTarget.hidden=!previewBody&&!previewCaptured;
+    if(previewBody){
+      const body=previewBody.getBoundingClientRect(),preview=d.readingPreview.getBoundingClientRect(),stage=d.stage.getBoundingClientRect();
+      const left=Math.max(body.left,preview.left+1),top=Math.max(body.top,preview.top+1),right=Math.min(body.right,preview.right-1),bottom=Math.min(body.bottom,preview.bottom-1);
+      position(d.previewRulerTarget,left-stage.left,top-stage.top);d.previewRulerTarget.style.width=Math.max(0,right-left)+'px';d.previewRulerTarget.style.height=Math.max(0,bottom-top)+'px';
+    }
     d.stageHint.innerHTML=prose(hint);
   }
 
@@ -300,7 +308,7 @@
     drawStage();
   }
   function attachDrag(element,kind){element.addEventListener('pointerdown',e=>beginDrag(e,kind));element.addEventListener('pointermove',moveDrag);['pointerup','pointercancel','lostpointercapture'].forEach(t=>element.addEventListener(t,finishDrag));}
-  attachDrag(d.catcherHandle,'catcher');attachDrag(d.rulerBodyTarget,'ruler');
+  attachDrag(d.catcherHandle,'catcher');attachDrag(d.rulerBodyTarget,'ruler');attachDrag(d.previewRulerTarget,'ruler');
   document.addEventListener('pointerdown',e=>{if(drag&&e.pointerId!==drag.id){cancelDrag();drawStage();}},true);
   function keyboard(event,kind){
     if(!editing()||run||!['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(event.key))return;
@@ -308,11 +316,11 @@
     if(kind==='catcher')command({type:'setup',value:{depthMm:clamp(controller.state.setup.depthMm+dy*(event.shiftKey?25:5),50,800)}});
     else if(kind==='ruler'){const r=controller.state.ruler,n=event.shiftKey?10:1;command({type:'ruler',value:{axis:r.axis,zero:[clamp(r.zero[0]+dx*n,-100,1000),clamp(r.zero[1]+dy*n,-100,1000)]}});}
   }
-  d.catcherHandle.addEventListener('keydown',e=>keyboard(e,'catcher'));d.rulerBodyTarget.addEventListener('keydown',e=>keyboard(e,'ruler'));
+  d.catcherHandle.addEventListener('keydown',e=>keyboard(e,'catcher'));[d.rulerBodyTarget,d.previewRulerTarget].forEach(e=>e.addEventListener('keydown',event=>keyboard(event,'ruler')));
   function numberInput(e,options={}){
-    if(e.value.trim()==='')return null;
+    if(!e.validity.badInput&&e.value.trim()==='')return null;
     const n=Number(e.value),scale=options.scale??1;
-    if(!Number.isFinite(n)||(!options.signed&&n<0)||(options.max!==undefined&&n>options.max)||(scale!==1&&Math.abs(n*scale-Math.round(n*scale))>1e-7)){
+    if(e.validity.badInput||!Number.isFinite(n)||(!options.signed&&n<0)||(options.max!==undefined&&n>options.max)||(scale!==1&&Math.abs(n*scale-Math.round(n*scale))>1e-7)){
       controller.notice='數值未記錄：請輸入有效範圍內的數字；座標精確至0.1cm。';e.blur();render();return undefined;
     }
     return scale===1?n:Math.round(n*scale);
@@ -321,6 +329,11 @@
   document.querySelectorAll('[data-formula-choice]').forEach(e=>e.addEventListener('change',()=>command({type:'formula',field:e.dataset.formulaChoice,value:e.value})));
   document.querySelectorAll('[data-clear-formula]').forEach(e=>e.onclick=()=>command({type:'formula',field:e.dataset.clearFormula,value:null}));
   d.meanV.addEventListener('change',()=>{const n=numberInput(d.meanV);if(n!==undefined)command({type:'answer',field:'meanV',value:n});});
+  d.meanV.addEventListener('input',()=>{
+    if(d.meanV.validity.badInput)return;
+    const value=d.meanV.value.trim(),n=value===''?null:Number(value);
+    if(n===null||Number.isFinite(n)&&n>=0)command({type:'answer',field:'meanV',value:n});
+  });
   d.recordSlot.addEventListener('change',()=>command({type:'setup',value:{slot:+d.recordSlot.value}}));
   d.depthUp.onclick=()=>command({type:'setup',value:{depthMm:Math.max(50,controller.state.setup.depthMm-5)}});
   d.depthDown.onclick=()=>command({type:'setup',value:{depthMm:Math.min(800,controller.state.setup.depthMm+5)}});

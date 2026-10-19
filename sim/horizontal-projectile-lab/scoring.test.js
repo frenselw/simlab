@@ -2,6 +2,8 @@
 const assert=require('node:assert/strict'),M=require('./model.js'),S=require('./scoring.js'),P=require('./persistence.js'),T=require('./test-support.js');
 const part=(s,name)=>S.score(s).detail.find(d=>d.name===name).points;
 assert.equal(S.score(M.fresh()).score,0);assert.equal(S.score(T.filled()).score,100);assert.equal(S.score(T.filled()).detail.reduce((n,d)=>n+d.max,0),100);
+assert.equal(S.score(T.filled()).detail.find(d=>d.name==='不同高度取樣').answer,'6 個有效高度');
+assert.equal(S.score(T.filled()).detail.find(d=>d.name==='取樣跨度').answer,'75 cm');
 let one=M.change(M.fresh(),{type:'record',slot:0,depthMm:800,ppm:10000});
 const x=Math.round(M.impact(800,10000).x);one=M.change(one,{type:'read',slot:0,axis:0,value:x});assert.equal(part(one,'P1 x讀數 / cm'),3);
 one=M.change(one,{type:'read',slot:0,axis:0,value:x+1});assert.equal(part(one,'P1 x讀數 / cm'),0);

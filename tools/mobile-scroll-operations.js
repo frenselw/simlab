@@ -143,7 +143,7 @@ async function runProjectileOperations({cdp,childEval,observation,prepare,delay}
     await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[touch(point.x,point.y)]});
     for(let i=1;i<=6;i++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[touch(point.x+dx*i/6,point.y+dy*i/6)]});await delay(20);samples.push(await observation());}
     const preview=await childEval('!document.getElementById("readingChoices").hidden');
-    if(selector==='#rulerBodyTarget'){
+    if(selector==='#rulerBodyTarget'||selector==='#previewRulerTarget'){
       const alignment=await childEval(`(${projectileReadingGeometry.toString()})()`);
       if(preview!==alignment.aligned||(preview&&!alignment.previewAligned)||!alignment.inCanvas||alignment.corner)issues.push('ruler preview must be in canvas exactly when aligned');
     }

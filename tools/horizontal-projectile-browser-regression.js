@@ -15,8 +15,8 @@ async function viewport(width,height){await cdp.send('Emulation.setTouchEmulatio
 async function preload(){await cdp.send('Page.addScriptToEvaluateOnNewDocument',{source:`(()=>{
   const p=new URLSearchParams(location.search);Math.random=()=>p.has('draw')?Number(p.get('draw')):.65;
   if(p.has('deny'))Object.defineProperty(window,'localStorage',{get(){throw new DOMException('Denied','SecurityError');}});
-  if(p.has('fixture')){const durable=JSON.parse(p.get('fixture')),values={...durable};let error='0';window.__lmsValues=durable;window.__failFinal=false;window.__failFinish=false;
-    window.API={LMSInitialize:()=> 'true',LMSGetValue:k=>(error='0',values[k]||''),LMSSetValue:(k,v)=>{if(window.__failFinal&&k==='cmi.core.score.raw'){error='351';return 'false';}values[k]=String(v);error='0';return 'true';},LMSCommit:()=>{Object.assign(durable,values);return 'true';},LMSFinish:()=>window.__failFinish?'false':'true',LMSGetLastError:()=>error,LMSGetErrorString:()=>'',LMSGetDiagnostic:()=>''};}
+  if(p.has('fixture')){const retained=p.get('retain'),key='projectile-mock-lms-'+retained,durable=JSON.parse(retained&&sessionStorage.getItem(key)||p.get('fixture')),values={...durable};let error='0';window.__lmsValues=durable;window.__failFinal=false;window.__failFinish=false;window.__failDraft=false;
+    window.API={LMSInitialize:()=> 'true',LMSGetValue:k=>(error='0',values[k]||''),LMSSetValue:(k,v)=>{if(window.__failFinal&&k==='cmi.core.score.raw'||window.__failDraft&&k==='cmi.suspend_data'){error='351';return 'false';}values[k]=String(v);error='0';return 'true';},LMSCommit:()=>{Object.assign(durable,values);if(retained)sessionStorage.setItem(key,JSON.stringify(durable));return 'true';},LMSFinish:()=>window.__failFinish?'false':'true',LMSGetLastError:()=>error,LMSGetErrorString:()=>'',LMSGetDiagnostic:()=>''};}
 })();`});}
 async function open(base,state=null,standalone=false,extra=''){
   const values=state?{'cmi.core.lesson_status':'incomplete','cmi.suspend_data':JSON.stringify(T.snapshot(state))}:{'cmi.core.lesson_status':'not attempted'};
@@ -30,6 +30,7 @@ async function click(selector,trusted=false){
   await H.delay(20);
 }
 async function input(selector,value){await call(`const e=d.querySelector(${JSON.stringify(selector)});if(!e||e.disabled)throw Error('Unavailable input '+${JSON.stringify(selector)});e.value=${JSON.stringify(String(value))};e.dispatchEvent(new Event('change',{bubbles:true}));`);}
+async function typeMean(text){await click('#meanV',true);await call('d.getElementById("meanV").select();');if(text===''){await cdp.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Backspace',code:'Backspace',windowsVirtualKeyCode:8});await cdp.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Backspace',code:'Backspace',windowsVirtualKeyCode:8});}else await cdp.send('Input.insertText',{text});}
 async function rect(selector){return call(`const e=d.querySelector(${JSON.stringify(selector)});if(!e||!e.getClientRects().length)throw Error('Missing target '+${JSON.stringify(selector)});e.scrollIntoView({block:'nearest'});const r=e.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2};`);}
 const state=()=>call('return app.getState();');
 async function assertReadingAlignment(){
@@ -61,6 +62,45 @@ async function alignRuler(axis,offset=0,fraction=.65,slot=0){
   await cdp.send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,x:start.x+raw[0]*g.s,y:start.y+raw[1]*g.s});
   assert.deepEqual((await state()).ruler,{axis,zero});assert.equal(await call('return +d.getElementById("readingChoices").dataset.slot;'),slot);assert(await call('return !d.getElementById("measureSlot");'));assert(await call('return !d.getElementById("readingChoices").hidden&&!d.getElementById("readingPreview").hidden;'));
   await assertReadingAlignment();
+}
+async function focusedMeanFlow(base,label){
+  for(const blur of[false,true]){
+    await viewport(390,844);const s=T.filled();s.view='speed';s.meanV=null;await open(base,s,false,'&retain='+label+'-mean-'+blur);
+    await call('w.__meanInputs=[];d.getElementById("meanV").addEventListener("input",e=>w.__meanInputs.push({trusted:e.isTrusted,value:e.target.value}));');
+    await typeMean('1.657');assert.equal((await state()).meanV,1.657);assert(await call('return d.activeElement.id==="meanV"&&w.__meanInputs.at(-1).trusted;'));
+    if(blur)await click('#checkButton',true);
+    await cdp.send('Page.reload',{});await wait(()=>call('return Boolean(app?.getState())&&d.readyState==="complete";'),'focused mean reload');assert.equal((await state()).meanV,1.657);assert.equal(await call('return ProjectileScoring.score(app.getState()).score;'),100);
+    if(blur)await click('[data-go="speed"]');
+    await typeMean('0');assert.equal((await state()).meanV,0);await typeMean('');assert.equal((await state()).meanV,null);
+    await typeMean('1.657');await typeMean('-1');assert.equal((await state()).meanV,1.657);await click('#checkButton',true);assert.equal((await state()).meanV,1.657);await click('[data-go="speed"]');
+    await call('w.__failDraft=true;');await typeMean('1.658');assert.equal((await state()).meanV,1.658);assert(await call('return app.controller.unsaved&&!d.getElementById("saveRetry").hidden;'));await call('w.__failDraft=false;');await click('#saveRetry',true);assert.equal(await call('return app.controller.unsaved;'),false);
+    await cdp.send('Page.reload',{});await wait(()=>call('return app?.getState()?.meanV===1.658;'),'failed draft retry reload');
+    report.flows.push({label,kind:'trusted-focused-input/reload-without-blur/zero-clear-invalid/save-retry',blur,passed:true});
+  }
+  await viewport(390,844);await open(base,T.filled());await click('#checkButton');await click('#submitButton');assert.equal(await call('return app.controller.result.score;'),100);
+  const feedback=await call(`const all=[...d.querySelectorAll('#feedbackList details')],rows=all.filter(e=>/^(不同高度取樣|取樣跨度)/.test(e.querySelector('summary').textContent));rows.forEach(e=>e.open=true);return{count:rows.length,heights:rows[0].textContent,span:!!rows[1].querySelector('[data-math="75 cm"]'),unanswered:rows.some(e=>e.textContent.includes('你的作答：未答'))};`);assert.equal(feedback.count,2);assert(feedback.heights.includes('6 個有效高度')&&feedback.span&&!feedback.unanswered);await call('d.getElementById("feedback").scrollIntoView({block:"end"});');await screenshot(label+'-sampling-feedback');
+  await click('[data-go="speed"]');assert(await call('return d.getElementById("meanV").disabled;'));
+  report.flows.push({label,kind:'sampling-feedback-has-actual-count-and-span/score-100/review-locked',passed:true});
+}
+async function continuousPreviewFlow(base,label){
+  for(const [width,height]of[[320,225],[320,400],[390,400],[500,400],[320,500],[390,600],[390,844]]){
+    await viewport(width,height);
+    for(let slot=0;slot<6;slot++)for(const axis of['x','y']){
+      let s=T.filled();s=M.change(s,{type:'read',slot,axis:axis==='x'?0:1,value:null});const p=M.impact(s.rows[slot].depthMm,s.rows[slot].speedOffsetPpm);s.view='measure';s.ruler={axis,zero:axis==='x'?[0,p.y]:[Math.round(p.x),0]};await open(base,s);
+      await click(`[data-reading="${Math.round(axis==='x'?p.x:p.y)}"]`,true);
+      const before=await state(),next=slot===5?4:slot+1,to=M.impact(before.rows[next].depthMm,before.rows[next].speedOffsetPpm),g=await call('return app.getGeometry();');
+      const metrics=await call(`const e=d.getElementById('previewRulerTarget'),r=e.getBoundingClientRect(),preview=d.getElementById('readingPreview').getBoundingClientRect(),stage=d.getElementById('stage').getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2,width:r.width,height:r.height,hit:d.elementFromPoint(r.left+r.width/2,r.top+r.height/2)===e,inPreview:r.left>=preview.left&&r.right<=preview.right&&r.top>=preview.top&&r.bottom<=preview.bottom,card:(()=>{const r=d.getElementById('readingChoices').getBoundingClientRect();return r.left>=stage.left&&r.right<=stage.right&&r.top>=stage.top&&r.bottom<=stage.bottom;})(),choices:[...d.querySelectorAll('.reading-choice')].map(b=>b.getBoundingClientRect().height),panel:d.getElementById('controlPanel').scrollTop};`);
+      assert(metrics.width>=44&&metrics.height>=44&&metrics.hit&&metrics.inPreview&&metrics.card&&metrics.choices.every(h=>h>=44),JSON.stringify({width,height,slot,axis,metrics}));
+      const delta=axis==='x'?[0,(to.y-p.y)*g.s]:[(Math.round(to.x)-Math.round(p.x))*g.s,0],norm=Math.hypot(...delta),point=f=>({x:metrics.x+delta[0]*f,y:metrics.y+delta[1]*f,id:632,radiusX:3,radiusY:3,force:1});
+      await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[point(0)]});
+      if(norm<8)await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[point(10/norm)]});
+      for(let i=1;i<=5;i++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[point(i/5)]});await H.delay(15);}
+      assert.deepEqual((await state()).ruler,before.ruler);await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+      const after=await state();assert.deepEqual(after.rows,before.rows);assert.deepEqual(after.ruler,{axis,zero:axis==='x'?[0,to.y]:[Math.round(to.x),0]});assert.equal(await call('return +d.getElementById("readingChoices").dataset.slot;'),next);assert.equal(await call('return d.getElementById("controlPanel").scrollTop;'),metrics.panel);assert.equal(await call('return scrollY;'),0);await assertReadingAlignment();
+      if(slot===0&&axis==='x'&&(height===225||height===400))await screenshot(label+'-continuous-preview-'+width+'x'+height);
+      report.gestures.push({label,kind:'trusted-preview-ruler/next-mark-without-home',width,height,slot,axis,next,metrics,passed:true});
+    }
+  }
 }
 async function completeFlow(base,label){
   await viewport(1000,800);await open(base);await cdp.send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
@@ -343,7 +383,7 @@ async function main(){
     cdp.on('Runtime.exceptionThrown',e=>report.errors.push(e.exceptionDetails?.exception?.description||e.exceptionDetails?.text));report.browser=await cdp.send('Browser.getVersion');
     for(const [label,directory]of[['source',path.join(root,'sim')],['package',extracted.packageDirectory]]){
       server=H.createServer(directory);await H.listenServer(server);const base=`http://127.0.0.1:${server.address().port}`;
-      console.log('projectile browser: '+label);await layoutMatrix(base,label);await readingFlow(base,label);await rulerRevision(base,label);await completeFlow(base,label);await launchAndPreview(base,label);
+      console.log('projectile browser: '+label);await focusedMeanFlow(base,label);await continuousPreviewFlow(base,label);await layoutMatrix(base,label);await readingFlow(base,label);await rulerRevision(base,label);await completeFlow(base,label);await launchAndPreview(base,label);
       if(!process.argv.includes('--smoke')){await flows(base,label);await edgeFlows(base,label);await interactions(base,label);await directTouchMatrix(base,label);}
       await H.closeServer(server);server=null;
     }
