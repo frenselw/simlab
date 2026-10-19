@@ -7,6 +7,15 @@
 - F3：兩個取樣detail補上實際有效高度數及cm跨度，僅補回饋，不改任何分數或rubric。新snapshot shape／schema3/model1/rubric4、舊版分數及版本兼容保持；新target為瞬態，不加入保存欄。
 - 驗證：真實輸入1.657且不離焦→立即Moodle重載，與先檢查對照；0／清空／invalid、失敗保存及只讀保護；短屏320×225／400、390×400、500×400及較大對照，六點×兩尺，選讀數後不歸零直接拖向另一點；檢查新target對準可見放大尺身、44px選項及可信touch全owner／取消路徑。source＋解壓SCORM皆驗，既有Node／browser／manual owner沿用，不新增依賴。保留暫時測試模式，不加控制面板提示；完成後commit/push並更新原私人Sites。
 
+### 三項反例修正驗證與發布
+
+- 最終runtime head `e6e66e53d706a14f09dfa894e3ceaf9cf4edfe79`。四個活動Node及全部213個Node入口通過，報告`output/ci-tests/projectile-continuous-final-node/report.json`；1128組保存／續作及舊版分數仍通過。F3只新增detail.answer（6個有效高度、75cm），沒有修改得分條件、版本或權威snapshot欄。
+- 正式source＋真正解壓SCORM browser在此head通過104個版面、40組流程、360組操作／幾何觀測，errors=[]。新增可信Input.insertText→維持meanV聚焦→立即重載，同LMS attempt仍保留1.657及100分；先檢查作對照亦相同。另驗0／清空／負值不覆寫、失敗保存及重試後重載、只讀鎖定。保留原standalone刷新／Moodle續作分流。mock LMS在測試專用sessionStorage模擬後端durability，沒有將standalone持久化加進runtime。
+- 168組source/package×七尺寸×六點×兩尺，實際點選讀數後不按歸原點，從可見放大尺身可信touch移到相鄰印記；控制尺寸含320×225/400/500、390×400/600/844及500×400。均核對target在真正放大尺身範圍且至少44×44、四選項≥44px、卡片在畫布內、放手才改尺位、讀數不變、捲動不變及新目標紅黑點重合。短屏主尺可能仍在卡片下方，修正提供的是直接可拖的可見放大尺身，沒有冒稱主尺已不遮擋。已目視`source-continuous-preview-320x225.png`；F3實際100分回饋DOM顯示有效高度數及75cm數學標記，沒有「你的作答：未答」。
+- T1/T2/T3×source/package×實際iframe高度225/400（外層亦320×225/400），兩尺preview共24 cases／312 gesture checks通過。12份`repair-T{1,2,3}-{225,400}-{source,package}.json`均completed=true/status=passed、errors及每個issues空；`repair-touch-summary.json`記錄head及計數。包含完成、cancel、lostcapture、blur、第二指及每move/release owner／canonical state。初輪中斷測試沿用上一條完成後已移走的尺位而失敗；helper現經production command將每條還原同一合法起點，未移除capture／可信／取消不保存斷言，active target亦固定至手勢結束。中間失敗報告不當本輪通過證據。
+- `check:tests`仍246 entries／48 helpers／2 manual；`check`、全部24個SCORM打包、文件連結、工作區及main...e6e66e5／f7ab989..e6e66e5全範圍diff通過。17檔本活動ZIP及Site archive runtime逐byte核對。Committed selection preview base `cca930f`／head `e6e66e5`為full、246 entries、packages=all，存於`output/selection-preview-continuous-final.json`；不當其餘32 browser或全phase手勢／OS縮放／真手機／Moodle T4通過證據。
+- [原私人Sites](https://simlab-horizontal-projectile-lab.ieyp.chatgpt.site)更新成功，owner-private及暫時測試模式保持。官方helper推送source `06bb64eafa4107896d9e5ed24c6b0a6fcde351e2`；saved version `appgprj_6ad49418111c819198d79e88cab3e78e~appgver_433850f9c9e881918adcad5cd02db4ad`，deployment `appgdep_6ad59f58ba308191a3c027b7b7b3fc10`原生回傳succeeded。Archive `output/sites/horizontal-projectile-lab-continuous-e6e66e5.tar.gz`共18檔，SHA-256 `20d58a4bb9d7aff36d9b30d492bb466bc1d16f35a42278842f531da469cf12f7`；16 runtime、根redirect及hosting metadata核對，證據`output/sites/projectile-continuous-assets.json`。runtime hash `52e6325ddc8acafcf45583aa534f13a41df0dc2adde7aa4bf4bf689ac47709a9`。後續文件提交不改runtime，GitHub新run結果另記交付回覆／`output/projectile-continuous-ci.json`。
+
 ## 審核四項跟進（2026-10-19；現行主表優先）
 
 - 清除EOF額外空行，更正歷史全分支diff聲明及GitHub CI紀錄；工作區、main...HEAD與原合併基範圍分別驗證。
