@@ -1,5 +1,5 @@
 const simulationList = [
-  {title:'平拋運動：軌跡量度與擬合實驗',folder:'horizontal-projectile-lab',categories:['Mechanics'],description:'調槽留印並讀尺，自動描點後擬合；選公式計出各點初速度，再求平均初速度。',tags:['physics','mechanics','projectile-motion','measurement','curve-fitting','scorm'],status:'active'},
+  {title:'平拋運動：軌跡量度與擬合',folder:'horizontal-projectile-lab',categories:['Mechanics'],description:'調槽留印並讀尺，自動描點後擬合；選公式計出各點初速度，再求平均初速度。',tags:['physics','mechanics','projectile-motion','measurement','curve-fitting','scorm'],status:'active'},
   {title:'家庭電路工作台',folder:'circuit-household-workbench',categories:['Electricity'],description:'用小型電路探索火線、零線、地線、人體接觸與保護裝置。',tags:['physics','electricity','household','workbench'],status:'active'},
   {title:"交流電路工作台",folder:"circuit-ac-workbench",categories:["Electricity"],description:"搭建交流、電容電感與變壓器電路，觀察波形、有效值及能量交換。",tags:["physics","electricity","ac","capacitor","inductor","transformer","workbench"],status:"active"},
   {title: "兩燈串聯搭建", folder: "circuit-dc-series-build", categories: ["Electricity"], description: "指定工具箱接線活動，搭建串聯電路；保留部分分並以 SCORM 提交。", tags: ["physics", "electricity", "circuits", "series", "scorm"], status: "active"},

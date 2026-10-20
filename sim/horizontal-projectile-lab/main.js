@@ -45,7 +45,7 @@
     const hintHost=innerWidth<900&&innerHeight>420?d.controlPanel:d.stage;
     if(d.stageHint.parentElement!==hintHost){if(hintHost===d.controlPanel)hintHost.insertBefore(d.stageHint,d.notice);else hintHost.append(d.stageHint);}
     d.stageHint.hidden=checking||!s||!hint;
-    d.status.textContent=controller.mode==='review'?'已提交 · 只讀回顧':controller.mode==='committed'?'結果已記錄':controller.mode==='frozen'?'提交待確認':'取點、量度與擬合';
+    d.status.textContent=controller.mode==='review'?'已提交 · 只讀回顧':controller.mode==='committed'?'結果已記錄':controller.mode==='frozen'?'提交待確認':'軌跡量度與擬合';
     d.progress.textContent=s?`${M.VIEWS.indexOf(view)+1} / ${M.VIEWS.length} ${names[M.VIEWS.indexOf(view)]}`:'';
     d.notice.hidden=!controller.notice;d.notice.innerHTML=prose(controller.notice);
     d.saveRetry.hidden=!controller.editable||!controller.unsaved;

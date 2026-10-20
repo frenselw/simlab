@@ -1,4 +1,12 @@
-# 平拋運動：軌跡量度與擬合實驗
+# 平拋運動：軌跡量度與擬合
+
+## 活動改名（2026-10-20；本節優先）
+
+- 使用者選定「平拋運動：軌跡量度與擬合」，直接在main修改。統一catalogue、HTML title及SCORM organization/item title；頁首沿用兩行：主標「平拋運動」、正常狀態副標「軌跡量度與擬合」，h1 accessible name保留完整活動名稱。提交／pending等既有狀態提示照常呈現。
+- 僅改顯示名稱及本計畫；slug、manifest／organization／item／resource identifiers、權威snapshot、物理、rubric、依賴、字體及排版規則不變。評分風險與phase/schema契約無新增項。
+- 名稱屬低風險文字修改，不新增測試入口；驗證check／check:tests、重新打包及來源／解壓SCORM名稱一致，並以現有browser helper檢查手機、短iframe及桌面頁首／fullscreen／檢查控制未溢出。文件及完整本輪diff通過後commit/push main；不以本輪文字驗證重述舊完整活動測試為新通過。
+
+- 本輪驗證：check、check:tests（246 entries）、活動17檔SCORM打包、文件連結及`git diff --check`通過；source＋真正解壓SCORM在320×225／500、390×844、1280×800、1920×1000的edit／check／review，共30組名稱、accessible name、既有狀態、0分提交及頁首邊界檢查全部通過（`output/playwright/horizontal-projectile-lab/rename-check.json`）。目視390px手機及1280px桌面截圖；ZIP兩個SCORM title正確，16 runtime與來源逐byte相同。沒有新增永久測試、重跑完整活動browser或宣稱新的真Moodle／實體手機驗收。
 
 ## 桌面畫布及控制欄修訂（2026-10-20；本節優先）
 
