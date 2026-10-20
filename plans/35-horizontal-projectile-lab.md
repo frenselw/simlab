@@ -14,6 +14,8 @@
 
 - 最終正式完整source＋真正解壓SCORM回歸通過：212個版面、52組流程、360組操作／幾何觀測，completed=true/errors=[]；其中新增72個桌面版面（9尺寸×4步×2版本），含1920×1000／600／400、1440×900、1280×800／667、1024×768、900×650／400。原未離焦輸入、preview連續拖尺／鍵盤、六點100分、空白／部分、review／pending／committed、fullscreen及手機可信觸控仍全部通過。報告`output/playwright/horizontal-projectile-lab/report.json`於commit前執行，git metadata為899ffe4；以上runtime hash與最終提交內容一致。未執行其餘活動browser、全部213 Node、T1–T3完整矩陣、真手機／Moodle／Safari／OS實際縮放，沒有擴張發布聲明。
 
+- 已提交選擇預覽base `899ffe48749bd4b4efe3074f144e78dee353f8f2`／runtime head `4443a7743b74702c9d1300fa265ac42c3d069333`為affected、214 entries（213 Node＋本活動一個browser）、僅本活動SCORM；報告`output/selection-preview-projectile-desktop-4443a77.json`。工作區及`main...HEAD`完整diff空白檢查通過；其後僅補本驗證記錄，不改已測runtime。
+
 ## 放大尺鍵盤焦點連續性（2026-10-19；本節優先）
 
 - 先以可信Tab及連續兩次方向鍵重現放大尺離開對齊後失焦，再局部修正：若即將隱藏的放大尺target仍持有焦點，且可編輯量度頁的主尺可用，在隱藏前以focus({preventScroll:true})交回主尺。不得重設尺位、吸附、答案或捲動；指標capture中的既有target仍保留至手勢完成。
