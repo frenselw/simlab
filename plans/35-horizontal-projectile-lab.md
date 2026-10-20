@@ -1,5 +1,19 @@
 # 平拋運動：軌跡量度與擬合實驗
 
+## 桌面畫布及控制欄修訂（2026-10-20；本節優先）
+
+- 分支 `codex/projectile-desktop-layout`，基線 `899ffe4`。只調整本活動桌面（寬度≥900 CSS px）排版：控制欄限制320–368px，圖域按實際斜槽／座標範圍與文字邊界等比例置中，減少固定空白。窄桌面按需要重排取點按鈕，維持文字大小及44px以上操作目標。手機及寬度<900px短iframe原排版維持。
+- 四個編輯步驟、檢查頁、回顧與pending仍沿用原流程；不加控制面板說明、不恢復測試模式。物理／讀數／評分／schema／manifest及依賴不變；評估風險仍為既有formative／low-risk，無新保存狀態或rubric變動。
+- 沿用已登記的活動browser入口，新增900–1920px桌面四步的實際圖域利用率、文字／尺邊界、控制欄寬度與內部溢位檢查；保留真實取點／移尺／吸附及手機回歸，在來源及真正解壓SCORM驗證。重跑四活動Node、check／check:tests、打包、文件及完整分支diff檢查，記錄實際結果。這輪不據此宣稱真Moodle、實體手機或OS縮放驗收。
+
+### 桌面修訂驗證
+
+- 新斷言先在基線runtime於1920×1000重現控制欄480px過寬並失敗；截圖`output/playwright/horizontal-projectile-lab/desktop-before.png`。最終桌面控制欄320–368px；1920×1000取點座標邊長由約608增至698px（約15%），兩軸保持同一比例；收窄面板的方向按鈕分組及既有高度提示換行，沒有增加說明文字。
+- 四活動Node入口及mobile-scroll acceptance／reading probes通過，包含1128組保存／合法續作；check、check:tests（246 entries／213 Node／33 browser／48 helpers／2 manual）、活動17檔SCORM及文件檢查通過。16個runtime與ZIP逐byte相同，hash `6e7954f167c5254cd90eb23d3e077883886a2b12ffd64242e4d3afb00a0e829e`。
+- 中途一次完整回歸在來源版pending頁的原有panel swipe斷言失敗，未完成報告另存`desktop-touch-incomplete.json`，不計作通過。以同一最終runtime、原有嚴格斷言隔離重跑全部八phase，source/package各連續三次全部通過：48 cases／228 gestures、completed=true/errors=[]，報告`desktop-touch-repro/report.json`。未重現固定活動故障；正式helper補上觸控前兩frame的layout／programmatic scroll readiness等待及失敗上下文，不增加重試或放寬捲動／可信事件／state斷言。首輪較早runtime的完整通過報告另存`desktop-intermediate.json`，不冒充最終版本。
+
+- 最終正式完整source＋真正解壓SCORM回歸通過：212個版面、52組流程、360組操作／幾何觀測，completed=true/errors=[]；其中新增72個桌面版面（9尺寸×4步×2版本），含1920×1000／600／400、1440×900、1280×800／667、1024×768、900×650／400。原未離焦輸入、preview連續拖尺／鍵盤、六點100分、空白／部分、review／pending／committed、fullscreen及手機可信觸控仍全部通過。報告`output/playwright/horizontal-projectile-lab/report.json`於commit前執行，git metadata為899ffe4；以上runtime hash與最終提交內容一致。未執行其餘活動browser、全部213 Node、T1–T3完整矩陣、真手機／Moodle／Safari／OS實際縮放，沒有擴張發布聲明。
+
 ## 放大尺鍵盤焦點連續性（2026-10-19；本節優先）
 
 - 先以可信Tab及連續兩次方向鍵重現放大尺離開對齊後失焦，再局部修正：若即將隱藏的放大尺target仍持有焦點，且可編輯量度頁的主尺可用，在隱藏前以focus({preventScroll:true})交回主尺。不得重設尺位、吸附、答案或捲動；指標capture中的既有target仍保留至手勢完成。
@@ -240,6 +254,7 @@
 
 | Area | Current contract / evidence limit |
 |---|---|
+| Desktop panel | 寬度≥900px採左右雙欄，控制欄clamp(20rem,26vw,23rem)，正常根字體下320–368px；不受短屏44%欄寬覆蓋。取點及量尺兩個方向按鈕並排，釋放／歸原點獨立全欄。圖域按實際裝置／座標範圍與固定文字邊界等比例放大；手機及窄短iframe維持既有配置 |
 | Three regions | 全寬header含四步進度、檢查及共享fullscreen；stage及獨立捲動panel。手機上下、桌面左右；短窄measure使用雙欄容納preview及44px選項。panel至少96px可用，最後控制可達 |
 | Diagram / text | x向右、y向下，同一物理比例及固定0–100cm範圍；手機主文18px、圖標16px，TeX由本地bundle呈現。每步保留精煉任務，不新增控制面板說明 |
 | Manipulations | 接球槽44px握柄；主尺及放大尺身透明操作面與各自可見尺身一致，均只用同一ruler操作。其他stage區域原生pan-y；panel自行捲且不轉交host。現行沒有自由繪畫／拖點surface，兩側自由畫圖捲動條N/A，尺外空白仍須讓host捲動 |

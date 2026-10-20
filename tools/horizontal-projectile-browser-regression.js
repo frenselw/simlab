@@ -239,6 +239,29 @@ async function checkPageLayouts(base,label){
     }
   }
 }
+async function desktopLayouts(base,label){
+  for(const [width,height]of[[1920,1000],[1440,900],[1280,800],[1024,768],[900,650],[1920,600],[1280,667],[900,400],[1920,400]]){
+    await viewport(width,height);
+    for(const view of M.VIEWS){
+      const s=view==='collect'?M.fresh():T.filled();s.view=view;await open(base,s);
+      const before=await state();
+      const metrics=await call(`const panel=d.getElementById('controlPanel'),stage=d.getElementById('stage').getBoundingClientRect(),box=e=>{const r=e.getBoundingClientRect();return{left:r.left-stage.left,top:r.top-stage.top,right:r.right-stage.left,bottom:r.bottom-stage.top};};
+        const content=[...d.querySelector('#scene').children].filter(e=>e.tagName!=='defs'&&!(e.tagName==='rect'&&!e.hasAttribute('data-ruler-body'))).map(box);
+        const bounds={left:Math.min(...content.map(b=>b.left)),top:Math.min(...content.map(b=>b.top)),right:Math.max(...content.map(b=>b.right)),bottom:Math.max(...content.map(b=>b.bottom))};
+        return{panelWidth:panel.getBoundingClientRect().width,panelOverflow:panel.scrollWidth-panel.clientWidth,stage:{width:stage.width,height:stage.height},bounds,labels:[...d.querySelectorAll('#scene [data-tex],#scene circle[fill="#677586"],#scene [data-ruler-body]')].map(box),buttons:[...panel.querySelectorAll('button')].filter(e=>e.getClientRects().length).map(e=>{const r=e.getBoundingClientRect();return{width:r.width,height:r.height,overflow:e.scrollWidth-e.clientWidth};}),rootX:d.scrollingElement.scrollWidth-w.innerWidth};`);
+      await call('d.getElementById("controlPanel").scrollTop=0;');
+      if(width===1920&&height===1000||width===900)await screenshot(label+'-desktop-'+view+'-'+width+'x'+height);
+      assert(metrics.panelWidth>=320&&metrics.panelWidth<=369,JSON.stringify({width,height,view,metrics}));
+      assert(metrics.panelOverflow<=1&&metrics.rootX<=1,JSON.stringify({width,height,view,metrics}));
+      for(const b of metrics.labels)assert(b.left>=0&&b.top>=0&&b.right<=metrics.stage.width+1&&b.bottom<=metrics.stage.height+1,JSON.stringify({width,height,view,b,metrics}));
+      const b=metrics.bounds;
+      assert(Math.min(metrics.stage.width-(b.right-b.left),metrics.stage.height-(b.bottom-b.top))<=120,JSON.stringify({width,height,view,metrics}));
+      for(const button of metrics.buttons)assert(button.width>=44&&button.height>=44&&button.overflow<=1,JSON.stringify({width,height,view,button}));
+      assert.deepEqual(await state(),before);
+      report.layouts.push({label,width,height,view,kind:'desktop-narrow-panel/fitted-scene/no-clipped-labels-or-controls',...metrics});
+    }
+  }
+}
 async function layoutMatrix(base,label){
   for(const [width,height]of[[320,500],[390,500],[390,600],[390,844],[900,650],[1280,800],[640,400],[667,375],[320,400],[320,225]]){
     await viewport(width,height);
@@ -365,12 +388,14 @@ async function directTouchMatrix(base,label){
     if(!M.VIEWS.includes(phase)){await click('#checkButton');if(phase!=='check'){await call(`w.__failFinal=${phase==='frozen'};w.__failFinish=${phase==='committed'};`);await click('#submitButton');}}
     const saved=await state();
     const swipe=async(region,delta)=>{
+      // Let the new page/fullscreen layout and programmatic scroll reset reach the compositor.
+      await call('return new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));');
       const before=await call(`const p=d.getElementById('controlPanel'),r=d.getElementById(${JSON.stringify(region==='panel'?'controlPanel':'stage')}).getBoundingClientRect();w.__directTouches=0;d.addEventListener('pointerdown',function seen(e){if(e.isTrusted&&e.pointerType==='touch')w.__directTouches++;d.removeEventListener('pointerdown',seen);},{once:true});return{panel:p.scrollTop,range:p.scrollHeight-p.clientHeight,x:${region==='right'?'r.right-8':'r.left+8'},y:r.top+r.height/2};`);
       const point=y=>({x:before.x,y,id:418,radiusX:3,radiusY:3,force:1});await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[point(before.y)]});
       for(let i=1;i<=6;i++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[point(before.y+delta*i/6)]});await H.delay(20);}
       await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await H.delay(400);
       const after=await call('return{panel:d.getElementById("controlPanel").scrollTop,document:scrollY,x:scrollX,trusted:w.__directTouches};');assert.equal(after.trusted,1);assert.equal(after.document,0);assert.equal(after.x,0);assert.deepEqual(await state(),saved);
-      if(region!=='panel')assert.equal(after.panel,before.panel);else if(delta<0&&before.range-before.panel>3)assert(after.panel>before.panel);else if(delta>0&&before.panel>3)assert(after.panel<before.panel);
+      if(region!=='panel')assert.equal(after.panel,before.panel);else if(delta<0&&before.range-before.panel>3)assert(after.panel>before.panel,JSON.stringify({label,phase,region,delta,before,after}));else if(delta>0&&before.panel>3)assert(after.panel<before.panel,JSON.stringify({label,phase,region,delta,before,after}));
       return{region,delta,before,after};
     };
     await call('d.getElementById("controlPanel").scrollTop=0;');const gestures=[await swipe('panel',-60)];
@@ -430,7 +455,7 @@ async function main(){
     cdp.on('Runtime.exceptionThrown',e=>report.errors.push(e.exceptionDetails?.exception?.description||e.exceptionDetails?.text));report.browser=await cdp.send('Browser.getVersion');
     for(const [label,directory]of[['source',path.join(root,'sim')],['package',extracted.packageDirectory]]){
       server=H.createServer(directory);await H.listenServer(server);const base=`http://127.0.0.1:${server.address().port}`;
-      console.log('projectile browser: '+label);await previewKeyboardFlow(base,label);await checkPageLayouts(base,label);await focusedMeanFlow(base,label);await continuousPreviewFlow(base,label);await layoutMatrix(base,label);await readingFlow(base,label);await rulerRevision(base,label);await completeFlow(base,label);await launchAndPreview(base,label);
+      console.log('projectile browser: '+label);await desktopLayouts(base,label);await previewKeyboardFlow(base,label);await checkPageLayouts(base,label);await focusedMeanFlow(base,label);await continuousPreviewFlow(base,label);await layoutMatrix(base,label);await readingFlow(base,label);await rulerRevision(base,label);await completeFlow(base,label);await launchAndPreview(base,label);
       if(!process.argv.includes('--smoke')){await flows(base,label);await edgeFlows(base,label);await interactions(base,label);await directTouchMatrix(base,label);}
       await H.closeServer(server);server=null;
     }

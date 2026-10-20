@@ -63,7 +63,7 @@
     const calculations=M.calculations(s),points=M.points(s);
     options(d.recordSlot,s.rows.map((r,i)=>[i,`第${i+1}點 · ${r?'已有印記（重做）':'空白'}`]),s.setup?.slot??0);
     d.plotCount.textContent=`已繪出 ${points.filter(Boolean).length} / 6 點及原點。`;
-    d.recordCount.innerHTML=`已取 ${records.length} / 6 點；高度至少相隔${math("5\\,\\mathrm{cm}","5 cm")}。`;
+    d.recordCount.innerHTML=`已取 ${records.length} / 6 點；<span class="height-spacing">高度至少相隔${math("5\\,\\mathrm{cm}","5 cm")}。</span>`;
     for(let i=0;i<6;i++){
       const r=s.rows[i];
       ['x','y'].forEach((key,axis)=>{const e=document.getElementById(`read-${key}-${i}`),n=r?.read[axis];e.innerHTML=n==null?'—':math(V.number(n/10)+'\\,\\mathrm{cm}',fmt(n/10)+' cm');document.querySelector(`[data-clear-read="${i}"][data-axis="${axis}"]`).disabled=locked||n==null;});
@@ -127,6 +127,15 @@
     const w=d.stage.clientWidth,h=d.stage.clientHeight;
     if(innerWidth<900&&h>=150){
       const collect=view==='collect',left=collect?16:40,right=32,top=58,bottom=d.stageHint.parentElement===d.stage?88:40,spanX=collect?1260:1000;
+      const scale=Math.max(.01,Math.min((w-left-right)/spanX,(h-top-bottom)/1000,collect?(h-16-bottom)/1220:Infinity));
+      const originTop=collect?Math.max(top,16+220*scale):top;
+      const ox=left+(w-left-right-spanX*scale)/2+(collect?260:0)*scale;
+      const oy=originTop+(h-originTop-bottom-1000*scale)/2;
+      return{w,h,s:scale,ox,oy,x:n=>ox+n*scale,y:n=>oy+n*scale};
+    }
+    if(innerWidth>=900){
+      // Fit the real apparatus bounds and fixed-size labels with one scale for both axes.
+      const collect=view==='collect',left=collect?24:64,right=40,top=64,bottom=48,spanX=collect?1260:1000;
       const scale=Math.max(.01,Math.min((w-left-right)/spanX,(h-top-bottom)/1000,collect?(h-16-bottom)/1220:Infinity));
       const originTop=collect?Math.max(top,16+220*scale):top;
       const ox=left+(w-left-right-spanX*scale)/2+(collect?260:0)*scale;
