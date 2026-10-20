@@ -1,368 +1,236 @@
 # SimLab
 
-Mobile-first educational simulations built as static web apps: standalone
-teacher workbenches and SCORM 1.2 student activities for Moodle.
+Mobile-first interactive physics simulations for classroom demonstrations and student investigations. SimLab provides standalone teacher workbenches that also form the reusable foundation for circuit activities, alongside assessed student activities that run independently or as **SCORM 1.2** packages in Moodle. Learner interfaces use Traditional Chinese, with direct manipulation, drawing, measurement and curve fitting at the centre of the learning experience.
 
-## Teacher circuit workbench
+Each entry runs as static HTML, CSS and JavaScript with SVG or Canvas. No front-end build step is required to use it through Live Server, and third-party runtime assets are included in the relevant packages.
 
-The [電路工作台](sim/circuit-workbench/index.html) is a standalone DC steady-state
-teaching tool with a large canvas and compact controls. It provides:
+[Quick start](#quick-start) · [Activity catalogue](#activity-catalogue) · [Packaging and deployment](#packaging-and-deployment) · [Development and verification](#development-and-verification) · [Maintenance guides](#maintenance-guides)
 
-- A stock of 20 physical cables by default, with finite length, draggable ends,
-  smooth bending and shared junctions. Dragging either a cable or a component can
-  snap their contacts together; rotating a component straightens its attached cables.
-- Adjustable source voltage/internal resistance, resistors, ideal and thermal
-  lamps, switches, and a sliding rheostat with four terminals by default.
-- A/V meters with three sockets and two ranges, signed analog scales and damped
-  needles, a G galvanometer, and a four-terminal W meter.
-- Real/schematic views, potential overlays, and current/electron animation through
-  both cables and components. Motion adapts to each connected circuit so microamp
-  examples remain visible; animation speed is a teaching aid, not a drift velocity.
-- Optional names and quantities, quick parameter controls, undo/redo, JSON files,
-  fixed-component templates, SVG export, and mouse/touch canvas navigation.
+## Current scope
 
-Open the [configuration examples](sim/circuit-workbench/activity-examples.html)
-to try student tasks using the same `CircuitEditor.mount(host, config)` core.
-Each activity can choose its components, stock, permissions, visible controls
-and answer checks. These examples have no scoring or submission; formal SCORM
-activities must supply their own rubric, snapshot and shared attempt lifecycle.
-The DC workbench has no levels or data-recording/graph-fitting module. The
-separate AC workbench below uses the same editor with a time-dependent backend.
+The teaching tools listed below comprise **three teacher workbenches and 23 assessed student activities**, registered in [sim/config.js](sim/config.js).
 
-Run `npm run package:circuit` to build `output/circuit-workbench-standalone.zip`.
-Extract it and open `circuit-workbench/index.html`, preserving the sibling
-`shared/` directory. This ZIP is a standalone tool, not a SCORM package.
+| Type | Purpose | Scores and saved work |
+|---|---|---|
+| Teacher workbench | Free circuit construction and classroom demonstration; a reusable foundation for designing SCORM circuit activities | Unscored; export and import JSON to save circuits |
+| Assessed student activity | Manipulate, measure or draw, then check answers and explicitly submit | Activity-specific partial credit; Moodle retains work and results within the same attempt |
 
-Start with the [user/core guide](docs/circuit-workbench-core.md),
-[activity authoring guide](docs/circuit-activity-authoring.md),
-[architecture and maintenance notes](docs/circuit-workbench-architecture-review.md),
-and [implementation plan](plans/28-circuit-workbench.md). The
-[three-reviewer audit](docs/circuit-workbench-audit-2026-10-04.md) records the
-version reviewed; later microcurrent changes have separate focused evidence in
-the plan. Local browser evidence does not establish real-phone or Moodle readiness.
+`active` is the catalogue's deployable status. Consult each activity plan for the actual verification scope of a particular version. **Local test results do not establish real Moodle or physical-phone acceptance.**
 
-## AC circuit workbench
+## Quick start
 
-The [交流電路工作台](sim/circuit-ac-workbench/index.html) adds configurable AC
-sources, generator/flux observations, capacitors, inductors, SPDT switches,
-ideal and coupled transformers, LED direction demonstrations, RMS instruments,
-waveform tools and LC energy exchange. Its high-voltage transmission preset
-compares direct transmission with ideal step-up/step-down transformers and
-finite line resistance, using identical sources and loads. Delivered load power
-differs between the two circuits; the comparison does not hold delivered power
-constant. It shares wiring, dragging, permission
-checks and drawing with the DC editor. [Two unscored embedding examples](sim/circuit-ac-workbench/activity-examples.html)
-demonstrate fixed profiles and dynamic checkpoint restoration.
+### Try an activity locally
 
-`npm run package:circuit-platform` rebuilds all three workbenches and the two DC SCORM
-packages, with source/ZIP byte checks. Upload `circuit-ac-workbench-standalone.zip`
-as a Moodle File resource and select `circuit-ac-workbench/index.html` as its main
-file. Formal AC SCORM questions and scoring are a later activity-specific step.
-See the [AC implementation plan](plans/32-circuit-ac-workbench.md) and
-[authoring/physics guide](docs/circuit-ac-workbench.md) for interfaces, model
-limits and local versus real Moodle/device acceptance.
+1. Open the project in VS Code and start Live Server, or use another local static server.
+2. Open an entry from the catalogue below at `sim/<activity-folder>/index.html`, for example:
 
-## Household circuit workbench
+   ```text
+   sim/horizontal-projectile-lab/index.html
+   sim/circuit-workbench/index.html
+   ```
 
-The [家庭電路工作台](sim/circuit-household-workbench/index.html) uses the same
-editor with a household RMS model for L/N/E wiring, appliances, earthing,
-human contact, faults, protection timing and electrical energy. Its concept
-examples allow rewiring and mistakes; it has no scoring or submission.
-See the [household maintenance guide](docs/circuit-household-workbench.md) and
-[implementation plan](plans/33-circuit-household-workbench.md) for model limits,
-document/session formats and verification evidence.
+3. Use the activity directly. Running existing pages does not require `npm ci`.
 
-## Circuit standalone packages
+Catalogue links point to entry files in this repository. A source-hosting website displays their source; use a local static server or a deployed URL for interactive use.
 
-Run `npm run package:circuit-platform` to build and verify all five circuit ZIPs:
+Refreshing a student activity in standalone mode starts a fresh practice session. Moodle restores work within the same attempt. Submitted attempts are review-only, and pending submissions stay locked for retry. All three teacher workbenches also start fresh on refresh; export JSON before leaving and import it explicitly to reopen a circuit. See the [refresh and resume contract](docs/simulation-scorm-production-guide.md#standalone-refresh-and-moodle-resume).
 
-| Workbench | Standalone ZIP in `output/` | Launch file after extraction |
+### Set up development tools
+
+Checks, tests and packaging require **Node.js 22 or newer**. From the repository root, run:
+
+```sh
+npm ci
+```
+
+On Windows PowerShell, use `npm.cmd` in place of `npm` if execution policy blocks `npm.ps1`. Browser regressions also require local Chrome or Chromium; see [browser verification](#browser-verification).
+
+## Activity catalogue
+
+English labels below describe each activity; the accompanying Chinese names match the learner-facing titles.
+
+### Teacher circuit workbenches
+
+Teacher workbenches support classroom demonstrations and provide the foundation for designing future SCORM circuit activities. Authors can build and explore a circuit, then configure its initial state, available components, permitted actions and checks for a focused student task.
+
+All three workbenches share the `CircuitEditor.mount(host, config)` editor, wiring and interaction code, with separate physics backends. An assessed activity reuses this core and adds its own questions, rubric, feedback, persistence and SCORM attempt flow. See the [activity authoring guide](docs/circuit-activity-authoring.md) for configuration and integration.
+
+| Workbench | Current features | Usage and model guide |
+|---|---|---|
+| [DC Circuit Workbench](sim/circuit-workbench/index.html) — 電路工作台 | DC steady-state circuits, finite-length cables, source internal resistance, resistors and lamps, sliding rheostats, A/V/G/W instruments, potential and current displays | [DC usage and core API](docs/circuit-workbench-core.md) |
+| [AC Circuit Workbench](sim/circuit-ac-workbench/index.html) — 交流電路工作台 | Time stepping, AC sources, generator and flux observations, capacitors and inductors, transformers, RMS measurements, waveforms and LC energy exchange | [AC authoring and physics](docs/circuit-ac-workbench.md) |
+| [Household Circuit Workbench](sim/circuit-household-workbench/index.html) — 家庭電路工作台 | An educational RMS model of L/N/E wiring, appliances, earthing, human contact, faults, protection timing and electrical energy | [Household maintenance guide](docs/circuit-household-workbench.md) |
+
+The workbenches support real/schematic views, undo/redo, JSON export/import and SVG export. High-voltage transmission is a **preset inside the AC workbench**. It compares direct transmission with step-up/step-down transmission using identical sources and loads; delivered load power differs. See the [AC classroom presets and model limits](docs/circuit-ac-workbench.md#課堂預設與教學界限) for the comparison conditions.
+
+The two assessed DC activities below already use this shared foundation. Assessed AC and household activities still need their own questions, rubrics and persistence formats.
+
+### Assessed student activities
+
+#### Motion and graphs
+
+| Activity | Main task |
+|---|---|
+| [Distance and Displacement Map Journey](sim/displacement-distance-map-journey/index.html) — 路程、位移與總位移地圖任務 | Move around a map, measure distance and draw segment and total displacements |
+| [Inertial Reference Frames: Road Observers](sim/inertial-reference-frame-road-observer/index.html) — 慣性參考系：公路觀察任務 | Switch viewpoints and use relative motion to identify reference frames |
+| [Position–Time Graph Motion Lab](sim/position-time-graph-motion-lab/index.html) — 位置—時間圖運動實驗室 | Set up motion, then observe, draw and measure position–time graphs |
+| [Linear Motion: Average and Instantaneous Velocity](sim/linear-motion-velocity-lab/index.html) — 直線運動：平均速度與瞬時速度 | Measure motion using a ruler, timer and time magnifier |
+| [Uniform Motion and Constant Acceleration: Driving Challenge](sim/kinematics-driving-challenge/index.html) — 勻速與勻變速：駕駛控制挑戰 | Operate the accelerator and brakes, and interpret motion graphs |
+| [Motion Graph Sketching Challenge](sim/kinematics-qualitative-graph-sketching/index.html) — 勻速與勻變速：三圖手繪挑戰 | Sketch qualitative x–t, v–t and a–t graphs from motion descriptions |
+| [Quantitative Motion Graph Builder](sim/kinematics-quantitative-graph-builder/index.html) — 勻速與勻變速：三圖定量建構挑戰 | Construct graphs with precise coordinates from initial conditions and elapsed time |
+| [Free Fall: Stroboscopic Measurement Lab](sim/free-fall-stroboscopic-measurement-lab/index.html) — 自由落體：頻閃量度實驗室 | Set a flash frequency, measure positions and infer motion patterns |
+| [Motion Composition: Stroboscopic Trajectories](sim/motion-composition-stroboscopic-lab/index.html) — 運動合成：頻閃軌跡建構 | Compare component motions at equal time intervals and construct the resultant trajectory |
+| [Horizontal Projectile Motion: Trajectory Measurement and Fitting](sim/horizontal-projectile-lab/index.html) — 平拋運動：軌跡量度與擬合 | Adjust a recording trough, measure trajectory points, fit a curve and calculate the mean launch speed |
+
+#### Forces and investigations
+
+| Activity | Main task |
+|---|---|
+| [Free-Body Diagram: Stationary Block](sim/fbd-horizontal-block/index.html) — 水平面靜止物體受力圖 | Draw the forces on a stationary block subject to an external force |
+| [Centre of Mass Investigation Lab](sim/centre-of-mass-investigation-lab/index.html) — 重心探究實驗室 | Locate centres of mass through support, suspension and rotation of 3D objects |
+| [Hooke's Law: Spring Investigation and Prediction](sim/hookes-law-spring-investigation-lab/index.html) — 胡克定律：彈簧探究與預測實驗室 | Measure extension, build an F–x model, make predictions and design a safe load |
+| [Static and Kinetic Friction Investigation Lab](sim/static-kinetic-friction-investigation-lab/index.html) — 靜摩擦力與滑動摩擦力探究實驗室 | Drag an object, record a pulling-force–time graph and analyse friction |
+| [Force Composition Construction Lab](sim/force-composition-construction-lab/index.html) — 力的合成作圖實驗室 | Construct resultant forces using parallelogram and head-to-tail methods |
+| [Orthogonal Force Decomposition](sim/force-orthogonal-decomposition/index.html) — 力的正交分解作圖練習 | Draw perpendicular force components in horizontal and inclined-plane settings |
+| [Force Equilibrium: Free-Body Diagram Challenge](sim/force-equilibrium-diagram-lab/index.html) — 共點力平衡：受力圖挑戰 | Identify and draw the forces on a specified body in equilibrium |
+| [Force Equilibrium: Advanced Diagram Challenge](sim/force-equilibrium-advanced-diagram-lab/index.html) — 共點力平衡：進階受力圖挑戰 | Analyse situations with multiple contacts, springs and interacting bodies |
+| [Newton's Second Law: Fair Tests and Graphs](sim/newtons-second-law-investigation-lab/index.html) — 牛頓第二定律：公平測試與數據作圖 | Design two fair tests, measure acceleration and plot and fit the results |
+| [Newton's Third Law: Reaction Force Diagrams](sim/newtons-third-law-reaction-force-lab/index.html) — 牛頓第三定律：反作用力作圖挑戰 | Select the receiving body and draw a reaction force's anchor, direction, magnitude and type |
+
+#### Optics and circuits
+
+| Activity | Main task |
+|---|---|
+| [Plane Mirror: Pencil Ray Diagram](sim/plane-mirror-pencil-ray-diagram/index.html) — 平面鏡鉛筆成像光路圖 | Draw rays and extensions, and position the virtual image |
+| [Two-Lamp Series Circuit](sim/circuit-dc-series-build/index.html) — 兩燈串聯搭建 | Build a series circuit from a fixed toolbox, earning credit for wiring and powered operation |
+| [Sliding Rheostat Adjustment](sim/circuit-dc-rheostat-adjust/index.html) — 滑動變阻器調參 | Adjust a fixed circuit to reach target current/voltage readings and explain resistance changes |
+
+Activity-specific physics, rubrics, persistence formats and verification records are in [plans/](plans/).
+
+## Packaging and deployment
+
+### Student activities: SCORM 1.2
+
+Package one activity, for example:
+
+```sh
+npm run package -- horizontal-projectile-lab
+```
+
+This writes `output/horizontal-projectile-lab-scorm.zip`. Add a **SCORM activity** in Moodle and upload the ZIP. Its root contains `imsmanifest.xml`, with the activity and shared runtime assets included according to the manifest.
+
+Build and verify all SCORM packages:
+
+```sh
+npm run package:all
+```
+
+This command processes only SCORM packages declared in `sim/manifests/`. Rebuild after source changes. Generated ZIPs go into the Git-ignored `output/` directory; rebuilding does not update existing Moodle or Sites deployments.
+
+### Teacher workbenches: standalone ZIPs
+
+Rebuild all three workbenches and both assessed DC packages, checking source/ZIP file consistency:
+
+```sh
+npm run package:circuit-platform
+```
+
+| Workbench | Output ZIP in `output/` | Launch file / Moodle main file |
 |---|---|---|
 | DC | `circuit-workbench-standalone.zip` | `circuit-workbench/index.html` |
 | AC, including high-voltage transmission | `circuit-ac-workbench-standalone.zip` | `circuit-ac-workbench/index.html` |
 | Household | `circuit-household-workbench-standalone.zip` | `circuit-household-workbench/index.html` |
 
-Keep every folder in each archive together: AC and household also include shared
-files under `circuit-workbench/`. These three ZIPs are standalone tools, without
-`imsmanifest.xml`; in Moodle use a File resource with the launch file above.
-The same command also builds the two assessed DC SCORM packages.
-High-voltage transmission is an AC example, with no separate entry or package.
-For backend ownership and shared changes, use the
-[current architecture map](docs/circuit-workbench-architecture-review.md#現行入口與交付物).
+These three standalone ZIPs have no `imsmanifest.xml`. Extract the complete archive for local use, or upload it as a Moodle **File resource**, unzip it and select the launch file above as the main file. Preserve all relative folder paths. AC and household packages also include shared code under `circuit-workbench/`.
 
-## Current activities
+The same command produces `circuit-dc-series-build-scorm.zip`, `circuit-dc-rheostat-adjust-scorm.zip` and the consistency report `output/circuit-platform-build.json`. Use `npm run package:circuit` when only the DC teacher ZIP is needed; after a shared circuit-core change, use the complete `package:circuit-platform` command.
 
-The three workbenches above and the student activities below are registered in
-`sim/config.js`, which records their status. The catalogue also contains an
-isolated fullscreen test version of the third-law activity.
+## Development and verification
 
-- `fbd-horizontal-block` - 水平面靜止物體受力圖
-- `plane-mirror-pencil-ray-diagram` - 平面鏡鉛筆成像光路圖
-- `displacement-distance-map-journey` - 路程、位移與總位移地圖任務
-- `inertial-reference-frame-road-observer` - 慣性參考系：公路觀察任務
-- `position-time-graph-motion-lab` - 位置—時間圖運動實驗室
-- `linear-motion-velocity-lab` - 直線運動：平均速度與瞬時速度
-- `kinematics-driving-challenge` - 勻速與勻變速：駕駛控制挑戰
-- `kinematics-qualitative-graph-sketching` - 勻速與勻變速：三圖手繪挑戰
-- `kinematics-quantitative-graph-builder` - 勻速與勻變速：三圖定量建構挑戰
-- `free-fall-stroboscopic-measurement-lab` - 自由落體：頻閃量度實驗室
-- `centre-of-mass-investigation-lab` - 重心探究實驗室
-- `hookes-law-spring-investigation-lab` - 胡克定律：彈簧探究與預測實驗室
-- `static-kinetic-friction-investigation-lab` - 靜摩擦力與滑動摩擦力探究實驗室
-- `force-composition-construction-lab` - 力的合成作圖實驗室
-- `force-orthogonal-decomposition` - 力的正交分解作圖練習
-- `force-equilibrium-diagram-lab` - 共點力平衡：受力圖挑戰
-- `force-equilibrium-advanced-diagram-lab` - 共點力平衡：進階受力圖挑戰
-- `newtons-second-law-investigation-lab` - 牛頓第二定律：公平測試與數據作圖
-- `newtons-third-law-reaction-force-lab` - 牛頓第三定律：反作用力作圖挑戰
-- `motion-composition-stroboscopic-lab` - 運動合成：頻閃軌跡建構
+### Common commands
 
-### Newton's second law investigation
+Run these from the repository root. Choose checks appropriate to the change; complete delivery requirements are in the [production verification checklist](docs/simulation-scorm-production-guide.md#verification-checklists).
 
-The [Newton activity](sim/newtons-second-law-investigation-lab/index.html) lets
-learners design two fair tests using an idealized cart: acceleration against net
-force, and acceleration against total mass. Learners choose their variables,
-adjust mass and force, and record up to six measurements per group. Starting
-masses are randomized for each new attempt; keeping the control variable
-constant is the learner's responsibility.
+| Command | Purpose |
+|---|---|
+| `npm run check:tests` | Validate test registration, ownership and helper mappings without executing tests |
+| `npm run check` | Validate the test registry, JavaScript syntax and project-specific SCORM manifest rules |
+| `npm run test:fast` | Run all registered non-browser tests |
+| `npm test` | Run the complete registered suite, including browser regressions |
+| `npm run package:all` | Rebuild and verify all SCORM ZIPs |
+| `npm run package:circuit-platform` | Rebuild and verify the three workbenches and both assessed DC ZIPs |
+| `node tools/check-docs.js README.md` | Check repository links and Markdown anchors in this README |
+| `git diff --check` | Check uncommitted changes for whitespace errors and conflict markers |
 
-Learners drag their measurements onto three graphs—acceleration against net
-force, mass, and reciprocal mass—then choose a fit and interpret its coefficients.
-Fits use the learner's actual plotted points. Touch previews show the current
-coordinates and units beside a magnified grid; coordinate overlays disappear
-on release. Progress labels and next-step buttons guide the activity without
-revealing correctness or requiring every answer before final submission.
+`check` uses SimLab's SCORM 1.2 manifest profile and dependency checks, rather than the complete official SCORM schema set. Documentation-only changes require link and diff checks; they do not require repeating every interaction scenario.
 
-See the [activity plan](plans/23-newtons-second-law-investigation-lab.md) for the
-physics model, scoring rubric, persistence schema, and verification evidence.
+For a **committed range whose head matches the checkout**, preview the affected selection before executing it:
 
-### Newton's third law reaction forces
-
-The [third-law activity](sim/newtons-third-law-reaction-force-lab/index.html)
-presents five randomized scenes: an incline, accelerating blocks, a stretched or
-compressed spring, a hanging or swinging ball, and Earth attracting a nearby
-ball. Learners draw eight reaction forces, choosing each receiving body, anchor,
-direction, magnitude and force type. Known and learner-drawn forces share one
-linear scale; selecting the original body remains a legitimate, gradable mistake.
-
-Touch dragging includes a magnified scene with separate body, force and angle
-readouts. Magnitudes snap to 0.5 N steps below 10 N and 1 N steps at or above it,
-with hysteresis to steady the value and 0.1 N buttons for fine adjustment.
-New questions use these same increments for their given magnitudes, so every
-shown value can be drawn exactly. Older Moodle attempts keep their original
-questions and scores, with 0.01 N adjustment for their original readings.
-Switching force pairs within a question preserves the panel's scroll position.
-Dragging an arrow back to its starting point cancels that change and preserves
-the previous answer. Question, force-pair, body and anchor controls retain
-keyboard focus when updated. Accessible scene descriptions provide the known
-forces' directions and spatial arrangement; the drawing handle announces its
-current magnitude and angle.
-Contact pushes use the symbol F and their paired reactions use F′.
-On horizontal surfaces, support arrows and their contact markers are displayed
-beside the unchanged weight arrow; the corresponding reaction stays collinear.
-Moving ground illustrates uniform motion or acceleration up to a visual speed
-limit, while bodies and force arrows stay fixed for drawing. Question progress,
-next-step controls, undo and editable answer clearing
-support the drawing process. Explicit submission awards partial credit and opens
-read-only explanations and reference diagrams. Incorrect answers receive
-specific explanations about the receiving body, contact point, direction,
-magnitude and interaction type. The shared SCORM runtime handles
-draft resumption, frozen submission retries and completed attempts.
-
-See the [activity plan](plans/24-newtons-third-law-reaction-force-lab.md) for the
-physics constraints, rubric, snapshot schema and local verification evidence.
-The [independent review report](docs/reviews/2026-09-28-newtons-third-law-review.md)
-records the full-branch audits, follow-up fixes and verification results. On
-2026-09-28, GPT-6 Luna and GPT-6 Sol (both using Max reasoning) completed
-independent reviews and follow-up checks with no outstanding confirmed findings.
-Local validation passed `npm run check`, the full `npm test` suite, and
-`npm run package:all`, including browser checks of the source and extracted
-SCORM package. All SCORM packages were regenerated and verified.
-Real Moodle, physical-phone and assistive-technology acceptance remain separate
-deployment checks; browser touch and accessibility-tree checks are local evidence.
-
-## Local development
-
-Open an activity directly with Live Server:
-
-```text
-sim/<activity-folder>/index.html
+```sh
+npm run test:affected -- --base=<base-sha> --head=<head-sha> --plan
+npm run test:affected -- --base=<base-sha> --head=<head-sha>
 ```
 
-For example:
+Replace `<base-sha>` and `<head-sha>` with actual commits. A local comparison covers only that range and does not establish GitHub PR/main baseline verification. Reports and per-entry logs are written under `output/ci-tests/`.
 
-```text
-sim/displacement-distance-map-journey/index.html
-```
+### Browser verification
 
-Each activity runs independently without a front-end build step. Standalone
-practice keeps answers in memory; refreshing starts a fresh session. Moodle
-restores work within the same attempt, with completed attempts kept read-only
-until Moodle supplies a new attempt. See the shared
-[refresh and resume contract](docs/simulation-scorm-production-guide.md#standalone-refresh-and-moodle-resume).
-All three teacher workbenches also start fresh on refresh; reopening a circuit is an
-explicit JSON import.
+[package.json](package.json) provides topic-specific `test:browser:*` commands. [tools/test-registry.js](tools/test-registry.js) owns the complete test inventory, browser ownership and separate manual acceptance checks. Examples:
 
-## SCORM packaging
-
-Local quality checks and packaging require Node.js 22 or newer. Run `npm ci`
-once to install the development-only ZIP and XML helpers; generated activities
-remain plain static HTML, CSS, and JavaScript.
-
-`npm run check` validates the manifests against SimLab's local SCORM 1.2
-manifest profile and project-specific linkage rules. It is not a copy of the
-complete official SCORM schema set.
-
-Build one Moodle activity at a time:
-
-```powershell
-node tools/package-scorm.js <activity-folder>
-```
-
-For example:
-
-```powershell
-node tools/package-scorm.js displacement-distance-map-journey
-```
-
-The ZIP files are written to `output/<activity-folder>-scorm.zip`, with
-`imsmanifest.xml` at the ZIP root and shared runtime files included. Rebuild the
-ZIP after source changes before uploading it to Moodle.
-
-Run the complete local quality checks and build every SCORM activity:
-
-```text
-npm run check
-npm test
-npm run package:all
-```
-
-Each standalone circuit ZIP has its own asset list; `package:all` builds SCORM
-manifests only. After a shared circuit-core change, run
-`npm run package:circuit-platform` to rebuild all three workbenches and both DC
-SCORM consumers with source/ZIP consistency checks.
-
-## Browser checks
-
-Run the focused browser regressions as needed:
-
-```text
-npm run test:browser:position-time
-npm run test:browser:linear-motion
-npm run test:browser:driving
-npm run test:browser:qualitative-graphs
-npm run test:browser:mobile-touch
-npm run test:browser:hookes-law
-npm run test:browser:static-kinetic-friction
-npm run test:browser:force-composition
-npm run test:browser:force-equilibrium
-npm run test:browser:force-equilibrium-advanced
+```sh
 npm run test:browser:newtons-second-law
 npm run test:browser:newtons-third-law
-npm run test:browser:motion-composition
-```
-
-The circuit runner also supports focused source/extracted-ZIP checks:
-
-```text
 npm run test:browser:circuit -- --activity-core-smoke
 npm run test:browser:circuit -- --micro-flow-smoke
+npm run test:circuit-ac
+npm run test:circuit-activities
 ```
 
-Use the filter relevant to the change; `npm run test:browser:circuit` runs the
-full workbench browser suite. Choose adjacent unit checks from the
-[authoring guide](docs/circuit-activity-authoring.md#驗證範圍) and record the
-coverage actually executed. Documentation-only changes need link/diff checks;
-they do not require repeating every browser scenario.
+Browser runners look for Chrome or Chromium in common installation locations. Set `CHROME_PATH` to the full executable path for a non-standard installation. A missing browser is a failed prerequisite.
 
-These checks require a local Google Chrome or Chromium executable. They detect the
-usual macOS, Linux, and Windows install locations. Set `CHROME_PATH` to the full
-browser executable path when using a non-standard installation; a missing
-browser is reported as a failed prerequisite rather than a skipped test.
+The shared runner separately checks trusted touch input and scrolling in Moodle-style hosts, for example:
 
-For mobile scrolling, use the shared trusted-touch runner on source files and
-extracted SCORM packages. These examples cover a nested player and a player with
-an overflowing host element, including the friction activity's repeated panel
-gestures:
-
-```text
+```sh
 npm run test:browser:mobile-scroll -- --host=T2 --mode=source
 npm run test:browser:mobile-scroll -- --host=T3 --mode=package
-npm run test:browser:mobile-scroll -- --host=T3 --mode=package --phases=all --panel-sequence --slugs=static-kinetic-friction-investigation-lab
 ```
 
-See the production guide's [gesture ownership contract](docs/simulation-scorm-production-guide.md#selective-touch-gesture-ownership)
-for layout, scroll owners, phase coverage, and the T0–T4 host cases. The
-[repair plan](plans/mobile-scroll-repair-plan.md),
-[repair verification record](docs/mobile-scroll-repair-verification-2026-10-01.md),
-and [main integration record](docs/mobile-scroll-main-merge-2026-10-02.md) document
-the fixes and their executed coverage. Local browser passes establish evidence
-for the recorded cases; real-phone Moodle acceptance remains a separate gate.
+Source/extracted-package coverage, phases, host cases, physical-device requirements and Windows/Git Bash Playwright usage are documented in [browser tooling](docs/simulation-scorm-production-guide.md#browser-check-tooling) and the [gesture ownership contract](docs/simulation-scorm-production-guide.md#selective-touch-gesture-ownership).
 
-The [Quality workflow](.github/workflows/quality.yml) uses one immutable plan for
-the selected tests, syntax/manifest checks and required package types.
-Node work uses up to four jobs and browser work up to eight, balanced by recorded
-successful durations.
-The final `check` verifies every expected job and entry; missing, failed or
-cancelled work cannot produce a green result. Browser jobs use pinned Chrome,
-CJK fonts and Xvfb. Daily runs select affected work conservatively; a missing
-qualified main baseline or unknown change falls back to full coverage.
-The independent [Quality Full workflow](.github/workflows/quality-full.yml)
-always executes the complete suite and both package types. Once deployed to main,
-it runs daily at 03:30 Macau time and can verify an exact ref manually.
+### CI and delivery gates
+
+[Quality](.github/workflows/quality.yml) creates an immutable affected verification plan for pushes and pull requests. Missing baseline or dependency evidence triggers conservative full coverage; missing or failed required work cannot pass the final gate. [Quality Full](.github/workflows/quality-full.yml) independently runs the complete suite and both package types. It is scheduled daily at 03:30 Macau time and also accepts a manually specified ref.
+
+The project distinguishes **package-ready** (source, test and package verification) from **Moodle-ready** (additional real Moodle and physical-phone acceptance). Historical audits and local browser records support only their recorded versions and scopes; consult each activity plan for its status. See [CI and maintenance contracts](docs/simulation-scorm-production-guide.md#ci-gates-and-maintenance-commands) and the [delivery checklists](docs/simulation-scorm-production-guide.md#package-ready-checks).
+
+## Project structure
 
 ```text
-npm run check:tests
-npm run test:fast
-npm run test:affected -- --base=<sha> --head=<sha>
-npm test -- --base=<sha> --head=<sha> --plan
-npm test
+sim/
+  config.js                    Activity catalogue and status
+  shared/                      Shared styles, fullscreen, SCORM and attempt flow
+  manifests/                   Student activity SCORM manifests
+  <activity>/                  Activity entry, model, scoring and persistence
+  circuit-workbench/           DC teacher entry and shared circuit core
+  circuit-ac-workbench/        AC teacher entry and classroom presets
+  circuit-household-workbench/ Household teacher entry and classroom presets
+plans/                         Activity decisions, rubrics, schemas and evidence
+docs/                          Production contracts, authoring guides and audits
+tools/                         Checks, test selection, browser runners and packaging
+output/                        Generated ZIPs, reports and temporary checks (ignored)
 ```
 
-`npm test` always means the complete registered suite. `--shard=1/4` remains
-available for an explicit subset. A local base/head comparison describes only
-that range; it does not establish GitHub PR or main baseline verification.
-Each execution writes an incremental report and logs under `output/ci-tests/`.
-The current [test registry](tools/test-registry.js) owns executable entries,
-browser scopes, helper consumers and separate manual browser gates.
-`check:tests` validates registration without launching a browser; it also runs
-before local selection and GitHub planning/workers. Missing conventional Node
-or browser tests fail instead of silently disappearing from CI. The historical
-baseline JSON remains measurement evidence, not a registration file.
-See the production guide's [CI gates](docs/simulation-scorm-production-guide.md#ci-gates-and-maintenance-commands)
-and the [rollout plan](plans/34-ci-test-improvement-plan.md) for selection, rerun,
-release and rollback rules. Real-phone and Moodle acceptance remain separate.
+## Maintenance guides
 
-On Windows PowerShell, use `npm.cmd` if execution policy blocks `npm.ps1`.
+Before adding or changing an activity, read:
 
-## Project notes
+1. [Shared product and style rules](plans/00-shared-platform-and-style.md): layout, navigation, diagrams, touch and submission experience.
+2. [Simulation and SCORM production guide](docs/simulation-scorm-production-guide.md): implementation, authoritative state, persistence, trust, retries and acceptance contracts.
+3. [New activity plan template](plans/NEW-SIMULATION-PLAN-TEMPLATE.md): define the subject model, risk, rubric, dependencies, phases and tests before implementation.
+4. The [relevant activity plan](plans/): activity-specific decisions and executed verification evidence.
 
-Before adding or changing a simulation, read:
+New activities must update `sim/config.js`, their runtime asset list or SCORM manifest, and `tools/test-registry.js`. Run `check:tests` and record a selection preview for committed changes, following the [test registration procedure](docs/simulation-scorm-production-guide.md#test-registration-for-new-simulations).
 
-- [Shared platform and style](plans/00-shared-platform-and-style.md)
-- [Simulation and SCORM production guide](docs/simulation-scorm-production-guide.md)
-- [New simulation plan template](plans/NEW-SIMULATION-PLAN-TEMPLATE.md)
-- the simulation-specific plan in `plans/`
+For circuit work, also read the [activity authoring guide](docs/circuit-activity-authoring.md) and [shared architecture map](docs/circuit-workbench-architecture-review.md#現行入口與交付物). Reuse the common interaction and physics core; each assessed activity owns its questions, authoritative answers, rubric and persistence format.
 
-Prefer plain HTML, CSS, and JavaScript. Reuse `sim/shared/styles.css` and the
-shared fullscreen control. Assessed activities use `sim/shared/scorm.js` and
-`sim/shared/activity-flow.js` for startup, persistence, submission and the SCORM
-attempt lifecycle. Each activity owns its authoritative answers and rubric;
-circuit activities reuse the existing editor and physics core through configuration.
-
-When adding an activity, register its catalogue metadata in `sim/config.js`,
-list every runtime dependency in `sim/manifests/<activity-folder>.xml`, and add
-new tests and browser ownership to `tools/test-registry.js`. Follow the
-[registration procedure](docs/simulation-scorm-production-guide.md#test-registration-for-new-simulations),
-run `npm run check:tests`, and record a committed `--plan` selection preview in
-the activity plan. Adding registry/catalogue entries initially selects full CI;
-later activity-only edits can use a qualified main baseline for affected tests.
-Define persisted phases and snapshot schemas
-in the activity plan before implementing draft or review restoration.
-For non-assessment workbenches, follow the production guide's
-[scope and shared-core contract](docs/simulation-scorm-production-guide.md#scope-and-shared-cores);
-the circuit workbench declares its standalone runtime in
-`sim/circuit-workbench/assets.json`.
-
-Browser-computed SCORM scores are intended for formative or low-risk assessment.
-High-risk assessment requires trusted server-side validation.
+This README provides entry points and workflows; shared rules remain in their owning documents. Browser scoring is intended for formative or low-risk assessment. High-risk assessment requires trusted server-side validation.
