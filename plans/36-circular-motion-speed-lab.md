@@ -1,6 +1,6 @@
 # 圓周運動：線速率與角速率量度
 
-狀態：**P2 第十一輪獨立審核已收斂，完成修正、測試、提交及 Sites 發布。P3 真 Moodle／真手機驗收待做。**
+狀態：**P2 第十二輪已增加手機控制面板可見高度，完成測試、提交及 Sites 發布。P3 真 Moodle／真手機驗收待做。**
 
 本活動讓學生自行開始及停止量度，把圓周軌跡展平後讀取路程、時間及累積轉角，計算並比較線速率與角速率。以同軸與不打滑皮帶兩個情境對照「相同角速率」與「相同線速率」的不同約束。
 
@@ -617,3 +617,15 @@ GitHub CI 無需等待；真 Moodle、真手機 T4 及學生試用仍待驗，�
 | Sites | 原 owner-private [試用網址](https://circular-motion-speed-lab.ieyp.chatgpt.site) 已更新至 version 12；custom access 只有 owner，external visitors 0。網站 10 個 runtime 檔案與本 branch SHA-256 逐檔一致。Site source commit `d68bf7a2a6b6daff4b52b2ffdb3158c607ac00e8`，tar SHA-256 `2C51D718A0467D65440431E85F295C47F596A0A337AA69C3E3000F3D8EA3530E`，version `appgprj_6ad85f290a0081919a849c43bdabdde5~appgver_85f4ebed7b1c8191ad515301863058a3`，deployment `appgdep_6ad8e83858c08191a59201f9d20d40dc` succeeded。 |
 
 審核收斂只涵蓋代碼及本機 source／package browser；未重跑全庫 Node 測試，亦未等 GitHub CI。真 Moodle／真手機 T4 仍是獨立驗收。
+
+### P2 第十二輪手機控制面板高度修訂與交付證據（2026-10-22）
+
+| 項目 | 結果 |
+|---|---|
+| 版面決定 | 應用使用者對短手機面板偏矮的回饋，≤640px 直屏把 stage 上限由 60dvh 改為 55dvh，短高度預留由 14rem 增至 15.5rem；桌面及 ≤380px 極矮橫屏雙欄不變。320×500 實測 stage 由 276px 減至 252px，panel 由 113.7px 增至 137.7px；390×844 現為 stage 464.2px、panel 269.5px。兩者高於 96 CSS px 硬下限，panel 繼續獨立捲動。 |
+| 驗證 | Source／解壓 SCORM browser 完整流程通過，檢查兩情境畫布、展平、皮帶、評分、短橫屏／桌面及新手機面板尺寸；390×844 截圖 `output/playwright/circular-speed-ready.png` 已目視檢查。四個活動 Node 測試、`node tools/check.js`、`node tools/test-registry.js`（251 entries）、`node tools/check-docs.js`、`node tools/package-all.js`、`git diff --check` 通過。最終重新產生的 SCORM ZIP 12 files，SHA-256 `4D0300C917F337B5A9FC1A4E290ECFD7FC0AB9208E5EC08AF9889B68BD517864`。 |
+| 手機可信手勢 | T0 standalone、T1 package、T2 source nested、T3 package element 各一個 320×500 初始情境；`output/playwright/circular-speed-panel-height-T0.json` 至 `T3.json` 全部 completed、passed、issues 0。 |
+| commit／push／選取 | 修正、測試及現行版面規格 commit `3164b61efce79047b58a1a92877a997166c9fdee` 已推送 `origin/codex/circular-motion-speed-lab`；committed selection preview 為 affected，選本活動 package 及 browser owner。 |
+| Sites | 原 owner-private [試用網址](https://circular-motion-speed-lab.ieyp.chatgpt.site) 已更新至 version 13，custom access 仍只有 owner、external visitors 0。網站 10 個 runtime 檔案與 branch SHA-256 逐檔一致；Site source commit `2c30e190890e94f9e49acdcedd988422021b30fd`，tar SHA-256 `C7F5B27E492218A6E4BEC06E738C374DA22772D94BF0CCBBCEE632FAC9913326`，version `appgprj_6ad85f290a0081919a849c43bdabdde5~appgver_7257f150c6c08191a5c139cb7dcb0122`，deployment `appgdep_6ad9463a8ae08191af9fa1a1206ec24f` succeeded。 |
+
+本輪未重跑全庫 Node 測試，亦未等 GitHub CI；真 Moodle／真手機 T4 仍是獨立驗收。
