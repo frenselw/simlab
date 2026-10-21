@@ -21,7 +21,8 @@ async function fullFlow(cdp,url,width,height){
       for(const key of window.CircularSpeedScoring.CONCEPT){const input=document.querySelector('input[name="'+key+'"][value="'+correct[key]+'"]');input.checked=true;input.dispatchEvent(new Event('change',{bubbles:true}));}
       return {kind,r};
     };
-    const attempt=async()=>{click('startButton');await wait(180);
+    const choiceOrder=()=>[...document.querySelectorAll('#conceptQuestions fieldset')].map(fieldset=>[...fieldset.querySelectorAll('input')].map(input=>input.value));
+    const attempt=async()=>{const initialChoices=choiceOrder();click('startButton');await wait(180);
       for(let i=0;i<20&&!document.querySelector('.angle-guide');i++)await wait(50);
       if(!document.querySelector('.angle-guide'))throw new Error('angle guide did not appear while measuring');
       const liveGuides=[...document.querySelectorAll('.angle-guide')].map(guide=>({sweep:Number(guide.dataset.sweep),path:!!guide.querySelector('.angle-sweep'),ray:!!guide.querySelector('.angle-end-ray'),extraPoint:!!guide.querySelector('circle[stroke="white"]')}));
@@ -30,8 +31,9 @@ async function fullFlow(cdp,url,width,height){
       const capturedCaption=document.getElementById('sceneCaption').innerText,capturedMath=document.querySelectorAll('#sceneCaption math').length;
       click('unwrapButton');await wait(650);
       const orbits=()=>[...document.querySelectorAll('.source-orbit')].map(circle=>[circle.getAttribute('cx'),circle.getAttribute('cy'),circle.getAttribute('r')]);
-      const middle={traces:[...document.querySelectorAll('.source-trace')].map(trace=>({total:Number(trace.dataset.totalAngle),remaining:Number(trace.dataset.remainingAngle)})),orbits:orbits(),heads:[...document.querySelectorAll('.unroll-line')].map(line=>Number(line.getAttribute('x2'))),caption:document.getElementById('sceneCaption').innerText,rollingCircles:document.querySelectorAll('.unroll-arc').length};
-      await wait(1250);return {...fill(),liveGuides,liveCaption,capturedCaption,capturedMath,middle,finishedTraces:document.querySelectorAll('.source-trace').length,finishedOrbits:orbits(),finishedHeads:[...document.querySelectorAll('.unroll-line')].map(line=>Number(line.getAttribute('x2')))};};
+      const unit=document.querySelector('.ruler-unit'),svgBox=document.getElementById('motionSvg').getBoundingClientRect(),unitBox=unit?.getBoundingClientRect();
+      const middle={traces:[...document.querySelectorAll('.source-trace')].map(trace=>({total:Number(trace.dataset.totalAngle),remaining:Number(trace.dataset.remainingAngle)})),orbits:orbits(),heads:[...document.querySelectorAll('.unroll-line')].map(line=>Number(line.getAttribute('x2'))),caption:document.getElementById('sceneCaption').innerText,rollingCircles:document.querySelectorAll('.unroll-arc').length,unit:unit?.textContent,unitVisible:!!unitBox&&unitBox.left>=svgBox.left-2&&unitBox.right<=svgBox.right+2};
+      await wait(1250);return {...fill(),initialChoices,finalChoices:choiceOrder(),liveGuides,liveCaption,capturedCaption,capturedMath,middle,finishedTraces:document.querySelectorAll('.source-trace').length,finishedOrbits:orbits(),finishedHeads:[...document.querySelectorAll('.unroll-line')].map(line=>Number(line.getAttribute('x2')))};};
     const coax=await attempt();
     const measuredBefore=JSON.parse(window.SimScorm.getLocalLog().filter(x=>x.key==='cmi.suspend_data').at(-1).value).answer.cases.coaxial.measurement.elapsed;
     click('orbitButton');
@@ -49,12 +51,12 @@ async function fullFlow(cdp,url,width,height){
     const belt=await attempt();
     const sceneB=document.getElementById('motionSvg').innerHTML;
     const mathCount=document.querySelectorAll('math').length,mathReadout=!!document.querySelector('#radiusReadout math, #readingsCard math');
-    const stageBox=document.getElementById('motionStage').getBoundingClientRect(),panelBox=document.querySelector('.circle-panel').getBoundingClientRect();
+    const stageBox=document.getElementById('motionStage').getBoundingClientRect(),panelBox=document.querySelector('.circle-panel').getBoundingClientRect(),legendSize=parseFloat(getComputedStyle(document.querySelector('.stage-legend')).fontSize);
     click('checkButton');const check=document.getElementById('checkSummary').innerText;
     click('submitButton');
     const score=document.getElementById('resultSummary').innerText;
     const panel=document.querySelector('.circle-panel'),stage=document.getElementById('motionStage');
-    return {coax,belt,beltTexture,orbit,measuredBefore,measuredAfter,beltBox:{x:beltBox.x,right:beltBox.x+beltBox.width},beltRect:{left:beltRect.left,right:beltRect.right,top:beltRect.top,bottom:beltRect.bottom},svgRect:{left:svgRect.left,right:svgRect.right,top:svgRect.top,bottom:svgRect.bottom},sceneA,sceneB,mathCount,mathReadout,stageHeight:stageBox.height,panelHeight:panelBox.height,stageWidth:stageBox.width,panelWidth:panelBox.width,check,score,review:!document.getElementById('resultSection').hidden,
+    return {coax,belt,beltTexture,orbit,measuredBefore,measuredAfter,beltBox:{x:beltBox.x,right:beltBox.x+beltBox.width},beltRect:{left:beltRect.left,right:beltRect.right,top:beltRect.top,bottom:beltRect.bottom},svgRect:{left:svgRect.left,right:svgRect.right,top:svgRect.top,bottom:svgRect.bottom},sceneA,sceneB,mathCount,mathReadout,stageHeight:stageBox.height,panelHeight:panelBox.height,stageWidth:stageBox.width,panelWidth:panelBox.width,legendSize,check,score,review:!document.getElementById('resultSection').hidden,
       documentOverflow:document.documentElement.scrollHeight-document.documentElement.clientHeight,
       panelScroll:panel.scrollHeight-panel.clientHeight,stageTouch:getComputedStyle(stage).touchAction,
       fullscreen:!!document.getElementById('fullscreenButton')};
@@ -70,6 +72,8 @@ async function fullFlow(cdp,url,width,height){
     }
   }
   for(const item of [result.coax,result.belt]){
+    assert.deepEqual(item.finalChoices,item.initialChoices,"option order must remain fixed throughout the same attempt");
+    assert.ok(item.middle.unit==="m" && item.middle.unitVisible,"the ruler itself must display a visible metre unit");
     assert.ok(item.middle.traces.length===2 && item.middle.heads.every(head=>head>240&&head<600) && item.middle.caption.includes("實際轉角") && item.middle.rollingCircles===0 && item.finishedTraces===0,"actual circular traces must shorten as straight tracks grow, with no surrogate rolling wheels");
     assert.deepEqual(item.middle.orbits,item.finishedOrbits,"source circles must stay fixed throughout unwrapping");
     for(const [index,key] of ["angleA","angleB"].entries()){
@@ -86,8 +90,10 @@ async function fullFlow(cdp,url,width,height){
   assert.ok(result.beltBox.x>0 && result.beltBox.right<700,"belt tangent loop must remain inside the stage");
   assert.ok(result.beltRect.left>=result.svgRect.left-2 && result.beltRect.right<=result.svgRect.right+2 && result.beltRect.top>=result.svgRect.top-2 && result.beltRect.bottom<=result.svgRect.bottom+2,"belt must stay visible after responsive rotation");
   assert.ok(result.mathCount>=12 && result.mathReadout,"physical quantities must use math typography");
+  if(height>=500 && width<=640)assert.ok(result.panelHeight>=96 && result.stageHeight<=height*.6+2,"phone panel must retain the guide's 96px minimum under the 60dvh stage cap");
   if(height>=600 && width<=640)assert.ok(result.stageHeight>result.panelHeight*1.5,"phone stage must dominate the panel");
   if(width>=820 && height>380)assert.ok(result.stageWidth>result.panelWidth*1.5,"desktop stage must dominate the panel");
+  if(width>=1280)assert.ok(result.legendSize>=17,"desktop A/B legend must grow with available stage space");
   assert.match(result.sceneA,/共用|stroke-width="12"/);
   assert.match(result.sceneB,/stroke-width="12"/);
   assert.ok(result.check.includes("已填"));

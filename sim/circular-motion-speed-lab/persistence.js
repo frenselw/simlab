@@ -10,6 +10,18 @@
     coaxial: { speedReason: ["equal-angle-larger-radius", "rigid-angle", "larger-always-faster", "equal-time-means-equal-speed"], angularReason: ["rigid-angle", "belt-no-slip", "equal-arc-smaller-radius", "larger-always-faster"] },
     belt: { speedReason: ["belt-no-slip", "rigid-angle", "equal-angle-larger-radius", "larger-always-faster"], angularReason: ["equal-arc-smaller-radius", "equal-angle-larger-radius", "equal-time-means-equal-speed", "larger-always-faster"] }
   };
+  const QUESTION_SEEDS = { speedRelation: 11, speedReason: 23, angularRelation: 37, angularReason: 53 };
+  function orderedOptions(kind, key, definition) {
+    if (!Model.CASES.includes(kind) || !Object.prototype.hasOwnProperty.call(QUESTION_SEEDS, key) || !Model.validDefinition(definition)) throw new Error("Invalid choice order request");
+    const values = (key.endsWith("Relation") ? ["lt", "eq", "gt"] : OPTIONS[kind][key]).slice();
+    let seed = ((definition.radiusIndex + 1) * 73 + (definition.ratioIndex + 1) * 137 + (definition.speedIndex + 1) * 911 + (kind === "belt" ? 997 : 0) + QUESTION_SEEDS[key] * 1337) >>> 0;
+    for (let i = values.length - 1; i > 0; i--) {
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      const j = seed % (i + 1);
+      [values[i], values[j]] = [values[j], values[i]];
+    }
+    return values;
+  }
   const emptyAnswers = () => ({ vA: "", vB: "", omegaA: "", omegaB: "", speedRelation: null, angularRelation: null, speedReason: null, angularReason: null });
   function emptyCase(definition) { return { definition, phase: "ready", measurement: { startAngles: null, elapsed: 0 }, answers: emptyAnswers() }; }
   function initial(random = Math.random) {
@@ -56,5 +68,5 @@
     for (const key of ["speedRelation", "angularRelation", "speedReason", "angularReason"]) fresh.answers[key] = old.answers[key];
     next.cases[kind] = fresh; return decode(next);
   }
-  return { OPTIONS, REASONS, initial, validate, encode, decode, start, stop, unwrap, remeasure };
+  return { OPTIONS, REASONS, orderedOptions, initial, validate, encode, decode, start, stop, unwrap, remeasure };
 });

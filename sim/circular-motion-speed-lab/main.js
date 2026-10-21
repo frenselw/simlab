@@ -143,12 +143,12 @@
   }
   function renderConcepts() {
     if (!item()) return;
-    const a = item().answers, kind = state.activeCase;
-    const relations = prefix => Object.keys(relationText).map(value => [value, relationMath(prefix, value)]);
-    const reasons = key => Store.OPTIONS[kind][key].map(value => [value, reasonText[value]]);
-    el.conceptQuestions.innerHTML = question("speedRelation", `線速率大小：${math("vA")} 與 ${math("vB")} 有甚麼關係？`, relations("v"), a.speedRelation) +
+    const a = item().answers, kind = state.activeCase, definition = item().definition;
+    const relations = (key,prefix) => Store.orderedOptions(kind,key,definition).map(value => [value, relationMath(prefix, value)]);
+    const reasons = key => Store.orderedOptions(kind,key,definition).map(value => [value, reasonText[value]]);
+    el.conceptQuestions.innerHTML = question("speedRelation", `線速率大小：${math("vA")} 與 ${math("vB")} 有甚麼關係？`, relations("speedRelation","v"), a.speedRelation) +
       question("speedReason", "為何有這個線速率關係？", reasons("speedReason"), a.speedReason) +
-      question("angularRelation", `角速率大小：${math("omegaA")} 與 ${math("omegaB")} 有甚麼關係？`, relations("omega"), a.angularRelation) +
+      question("angularRelation", `角速率大小：${math("omegaA")} 與 ${math("omegaB")} 有甚麼關係？`, relations("angularRelation","omega"), a.angularRelation) +
       question("angularReason", "為何有這個角速率關係？", reasons("angularReason"), a.angularReason);
   }
   function summary() {
@@ -299,7 +299,7 @@
       };
       const ticks = Array.from({length:6},(_,i)=>{const x=sx+i*72;return `<line x1="${x}" x2="${x}" y1="330" y2="${i%5===0?350:342}" stroke="#405965" stroke-width="2"/><text x="${x}" y="370" text-anchor="middle" font-size="17" fill="#405965">${Model.format3(maximum*i/5)}</text>`;}).join("");
       el.motionSvg.setAttribute("aria-label",`A 路程 ${Model.format3(r.sA)} 米，B 路程 ${Model.format3(r.sB)} 米；共用同一把直尺`);
-      el.motionSvg.innerHTML = `<text x="90" y="50" font-size="22" font-weight="700" fill="#214751">圓周軌跡 → 共用直尺（m）</text>${source(0,"#1179bc")}${source(1,"#de7529")}<text x="95" y="310" font-size="17" fill="#536b75">原圓周軌跡</text>${line(130,r.sA,"#1179bc","A")}${line(235,r.sB,"#de7529","B")}<line x1="${sx}" y1="330" x2="600" y2="330" stroke="#405965" stroke-width="3"/>${ticks}`;
+      el.motionSvg.innerHTML = `<text x="90" y="50" font-size="22" font-weight="700" fill="#214751">圓周軌跡 → 共用直尺（m）</text>${source(0,"#1179bc")}${source(1,"#de7529")}<text x="95" y="310" font-size="17" fill="#536b75">原圓周軌跡</text>${line(130,r.sA,"#1179bc","A")}${line(235,r.sB,"#de7529","B")}<line x1="${sx}" y1="330" x2="600" y2="330" stroke="#405965" stroke-width="3"/>${ticks}<text class="ruler-unit" x="600" y="312" text-anchor="end" font-size="20" font-weight="700" fill="#405965">m</text>`;
       el.sceneCaption.innerHTML = `${unwrapStarted === null ? "兩條路程已展成直線。" : "左邊依實際轉角減少圓弧；右邊按共用比例加長直線。"}共用 ${math("dt")} = ${Model.format3(r.dt)} s；${math("angleA")} = ${Model.format3(r.angleA)} rad，${math("angleB")} = ${Model.format3(r.angleB)} rad。${unwrapReplay && unwrapStarted === null ? "重播完畢。" : ""}`;
       return;
     }
