@@ -17,7 +17,7 @@ async function fullFlow(cdp,url,width,height){
     assert.ok(position.valueFits && position.valueRight<=position.unit+1 && position.unitRight<=position.readoutRight+1 && position.readoutRight<=position.stageRight+1 && position.fontSize>=(height<=380?13:17),`enlarged timer must fit its fixed slot at ${width}×${height}: ${JSON.stringify(position)}`);
   }
   const result=await H.evaluate(cdp,`(async()=>{
-    window.confirm=()=>true;
+    window.confirm=()=>{throw new Error('Native confirmation must not open');};
     const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
     const click=id=>document.getElementById(id).click();
     const fill=()=>{const kind=document.querySelector('[data-case][aria-current="page"]').dataset.case;
@@ -58,11 +58,11 @@ async function fullFlow(cdp,url,width,height){
     const sceneB=document.getElementById('motionSvg').innerHTML;
     const mathCount=document.querySelectorAll('math').length,mathReadout=!!document.querySelector('#radiusReadout math, #readingsCard math');
     const stageBox=document.getElementById('motionStage').getBoundingClientRect(),panelBox=document.querySelector('.circle-panel').getBoundingClientRect(),legendSize=parseFloat(getComputedStyle(document.querySelector('.stage-legend')).fontSize);
-    click('checkButton');const check=document.getElementById('checkSummary').innerText;
+    click('checkButton');const check=document.getElementById('checkSummary').innerText,checkNotice=document.querySelector('#checkSection>p').innerText;
     click('submitButton');
     const score=document.getElementById('resultSummary').innerText;
     const panel=document.querySelector('.circle-panel'),stage=document.getElementById('motionStage');
-    return {coax,belt,beltTexture,orbit,measuredBefore,measuredAfter,beltBox:{x:beltBox.x,right:beltBox.x+beltBox.width},beltRect:{left:beltRect.left,right:beltRect.right,top:beltRect.top,bottom:beltRect.bottom},svgRect:{left:svgRect.left,right:svgRect.right,top:svgRect.top,bottom:svgRect.bottom},sceneA,sceneB,mathCount,mathReadout,stageHeight:stageBox.height,panelHeight:panelBox.height,stageWidth:stageBox.width,panelWidth:panelBox.width,legendSize,check,score,review:!document.getElementById('resultSection').hidden,
+    return {coax,belt,beltTexture,orbit,measuredBefore,measuredAfter,beltBox:{x:beltBox.x,right:beltBox.x+beltBox.width},beltRect:{left:beltRect.left,right:beltRect.right,top:beltRect.top,bottom:beltRect.bottom},svgRect:{left:svgRect.left,right:svgRect.right,top:svgRect.top,bottom:svgRect.bottom},sceneA,sceneB,mathCount,mathReadout,stageHeight:stageBox.height,panelHeight:panelBox.height,stageWidth:stageBox.width,panelWidth:panelBox.width,legendSize,check,checkNotice,score,review:!document.getElementById('resultSection').hidden,
       documentOverflow:document.documentElement.scrollHeight-document.documentElement.clientHeight,
       panelScroll:panel.scrollHeight-panel.clientHeight,stageTouch:getComputedStyle(stage).touchAction,
       fullscreen:!!document.getElementById('fullscreenButton')};
@@ -103,6 +103,7 @@ async function fullFlow(cdp,url,width,height){
   assert.match(result.sceneA,/共用|stroke-width="12"/);
   assert.match(result.sceneB,/stroke-width="12"/);
   assert.ok(result.check.includes("已填"));
+  assert.ok(result.checkNotice.includes("未填項目得 0 分") && result.checkNotice.includes("只可重看"),"submission consequences must be visible within the check step");
   assert.match(result.score,/100 \/ 100 分/);
   assert.ok(result.review);
   assert.ok(result.documentOverflow<3,"activity document must be bounded");
@@ -125,9 +126,20 @@ async function multiTurnGuide(cdp,url){
     fs.writeFileSync(path.join(root,"output","playwright","circular-speed-angle-multiturn.png"),Buffer.from(data,"base64"));}
   assert.ok(later.count===2 && later.sweep>2*Math.PI && later.visible>2*Math.PI && later.radius>early+7 && !later.extraPoint && later.caption.includes('1 整圈') && later.readout.endsWith('rad'),`after one turn the guide must grow outward without adding another point: ${JSON.stringify({early,later})}`);
 }
+async function resetFlow(cdp,url){
+  await load(cdp,url,390,600);
+  const result=await H.evaluate(cdp,`(async()=>{window.confirm=()=>{throw new Error('Native confirmation must not open');};
+    document.getElementById('startButton').click();await new Promise(resolve=>setTimeout(resolve,180));document.getElementById('stopButton').click();document.getElementById('unwrapButton').click();
+    const number=document.querySelector('[data-answer=vA]');number.value='1';number.dispatchEvent(new Event('input',{bubbles:true}));
+    const choice=document.querySelector('input[name=speedRelation]');choice.click();const selected=choice.value;
+    document.getElementById('resetButton').click();
+    const state=JSON.parse(window.SimScorm.getLocalLog().filter(x=>x.key==='cmi.suspend_data').at(-1).value).answer.cases.coaxial;
+    return {phase:state.phase,number:state.answers.vA,choice:state.answers.speedRelation,selected,resetHidden:document.getElementById('resetButton').hidden};})()`);
+  assert.deepEqual(result,{phase:"ready",number:"",choice:result.selected,selected:result.selected,resetHidden:true},"reset must clear measurement and numeric answer without a popup, while preserving concept work");
+}
 async function blankFlow(cdp,url){
   await load(cdp,url,390,600);
-  const result=await H.evaluate(cdp,`(()=>{window.confirm=()=>true;document.getElementById('checkButton').click();
+  const result=await H.evaluate(cdp,`(()=>{window.confirm=()=>{throw new Error('Native confirmation must not open');};document.getElementById('checkButton').click();
     const before=document.getElementById('checkSummary').innerText;
     document.getElementById('submitButton').click();
     return {before,after:document.getElementById('resultSummary').innerText,locked:document.getElementById('resultSection').hidden===false};})()`);
@@ -178,6 +190,7 @@ async function main(){
     await fullFlow(cdp,source,820,600);
     await fullFlow(cdp,packaged,1280,800);
     await multiTurnGuide(cdp,source);
+    await resetFlow(cdp,source);
     await blankFlow(cdp,packaged);
     assert.deepEqual(errors,[],`browser exceptions: ${errors.join("\n")}`);
     console.log("Circular-speed source/package browser flow, small/desktop layout, 100/0 score, fullscreen and standalone refresh passed");

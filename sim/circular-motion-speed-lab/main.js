@@ -97,9 +97,6 @@
   }
   function reset() {
     if (mode !== "editable" || state.view !== "task") return;
-    const old = item();
-    const hasWork = old.phase !== "ready" || Scoring.NUMERIC.some(key => old.answers[key] !== "");
-    if (hasWork && !window.confirm("重新量度本情境？目前軌跡和四個數值答案會清除；比較及原因答案會保留。")) return;
     const next = Store.remeasure(state, state.activeCase);
     if (!next || !persist(next)) return;
     observationTime = 0; observationPaused = false; running = false; unwrapStarted = null; showOrbit = false;
@@ -181,7 +178,6 @@
   }
   function submit() {
     if (mode !== "editable" || state.view !== "check") return;
-    if (!window.confirm("確認提交目前答案？未填項目得 0 分；提交後本次嘗試只可重看。")) return;
     const computed = Scoring.scoreAttempt(state);
     const snapshot = Scorm.makeSnapshot(ACTIVITY, "review", Store.encode(state), computed);
     Scorm.submitWithCallbacks(computed, snapshot, { onSuccess: handleSubmission, onFailure: handleSubmission });

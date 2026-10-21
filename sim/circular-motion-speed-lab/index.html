@@ -42,7 +42,7 @@
             <button type="button" id="unwrapButton" data-action="unwrap" class="primary-button">展平軌跡</button>
             <button type="button" id="orbitButton" data-action="orbit">返回圓周軌跡</button>
             <button type="button" id="replayButton" data-action="replay">重播展平</button>
-            <button type="button" id="resetButton" data-action="reset">重新量度本情境</button>
+            <button type="button" id="resetButton" data-action="reset">重新量度（清除軌跡及數值）</button>
           </div>
           <p id="statusText" class="status-text" role="status"></p>
           <p id="radiusReadout" class="setup-readout"></p>
@@ -60,7 +60,7 @@
           </div>
           <div class="concept-card"><h3>判斷兩點的關係</h3><p>可以先作答，量度後再修改。</p><div id="conceptQuestions"></div></div>
         </section>
-        <section id="checkSection" hidden><h2 tabindex="-1">提交前檢查</h2><p>以下列出已填和未填項目；提交後才會顯示正誤。</p><div id="checkSummary"></div><button type="button" id="backButton">返回修改</button><button type="button" id="submitButton" class="primary-button">提交目前答案</button></section>
+        <section id="checkSection" hidden><h2 tabindex="-1">提交前檢查</h2><p>以下列出已填和未填項目；未填項目得 0 分。提交後本次嘗試只可重看，並會顯示正誤。</p><div id="checkSummary"></div><button type="button" id="backButton">返回修改</button><button type="button" id="submitButton" class="primary-button">提交目前答案</button></section>
         <section id="resultSection" hidden><h2 tabindex="-1">結果</h2><p id="resultStatus"></p><div id="resultSummary"></div><button type="button" id="retryButton" hidden>重試連線</button></section>
         <p id="technicalMessage" class="technical-message" hidden role="alert"></p>
         <div id="liveRegion" class="sr-only" aria-live="polite"></div>
