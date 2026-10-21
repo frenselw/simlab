@@ -28,35 +28,35 @@
     </header>
     <div class="sim-shell circle-shell">
       <section id="motionStage" class="sim-stage circle-stage" aria-label="輪、軌跡與展平直尺">
-        <div class="stage-topline"><strong id="sceneTitle">同一圓盤</strong><span id="timerReadout">Δt 0 s</span></div>
+        <div class="stage-topline"><strong id="sceneTitle">同一圓盤</strong><span id="timerReadout"><span data-math="dt"></span> = 0 s</span></div>
+        <div class="stage-legend" aria-label="運動點圖例"><span><i class="point-a" aria-hidden="true"></i>A · 小半徑</span><span><i class="point-b" aria-hidden="true"></i>B · 大半徑</span></div>
         <svg id="motionSvg" viewBox="0 0 700 380" preserveAspectRatio="xMidYMid meet" role="img" aria-label="圓盤上 A 和 B 兩點的運動"></svg>
         <p id="sceneCaption" class="stage-caption">按「開始量度」，兩點會由此刻起留下軌跡。</p>
       </section>
       <aside class="sim-panel circle-panel" aria-label="量度、作答與回饋">
         <section id="taskSection">
-          <p class="eyebrow" id="caseKicker">情境 1／2</p><h2 id="caseTitle">同一圓盤上的兩點</h2>
-          <p id="caseIntro">A 在內側，B 在外側。觀察相等時間內的弧長。</p>
-          <p id="radiusReadout" class="setup-readout"></p>
           <div class="controls">
             <button type="button" id="startButton" data-action="start" class="primary-button">開始量度</button>
             <button type="button" id="pauseButton" data-action="pause">暫停量度</button>
             <button type="button" id="stopButton" data-action="stop">停止量度</button>
             <button type="button" id="unwrapButton" data-action="unwrap" class="primary-button">展平軌跡</button>
+            <button type="button" id="orbitButton" data-action="orbit">返回圓周軌跡</button>
             <button type="button" id="replayButton" data-action="replay">重播展平</button>
             <button type="button" id="resetButton" data-action="reset">重新量度本情境</button>
           </div>
           <p id="statusText" class="status-text" role="status"></p>
+          <p id="radiusReadout" class="setup-readout"></p>
           <div id="readingsCard" class="readings-card" aria-label="量度讀數">
             <h3>量度讀數 <small>三位有效數字</small></h3>
-            <dl><div><dt>共同時間 Δt</dt><dd id="readDt">—</dd></div><div><dt>A 路程 s<sub>A</sub></dt><dd id="readSA">—</dd></div><div><dt>B 路程 s<sub>B</sub></dt><dd id="readSB">—</dd></div><div><dt>A 轉角 Δθ<sub>A</sub></dt><dd id="readAngleA">—</dd></div><div><dt>B 轉角 Δθ<sub>B</sub></dt><dd id="readAngleB">—</dd></div></dl>
-            <p>線速率 = 路程 ÷ 時間；角速率 = 轉角 ÷ 時間。這裏的量都是大小。</p>
+            <dl><div><dt>共同時間 <span data-math="dt"></span></dt><dd id="readDt">—</dd></div><div><dt>A 路程 <span data-math="sA"></span></dt><dd id="readSA">—</dd></div><div><dt>B 路程 <span data-math="sB"></span></dt><dd id="readSB">—</dd></div><div><dt>A 轉角 <span data-math="angleA"></span></dt><dd id="readAngleA">—</dd></div><div><dt>B 轉角 <span data-math="angleB"></span></dt><dd id="readAngleB">—</dd></div></dl>
+            <p><span data-math="speedFormula"></span>；<span data-math="angularFormula"></span>。這裏的量都是大小。</p>
           </div>
           <div id="numericForm" class="answer-card">
             <h3>根據讀數計算</h3><p>展平後填寫。只輸入數值，不用寫單位。</p>
-            <label><span><var>v</var><sub>A</sub></span><input data-answer="vA" type="text" inputmode="decimal" autocomplete="off"><span>m/s</span></label>
-            <label><span><var>v</var><sub>B</sub></span><input data-answer="vB" type="text" inputmode="decimal" autocomplete="off"><span>m/s</span></label>
-            <label><span><var>ω</var><sub>A</sub></span><input data-answer="omegaA" type="text" inputmode="decimal" autocomplete="off"><span>rad/s</span></label>
-            <label><span><var>ω</var><sub>B</sub></span><input data-answer="omegaB" type="text" inputmode="decimal" autocomplete="off"><span>rad/s</span></label>
+            <label><span data-math="vA"></span><input data-answer="vA" type="text" inputmode="decimal" autocomplete="off"><span class="math-unit">m/s</span></label>
+            <label><span data-math="vB"></span><input data-answer="vB" type="text" inputmode="decimal" autocomplete="off"><span class="math-unit">m/s</span></label>
+            <label><span data-math="omegaA"></span><input data-answer="omegaA" type="text" inputmode="decimal" autocomplete="off"><span class="math-unit">rad/s</span></label>
+            <label><span data-math="omegaB"></span><input data-answer="omegaB" type="text" inputmode="decimal" autocomplete="off"><span class="math-unit">rad/s</span></label>
           </div>
           <div class="concept-card"><h3>判斷兩點的關係</h3><p>可以先作答，量度後再修改。</p><div id="conceptQuestions"></div></div>
         </section>

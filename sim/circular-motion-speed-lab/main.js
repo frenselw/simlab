@@ -17,9 +17,26 @@
     "equal-time-means-equal-speed": "只要量度時間相同，兩點的線速率就必定相同。"
   };
   const relationText = { lt: "A < B", eq: "A = B", gt: "A > B" };
+  const mathBody = {
+    dt: "<mrow><mi>Δ</mi><mi>t</mi></mrow>",
+    rA: '<msub><mi>r</mi><mi mathvariant="normal">A</mi></msub>', rB: '<msub><mi>r</mi><mi mathvariant="normal">B</mi></msub>',
+    sA: '<msub><mi>s</mi><mi mathvariant="normal">A</mi></msub>', sB: '<msub><mi>s</mi><mi mathvariant="normal">B</mi></msub>',
+    angleA: '<mrow><mi>Δ</mi><msub><mi>θ</mi><mi mathvariant="normal">A</mi></msub></mrow>', angleB: '<mrow><mi>Δ</mi><msub><mi>θ</mi><mi mathvariant="normal">B</mi></msub></mrow>',
+    vA: '<msub><mi>v</mi><mi mathvariant="normal">A</mi></msub>', vB: '<msub><mi>v</mi><mi mathvariant="normal">B</mi></msub>',
+    omegaA: '<msub><mi>ω</mi><mi mathvariant="normal">A</mi></msub>', omegaB: '<msub><mi>ω</mi><mi mathvariant="normal">B</mi></msub>',
+    speedFormula: '<mrow><mi>v</mi><mo>=</mo><mfrac><mi>s</mi><mrow><mi>Δ</mi><mi>t</mi></mrow></mfrac></mrow>',
+    angularFormula: '<mrow><mi>ω</mi><mo>=</mo><mfrac><mi>Δ</mi><mi>θ</mi><mrow><mi>Δ</mi><mi>t</mi></mrow></mfrac></mrow>'
+  };
+  const mathLabel = { dt: "Δt", rA: "rA", rB: "rB", sA: "sA", sB: "sB", angleA: "ΔθA", angleB: "ΔθB", vA: "vA", vB: "vB", omegaA: "ωA", omegaB: "ωB", speedFormula: "v = s / Δt", angularFormula: "ω = Δθ / Δt" };
+  const math = key => `<math aria-label="${mathLabel[key]}">${mathBody[key]}</math>`;
+  const relationSpoken = { lt: "小於", eq: "等於", gt: "大於" }, relationOperator = { lt: "&lt;", eq: "=", gt: "&gt;" };
+  const relationMath = (prefix, value) => `<math aria-label="${prefix === "v" ? "線速率" : "角速率"} A ${relationSpoken[value]} B">${mathBody[`${prefix}A`]}<mo>${relationOperator[value]}</mo>${mathBody[`${prefix}B`]}</math>`;
+  const answerLabels = { vA: math("vA"), vB: math("vB"), omegaA: math("omegaA"), omegaB: math("omegaB"), speedRelation: "線速率關係", angularRelation: "角速率關係", speedReason: "線速率原因", angularReason: "角速率原因" };
   const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+  const portraitStage = window.matchMedia?.("(max-width: 640px) and (min-height: 381px)");
+  const compactStage = window.matchMedia?.("(max-width: 640px) and (max-height: 380px)");
   let state = null, mode = "technical", result = null, trusted = false, running = false, retryMode = "none";
-  let observationTime = 0, observationPaused = false, lastFrame = performance.now(), lastSave = 0, unwrapStarted = null, unwrapReplay = false;
+  let observationTime = 0, observationPaused = false, lastFrame = performance.now(), lastSave = 0, unwrapStarted = null, unwrapReplay = false, showOrbit = false;
   let message = "", technical = "";
   const safe = value => { const div = document.createElement("div"); div.textContent = String(value ?? ""); return div.innerHTML; };
   function announce(text) { el.liveRegion.textContent = ""; requestAnimationFrame(() => { el.liveRegion.textContent = text; }); }
@@ -64,11 +81,19 @@
     setMessage("已停止。兩點及軌跡同時定格；下一步展平比較路程。"); render();
   }
   function unwrap() {
-    if (mode !== "editable" || item()?.phase !== "captured") return;
-    const next = Store.unwrap(state, state.activeCase);
-    if (!next || !persist(next)) return;
+    if (mode !== "editable" || !["captured", "unwrapped"].includes(item()?.phase)) return;
+    if (item().phase === "captured") {
+      const next = Store.unwrap(state, state.activeCase);
+      if (!next || !persist(next)) return;
+    } else if (!showOrbit) return;
+    showOrbit = false;
     unwrapStarted = reducedMotion?.matches ? null : performance.now(); unwrapReplay = false;
     setMessage("兩條弧線按同一比例展平，起點對齊尺上的 0。"); render();
+  }
+  function orbit() {
+    if (mode !== "editable" || item()?.phase !== "unwrapped" || showOrbit) return;
+    showOrbit = true; unwrapStarted = null;
+    setMessage("已返回定格的圓周軌跡；量度和答案保留，可再次展平。"); render();
   }
   function reset() {
     if (mode !== "editable" || state.view !== "task") return;
@@ -77,7 +102,7 @@
     if (hasWork && !window.confirm("重新量度本情境？目前軌跡和四個數值答案會清除；比較及原因答案會保留。")) return;
     const next = Store.remeasure(state, state.activeCase);
     if (!next || !persist(next)) return;
-    observationTime = 0; observationPaused = false; running = false; unwrapStarted = null;
+    observationTime = 0; observationPaused = false; running = false; unwrapStarted = null; showOrbit = false;
     setMessage("已清除本情境量度；可以重新開始。"); render();
   }
   function navigate(kind) {
@@ -87,7 +112,7 @@
       const next = Store.decode(state); next.activeCase = kind; next.view = "task";
       if (!persist(next)) return;
     } else { state.activeCase = kind; state.view = "task"; }
-    observationTime = 0; observationPaused = false; unwrapStarted = null; render();
+    observationTime = 0; observationPaused = false; unwrapStarted = null; showOrbit = false; message = ""; render();
   }
   function check() {
     if (mode !== "editable") return;
@@ -119,18 +144,17 @@
   function renderConcepts() {
     if (!item()) return;
     const a = item().answers, kind = state.activeCase;
-    const relations = Object.entries(relationText);
+    const relations = prefix => Object.keys(relationText).map(value => [value, relationMath(prefix, value)]);
     const reasons = key => Store.OPTIONS[kind][key].map(value => [value, reasonText[value]]);
-    el.conceptQuestions.innerHTML = question("speedRelation", "線速率大小：vA 與 vB 有甚麼關係？", relations, a.speedRelation) +
+    el.conceptQuestions.innerHTML = question("speedRelation", `線速率大小：${math("vA")} 與 ${math("vB")} 有甚麼關係？`, relations("v"), a.speedRelation) +
       question("speedReason", "為何有這個線速率關係？", reasons("speedReason"), a.speedReason) +
-      question("angularRelation", "角速率大小：ωA 與 ωB 有甚麼關係？", relations, a.angularRelation) +
+      question("angularRelation", `角速率大小：${math("omegaA")} 與 ${math("omegaB")} 有甚麼關係？`, relations("omega"), a.angularRelation) +
       question("angularReason", "為何有這個角速率關係？", reasons("angularReason"), a.angularReason);
   }
   function summary() {
-    const names = { vA: "vA", vB: "vB", omegaA: "ωA", omegaB: "ωB", speedRelation: "線速率關係", angularRelation: "角速率關係", speedReason: "線速率原因", angularReason: "角速率原因" };
     el.checkSummary.innerHTML = Model.CASES.map(kind => {
       const c = state.cases[kind];
-      const rows = Object.entries(names).map(([key, label]) => {
+      const rows = Object.entries(answerLabels).map(([key, label]) => {
         const value = c.answers[key];
         return `<p>${label}：${value === null || value === "" ? "未答" : "已填"}</p>`;
       }).join("");
@@ -143,14 +167,14 @@
       el.resultSummary.textContent = "詳細結果未能安全核對；請以 Moodle 顯示的狀態為準。";
       return;
     }
-    const names = { vA: "vA", vB: "vB", omegaA: "ωA", omegaB: "ωB", speedRelation: "線速率關係", angularRelation: "角速率關係", speedReason: "線速率原因", angularReason: "角速率原因" };
     el.resultSummary.innerHTML = `<p><strong>${result.score} / 100 分 · ${Flow.completionLabel(result.passed)}</strong></p>` + Model.CASES.map(kind => {
       const c = state.cases[kind], r = result.cases[kind];
-      const formula = r.reading ? `<p>讀數代入：A 線速率 = ${Model.format3(r.reading.sA)} ÷ ${Model.format3(r.reading.dt)} m/s；B 線速率 = ${Model.format3(r.reading.sB)} ÷ ${Model.format3(r.reading.dt)} m/s。A、B 角速率分別以 ${Model.format3(r.reading.angleA)}、${Model.format3(r.reading.angleB)} rad 除以共同時間。</p>` : "<p>本情境沒有可用的完整讀數。</p>";
-      return `<div class="summary-case"><h3>${labels[kind]} · ${r.score}/50 分</h3>${formula}` + Object.entries(names).map(([key, label]) => {
+      const formula = r.reading ? `<p>讀數代入：${math("vA")} = ${Model.format3(r.reading.sA)} m ÷ ${Model.format3(r.reading.dt)} s；${math("vB")} = ${Model.format3(r.reading.sB)} m ÷ ${Model.format3(r.reading.dt)} s。${math("omegaA")}、${math("omegaB")} 分別以 ${Model.format3(r.reading.angleA)} rad、${Model.format3(r.reading.angleB)} rad 除以共同時間。</p>` : "<p>本情境沒有可用的完整讀數。</p>";
+      return `<div class="summary-case"><h3>${labels[kind]} · ${r.score}/50 分</h3>${formula}` + Object.entries(answerLabels).map(([key, label]) => {
         const d = r.detail[key], raw = c.answers[key];
-        const actual = raw === null || raw === "" ? "未答" : Scoring.NUMERIC.includes(key) ? safe(raw) : safe(key.endsWith("Relation") ? relationText[raw] : reasonText[raw]);
-        const expected = Scoring.NUMERIC.includes(key) ? `${Model.format3(d.expected)} ${key.startsWith("v") ? "m/s" : "rad/s"}` : safe(key.endsWith("Relation") ? relationText[d.expected] : reasonText[d.expected]);
+        const relationPrefix = key === "speedRelation" ? "v" : "omega";
+        const actual = raw === null || raw === "" ? "未答" : Scoring.NUMERIC.includes(key) ? safe(raw) : key.endsWith("Relation") ? relationMath(relationPrefix, raw) : safe(reasonText[raw]);
+        const expected = Scoring.NUMERIC.includes(key) ? `${Model.format3(d.expected)} ${key.startsWith("v") ? "m/s" : "rad/s"}` : key.endsWith("Relation") ? relationMath(relationPrefix, d.expected) : safe(reasonText[d.expected]);
         return `<p class="feedback-row ${d.correct ? "is-correct" : "is-wrong"}">${label}：${actual} · ${d.points}/${d.max} 分。${d.correct ? "正確" : `參考：${expected}`}</p>`;
       }).join("") + "</div>";
     }).join("");
@@ -205,18 +229,17 @@
     tabs.forEach(tab => { tab.disabled = !usable; tab.setAttribute("aria-current", task && tab.dataset.case === state.activeCase ? "page" : "false"); });
     if (!state) return;
     const c = item(), kind = state.activeCase, p = Model.parameters(kind, c.definition), r = Model.readings(kind, c.definition, c.measurement.elapsed);
-    el.caseKicker.textContent = kind === "coaxial" ? "情境 1／2" : "情境 2／2";
-    el.caseTitle.textContent = kind === "coaxial" ? "同一圓盤上的兩點" : "皮帶連接大小輪";
-    el.caseIntro.textContent = kind === "coaxial" ? "A 在內側，B 在外側；兩點固定在同一個圓盤。" : "A 是小輪，B 是主動大輪；皮帶繃緊而不打滑。";
-    el.radiusReadout.textContent = `A 半徑 ${Model.format3(p.rA)} m　·　B 半徑 ${Model.format3(p.rB)} m`;
+    el.radiusReadout.innerHTML = `${math("rA")} = ${Model.format3(p.rA)} m　·　${math("rB")} = ${Model.format3(p.rB)} m`;
     el.sceneTitle.textContent = labels[kind];
     el.startButton.hidden = !["ready", "measuring"].includes(c.phase) || running;
     el.startButton.textContent = c.phase === "ready" ? "開始量度" : "繼續量度";
     el.pauseButton.hidden = !(c.phase === "ready" || c.phase === "measuring" && running);
     el.pauseButton.textContent = c.phase === "ready" ? observationPaused ? "繼續示範" : "暫停示範" : "暫停量度";
     el.stopButton.hidden = c.phase !== "measuring";
-    el.unwrapButton.hidden = c.phase !== "captured";
-    el.replayButton.hidden = c.phase !== "unwrapped";
+    el.unwrapButton.hidden = c.phase !== "captured" && !(c.phase === "unwrapped" && showOrbit);
+    el.unwrapButton.textContent = c.phase === "unwrapped" ? "再次展平" : "展平軌跡";
+    el.orbitButton.hidden = c.phase !== "unwrapped" || showOrbit;
+    el.replayButton.hidden = c.phase !== "unwrapped" || showOrbit;
     el.resetButton.hidden = c.phase === "ready";
     for (const button of el.taskSection.querySelectorAll("button")) button.disabled = mode !== "editable";
     el.readingsCard.hidden = c.phase === "ready";
@@ -224,7 +247,7 @@
     for (const input of inputs) { input.disabled = mode !== "editable" || c.phase !== "unwrapped"; if (document.activeElement !== input) input.value = c.answers[input.dataset.answer]; }
     renderConcepts();
     el.conceptQuestions.querySelectorAll("input").forEach(input => { input.disabled = mode !== "editable"; });
-    el.statusText.textContent = message || ({ ready: "先觀察運動，再自行開始量度。", measuring: running ? "正在記錄兩點的軌跡。" : "量度已暫停；可繼續或停止。", captured: "軌跡已定格。按「展平軌跡」比較路程。", unwrapped: "兩條軌跡以相同尺度展平；請根據顯示讀數計算。" })[c.phase];
+    el.statusText.textContent = message || ({ ready: "先觀察運動，再自行開始量度。", measuring: running ? "正在記錄兩點的軌跡。" : "量度已暫停；可繼續或停止。", captured: "軌跡已定格。按「展平軌跡」比較路程。", unwrapped: showOrbit ? "已返回圓周軌跡；可再次展平，量度和答案保留。" : "兩條軌跡以相同尺度展平；請根據顯示讀數計算。" })[c.phase];
     const visible = c.phase !== "ready" && c.measurement.elapsed > 0;
     for (const [id, value, unit] of [["readDt",r?.dt,"s"],["readSA",r?.sA,"m"],["readSB",r?.sB,"m"],["readAngleA",r?.angleA,"rad"],["readAngleB",r?.angleB,"rad"]]) el[id].textContent = visible && value !== undefined ? `${Model.format3(value)} ${unit}` : "—";
     if (checkView) summary();
@@ -244,8 +267,10 @@
     const kind = state.activeCase, c = item(), p = Model.parameters(kind, c.definition), t = c.measurement.elapsed;
     const timed = c.phase !== "ready", angleA = timed ? Model.angleAt(c.measurement.startAngles[0], p.omegaA, t) : Model.angleAt(0,p.omegaA,observationTime);
     const angleB = timed ? Model.angleAt(c.measurement.startAngles[1],p.omegaB,t) : Model.angleAt(0,p.omegaB,observationTime);
-    el.timerReadout.textContent = `Δt ${timed ? Model.format3(t) : "0"} s`;
-    if (c.phase === "unwrapped") {
+    const portrait = Boolean(portraitStage?.matches), compact = Boolean(compactStage?.matches);
+    el.timerReadout.innerHTML = `${math("dt")} = ${timed ? Model.format3(t) : "0"} s`;
+    if (c.phase === "unwrapped" && !showOrbit) {
+      el.motionSvg.setAttribute("viewBox", portrait || compact ? "70 0 560 380" : "0 0 700 380");
       const r = Model.readings(kind,c.definition,t), maximum = Math.max(r.sA,r.sB);
       const progress = unwrapStarted === null ? 1 : Math.min(1,(performance.now()-unwrapStarted)/1200);
       if (progress >= 1) unwrapStarted = null;
@@ -255,13 +280,16 @@
       };
       const ticks = Array.from({length:6},(_,i)=>{const x=sx+i*102;return `<line x1="${x}" x2="${x}" y1="302" y2="${i%5===0?322:314}" stroke="#405965" stroke-width="2"/><text x="${x}" y="344" text-anchor="middle" font-size="17" fill="#405965">${Model.format3(maximum*i/5)}</text>`;}).join("");
       el.motionSvg.setAttribute("aria-label",`A 路程 ${Model.format3(r.sA)} 米，B 路程 ${Model.format3(r.sB)} 米；共用同一把直尺`);
-      el.motionSvg.innerHTML = `<rect width="700" height="380" fill="#f8fcfc"/><text x="90" y="54" font-size="22" font-weight="700" fill="#214751">圓周軌跡攤平 · 同一比例</text>${line(135,r.sA,"#1179bc","A")}${line(235,r.sB,"#de7529","B")}<line x1="90" y1="302" x2="600" y2="302" stroke="#405965" stroke-width="3"/>${ticks}<text x="630" y="321" fill="#405965" font-size="17">m</text>`;
-      el.sceneCaption.textContent = `共用 Δt = ${Model.format3(r.dt)} s；A 轉角 ${Model.format3(r.angleA)} rad，B 轉角 ${Model.format3(r.angleB)} rad。${unwrapReplay && unwrapStarted === null ? "重播完畢。" : ""}`;
+      el.motionSvg.innerHTML = `<text x="90" y="54" font-size="22" font-weight="700" fill="#214751">圓周軌跡攤平 · 共用直尺（m）</text>${line(135,r.sA,"#1179bc","A")}${line(235,r.sB,"#de7529","B")}<line x1="90" y1="302" x2="600" y2="302" stroke="#405965" stroke-width="3"/>${ticks}`;
+      el.sceneCaption.innerHTML = `共用 ${math("dt")} = ${Model.format3(r.dt)} s；${math("angleA")} = ${Model.format3(r.angleA)} rad，${math("angleB")} = ${Model.format3(r.angleB)} rad。${unwrapReplay && unwrapStarted === null ? "重播完畢。" : ""}`;
       return;
     }
-    const scale = kind === "coaxial" ? 120/p.rB : 500/(4*(p.rA+p.rB));
-    const cxA = kind === "coaxial" ? 350 : 92+p.rA*scale;
-    const cxB = kind === "coaxial" ? 350 : cxA+p.centreDistance*scale;
+    const viewBox = portrait ? (kind === "coaxial" ? "140 0 420 380" : "0 80 380 560")
+      : compact ? (kind === "coaxial" ? "140 0 420 380" : "90 0 540 380") : "0 0 700 380";
+    el.motionSvg.setAttribute("viewBox", viewBox);
+    const scale = kind === "coaxial" ? 120/p.rB : 115/p.rB;
+    const cxA = kind === "coaxial" ? 350 : 350-p.centreDistance*scale/2;
+    const cxB = kind === "coaxial" ? 350 : 350+p.centreDistance*scale/2;
     const cy = 185, ra = p.rA*scale, rb = p.rB*scale;
     let belt = "";
     if (kind === "belt") {
@@ -275,7 +303,7 @@
     }
     const wheel = (cx,r,color,name,angle) => {
       const mark=point(cx,cy,r,angle);
-      return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${kind === "coaxial" ? "#e5f1f5" : "#f3f7f6"}" fill-opacity="${kind === "coaxial" && name === "A" ? ".15" : "1"}" stroke="${kind === "coaxial" && name === "A" ? "#8aa8b2" : "#436b78"}" stroke-width="3"/><line x1="${cx}" y1="${cy}" x2="${mark[0]}" y2="${mark[1]}" stroke="${color}" stroke-width="3"/><circle cx="${mark[0]}" cy="${mark[1]}" r="10" fill="${color}" stroke="white" stroke-width="3"/><text x="${mark[0]+12}" y="${mark[1]-12}" fill="${color}" font-size="23" font-weight="800">${name}</text>`;
+      return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${kind === "coaxial" ? "#e5f1f5" : "#f3f7f6"}" fill-opacity="${kind === "coaxial" && name === "A" ? ".15" : "1"}" stroke="${kind === "coaxial" && name === "A" ? "#8aa8b2" : "#436b78"}" stroke-width="3"/><line x1="${cx}" y1="${cy}" x2="${mark[0]}" y2="${mark[1]}" stroke="${color}" stroke-width="3"/><circle cx="${mark[0]}" cy="${mark[1]}" r="10" fill="${color}" stroke="white" stroke-width="3"/>`;
     };
     const trace=(cx,r,colour,index,omega)=>{
       if (c.phase === "ready" || t<=0) return "";
@@ -285,9 +313,10 @@
       return `<g stroke="${colour}" opacity=".8">${circles}${remainder>0.0001?arc(cx,cy,r,start+sweep-remainder,remainder):""}</g>`;
     };
     el.motionSvg.setAttribute("aria-label",kind === "coaxial" ? "同一圓盤上，藍色 A 在內圈，橙色 B 在外圈" : "不交叉皮帶連接藍色 A 小輪與橙色 B 大輪，兩輪同向轉動");
-    el.motionSvg.innerHTML = `<rect width="700" height="380" fill="#f8fcfc"/>${belt}${kind === "coaxial" ? wheel(cxB,rb,"#de7529","B",angleB)+wheel(cxA,ra,"#1179bc","A",angleA) : wheel(cxA,ra,"#1179bc","A",angleA)+wheel(cxB,rb,"#de7529","B",angleB)}${trace(cxA,ra,"#1179bc",0,p.omegaA)}${trace(cxB,rb,"#de7529",1,p.omegaB)}<text x="26" y="34" fill="#1179bc" font-size="21" font-weight="700">A · 小半徑</text><text x="475" y="34" fill="#de7529" font-size="21" font-weight="700">B · 大半徑</text>`;
+    const drawing = `${belt}${kind === "coaxial" ? wheel(cxB,rb,"#de7529","B",angleB)+wheel(cxA,ra,"#1179bc","A",angleA) : wheel(cxA,ra,"#1179bc","A",angleA)+wheel(cxB,rb,"#de7529","B",angleB)}${trace(cxA,ra,"#1179bc",0,p.omegaA)}${trace(cxB,rb,"#de7529",1,p.omegaB)}`;
+    el.motionSvg.innerHTML = portrait && kind === "belt" ? `<g transform="translate(380 0) rotate(90)">${drawing}</g>` : drawing;
     const turns=t>0?`A 已走 ${Math.floor(p.omegaA*t/Model.TAU)} 整圈；B 已走 ${Math.floor(p.omegaB*t/Model.TAU)} 整圈。`:"";
-    el.sceneCaption.textContent = c.phase === "ready" ? "輪正在示範轉動；按「開始量度」後，兩點會同時留下軌跡。" : `${turns}同色圓弧是量度開始後走過的軌跡；跨圈路程會累計。`;
+    el.sceneCaption.textContent = c.phase === "ready" ? kind === "coaxial" ? "A、B 固定在同一圓盤；開始量度後，同時留下軌跡。" : "B 主動輪以不打滑皮帶帶動 A；開始量度後，同時留下軌跡。" : c.phase === "unwrapped" ? "已返回定格的圓周軌跡；可再次展平對照直尺。" : `${turns}同色圓弧是量度開始後走過的軌跡；跨圈路程會累計。`;
   }
   function frame(now) {
     const dt=Math.max((now-lastFrame)/1000,0); lastFrame=now;
@@ -332,9 +361,10 @@
     render();requestAnimationFrame(frame);
   }
   el.startButton.addEventListener("click",start);
-  el.pauseButton.addEventListener("click",()=>{if(item()?.phase==="ready"){observationPaused=!observationPaused;setMessage(observationPaused?"示範已暫停。":"示範已繼續。");}else{pause();setMessage("量度已暫停；閱讀時間不計入 Δt。");}render();});
+  el.pauseButton.addEventListener("click",()=>{if(item()?.phase==="ready"){observationPaused=!observationPaused;setMessage(observationPaused?"示範已暫停。":"示範已繼續。");}else{pause();setMessage("量度已暫停；暫停期間不計時。");}render();});
   el.stopButton.addEventListener("click",stop);
   el.unwrapButton.addEventListener("click",unwrap);
+  el.orbitButton.addEventListener("click",orbit);
   el.replayButton.addEventListener("click",()=>{unwrapStarted=reducedMotion?.matches?null:performance.now();unwrapReplay=true;drawScene();});
   el.resetButton.addEventListener("click",reset);
   el.checkButton.addEventListener("click",check);
@@ -345,5 +375,8 @@
   inputs.forEach(input=>{input.maxLength=32;input.addEventListener("input",onAnswer);});
   el.conceptQuestions.addEventListener("change",onChoice);
   document.addEventListener("visibilitychange",()=>{if(document.hidden)pause();lastFrame=performance.now();});
+  portraitStage?.addEventListener("change",drawScene);
+  compactStage?.addEventListener("change",drawScene);
+  document.querySelectorAll("[data-math]").forEach(node => { node.innerHTML = math(node.dataset.math); });
   startup();
 })();

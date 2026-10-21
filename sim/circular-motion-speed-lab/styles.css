@@ -7,11 +7,15 @@ html,body{height:100%;min-height:0;overflow:hidden}
 .case-tabs{display:flex;flex-wrap:wrap;gap:.4rem}
 .case-tabs button{padding:.45rem .75rem;white-space:nowrap;font-size:.9rem;font-weight:700}
 .case-tabs button[aria-current="page"]{border-color:#126f83;background:#d6f2f2;color:#075566}
-.circle-shell{height:100%;min-height:0;grid-template-rows:minmax(11rem,42dvh) minmax(0,1fr)}
+.circle-shell{height:100%;min-height:0;grid-template-rows:minmax(13rem,min(60dvh,calc(100dvh - 14rem))) minmax(0,1fr)}
 .circle-stage{min-height:0;background:radial-gradient(circle at 52% 42%,#fff 0,#f0f9fa 80%);touch-action:pan-y;display:flex;flex-direction:column}
-.circle-stage svg{display:block;width:100%;height:100%;min-height:0;flex:1;touch-action:pan-y;pointer-events:none}
+.circle-stage svg{display:block;width:100%;height:100%;min-height:0;flex:1;background:#f8fcfc;touch-action:pan-y;pointer-events:none}
+.circle-stage svg text{font-family:"Cambria Math","STIX Two Math","Microsoft JhengHei",serif}
 .stage-topline{display:flex;align-items:center;justify-content:space-between;gap:.6rem;padding:.4rem .75rem;border-bottom:1px solid #dbe7e9;background:#fff9}
-.stage-topline span{font:700 .9rem ui-monospace,Consolas,monospace;white-space:nowrap}
+.stage-topline span{font-size:.95rem;font-weight:700;white-space:nowrap}
+.stage-legend{display:flex;justify-content:space-between;gap:.5rem;padding:.35rem .75rem;background:#f8fcfc;font-size:.84rem;font-weight:700}
+.stage-legend span{display:inline-flex;align-items:center;gap:.35rem;white-space:nowrap}
+.stage-legend i{width:.8rem;height:.8rem;border-radius:50%;flex:none}.stage-legend .point-a{background:#1179bc}.stage-legend .point-b{background:#de7529}
 .stage-caption{margin:0;padding:.4rem .75rem;border-top:1px solid #dbe7e9;background:#fff9;font-size:.84rem;line-height:1.35}
 .circle-panel{min-height:0;overscroll-behavior:contain;touch-action:pan-y;padding:.85rem 1rem 2rem}
 .circle-panel h2{margin:.1rem 0 .45rem;font-size:1.28rem}.circle-panel h3{margin:.2rem 0 .65rem;font-size:1.04rem}
@@ -35,7 +39,7 @@ html,body{height:100%;min-height:0;overflow:hidden}
 .technical-message{color:#a22e23;background:#fff0ed;padding:.75rem;border-radius:.6rem}
 [hidden]{display:none!important}
 input:focus-visible,.circle-panel button:focus-visible{outline:3px solid #5cbcc5;outline-offset:2px}
-var{font-family:"STIX Two Math","Cambria Math",Georgia,serif;font-style:italic}
-@media(min-width:900px){.circle-shell{grid-template-columns:minmax(0,1fr) minmax(320px,370px);grid-template-rows:minmax(0,1fr)}.circle-stage{border-right:1px solid #cddfe1;border-bottom:0}}
-@media(max-width:640px){.circle-header{display:block;padding:.48rem 3.55rem .55rem .65rem}.circle-header .heading p:last-child{display:none}.case-tabs{margin-top:.3rem;gap:.22rem}.case-tabs button{font-size:.77rem;padding:.24rem .38rem;min-height:44px}.circle-shell{grid-template-rows:minmax(11rem,42dvh) minmax(0,1fr)}.circle-panel{padding:.7rem .75rem 1.5rem}.readings-card dl{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-height:380px){.circle-header .heading{display:none}.circle-header{padding:.2rem 3.55rem .2rem .4rem}.case-tabs{margin:0}.circle-shell{grid-template-columns:minmax(0,1fr) minmax(180px,42%);grid-template-rows:minmax(0,1fr)}.circle-panel{padding:.35rem .55rem}.stage-caption{display:none}}
+math,.math-unit{font-family:"Cambria Math","STIX Two Math",Georgia,serif;font-size:1.08em}.math-unit{font-size:1em;font-style:normal}
+@media(min-width:820px){.circle-shell{grid-template-columns:clamp(280px,26vw,320px) minmax(0,1fr);grid-template-rows:minmax(0,1fr)}.circle-stage{border-right:0;border-bottom:0}}
+@media(max-width:640px){.circle-header{display:block;padding:.48rem 3.55rem .55rem .65rem}.circle-header .heading p:last-child{display:none}.case-tabs{margin-top:.3rem;gap:.22rem}.case-tabs button{font-size:.77rem;padding:.24rem .38rem;min-height:44px}.circle-panel{padding:.55rem .75rem 1.5rem}.readings-card dl{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-height:380px){.circle-header .heading{display:none}.circle-header{padding:.2rem 3.55rem .2rem .4rem}.case-tabs{margin:0}.circle-shell{grid-template-columns:minmax(0,1fr) minmax(180px,42%);grid-template-rows:minmax(0,1fr)}.circle-stage{grid-column:1;grid-row:1}.circle-panel{grid-column:2;grid-row:1;padding:.35rem .55rem}.controls{grid-template-columns:1fr}.stage-caption{display:none}.stage-legend{flex-direction:column;gap:0;padding:.1rem .4rem;font-size:.68rem}}

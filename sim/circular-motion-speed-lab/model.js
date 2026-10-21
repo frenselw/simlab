@@ -23,7 +23,7 @@
     if (!CASES.includes(kind) || !validDefinition(value)) throw new Error("Invalid wheel definition");
     const rA = RADII[value.radiusIndex], rB = rA * RATIOS[value.ratioIndex], omegaB = SPEEDS[value.speedIndex];
     const omegaA = kind === "coaxial" ? omegaB : omegaB * rB / rA;
-    return { rA, rB, omegaA, omegaB, vA: rA * omegaA, vB: rB * omegaB, centreDistance: 3 * (rA + rB) };
+    return { rA, rB, omegaA, omegaB, vA: rA * omegaA, vB: rB * omegaB, centreDistance: 1.6 * (rA + rB) };
   }
   function format3(value) {
     if (!Number.isFinite(value)) return "—";

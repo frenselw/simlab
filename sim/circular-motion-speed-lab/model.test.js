@@ -4,6 +4,7 @@ const M=require("./model.js");
 for(const kind of M.CASES)for(let radiusIndex=0;radiusIndex<3;radiusIndex++)for(let ratioIndex=0;ratioIndex<2;ratioIndex++)for(let speedIndex=0;speedIndex<4;speedIndex++){
   const d={radiusIndex,ratioIndex,speedIndex},p=M.parameters(kind,d);
   assert.ok(p.rA<p.rB && p.omegaA>0 && p.omegaB>0);
+  assert.ok(p.centreDistance>p.rA+p.rB && p.centreDistance<2*(p.rA+p.rB),"compact wheels must not overlap");
   if(kind==="coaxial"){assert.equal(p.omegaA,p.omegaB);assert.ok(p.vA<p.vB);}
   else{assert.ok(Math.abs(p.vA-p.vB)<1e-12);assert.ok(p.omegaA>p.omegaB);}
   for(const elapsed of [.001,2,30,100]){

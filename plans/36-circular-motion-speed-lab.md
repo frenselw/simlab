@@ -1,6 +1,6 @@
 # 圓周運動：線速率與角速率量度
 
-狀態：**使用者已批准實作；P1 活動完成主要功能，正進行完整驗證與發布。**
+狀態：**P1 私人試用版已發布；P2 正按使用者回饋改善版面、數學排版及展平操作。**
 
 本活動讓學生自行開始及停止量度，把圓周軌跡展平後讀取路程、時間及累積轉角，計算並比較線速率與角速率。以同軸與不打滑皮帶兩個情境對照「相同角速率」與「相同線速率」的不同約束。
 
@@ -88,16 +88,16 @@ P1 已同步新增 catalogue、manifest 與測試登記；發布前須保持三�
 1. 開啟即見情境與低速轉動，頁首可選「同軸轉動／皮帶傳動」。開始時速度答案及作答欄均未填。
 2. 按「開始量度」：從當下位置同時記錄兩點，公共計時器由零開始，軌跡只包含此次量度區間。
 3. 按「停止量度」：兩點、時間及軌跡同步定格。學生自行決定何時停，不以量度滿一圈或達到固定秒數作完成門檻。
-4. 按「展平軌跡」：兩條有色弧線展成直線，起點對齊共同零刻度；原圓圖以小型淡色參考保留。
+4. 按「展平軌跡」：兩條有色弧線展成直線，起點對齊共同零刻度；可按「返回圓周軌跡」看停止時的圓圖，再按「展平軌跡」重看，同一次量度及答案不變。
 5. 讀取共同 Δt、各自 s 與 Δθ，計算 vA、vB、ωA、ωB。可提供公式文字「路程 ÷ 時間」「轉角 ÷ 時間」，不預填計算答案。
 6. 判斷 vA 與 vB、ωA 與 ωB 的關係，各選一個原因。重點是條件而非模糊的「哪個比較快」。
 7. 隨時進入「檢查答案」；完整、部分或全空白均可明確提交。提交後才顯示正誤、分項分數及解釋。
 
-兩個情境互不依賴，可直接切換並保留各自草稿。建議先同軸後皮帶，但不以答對第一題解鎖第二題。既有量度結果可重播展平動畫，不會因此重新量度或改分。
+兩個情境互不依賴，可直接切換並保留各自草稿。建議先同軸後皮帶，但不以答對第一題解鎖第二題。既有量度結果可返回圓圖、再次展平或重播展平動畫，不會因此重新量度或改分。
 
 ### 同軸與皮帶圖示
 
-- A 一律代表較小半徑，B 一律代表較大半徑；全活動維持 A 藍、B 橙並附文字標籤，顏色不是唯一辨認依據。
+- A 一律代表較小半徑，B 一律代表較大半徑；全活動維持 A 藍、B 橙，圖旁固定圖例標明 A／B。字母不跟著旋轉點移動，顏色不是唯一辨認依據。
 - 同軸用單一剛性圓盤上的 A、B 兩點，初始在同一半徑方向，以細參考線顯示共同掃角；不畫成兩個互相摩擦的輪。
 - 皮帶用 A 小輪、B 大輪，B 是主動輪；普通外公切線形成不交叉皮帶，兩輪同向轉動。輪緣標記固定在輪上，皮帶記號獨立隨帶走，不能永久黏在輪緣標記上。
 - 皮帶直線段要與兩輪實際相切，輪心距大於半徑和；不能用兩條穿過輪緣的水平線偽裝不同大小輪的切線。
@@ -125,7 +125,7 @@ P1 已同步新增 catalogue、manifest 與測試登記；發布前須保持三�
 | rB | q × rA | 不獨立亂數，保持題目關係 |
 | 主動角速率 Ω | 0.35、0.45、0.55、0.65 rad/s 四選一 | 正常數秒量度可觀察弧線，又可自然跨圈 |
 | 初始角 | 兩標記均由同一參考方向開始；之後依各自角速率運動 | 不額外隨機角位置增加認知負擔 |
-| 皮帶輪心距 | 3(rA+rB) | 保證不重疊及存在外公切線；繪圖同比例縮放 |
+| 皮帶輪心距 | 1.6(rA+rB) | 仍不重疊並存在外公切線；縮短兩輪間距，讓小屏幕輪與軌跡有足夠面積 |
 | 兩情境抽題 | 各自抽取合法參數；保存具體參數索引 | 新 Moodle attempt／新 standalone session 抽新題；同 attempt 續作不重抽 |
 
 上述半徑抽題是本計劃的建議；使用者已要求的是隨機驅動速度。實作前依審查結果可固定半徑題組，物理與評分設計不因此改變。
@@ -155,9 +155,9 @@ P1 已同步新增 catalogue、manifest 與測試登記；發布前須保持三�
 |---|---|
 | Three regions | Header：標題、兩情境按鈕、檢查入口、fullscreen；stage：輪／軌跡／尺；panel：計時控制、讀數、答案及回饋 |
 | Fullscreen | 外層 main 標 `data-sim-fullscreen-target`，header 標 `data-sim-fullscreen`；沿用 `shared/fullscreen.js`，右上 44px 目標、20px 圖示，所有 phase 可用 |
-| Desktop / tablet | 寬度 ≥ 900px 時左右排列；panel 320–380px，其餘給 stage |
+| Desktop / tablet | 寬度 ≥ 820px 時左右排列；panel 約 280–320px，其餘給 stage |
 | Control-panel classification | bounded split-panel；學生輸入答案時仍需看尺和讀數，panel 自己捲動，activity document 無第三個垂直捲動層 |
-| Phone | Header → stage → panel；stage 起始約 42dvh、最低 11rem；其餘高度給 panel。短橫屏改左右配置，不能只縮小字體 |
+| Phone | Header → stage → panel；stage 目標約 60dvh、最低 13rem，並為可捲動 panel 保留至少約 7rem；窄直屏把皮帶裝置縱向呈現並裁去多餘留白，短橫屏改左右配置 |
 | Phone text | 正文及輸入 16px，次要字 14px；主要讀數／尺標於實際縮放後仍可讀，按鈕至少 44px |
 | 短播放器 | 320×225 等極短尺寸採緊湊雙欄、精簡文字；仍需可到達最後答案與提交鈕，不增加 stage 內捲動 |
 | Viewports | 320×500、390×500、390×600、390×844、1280×800；另測 320×225、480×320、工具列變動、軟鍵盤及 200% zoom |
@@ -180,7 +180,7 @@ P1 已同步新增 catalogue、manifest 與測試登記；發布前須保持三�
 |---|---|---|---|
 | 開始量度 | 合法題目參數 | 未開始只有示範轉動，沒有成績資料 | 開始或檢查 |
 | 停止量度 | measuring 且 elapsed > 0 | elapsed = 0 不創造偽測量 | 繼續、重新量度或檢查 |
-| 展平 | 已停止且正時間的記錄 | 不能替學生自動量度 | 展平或檢查 |
+| 展平／返回圓圖 | 已停止且正時間的記錄 | 不能替學生自動量度；返回圓圖只改暫態視圖，量度及答案不變 | 展平、返回、重播或檢查 |
 | 四個數值答案 | 同情境 unwrapped 記錄 | 重新量度時清除；未量度保持未答，其他分項不受影響 | 作答、重播、換題或檢查 |
 | 比較與原因 | 題目裝置條件 | 不依賴某次數值答案，不連鎖扣分 | 可獨立作答或檢查 |
 | 檢查返回編輯 | 原 activeCase 及每個 case 狀態 | 不補造已完成旗標、不重抽題 | 改答案後再次按檢查 |
@@ -191,7 +191,7 @@ P1 已同步新增 catalogue、manifest 與測試登記；發布前須保持三�
 
 | Decision | Activity specification and reason |
 |---|---|
-| Notation | r、s、Δt、Δθ、v、ω 皆為量的大小；m、s、rad、m/s、rad/s 正體，變量斜體，A/B 下標清楚；不顯示原始 LaTeX |
+| Notation | 所有物理量和公式以原生 MathML 呈現 LaTeX 式字形：r、s、Δt、Δθ、v、ω 變量斜體，A/B 下標清楚，單位 m、s、rad、m/s、rad/s 正體；不顯示原始 LaTeX 或增加外部排版套件 |
 | Arrow graphics | 僅有裝置轉向及掃角提示；沒有可建構的速度／力向量，向量箭頭評分 N/A |
 | Snap | 不需要：沒有拖點、拖尺或自由作圖，不把正確答案吸附出來 |
 | Touch preview | 不需要：按鈕、輸入與選項不要求精確圖上落點；讀數直接標示，不考手指讀尺位置 |
@@ -272,7 +272,7 @@ Source 及解壓 SCORM 均執行 T0–T3；覆蓋慢滑、雙向快速 flick、�
 
 ## Phase/state matrix
 
-Global view 只有 `task`、`check`；activeCase 為 `coaxial` 或 `belt`。每情境的持久 phase 為 `ready`、`measuring`、`captured`、`unwrapped`。動畫播放／暫停是暫態；量度中的 elapsed 與開始角是語意狀態，必須保存。
+Global view 只有 `task`、`check`；activeCase 為 `coaxial` 或 `belt`。每情境的持久 phase 為 `ready`、`measuring`、`captured`、`unwrapped`。動畫播放／暫停及從展平返回圓圖的視圖切換是暫態；量度中的 elapsed 與開始角是語意狀態，必須保存。
 
 | Phase / variant | 必要狀態 | 不得出現／保留資料 | 還原與合法續作 |
 |---|---|---|---|
@@ -326,7 +326,7 @@ Draft 與 review 使用同一權威 answer 結構；review 另外由 shared enve
 |---|---|
 | Authoritative | 題目索引、phase、開始角、累積時間、原始答案、activeCase/view；這些足以重新計算、重畫與續作 |
 | Derived | r、Ω、v、ω、路程、轉角、圈數、讀數、分數、DOM ID、尺量程及點坐標；由上述狀態重建，不信任外部提供的快取 |
-| Transient | requestAnimationFrame 時戳、目前是否播放、純觀察角、展平動畫進度、焦點、hover、DOM、fullscreen；不保存 |
+| Transient | requestAnimationFrame 時戳、目前是否播放、純觀察角、展平動畫進度、返回圓圖視圖、焦點、hover、DOM、fullscreen；不保存 |
 | Validation | 有限數、索引、版本、phase 組合、同軸相位、答案長度、選項 key、正時間依賴；合法錯答案與非法模型資料分開 |
 | Compatibility | 第一版只接受 v1 組合；未來先決定已提交／pending 的舊版驗證與重評政策，不默默用新規則改舊分 |
 | Size | 兩 case、八個最長數值字串、最長原因 key、跨圈與所有 shared envelope 最壞組合，實測 ≤4000 UTF-8 bytes；不保存軌跡歷史／圖片 |
@@ -431,12 +431,12 @@ P1 內部可以分批提交可審閱的 model、UI、scoring 工作，不把每�
 - 新建本活動自己的 Site，不重用平拋或其他活動的 project ID。首次預設 owner-private；往後保留 audience，不自動公開。
 - 使用 Sites 技能的 buildless static HTML/JS 流程。網站來源工作目錄放此 worktree 的忽略目錄 `output/sites/circular-motion-speed-lab/`，其中 dist 包含活動入口及其本地 shared 相依，根 index 導向此活動。
 - 不把整個 simlab checkout 當作 Site source repo，也不讓 Sites helper 改寫 simlab 的 origin／分支。GitHub 開發庫與 Sites 官方來源庫是兩個獨立 commit 記錄，證據中清楚分開。
-- P1 獲准並準備好最小靜態來源後，依技能註冊私人、尚未發布的 Site。首次 `create_site` 成功即記下 project ID；以官方 `set-project-id.mjs` 把 ID 及 static directory 寫入 Site source 的 `.openai/hosting.json`。本活動計劃另記 project ID／URL，避免下輪重新建立網站；通過驗證後才發布可用版本。
+- P1 已註冊並發布私人 Site。project ID 已記下；`.openai/hosting.json` 保存相同 ID 與 static directory。P2 沿用原 Site，不重新建立網站。
 - 更新先 `get_site` 與 `create_source_repository_write_credential`，按官方 `site-workflow.mjs` 開啟／同步該來源，沿用其完整 opening result。複製本輪已驗 runtime 到正確 dist，不帶其他 Site identity、Git metadata、測試或憑證。
 - 官方 helper 接收 stdin JSON，負責 Site source commit/push 與 archive；將回傳的 project_id、commit_sha、archive 原樣交 native publication，不手工偽造來源 commit。
 - owner-private 使用 `save_version_and_deploy_private`，或官方提供的分開 save/deploy 流程。只在 pending/building/publishing 時查狀態；終態失敗即處理／報告，終態 succeeded 才完成。
 - Site 是獨立練習展示：沒有 Moodle API 時依 shared standalone 規則運作，不增加另一套儲存或假 LMS。
-- P0 計劃審查期間沒有建立 Site。P1 已建立私人、未發布的專用 Site；驗證通過後用本輪 commit 所對應的 runtime 正式部署。
+- P0 計劃審查期間沒有建立 Site；P1 已建立並發布私人專用 Site。P2 修正仍使用同一 project ID、私人權限及網址。
 
 ## Package-ready checklist
 
@@ -460,7 +460,7 @@ P1 內部可以分批提交可審閱的 model、UI、scoring 工作，不把每�
 | 項目 | 本輪狀態 |
 |---|---|
 | Worktree 建立／附加 | 已完成，路徑與分支見前文 |
-| 計劃 | 2026-10-21 使用者已批准 P1 實作；前文現行決定已更新 |
+| 計劃 | 2026-10-21 使用者已批准 P1 實作及每輪發布；P2 四項回饋已更新於前文現行決定 |
 | 文件／diff 檢查 | `node tools/check-docs.js plans/36-circular-motion-speed-lab.md` 通過、無 skipped links；staged diff 及 `git diff --check e8800209c53f7e08b19b49ffe09123f5891e1b89...27ff676bd3e8e25f97bd79c778bc231b7efa1683` 均通過 |
 | Committed selection | `npm run test:affected -- --base=e8800209c53f7e08b19b49ffe09123f5891e1b89 --head=27ff676bd3e8e25f97bd79c778bc231b7efa1683 --plan` 通過；mode `docs`，原因 `Only ordinary documentation changed`，browser entries／packages 均為空，無 fallback；只使用原 checkout 的既有 Node dependencies，沒有新增套件 |
 | 計劃 commit／push | 計劃 commit `27ff676bd3e8e25f97bd79c778bc231b7efa1683` 已 push 至 `origin/codex/circular-motion-speed-lab` 並建立 upstream；本節為其後的純文件證據補記 |
@@ -472,4 +472,4 @@ P1 內部可以分批提交可審閱的 model、UI、scoring 工作，不把每�
 | Runtime commit／selection | `c99ca2fa6754879dabd6371d60aad788d73b2b9b` 已 push 至 `origin/codex/circular-motion-speed-lab`。以 base `e8800209c53f7e08b19b49ffe09123f5891e1b89`、head `c99ca2fa6754879dabd6371d60aad788d73b2b9b` 做 committed selection preview：mode `full`、packages `all`，原因 `Shared policy, infrastructure or dependency changed: sim/config.js`；`git diff --check` 通過 |
 | Sites | 私人 project ID `appgprj_6ad85f290a0081919a849c43bdabdde5`，Site source commit `0aecd0507261b60f65befac75364a7331ae42b00`；本機發布 tar SHA-256 `52417561E68016013D3783B7CD68ED5BE1BBA8772CC0C09BE0043001B4D045AB`，服務端 archive hash `sha256:08b038c6618bf54ac62c13333ea57f7544a2547b1734ebdc6ef5cead72b364b8`。Version 1 `appgprj_6ad85f290a0081919a849c43bdabdde5~appgver_6abb95f20a888191be9cf2a3f2e607ae`，deployment `appgdep_6ad866fc0f248191916f537a9bd97568` succeeded；[試用網址](https://circular-motion-speed-lab.ieyp.chatgpt.site)。`get_site` 複核 custom 權限只有 owner 一人、無群組及外部訪客。Site 與 SCORM 來源 runtime bytes 已逐檔 SHA-256 比對一致 |
 
-後續證據追加於本節並標明對應 commit；改動決策時更新前文現行規格，過期結果標示歷史，不能用舊通過記錄代替新版本驗證。
+上表其餘 runtime、測試和 Sites 證據對應 P1，屬歷史記錄。P2 對應的新證據在本輪 commit、push 及 Sites 更新後追加；不能以 P1 通過記錄代替新版本驗證。

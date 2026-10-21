@@ -23,23 +23,37 @@ async function fullFlow(cdp,url,width,height){
     };
     const attempt=async()=>{click('startButton');await wait(180);click('stopButton');click('unwrapButton');await wait(1250);return fill();};
     const coax=await attempt();
+    const measuredBefore=JSON.parse(window.SimScorm.getLocalLog().filter(x=>x.key==='cmi.suspend_data').at(-1).value).answer.cases.coaxial.measurement.elapsed;
+    click('orbitButton');
+    const orbit={viewBox:document.getElementById('motionSvg').getAttribute('viewBox'),labels:document.getElementById('motionSvg').querySelectorAll('text').length,
+      canUnwrap:!document.getElementById('unwrapButton').hidden,answer:document.querySelector('[data-answer=vA]').value};
+    click('unwrapButton');await wait(1250);
+    const measuredAfter=JSON.parse(window.SimScorm.getLocalLog().filter(x=>x.key==='cmi.suspend_data').at(-1).value).answer.cases.coaxial.measurement.elapsed;
     const sceneA=document.getElementById('motionSvg').innerHTML;
     document.querySelector('[data-case="belt"]').click();
-    const beltBox=document.getElementById('motionSvg').querySelector('path').getBBox();
+    const beltPath=document.getElementById('motionSvg').querySelector('path'),beltBox=beltPath.getBBox(),beltRect=beltPath.getBoundingClientRect(),svgRect=document.getElementById('motionSvg').getBoundingClientRect();
     const belt=await attempt();
     const sceneB=document.getElementById('motionSvg').innerHTML;
+    const mathCount=document.querySelectorAll('math').length,mathReadout=!!document.querySelector('#radiusReadout math, #readingsCard math');
+    const stageBox=document.getElementById('motionStage').getBoundingClientRect(),panelBox=document.querySelector('.circle-panel').getBoundingClientRect();
     click('checkButton');const check=document.getElementById('checkSummary').innerText;
     click('submitButton');
     const score=document.getElementById('resultSummary').innerText;
     const panel=document.querySelector('.circle-panel'),stage=document.getElementById('motionStage');
-    return {coax,belt,beltBox:{x:beltBox.x,right:beltBox.x+beltBox.width},sceneA,sceneB,check,score,review:!document.getElementById('resultSection').hidden,
+    return {coax,belt,orbit,measuredBefore,measuredAfter,beltBox:{x:beltBox.x,right:beltBox.x+beltBox.width},beltRect:{left:beltRect.left,right:beltRect.right,top:beltRect.top,bottom:beltRect.bottom},svgRect:{left:svgRect.left,right:svgRect.right,top:svgRect.top,bottom:svgRect.bottom},sceneA,sceneB,mathCount,mathReadout,stageHeight:stageBox.height,panelHeight:panelBox.height,stageWidth:stageBox.width,panelWidth:panelBox.width,check,score,review:!document.getElementById('resultSection').hidden,
       documentOverflow:document.documentElement.scrollHeight-document.documentElement.clientHeight,
       panelScroll:panel.scrollHeight-panel.clientHeight,stageTouch:getComputedStyle(stage).touchAction,
       fullscreen:!!document.getElementById('fullscreenButton')};
   })()`);
   assert.ok(result.coax.r.sB>result.coax.r.sA,"outer point must have longer arc");
+  assert.ok(result.orbit.canUnwrap && result.orbit.labels===0 && result.orbit.answer!=="","return to orbit must retain the reading and remove moving labels");
+  assert.equal(result.measuredAfter,result.measuredBefore,"returning and re-unwrapping must not remeasure");
   assert.equal(result.belt.r.sA,result.belt.r.sB,"no-slip wheel rims must travel equally");
   assert.ok(result.beltBox.x>0 && result.beltBox.right<700,"belt tangent loop must remain inside the stage");
+  assert.ok(result.beltRect.left>=result.svgRect.left-2 && result.beltRect.right<=result.svgRect.right+2 && result.beltRect.top>=result.svgRect.top-2 && result.beltRect.bottom<=result.svgRect.bottom+2,"belt must stay visible after responsive rotation");
+  assert.ok(result.mathCount>=12 && result.mathReadout,"physical quantities must use math typography");
+  if(height>=600 && width<=640)assert.ok(result.stageHeight>result.panelHeight*1.5,"phone stage must dominate the panel");
+  if(width>=820 && height>380)assert.ok(result.stageWidth>result.panelWidth*1.5,"desktop stage must dominate the panel");
   assert.match(result.sceneA,/共用|stroke-width="12"/);
   assert.match(result.sceneB,/stroke-width="12"/);
   assert.ok(result.check.includes("已填"));
@@ -89,9 +103,14 @@ async function main(){
       await H.evaluate(cdp,"document.getElementById('stopButton').click();document.getElementById('unwrapButton').click()");await wait(1250);
       await capture("unwrapped");
       await H.evaluate(cdp,"document.querySelector('[data-case=belt]').click()");await capture("belt");
+      await load(cdp,source,320,225);await capture("short");
+      await load(cdp,source,1280,800);await capture("desktop");
     }
     await fullFlow(cdp,source,390,844);
+    await fullFlow(cdp,source,390,600);
+    await fullFlow(cdp,source,320,500);
     await fullFlow(cdp,source,320,225);
+    await fullFlow(cdp,source,820,600);
     await fullFlow(cdp,packaged,1280,800);
     await blankFlow(cdp,packaged);
     assert.deepEqual(errors,[],`browser exceptions: ${errors.join("\n")}`);
