@@ -1,10 +1,10 @@
 # 圓周運動：線速率與角速率量度
 
-狀態：**實施計劃，待使用者審查；尚未開始活動程式實作。**
+狀態：**使用者已批准實作；P1 活動完成主要功能，正進行完整驗證與發布。**
 
 本活動讓學生自行開始及停止量度，把圓周軌跡展平後讀取路程、時間及累積轉角，計算並比較線速率與角速率。以同軸與不打滑皮帶兩個情境對照「相同角速率」與「相同線速率」的不同約束。
 
-依 [新活動模板](NEW-SIMULATION-PLAN-TEMPLATE.md) 展開，遵循 [共同風格](00-shared-platform-and-style.md) 與 [製作及驗證契約](../docs/simulation-scorm-production-guide.md)。共同規則由原文件維護；下列數值、欄位及流程是本活動的具體決策草案。未執行的驗收保持未勾選。
+依 [新活動模板](NEW-SIMULATION-PLAN-TEMPLATE.md) 展開，遵循 [共同風格](00-shared-platform-and-style.md) 與 [製作及驗證契約](../docs/simulation-scorm-production-guide.md)。共同規則由原文件維護；下列數值、欄位及流程是本活動的 P1 決定。未執行的驗收保持未勾選。
 
 ## 使用者已確定的範圍與本次審查項目
 
@@ -17,9 +17,9 @@
 - 軌跡以動畫展成直線，對齊同一把尺，顯示路程、時間及轉角，讓學生計算。
 - 切線方向、短時間位移、速度變化量 Δv 移到第二個活動；向心加速度亦不屬本版，其是否納入第二個活動另議。
 - 本活動使用獨立 worktree；後續每輪完成實作或修正，都要驗證、commit、push，並部署到本活動的同一個 Sites 網站。
-- 先審查本計劃，獲准後才開始實作。
+- 使用者於 2026-10-21 審查計劃並授權在專用 worktree 實作、測試、commit、push 及部署 Sites。
 
-本計劃提出、待審查的具體值：半徑題庫、轉速範圍、讀數精度、100 分配分與 60 分達標線、版面尺寸及第一版功能邊界。這些值不得冒稱已獲使用者批准。
+P1 依已批准計劃採用半徑題庫、轉速範圍、三位有效數字、100 分配分與 60 分達標線及第一版功能邊界；學生試用後可按實際回饋調整。
 
 ## Worktree 與並行開發邊界
 
@@ -29,7 +29,7 @@
 | 分支 | `codex/circular-motion-speed-lab` |
 | 起始分支與 commit | `main`；`e8800209c53f7e08b19b49ffe09123f5891e1b89` |
 | GitHub remote | `origin`，`https://github.com/frenselw/simlab.git` |
-| 本輪變更 | 僅此計劃；不建立活動頁、manifest、目錄條目或網站 |
+| P1 變更 | 活動 runtime、manifest、目錄、測試登記、browser 驗證與本計劃；Sites 使用獨立私有來源 |
 | 活動自有範圍 | `sim/circular-motion-speed-lab/`、本計劃、對應 manifest、活動專屬 browser driver |
 | 共同編輯點 | `sim/config.js`、`tools/test-registry.js`，以及確有需要時的 mobile-scroll 活動登記 |
 | 共用 runtime | 只引用既有 shared 檔案；不得順便重構或改動其他活動 |
@@ -68,7 +68,7 @@
 | 活動 browser driver | `tools/circular-motion-speed-browser-regression.js`；同一入口驗 source 與真正解壓 package |
 | Manifest | `sim/manifests/circular-motion-speed-lab.xml`；列齊本活動六個 runtime 檔案及四個 shared 相依 |
 
-本表中的活動自有檔案尚未建立。只有確實出現無法合理放入既有責任的需求，才調整檔案數；不先建立空 helper。
+活動自有檔案已按本表建立，沒有新抽象或外部相依。
 
 ## Catalogue metadata (`sim/config.js`)
 
@@ -81,7 +81,7 @@
 | tags | physics、mechanics、circular-motion、measurement、belt-drive、scorm |
 | status | 實作期間 planned；可部署並通過相應驗證後才 active |
 
-本輪不修改 catalogue。第一個可部署版本須同步完成條目、manifest 與測試登記，不能先發布缺少相依的活動。
+P1 已同步新增 catalogue、manifest 與測試登記；發布前須保持三者一致。
 
 ## 學生流程與教學呈現
 
@@ -424,7 +424,7 @@ P1 內部可以分批提交可審閱的 model、UI、scoring 工作，不把每�
 7. 取得原生成功結果才宣稱已部署。記錄 GitHub commit、Site source commit、archive hash、saved version、deployment ID、實際 URL 與驗證限制。
 8. 若發布證據只在部署後才取得，可再作一個純文件 commit 並 push 補記；runtime 未變不用為這個記錄提交重發完全相同網站。任何 runtime 變更必須重新驗證及部署。
 
-只改計劃／文件的輪次仍 commit、push，但未改網站且沒有新活動產物時不建立空網站或無意義部署。這不豁免任何已完成實作／修正輪次的 Sites 發布要求。本輪停在 P0，由使用者審查後才進 P1。
+只改計劃／文件的輪次仍 commit、push，但未改網站且沒有新活動產物時不建立空網站或無意義部署。這不豁免任何已完成實作／修正輪次的 Sites 發布要求。P0 已完成；本輪為獲准的 P1。
 
 ### Sites 發布規格
 
@@ -436,7 +436,7 @@ P1 內部可以分批提交可審閱的 model、UI、scoring 工作，不把每�
 - 官方 helper 接收 stdin JSON，負責 Site source commit/push 與 archive；將回傳的 project_id、commit_sha、archive 原樣交 native publication，不手工偽造來源 commit。
 - owner-private 使用 `save_version_and_deploy_private`，或官方提供的分開 save/deploy 流程。只在 pending/building/publishing 時查狀態；終態失敗即處理／報告，終態 succeeded 才完成。
 - Site 是獨立練習展示：沒有 Moodle API 時依 shared standalone 規則運作，不增加另一套儲存或假 LMS。
-- 本輪計劃審查期間不建立 Site，也不部署此計劃的網頁版。本節是活動獲准後的持續交付要求。
+- P0 計劃審查期間沒有建立 Site。P1 已建立私人、未發布的專用 Site；驗證通過後用本輪 commit 所對應的 runtime 正式部署。
 
 ## Package-ready checklist
 
@@ -460,11 +460,15 @@ P1 內部可以分批提交可審閱的 model、UI、scoring 工作，不把每�
 | 項目 | 本輪狀態 |
 |---|---|
 | Worktree 建立／附加 | 已完成，路徑與分支見前文 |
-| 計劃 | 已依模板撰寫，待使用者審查 |
+| 計劃 | 2026-10-21 使用者已批准 P1 實作；前文現行決定已更新 |
 | 文件／diff 檢查 | `node tools/check-docs.js plans/36-circular-motion-speed-lab.md` 通過、無 skipped links；staged diff 及 `git diff --check e8800209c53f7e08b19b49ffe09123f5891e1b89...27ff676bd3e8e25f97bd79c778bc231b7efa1683` 均通過 |
 | Committed selection | `npm run test:affected -- --base=e8800209c53f7e08b19b49ffe09123f5891e1b89 --head=27ff676bd3e8e25f97bd79c778bc231b7efa1683 --plan` 通過；mode `docs`，原因 `Only ordinary documentation changed`，browser entries／packages 均為空，無 fallback；只使用原 checkout 的既有 Node dependencies，沒有新增套件 |
 | 計劃 commit／push | 計劃 commit `27ff676bd3e8e25f97bd79c778bc231b7efa1683` 已 push 至 `origin/codex/circular-motion-speed-lab` 並建立 upstream；本節為其後的純文件證據補記 |
-| Runtime／SCORM／browser／真手機／Moodle | 尚未實作或執行，所有交付 gate 未通過 |
-| Sites | 尚未建立；無 project ID、URL 或已部署版本 |
+| Runtime／SCORM | 六個活動 runtime、四個 shared 相依、manifest、catalogue 與測試登記已建立；`npm run check` 通過（JavaScript 與 SCORM 1.2 manifest profile）；`npm run check:tests` 通過，251 entries／34 browser／48 helpers |
+| Node | `npm run test:fast` 通過 217/217；報告 `output/ci-tests/local-1792564606800-20820/report.json` |
+| 活動 browser | `node tools/circular-motion-speed-browser-regression.js`：source／解壓 package、390×844／320×225／1280×800、兩情境 100 分、空白 0 分、fullscreen、standalone refresh 通過；皮帶相切位置經圖片核對並增加範圍斷言 |
+| 手機 T0–T3 | trusted-touch 報告 `output/playwright/mobile-scroll-acceptance-T0-standalone.json`、`T1-phases-package.json`、`T2-phases-source.json`、`T3-phases-package.json`：完成 1／8／12／3 列（T2 含 committed），errors 0、issues 0；真手機／真 Moodle T4 待驗 |
+| 全套測試／package:all | `npm test` 正在執行；完成前不得標為通過。`npm run package:all` 待執行 |
+| Sites | 私人專用 project ID `appgprj_6ad85f290a0081919a849c43bdabdde5`；`output/sites/circular-motion-speed-lab/.openai/hosting.json` 已保存。擁有人權限已核對：custom 只含 owner 一人；尚未發布，無 live URL |
 
 後續證據追加於本節並標明對應 commit；改動決策時更新前文現行規格，過期結果標示歷史，不能用舊通過記錄代替新版本驗證。

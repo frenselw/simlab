@@ -77,6 +77,14 @@ const simulationList = [
     status: "active"
   },
   {
+    title: "圓周運動：線速率與角速率量度",
+    folder: "circular-motion-speed-lab",
+    categories: ["Mechanics"],
+    description: "自行計時記錄同軸與皮帶傳動的圓周軌跡，展平讀數並比較線速率與角速率。",
+    tags: ["physics", "mechanics", "circular-motion", "measurement", "belt-drive", "scorm"],
+    status: "active"
+  },
+  {
     title: "直線運動：平均速度與瞬時速度",
     folder: "linear-motion-velocity-lab",
     categories: ["Mechanics"],
