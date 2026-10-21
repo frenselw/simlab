@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest identifier="circular-motion-vector-lab" version="1.0"
+ xmlns="http://www.imsproject.org/xsd/imscp_rootv1p1p2"
+ xmlns:adlcp="http://www.adlnet.org/xsd/adlcp_rootv1p2"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://www.imsproject.org/xsd/imscp_rootv1p1p2 imscp_rootv1p1p2.xsd http://www.adlnet.org/xsd/adlcp_rootv1p2 adlcp_rootv1p2.xsd">
+ <metadata><schema>ADL SCORM</schema><schemaversion>1.2</schemaversion></metadata>
+ <organizations default="ORG-CIRCULAR-VECTOR"><organization identifier="ORG-CIRCULAR-VECTOR"><title>圓周運動：由位移到速度與加速度方向</title><item identifier="ITEM-CIRCULAR-VECTOR" identifierref="RES-CIRCULAR-VECTOR"><title>圓周運動：由位移到速度與加速度方向</title></item></organization></organizations>
+ <resources><resource identifier="RES-CIRCULAR-VECTOR" type="webcontent" adlcp:scormtype="sco" href="circular-motion-vector-lab/index.html">
+  <file href="circular-motion-vector-lab/index.html"/><file href="circular-motion-vector-lab/styles.css"/><file href="circular-motion-vector-lab/main.js"/>
+  <file href="circular-motion-vector-lab/model.js"/><file href="circular-motion-vector-lab/persistence.js"/><file href="circular-motion-vector-lab/scoring.js"/><file href="circular-motion-vector-lab/ui-runtime.js"/>
+  <file href="shared/styles.css"/><file href="shared/scorm.js"/><file href="shared/activity-flow.js"/><file href="shared/fullscreen.js"/>
+ </resource></resources>
+</manifest>

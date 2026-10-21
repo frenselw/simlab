@@ -172,4 +172,48 @@ async function runProjectileOperations({cdp,childEval,observation,prepare,delay}
   }
   return results;
 }
-module.exports={runMirrorOperations,runHouseholdOperations,runProjectileOperations,projectileReadingGeometry};
+async function runCircularVectorOperations({cdp,childEval,observation,prepare,delay},spec){
+  if(!await childEval("window.__circularVectorApp?.controller.mode==='edit'"))return [];
+  const results=[],endings=spec.id==='initial'?['complete','cancel','lostcapture','secondary','blur','navigate','check']:['complete'];let id=20000;
+  for(const ending of endings){
+    await prepare('stage','middle');
+    await childEval("document.getElementById('controlPanel').scrollTop=0");
+    const point=await childEval(`(()=>{const app=window.__circularVectorApp,s=app.getState(),M=window.CircularVectorModel,g=M.scene(s),p=app.getGeometry().position,r=document.getElementById('positionHandle').getBoundingClientRect(),f=frameOffset();window.__auditEvents=[];const x=r.left+r.width/2,y=r.top+r.height/2;return{x:x+f.left,y:y+f.top,hit:document.elementFromPoint(x,y)===document.getElementById('positionHandle'),gap:s.observation[M.GAP_KEYS[s.task]],target:s.observation[M.GAP_KEYS[s.task]]===5?35:5,theta:g.thetaA,sense:g.sense,cx:p.left+p.center[0]+f.left,cy:p.top+p.center[1]+f.top,radius:p.r};})()`);
+    if(!point.hit)throw Error('Circular B handle is not exposed');
+    const before=await observation(),pointer=id++,touch=p=>({x:p.x,y:p.y,id:pointer,radiusX:1,radiusY:1,force:1}),samples=[];
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[touch(point)]});samples.push(await observation());
+    let end;
+    for(let step=1;step<=6;step++){const theta=point.theta+point.sense*(point.gap+(point.target-point.gap)*step/6)*Math.PI/180;end={x:point.cx+point.radius*Math.cos(theta),y:point.cy-point.radius*Math.sin(theta)};await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[touch(end)]});await delay(15);samples.push(await observation());}
+    const preview=await childEval(`(()=>{const p=document.getElementById('preview').getBoundingClientRect(),b=document.getElementById('positionHandle').getBoundingClientRect();return{visible:!document.getElementById('preview').hidden,intercepts:getComputedStyle(document.getElementById('preview')).pointerEvents!=='none',coversTarget:p.left<b.left+b.width/2&&p.right>b.left+b.width/2&&p.top<b.top+b.height/2&&p.bottom>b.top+b.height/2};})()`);
+    if(ending==='cancel')await cdp.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});
+    else{
+      if(ending==='lostcapture'){await childEval(`(()=>{const e=document.getElementById('positionHandle'),p=window.__auditEvents.find(e=>e.type==='pointerdown'&&e.pointerType==='touch');if(!p||!e.hasPointerCapture(p.pointerId))throw Error('Missing actual B pointer capture');e.releasePointerCapture(p.pointerId);})()`);await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[touch(end)]});}
+      if(ending==='secondary')await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[touch(end),{...touch(end),x:end.x+20,id:id++}]});
+      if(ending==='blur')await childEval("window.dispatchEvent(new window.Event('blur'))");
+      if(ending==='navigate')await childEval("document.querySelector('[data-task=\"'+((window.__circularVectorApp.getState().task+1)%3)+'\"]').click()");
+      if(ending==='check')await childEval("document.getElementById('checkButton').click()");
+      await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    }
+    await delay(100);const after=await observation(),issues=[];
+    for(const sample of [...samples,after]){
+      for(const key of ['host','document','documentX','panel','outerWindow','immediateParent'])if(Math.abs(sample[key]-before[key])>1.1)issues.push('owned drag moved '+key);
+      if(before.iframe&&sample.iframe&&(Math.abs(sample.iframe.y-before.iframe.y)>1.1||Math.abs(sample.iframe.x-before.iframe.x)>1.1))issues.push('owned drag moved iframe');
+      if(before.viewport&&sample.viewport&&['pageTop','pageLeft','offsetTop','offsetLeft'].some(k=>Math.abs(sample.viewport[k]-before.viewport[k])>1.1))issues.push('owned drag moved visual viewport');
+    }
+    const old=before.state.hooks.__circularVectorApp,next=after.state.hooks.__circularVectorApp;
+    if(!after.events.some(e=>e.type==='pointerdown'&&e.isTrusted&&e.pointerType==='touch'))issues.push('missing trusted B touch');
+    if(!after.events.some(e=>e.type==='pointermove'&&e.isTrusted))issues.push('missing B pointermove');
+    if(!preview.visible||preview.intercepts||preview.coversTarget)issues.push('B preview is hidden, intercepts input or covers its target');
+    if(JSON.stringify(old.answers)!==JSON.stringify(next.answers))issues.push('B drag changed assessed answers');
+    for(const sample of samples)if(JSON.stringify(sample.state.hooks.__circularVectorApp)!==JSON.stringify(old)||sample.state.suspend!==before.state.suspend)issues.push('drag saved uncommitted state');
+    if(ending==='complete'){
+      if(!after.events.some(e=>e.type==='pointerup'&&e.isTrusted)||after.events.some(e=>e.type==='pointercancel'))issues.push('B completion missed pointerup');
+      const key=['positionGapDeg','velocityGapDeg','transferGapDeg'][old.task];if(next.observation[key]!==point.target)issues.push('B completion did not save expected angle');
+      for(const k of Object.keys(old.observation))if(k!==key&&next.observation[k]!==old.observation[k])issues.push('B changed another page interval');
+    }else if(JSON.stringify(old.observation)!==JSON.stringify(next.observation))issues.push('B cancellation did not roll back');
+    if(await childEval("!document.getElementById('preview').hidden||window.__circularVectorApp.isDragging()"))issues.push('B preview/capture remains after gesture');
+    results.push({case:'circular-vector-B-'+ending,point,preview,before,after,samples,issues:[...new Set(issues)]});
+  }
+  return results;
+}
+module.exports={runMirrorOperations,runHouseholdOperations,runProjectileOperations,projectileReadingGeometry,runCircularVectorOperations};

@@ -36,6 +36,24 @@ function mirror(id,kinds,extra={}) {
   return {id,settleMs:400,prepare:prepare+kinds.slice(1).map(k=>`click('[data-action="add"][data-segment="${k}"]');`).join(''),...extra};
 }
 function activityProfiles(slug) {
+  if(slug==='circular-motion-vector-lab'){
+    const M=require('../sim/circular-motion-vector-lab/model.js'),P=require('../sim/circular-motion-vector-lab/persistence.js'),T=require('../sim/circular-motion-vector-lab/test-support.js');
+    const restored=(id,s,continuation=['#checkButton',`[data-return="${s.task}"]`],extra={})=>({id,prepare:`const s=${JSON.stringify(P.draft(s))};window.CircularVectorPersistence.validate(s,'draft');return restore('${slug}',s);`,continue:continuation,expect:'Boolean(window.__circularVectorApp.getState())',...extra});
+    const profiles=[{id:'initial'}];
+    for(let task=0;task<3;task++){
+      for(const full of [false,true]){const s=full?T.filled():M.fresh(()=>.1);s.task=task;s.observation[M.GAP_KEYS[task]]=full?5:60;profiles.push(restored(`task-${task}-${full?'answered':'blank'}`,s));}
+    }
+    for(const [id,from,to]of [['half','U',null],['reversed','V','U'],['origin','S','V']]){const s=M.fresh(()=>.9);s.task=1;s.observation.velocityGapDeg=31;s.answers.deltaFrom=from;s.answers.deltaTo=to;profiles.push(restored('difference-'+id,s));}
+    const full=T.filled();profiles.push(restored('check',full,['#checkButton'],{noStageReason:'正式check頁將舞台track設為零，全高面板展示檢查內容。'}));
+    for(const mode of ['submitted','pending','committed']){
+      for(const task of mode==='committed'?[1]:[0,1,2]){
+        const beforeContinue=mode==='pending'?'auditHost.__failFinal=true;':mode==='committed'?"auditHost.API.LMSFinish=()=> 'false';":'';
+        profiles.push(restored(`${mode}-${task}`,full,['#checkButton','#submitButton',`[data-task="${task}"]`],{beforeContinue}));
+      }
+    }
+    profiles.push(restored('renderer-error',full,[],{beforeContinue:"const e=document.getElementById('positionSvg');Object.defineProperty(e,'innerHTML',{set(){throw Error('SVG failure fixture');}});window.__circularVectorApp.controller.navigate(0);",expect:"window.__circularVectorApp.controller.mode==='technical'",noStageReason:'圖像失敗時舞台隱藏，只顯示技術訊息。'}));
+    return profiles;
+  }
   if(slug==='horizontal-projectile-lab'){
     const restored=(id,state,continuation,extra={})=>({id,prepare:`const s=${JSON.stringify(projectilePersistence.draft(state))};window.ProjectilePersistence.validate(s,'draft');return restore('horizontal-projectile-lab',s);`,continue:continuation,...extra});
     const filled=projectile.filled();
@@ -119,4 +137,11 @@ function profiles(slug) {
     return {...profile,...(checkOnly||conclude?{noStageReason:'此正式 phase 使用全高控制面板；production layout 隱藏舞台，G1/G4 舞台手勢不適用。'}:{})};
   });
 }
-module.exports={profiles};
+function standaloneProfiles(slug){
+  if(slug!=='circular-motion-vector-lab')return [{id:'initial'}];
+  return [{id:'initial'},click('task-1',['[data-task="1"]']),click('task-2',['[data-task="2"]']),
+    click('check',['#checkButton'],{noStageReason:'正式check頁將舞台track設為零，全高面板展示檢查內容。'}),
+    ...[0,1,2].map(task=>click('submitted-'+task,['#checkButton','#submitButton',`[data-task="${task}"]`])),
+    {id:'renderer-error',prepare:"const e=document.getElementById('positionSvg');Object.defineProperty(e,'innerHTML',{set(){throw Error('SVG failure fixture');}});window.__circularVectorApp.controller.navigate(0);",expect:"window.__circularVectorApp.controller.mode==='technical'",noStageReason:'圖像失敗時舞台隱藏，只顯示技術訊息。'}];
+}
+module.exports={profiles,standaloneProfiles};

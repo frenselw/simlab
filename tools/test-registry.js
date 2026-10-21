@@ -5,6 +5,11 @@ const {groups:dcGroups}=require('./circuit-test-groups');
 const root=path.resolve(__dirname,'..');
 
 const registeredTests = [
+  'sim/circular-motion-vector-lab/model.test.js',
+  'sim/circular-motion-vector-lab/scoring.test.js',
+  'sim/circular-motion-vector-lab/persistence.test.js',
+  'sim/circular-motion-vector-lab/lifecycle.test.js',
+  {file:'tools/circular-motion-vector-browser-regression.js',kind:'browser',scope:'circular-motion-vector-lab'},
   'sim/horizontal-projectile-lab/model.test.js',
   'sim/horizontal-projectile-lab/scoring.test.js',
   'sim/horizontal-projectile-lab/persistence.test.js',

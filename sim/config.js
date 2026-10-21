@@ -1,4 +1,5 @@
 const simulationList = [
+  {title:'圓周運動：由位移到速度與加速度方向',folder:'circular-motion-vector-lab',categories:['Mechanics'],description:'縮短兩個時刻的間隔，觀察位移方向、建構速度變化量，判斷瞬時速度與向心加速度方向。',tags:['physics','mechanics','circular-motion','displacement','velocity-change','centripetal-acceleration','vectors','scorm'],status:'active'},
   {title:'平拋運動：軌跡量度與擬合',folder:'horizontal-projectile-lab',categories:['Mechanics'],description:'調槽留印並讀尺，自動描點後擬合；選公式計出各點初速度，再求平均初速度。',tags:['physics','mechanics','projectile-motion','measurement','curve-fitting','scorm'],status:'active'},
   {title:'家庭電路工作台',folder:'circuit-household-workbench',categories:['Electricity'],description:'用小型電路探索火線、零線、地線、人體接觸與保護裝置。',tags:['physics','electricity','household','workbench'],status:'active'},
   {title:"交流電路工作台",folder:"circuit-ac-workbench",categories:["Electricity"],description:"搭建交流、電容電感與變壓器電路，觀察波形、有效值及能量交換。",tags:["physics","electricity","ac","capacitor","inductor","transformer","workbench"],status:"active"},

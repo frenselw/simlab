@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>圓周運動：由位移到速度與加速度方向</title><link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../shared/styles.css"><link rel="stylesheet" href="styles.css">
+  <script defer src="../shared/scorm.js"></script><script defer src="../shared/activity-flow.js"></script><script defer src="../shared/fullscreen.js"></script>
+  <script defer src="model.js"></script><script defer src="persistence.js"></script><script defer src="scoring.js"></script><script defer src="ui-runtime.js"></script><script defer src="main.js"></script>
+</head>
+<body>
+<main id="app" class="sim-app" data-sim-fullscreen-target>
+  <header class="sim-header" data-sim-fullscreen>
+    <div class="heading"><h1>圓周運動</h1><p id="status">位移、速度與加速度方向</p></div>
+    <nav id="taskNav" aria-label="探究任務"><button type="button" data-task="0">1 位移與速度</button><button type="button" data-task="1">2 速度變化與加速度</button><button type="button" data-task="2">3 遷移挑戰</button></nav>
+    <select id="compactNav" aria-label="選擇探究任務"><option value="0">1 位移與速度</option><option value="1">2 速度變化與加速度</option><option value="2">3 遷移挑戰</option></select>
+    <button id="checkButton" type="button">檢查答案</button>
+  </header>
+  <section id="stage" class="sim-stage" aria-label="圓周運動圖像">
+    <div id="positionDiagram" class="diagram"><svg id="positionSvg" role="img" aria-label="同一物體在較早 A、較後 B 的位置"></svg><button id="positionHandle" data-position-handle type="button" aria-label="沿圓周移動較後位置 B；方向鍵微調時間間隔">B</button></div>
+    <div id="velocityDiagram" class="diagram" hidden><svg id="velocitySvg" role="img" aria-label="平移至共同起點的兩個速度與學生連線"></svg></div>
+    <div id="preview" aria-label="B 附近的局部放大預覽" hidden><span>局部放大</span><svg id="previewSvg" role="img" aria-label="A、B 及位移的放大圖"></svg></div>
+  </section>
+  <section id="controlPanel" class="sim-panel" aria-label="操作與作答面板">
+    <div id="notice" role="status" hidden></div><button id="saveRetry" type="button" hidden>重試保存</button>
+    <section id="resultPanel" hidden><h2 id="resultTitle"></h2><p id="scoreText"></p><button id="retryFinal" type="button" hidden>重試提交</button></section>
+    <section id="learningPanel">
+      <h2 id="taskTitle"></h2><p id="instruction"></p>
+      <section id="vectorControls" hidden aria-label="建構速度變化量">
+        <h3>連出「末速度 − 初速度」</h3><p id="nodePrompt" role="status"></p>
+        <div class="node-buttons"><button type="button" data-vector-node="S">共同起點 <b>S</b></button><button type="button" data-vector-node="U">初速度端 <b>U</b></button><button type="button" data-vector-node="V">末速度端 <b>V</b></button></div>
+        <div id="vectorEdits" class="button-row secondary"><button id="redraw" type="button" data-answer-action>重新作圖</button><button id="changeEnd" type="button" data-answer-action>改終點</button></div>
+      </section>
+      <div id="timeControls" class="button-row"><button id="shorten" type="button">縮短時間</button><button id="lengthen" type="button">加長時間</button></div>
+      <div id="readouts" class="readouts"><span>時間間隔 Δt <output id="timeReadout"></output></span><span id="distanceGroup">位移大小 |Δr| <output id="distanceReadout"></output></span></div>
+      <div id="definition" class="definition"></div>
+      <div id="questions"></div>
+      <p id="diagramLegend" class="caption"></p>
+      <p class="caption">A、B 是同一物體的兩個時刻。把 B 拉近 A 是縮短時間，物體的轉向和速率不變。</p>
+      <div id="editFooter" class="footer"><button id="clearTask" type="button" data-answer-action>清除本頁答案</button><button id="nextTask" type="button" class="primary"></button></div>
+    </section>
+    <section id="checkPanel" hidden><h2>檢查目前作答</h2><p>未答項為 0 分；已完成的部分保留得分。可以返回修改，或直接提交目前答案。</p><div id="checkSummary"></div><button id="submitButton" class="primary" type="button">提交目前答案</button></section>
+    <section id="feedback" hidden><h2>分項回饋</h2><p>方向與理由分開計分；作圖分為端點識別與相減箭向。</p><div id="feedbackList"></div></section>
+  </section>
+</main>
+</body>
+</html>

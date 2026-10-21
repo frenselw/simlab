@@ -36,6 +36,7 @@ if(args.nested)report.host='same-origin scrollable outer page; bounded non-scrol
 report.topology=topology;
 if (!catalogue.length || (selected && [...selected].some(slug => !catalogue.some(s => s.folder === slug)))) throw new Error('Missing activity coverage');
 function selectedProfiles(slug) {
+  if(mode==='standalone'&&args.phases==='all'&&slug==='circular-motion-vector-lab')return A.standaloneProfiles(slug);
   if(slug==='circuit-household-workbench'){const profiles=A.profiles(slug);return args.phases==='all'?profiles:profiles.filter(p=>p.id==='initial');}
   return args.phases==='all' ? A.profiles(slug) : slug==='centre-of-mass-investigation-lab' ? String(args.parts||'1,2,3').split(',').map(part=>({id:'part-'+part,part:Number(part)})) : [{id:'initial'}];
 }
@@ -82,7 +83,7 @@ async function observation() {
     const rect=e=>{if(!e)return null;const r=e.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height};};
     const vv=w=>w.visualViewport?Object.fromEntries(['pageTop','pageLeft','offsetTop','offsetLeft','width','height','scale'].map(k=>[k,w.visualViewport[k]])):null;
     const scrollers=[...document.querySelectorAll('*')].filter(e=>{const c=window.getComputedStyle(e);return /auto|scroll/.test(c.overflowY)&&e.scrollHeight>e.clientHeight+1;}).map(e=>({id:e.id,class:e.className?.baseVal||e.className,top:e.scrollTop,range:e.scrollHeight-e.clientHeight,height:e.clientHeight}));
-    const hooks=['__forceCompositionApp','__forceOrthogonalApp','__equilibriumApp','__advancedEquilibriumApp','__reactionApp','__newtonApp','__kinematicsGraphDebug','__centreMassDebug','__hookesLawApp','__staticKineticFrictionApp','__motionComposition','__projectileApp'];
+    const hooks=['__forceCompositionApp','__forceOrthogonalApp','__equilibriumApp','__advancedEquilibriumApp','__reactionApp','__newtonApp','__kinematicsGraphDebug','__centreMassDebug','__hookesLawApp','__staticKineticFrictionApp','__motionComposition','__projectileApp','__circularVectorApp'];
     const state={};for(const name of hooks){const app=window[name];if(app?.getState)state[name]=app.getState();}
     if(window.CircuitHouseholdWorkbench)state.household=window.CircuitHouseholdWorkbench.captureSession();
     if(window.__freeFallDebug?.state)state.freeFall=window.__freeFallDebug.state();
@@ -276,7 +277,7 @@ async function load(base, launch, width, height) {
   await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:args.handoff||args.operations?2:1});
   await cdp.send('Page.navigate',{url:mode==='standalone'?base+launch:base+'/__scroll-audit-host?height='+String(args['iframe-height']||500)+'&src='+encodeURIComponent(launch)});
   for(let i=0;i<100;i++){
-    try {if(await childEval(`document.readyState==='complete'&&Boolean(document.querySelector(${JSON.stringify(stageSelector)}))&&Boolean(document.querySelector(${JSON.stringify(panelSelector)}))`))break;}catch{}
+    try {if(await childEval(`!window.__auditAwaitingReload&&document.readyState==='complete'&&Boolean(document.querySelector(${JSON.stringify(stageSelector)}))&&Boolean(document.querySelector(${JSON.stringify(panelSelector)}))`))break;}catch{}
     if(i===99)throw new Error('Activity did not load '+launch);await H.delay(60);
   }
   await H.delay(250);
@@ -340,7 +341,8 @@ async function main() {
       await load(base,launch+(renderer?'?renderer='+encodeURIComponent(renderer):''),width,height);
       const hooks={'static-kinetic-friction-investigation-lab':'__staticKineticFrictionApp','force-composition-construction-lab':'__forceCompositionApp','force-orthogonal-decomposition':'__forceOrthogonalApp','force-equilibrium-diagram-lab':'__equilibriumApp','force-equilibrium-advanced-diagram-lab':'__advancedEquilibriumApp','newtons-second-law-investigation-lab':'__newtonApp','newtons-third-law-reaction-force-lab':'__reactionApp','newtons-third-law-fullscreen-test':'__reactionApp','centre-of-mass-investigation-lab':'__centreMassDebug'};
       if(hooks[sim.folder]&&!await childEval(`Boolean(window[${JSON.stringify(hooks[sim.folder])}]?.getState?.())`))throw new Error('Activity failed to initialize: '+sim.folder);
-      if(spec.prepare){if(mode==='standalone'&&spec.prepare.includes('restore('))throw new Error('Restore profiles require a mocked LMS host');const outcome=await childEval(`(()=>{const click=selector=>{const e=document.querySelector(selector);if(!e||e.disabled)throw new Error('Required UI continuation unavailable: '+selector);e.click();};const restore=(activity,answer)=>{auditHost.__auditNextValues={'cmi.core.lesson_status':'incomplete','cmi.suspend_data':JSON.stringify(window.SimScorm.makeSnapshot(activity,'draft',answer))};window.location.reload();return {reload:true,answer};};${spec.prepare};return true;})()`);if(outcome?.reload){await H.delay(200);for(let i=0;i<100;i++){try{if(await childEval(`document.readyState==='complete'&&Boolean(document.querySelector(${JSON.stringify(stageSelector)}))`))break;}catch{}if(i===99)throw new Error('Production fixture failed to restore');await H.delay(50);}if(outcome.answer&&!await childEval(`JSON.stringify(JSON.parse(auditHost.__auditValues['cmi.suspend_data']).answer)===${JSON.stringify(JSON.stringify(outcome.answer))}`))throw new Error('Restored canonical fixture was overwritten: '+spec.id);}}
+      // A complete old document may still be alive while reload is pending.
+      if(spec.prepare){if(mode==='standalone'&&spec.prepare.includes('restore('))throw new Error('Restore profiles require a mocked LMS host');const outcome=await childEval(`(()=>{const click=selector=>{const e=document.querySelector(selector);if(!e||e.disabled)throw new Error('Required UI continuation unavailable: '+selector);e.click();};const restore=(activity,answer)=>{window.__auditAwaitingReload=true;auditHost.__auditNextValues={'cmi.core.lesson_status':'incomplete','cmi.suspend_data':JSON.stringify(window.SimScorm.makeSnapshot(activity,'draft',answer))};window.location.reload();return {reload:true,answer};};${spec.prepare};return true;})()`);if(outcome?.reload){await H.delay(200);for(let i=0;i<100;i++){try{if(await childEval(`!window.__auditAwaitingReload&&document.readyState==='complete'&&Boolean(document.querySelector(${JSON.stringify(stageSelector)}))`))break;}catch{}if(i===99)throw new Error('Production fixture failed to restore');await H.delay(50);}if(outcome.answer&&!await childEval(`JSON.stringify(JSON.parse(auditHost.__auditValues['cmi.suspend_data']).answer)===${JSON.stringify(JSON.stringify(outcome.answer))}`))throw new Error('Restored canonical fixture was overwritten: '+spec.id);}}
       if(spec.beforeContinue)await childEval(`(()=>{${spec.beforeContinue}return true;})()`);
       if(spec.continue)for(const selector of spec.continue)await childEval(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});if(!e||e.disabled)throw new Error('Continuation unavailable: ${spec.id} ${selector} '+JSON.stringify(window.__forceOrthogonalApp?.getState()));e.click();return true;})()`);
       if(spec.expect&&!await childEval(spec.expect))throw new Error('Wrong phase after continuation: '+spec.id);
@@ -411,6 +413,7 @@ async function main() {
       }
       if(args.operations&&sim.folder==='plane-mirror-pencil-ray-diagram')entry.gestures.push(...await O.runMirrorOperations({cdp,childEval,observation,prepare,swipe,delay:H.delay},spec));
       if(args.operations&&sim.folder==='horizontal-projectile-lab')entry.gestures.push(...await O.runProjectileOperations({cdp,childEval,observation,prepare,delay:H.delay},spec));
+      if(args.operations&&sim.folder==='circular-motion-vector-lab')entry.gestures.push(...await O.runCircularVectorOperations({cdp,childEval,observation,prepare,delay:H.delay},spec));
       report.cases.push(entry);
       if(entry.gestures.some(g=>g.issues.length)){process.exitCode=1;const shot=await cdp.send('Page.captureScreenshot',{format:'png'});const dir=path.join(root,'output/playwright/mobile-scroll-failures');fs.mkdirSync(dir,{recursive:true});fs.writeFileSync(path.join(dir,sim.folder+'-'+spec.id+'-'+topology+'-'+width+'.png'),Buffer.from(shot.data,'base64'));}
       console.log(JSON.stringify({slug:sim.folder,profile:spec.id,part,viewport:width+'x'+height,issues:entry.gestures.filter(g=>g.issues.length).map(g=>({gesture:g.case||g.region+'-'+g.direction+'-'+(g.position||''),issues:[...new Set(g.issues)]}))}));
