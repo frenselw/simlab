@@ -40,8 +40,8 @@
     return {position:{width:pr.width,height:pr.height,r,center,unit,compact,labelTop,left:pr.left,top:pr.top},velocity:{width:vr.width,height:vr.height,origin,unit:vscale,left:vr.left,top:vr.top}};
   }
   const screen=(v,origin,unit)=>[origin[0]+unit*v[0],origin[1]-unit*v[1]];
-  function quantities(specs,width,height,segments,occupied,top=0){
-    return F.quantityLabels(specs,width,height,segments,occupied,top).map(p=>`<g data-quantity="${p.key}" aria-label="${esc(p.label)}"><path d="M${p.from.map((n,i)=>(n+p.to[i])/2)} L${p.x},${p.y}" stroke="${p.color}" stroke-width="1.2" stroke-dasharray="2 3" fill="none"/><rect x="${p.box[0]}" y="${p.box[1]}" width="${p.box[2]-p.box[0]}" height="${p.box[3]-p.box[1]}" rx="4" fill="white" fill-opacity=".95"/>${symbol(p.x,p.baseline,p.tex,p.size,`fill="${p.color}"`)}</g>`).join('');
+  function quantities(specs,width,height,segments,occupied,top=0,ring=null){
+    return F.quantityLabels(specs,width,height,segments,occupied,top,ring).map(p=>`<g data-quantity="${p.key}" aria-label="${esc(p.label)}"><path d="M${p.from.map((n,i)=>(n+p.to[i])/2)} L${p.x},${p.y}" stroke="${p.color}" stroke-width="1.2" stroke-dasharray="2 3" fill="none"/>${symbol(p.x,p.baseline,p.tex,p.size,`fill="${p.color}"`)}</g>`).join('');
   }
   function positionDrawing(g,s,task,geo,reference=false){
     const {width:w,height:h,r,center:o,unit,compact}=geo,A=screen(g.rA,o,unit),B=screen(g.rB,o,unit),segments=[],quantitiesToDraw=[];
@@ -53,14 +53,14 @@
     if(task!==1){const v=[unit*g.dr[0],-unit*g.dr[1]],len=Math.max(22,r*.8);segments.push([A,B],[A,[A[0]+v[0]/M.length(v)*len,A[1]+v[1]/M.length(v)*len]]);svg+=extension(A,v,len,C.student)+arrow(A,B,C.student);quantitiesToDraw.push({key:'displacement',label:'位移 Δx',tex:'\\Delta x',from:A,to:B,color:C.student});}
     else{
       const vs=layout.velocity.unit;
-      segments.push([A,screen(g.vA,A,vs)],[B,screen(g.vB,B,vs)]);svg+=arrow(...segments[0],C.earlier)+arrow(...segments[1],C.later);quantitiesToDraw.push({key:'velocity-1',label:'初速度 v₁',tex:'\\vec v_1',from:A,to:segments[0][1],color:C.earlier},{key:'velocity-2',label:'末速度 v₂',tex:'\\vec v_2',from:B,to:segments[1][1],color:C.later});
+      segments.push([A,screen(g.vA,A,vs)],[B,screen(g.vB,B,vs)]);svg+=arrow(...segments[0],C.earlier)+arrow(...segments[1],C.later);quantitiesToDraw.push({key:'velocity-1',label:'初速度 v₁',tex:'v_1',from:A,to:segments[0][1],color:C.earlier},{key:'velocity-2',label:'末速度 v₂',tex:'v_2',from:B,to:segments[1][1],color:C.later});
       if(s.answers.deltaFrom!==null&&s.answers.deltaTo!==null){const v=M.subtract(g.nodes[s.answers.deltaTo],g.nodes[s.answers.deltaFrom]);const dir=[v[0],-v[1]],len=Math.max(20,r*.95);segments.push([A,[A[0]+dir[0]/M.length(dir)*len,A[1]+dir[1]/M.length(dir)*len]]);svg+=extension(A,dir,len,C.student);}
     }
     if(reference){const v=M.direction(s,task,'forward-tangent');const end=[A[0]+v[0]*r*.65,A[1]-v[1]*r*.65];segments.push([A,end]);svg+=referenceArrow(A,end);if(task!==0)svg+=referenceArrow(A,o);svg+=`<path d="M${A} L${o}" stroke="#81998b" stroke-width="1" fill="none"/>`;}
     svg+=circle(o,3,'#596c83')+symbol(o[0]+16,o[1]+8,'O',22)+circle(A,6.5,C.earlier)+circle(B,6.5,C.later);
     const labels=F.labels([A,B],o,r,w,h,segments,compact,geo.labelTop);
     labels.forEach((p,i)=>{svg+=`<g data-point-label="${i?'B':'A'}">${symbol(p.x,p.y+(compact?6:8),i?'B':'A',compact?22:28,`fill="${i?C.later:C.earlier}"`)}</g>`;});
-    svg+=quantities(quantitiesToDraw,w,h,segments,[...labels.map(p=>p.box),...[A,B,o].map(p=>[p[0]-10,p[1]-10,p[0]+10,p[1]+10])],geo.labelTop);
+    svg+=quantities(quantitiesToDraw,w,h,segments,[...labels.map(p=>p.box),...[A,B,o].map(p=>[p[0]-10,p[1]-10,p[0]+10,p[1]+10])],geo.labelTop,{center:o,r});
     return {svg,A,B};
   }
   function drawStage(){
@@ -80,10 +80,10 @@
       if(controller.trusted)svg+=`<g data-reference-vector>${referenceArrow(nodes.U,nodes.V)}</g>`;
       Object.entries(nodes).forEach(([key,p])=>{svg+=circle(p,5,'#344c6a');});
       const endpointLabels=F.velocityLabels(nodes,v.width,v.height);
-      endpointLabels.forEach(p=>{const color=p.key==='U'?C.earlier:p.key==='V'?C.later:'#35455c';svg+=`<g data-velocity-label="${p.key}"><path d="M${nodes[p.key]} L${p.x},${p.y}" stroke="${color}" stroke-width="1.5" stroke-dasharray="3 3" fill="none"/><rect x="${p.box[0]}" y="${p.box[1]}" width="${p.box[2]-p.box[0]}" height="26" rx="4" fill="white"/>${text(p.x,p.y+7,p.label,`text-anchor="middle" style="font-size:${p.font}px;fill:${color}"`)}</g>`;});
-      const quantitySpecs=[{key:'velocity-1',label:'初速度 v₁',tex:'\\vec v_1',from:nodes.S,to:nodes.U,color:C.earlier},{key:'velocity-2',label:'末速度 v₂',tex:'\\vec v_2',from:nodes.S,to:nodes.V,color:C.later}],quantitySegments=[[nodes.S,nodes.U],[nodes.S,nodes.V]];
-      if(s.answers.deltaFrom!==null&&s.answers.deltaTo!==null){const from=nodes[s.answers.deltaFrom],to=nodes[s.answers.deltaTo];quantitySpecs.push({key:'delta-v',label:'我的速度變化量 Δv',tex:'\\Delta \\vec v',from,to,color:C.student});quantitySegments.push([from,to]);}
-      if(controller.trusted&&(s.answers.deltaFrom!=='U'||s.answers.deltaTo!=='V')){quantitySpecs.push({key:'reference-delta-v',label:'參考速度變化量 Δv',tex:'\\Delta \\vec v',from:nodes.U,to:nodes.V,color:C.answer});quantitySegments.push([nodes.U,nodes.V]);}
+      endpointLabels.forEach(p=>{const color=p.key==='U'?C.earlier:p.key==='V'?C.later:'#35455c';svg+=`<g data-velocity-label="${p.key}"><path d="M${nodes[p.key]} L${p.x},${p.y}" stroke="${color}" stroke-width="1.5" stroke-dasharray="3 3" fill="none"/>${text(p.x,p.y+7,p.label,`text-anchor="middle" style="font-size:${p.font}px;fill:${color}"`)}</g>`;});
+      const quantitySpecs=[{key:'velocity-1',label:'初速度 v₁',tex:'v_1',from:nodes.S,to:nodes.U,color:C.earlier},{key:'velocity-2',label:'末速度 v₂',tex:'v_2',from:nodes.S,to:nodes.V,color:C.later}],quantitySegments=[[nodes.S,nodes.U],[nodes.S,nodes.V]];
+      if(s.answers.deltaFrom!==null&&s.answers.deltaTo!==null){const from=nodes[s.answers.deltaFrom],to=nodes[s.answers.deltaTo];quantitySpecs.push({key:'delta-v',label:'我的速度變化量 Δv',tex:'\\Delta v',from,to,color:C.student});quantitySegments.push([from,to]);}
+      if(controller.trusted&&(s.answers.deltaFrom!=='U'||s.answers.deltaTo!=='V')){quantitySpecs.push({key:'reference-delta-v',label:'參考速度變化量 Δv',tex:'\\Delta v',from:nodes.U,to:nodes.V,color:C.answer});quantitySegments.push([nodes.U,nodes.V]);}
       svg+=quantities(quantitySpecs,v.width,v.height,quantitySegments,[...endpointLabels.map(p=>p.box),...Object.values(nodes).map(p=>[p[0]-9,p[1]-9,p[0]+9,p[1]+9])],v.height<150?0:35);
       d.velocitySvg.setAttribute('viewBox',`0 0 ${v.width} ${v.height}`);d.velocitySvg.innerHTML=svg;
     }
@@ -126,7 +126,7 @@
     const a=s.answers;
     d.instruction.textContent=task===0?'把較後位置 B 拖近 A，觀察位移方向。':task===2?'位置與轉向都換了；用相同的推理作答。':a.deltaFrom===null?'先選線段起點，再選終點，表示末速度減初速度。':a.deltaTo===null?'再選另一個節點作為線段終點。':'把 B 拖近 A，比較「我的作圖方向」的變化。';
     d.instruction.textContent+='（'+(M.scene(s,task).sense===1?'逆時針 ↺':'順時針 ↻')+'）';
-    d.definition.innerHTML=task===0?'平均速度 '+math('\\displaystyle \\vec v_{\\mathrm{av}}=\\frac{\\Delta x}{\\Delta t}','平均速度 = Δx / Δt')+'<span class="caption">位移除以正的時間間隔，方向不變。</span>':task===1?'平均加速度 '+math('\\displaystyle \\vec a_{\\mathrm{av}}=\\frac{\\Delta \\vec v}{\\Delta t}','平均加速度 = Δv / Δt')+'<span class="caption">'+math('\\Delta \\vec v=\\vec v_2-\\vec v_1','Δv = v₂ − v₁')+'；除以正的 '+math('\\Delta t','Δt')+'，方向不變。</span>':'同一物體作勻速圓周運動；只改了起點與轉向。';
+    d.definition.innerHTML=task===0?'平均速度 '+math('\\displaystyle v_{\\mathrm{av}}=\\frac{\\Delta x}{\\Delta t}','平均速度 = Δx / Δt')+'<span class="caption">位移除以正的時間間隔，方向不變。</span>':task===1?'平均加速度 '+math('\\displaystyle a_{\\mathrm{av}}=\\frac{\\Delta v}{\\Delta t}','平均加速度 = Δv / Δt')+'<span class="caption">'+math('\\Delta v=v_2-v_1','Δv = v₂ − v₁')+'；除以正的 '+math('\\Delta t','Δt')+'，方向不變。</span>':'同一物體作勻速圓周運動；只改了起點與轉向。';
     d.velocityDiagram.hidden=task!==1;d.vectorControls.hidden=task!==1;d.distanceReadout.hidden=task===1;
     d.diagramLegend.innerHTML=prose((task===1?'橙色 v₁ 為初速度，藍色 v₂ 為末速度。紫色實線是我作出的 Δv；A 點虛線只比較方向，不表示大小。':'實線 A→B 是位移，淡色圓弧是路徑；虛線只延長方向。')+(controller.trusted?' 綠色空心箭頭為參考答案。':''));
     d.shorten.disabled=!editable||s.observation[M.GAP_KEYS[task]]===5;d.lengthen.disabled=!editable||s.observation[M.GAP_KEYS[task]]===60;

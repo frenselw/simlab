@@ -227,7 +227,7 @@
 
 | Decision | Activity specification and reason |
 |---|---|
-| Notation | 學習畫面位移寫 Δx，不加向量箭頭或絕對值；圖區旁顯示 Δx 及 Δt 數值，位移箭頭旁直接標 Δx。速度箭頭直接標 v₁、v₂；學生完成相減連線後在該線旁標 Δv，參考線於正式提交後顯示。速度及加速度保留向量記號。正文、圖及結果使用本地 LaTeX SVG 字形與下標，不顯示原始 LaTeX 字串；物理模型內部 dr／Δr 仍是二維位移差 |
+| Notation | 學習畫面位移寫 Δx，不加向量箭頭或絕對值；圖區旁顯示 Δx 及 Δt 數值，位移箭頭旁直接標 Δx。速度箭頭直接標 v₁、v₂；學生完成相減連線後在該線旁標 Δv，參考線於正式提交後顯示。依使用者教材，位移、速度、速度變化及加速度的符號均不加向量箭號；圖中表達方向的實際箭頭保留。正文、圖及結果使用本地 LaTeX SVG 字形與下標，不顯示原始 LaTeX 字串；物理模型內部 dr／Δr 仍是二維位移差 |
 | Arrow graphics | 位移、速度及學生連線均用連續實心箭身／箭頭；箭尖精確落在模型終點。短向量縮小箭頭外觀而不拉長幾何；延長線為細虛線且明確標「方向延長線」 |
 | Direction comparison | 探究二 A 點的「我的作圖方向」是無長度刻度的虛線方向提示，由學生線段推導，並非新增物理向量；實際 Δv 作圖仍保留於速度圖且按共同尺度呈現。空白／半作圖不顯示，錯答不補正 |
 | Snap | B 拖動限制在可見圓周合法弧段，投影角度取最近 1°，限制 5–60°；這是時間刻度控制，不是正確答案吸附。S/U/V 用語意按鈕選定節點，無自由座標或隱藏正解吸附 |
@@ -624,3 +624,14 @@ Site archive `output/sites/circular-motion-vector-lab-large-cards.tar.gz` SHA-25
 Sites source commit `70c4976dbf6923465d17d081db1f3562b05a96e9` 已由官方 helper 推送／封裝；15 個 runtime 資產與來源及 archive 逐 byte 相同。2026-10-21 23:24（UTC+8）原生私人發布回傳 succeeded，deployment `appgdep_6ad8d93f01448191b2cbe56f621970ea`，version `appgprj_6ad878e05e148191aee5ef92740b63f1~appgver_a0a48ea0c63c8191836eee38a6bfe174`。沿用[正式網址](https://circular-motion-vector-lab.ieyp.chatgpt.site/circular-motion-vector-lab/)與 owner-only 權限。
 
 Site archive `output/sites/circular-motion-vector-lab-symbols.tar.gz` SHA-256 `8255ecc34535472b2d079edc73d46ca2c304c85751140941e14bdcd61ddbdba8`；SCORM ZIP SHA-256 `87c457f56f50cc0f5d03eb5d928eccf51e295603ef44b2274ca828bcc9e78300`。證據檔案 `output/sites/circular-vector-symbols-runtime-verification.json`、`circular-vector-symbols-deployment.json`。
+
+
+## 2026-10-21 透明標籤及教材記法修訂
+
+依使用者明確要求，移除物理量與中文端點標籤的白色背景矩形，保留符號／文字及細引線，使背景真正透明，不以白塊遮蓋圓盤。位置圖標籤選位新增圓周相交代價，優先避開圓線。標籤可位於圓內的空白區，仍直接對應各自箭頭；不以背景色掩蓋位置衝突。
+
+整個活動的圖內、面板定義、選項文字及回饋均採教材式記法：Δx、Δv、v₁、v₂、平均速度及平均加速度均不加上方向量箭號。保留真正表示運動／位移／速度變化方向的幾何箭頭，物理模型、答案、評分、已保存選項次序均不變。此為使用者對共用 notation 習慣的明確例外，歷史段落仍保留先前當時的記法與證據，不代表現行標籤樣式。
+
+本次 presentation 測試通過，沿用原有圓周／中文端點／速度圖中心檢查；新增 48 組方向／間隔的 Δx 標籤不跨圓周檢查，以及不產生 vector accent 的字形檢查。正式 browser 新增各頁直接檢查無標籤背景 rect、無向量箭號 TeX；以來源及真解壓 SCORM 重跑既有流程。此圖形樣式變更沒有新的觸控區、保存欄位或評分分支，完整 T0–T3／實機／真 Moodle 本次不重作。
+
+本次最終 source／真解壓 SCORM browser 通過：54 組 viewport／任務／資產排版、48 組可信拖曳及既有評分／保存／提交流程；靜態、check:tests（252 entries）與文件檢查通過。已檢視第一／第二部分實際截圖。Runtime hash `31934d7bda2a5ef4a4bc3d3ada444841703731df798a7666b6148b472a6407bd` 與最終 browser report 一致。

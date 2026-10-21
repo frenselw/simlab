@@ -42,6 +42,15 @@ for(const [width,height]of [[129,173],[160,77],[160,200],[160,260],[195,439],[33
 }
 console.log(`Chinese velocity annotations: ${chinese} crowded graph layouts passed.`);
 
-const nodes={S:[90,170],U:[170,105],V:[195,145]},specs=[{key:'v1',tex:'\\vec v_1',from:nodes.S,to:nodes.U},{key:'v2',tex:'\\vec v_2',from:nodes.S,to:nodes.V},{key:'dv',tex:'\\Delta \\vec v',from:nodes.U,to:nodes.V}],segments=specs.map(p=>[p.from,p.to]),occupied=F.velocityLabels(nodes,332,314).map(p=>p.box),annotations=F.quantityLabels(specs,332,314,segments,occupied,35);
+const nodes={S:[90,170],U:[170,105],V:[195,145]},specs=[{key:'v1',tex:'v_1',from:nodes.S,to:nodes.U},{key:'v2',tex:'v_2',from:nodes.S,to:nodes.V},{key:'dv',tex:'\\Delta v',from:nodes.U,to:nodes.V}],segments=specs.map(p=>[p.from,p.to]),occupied=F.velocityLabels(nodes,332,314).map(p=>p.box),annotations=F.quantityLabels(specs,332,314,segments,occupied,35);
 for(let i=0;i<annotations.length;i++){const p=annotations[i];assert(p.box[0]>=0&&p.box[2]<=332&&p.box[1]>=35&&p.box[3]<=314);assert(!segments.some(([a,b])=>F.intersects(p.box,a,b)));for(const b of occupied.concat(annotations.slice(0,i).map(p=>p.box)))assert(p.box[2]<=b[0]||p.box[0]>=b[2]||p.box[3]<=b[1]||p.box[1]>=b[3]);}
 assert.equal(annotations.length,3);console.log('Direct v1/v2/Delta-v labels stay separate from arrows and Chinese endpoint labels.');
+
+assert(!/vec|overrightarrow/.test(F.prose('Δv v₁ v₂')));
+for(let angle=0;angle<360;angle+=15)for(const gap of [5,60]){
+  const s=M.fresh(()=>0);s.definition.startIndex=Math.floor(angle/90);s.definition.startOffsetDeg=angle%90;s.observation.positionGapDeg=gap;
+  const g=M.scene(s),p=F.positionGeometry(390,439,36),at=r=>[p.center[0]+r[0]*p.r/.5,p.center[1]-r[1]*p.r/.5],A=at(g.rA),B=at(g.rB),segments=[[A,B]],occupied=F.labels([A,B],p.center,p.r,390,439,segments,false,p.labelTop).map(p=>p.box),q=F.quantityLabels([{tex:'\\Delta x',from:A,to:B}],390,439,segments,occupied,p.labelTop,{center:p.center,r:p.r})[0],b=q.box,[cx,cy]=p.center;
+  const near=Math.hypot(Math.max(b[0]-cx,0,cx-b[2]),Math.max(b[1]-cy,0,cy-b[3])),far=Math.hypot(Math.max(Math.abs(cx-b[0]),Math.abs(cx-b[2])),Math.max(Math.abs(cy-b[1]),Math.abs(cy-b[3])));
+  assert(near>=p.r+4||far<=p.r-4,'Delta x label crosses circle');
+}
+console.log('Textbook symbols have no vector accent; displacement labels avoid the circle edge in 48 orientations/gaps.');
