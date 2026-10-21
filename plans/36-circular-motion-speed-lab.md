@@ -1,6 +1,6 @@
 # 圓周運動：線速率與角速率量度
 
-狀態：**P2 第七輪已核對兩情境轉速隨機抽題，放大並固定右上角計時顯示，完成測試、提交及 Sites 發布。P3 真 Moodle／真手機驗收待做。**
+狀態：**P2 第八輪已移除重新量度及最終提交的原生確認視窗，完成測試、提交及 Sites 發布。P3 真 Moodle／真手機驗收待做。**
 
 本活動讓學生自行開始及停止量度，把圓周軌跡展平後讀取路程、時間及累積轉角，計算並比較線速率與角速率。以同軸與不打滑皮帶兩個情境對照「相同角速率」與「相同線速率」的不同約束。
 
@@ -563,5 +563,18 @@ GitHub CI 無需等待；真 Moodle、真手機 T4 及學生試用仍待驗，�
 | 自動驗證 | 四個本活動 Node 測試、`node tools/check.js`、`node tools/test-registry.js`（251 entries）、`node tools/package-all.js`、source／解壓 SCORM browser 完整流程與截圖核對均通過；本活動 SCORM ZIP 12 files，SHA-256 `C599BA6225597B21CD981836BBBFEC940B7F6BB8B98F3D55DA8B5805992D6994`。 |
 | 手機可信手勢 | T0 standalone、T1 package、T2 source nested、T3 package element 各一個 320×500 初始情境；`output/playwright/circular-speed-P2-round7-T0.json` 至 `T3.json` 全部 completed、passed，runtime errors 0。 |
 | Sites | 原 owner-private project 的[試用網址](https://circular-motion-speed-lab.ieyp.chatgpt.site)更新至 version 8；`get_site` 再核對 custom access 只有 owner、無外部訪客。10 個 runtime 檔案與本 branch SHA-256 逐檔一致；Site source commit `7bf7d4913ea1f70cd5ae0074624f4091588a9de3`，tar SHA-256 `F13BDC45F58ED4C020FB24A0D6387F7E0850766C49B293A25C17E7FBF07CEC92`，version `appgprj_6ad85f290a0081919a849c43bdabdde5~appgver_6860158d05d481919cbfdf4ceca50f60`，deployment `appgdep_6ad8d9407b68819192dc0da700fad3bb` succeeded。 |
+
+本輪未重跑全庫 Node 測試，亦未等 GitHub CI；真 Moodle／真手機 T4 仍是獨立驗收。
+
+### P2 第八輪移除原生確認視窗與交付證據（2026-10-21）
+
+| 項目 | 結果 |
+|---|---|
+| 介面決策 | 重新量度按鈕直接說明「清除軌跡及數值」，操作後以原有頁內狀態文字回報；提交前檢查頁明示未填得 0 分及提交後只可重看。兩處均不再呼叫 `window.confirm`；檢查頁及「提交目前答案」仍是明確的最終提交步驟。 |
+| 行為測試 | Browser regression 把 `window.confirm` 改成拋錯，確認兩情境滿分流程、重新量度與解壓 SCORM 白卷 0 分提交均無原生視窗；重新量度只清當前量度及數值，保留概念答案。source／package、手機／桌面版面及原有動畫流程通過。 |
+| 活動 commit／push | Runtime、測試及規格 commit `8e53af8c0727abb70964fc1b55340f3fe070b7b9` 已推送 `origin/codex/circular-motion-speed-lab`；committed selection preview 為 `affected`，包含本活動 package 與 browser owner。 |
+| 自動驗證 | 四個本活動 Node 測試、`node tools/check.js`、`node tools/test-registry.js`（251 entries）、`node tools/package-all.js`、`node tools/check-docs.js`、`git diff --check` 均通過；本活動 SCORM ZIP 12 files，SHA-256 `DE3D727659ED6AA7DABF93753EE09A710EC0F8A8A25A2FC4738EF9CF62B60855`。 |
+| 手機可信手勢 | T0 standalone、T1 package、T2 source nested、T3 package element 各一個 320×500 初始情境；`output/playwright/circular-speed-P2-round8-T0.json` 至 `T3.json` 全部 completed、passed，issues 0、runtime errors 0。 |
+| Sites | 原 owner-private [試用網址](https://circular-motion-speed-lab.ieyp.chatgpt.site)更新至 version 9；`get_site` 核對 custom access 仍只有 owner。10 個 runtime 檔案與本 branch SHA-256 逐檔一致；Site source commit `a0381779f68e7aded2976af7a79fee350b2a894c`，tar SHA-256 `8E4501D91EA5CF456AD242DFFBFDAA1F759A7C2EB3832384B589535ACF587EEC`，version `appgprj_6ad85f290a0081919a849c43bdabdde5~appgver_fee7e300daf481918e9d3ba0dad9eacd`，deployment `appgdep_6ad8dc2102f48191b93f6ef3cba868ff` succeeded。 |
 
 本輪未重跑全庫 Node 測試，亦未等 GitHub CI；真 Moodle／真手機 T4 仍是獨立驗收。
