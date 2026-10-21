@@ -617,3 +617,10 @@ Site archive `output/sites/circular-motion-vector-lab-large-cards.tar.gz` SHA-25
 五個活動 Node entry、靜態檢查及 check:tests（252 entries）通過。正式 browser 已驗 source／真解壓 SCORM：54 組排版、48 組可信拖曳，逐一檢查面板可見正文不小於 18px、圖上符號存在，及非平凡排列在拖動、check／return、Moodle reload 後保持相同 DOM 次序。已檢視第一部分與第二部分實際截圖。本次完整嵌入／實機／真 Moodle 驗收仍另列，不以本地瀏覽器取代。
 
 本次最終 T2 source／package 各 4 列通過（320×500、390×844；initial、第二頁已答），報告 `output/playwright/circular-vector-symbols-T2-source-final.json`、`circular-vector-symbols-T2-package-final.json`。最長合法 draft／review／pending 為 684／711／942 UTF-8 bytes，低於 4,000 bytes。最終 runtime hash `b7d8e314ab1b52e7b5fb0d73da79a84687514e85607770b635589aa5d57ddb93` 與 browser report 一致。
+
+
+本次 runtime commit `edd4a6270959c6065e1fa714c083192f9c4fb8f7` 已 push 並以 ls-remote 複核；已提交範圍的選取預覽為 affected／219 tests，檔案 `output/ci-tests/circular-vector-symbols-selection.json`（選取證據，不冒稱本機已跑全部）。[本次 CI](https://github.com/frenselw/simlab/actions/runs/39625041317) 發布時仍 in_progress。
+
+Sites source commit `70c4976dbf6923465d17d081db1f3562b05a96e9` 已由官方 helper 推送／封裝；15 個 runtime 資產與來源及 archive 逐 byte 相同。2026-10-21 23:24（UTC+8）原生私人發布回傳 succeeded，deployment `appgdep_6ad8d93f01448191b2cbe56f621970ea`，version `appgprj_6ad878e05e148191aee5ef92740b63f1~appgver_a0a48ea0c63c8191836eee38a6bfe174`。沿用[正式網址](https://circular-motion-vector-lab.ieyp.chatgpt.site/circular-motion-vector-lab/)與 owner-only 權限。
+
+Site archive `output/sites/circular-motion-vector-lab-symbols.tar.gz` SHA-256 `8255ecc34535472b2d079edc73d46ca2c304c85751140941e14bdcd61ddbdba8`；SCORM ZIP SHA-256 `87c457f56f50cc0f5d03eb5d928eccf51e295603ef44b2274ca828bcc9e78300`。證據檔案 `output/sites/circular-vector-symbols-runtime-verification.json`、`circular-vector-symbols-deployment.json`。
