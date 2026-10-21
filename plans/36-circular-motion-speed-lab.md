@@ -1,6 +1,6 @@
 # 圓周運動：線速率與角速率量度
 
-狀態：**P2 第三輪正修正展平動畫的轉角錯配；皮帶紋路沿用第二輪成果。P3 真 Moodle／真手機驗收待做。**
+狀態：**P2 第三輪展平動畫的轉角錯配已修正並發布到原私人網站；皮帶紋路沿用第二輪成果。P3 真 Moodle／真手機驗收待做。**
 
 本活動讓學生自行開始及停止量度，把圓周軌跡展平後讀取路程、時間及累積轉角，計算並比較線速率與角速率。以同軸與不打滑皮帶兩個情境對照「相同角速率」與「相同線速率」的不同約束。
 
@@ -502,3 +502,15 @@ GitHub CI 無需等待；真 Moodle、真手機 T4 及學生試用仍待驗，�
 本輪未重跑全庫 217 項 Node 測試，亦未等 GitHub CI；真 Moodle／真手機 T4 仍是獨立驗收。
 
 第二輪的「滾動圓弧」為歷史版本：它按放大後的直線像素距離轉動，可能在短量度時間內錯誤地顯示多圈。第三輪已移除該小圓；上表保留第二輪當時的發布及測試證據，不能用作現行動畫的正確性證據。
+
+### P2 第三輪展平轉角修訂與交付證據（2026-10-21）
+
+| 項目 | 結果 |
+|---|---|
+| 動畫／物理對應 | 左側原圓周軌跡固定，同軸兩圓同心、皮帶兩圓分開；彩色剩餘弧線按此次量度的實際累積轉角縮短，右側直線按相同進度和共用尺增長。移除按放大像素距離高速滾動的示意小圓；保留重播、返回圓圖及減少動態行為。 |
+| 活動 commit／push | `b63c491110351d2dc2280dc677458dbcdc801139` 已 push 到 `origin/codex/circular-motion-speed-lab`；committed selection preview 為 affected，選本活動 browser scope 及 package `circular-motion-speed-lab`。 |
+| 自動驗證 | `node tools/check.js`、`node tools/test-registry.js`（251 entries）、本活動四個 Node 測試、source／解壓 package browser 完整流程、`node tools/package-all.js`、計劃連結檢查及 `git diff --check` 均通過。Browser 於動畫中段核對實際 Δθ 消失比例等於已展直長度比例、原圓周中心固定、終態無殘餘弧線；並覆蓋兩情境、評分 100／0、返回及再次展平。SCORM ZIP 12 files，SHA-256 `31AE178A2C70294569A4CCB84F02632FE8ADC10F6AC8577FED8E9DC6AD315D3D`。 |
+| 手機可信手勢 | T0 standalone 1、T1 package 4、T2 source nested 2、T3 package element 2 個選定情境，全部 completed、status passed、gesture issues 0；報告為 `output/playwright/circular-speed-P2-round3-T0.json` 至 `T3.json`。 |
+| Sites | 原 owner-private project `appgprj_6ad85f290a0081919a849c43bdabdde5` 的[試用網址](https://circular-motion-speed-lab.ieyp.chatgpt.site)已更新至 version 4，access policy 仍為 custom、唯一使用者為 owner。網站 10 個 runtime 檔案與本活動 branch 逐檔 SHA-256 一致；Site source commit `d1550173d8e6f5ff28fccc2202adbbb42f408940`；tar SHA-256 `45BFB1B492D5B5595D099C6C96912BFB3851799FF30EAAF0DE70EA2DEA4D2E12`；version `appgprj_6ad85f290a0081919a849c43bdabdde5~appgver_2256e6e82cdc8191a13882246fbc2f41`，deployment `appgdep_6ad88cd6bbb88191803eddd164d669ed` succeeded。 |
+
+本輪未重跑全庫 Node 測試，亦未等 GitHub CI；真 Moodle／真手機 T4 仍是獨立驗收。
