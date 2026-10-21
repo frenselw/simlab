@@ -5,13 +5,13 @@ assert(F.math('\\Delta x','Δx').includes('data-tex="\\Delta x"'));
 assert(!F.prose('Δx / Δt；Δv').includes('<text'));
 let cases=0;
 for(const [w,h]of [[320,77],[160,77],[160,220],[195,371],[390,371],[920,730]])for(let angle=0;angle<360;angle+=3)for(const gap of [5,60])for(const sense of [-1,1])for(const velocity of [false,true])for(const review of [false,true]){
-  const compact=h<140,r=Math.max(10,Math.min((w-108)/2,(h-(compact?60:154))/2,165)),o=[w/2,h/2+(compact?12:20)],at=t=>[o[0]+r*Math.cos(t),o[1]-r*Math.sin(t)];
+  const {compact,r,center:o,labelTop}=F.positionGeometry(w,h,h<140?22:36,velocity),at=t=>[o[0]+r*Math.cos(t),o[1]-r*Math.sin(t)];
   const theta=angle*Math.PI/180,A=at(theta),B=at(theta+sense*gap*Math.PI/180),segments=[];
   const endpoint=(p,v,length)=>{const n=Math.hypot(...v);return[p[0]+v[0]/n*length,p[1]+v[1]/n*length];};
   if(velocity){const scale=Math.max(18,Math.min(w-68,h-92,330))*.5;segments.push([A,[A[0]-sense*Math.sin(theta)*scale,A[1]-sense*Math.cos(theta)*scale]],[B,[B[0]-sense*Math.sin(theta+sense*gap*Math.PI/180)*scale,B[1]-sense*Math.cos(theta+sense*gap*Math.PI/180)*scale]]);const change=M.subtract(M.subtract(segments[1][1],B),M.subtract(segments[0][1],A));segments.push([A,endpoint(A,change,Math.max(20,r*.95))]);}
   else segments.push([A,B],[A,endpoint(A,M.subtract(B,A),Math.max(22,r*.8))]);
   if(review)segments.push([A,endpoint(A,[-sense*Math.sin(theta),-sense*Math.cos(theta)],r*.65)]);
-  const labels=F.labels([A,B],o,r,w,h,segments,compact);
+  let labels;try{labels=F.labels([A,B],o,r,w,h,segments,compact,labelTop);}catch(error){throw Error(JSON.stringify({w,h,angle,gap,sense,velocity,review,r,o,labelTop})+error.message);}
   labels.forEach(p=>{assert(Math.hypot(p.x-o[0],p.y-o[1])>=r+29);assert(segments.every(([a,b])=>!F.intersects(p.box,a,b)));assert(p.box[0]>=5&&p.box[2]<=w-5&&p.box[1]>=0&&p.box[3]<=h-5);});
   const [a,b]=labels.map(p=>p.box);assert(a[2]+8<b[0]||a[0]-8>b[2]||a[3]+8<b[1]||a[1]-8>b[3]);cases++;
 }
@@ -30,3 +30,14 @@ for(let angle=0;angle<360;angle+=3)for(const sense of [-1,1])for(let gap=5;gap<=
 }
 console.log(`Velocity diagram: ${centered} angle/sense/gap configurations center the full S/U/V extent without changing scale.`);
 console.log(`Circular vector presentation: ${cases} crowded label layouts; all 360 fresh starting angles and local math glyphs passed.`);
+
+let chinese=0;
+assert.equal(F.nodeName('U'),'初速度末端');assert.equal(F.nodeName(null),'未選');
+for(const [width,height]of [[129,173],[160,77],[160,200],[160,260],[195,439],[332.5,314],[460,730]])for(let angle=0;angle<360;angle+=6)for(const sense of [-1,1])for(let gap=5;gap<=60;gap++){
+  const s=M.fresh(()=>0);s.definition={startIndex:Math.floor(angle/90),startOffsetDeg:angle%90,sense,choiceShift:0};s.task=1;s.observation.velocityGapDeg=gap;
+  const unit=Math.max(18,Math.min(width-68,height-92,330)),g=M.scene(s),origin=F.velocityOrigin(g.nodes,width,height,unit),nodes=Object.fromEntries(Object.entries(g.nodes).map(([k,p])=>[k,[origin[0]+unit*p[0],origin[1]-unit*p[1]]])),segments=[[nodes.S,nodes.U],[nodes.S,nodes.V],[nodes.U,nodes.V]];
+  let labels;try{labels=F.velocityLabels(nodes,width,height);}catch(error){throw Error(JSON.stringify({width,height,angle,sense,gap})+error.message);}
+  assert.equal(labels.length,3);labels.forEach(p=>{assert(!/[SUV]/.test(p.label));assert(p.box[0]>=0&&p.box[2]<=width&&p.box[1]>=0&&p.box[3]<=height);assert(segments.every(([a,b])=>!F.intersects(p.box,a,b)));});
+  chinese++;
+}
+console.log(`Chinese velocity annotations: ${chinese} crowded graph layouts passed.`);

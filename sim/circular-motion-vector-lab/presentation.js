@@ -10,11 +10,11 @@
     for(let i=0;i<2;i++){const v=b[i]-a[i],min=box[i]-5,max=box[i+2]+5;if(Math.abs(v)<1e-9){if(a[i]<min||a[i]>max)return false;}else{const x=(min-a[i])/v,y=(max-a[i])/v;lo=Math.max(lo,Math.min(x,y));hi=Math.min(hi,Math.max(x,y));if(lo>hi)return false;}}
     return true;
   }
-  function labels(points,center,r,width,height,segments=[],compact=false){
-    const placed=[],half=compact?[11,12]:[13,15],top=compact?27:90;
+  function labels(points,center,r,width,height,segments=[],compact=false,top=compact?27:54){
+    const placed=[],half=compact?[13,15]:[16,19];
     for(const point of points){
       const angle=Math.atan2(point[1]-center[1],point[0]-center[0]),candidates=[];
-      for(const extra of [30,48,66])for(let step=0;step<=12;step++)for(const sign of step?[1,-1]:[1]){
+      for(const extra of [34,52,70])for(let step=0;step<=12;step++)for(const sign of step?[1,-1]:[1]){
         const t=angle+sign*step*Math.PI/12,x=center[0]+(r+extra)*Math.cos(t),y=center[1]+(r+extra)*Math.sin(t),box=[x-half[0],y-half[1],x+half[0],y+half[1]];
         if(box[0]<5||box[2]>width-5||box[1]<top||box[3]>height-5)continue;
         if(placed.some(p=>!(box[2]+8<p.box[0]||box[0]-8>p.box[2]||box[3]+8<p.box[1]||box[1]-8>p.box[3])))continue;
@@ -31,5 +31,34 @@
     const points=Object.values(nodes),xs=points.map(p=>p[0]*unit),ys=points.map(p=>-p[1]*unit);
     return [width/2-(Math.min(...xs)+Math.max(...xs))/2,height/2-(Math.min(...ys)+Math.max(...ys))/2];
   }
-  return {math,prose,labels,intersects,velocityOrigin};
+  const nodeName=node=>({S:'共同起點',U:'初速度末端',V:'末速度末端'}[node]??'未選');
+  function positionGeometry(width,height,readoutHeight,velocity=false){
+    const compact=height<140,top=compact?27:readoutHeight+12;
+    const r=Math.max(10,Math.min((width-108)/2,(height-(velocity?(compact?60:154):top+(compact?24:52)))/2,velocity?165:300));
+    return {r,center:[width/2,velocity?height/2+7:(top+height-(compact?4:28))/2],compact,labelTop:top};
+  }
+  function velocityLabels(nodes,width,height){
+    const compact=height<220,font=compact?18:20,top=height<150?0:35,choices=[],segments=[[nodes.S,nodes.U],[nodes.S,nodes.V],[nodes.U,nodes.V]];
+    for(const key of ['S','U','V']){
+      const label=compact?{S:'起點',U:'初速端',V:'末速端'}[key]:nodeName(key),half=label.length*font/2+5,candidates=[];
+      for(let col=0;col<3;col++)for(let row=0;row<5;row++){
+        const x=half+6+(width-2*half-12)*col/2,y=top+15+(height-top-30)*row/4,box=[x-half,y-13,x+half,y+13];
+        if(segments.some(([a,b])=>intersects(box,a,b)))continue;
+        candidates.push({key,label,font,x,y,box,cost:Math.hypot(x-nodes[key][0],y-nodes[key][1])});
+      }
+      candidates.sort((a,b)=>a.cost-b.cost);
+      if(!candidates.length)throw Error('No clear velocity label position');
+      choices.push(candidates);
+    }
+    let best=null,bestCost=Infinity;
+    function choose(index,selected,cost){
+      if(cost>=bestCost)return;
+      if(index===choices.length){best=selected;bestCost=cost;return;}
+      for(const p of choices[index]){const b=p.box;if(selected.some(q=>!(b[2]+5<q.box[0]||b[0]-5>q.box[2]||b[3]+5<q.box[1]||b[1]-5>q.box[3])))continue;choose(index+1,[...selected,p],cost+p.cost);}
+    }
+    choose(0,[],0);
+    if(!best)throw Error('No clear velocity annotation layout');
+    return best;
+  }
+  return {math,prose,labels,intersects,velocityOrigin,nodeName,positionGeometry,velocityLabels};
 });
