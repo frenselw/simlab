@@ -642,3 +642,12 @@ Site archive `output/sites/circular-motion-vector-lab-symbols.tar.gz` SHA-256 `8
 Sites source `853434168476767e47e46775c350d61bd461c445` 經官方 helper 推送／封裝，15 個 runtime 資產逐 byte 核對。2026-10-21 23:34（UTC+8）原生私人發布 succeeded：deployment `appgdep_6ad8db8888888191bda00e9c32ae1514`，version `appgprj_6ad878e05e148191aee5ef92740b63f1~appgver_c3eee650a5d48191b07fc9a21969557a`；沿用[正式網址](https://circular-motion-vector-lab.ieyp.chatgpt.site/circular-motion-vector-lab/)及 owner-only 權限。
 
 Archive `output/sites/circular-motion-vector-lab-plain-labels.tar.gz` SHA-256 `18dad4c527fe85359579385e7cbf7ce7ee9e75c0acd5f9cdb43e19e8e81da05d`；SCORM ZIP SHA-256 `35b1c6cce6f4df16771d9fe8087958c17339741688c5c7ec1b9fcd8ecb4ee6f1`。證據：`output/sites/circular-vector-plain-runtime-verification.json`、`circular-vector-plain-deployment.json`。
+
+
+## 2026-10-22 移除標籤引線及桌面頁首靠右
+
+依使用者回饋，移除 Δx、v₁、v₂、Δv 及中文端點名稱的虛線引線，沿用透明、無向量上標箭號的教材記法。物理量符號放在各自箭頭旁的空位；中文名稱增加端點附近的候選位置，再以既有避讓規則選位，避免闊畫面因固定網格而把名稱放得太遠。真正表示位移／速度變化方向的延長虛線屬教學內容，仍保留。
+
+桌面（寬度至少 900px）三個任務按鈕改為自然寬度，與「檢查答案」集中在頁首右方，全螢幕按鈕仍在最右側。沿用手機第二行任務導覽及矮屏下拉選單。沒有更改答案、評分、保存資料或觸控區。
+
+驗證新增 2940×800 闊畫面、桌面按鈕間距及無標籤引線檢查；presentation 測試增加闊圖端點名稱距離上限，原有避線、中文名稱及物理量標籤檢查通過。最終來源／真解壓 SCORM 瀏覽器及發布證據補記於下方。

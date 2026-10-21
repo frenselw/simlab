@@ -41,11 +41,13 @@
     const compact=height<220,font=compact?18:20,top=height<150?0:35,choices=[],segments=[[nodes.S,nodes.U],[nodes.S,nodes.V],[nodes.U,nodes.V]];
     for(const key of ['S','U','V']){
       const label=compact?{S:'起點',U:'初速端',V:'末速端'}[key]:nodeName(key),half=label.length*font/2+5,candidates=[];
-      for(let col=0;col<3;col++)for(let row=0;row<5;row++){
-        const x=half+6+(width-2*half-12)*col/2,y=top+15+(height-top-30)*row/4,box=[x-half,y-13,x+half,y+13];
-        if(segments.some(([a,b])=>intersects(box,a,b)))continue;
+      const add=(x,y)=>{
+        const box=[x-half,y-13,x+half,y+13];
+        if(box[0]<6||box[2]>width-6||box[1]<top||box[3]>height||segments.some(([a,b])=>intersects(box,a,b)))return;
         candidates.push({key,label,font,x,y,box,cost:Math.hypot(x-nodes[key][0],y-nodes[key][1])});
-      }
+      };
+      for(const dx of [0,-half-14,half+14])for(const dy of [-60,-30,0,30,60])add(nodes[key][0]+dx,nodes[key][1]+dy);
+      for(let col=0;col<3;col++)for(let row=0;row<5;row++)add(half+6+(width-2*half-12)*col/2,top+15+(height-top-30)*row/4);
       candidates.sort((a,b)=>a.cost-b.cost);
       if(!candidates.length)throw Error('No clear velocity label position');
       choices.push(candidates);
@@ -66,6 +68,7 @@
       const metric=CircuitMath.measure(spec.tex,size),half=[metric.width/2+5,metric.height/2+4],mid=spec.from.map((n,i)=>(n+spec.to[i])/2),dx=spec.to[0]-spec.from[0],dy=spec.to[1]-spec.from[1],length=Math.hypot(dx,dy)||1,candidates=[];
       const add=(x,y)=>{x=Math.max(half[0]+3,Math.min(width-half[0]-3,x));y=Math.max(top+half[1],Math.min(height-half[1]-3,y));const box=[x-half[0],y-half[1],x+half[0],y+half[1]];const blocked=occupied.concat(placed.map(p=>p.box)).filter(b=>overlap(box,b)).length,hits=segments.filter(([a,b])=>intersects(box,a,b)).length;let ringHit=0;if(ring){const [cx,cy]=ring.center,near=Math.hypot(Math.max(box[0]-cx,0,cx-box[2]),Math.max(box[1]-cy,0,cy-box[3])),far=Math.hypot(Math.max(Math.abs(cx-box[0]),Math.abs(cx-box[2])),Math.max(Math.abs(cy-box[1]),Math.abs(cy-box[3])));ringHit=near<ring.r+4&&far>ring.r-4?1:0;}candidates.push({...spec,x,y,box,size,baseline:y+(metric.ascent-metric.descent)/2,cost:blocked*1e6+(hits+ringHit)*1e4+Math.hypot(x-mid[0],y-mid[1])});};
       for(const fraction of [.5,.25,.75])for(const offset of [24,-24,42,-42,60,-60])add(spec.from[0]+dx*fraction-dy/length*offset,spec.from[1]+dy*fraction+dx/length*offset);
+      for(const distance of [24,42,60,84,110])for(let step=0;step<8;step++)add(mid[0]+distance*Math.cos(step*Math.PI/4),mid[1]+distance*Math.sin(step*Math.PI/4));
       for(let col=0;col<3;col++)for(let row=0;row<3;row++)add(half[0]+4+(width-2*half[0]-8)*col/2,top+half[1]+(height-top-2*half[1]-4)*row/2);
       candidates.sort((a,b)=>a.cost-b.cost);placed.push(candidates[0]);
     }

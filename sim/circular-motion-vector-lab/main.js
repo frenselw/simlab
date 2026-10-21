@@ -41,7 +41,7 @@
   }
   const screen=(v,origin,unit)=>[origin[0]+unit*v[0],origin[1]-unit*v[1]];
   function quantities(specs,width,height,segments,occupied,top=0,ring=null){
-    return F.quantityLabels(specs,width,height,segments,occupied,top,ring).map(p=>`<g data-quantity="${p.key}" aria-label="${esc(p.label)}"><path d="M${p.from.map((n,i)=>(n+p.to[i])/2)} L${p.x},${p.y}" stroke="${p.color}" stroke-width="1.2" stroke-dasharray="2 3" fill="none"/>${symbol(p.x,p.baseline,p.tex,p.size,`fill="${p.color}"`)}</g>`).join('');
+    return F.quantityLabels(specs,width,height,segments,occupied,top,ring).map(p=>`<g data-quantity="${p.key}" aria-label="${esc(p.label)}">${symbol(p.x,p.baseline,p.tex,p.size,`fill="${p.color}"`)}</g>`).join('');
   }
   function positionDrawing(g,s,task,geo,reference=false){
     const {width:w,height:h,r,center:o,unit,compact}=geo,A=screen(g.rA,o,unit),B=screen(g.rB,o,unit),segments=[],quantitiesToDraw=[];
@@ -80,7 +80,7 @@
       if(controller.trusted)svg+=`<g data-reference-vector>${referenceArrow(nodes.U,nodes.V)}</g>`;
       Object.entries(nodes).forEach(([key,p])=>{svg+=circle(p,5,'#344c6a');});
       const endpointLabels=F.velocityLabels(nodes,v.width,v.height);
-      endpointLabels.forEach(p=>{const color=p.key==='U'?C.earlier:p.key==='V'?C.later:'#35455c';svg+=`<g data-velocity-label="${p.key}"><path d="M${nodes[p.key]} L${p.x},${p.y}" stroke="${color}" stroke-width="1.5" stroke-dasharray="3 3" fill="none"/>${text(p.x,p.y+7,p.label,`text-anchor="middle" style="font-size:${p.font}px;fill:${color}"`)}</g>`;});
+      endpointLabels.forEach(p=>{const color=p.key==='U'?C.earlier:p.key==='V'?C.later:'#35455c';svg+=`<g data-velocity-label="${p.key}">${text(p.x,p.y+7,p.label,`text-anchor="middle" style="font-size:${p.font}px;fill:${color}"`)}</g>`;});
       const quantitySpecs=[{key:'velocity-1',label:'初速度 v₁',tex:'v_1',from:nodes.S,to:nodes.U,color:C.earlier},{key:'velocity-2',label:'末速度 v₂',tex:'v_2',from:nodes.S,to:nodes.V,color:C.later}],quantitySegments=[[nodes.S,nodes.U],[nodes.S,nodes.V]];
       if(s.answers.deltaFrom!==null&&s.answers.deltaTo!==null){const from=nodes[s.answers.deltaFrom],to=nodes[s.answers.deltaTo];quantitySpecs.push({key:'delta-v',label:'我的速度變化量 Δv',tex:'\\Delta v',from,to,color:C.student});quantitySegments.push([from,to]);}
       if(controller.trusted&&(s.answers.deltaFrom!=='U'||s.answers.deltaTo!=='V')){quantitySpecs.push({key:'reference-delta-v',label:'參考速度變化量 Δv',tex:'\\Delta v',from:nodes.U,to:nodes.V,color:C.answer});quantitySegments.push([nodes.U,nodes.V]);}

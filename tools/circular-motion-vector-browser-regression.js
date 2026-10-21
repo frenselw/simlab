@@ -25,7 +25,7 @@ async function centeredVelocity(){
   assert(await call(`const g=CircularVectorModel.scene(app.getState(),1),p=app.getGeometry().position,v=app.getGeometry().velocity;return [[g.rA,g.vA],[g.rB,g.vB]].every(([r,s])=>{const x=p.center[0]+p.unit*r[0]+v.unit*s[0],y=p.center[1]-p.unit*r[1]-v.unit*s[1];return x>=7&&x<=p.width-7&&y>=7&&y<=p.height-7;});`),'position velocity arrow clipped');
 }
 async function layouts(base,label){
-  for(const [width,height]of [[320,500],[390,500],[390,600],[390,844],[665,604],[480,320],[320,225],[900,700],[1280,800]]){
+  for(const [width,height]of [[320,500],[390,500],[390,600],[390,844],[665,604],[480,320],[320,225],[900,700],[1280,800],[2940,800]]){
     await viewport(width,height);
     for(let task=0;task<3;task++){
       const s=T.filled();s.task=task;s.observation[M.GAP_KEYS[task]]=5;await open(base,s);
@@ -33,8 +33,10 @@ async function layouts(base,label){
       assert(r.panel.height>=95&&r.panel.y>=-1&&r.panel.bottom<=height+1,JSON.stringify(r));assert(r.rootRange<=1&&r.rootWidth<=width+1,JSON.stringify(r));assert(r.buttonBottom<=r.panel.bottom+1&&r.buttonTop>=r.panel.y-1,JSON.stringify(r));assert(r.stage.width>0&&r.stage.height>0);report.layouts.push({label,width,height,task,...r});
       assert(await call(`return [...d.querySelectorAll('#controlPanel p,#controlPanel legend,#controlPanel button,#controlPanel .choice-text')].filter(e=>e.getBoundingClientRect().height>0).every(e=>parseFloat(getComputedStyle(e).fontSize)>=18);`),'panel typography smaller than 18px');
       assert(await call(`return !d.querySelector('#stage [data-quantity]>rect,#stage [data-velocity-label]>rect')&&[...d.querySelectorAll('[data-tex]')].every(e=>!e.dataset.tex.includes('vec')&&!e.dataset.tex.includes('overrightarrow'));`),'opaque label or vector accent remains');
+      assert(await call(`return !d.querySelector('#stage [data-quantity]>path,#stage [data-velocity-label]>path');`),'annotation leader remains');
+      if(width>=900){const header=await call(`const nav=d.getElementById('taskNav').getBoundingClientRect(),check=d.getElementById('checkButton').getBoundingClientRect(),last=d.querySelector('#taskNav button:last-child').getBoundingClientRect();return{gap:check.left-nav.right,innerGap:nav.right-last.right};`);assert(header.gap>=0&&header.gap<=12&&Math.abs(header.innerGap)<1,JSON.stringify(header));}
       if(task===1){assert(await call(`return d.querySelectorAll('[data-velocity-label]').length===3&&[...d.querySelectorAll('[data-vector-node]')].map(e=>e.textContent.trim()).join('|')==='共同起點|初速度末端|末速度末端';`));await centeredVelocity();await click('#lengthen');await centeredVelocity();assert(await call(`return d.querySelectorAll('#positionSvg [data-quantity]').length===2&&d.querySelectorAll('#velocitySvg [data-quantity]').length===3;`),'missing velocity symbols');}else assert(await call(`return d.querySelector('#positionSvg [data-quantity="displacement"] [data-tex]')?.dataset.tex==='\\\\Delta x';`),'missing diagram displacement');
-      if(task===1&&[[390,844],[665,604],[1280,800],[320,225]].some(p=>p[0]===width&&p[1]===height)){await call('d.getElementById("controlPanel").scrollTop=0;');await screenshot(`${label}-${width}x${height}-difference`);}
+      if(task===1&&[[390,844],[665,604],[1280,800],[2940,800],[320,225]].some(p=>p[0]===width&&p[1]===height)){await call('d.getElementById("controlPanel").scrollTop=0;');await screenshot(`${label}-${width}x${height}-difference`);}
       await click('#checkButton');assert(await call('return d.getElementById("stage").getBoundingClientRect().height<1;'));await call('d.getElementById("controlPanel").scrollTop=d.getElementById("controlPanel").scrollHeight;');assert(await call('return d.getElementById("submitButton").getBoundingClientRect().bottom<=innerHeight+1;'));
     }
   }

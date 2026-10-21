@@ -41,9 +41,12 @@ for(const [width,height]of [[129,173],[160,77],[160,200],[160,260],[195,439],[33
   chinese++;
 }
 console.log(`Chinese velocity annotations: ${chinese} crowded graph layouts passed.`);
+const wideNodes={S:[570,315],U:[710,395],V:[725,370]};
+for(const p of F.velocityLabels(wideNodes,1290,730))assert(Math.hypot(p.x-wideNodes[p.key][0],p.y-wideNodes[p.key][1])<100,'wide-screen endpoint label too far from its point');
 
 const nodes={S:[90,170],U:[170,105],V:[195,145]},specs=[{key:'v1',tex:'v_1',from:nodes.S,to:nodes.U},{key:'v2',tex:'v_2',from:nodes.S,to:nodes.V},{key:'dv',tex:'\\Delta v',from:nodes.U,to:nodes.V}],segments=specs.map(p=>[p.from,p.to]),occupied=F.velocityLabels(nodes,332,314).map(p=>p.box),annotations=F.quantityLabels(specs,332,314,segments,occupied,35);
 for(let i=0;i<annotations.length;i++){const p=annotations[i];assert(p.box[0]>=0&&p.box[2]<=332&&p.box[1]>=35&&p.box[3]<=314);assert(!segments.some(([a,b])=>F.intersects(p.box,a,b)));for(const b of occupied.concat(annotations.slice(0,i).map(p=>p.box)))assert(p.box[2]<=b[0]||p.box[0]>=b[2]||p.box[3]<=b[1]||p.box[1]>=b[3]);}
+for(const p of annotations)assert(Math.hypot(p.x-(p.from[0]+p.to[0])/2,p.y-(p.from[1]+p.to[1])/2)<120,'quantity label too far from its arrow');
 assert.equal(annotations.length,3);console.log('Direct v1/v2/Delta-v labels stay separate from arrows and Chinese endpoint labels.');
 
 assert(!/vec|overrightarrow/.test(F.prose('Δv v₁ v₂')));
