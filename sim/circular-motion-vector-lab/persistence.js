@@ -13,6 +13,8 @@
     check(['draft','review'].includes(kind));keys(s,ROOT);
     check(s.schemaVersion===1&&s.modelVersion===1&&s.rubricVersion===1);
     keys(s.definition,['startIndex','sense','choiceShift']);check(M.integer(s.definition.startIndex,0,3)&&[-1,1].includes(s.definition.sense)&&M.integer(s.definition.choiceShift,0,3));
+    // Older attempts retain their cardinal start; only new attempts have an angular offset.
+    check(!Object.hasOwn(s.definition,'startOffsetDeg')||M.integer(s.definition.startOffsetDeg,0,89));
     check(['edit','check'].includes(s.phase)&&(kind!=='review'||s.phase==='check')&&M.integer(s.task,0,2));
     keys(s.observation,M.GAP_KEYS);check(M.GAP_KEYS.every(k=>M.integer(s.observation[k],5,60)));
     keys(s.answers,ANSWERS);
@@ -22,7 +24,7 @@
     check(bytes(s)<=MAX_BYTES);return s;
   }
   const pick=(s,fields)=>Object.fromEntries(fields.map(k=>[k,s[k]]));
-  function draft(s){validate(s);return M.clone({...pick(s,ROOT),definition:pick(s.definition,['startIndex','sense','choiceShift']),observation:pick(s.observation,M.GAP_KEYS),answers:pick(s.answers,ANSWERS)});}
+  function draft(s){validate(s);return M.clone({...pick(s,ROOT),definition:pick(s.definition,['startIndex','sense','choiceShift',...(Object.hasOwn(s.definition,'startOffsetDeg')?['startOffsetDeg']:[])]),observation:pick(s.observation,M.GAP_KEYS),answers:pick(s.answers,ANSWERS)});}
   function review(s){return {...draft(s),phase:'check'};}
   function decode(snapshot,kind){
     keys(snapshot,['version','activity','kind','answer']);check(snapshot.version===1&&snapshot.activity===M.ACTIVITY&&snapshot.kind===kind&&bytes(snapshot)<=MAX_BYTES);validate(snapshot.answer,kind);

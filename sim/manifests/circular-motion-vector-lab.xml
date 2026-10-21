@@ -9,6 +9,7 @@
  <resources><resource identifier="RES-CIRCULAR-VECTOR" type="webcontent" adlcp:scormtype="sco" href="circular-motion-vector-lab/index.html">
   <file href="circular-motion-vector-lab/index.html"/><file href="circular-motion-vector-lab/styles.css"/><file href="circular-motion-vector-lab/main.js"/>
   <file href="circular-motion-vector-lab/model.js"/><file href="circular-motion-vector-lab/persistence.js"/><file href="circular-motion-vector-lab/scoring.js"/><file href="circular-motion-vector-lab/ui-runtime.js"/>
+  <file href="circular-motion-vector-lab/presentation.js"/><file href="circuit-workbench/circuit-math.js"/><file href="circuit-workbench/mathjax-tex-svg.js"/><file href="circuit-workbench/mathjax-license.txt"/>
   <file href="shared/styles.css"/><file href="shared/scorm.js"/><file href="shared/activity-flow.js"/><file href="shared/fullscreen.js"/>
  </resource></resources>
 </manifest>

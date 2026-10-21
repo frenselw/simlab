@@ -84,7 +84,7 @@
 
 本頁正式配分為 V1 15 分、V2 10 分，共 25 分；所有分數以後方 rubric 表為準。
 
-畫面提供一行定義提醒：「平均速度 = 位移 ÷ 時間間隔；除以正數不改變方向。」公式使用向量記號，對應平均速度 = Δr/Δt。這行交代從位移到速度的理由，不預告切線答案；不把當前有限間隔的平均速度直接標成 A 點瞬時速度。
+畫面提供一行定義提醒：「平均速度 = 位移 ÷ 時間間隔；除以正數不改變方向。」依使用者修訂，位移統一寫作 Δx（不加向量箭頭或絕對值），對應平均速度 = Δx/Δt；速度與加速度保留向量記號，均用本地 LaTeX 排版。這行交代從位移到速度的理由，不預告切線答案；不把當前有限間隔的平均速度直接標成 A 點瞬時速度。
 
 | 學生看到／操作 | 畫面反應 | 答題及證據 |
 |---|---|---|
@@ -227,7 +227,7 @@
 
 | Decision | Activity specification and reason |
 |---|---|
-| Notation | Δr 表位移向量；vA、vB 表速度向量；Δv 表速度變化向量；大小讀數寫「位移大小」。正文、圖及結果使用真正向量符號／下標及共享數學字型，不顯示原始 LaTeX 字串 |
+| Notation | 學習畫面位移寫 Δx，不加向量箭頭或絕對值；圖區旁顯示 Δx 及 Δt 數值。vA、vB、Δv、平均速度／加速度保留向量記號。正文、圖及結果使用本地 LaTeX SVG 字形與下標，不顯示原始 LaTeX 字串；物理模型內部 dr／Δr 仍是二維位移差 |
 | Arrow graphics | 位移、速度及學生連線均用連續實心箭身／箭頭；箭尖精確落在模型終點。短向量縮小箭頭外觀而不拉長幾何；延長線為細虛線且明確標「方向延長線」 |
 | Direction comparison | 探究二 A 點的「我的作圖方向」是無長度刻度的虛線方向提示，由學生線段推導，並非新增物理向量；實際 Δv 作圖仍保留於速度圖且按共同尺度呈現。空白／半作圖不顯示，錯答不補正 |
 | Snap | B 拖動限制在可見圓周合法弧段，投影角度取最近 1°，限制 5–60°；這是時間刻度控制，不是正確答案吸附。S/U/V 用語意按鈕選定節點，無自由座標或隱藏正解吸附 |
@@ -359,7 +359,8 @@
 | 欄位 | 精確型別／合法值 |
 |---|---|
 | `schemaVersion`、`modelVersion`、`rubricVersion` | 三個必填整數，首版均為 1 |
-| `definition.startIndex` | 必填整數 0、1、2、3 |
+| `definition.startIndex` | 必填整數 0、1、2、3，代表起點所在的 90° 區段 |
+| `definition.startOffsetDeg` | 新 attempt 必有 0–89 整數，與 startIndex 組成全圓 360 個隨機角度；舊 v1 快照缺少此欄時按 0° 還原，不重新抽位置；若欄位存在但無效則拒絕 |
 | `definition.sense` | 必填整數 −1 或 +1 |
 | `definition.choiceShift` | 必填整數 0、1、2、3；與起點／轉向分開選定 |
 | `phase` | 必填 `edit` 或 `check`；review 快照只允許 check |
@@ -530,3 +531,21 @@
 | Deployment | `appgdep_6ad882da78848191a304446e6579cc15`，2026-10-21 17:16（澳門）回傳 succeeded；正式網址及 owner-only 存取保持 |
 | 附屬證據 | `output/sites/circular-vector-runtime-verification.json`、`output/sites/circular-vector-deployment.json`；根入口 query／hash 保留已驗，已在 Codex 右側開啟正式網址 |
 | GitHub CI | [Quality run 39575238920](https://github.com/frenselw/simlab/actions/runs/39575238920) 對應 runtime commit；plan、checks、node-1 至 node-4 success，browser-1 至 browser-8 尚在執行。發布文件與 browser reload 等待防競態屬後續測試／文件修訂，活動 runtime bytes 不變 |
+
+
+## 2026-10-21 第一部分圖像修訂
+
+依使用者回饋，圖中文字由 14px 放大至一般 18px，A／B 使用本地 LaTeX SVG 字形（一般 24px、極短畫面 18px）；數值 22px。位移改為 Δx，沒有向量箭頭或絕對值，與 Δt 一起顯示在圖區右上方。其他速度／加速度保留向量記號；定義、題目及回饋均沿用本地 CircuitMath，不引入外部 CDN。原有 44px B 拖曳區仍在實際位置，移除疊在點上的 B 字；標籤改為在圓外搜尋不遮擋圓周、向量、方向延長線或彼此的位置。
+
+新 attempt 的起點為 `startIndex × 90° + startOffsetDeg`，均勻覆蓋 360 個整數角度；角度只在建立 attempt 時抽選。保存／還原保留同一角度，舊 v1 快照沒有 offset 時仍維持舊位置，不重抽題。評分與提交流程不變。
+
+| 修訂驗證 | 實際證據 |
+|---|---|
+| 活動 Node | 五個活動測試通過；物理擴至 5,376 組；新 presentation test 檢查 11,520 組標籤幾何及全圓 360 個新起點；評分原矩陣不變；保存保留原 17,280 組舊格式 round-trip，另驗 offset 保存、續作及無效值 |
+| 快照容量 | 加入最大 offset 的最長 draft／review／pending 為 650／677／906 bytes，仍低於 4,000 bytes |
+| 最終 browser | source／真解壓 package 通過；各新增 32 組非正交起點／長短間隔／手機寬度的實際字形與數值避讓檢查，並重跑原有評分、resume、fullscreen、鍵盤與 48 組可信拖曳；`output/playwright/circular-motion-vector-lab/report.json` |
+| 最終可信觸控 | T2 source／package 各 10 列（320×500、390×844；initial、第一頁 blank／answered／submitted／pending），所有 issues／errors 為空；包括真拖曳、取消、預覽及非 owner 捲動。報告 `output/playwright/circular-vector-labels-T2-source-final.json`、`circular-vector-labels-T2-package.json` |
+| 視覺檢查 | 實際檢視 `source-first-part-5.png`、`source-first-part-60.png` 及速度變化頁手機截圖；修正窄屏速度符號與時間讀數的碰撞 |
+| 套件 | manifest 增加 presentation runtime、本地 MathJax renderer／bundle／license；重建 SCORM，共 16 files；browser 已比對逐檔來源與解壓資產 |
+
+以上為本次局部修訂的本地證據；先前完整 T0–T3 為初版歷史證據。本次不冒稱全站 browser、實體手機或真 Moodle 已重新驗收。

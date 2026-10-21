@@ -14,9 +14,16 @@ for(const value of [null,NaN,Infinity,-1,0,4,61,5.5,'5'])invalid.push(s=>{s.obse
 for(const mutate of invalid){const s=M.fresh();mutate(s);assert.throws(()=>P.validate(s));}
 assert.throws(()=>P.decode({...T.snapshot(M.fresh()),kind:'review'},'review'));
 const generated={...M.fresh(),generatedId:'obsolete-dom',permissions:'editable'};assert(!Object.hasOwn(P.draft(generated),'generatedId'));assert(!Object.hasOwn(P.draft(generated),'permissions'));
+for(const startOffsetDeg of [0,17,45,89])for(const kind of ['draft','review']){
+  const state=M.fresh(()=>.3);state.definition.startOffsetDeg=startOffsetDeg;
+  const restored=P.decode(JSON.parse(JSON.stringify(T.snapshot(state,kind))),kind);
+  assert.deepEqual(restored.definition,state.definition);assert.deepEqual(M.scene(restored).rA,M.scene(state).rA);
+  assert.equal(M.change(M.navigate(restored,0),{type:'gap',value:5}).definition.startOffsetDeg,startOffsetDeg);
+}
+for(const startOffsetDeg of [null,-1,90,1.5,'1']){const state=M.fresh();state.definition.startOffsetDeg=startOffsetDeg;assert.throws(()=>P.validate(state));}
 let s=T.filled();s=M.navigate(s,1);s=M.change(s,{type:'change-end'});assert.equal(s.answers.deltaFrom,'U');assert.equal(s.answers.deltaTo,null);s=M.change(s,{type:'redraw'});assert.equal(s.answers.deltaFrom,null);const before=s.answers.velocityDirection;s=M.change(s,{type:'clear-task'});assert.equal(s.answers.velocityDirection,before);assert.equal(s.answers.accelerationDirection,null);
 const final=T.snapshot(T.filled(),'review'),pending={version:1,activity:M.ACTIVITY,kind:'pending-final',payload:{score:100,maxScore:100,passed:true,reviewJson:JSON.stringify(final)}};assert(P.bytes(pending)<=4000);
-const longest=T.filled();longest.phase='check';longest.task=2;longest.definition={startIndex:3,sense:-1,choiceShift:3};longest.observation={positionGapDeg:60,velocityGapDeg:60,transferGapDeg:60};
+const longest=T.filled();longest.phase='check';longest.task=2;longest.definition={startIndex:3,sense:-1,choiceShift:3,startOffsetDeg:89};longest.observation={positionGapDeg:60,velocityGapDeg:60,transferGapDeg:60};
 for(const q of M.QUESTIONS)longest.answers[q.field]=M.options(longest,q).map(o=>o[0]).sort((a,b)=>b.length-a.length)[0];
 const worstReview=T.snapshot(longest,'review'),worstPending={version:1,activity:M.ACTIVITY,kind:'pending-final',payload:{score:worstReview.score,maxScore:100,passed:worstReview.passed,reviewJson:JSON.stringify(worstReview)}};
 for(const snap of [T.snapshot(longest),worstReview,worstPending])assert(P.bytes(snap)<=4000);

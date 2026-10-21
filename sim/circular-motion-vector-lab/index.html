@@ -5,6 +5,7 @@
   <title>圓周運動：由位移到速度與加速度方向</title><link rel="icon" href="data:,">
   <link rel="stylesheet" href="../shared/styles.css"><link rel="stylesheet" href="styles.css">
   <script defer src="../shared/scorm.js"></script><script defer src="../shared/activity-flow.js"></script><script defer src="../shared/fullscreen.js"></script>
+  <script defer src="../circuit-workbench/circuit-math.js"></script><script defer src="../circuit-workbench/mathjax-tex-svg.js"></script><script defer src="presentation.js"></script>
   <script defer src="model.js"></script><script defer src="persistence.js"></script><script defer src="scoring.js"></script><script defer src="ui-runtime.js"></script><script defer src="main.js"></script>
 </head>
 <body>
@@ -16,7 +17,7 @@
     <button id="checkButton" type="button">檢查答案</button>
   </header>
   <section id="stage" class="sim-stage" aria-label="圓周運動圖像">
-    <div id="positionDiagram" class="diagram"><svg id="positionSvg" role="img" aria-label="同一物體在較早 A、較後 B 的位置"></svg><button id="positionHandle" data-position-handle type="button" aria-label="沿圓周移動較後位置 B；方向鍵微調時間間隔">B</button></div>
+    <div id="positionDiagram" class="diagram"><svg id="positionSvg" role="img" aria-label="同一物體在較早 A、較後 B 的位置"></svg><button id="positionHandle" data-position-handle type="button" aria-label="沿圓周移動較後位置 B；方向鍵微調時間間隔"></button><div id="readouts" class="readouts"><output id="timeReadout" aria-label="時間間隔"></output><output id="distanceReadout" aria-label="位移 Δx"></output></div></div>
     <div id="velocityDiagram" class="diagram" hidden><svg id="velocitySvg" role="img" aria-label="平移至共同起點的兩個速度與學生連線"></svg></div>
     <div id="preview" aria-label="B 附近的局部放大預覽" hidden><span>局部放大</span><svg id="previewSvg" role="img" aria-label="A、B 及位移的放大圖"></svg></div>
   </section>
@@ -31,7 +32,6 @@
         <div id="vectorEdits" class="button-row secondary"><button id="redraw" type="button" data-answer-action>重新作圖</button><button id="changeEnd" type="button" data-answer-action>改終點</button></div>
       </section>
       <div id="timeControls" class="button-row"><button id="shorten" type="button">縮短時間</button><button id="lengthen" type="button">加長時間</button></div>
-      <div id="readouts" class="readouts"><span>時間間隔 Δt <output id="timeReadout"></output></span><span id="distanceGroup">位移大小 |Δr| <output id="distanceReadout"></output></span></div>
       <div id="definition" class="definition"></div>
       <div id="questions"></div>
       <p id="diagramLegend" class="caption"></p>

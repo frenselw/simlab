@@ -1,6 +1,9 @@
-(function(){
+(async function(){
   'use strict';
-  const M=CircularVectorModel,P=CircularVectorPersistence,S=CircularVectorScoring;
+  await CircuitMath.ready();
+  const M=CircularVectorModel,P=CircularVectorPersistence,S=CircularVectorScoring,F=CircularVectorPresentation;
+  const math=F.math,prose=F.prose;
+  const symbol=(x,y,tex,size=22,extra='')=>CircuitMath.svg(x,y,{tex,text:tex},size,extra);
   const d=Object.fromEntries([...document.querySelectorAll('[id]')].map(e=>[e.id,e]));
   const titles=['位移與速度','速度變化與加速度','遷移挑戰'];
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -21,40 +24,41 @@
   function extension(from,vector,length,color){const mag=M.length(vector);if(mag<1e-8)return '';const to=[from[0]+vector[0]/mag*length,from[1]+vector[1]/mag*length];return `<path d="M${from} L${to}" stroke="${color}" stroke-width="1.5" stroke-dasharray="5 4" fill="none"/>`+circle(to,2,color);}
   function compass(v){return ['向右','向右上','向上','向左上','向左','向左下','向下','向右下'][(Math.round(Math.atan2(v[1],v[0])*4/Math.PI)+8)%8];}
   function directionChoice(s,q,key,index){
-    const g=M.scene(s,q.task),p=[37+19*Math.cos(g.thetaA),37-19*Math.sin(g.thetaA)],v=M.direction(s,q.task,key),end=[p[0]+v[0]*21,p[1]-v[1]*21];
-    return `<label class="choice direction-choice"><input data-answer-choice type="radio" name="${q.field}" value="${key}" aria-label="選項 ${index+1}，箭頭${compass(v)}"><svg viewBox="0 0 80 80" aria-hidden="true"><circle cx="37" cy="37" r="19" fill="none" stroke="#bfccdc"/>${circle([37,37],1.8,'#53647a')}${arrow(p,end,'#243c5a',2.5)}${circle(p,2.5,'#a74920')}${text(p[0]-8,p[1]+12,'A','font-size="12"')}</svg><span class="choice-text">${index+1}</span></label>`;
+    const g=M.scene(s,q.task),p=[48+20*Math.cos(g.thetaA),48-20*Math.sin(g.thetaA)],v=M.direction(s,q.task,key),end=[p[0]+v[0]*23,p[1]-v[1]*23];
+    return `<label class="choice direction-choice"><input data-answer-choice type="radio" name="${q.field}" value="${key}" aria-label="選項 ${index+1}，箭頭${compass(v)}"><svg viewBox="0 0 96 96" aria-hidden="true"><circle cx="48" cy="48" r="20" fill="none" stroke="#bfccdc"/>${circle([48,48],1.8,'#53647a')}${arrow(p,end,'#243c5a',2.5)}${circle(p,2.5,'#a74920')}${symbol(48+34*Math.cos(g.thetaA+(key==='outward'?Math.PI/3:0)),55-34*Math.sin(g.thetaA+(key==='outward'?Math.PI/3:0)),'A',23)}</svg><span class="choice-text">${index+1}</span></label>`;
   }
   function buildQuestions(s){
     const identity=JSON.stringify(s.definition);if(identity===questionDefinition)return;questionDefinition=identity;
-    d.questions.innerHTML=M.QUESTIONS.map(q=>`<fieldset data-question="${q.field}" data-task-group="${q.task}"><legend>${q.title}</legend><div class="${q.type==='direction'?'choice-grid':'reason-options'}">${M.options(s,q).map(([key,label],i)=>q.type==='direction'?directionChoice(s,q,key,i):`<label class="choice"><input data-answer-choice type="radio" name="${q.field}" value="${key}"><span class="choice-text">${esc(label)}</span></label>`).join('')}</div><button class="clear-answer" data-clear-answer="${q.field}" type="button">清除此題</button></fieldset>`).join('');
+    d.questions.innerHTML=M.QUESTIONS.map(q=>`<fieldset data-question="${q.field}" data-task-group="${q.task}"><legend>${prose(q.title)}</legend><div class="${q.type==='direction'?'choice-grid':'reason-options'}">${M.options(s,q).map(([key,label],i)=>q.type==='direction'?directionChoice(s,q,key,i):`<label class="choice"><input data-answer-choice type="radio" name="${q.field}" value="${key}"><span class="choice-text">${prose(label)}</span></label>`).join('')}</div><button class="clear-answer" data-clear-answer="${q.field}" type="button">清除此題</button></fieldset>`).join('');
   }
   function geometry(){
     const pr=d.positionDiagram.getBoundingClientRect(),vr=d.velocityDiagram.getBoundingClientRect();
-    const compact=pr.height<140,r=Math.max(10,Math.min((pr.width-108)/2,(pr.height-(compact?28:100))/2,165));
-    const center=[pr.width/2,compact?pr.height/2:pr.height/2+7],unit=r/M.RADIUS;
+    const compact=pr.height<140,r=Math.max(10,Math.min((pr.width-108)/2,(pr.height-(compact?60:154))/2,165));
+    const center=[pr.width/2,compact?pr.height/2+12:pr.height/2+20],unit=r/M.RADIUS;
     const vscale=Math.max(18,Math.min((vr.width-68)/M.SPEED/2,(vr.height-92)/M.SPEED/2,330));
     const origin=[vr.width/2,vr.height/2+10];
     return {position:{width:pr.width,height:pr.height,r,center,unit,compact,left:pr.left,top:pr.top},velocity:{width:vr.width,height:vr.height,origin,unit:vscale,left:vr.left,top:vr.top}};
   }
   const screen=(v,origin,unit)=>[origin[0]+unit*v[0],origin[1]-unit*v[1]];
   function positionDrawing(g,s,task,geo,reference=false){
-    const {width:w,height:h,r,center:o,unit,compact}=geo,A=screen(g.rA,o,unit),B=screen(g.rB,o,unit),pad=compact?8:21;
+    const {width:w,height:h,r,center:o,unit,compact}=geo,A=screen(g.rA,o,unit),B=screen(g.rB,o,unit),segments=[];
     let svg=`<circle cx="${o[0]}" cy="${o[1]}" r="${r}" fill="#f5f8fc" stroke="#c3cfdf" stroke-width="1.5"/>`;
-    if(!compact)svg+=text(12,22,task===1?'位置圖':'較早 A → 較後 B')+text(12,h-12,g.sense===1?'逆時針 ↺':'順時針 ↻');
+    if(!compact)svg+=(task===1?'':text(12,22,'位置圖'))+text(12,h-12,g.sense===1?'逆時針 ↺':'順時針 ↻');
     const path=Array.from({length:33},(_,i)=>{const t=g.thetaA+(g.thetaB-g.thetaA)*i/32;return screen([M.RADIUS*Math.cos(t),M.RADIUS*Math.sin(t)],o,unit);});
     svg+=`<polyline points="${path.map(p=>p.join(',')).join(' ')}" fill="none" stroke="#9aaec7" stroke-width="4"/>`;
     const mid=(g.thetaA+g.thetaB)/2,point=screen([M.RADIUS*Math.cos(mid),M.RADIUS*Math.sin(mid)],o,unit),tangent=[-g.sense*Math.sin(mid),-g.sense*Math.cos(mid)];
     svg+=arrow([point[0]-tangent[0]*5,point[1]-tangent[1]*5],[point[0]+tangent[0]*5,point[1]+tangent[1]*5],'#687f9c',2);
-    if(task!==1){svg+=extension(A,[unit*g.dr[0],-unit*g.dr[1]],Math.max(22,r*.8),C.student)+arrow(A,B,C.student);if(!compact)svg+=text(12,43,'實線：位移　虛線：方向延長','fill="#7049a4"');}
+    if(task!==1){const v=[unit*g.dr[0],-unit*g.dr[1]],len=Math.max(22,r*.8);segments.push([A,B],[A,[A[0]+v[0]/M.length(v)*len,A[1]+v[1]/M.length(v)*len]]);svg+=extension(A,v,len,C.student)+arrow(A,B,C.student);}
     else{
       const vs=layout.velocity.unit;
-      svg+=arrow(A,screen(g.vA,A,vs),C.earlier)+arrow(B,screen(g.vB,B,vs),C.later);
-      if(!compact)svg+=text(12,43,'初速度 v<tspan baseline-shift="sub" font-size="10">A</tspan>　末速度 v<tspan baseline-shift="sub" font-size="10">B</tspan>（m/s）');
-      if(s.answers.deltaFrom!==null&&s.answers.deltaTo!==null){const v=M.subtract(g.nodes[s.answers.deltaTo],g.nodes[s.answers.deltaFrom]);svg+=extension(A,[v[0],-v[1]],Math.max(20,r*.95),C.student);if(!compact)svg+=text(12,h-34,'我的方向（虛線）','fill="#7049a4"');}
+      segments.push([A,screen(g.vA,A,vs)],[B,screen(g.vB,B,vs)]);svg+=arrow(...segments[0],C.earlier)+arrow(...segments[1],C.later);
+      if(!compact)svg+=symbol(15,74,'\\vec v_A',22,'text-anchor="start" fill="#a74920"')+symbol(74,74,'\\vec v_B',22,'text-anchor="start" fill="#1764b1"');
+      if(s.answers.deltaFrom!==null&&s.answers.deltaTo!==null){const v=M.subtract(g.nodes[s.answers.deltaTo],g.nodes[s.answers.deltaFrom]);const dir=[v[0],-v[1]],len=Math.max(20,r*.95);segments.push([A,[A[0]+dir[0]/M.length(dir)*len,A[1]+dir[1]/M.length(dir)*len]]);svg+=extension(A,dir,len,C.student);if(!compact)svg+=text(12,h-34,'我的方向（虛線）','fill="#7049a4"');}
     }
-    if(reference){const v=M.direction(s,task,'forward-tangent');svg+=referenceArrow(A,[A[0]+v[0]*r*.65,A[1]-v[1]*r*.65]);if(task!==0)svg+=referenceArrow(A,o);svg+=`<path d="M${A} L${o}" stroke="#81998b" stroke-width="1" fill="none"/>`;}
-    svg+=circle(o,2,'#596c83')+text(o[0]+5,o[1]+5,'O')+circle(A,4,C.earlier)+circle(B,4,C.later);
-    const label=[A[0]+Math.cos(g.thetaA)*pad,A[1]-Math.sin(g.thetaA)*pad+5];svg+=text(Math.max(8,Math.min(w-18,label[0])),Math.max(14,Math.min(h-4,label[1])),'A','fill="#a74920"');
+    if(reference){const v=M.direction(s,task,'forward-tangent');const end=[A[0]+v[0]*r*.65,A[1]-v[1]*r*.65];segments.push([A,end]);svg+=referenceArrow(A,end);if(task!==0)svg+=referenceArrow(A,o);svg+=`<path d="M${A} L${o}" stroke="#81998b" stroke-width="1" fill="none"/>`;}
+    svg+=circle(o,2,'#596c83')+symbol(o[0]+13,o[1]+7,'O',18)+circle(A,4,C.earlier)+circle(B,4,C.later);
+    const labels=F.labels([A,B],o,r,w,h,segments,compact);
+    labels.forEach((p,i)=>{svg+=`<g data-point-label="${i?'B':'A'}">${symbol(p.x,p.y+(compact?6:8),i?'B':'A',compact?18:24,`fill="${i?C.later:C.earlier}"`)}</g>`;});
     return {svg,A,B};
   }
   function drawStage(){
@@ -69,15 +73,15 @@
     d.positionHandle.setAttribute('aria-valuetext',`時間間隔 ${fmt(g.dt)} 秒`);
     if(task===1){
       const v=layout.velocity,at=p=>screen(p,v.origin,v.unit),nodes=Object.fromEntries(Object.entries(g.nodes).map(([key,p])=>[key,at(p)]));
-      let svg=text(12,22,'速度向量圖（m/s）')+`<g data-speed="A">${arrow(nodes.S,nodes.U,C.earlier)}</g><g data-speed="B">${arrow(nodes.S,nodes.V,C.later)}</g>`;
+      let svg=text(12,22,'速度圖')+symbol(80,22,'(\\mathrm{m/s})',18,'text-anchor="start"')+`<g data-speed="A">${arrow(nodes.S,nodes.U,C.earlier)}</g><g data-speed="B">${arrow(nodes.S,nodes.V,C.later)}</g>`;
       if(s.answers.deltaFrom!==null&&s.answers.deltaTo!==null)svg+=`<g data-student-vector>${arrow(nodes[s.answers.deltaFrom],nodes[s.answers.deltaTo],C.student,3.5)}</g>`;
       if(controller.trusted)svg+=`<g data-reference-vector>${referenceArrow(nodes.U,nodes.V)}</g>`;
       Object.entries(nodes).forEach(([key,p])=>{svg+=circle(p,3,'#344c6a');});
-      svg+=text(nodes.S[0]-16,nodes.S[1]+20,'S')+text(nodes.U[0]-16,nodes.U[1]-8,'U','fill="#a74920"')+text(nodes.V[0]+8,nodes.V[1]+19,'V','fill="#1764b1"');
+      svg+=symbol(nodes.S[0]-16,nodes.S[1]+22,'S')+symbol(nodes.U[0]-16,nodes.U[1]-8,'U',22,'fill="#a74920"')+symbol(nodes.V[0]+14,nodes.V[1]+23,'V',22,'fill="#1764b1"');
       if(v.height>140)svg+=text(12,v.height-13,'紫線：我的作圖','fill="#7049a4"');
       d.velocitySvg.setAttribute('viewBox',`0 0 ${v.width} ${v.height}`);d.velocitySvg.innerHTML=svg;
     }
-    d.timeReadout.textContent=fmt(g.dt)+' s';d.distanceReadout.textContent=fmt(M.length(g.dr))+' m';
+    d.timeReadout.innerHTML=math('\\Delta t='+fmt(g.dt)+'\\,\\mathrm{s}','Δt = '+fmt(g.dt)+' s');d.distanceReadout.innerHTML=math('\\Delta x='+fmt(M.length(g.dr))+'\\,\\mathrm{m}','Δx = '+fmt(M.length(g.dr))+' m');
     if(drag&&drag.touch){
       const r=d.stage.getBoundingClientRect(),B=[pos.B[0]+layout.position.left-r.left,pos.B[1]+layout.position.top-r.top],left=B[0]>r.width/2?6:r.width-138;
       d.preview.hidden=false;d.preview.style.left=left+'px';d.preview.style.top='4px';
@@ -115,8 +119,8 @@
     d.taskTitle.textContent=`${task+1}. ${titles[task]}`;
     const a=s.answers;
     d.instruction.textContent=task===0?'把較後位置 B 拖近 A，觀察位移方向。':task===2?'位置與轉向都換了；用相同的推理作答。':a.deltaFrom===null?'先選線段起點，再選終點，表示末速度減初速度。':a.deltaTo===null?'再選另一個節點作為線段終點。':'把 B 拖近 A，比較「我的作圖方向」的變化。';
-    d.definition.innerHTML=task===0?'平均速度 <span class="vector">v</span><sub>平均</sub> = Δ<span class="vector">r</span> / Δt<span class="caption">位移除以正的時間間隔，方向不變。</span>':task===1?'平均加速度 <span class="vector">a</span><sub>平均</sub> = Δ<span class="vector">v</span> / Δt<span class="caption">Δ<span class="vector">v</span> = <span class="vector">v</span><sub>B</sub> − <span class="vector">v</span><sub>A</sub>；除以正的 Δt，方向不變。</span>':'同一物體作勻速圓周運動；只改了起點與轉向。';
-    d.velocityDiagram.hidden=task!==1;d.vectorControls.hidden=task!==1;d.distanceGroup.hidden=task===1;
+    d.definition.innerHTML=task===0?'平均速度 '+math('\\vec v_{\\mathrm{av}}=\\frac{\\Delta x}{\\Delta t}','平均速度 = Δx / Δt')+'<span class="caption">位移除以正的時間間隔，方向不變。</span>':task===1?'平均加速度 '+math('\\vec a_{\\mathrm{av}}=\\frac{\\Delta \\vec v}{\\Delta t}','平均加速度 = Δv / Δt')+'<span class="caption">'+math('\\Delta \\vec v=\\vec v_B-\\vec v_A','Δv = vB − vA')+'；除以正的 '+math('\\Delta t','Δt')+'，方向不變。</span>':'同一物體作勻速圓周運動；只改了起點與轉向。';
+    d.velocityDiagram.hidden=task!==1;d.vectorControls.hidden=task!==1;d.distanceReadout.hidden=task===1;
     d.diagramLegend.textContent=(task===1?'橙色為初速度，藍色為末速度。紫色實線是我的作圖；A 點虛線只比較方向，不表示大小。':'實線 A→B 是位移，淡色圓弧是路徑；虛線只延長方向。')+(controller.trusted?' 綠色空心箭頭為參考答案。':'');
     d.shorten.disabled=!editable||s.observation[M.GAP_KEYS[task]]===5;d.lengthen.disabled=!editable||s.observation[M.GAP_KEYS[task]]===60;
     const nodeNames={S:'共同起點 S',U:'初速度端 U',V:'末速度端 V'};
@@ -130,7 +134,7 @@
     d.questions.querySelectorAll('[data-clear-answer]').forEach(e=>{e.hidden=!editable;e.disabled=a[e.dataset.clearAnswer]===null;});
     d.editFooter.hidden=!editable;d.nextTask.textContent=task<2?'下一個探究':'檢查答案';
     if(checking){d.checkSummary.innerHTML=titles.map((title,i)=>`<section><h3>${i+1}. ${title}</h3><ul>${M.QUESTIONS.filter(q=>q.task===i).map(q=>`<li>${q.id}：${a[q.field]===null?'未答':'已答'}</li>`).join('')}${i===1?`<li>速度變化量連線：${a.deltaFrom??'未選'} → ${a.deltaTo??'未選'}</li>`:''}</ul><button type="button" data-return="${i}">返回修改</button></section>`).join('');d.submitButton.disabled=controller.unsaved;}
-    if(controller.trusted)d.feedbackList.innerHTML=controller.result.detail.filter(item=>item.task===task).map(item=>`<details><summary>${esc(item.id)} · ${item.earned} / ${item.max} 分</summary><p>${esc(item.title)}</p><p>${esc(feedback(item))}</p></details>`).join('');
+    if(controller.trusted)d.feedbackList.innerHTML=controller.result.detail.filter(item=>item.task===task).map(item=>`<details><summary>${esc(item.id)} · ${item.earned} / ${item.max} 分</summary><p>${esc(item.title)}</p><p>${prose(feedback(item))}</p></details>`).join('');
     drawStage();
   }
   function cancelDrag(){if(!drag)return;const active=drag;drag=null;diagnostics.cancel++;try{if(active.target.hasPointerCapture(active.id))active.target.releasePointerCapture(active.id);}catch(_){}d.preview.hidden=true;}

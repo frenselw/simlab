@@ -24,12 +24,12 @@
   const scale=(v,k)=>v.map(n=>n*k);
   function draw(random,n){const x=random();if(!Number.isFinite(x)||x<0||x>=1)throw Error('Invalid random draw');return Math.floor(x*n);}
   function fresh(random=Math.random){
-    return {schemaVersion:1,modelVersion:1,rubricVersion:1,definition:{startIndex:draw(random,4),sense:draw(random,2)?1:-1,choiceShift:draw(random,4)},phase:'edit',task:0,
+    return {schemaVersion:1,modelVersion:1,rubricVersion:1,definition:{startIndex:draw(random,4),sense:draw(random,2)?1:-1,choiceShift:draw(random,4),startOffsetDeg:draw(random,90)},phase:'edit',task:0,
       observation:{positionGapDeg:60,velocityGapDeg:60,transferGapDeg:45},
       answers:{...Object.fromEntries(QUESTIONS.map(q=>[q.field,null])),deltaFrom:null,deltaTo:null}};
   }
   function scene(state,task=state.task,gap=state.observation[GAP_KEYS[task]]){
-    const thetaA=state.definition.startIndex*Math.PI/2+(task===2?Math.PI/4:0),sense=state.definition.sense*(task===2?-1:1),delta=gap*Math.PI/180,thetaB=thetaA+sense*delta;
+    const thetaA=(state.definition.startIndex*90+(state.definition.startOffsetDeg??0))*Math.PI/180+(task===2?Math.PI/4:0),sense=state.definition.sense*(task===2?-1:1),delta=gap*Math.PI/180,thetaB=thetaA+sense*delta;
     const position=t=>[RADIUS*Math.cos(t),RADIUS*Math.sin(t)],velocity=t=>[-sense*SPEED*Math.sin(t),sense*SPEED*Math.cos(t)];
     const rA=position(thetaA),rB=position(thetaB),vA=velocity(thetaA),vB=velocity(thetaB),dr=subtract(rB,rA),dv=subtract(vB,vA),dt=delta/(SPEED/RADIUS);
     return {thetaA,thetaB,sense,delta,rA,rB,vA,vB,dr,dv,dt,averageV:scale(dr,1/dt),averageA:scale(dv,1/dt),nodes:{S:[0,0],U:vA,V:vB}};

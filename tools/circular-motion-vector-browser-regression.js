@@ -31,6 +31,20 @@ async function layouts(base,label){
     }
   }
 }
+async function pointLabels(base,label){
+  for(const [width,height]of [[320,500],[390,844]]){
+    await viewport(width,height);
+    for(const angle of [0,37,90,143,180,217,270,323])for(const gap of [5,60]){
+      const s=M.fresh(()=>0);s.definition.startIndex=Math.floor(angle/90);s.definition.startOffsetDeg=angle%90;s.observation.positionGapDeg=gap;await open(base,s);
+      assert.equal(await call('return app.controller.mode;'),'edit');
+      const r=await call(`const geo=app.getGeometry().position,svg=d.getElementById('positionSvg'),labels=[...svg.querySelectorAll('[data-point-label]')].map(e=>e.getBoundingClientRect().toJSON()),readouts=d.getElementById('readouts').getBoundingClientRect().toJSON();return{geo,labels,readouts,tex:d.getElementById('distanceReadout').querySelector('svg').dataset.tex,math:d.getElementById('definition').querySelectorAll('[data-tex]').length};`);
+      const overlap=(a,b)=>a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top;
+      assert.equal(r.labels.length,2);assert(!overlap(...r.labels));assert(r.labels.every(p=>p.height>=16&&!overlap(p,r.readouts)));assert(r.tex.startsWith('\\Delta x=')&&!/[|]|vec/.test(r.tex));assert(r.math>0);
+      if(width===390&&angle===37)await screenshot(`${label}-first-part-${gap}`);
+    }
+  }
+  report.flows.push({label,pointLabelLayouts:32,mathDisplacement:'Delta x',arbitraryStart:true});
+}
 async function answerAll(){for(let task=0;task<3;task++){await click(`[data-task="${task}"]`);for(const q of M.QUESTIONS.filter(q=>q.task===task))await click(`input[name="${q.field}"][value="${q.correct}"]`);if(task===1){await click('[data-vector-node="U"]');await click('[data-vector-node="V"]');}}}
 async function flows(base,label){
   await viewport(390,844);await open(base);await answerAll();await click('#checkButton');assert(await call('return !d.body.textContent.includes("100 / 100");'));await click('#submitButton');assert.equal(await call('return app.controller.result.score;'),100);assert(await call('return app.controller.trusted&&d.getElementById("clearTask").hidden===false&&d.getElementById("editFooter").hidden;'));await screenshot(label+'-submitted');
@@ -80,7 +94,7 @@ async function main(){
   fs.mkdirSync(out,{recursive:true});const temp=fs.realpathSync(os.tmpdir());
   try{
     const manifest=new XMLParser({ignoreAttributes:false}).parse(fs.readFileSync(path.join(root,'sim/manifests',slug+'.xml'),'utf8')),files=manifest.manifest.resources.resource.file.map(f=>f['@_href']),html=fs.readFileSync(path.join(root,'sim',slug,'index.html'),'utf8');
-    const refs=[...html.matchAll(/(?:src|href)="([^"?#]+\.(?:js|css))"/g)].map(m=>path.posix.normalize(slug+'/'+m[1]));assert.deepEqual(files.filter(f=>!f.endsWith('/index.html')).sort(),refs.sort());
+    const refs=[...html.matchAll(/(?:src|href)="([^"?#]+\.(?:js|css))"/g)].map(m=>path.posix.normalize(slug+'/'+m[1]));assert.deepEqual(files.filter(f=>!f.endsWith('/index.html')&&!f.endsWith('/mathjax-license.txt')).sort(),refs.sort());
     extracted=H.buildAndExtractPackage(temp,{slug,packagePrefix:'simlab-circular-vector-package-',packageNamePattern:/^simlab-circular-vector-package-[A-Za-z0-9]+$/});
     for(const file of files)assert(fs.readFileSync(path.join(root,'sim',file)).equals(fs.readFileSync(path.join(extracted.packageDirectory,file))));
     report.runtimeHash=crypto.createHash('sha256').update(Buffer.concat(files.map(f=>fs.readFileSync(path.join(root,'sim',f))))).digest('hex');report.commit=spawnSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).stdout.trim();
@@ -89,7 +103,7 @@ async function main(){
     cdp.on('Runtime.exceptionThrown',e=>report.errors.push(e.exceptionDetails?.exception?.description||e.exceptionDetails?.text));cdp.on('Page.javascriptDialogOpening',()=>{cdp.send('Page.handleJavaScriptDialog',{accept:true}).catch(e=>report.errors.push(e.message));});report.engine=await cdp.send('Browser.getVersion');
     await cdp.send('Page.addScriptToEvaluateOnNewDocument',{source:`(()=>{const p=new URLSearchParams(location.search);if(p.has('deny'))Object.defineProperty(window,'localStorage',{get(){throw new DOMException('Denied','SecurityError');}});if(!p.has('fixture'))return;const retain=p.get('retain'),key='circular-vector-lms-'+retain,durable=JSON.parse(retain&&sessionStorage.getItem(key)||p.get('fixture')),values={...durable};let error='0';window.__lmsValues=durable;window.__failFinal=false;window.__failFinish=false;window.API={LMSInitialize:()=> 'true',LMSGetValue:k=>(error='0',values[k]||''),LMSSetValue:(k,v)=>{if(window.__failFinal&&k==='cmi.core.score.raw'){error='351';return 'false';}values[k]=String(v);error='0';return 'true';},LMSCommit:()=>{Object.assign(durable,values);if(retain)sessionStorage.setItem(key,JSON.stringify(durable));return 'true';},LMSFinish:()=>window.__failFinish?'false':'true',LMSGetLastError:()=>error,LMSGetErrorString:()=>'',LMSGetDiagnostic:()=>''};})();`});
     for(const [label,directory]of [['source',path.join(root,'sim')],['package',extracted.packageDirectory]]){
-      server=H.createServer(directory);await H.listenServer(server);const base=`http://127.0.0.1:${server.address().port}`;console.log('Circular vector browser: '+label);await layouts(base,label);await flows(base,label);await dragProbe(base,label);await H.closeServer(server);server=null;
+      server=H.createServer(directory);await H.listenServer(server);const base=`http://127.0.0.1:${server.address().port}`;console.log('Circular vector browser: '+label);await layouts(base,label);await pointLabels(base,label);await flows(base,label);await dragProbe(base,label);await H.closeServer(server);server=null;
     }
     assert.deepEqual(report.errors,[]);report.completed=true;console.log('Circular vector source/package: layout, learner flows, SCORM trust/resume, fullscreen and 48 trusted geometry drags passed.');
   }catch(error){if(cdp)try{await screenshot('failure');}catch(_){}throw error;}finally{

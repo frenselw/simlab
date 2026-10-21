@@ -6,6 +6,7 @@ const root=path.resolve(__dirname,'..');
 
 const registeredTests = [
   'sim/circular-motion-vector-lab/model.test.js',
+  'sim/circular-motion-vector-lab/presentation.test.js',
   'sim/circular-motion-vector-lab/scoring.test.js',
   'sim/circular-motion-vector-lab/persistence.test.js',
   'sim/circular-motion-vector-lab/lifecycle.test.js',
