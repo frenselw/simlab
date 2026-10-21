@@ -635,3 +635,10 @@ Site archive `output/sites/circular-motion-vector-lab-symbols.tar.gz` SHA-256 `8
 本次 presentation 測試通過，沿用原有圓周／中文端點／速度圖中心檢查；新增 48 組方向／間隔的 Δx 標籤不跨圓周檢查，以及不產生 vector accent 的字形檢查。正式 browser 新增各頁直接檢查無標籤背景 rect、無向量箭號 TeX；以來源及真解壓 SCORM 重跑既有流程。此圖形樣式變更沒有新的觸控區、保存欄位或評分分支，完整 T0–T3／實機／真 Moodle 本次不重作。
 
 本次最終 source／真解壓 SCORM browser 通過：54 組 viewport／任務／資產排版、48 組可信拖曳及既有評分／保存／提交流程；靜態、check:tests（252 entries）與文件檢查通過。已檢視第一／第二部分實際截圖。Runtime hash `31934d7bda2a5ef4a4bc3d3ada444841703731df798a7666b6148b472a6407bd` 與最終 browser report 一致。
+
+
+本次 runtime commit `d7ceeadd219535d87e190d410d32e29a339d1e89` 已 push 並以 ls-remote 複核；選取預覽為 affected／219 tests，檔案 `output/ci-tests/circular-vector-plain-selection.json`，僅為選取證據。[本次 CI](https://github.com/frenselw/simlab/actions/runs/39626709303) 發布時 pending。
+
+Sites source `853434168476767e47e46775c350d61bd461c445` 經官方 helper 推送／封裝，15 個 runtime 資產逐 byte 核對。2026-10-21 23:34（UTC+8）原生私人發布 succeeded：deployment `appgdep_6ad8db8888888191bda00e9c32ae1514`，version `appgprj_6ad878e05e148191aee5ef92740b63f1~appgver_c3eee650a5d48191b07fc9a21969557a`；沿用[正式網址](https://circular-motion-vector-lab.ieyp.chatgpt.site/circular-motion-vector-lab/)及 owner-only 權限。
+
+Archive `output/sites/circular-motion-vector-lab-plain-labels.tar.gz` SHA-256 `18dad4c527fe85359579385e7cbf7ce7ee9e75c0acd5f9cdb43e19e8e81da05d`；SCORM ZIP SHA-256 `35b1c6cce6f4df16771d9fe8087958c17339741688c5c7ec1b9fcd8ecb4ee6f1`。證據：`output/sites/circular-vector-plain-runtime-verification.json`、`circular-vector-plain-deployment.json`。
