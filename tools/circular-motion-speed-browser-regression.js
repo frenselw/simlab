@@ -98,7 +98,7 @@ async function fullFlow(cdp,url,width,height){
   assert.ok(result.beltBox.x>0 && result.beltBox.right<700,"belt tangent loop must remain inside the stage");
   assert.ok(result.beltRect.left>=result.svgRect.left-2 && result.beltRect.right<=result.svgRect.right+2 && result.beltRect.top>=result.svgRect.top-2 && result.beltRect.bottom<=result.svgRect.bottom+2,"belt must stay visible after responsive rotation");
   assert.ok(result.mathCount>=12 && result.mathReadout,"physical quantities must use math typography");
-  if(height>=500 && width<=640)assert.ok(result.panelHeight>=96 && result.stageHeight<=height*.6+2,"phone panel must retain the guide's 96px minimum under the 60dvh stage cap");
+  if(height>=500 && width<=640)assert.ok(result.panelHeight>=130 && result.stageHeight<=height*.55+2,"phone panel must gain usable height while the stage stays within 55dvh");
   if(height>=600 && width<=640)assert.ok(result.stageHeight>result.panelHeight*1.5,"phone stage must dominate the panel");
   if(width>=820 && height>380)assert.ok(result.stageWidth>result.panelWidth*1.5,"desktop stage must dominate the panel");
   if(width>=1280)assert.ok(result.legendSize>=17,"desktop A/B legend must grow with available stage space");
@@ -214,9 +214,9 @@ async function main(){
       await load(cdp,source,320,225);await capture("short");
       await load(cdp,source,1280,800);await capture("desktop");
     }
-    await fullFlow(cdp,source,390,844);
+    const tallPhone=await fullFlow(cdp,source,390,844);
     await fullFlow(cdp,source,390,600);
-    await fullFlow(cdp,source,320,500);
+    const shortPhone=await fullFlow(cdp,source,320,500);
     await fullFlow(cdp,source,320,225);
     await fullFlow(cdp,source,820,600);
     await fullFlow(cdp,packaged,1280,800);
@@ -226,6 +226,7 @@ async function main(){
     await pendingFlow(cdp,source);
     await pendingFlow(cdp,packaged);
     assert.deepEqual(errors,[],`browser exceptions: ${errors.join("\n")}`);
+    console.log(`Phone task layout: 320×500 stage ${shortPhone.stageHeight.toFixed(1)}px / panel ${shortPhone.panelHeight.toFixed(1)}px; 390×844 stage ${tallPhone.stageHeight.toFixed(1)}px / panel ${tallPhone.panelHeight.toFixed(1)}px`);
     console.log("Circular-speed source/package browser flow, small/desktop layout, 100/0 score, fullscreen and standalone refresh passed");
   }catch(error){failure=error;if(errors.length)console.error("Browser exceptions:",errors);}
   const cleanup=[];

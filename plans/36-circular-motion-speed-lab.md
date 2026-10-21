@@ -159,7 +159,7 @@ P1 已同步新增 catalogue、manifest 與測試登記；發布前須保持三�
 | Fullscreen | 外層 main 標 `data-sim-fullscreen-target`，header 標 `data-sim-fullscreen`；沿用 `shared/fullscreen.js`，右上 44px 目標、20px 圖示，所有 phase 可用 |
 | Desktop / tablet | 寬度 ≥ 820px 時左右排列；panel 約 280–320px，其餘給 stage |
 | Control-panel classification | bounded split-panel；學生輸入答案時仍需看尺和讀數，panel 自己捲動，activity document 無第三個垂直捲動層 |
-| Phone | Header → stage → panel；stage 目標約 60dvh、最低 13rem，並為可捲動 panel 保留至少約 7rem；生產指南硬下限 96 CSS px。500px 高播放器實測 stage 276px、panel 約 109px，符合約 7rem／硬下限，故本輪不任意改比例；窄直屏把皮帶裝置縱向呈現並裁去多餘留白，短橫屏改左右配置 |
+| Phone | Header → stage → panel；≤640px 直屏 stage 目標最多 55dvh、最低 13rem，短高度另以 `100dvh - 15.5rem` 留出較多 panel 空間；生產指南硬下限 96 CSS px。320×500 實測 stage 252px、panel 137.7px；390×844 實測 stage 464.2px、panel 269.5px。窄直屏把皮帶裝置縱向呈現並裁去多餘留白，極短橫屏仍改左右配置 |
 | Phone text | 正文及輸入 16px，次要字 14px；主要讀數／尺標於實際縮放後仍可讀，按鈕至少 44px |
 | 短播放器 | 320×225 等極短尺寸採緊湊雙欄、精簡文字；仍需可到達最後答案與提交鈕，不增加 stage 內捲動 |
 | Viewports | 320×500、390×500、390×600、390×844、1280×800；另測 320×225、480×320、工具列變動、軟鍵盤及 200% zoom |
