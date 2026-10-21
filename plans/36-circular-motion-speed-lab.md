@@ -1,6 +1,6 @@
 # 圓周運動：線速率與角速率量度
 
-狀態：**P2 第十輪已移除學生頁面章節標示，完成測試、提交及 Sites 發布。P3 真 Moodle／真手機驗收待做。**
+狀態：**P2 第十一輪獨立審核已收斂，完成修正、測試、提交及 Sites 發布。P3 真 Moodle／真手機驗收待做。**
 
 本活動讓學生自行開始及停止量度，把圓周軌跡展平後讀取路程、時間及累積轉角，計算並比較線速率與角速率。以同軸與不打滑皮帶兩個情境對照「相同角速率」與「相同線速率」的不同約束。
 
@@ -604,3 +604,16 @@ GitHub CI 無需等待；真 Moodle、真手機 T4 及學生試用仍待驗，�
 | Sites | 原 owner-private [試用網址](https://circular-motion-speed-lab.ieyp.chatgpt.site)更新至 version 11；custom access 仍只有 owner。10 個 runtime 檔案與 branch SHA-256 逐檔一致；Site source commit `380bb7090172352a04c85f45e6b94f92ac7b30d2`，tar SHA-256 `BAC2BFAEBB804F0C044082F8A9885965F079E3CD7A4A3A2BE4810D2F2D950AF9`，version `appgprj_6ad85f290a0081919a849c43bdabdde5~appgver_9d293c9b46188191a11adde35dfc3f71`，deployment `appgdep_6ad8e32b0df08191a3e4945bf110e209` succeeded。 |
 
 本輪未重跑全庫 Node 測試，亦未等 GitHub CI；真 Moodle／真手機 T4 仍是獨立驗收。
+
+### P2 第十一輪獨立全面審核、修正與交付證據（2026-10-22）
+
+| 項目 | 結果 |
+|---|---|
+| 獨立審核 | 兩位 reviewer 各自檢查整個活動，第三位 reviewer 唯讀整理結果。首輪歸納四項：pending-final 內外資料未完全核對、隱藏畫布後面板留白、快照容許多餘欄位、科學記數法顯示裸 `^`。第二輪再發現 pending-final 可接受不可能由正常提交產生的 `task` 檢視。修正後兩位 reviewer 第三輪重新全面審核，均明確回報沒有新問題。 |
+| 修正 | 待確認提交須為 `check` 檢視，重建 canonical review snapshot，逐字核對內層答案及內外 score／maxScore／passed；失敗即 quarantine，不提供重試。已完成 review 還原亦拒絕 `task` 檢視。快照每層嚴格檢查欄位；檢查／結果／凍結／技術頁在畫布隱藏時讓面板填滿 shell；科學記數法指數改為 Unicode 上標。 |
+| 回歸與 package | 新增正常待確認重試、內層 score/pass 不符、`task` 檢視、多餘答案欄位與無 LMS 寫入測試；核對 check/result/frozen/technical 面板尺寸。四個本活動 Node 測試、`node tools/check.js`、`node tools/test-registry.js`（251 entries）、`node tools/package-all.js`、source／解壓 package 完整 browser regression、`git diff --check` 均通過。SCORM ZIP 12 files，SHA-256 `50081551A658087917C83F518A46AC7F1F3A188B671ECF19D0816669311EFE2C`。 |
+| 手機可信手勢 | T0 standalone、T1 package、T2 source nested、T3 package element 各一個 320×500 初始情境；`output/playwright/circular-speed-audit-T0.json` 至 `T3.json` 全部 passed、issues 0。 |
+| commit／push／測試選取 | 修正與測試 commit `f797aa39cd31e76a3370afed45df633f7cf5a0e5` 已推送 `origin/codex/circular-motion-speed-lab`；committed selection preview 為 affected，選本活動 package 及 browser owner。 |
+| Sites | 原 owner-private [試用網址](https://circular-motion-speed-lab.ieyp.chatgpt.site) 已更新至 version 12；custom access 只有 owner，external visitors 0。網站 10 個 runtime 檔案與本 branch SHA-256 逐檔一致。Site source commit `d68bf7a2a6b6daff4b52b2ffdb3158c607ac00e8`，tar SHA-256 `2C51D718A0467D65440431E85F295C47F596A0A337AA69C3E3000F3D8EA3530E`，version `appgprj_6ad85f290a0081919a849c43bdabdde5~appgver_85f4ebed7b1c8191ad515301863058a3`，deployment `appgdep_6ad8e83858c08191a59201f9d20d40dc` succeeded。 |
+
+審核收斂只涵蓋代碼及本機 source／package browser；未重跑全庫 Node 測試，亦未等 GitHub CI。真 Moodle／真手機 T4 仍是獨立驗收。
