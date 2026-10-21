@@ -660,3 +660,18 @@ Runtime commit `3d936c19df41bfd34178359decc5b5660b836649` 已 push 並以 ls-rem
 Sites source `b4ecf4e650eab7f4083d6dbfe3f67bc0a4486f31` 經官方 helper 推送／封裝，全部 15 個 runtime 資產與 archive 逐 byte 核對。2026-10-22 00:04（澳門）私人發布 succeeded：deployment `appgdep_6ad8e27c48108191ab80ca8121b31fa5`，version `appgprj_6ad878e05e148191aee5ef92740b63f1~appgver_e5120506b37881919ad1f9d0e7e7be4f`。沿用[正式網址](https://circular-motion-vector-lab.ieyp.chatgpt.site/circular-motion-vector-lab/)及 owner-only 權限。
 
 Archive `output/sites/circular-motion-vector-lab-no-leaders.tar.gz` SHA-256 `f06f6c9a87e999b87bbfb077c6f54eec482ee278418fd2c7c1e55f361dc52655`；SCORM ZIP SHA-256 `96fc1bb2166e5f5041ad7dadcf585ffe60061ab8246d0ca9c5afb8014ee6a725`。證據：`output/sites/circular-vector-no-leaders-runtime-verification.json`、`circular-vector-no-leaders-deployment.json`。
+
+
+## 2026-10-22 雙獨立全面審核：修正決策
+
+兩位 reviewer 均獨立覆蓋完整活動；第三位核實及去重後採納兩項 P2。F37-01：窄速度圖的 Δv 可與中文名稱碰撞，橫屏單位標題也可能裁切；沿用短中文名稱並補足合法空位候選、適配標題，保持透明無引線、不改向量端點或評分。F37-02：數學 renderer 啟動失敗須在活動初始化邊界顯示技術鎖定，關閉假作答控制、保留 fullscreen，且不建立草稿／寫成績；不新增 fallback renderer。
+
+修正範圍為 presentation、main 與既有 Node／browser 回歸；權威資料、rubric、SCORM schema、manifest 依賴不變。新測試須覆蓋兩份報告的合法 production fixture、不同轉向／間隔／錯答及提交後參考符號，以及 renderer ready rejection／bundle 缺失。修正後兩位再次全面複核，由第三位整理；只有兩位同輪皆無新 finding 才結束。
+
+
+F37-01 的版面實作補充：高度 ≤400px 的左右面板斷點由 480px 移至 700px，窄橫屏改用全寬舞台及下方面板，避免把兩圖各壓成約 123px。極矮（≤250px）頁首採 44px 控制的緊湊間距，fullscreen 觸控區不縮小，騰出圖區高度；因此需補執行受影響尺寸的 source／package 手勢檢查。數學標籤優先安排較寬符號，既有候選不足才掃描可用空位，不以背景遮蓋或拋錯代替合法配置。
+
+
+第二輪複核過程另確認極矮左圖 A／v₂ 仍可能碰撞，並補修後再交兩位全面再驗。現在先更新讀數再選位，以實際讀數 SVG 框、O 字形、A／B 及點／線共同避讓；極矮速度頁可用讀數兩側空位，讀數背景透明。A／B 候選增加 42／60px 中間偏移，避免合法 review 因無候選而進入 technical。
+
+兩位 reviewer 對最終 runtime hash `2ca19d3da787f25c1f9e86ae327022514a9e7fd8a75e1faf7484dfe2e53d55bd` 各自完整複核，F37-01／F37-02 皆關閉，兩位均沒有未處理的新 finding。現有五個 Node entry 全通過；新增 14,112 組右圖中文／物理量／錯答／參考量共同配置，以及 2,160 組極矮左圖整數角度／轉向／review／速度／讀數／O 避讓。正式來源／真解壓 SCORM browser 通過 60 組排版、48 組可信拖曳、每套資產 20 組左右實際字形及 2 種啟動故障，零例外；完整初輪／複核結論及驗證界線另見最終審核報告。

@@ -69,6 +69,41 @@ async function savedChoiceOrders(base,label){
   await click('#shorten');await click('#checkButton');await click('[data-return="0"]');assert.deepEqual(await call(`return [...d.querySelectorAll('fieldset')].map(e=>[...e.querySelectorAll('input')].map(i=>i.value));`),order);
   const origin=await call('return performance.timeOrigin;');await cdp.send('Page.reload');await wait(()=>call(`return performance.timeOrigin!==${origin}&&app?.controller.mode==='edit';`),'saved option orders');assert.deepEqual((await state()).definition.choiceRanks,s.definition.choiceRanks);assert.deepEqual(await call(`return [...d.querySelectorAll('fieldset')].map(e=>[...e.querySelectorAll('input')].map(i=>i.value));`),order);report.flows.push({label,independentSavedChoiceOrders:true});
 }
+async function annotationRegression(base,label){
+  let cases=0;
+  for(const [width,height]of [[320,500],[390,844],[480,320],[320,225],[700,225]])for(const [angle,sense,gap,from,to,review]of [[0,1,5,'U','V',false],[20,1,60,'U','V',false],[10,-1,5,'V','U',true],[143,1,30,'S','V',true]]){
+    const s=T.filled();s.task=1;s.definition.startIndex=Math.floor(angle/90);s.definition.startOffsetDeg=angle%90;s.definition.sense=sense;s.observation.velocityGapDeg=gap;s.answers.deltaFrom=from;s.answers.deltaTo=to;
+    await viewport(width,height);
+    if(review){const snap=T.snapshot(s,'review');await open(base,null,{values:{'cmi.core.lesson_status':snap.passed?'passed':'failed','cmi.core.score.raw':String(snap.score),'cmi.suspend_data':JSON.stringify(snap)}});await click('[data-task="1"]');}else await open(base,s);
+    const r=await call(`const svg=d.getElementById('velocitySvg'),bounds=svg.getBoundingClientRect(),items=[...svg.querySelectorAll('[data-quantity],[data-velocity-label]')].map(e=>({key:e.dataset.quantity||e.dataset.velocityLabel,box:e.getBoundingClientRect().toJSON()}));return{bounds:bounds.toJSON(),items,mode:app.controller.mode,geo:app.getGeometry(),heading:[...svg.children].filter(e=>e.tagName==='text'||e.hasAttribute('data-tex')).map(e=>e.getBoundingClientRect().toJSON())};`);
+    const overlap=(a,b)=>a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top,context=JSON.stringify({label,width,height,angle,sense,gap,from,to,review,r});
+    assert.equal(r.mode,review?'review':'edit',context);
+    for(let i=0;i<r.items.length;i++){const a=r.items[i].box;assert(a.left>=r.bounds.left-.5&&a.right<=r.bounds.right+.5&&a.top>=r.bounds.top-.5&&a.bottom<=r.bounds.bottom+.5,context);for(const b of r.items.slice(i+1))assert(!overlap(a,b.box),context);}
+    for(const a of r.heading)assert(a.left>=r.bounds.left-.5&&a.right<=r.bounds.right+.5,context);
+    const left=await call(`return [...d.querySelectorAll('#positionSvg [data-quantity],#positionSvg [data-point-label],#positionSvg>g[data-tex],#readouts svg')].filter(e=>e.getBoundingClientRect().width).map(e=>({key:e.dataset.quantity||e.dataset.pointLabel||e.dataset.tex,box:e.getBoundingClientRect().toJSON()}));`);
+    for(let i=0;i<left.length;i++)for(const b of left.slice(i+1))assert(!overlap(left[i].box,b.box),JSON.stringify({label,width,height,angle,sense,gap,from,to,review,left}));
+    if(angle===0&&width===320||angle===20&&width===480)await screenshot(`${label}-audit-labels-${width}x${height}`);
+    cases++;
+  }
+  report.flows.push({label,annotationRegression:cases,actualGlyphBounds:true,wrongAndReferenceVectors:true});
+}
+async function rendererStartupFailure(base,label){
+  await viewport(390,844);
+  let fault='reject';
+  const paused=async e=>{try{if(fault==='missing')await cdp.send('Fetch.failRequest',{requestId:e.requestId,errorReason:'Failed'});else await cdp.send('Fetch.fulfillRequest',{requestId:e.requestId,responseCode:200,responseHeaders:[{name:'Content-Type',value:'application/javascript'}],body:Buffer.from('MathJax.startup={promise:new Promise((_,reject)=>setTimeout(()=>reject(new Error("injected math startup failure")),100))};').toString('base64')});}catch(error){report.errors.push(error.message);}};
+  const unsubscribe=cdp.on('Fetch.requestPaused',paused);await cdp.send('Fetch.enable',{patterns:[{urlPattern:'*mathjax-tex-svg.js*',requestStage:'Request'}]});
+  try{
+    for(fault of ['reject','missing']){
+      const values={'cmi.core.lesson_status':'incomplete','cmi.suspend_data':JSON.stringify(T.snapshot(T.filled()))};
+      await cdp.send('Page.navigate',{url:`${base}/${slug}/index.html?fixture=${encodeURIComponent(JSON.stringify(values))}`});
+      await wait(()=>call(`return !d.getElementById('notice').hidden&&d.getElementById('notice').textContent.includes('數學圖像');`),'renderer startup technical message');
+      assert(await call(`return !app&&d.getElementById('stage').hidden&&d.getElementById('learningPanel').hidden&&d.getElementById('checkButton').hidden&&[...d.querySelectorAll('#taskNav button,#compactNav')].every(e=>e.disabled)&&w.__lmsWrites.length===0;`));
+      assert.deepEqual(await call('return w.__lmsValues;'),values);
+      await click('.sim-fullscreen-button',true);assert(await call('return Boolean(d.fullscreenElement);'));await call('return d.exitFullscreen();');
+    }
+  }finally{await cdp.send('Fetch.disable');unsubscribe();}
+  report.flows.push({label,rendererStartupFailure:['reject','missing'],checkpointUnchanged:true,fullscreen:true});
+}
 async function answerAll(){for(let task=0;task<3;task++){await click(`[data-task="${task}"]`);for(const q of M.QUESTIONS.filter(q=>q.task===task))await click(`input[name="${q.field}"][value="${q.correct}"]`);if(task===1){await click('[data-vector-node="U"]');await click('[data-vector-node="V"]');}}}
 async function flows(base,label){
   await viewport(390,844);await open(base);await answerAll();await click('#checkButton');assert(await call('return !d.body.textContent.includes("100 / 100");'));await click('#submitButton');assert.equal(await call('return app.controller.result.score;'),100);assert(await call('return app.controller.trusted&&d.getElementById("clearTask").hidden===false&&d.getElementById("editFooter").hidden;'));await screenshot(label+'-submitted');
@@ -125,9 +160,9 @@ async function main(){
     profile=fs.mkdtempSync(path.join(temp,'simlab-circular-vector-chrome-'));chrome=spawn(H.findBrowser(),['--headless=new','--remote-debugging-address=127.0.0.1','--remote-debugging-port=0','--user-data-dir='+profile,'--no-first-run','--no-default-browser-check','--disable-background-networking','about:blank'],{stdio:['ignore','ignore','pipe']});chrome.stderr.resume();
     const port=await H.devToolsPort(profile,chrome),{body:target}=await H.fetchJson(`http://127.0.0.1:${port}/json/new?about:blank`,{method:'PUT'});cdp=new H.CdpClient(target.webSocketDebuggerUrl);await cdp.send('Page.enable');await cdp.send('Runtime.enable');await cdp.send('Page.bringToFront');
     cdp.on('Runtime.exceptionThrown',e=>report.errors.push(e.exceptionDetails?.exception?.description||e.exceptionDetails?.text));cdp.on('Page.javascriptDialogOpening',()=>{cdp.send('Page.handleJavaScriptDialog',{accept:true}).catch(e=>report.errors.push(e.message));});report.engine=await cdp.send('Browser.getVersion');
-    await cdp.send('Page.addScriptToEvaluateOnNewDocument',{source:`(()=>{const p=new URLSearchParams(location.search);if(p.has('deny'))Object.defineProperty(window,'localStorage',{get(){throw new DOMException('Denied','SecurityError');}});if(!p.has('fixture'))return;const retain=p.get('retain'),key='circular-vector-lms-'+retain,durable=JSON.parse(retain&&sessionStorage.getItem(key)||p.get('fixture')),values={...durable};let error='0';window.__lmsValues=durable;window.__failFinal=false;window.__failFinish=false;window.API={LMSInitialize:()=> 'true',LMSGetValue:k=>(error='0',values[k]||''),LMSSetValue:(k,v)=>{if(window.__failFinal&&k==='cmi.core.score.raw'){error='351';return 'false';}values[k]=String(v);error='0';return 'true';},LMSCommit:()=>{Object.assign(durable,values);if(retain)sessionStorage.setItem(key,JSON.stringify(durable));return 'true';},LMSFinish:()=>window.__failFinish?'false':'true',LMSGetLastError:()=>error,LMSGetErrorString:()=>'',LMSGetDiagnostic:()=>''};})();`});
+    await cdp.send('Page.addScriptToEvaluateOnNewDocument',{source:`(()=>{const p=new URLSearchParams(location.search);if(p.has('deny'))Object.defineProperty(window,'localStorage',{get(){throw new DOMException('Denied','SecurityError');}});if(!p.has('fixture'))return;const retain=p.get('retain'),key='circular-vector-lms-'+retain,durable=JSON.parse(retain&&sessionStorage.getItem(key)||p.get('fixture')),values={...durable};let error='0';window.__lmsValues=durable;window.__lmsWrites=[];window.__failFinal=false;window.__failFinish=false;window.API={LMSInitialize:()=> 'true',LMSGetValue:k=>(error='0',values[k]||''),LMSSetValue:(k,v)=>{window.__lmsWrites.push([k,v]);if(window.__failFinal&&k==='cmi.core.score.raw'){error='351';return 'false';}values[k]=String(v);error='0';return 'true';},LMSCommit:()=>{Object.assign(durable,values);if(retain)sessionStorage.setItem(key,JSON.stringify(durable));return 'true';},LMSFinish:()=>window.__failFinish?'false':'true',LMSGetLastError:()=>error,LMSGetErrorString:()=>'',LMSGetDiagnostic:()=>''};})();`});
     for(const [label,directory]of [['source',path.join(root,'sim')],['package',extracted.packageDirectory]]){
-      server=H.createServer(directory);await H.listenServer(server);const base=`http://127.0.0.1:${server.address().port}`;console.log('Circular vector browser: '+label);await layouts(base,label);await pointLabels(base,label);await largeChoiceCards(base,label);await savedChoiceOrders(base,label);await flows(base,label);await dragProbe(base,label);await H.closeServer(server);server=null;
+      server=H.createServer(directory);await H.listenServer(server);const base=`http://127.0.0.1:${server.address().port}`;console.log('Circular vector browser: '+label);await layouts(base,label);await pointLabels(base,label);await largeChoiceCards(base,label);await savedChoiceOrders(base,label);await annotationRegression(base,label);await flows(base,label);await dragProbe(base,label);await rendererStartupFailure(base,label);await H.closeServer(server);server=null;
     }
     assert.deepEqual(report.errors,[]);report.completed=true;console.log('Circular vector source/package: layout, learner flows, SCORM trust/resume, fullscreen and 48 trusted geometry drags passed.');
   }catch(error){if(cdp)try{await screenshot('failure');}catch(_){}throw error;}finally{

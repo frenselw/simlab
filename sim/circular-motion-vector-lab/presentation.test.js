@@ -57,3 +57,27 @@ for(let angle=0;angle<360;angle+=15)for(const gap of [5,60]){
   assert(near>=p.r+4||far<=p.r-4,'Delta x label crosses circle');
 }
 console.log('Textbook symbols have no vector accent; displacement labels avoid the circle edge in 48 orientations/gaps.');
+
+
+let combined=0;
+for(const [width,height]of [[160.5,83],[160.5,260],[195.5,439],[240.5,171],[240.5,75],[189.5,171],[270,623]])for(let angle=0;angle<360;angle+=15)for(const sense of [-1,1])for(const gap of [5,30,60])for(const pair of [[null,null],['U','V'],['V','U'],['S','U'],['S','V'],['U','S'],['V','S']])for(const review of [false,true]){
+  const s=M.fresh(()=>0);s.task=1;s.definition={startIndex:Math.floor(angle/90),startOffsetDeg:angle%90,sense,choiceShift:0};s.observation.velocityGapDeg=gap;
+  const g=M.scene(s),p=F.positionGeometry(width,height,36,true),room=Math.max(p.r+1,Math.min(width/2-16,height/2-23)),unit=Math.max(18,Math.min(width-68,height-92,330,Math.sqrt(room*room-p.r*p.r)/M.SPEED)),origin=F.velocityOrigin(g.nodes,width,height,unit),nodes=Object.fromEntries(Object.entries(g.nodes).map(([k,p])=>[k,[origin[0]+unit*p[0],origin[1]-unit*p[1]]])),endpoints=F.velocityLabels(nodes,width,height);
+  const specs=[{tex:'v_1',from:nodes.S,to:nodes.U},{tex:'v_2',from:nodes.S,to:nodes.V}];
+  if(pair[0])specs.push({tex:'\\Delta v',from:nodes[pair[0]],to:nodes[pair[1]]});
+  if(review&&(pair[0]!=='U'||pair[1]!=='V'))specs.push({tex:'\\Delta v',from:nodes.U,to:nodes.V});
+  const segments=specs.map(p=>[p.from,p.to]),occupied=[...endpoints.map(p=>p.box),...Object.values(nodes).map(p=>[p[0]-9,p[1]-9,p[0]+9,p[1]+9])],labels=F.quantityLabels(specs,width,height,segments,occupied,height<150?0:35);
+  for(const label of labels){const box=label.box,context=JSON.stringify({width,height,angle,sense,gap,pair,review,tex:label.tex});assert(box[0]>=0&&box[1]>=0&&box[2]<=width&&box[3]<=height,context);assert(occupied.every(b=>box[2]<=b[0]||box[0]>=b[2]||box[3]<=b[1]||box[1]>=b[3]),context);assert(segments.every(([a,b])=>!F.intersects(box,a,b)),context);occupied.push(box);}
+  combined++;
+}
+console.log(`Combined endpoint/quantity placement: ${combined} source geometry cases, including wrong answers and review references, passed.`);
+
+for(let angle=0;angle<360;angle++)for(const sense of [-1,1])for(const pair of [['U','V'],['V','U'],['S','V']]){
+  const s=M.fresh(()=>0);s.task=1;s.definition={startIndex:Math.floor(angle/90),startOffsetDeg:angle%90,sense,choiceShift:0};s.observation.velocityGapDeg=5;
+  const g=M.scene(s),p=F.positionGeometry(159.5,83,22,true),at=(v,o,u)=>[o[0]+u*v[0],o[1]-u*v[1]],A=at(g.rA,p.center,p.r/M.RADIUS),B=at(g.rB,p.center,p.r/M.RADIUS),segments=[[A,at(g.vA,A,18)],[B,at(g.vB,B,18)]],v=M.subtract(g.nodes[pair[1]],g.nodes[pair[0]]),n=M.length(v),tangent=M.direction(s,1,'forward-tangent');
+  segments.push([A,[A[0]+20*v[0]/n,A[1]-20*v[1]/n]],[A,[A[0]+tangent[0]*p.r*.65,A[1]-tangent[1]*p.r*.65]]);
+  const pointLabels=F.labels([A,B],p.center,p.r,159.5,83,segments,true,p.labelTop);assert.equal(pointLabels.length,2,JSON.stringify({angle,sense,pair}));
+  const time=CircuitMath.measure('\\Delta t=0.0873\\,\\mathrm{s}',16),origin=CircuitMath.measure('O',22),occupied=[...pointLabels.map(p=>p.box),...[A,B,p.center].map(p=>[p[0]-10,p[1]-10,p[0]+10,p[1]+10]),[p.center[0]-time.width/2,0,p.center[0]+time.width/2,23],[p.center[0]+16-origin.width/2,p.center[1]+8-origin.ascent,p.center[0]+16+origin.width/2,p.center[1]+8+origin.descent]];
+  for(const q of F.quantityLabels([{tex:'v_1',from:A,to:segments[0][1]},{tex:'v_2',from:B,to:segments[1][1]}],159.5,83,segments,occupied,0,{center:p.center,r:p.r})){const box=q.box;assert(occupied.every(b=>box[2]<=b[0]||box[0]>=b[2]||box[3]<=b[1]||box[1]>=b[3]),JSON.stringify({angle,sense,pair,box}));occupied.push(box);}
+}
+console.log('Short-player review: A/B labels render at every integer starting angle, both senses and three drawing directions.');

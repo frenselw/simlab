@@ -1,6 +1,15 @@
 (async function(){
   'use strict';
-  await CircuitMath.ready();
+  try{
+    await CircuitMath.ready();
+    if(typeof MathJax.tex2svg!=='function')throw Error('Math renderer unavailable');
+  }catch(_){
+    document.getElementById('app').classList.add('checking');
+    for(const id of ['stage','learningPanel','checkPanel','resultPanel','feedback','checkButton'])document.getElementById(id).hidden=true;
+    document.querySelectorAll('#taskNav button,#compactNav').forEach(e=>{e.disabled=true;});
+    const notice=document.getElementById('notice');notice.textContent='數學圖像未能載入，活動暫時無法開始。原有作答紀錄保持不變，請重新開啟或聯絡教師。';notice.hidden=false;
+    return;
+  }
   const M=CircularVectorModel,P=CircularVectorPersistence,S=CircularVectorScoring,F=CircularVectorPresentation;
   const math=F.math,prose=F.prose;
   const symbol=(x,y,tex,size=22,extra='')=>CircuitMath.svg(x,y,{tex,text:tex},size,extra);
@@ -60,7 +69,9 @@
     svg+=circle(o,3,'#596c83')+symbol(o[0]+16,o[1]+8,'O',22)+circle(A,6.5,C.earlier)+circle(B,6.5,C.later);
     const labels=F.labels([A,B],o,r,w,h,segments,compact,geo.labelTop);
     labels.forEach((p,i)=>{svg+=`<g data-point-label="${i?'B':'A'}">${symbol(p.x,p.y+(compact?6:8),i?'B':'A',compact?22:28,`fill="${i?C.later:C.earlier}"`)}</g>`;});
-    svg+=quantities(quantitiesToDraw,w,h,segments,[...labels.map(p=>p.box),...[A,B,o].map(p=>[p[0]-10,p[1]-10,p[0]+10,p[1]+10])],geo.labelTop,{center:o,r});
+    const readoutBoxes=[...d.readouts.querySelectorAll('svg')].map(e=>e.getBoundingClientRect()).filter(b=>b.width&&b.height).map(b=>[b.left-geo.left,b.top-geo.top,b.right-geo.left,b.bottom-geo.top]);
+    const originLabel=CircuitMath.measure('O',22),originBox=[o[0]+16-originLabel.width/2,o[1]+8-originLabel.ascent,o[0]+16+originLabel.width/2,o[1]+8+originLabel.descent];
+    svg+=quantities(quantitiesToDraw,w,h,segments,[...labels.map(p=>p.box),originBox,...readoutBoxes,...[A,B,o].map(p=>[p[0]-10,p[1]-10,p[0]+10,p[1]+10])],task===1&&compact?0:geo.labelTop,{center:o,r});
     return {svg,A,B};
   }
   function drawStage(){
@@ -69,13 +80,14 @@
   }
   function drawScene(){
     const s=controller.state,task=controller.task,gap=drag?drag.value:s.observation[M.GAP_KEYS[task]],g=M.scene(s,task,gap);
+    d.timeReadout.innerHTML=math('\\Delta t='+fmt(g.dt)+'\\,\\mathrm{s}','Δt = '+fmt(g.dt)+' s');d.distanceReadout.innerHTML=math('\\Delta x='+fmt(M.length(g.dr))+'\\,\\mathrm{m}','Δx = '+fmt(M.length(g.dr))+' m');
     layout=geometry(g);const pos=positionDrawing(g,s,task,layout.position,controller.trusted);
     d.positionSvg.setAttribute('viewBox',`0 0 ${layout.position.width} ${layout.position.height}`);d.positionSvg.innerHTML=pos.svg;
     d.positionHandle.style.left=pos.B[0]+'px';d.positionHandle.style.top=pos.B[1]+'px';d.positionHandle.hidden=controller.mode==='check'||!controller.state;d.positionHandle.disabled=controller.mode!=='edit';
     d.positionHandle.setAttribute('aria-valuetext',`時間間隔 ${fmt(g.dt)} 秒`);
     if(task===1){
       const v=layout.velocity,at=p=>screen(p,v.origin,v.unit),nodes=Object.fromEntries(Object.entries(g.nodes).map(([key,p])=>[key,at(p)]));
-      let svg=(v.height<150?'':text(12,25,'速度圖')+symbol(90,25,'(\\mathrm{m/s})',20,'text-anchor="start"'))+`<g data-speed="A">${arrow(nodes.S,nodes.U,C.earlier)}</g><g data-speed="B">${arrow(nodes.S,nodes.V,C.later)}</g>`;
+      let svg=(v.height<150?'':text(8,25,'速度圖','style="font-size:18px"')+symbol(72,25,'(\\mathrm{m/s})',18,'text-anchor="start"'))+`<g data-speed="A">${arrow(nodes.S,nodes.U,C.earlier)}</g><g data-speed="B">${arrow(nodes.S,nodes.V,C.later)}</g>`;
       if(s.answers.deltaFrom!==null&&s.answers.deltaTo!==null)svg+=`<g data-student-vector>${arrow(nodes[s.answers.deltaFrom],nodes[s.answers.deltaTo],C.student,3.5)}</g>`;
       if(controller.trusted)svg+=`<g data-reference-vector>${referenceArrow(nodes.U,nodes.V)}</g>`;
       Object.entries(nodes).forEach(([key,p])=>{svg+=circle(p,5,'#344c6a');});
@@ -87,7 +99,6 @@
       svg+=quantities(quantitySpecs,v.width,v.height,quantitySegments,[...endpointLabels.map(p=>p.box),...Object.values(nodes).map(p=>[p[0]-9,p[1]-9,p[0]+9,p[1]+9])],v.height<150?0:35);
       d.velocitySvg.setAttribute('viewBox',`0 0 ${v.width} ${v.height}`);d.velocitySvg.innerHTML=svg;
     }
-    d.timeReadout.innerHTML=math('\\Delta t='+fmt(g.dt)+'\\,\\mathrm{s}','Δt = '+fmt(g.dt)+' s');d.distanceReadout.innerHTML=math('\\Delta x='+fmt(M.length(g.dr))+'\\,\\mathrm{m}','Δx = '+fmt(M.length(g.dr))+' m');
     if(drag&&drag.touch){
       const r=d.stage.getBoundingClientRect(),B=[pos.B[0]+layout.position.left-r.left,pos.B[1]+layout.position.top-r.top],left=B[0]>r.width/2?6:r.width-138;
       d.preview.hidden=false;d.preview.style.left=left+'px';d.preview.style.top='4px';

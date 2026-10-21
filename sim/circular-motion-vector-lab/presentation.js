@@ -14,7 +14,7 @@
     const placed=[],half=compact?[13,15]:[16,19];
     for(const point of points){
       const angle=Math.atan2(point[1]-center[1],point[0]-center[0]),candidates=[];
-      for(const extra of [34,52,70])for(let step=0;step<=12;step++)for(const sign of step?[1,-1]:[1]){
+      for(const extra of [34,42,52,60,70])for(let step=0;step<=12;step++)for(const sign of step?[1,-1]:[1]){
         const t=angle+sign*step*Math.PI/12,x=center[0]+(r+extra)*Math.cos(t),y=center[1]+(r+extra)*Math.sin(t),box=[x-half[0],y-half[1],x+half[0],y+half[1]];
         if(box[0]<5||box[2]>width-5||box[1]<top||box[3]>height-5)continue;
         if(placed.some(p=>!(box[2]+8<p.box[0]||box[0]-8>p.box[2]||box[3]+8<p.box[1]||box[1]-8>p.box[3])))continue;
@@ -38,9 +38,9 @@
     return {r,center:[width/2,velocity?height/2+7:(top+height-(compact?4:28))/2],compact,labelTop:top};
   }
   function velocityLabels(nodes,width,height){
-    const compact=height<220,font=compact?18:20,top=height<150?0:35,choices=[],segments=[[nodes.S,nodes.U],[nodes.S,nodes.V],[nodes.U,nodes.V]];
+    const compact=height<220||width<240,font=compact?18:20,top=height<150?0:35,choices=[],segments=[[nodes.S,nodes.U],[nodes.S,nodes.V],[nodes.U,nodes.V]];
     for(const key of ['S','U','V']){
-      const label=compact?{S:'起點',U:'初速端',V:'末速端'}[key]:nodeName(key),half=label.length*font/2+5,candidates=[];
+      const label=height<140||width<160?{S:'起點',U:'初速',V:'末速'}[key]:compact?{S:'起點',U:'初速端',V:'末速端'}[key]:nodeName(key),half=label.length*font/2+5,candidates=[];
       const add=(x,y)=>{
         const box=[x-half,y-13,x+half,y+13];
         if(box[0]<6||box[2]>width-6||box[1]<top||box[3]>height||segments.some(([a,b])=>intersects(box,a,b)))return;
@@ -63,14 +63,19 @@
     return best;
   }
   function quantityLabels(specs,width,height,segments,occupied=[],top=0,ring=null){
-    const placed=[],size=height<140?18:24,overlap=(a,b)=>a[0]<b[2]+4&&a[2]>b[0]-4&&a[1]<b[3]+4&&a[3]>b[1]-4;
-    for(const spec of specs){
+    const placed=[],size=height<140?18:24,overlap=(a,b)=>a[0]<b[2]+2&&a[2]>b[0]-2&&a[1]<b[3]+2&&a[3]>b[1]-2;
+    for(const spec of specs.slice().sort((a,b)=>CircuitMath.measure(b.tex,size).width-CircuitMath.measure(a.tex,size).width)){
       const metric=CircuitMath.measure(spec.tex,size),half=[metric.width/2+5,metric.height/2+4],mid=spec.from.map((n,i)=>(n+spec.to[i])/2),dx=spec.to[0]-spec.from[0],dy=spec.to[1]-spec.from[1],length=Math.hypot(dx,dy)||1,candidates=[];
       const add=(x,y)=>{x=Math.max(half[0]+3,Math.min(width-half[0]-3,x));y=Math.max(top+half[1],Math.min(height-half[1]-3,y));const box=[x-half[0],y-half[1],x+half[0],y+half[1]];const blocked=occupied.concat(placed.map(p=>p.box)).filter(b=>overlap(box,b)).length,hits=segments.filter(([a,b])=>intersects(box,a,b)).length;let ringHit=0;if(ring){const [cx,cy]=ring.center,near=Math.hypot(Math.max(box[0]-cx,0,cx-box[2]),Math.max(box[1]-cy,0,cy-box[3])),far=Math.hypot(Math.max(Math.abs(cx-box[0]),Math.abs(cx-box[2])),Math.max(Math.abs(cy-box[1]),Math.abs(cy-box[3])));ringHit=near<ring.r+4&&far>ring.r-4?1:0;}candidates.push({...spec,x,y,box,size,baseline:y+(metric.ascent-metric.descent)/2,cost:blocked*1e6+(hits+ringHit)*1e4+Math.hypot(x-mid[0],y-mid[1])});};
       for(const fraction of [.5,.25,.75])for(const offset of [24,-24,42,-42,60,-60])add(spec.from[0]+dx*fraction-dy/length*offset,spec.from[1]+dy*fraction+dx/length*offset);
       for(const distance of [24,42,60,84,110])for(let step=0;step<8;step++)add(mid[0]+distance*Math.cos(step*Math.PI/4),mid[1]+distance*Math.sin(step*Math.PI/4));
       for(let col=0;col<3;col++)for(let row=0;row<3;row++)add(half[0]+4+(width-2*half[0]-8)*col/2,top+half[1]+(height-top-2*half[1]-4)*row/2);
-      candidates.sort((a,b)=>a.cost-b.cost);placed.push(candidates[0]);
+      candidates.sort((a,b)=>a.cost-b.cost);
+      if(candidates[0].cost>=1e4){
+        for(let y=top+half[1];y<=height-half[1]-3;y+=6)for(let x=half[0]+3;x<=width-half[0]-3;x+=6)add(x,y);
+        candidates.sort((a,b)=>a.cost-b.cost);
+      }
+      placed.push(candidates[0]);
     }
     return placed;
   }
