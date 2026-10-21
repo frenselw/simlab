@@ -31,12 +31,12 @@
     const identity=JSON.stringify(s.definition);if(identity===questionDefinition)return;questionDefinition=identity;
     d.questions.innerHTML=M.QUESTIONS.map(q=>`<fieldset data-question="${q.field}" data-task-group="${q.task}"><legend>${prose(q.title)}</legend><div class="${q.type==='direction'?'choice-grid':'reason-options'}">${M.options(s,q).map(([key,label],i)=>q.type==='direction'?directionChoice(s,q,key,i):`<label class="choice"><input data-answer-choice type="radio" name="${q.field}" value="${key}"><span class="choice-text">${prose(label)}</span></label>`).join('')}</div><button class="clear-answer" data-clear-answer="${q.field}" type="button">清除此題</button></fieldset>`).join('');
   }
-  function geometry(){
+  function geometry(g){
     const pr=d.positionDiagram.getBoundingClientRect(),vr=d.velocityDiagram.getBoundingClientRect();
     const compact=pr.height<140,r=Math.max(10,Math.min((pr.width-108)/2,(pr.height-(compact?60:154))/2,165));
     const center=[pr.width/2,compact?pr.height/2+12:pr.height/2+20],unit=r/M.RADIUS;
     const vscale=Math.max(18,Math.min((vr.width-68)/M.SPEED/2,(vr.height-92)/M.SPEED/2,330));
-    const origin=[vr.width/2,vr.height/2+10];
+    const origin=F.velocityOrigin(g.nodes,vr.width,vr.height,vscale);
     return {position:{width:pr.width,height:pr.height,r,center,unit,compact,left:pr.left,top:pr.top},velocity:{width:vr.width,height:vr.height,origin,unit:vscale,left:vr.left,top:vr.top}};
   }
   const screen=(v,origin,unit)=>[origin[0]+unit*v[0],origin[1]-unit*v[1]];
@@ -67,7 +67,7 @@
   }
   function drawScene(){
     const s=controller.state,task=controller.task,gap=drag?drag.value:s.observation[M.GAP_KEYS[task]],g=M.scene(s,task,gap);
-    layout=geometry();const pos=positionDrawing(g,s,task,layout.position,controller.trusted);
+    layout=geometry(g);const pos=positionDrawing(g,s,task,layout.position,controller.trusted);
     d.positionSvg.setAttribute('viewBox',`0 0 ${layout.position.width} ${layout.position.height}`);d.positionSvg.innerHTML=pos.svg;
     d.positionHandle.style.left=pos.B[0]+'px';d.positionHandle.style.top=pos.B[1]+'px';d.positionHandle.hidden=controller.mode==='check'||!controller.state;d.positionHandle.disabled=controller.mode!=='edit';
     d.positionHandle.setAttribute('aria-valuetext',`時間間隔 ${fmt(g.dt)} 秒`);

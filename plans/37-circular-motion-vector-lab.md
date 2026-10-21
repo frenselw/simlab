@@ -563,3 +563,14 @@
 | SCORM ZIP | `output/circular-motion-vector-lab-scorm.zip`，16 files；SHA-256 `5b24e4ad74fd72bdfc980f2dbdf8b3c8885bbf3cd79a0282f9400b3ff8318cc6` |
 | 證據檔案 | `output/sites/circular-vector-labels-runtime-verification.json`、`circular-vector-labels-deployment.json`；已開啟正式網址並關閉本次本機預覽 server |
 | GitHub CI | [Quality run 39580367639](https://github.com/frenselw/simlab/actions/runs/39580367639) 對應本次 runtime，發布時仍 pending；本次本地證據不代替其全站結果 |
+
+
+## 2026-10-21 速度圖整組置中修訂
+
+依瀏覽器註解，右方速度圖改以 S／U／V 三點範圍的中心對齊速度圖區中心，而非把共同起點 S 固定於中心。每次間隔變動或 resize 都以當前向量重新計算平移量，維持向量長度比例；平移對齊動畫沿用此新起點。只改顯示座標，物理模型、端點語意、答案與評分皆維持原定義；沒有新 hit region 或保存欄位。
+
+- `presentation.test.js` 新增 13,440 組角度／轉向／5–60° 間隔的整組中心檢查，與原有標籤／數學字形測試通過；其餘四個活動 Node entry 亦通過。
+- 正式 browser 增加使用者 665×604 viewport；檢查各尺寸不同間隔及可信拖曳後的整組中心，沿用既有 source／真解壓 SCORM 評分、保存、fullscreen、鍵盤與觸控流程。
+- 已檢視 `output/playwright/circular-motion-vector-lab/source-665x604-difference.png`；整組速度圖位於右圖區中央。此為本地瀏覽器證據，不代表實體手機或真 Moodle 驗收。
+
+本次 source／真解壓 SCORM browser 全部通過（9 種 viewport×3 頁×2 套資產、48 組可信拖曳），報告 `output/playwright/circular-motion-vector-lab/report.json`；靜態檢查、check:tests 及文件連結檢查亦通過。T0–T3 的完整嵌入與實機驗收未於本次非互動圖形平移重新執行。

@@ -27,5 +27,9 @@
     }
     return placed;
   }
-  return {math,prose,labels,intersects};
+  function velocityOrigin(nodes,width,height,unit){
+    const points=Object.values(nodes),xs=points.map(p=>p[0]*unit),ys=points.map(p=>-p[1]*unit);
+    return [width/2-(Math.min(...xs)+Math.max(...xs))/2,height/2-(Math.min(...ys)+Math.max(...ys))/2];
+  }
+  return {math,prose,labels,intersects,velocityOrigin};
 });

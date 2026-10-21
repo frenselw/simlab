@@ -19,14 +19,19 @@ async function click(selector,trusted=false){
 }
 const state=()=>call('return app.getState();');
 async function screenshot(name){const shot=await cdp.send('Page.captureScreenshot',{format:'png'});fs.writeFileSync(path.join(out,name+'.png'),Buffer.from(shot.data,'base64'));}
+async function centeredVelocity(){
+  const r=await call(`const g=CircularVectorModel.scene(app.getState(),1),v=app.getGeometry().velocity,points=Object.values(g.nodes).map(p=>[v.origin[0]+p[0]*v.unit,v.origin[1]-p[1]*v.unit]);return{size:[v.width,v.height],center:[0,1].map(i=>{const a=points.map(p=>p[i]);return(Math.min(...a)+Math.max(...a))/2;})};`);
+  r.center.forEach((n,i)=>assert(Math.abs(n-r.size[i]/2)<1e-7,JSON.stringify(r)));
+}
 async function layouts(base,label){
-  for(const [width,height]of [[320,500],[390,500],[390,600],[390,844],[480,320],[320,225],[900,700],[1280,800]]){
+  for(const [width,height]of [[320,500],[390,500],[390,600],[390,844],[665,604],[480,320],[320,225],[900,700],[1280,800]]){
     await viewport(width,height);
     for(let task=0;task<3;task++){
       const s=T.filled();s.task=task;s.observation[M.GAP_KEYS[task]]=5;await open(base,s);
       const r=await call(`const p=d.getElementById("controlPanel").getBoundingClientRect(),stage=d.getElementById("stage").getBoundingClientRect();d.getElementById("controlPanel").scrollTop=d.getElementById("controlPanel").scrollHeight;const last=d.getElementById("nextTask").getBoundingClientRect();return{panel:{y:p.y,height:p.height,bottom:p.bottom},stage:{width:stage.width,height:stage.height},rootRange:d.scrollingElement.scrollHeight-innerHeight,rootWidth:d.scrollingElement.scrollWidth,buttonBottom:last.bottom,buttonTop:last.top,viewport:{width:innerWidth,height:innerHeight},handle:d.getElementById("positionHandle").getBoundingClientRect().toJSON()};`);
       assert(r.panel.height>=95&&r.panel.y>=-1&&r.panel.bottom<=height+1,JSON.stringify(r));assert(r.rootRange<=1&&r.rootWidth<=width+1,JSON.stringify(r));assert(r.buttonBottom<=r.panel.bottom+1&&r.buttonTop>=r.panel.y-1,JSON.stringify(r));assert(r.stage.width>0&&r.stage.height>0);report.layouts.push({label,width,height,task,...r});
-      if(task===1&&[[390,844],[1280,800],[320,225]].some(p=>p[0]===width&&p[1]===height)){await call('d.getElementById("controlPanel").scrollTop=0;');await screenshot(`${label}-${width}x${height}-difference`);}
+      if(task===1){await centeredVelocity();await click('#lengthen');await centeredVelocity();}
+      if(task===1&&[[390,844],[665,604],[1280,800],[320,225]].some(p=>p[0]===width&&p[1]===height)){await call('d.getElementById("controlPanel").scrollTop=0;');await screenshot(`${label}-${width}x${height}-difference`);}
       await click('#checkButton');assert(await call('return d.getElementById("stage").getBoundingClientRect().height<1;'));await call('d.getElementById("controlPanel").scrollTop=d.getElementById("controlPanel").scrollHeight;');assert(await call('return d.getElementById("submitButton").getBoundingClientRect().bottom<=innerHeight+1;'));
     }
   }
@@ -78,7 +83,7 @@ async function dragProbe(base,label){
     await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[touch(info.start)]});
     for(let i=1;i<=5;i++){const t=g.thetaA+g.sense*(60-55*i/5)*Math.PI/180;const point={x:p.left+p.center[0]+p.r*Math.cos(t),y:p.top+p.center[1]-p.r*Math.sin(t)};await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[touch(point)]});await H.delay(12);}
     assert.deepEqual(await state(),before);assert(await call('return !d.getElementById("preview").hidden;'));await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await H.delay(40);
-    const after=await state();assert.equal(after.observation[M.GAP_KEYS[task]],5);assert.deepEqual(after.answers,before.answers);const diag=await call('return app.diagnostics();');assert(diag.trustedTouch>0&&diag.up>0&&diag.move>0);assert(await call('return d.getElementById("preview").hidden&&!app.isDragging();'));report.drags.push({label,task,startIndex,sense,diagnostics:diag});
+    const after=await state();if(task===1)await centeredVelocity();assert.equal(after.observation[M.GAP_KEYS[task]],5);assert.deepEqual(after.answers,before.answers);const diag=await call('return app.diagnostics();');assert(diag.trustedTouch>0&&diag.up>0&&diag.move>0);assert(await call('return d.getElementById("preview").hidden&&!app.isDragging();'));report.drags.push({label,task,startIndex,sense,diagnostics:diag});
   }
   for(const ending of ['cancel','secondary','blur','lostcapture','navigate','check']){
     const s=M.fresh(()=>.1);s.task=1;await open(base,s);const before=await state(),info=await call('const r=d.getElementById("positionHandle").getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2,geo:app.getGeometry().position};'),id=touchId++,point=p=>({x:p.x,y:p.y,id,radiusX:1,radiusY:1,force:1}),g=M.scene(s),theta=g.thetaA+g.sense*Math.PI/6,end={x:info.geo.left+info.geo.center[0]+info.geo.r*Math.cos(theta),y:info.geo.top+info.geo.center[1]-info.geo.r*Math.sin(theta)};

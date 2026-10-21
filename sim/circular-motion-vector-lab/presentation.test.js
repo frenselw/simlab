@@ -21,4 +21,12 @@ for(let angle=0;angle<360;angle++){
   angles.add(Math.round(M.scene(s).thetaA*180/Math.PI));
 }
 assert.equal(angles.size,360);
+let centered=0;
+for(let angle=0;angle<360;angle+=3)for(const sense of [-1,1])for(let gap=5;gap<=60;gap++){
+  const s=M.fresh(()=>0);s.definition={startIndex:Math.floor(angle/90),startOffsetDeg:angle%90,sense,choiceShift:0};s.task=1;s.observation.velocityGapDeg=gap;
+  const nodes=M.scene(s).nodes,origin=F.velocityOrigin(nodes,332.5,265.75,173.75),points=Object.values(nodes).map(p=>[origin[0]+p[0]*173.75,origin[1]-p[1]*173.75]);
+  for(let axis=0;axis<2;axis++){const values=points.map(p=>p[axis]);assert(Math.abs((Math.min(...values)+Math.max(...values))/2-[332.5,265.75][axis]/2)<1e-9);}
+  centered++;
+}
+console.log(`Velocity diagram: ${centered} angle/sense/gap configurations center the full S/U/V extent without changing scale.`);
 console.log(`Circular vector presentation: ${cases} crowded label layouts; all 360 fresh starting angles and local math glyphs passed.`);
