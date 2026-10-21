@@ -21,17 +21,23 @@ async function fullFlow(cdp,url,width,height){
       for(const key of window.CircularSpeedScoring.CONCEPT){const input=document.querySelector('input[name="'+key+'"][value="'+correct[key]+'"]');input.checked=true;input.dispatchEvent(new Event('change',{bubbles:true}));}
       return {kind,r};
     };
-    const attempt=async()=>{click('startButton');await wait(180);click('stopButton');click('unwrapButton');await wait(1250);return fill();};
+    const attempt=async()=>{click('startButton');await wait(180);click('stopButton');click('unwrapButton');await wait(650);
+      const middle={arcs:document.querySelectorAll('.unroll-arc').length,heads:[...document.querySelectorAll('.unroll-line')].map(line=>Number(line.getAttribute('x2'))),caption:document.getElementById('sceneCaption').innerText};
+      await wait(1250);return {...fill(),middle,finishedArcs:document.querySelectorAll('.unroll-arc').length};};
     const coax=await attempt();
     const measuredBefore=JSON.parse(window.SimScorm.getLocalLog().filter(x=>x.key==='cmi.suspend_data').at(-1).value).answer.cases.coaxial.measurement.elapsed;
     click('orbitButton');
     const orbit={viewBox:document.getElementById('motionSvg').getAttribute('viewBox'),labels:document.getElementById('motionSvg').querySelectorAll('text').length,
       canUnwrap:!document.getElementById('unwrapButton').hidden,answer:document.querySelector('[data-answer=vA]').value};
-    click('unwrapButton');await wait(1250);
+    click('unwrapButton');await wait(1900);
     const measuredAfter=JSON.parse(window.SimScorm.getLocalLog().filter(x=>x.key==='cmi.suspend_data').at(-1).value).answer.cases.coaxial.measurement.elapsed;
     const sceneA=document.getElementById('motionSvg').innerHTML;
     document.querySelector('[data-case="belt"]').click();
     const beltPath=document.getElementById('motionSvg').querySelector('path'),beltBox=beltPath.getBBox(),beltRect=beltPath.getBoundingClientRect(),svgRect=document.getElementById('motionSvg').getBoundingClientRect();
+    const beltLinks=document.querySelector('.belt-links'),beltTexture={dash:beltLinks.getAttribute('stroke-dasharray'),start:beltLinks.getAttribute('stroke-dashoffset'),length:beltLinks.getTotalLength()};
+    await wait(250);beltTexture.end=document.querySelector('.belt-links').getAttribute('stroke-dashoffset');
+    click('pauseButton');beltTexture.paused=document.querySelector('.belt-links').getAttribute('stroke-dashoffset');await wait(150);
+    beltTexture.pausedAfter=document.querySelector('.belt-links').getAttribute('stroke-dashoffset');click('pauseButton');
     const belt=await attempt();
     const sceneB=document.getElementById('motionSvg').innerHTML;
     const mathCount=document.querySelectorAll('math').length,mathReadout=!!document.querySelector('#radiusReadout math, #readingsCard math');
@@ -40,15 +46,17 @@ async function fullFlow(cdp,url,width,height){
     click('submitButton');
     const score=document.getElementById('resultSummary').innerText;
     const panel=document.querySelector('.circle-panel'),stage=document.getElementById('motionStage');
-    return {coax,belt,orbit,measuredBefore,measuredAfter,beltBox:{x:beltBox.x,right:beltBox.x+beltBox.width},beltRect:{left:beltRect.left,right:beltRect.right,top:beltRect.top,bottom:beltRect.bottom},svgRect:{left:svgRect.left,right:svgRect.right,top:svgRect.top,bottom:svgRect.bottom},sceneA,sceneB,mathCount,mathReadout,stageHeight:stageBox.height,panelHeight:panelBox.height,stageWidth:stageBox.width,panelWidth:panelBox.width,check,score,review:!document.getElementById('resultSection').hidden,
+    return {coax,belt,beltTexture,orbit,measuredBefore,measuredAfter,beltBox:{x:beltBox.x,right:beltBox.x+beltBox.width},beltRect:{left:beltRect.left,right:beltRect.right,top:beltRect.top,bottom:beltRect.bottom},svgRect:{left:svgRect.left,right:svgRect.right,top:svgRect.top,bottom:svgRect.bottom},sceneA,sceneB,mathCount,mathReadout,stageHeight:stageBox.height,panelHeight:panelBox.height,stageWidth:stageBox.width,panelWidth:panelBox.width,check,score,review:!document.getElementById('resultSection').hidden,
       documentOverflow:document.documentElement.scrollHeight-document.documentElement.clientHeight,
       panelScroll:panel.scrollHeight-panel.clientHeight,stageTouch:getComputedStyle(stage).touchAction,
       fullscreen:!!document.getElementById('fullscreenButton')};
   })()`);
   assert.ok(result.coax.r.sB>result.coax.r.sA,"outer point must have longer arc");
+  for(const item of [result.coax,result.belt])assert.ok(item.middle.arcs===2 && item.middle.heads.every(head=>head>120&&head<580) && item.middle.caption.includes("圓弧向右") && item.finishedArcs===0,"both curved tracks must roll into complete straight tracks");
   assert.ok(result.orbit.canUnwrap && result.orbit.labels===0 && result.orbit.answer!=="","return to orbit must retain the reading and remove moving labels");
   assert.equal(result.measuredAfter,result.measuredBefore,"returning and re-unwrapping must not remeasure");
   assert.equal(result.belt.r.sA,result.belt.r.sB,"no-slip wheel rims must travel equally");
+  assert.ok(result.beltTexture.dash==="11 11" && result.beltTexture.length>600 && (Number(result.beltTexture.end)-Number(result.beltTexture.start)+22)%22>0 && result.beltTexture.paused===result.beltTexture.pausedAfter,"textured belt must move with the wheels and freeze when paused");
   assert.ok(result.beltBox.x>0 && result.beltBox.right<700,"belt tangent loop must remain inside the stage");
   assert.ok(result.beltRect.left>=result.svgRect.left-2 && result.beltRect.right<=result.svgRect.right+2 && result.beltRect.top>=result.svgRect.top-2 && result.beltRect.bottom<=result.svgRect.bottom+2,"belt must stay visible after responsive rotation");
   assert.ok(result.mathCount>=12 && result.mathReadout,"physical quantities must use math typography");
@@ -100,7 +108,8 @@ async function main(){
         const file=path.join(root,"output","playwright",`circular-speed-${name}.png`);fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,Buffer.from(data,"base64"));};
       await load(cdp,source,390,844);await capture("ready");
       await H.evaluate(cdp,"document.getElementById('startButton').click()");await wait(500);
-      await H.evaluate(cdp,"document.getElementById('stopButton').click();document.getElementById('unwrapButton').click()");await wait(1250);
+      await H.evaluate(cdp,"document.getElementById('stopButton').click();document.getElementById('unwrapButton').click()");await wait(650);
+      await capture("unrolling");await wait(1250);
       await capture("unwrapped");
       await H.evaluate(cdp,"document.querySelector('[data-case=belt]').click()");await capture("belt");
       await load(cdp,source,320,225);await capture("short");

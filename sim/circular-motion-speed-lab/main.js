@@ -272,16 +272,17 @@
     if (c.phase === "unwrapped" && !showOrbit) {
       el.motionSvg.setAttribute("viewBox", portrait || compact ? "70 0 560 380" : "0 0 700 380");
       const r = Model.readings(kind,c.definition,t), maximum = Math.max(r.sA,r.sB);
-      const progress = unwrapStarted === null ? 1 : Math.min(1,(performance.now()-unwrapStarted)/1200);
+      const progress = unwrapStarted === null ? 1 : Math.min(1,(performance.now()-unwrapStarted)/1800);
       if (progress >= 1) unwrapStarted = null;
-      const sx = 90, unit = 510/maximum, line = (y,length,color,name) => {
-        const shown = length*progress, remain=length-shown;
-        return `<text x="${sx}" y="${y-22}" font-size="23" font-weight="700" fill="${color}">${name}　${Model.format3(length)} m</text><line x1="${sx}" y1="${y}" x2="${sx+shown*unit}" y2="${y}" stroke="${color}" stroke-width="12" stroke-linecap="round"/><circle cx="${sx+shown*unit}" cy="${y}" r="8" fill="${color}"/><text x="${sx}" y="${y+29}" fill="#536b75" font-size="16">已攤平 ${Model.format3(shown)} m　·　待展開 ${Model.format3(remain)} m</text>`;
+      const sx = 120, unit = 460/maximum, line = (y,length,color,name) => {
+        const shown = length*progress, remain=length-shown, head=sx+shown*unit, roller=28, circumference=2*Math.PI*roller;
+        const curved = progress < 1 ? `<g class="unroll-arc"><circle cx="${head}" cy="${y+roller}" r="${roller}" fill="#f8fcfc" stroke="#c5d6da" stroke-width="5"/><circle cx="${head}" cy="${y+roller}" r="${roller}" fill="none" stroke="${color}" stroke-width="7" stroke-dasharray="${circumference*(1-progress)} ${circumference}" stroke-dashoffset="${shown*unit}" transform="rotate(-90 ${head} ${y+roller})"/><line x1="${head}" y1="${y+roller}" x2="${head+19*Math.sin(shown*unit/roller)}" y2="${y+roller-19*Math.cos(shown*unit/roller)}" stroke="${color}" stroke-width="3"/></g>` : "";
+        return `<text x="${sx}" y="${y-34}" font-size="23" font-weight="700" fill="${color}">${name}　${Model.format3(length)} m</text><text x="${sx}" y="${y-11}" fill="#536b75" font-size="16">已攤平 ${Model.format3(shown)} m　·　圓弧待展開 ${Model.format3(remain)} m</text><line class="unroll-line" x1="${sx}" y1="${y}" x2="${head}" y2="${y}" stroke="${color}" stroke-width="12" stroke-linecap="round"/>${curved}<circle cx="${head}" cy="${y}" r="6" fill="${color}"/>`;
       };
-      const ticks = Array.from({length:6},(_,i)=>{const x=sx+i*102;return `<line x1="${x}" x2="${x}" y1="302" y2="${i%5===0?322:314}" stroke="#405965" stroke-width="2"/><text x="${x}" y="344" text-anchor="middle" font-size="17" fill="#405965">${Model.format3(maximum*i/5)}</text>`;}).join("");
+      const ticks = Array.from({length:6},(_,i)=>{const x=sx+i*92;return `<line x1="${x}" x2="${x}" y1="330" y2="${i%5===0?350:342}" stroke="#405965" stroke-width="2"/><text x="${x}" y="370" text-anchor="middle" font-size="17" fill="#405965">${Model.format3(maximum*i/5)}</text>`;}).join("");
       el.motionSvg.setAttribute("aria-label",`A 路程 ${Model.format3(r.sA)} 米，B 路程 ${Model.format3(r.sB)} 米；共用同一把直尺`);
-      el.motionSvg.innerHTML = `<text x="90" y="54" font-size="22" font-weight="700" fill="#214751">圓周軌跡攤平 · 共用直尺（m）</text>${line(135,r.sA,"#1179bc","A")}${line(235,r.sB,"#de7529","B")}<line x1="90" y1="302" x2="600" y2="302" stroke="#405965" stroke-width="3"/>${ticks}`;
-      el.sceneCaption.innerHTML = `共用 ${math("dt")} = ${Model.format3(r.dt)} s；${math("angleA")} = ${Model.format3(r.angleA)} rad，${math("angleB")} = ${Model.format3(r.angleB)} rad。${unwrapReplay && unwrapStarted === null ? "重播完畢。" : ""}`;
+      el.motionSvg.innerHTML = `<text x="90" y="50" font-size="22" font-weight="700" fill="#214751">圓弧展直示意 · 共用直尺（m）</text>${line(130,r.sA,"#1179bc","A")}${line(235,r.sB,"#de7529","B")}<line x1="${sx}" y1="330" x2="580" y2="330" stroke="#405965" stroke-width="3"/>${ticks}`;
+      el.sceneCaption.innerHTML = `${unwrapStarted === null ? "兩條路程已展成直線。" : "圓弧向右滾動，逐段留下直線；長度以共同直尺為準。"}共用 ${math("dt")} = ${Model.format3(r.dt)} s；${math("angleA")} = ${Model.format3(r.angleA)} rad，${math("angleB")} = ${Model.format3(r.angleB)} rad。${unwrapReplay && unwrapStarted === null ? "重播完畢。" : ""}`;
       return;
     }
     const viewBox = portrait ? (kind === "coaxial" ? "140 0 420 380" : "0 80 380 560")
@@ -295,11 +296,9 @@
     if (kind === "belt") {
       const g=Model.beltTangents(ra,rb,cxB-cxA);
       const pos=(base,v)=>`${base+v[0]} ${cy-v[1]}`;
-      const topA=[cxA+g.upperA[0],cy-g.upperA[1]],topB=[cxA+g.upperB[0],cy-g.upperB[1]];
-      const length=Math.hypot(topB[0]-topA[0],topB[1]-topA[1]);
-      const travelled=(p.vB*(timed?t:observationTime)*scale)%length;
-      const fraction=travelled/length,mark=[topB[0]+(topA[0]-topB[0])*fraction,topB[1]+(topA[1]-topB[1])*fraction];
-      belt=`<path d="M ${pos(cxA,g.upperA)} L ${pos(cxA,g.upperB)} A ${rb} ${rb} 0 1 1 ${pos(cxA,g.lowerB)} L ${pos(cxA,g.lowerA)} A ${ra} ${ra} 0 0 1 ${pos(cxA,g.upperA)}" fill="none" stroke="#82969c" stroke-width="15" opacity=".75"/><circle cx="${mark[0]}" cy="${mark[1]}" r="7" fill="#fff" stroke="#536a71" stroke-width="3"/>`;
+      const path=`M ${pos(cxA,g.upperA)} L ${pos(cxA,g.upperB)} A ${rb} ${rb} 0 1 1 ${pos(cxA,g.lowerB)} L ${pos(cxA,g.lowerA)} A ${ra} ${ra} 0 0 1 ${pos(cxA,g.upperA)}`;
+      const offset=(p.vB*(timed?t:observationTime)*scale)%22;
+      belt=`<path d="${path}" fill="none" stroke="#415860" stroke-width="23" stroke-linejoin="round"/><path d="${path}" fill="none" stroke="#91a8ac" stroke-width="17" stroke-linejoin="round"/><path class="belt-links" d="${path}" fill="none" stroke="#f2eee0" stroke-width="7" stroke-linecap="round" stroke-dasharray="11 11" stroke-dashoffset="${offset}"/>`;
     }
     const wheel = (cx,r,color,name,angle) => {
       const mark=point(cx,cy,r,angle);
