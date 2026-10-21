@@ -1,6 +1,6 @@
 # 圓周運動：由位移到速度與加速度方向
 
-狀態：**計畫 37，實作與驗證中；2026-10-21 使用者批准按修訂後計畫實作，完成後 commit、push 並部署 Sites。學生試教及真實 Moodle／手機驗收另列。**
+狀態：**計畫 37，活動已實作、專項驗證並部署私人 Sites；2026-10-21 使用者批准按修訂後計畫實作、commit、push 及部署。全站 CI、學生試教及真實 Moodle／手機驗收另列，不冒稱全部 gate 通過。**
 
 依 [新活動模板](NEW-SIMULATION-PLAN-TEMPLATE.md) 展開，遵循 [共同風格](00-shared-platform-and-style.md) 及 [製作與驗證契約](../docs/simulation-scorm-production-guide.md)。共同規則由原文件維護；以下記錄本活動的具體決策、學生操作、答題與評分。所有未執行的驗證保持未勾選。
 
@@ -461,13 +461,13 @@
 | Case helpers | 首版不預建；如拆分 helpers，依真實 import 及 consumers 登記，不另當 executable test |
 | Separate manual gates | 既有 manualBrowserTests 的 `tools/mobile-scroll-browser-regression.js` 追加本活動 production profiles 及 owned-operation probe；同一工具分開執行 source／package 的 T0–T3，T4 仍是必要的真實裝置部署驗證 |
 | Registration check | `npm run check:tests` 已通過：251 entries／217 Node／34 browser／48 helpers／2 manual；本輪無新套件，CLI 使用原 checkout 已安裝、與 lock 相同的依賴 |
-| CI selection preview | 未來在已提交 base/head 上執行 --plan，記錄 scope／browser／packages；catalogue／registry 變更按政策預期 full，不把 preview 當驗收 |
-| Actual GitHub verification | 尚無活動程式 commit／run；不得引用計畫 36 或其他活動的通過紀錄 |
+| CI selection preview | 已在 base `e8800209c53f7e08b19b49ffe09123f5891e1b89`、head `3777a5b7d7e2956df3f8208d25258873c02e2101` 執行 --plan：full／251 entries／packages all。實際首個理由是非部署測試 helper `sim/circular-motion-vector-lab/test-support.js` 沒有 runtime asset consumer，保守走全站；catalogue／registry 亦屬全站政策。見 `output/ci-tests/circular-vector-selection.json`；不把 preview 當驗收 |
+| Actual GitHub verification | 對應本活動 runtime commit 的 Quality run 39575238920：checks 與 Node 四 shards 已 success，8 個 browser shards 執行中；尚無全站成功聲明，不引用計畫 36 紀錄 |
 
 ## Package-ready checklist
 
 - [x] 本計畫具體草案經審閱，實際操作與評分無矛盾；必要 keyboard alternatives 已實作。
-- [ ] 上述物理、評分、全部 phase restore／合法續作、lifecycle、版面與 source／package 觸控驗證有證據。
+- [x] 活動物理、評分、phase restore／合法續作、lifecycle、所列已驗版面及 source／package T0–T3 觸控有證據；200% zoom 與真手機另列。
 - [ ] `npm run check`、`npm run check:tests`、`npm test`、`npm run package:all` 及實際 base 至 HEAD 的 diff 檢查通過。
 - [x] ZIP 根目錄有 imsmanifest.xml，所有依賴齊備且與實測 source 相符；解壓啟動與全螢幕通過。
 - [ ] 已提交選擇預覽與 GitHub 驗證記錄對應實際候選 SHA；形成性評核限制有記錄。
@@ -501,7 +501,7 @@
 | 活動 browser | `node tools/circular-motion-vector-browser-regression.js` 通過 source／真解壓 package，48 組可信拖動、8 種 viewport×3 頁、完整 100、空白 0、部分 5／10／25 分、實際鍵盤、fullscreen 進出、draft／check／recorded standalone refresh、同 attempt check／recorded／pending resume、提交重試及錯誤唯讀。報告 `output/playwright/circular-motion-vector-lab/report.json`；engine Chrome 155.0.8059.86 |
 | T0 source／package | `circular-vector-T0-{source,package}-phases-final.json`，各 16 列；320×500／390×844 的三任務、檢查、三頁結果及 renderer error；純 UI 路徑，無 restore 注入。Moodle pending／committed 模式由 T1–T3 覆蓋；T0 真正無 enclosing range，host 移動 N/A |
 | T1 source／package | `circular-vector-T1-{source,package}-final.json`，各 42 列，含活動 19 profiles×2 viewport 與兩個已知正常活動作為捲動對照 |
-| T2 source | `circular-vector-T2-source-320-final.json` 21 列；`circular-vector-T2-source-390-operations-final.json` 19 列，另行核對同 host 的 390 px 控制活動；初始較早的 `circular-vector-T2-source.json` 僅作歷史空白／面板證據，不代替 owned-operation 最終報告 |
+| T2 source | `circular-vector-T2-source-320-final.json` 21 列；`circular-vector-T2-source-390-operations-final.json` 19 列，`circular-vector-T2-source-controls-390.json` 2 列；初始較早的 `circular-vector-T2-source.json` 僅作歷史空白／面板證據，不代替 owned-operation 最終報告 |
 | T2 package | `circular-vector-T2-package-final.json` 42 列；同上述 19 profiles×2 viewport＋控制活動 |
 | T3 source／package | `circular-vector-T3-{source,package}-final.json`，各 42 列；window 固定，指定 scrollOwner 元素為 owner |
 | 面板連續手勢 | `circular-vector-panel-sequence.json`，320／390 px 的文字／按鈕起手、touchcancel、取消後再滑、100ms 間隔連滑及下一次背景滑動通過；監測中沒有 host style lock |
@@ -509,14 +509,24 @@
 | 修正與重驗 | 初輪發現窄屏 B halo 侵入 32px 捲動帶，已調整圓盤幾何並重新驗 source／package；另修正 audit 等待 reload 時誤讀舊 document 的競態。最終採實際 UI 導航測取消，先前失敗報告保留為歷史，不列為通過 |
 | 靜態與登記 | `node tools/check.js`、`npm run check:tests`、`node tools/check-docs.js plans/37-circular-motion-vector-lab.md README.md` 通過；registry 251 entries（217 Node／34 browser）、48 helpers、2 manual |
 | 全站 Node | `node tools/run-tests.js --kind=node --report=output/ci-tests/circular-vector-node.json`：215／217 在 runner 時限內通過；既有 `sim/force-composition-construction-lab/persistence.test.js`、`tools/ci-prepare.test.js` 超過 120s，報告維持 timeout。兩者其後以各自 `node` 命令單獨重跑皆 exit 0；不改既有測試或時限，不冒稱原整輪已綠燈 |
-| 打包 | `node tools/package-all.js` 通過，全部 SCORM ZIP 已驗；本活動 `output/circular-motion-vector-lab-scorm.zip` 為 12 files，source 與真解壓檔案逐 byte 一致 |
+| 打包 | `node tools/package-all.js` 通過，全部 SCORM ZIP 已驗；本活動 `output/circular-motion-vector-lab-scorm.zip` 為 12 files，source 與真解壓檔案逐 byte 一致；最終 ZIP SHA-256 `8F87B92FC1ED859FA0C75EAD82D9BEA945B829130D70EF6172726C85291CF041` |
 | 範圍限制 | 尚未執行全站 34 個 browser entry／完整 npm test；不以活動專項或 selection preview 冒稱全站 CI 通過。200% zoom、實體鍵盤／手機與 T4 真 Moodle 尚無完整驗收證據 |
 
 觸控報告位於 `output/playwright/`，記錄每個 move、release／after-release、canonical 答案與 suspend_data、實際 owner／全部非 owner、可信事件及 host style 監測。T0 的半作答／已答差異只改 pointer-events:none 的圖形及既有原生選項狀態，無新增 hit region；其完整語意續作由活動 browser 與 T1–T3 的 19 profiles 分開驗證，不把 T0 純 UI profiles 說成 Moodle restore。
 
 ## Sites 交付
 
-- 專用 project ID：`appgprj_6ad878e05e148191aee5ef92740b63f1`。預期網址 `https://circular-motion-vector-lab.ieyp.chatgpt.site`；以原生發布成功回傳確認正式上線。
+- 專用 project ID：`appgprj_6ad878e05e148191aee5ef92740b63f1`。[正式試用網址](https://circular-motion-vector-lab.ieyp.chatgpt.site)，原生私人發布已回傳 succeeded。
 - Sites source checkout：本 worktree 的忽略目錄 `output/sites/circular-motion-vector-lab/`。`.openai/hosting.json` 指定同一 project ID 及 static directory `dist`；dist 的根入口導向本活動並保留 query／hash，活動相依保持相對路徑。
 - 新網站由使用者要求建立，已核對 current user 為 owner；custom audience 僅 owner 一人，無群組／外部訪客。保留私人權限，不將根目錄舊靜摩擦力 Site 改指本活動。
-- 用官方 Sites helper 的 hidden stdin 接收 scoped credential；GitHub 開發庫與 Sites source 分開 commit／push，最終 runtime bytes 對應同一候選；由官方 helper 封裝，再交原生私人發布。正式 source SHA、saved version 與 deployment 結果在發布後補記。
+- 用官方 Sites helper 的 hidden stdin 接收 scoped credential；GitHub 開發庫與 Sites source 分開 commit／push，最終 11 個 runtime 資產逐檔 SHA-256 相同；官方 helper 封裝後交原生私人發布，沒有變更 audience。
+
+| 正式交付 | 實際識別及結果 |
+|---|---|
+| GitHub runtime commit | `3777a5b7d7e2956df3f8208d25258873c02e2101`，已 push 至 `origin/codex/circular-motion-vector-lab` 並以 ls-remote 複核；未合併 main |
+| Sites source commit | `1544d63c2e297e903b8a6ec6307c128806794c9f`，官方 helper 已推送並核對 source tree／remote HEAD |
+| Site archive | `output/sites/circular-motion-vector-lab-release.tar.gz`；SHA-256 `96B37A7B3E32138C6B823F122ACCC9FCE20021330243B227AA31AA1E9B596249`；與已推送 Site source 對應，發布後不改 archive |
+| Saved version | version 1：`appgprj_6ad878e05e148191aee5ef92740b63f1~appgver_24cac84b2fcc81919d99bb4f27a8efe5` |
+| Deployment | `appgdep_6ad882da78848191a304446e6579cc15`，2026-10-21 17:16（澳門）回傳 succeeded；正式網址及 owner-only 存取保持 |
+| 附屬證據 | `output/sites/circular-vector-runtime-verification.json`、`output/sites/circular-vector-deployment.json`；根入口 query／hash 保留已驗，已在 Codex 右側開啟正式網址 |
+| GitHub CI | [Quality run 39575238920](https://github.com/frenselw/simlab/actions/runs/39575238920) 對應 runtime commit；plan、checks、node-1 至 node-4 success，browser-1 至 browser-8 尚在執行。發布文件與 browser reload 等待防競態屬後續測試／文件修訂，活動 runtime bytes 不變 |
