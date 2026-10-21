@@ -17,7 +17,7 @@ for(const [w,h]of [[320,77],[160,77],[160,220],[195,371],[390,371],[920,730]])fo
 }
 const angles=new Set();
 for(let angle=0;angle<360;angle++){
-  const draws=[Math.floor(angle/90)/4,0,0,((angle%90)+.5)/90],s=M.fresh(()=>draws.shift());
+  const draws=[Math.floor(angle/90)/4,0,0,((angle%90)+.5)/90],s=M.fresh(()=>draws.shift()??0);
   angles.add(Math.round(M.scene(s).thetaA*180/Math.PI));
 }
 assert.equal(angles.size,360);
@@ -41,3 +41,7 @@ for(const [width,height]of [[129,173],[160,77],[160,200],[160,260],[195,439],[33
   chinese++;
 }
 console.log(`Chinese velocity annotations: ${chinese} crowded graph layouts passed.`);
+
+const nodes={S:[90,170],U:[170,105],V:[195,145]},specs=[{key:'v1',tex:'\\vec v_1',from:nodes.S,to:nodes.U},{key:'v2',tex:'\\vec v_2',from:nodes.S,to:nodes.V},{key:'dv',tex:'\\Delta \\vec v',from:nodes.U,to:nodes.V}],segments=specs.map(p=>[p.from,p.to]),occupied=F.velocityLabels(nodes,332,314).map(p=>p.box),annotations=F.quantityLabels(specs,332,314,segments,occupied,35);
+for(let i=0;i<annotations.length;i++){const p=annotations[i];assert(p.box[0]>=0&&p.box[2]<=332&&p.box[1]>=35&&p.box[3]<=314);assert(!segments.some(([a,b])=>F.intersects(p.box,a,b)));for(const b of occupied.concat(annotations.slice(0,i).map(p=>p.box)))assert(p.box[2]<=b[0]||p.box[0]>=b[2]||p.box[3]<=b[1]||p.box[1]>=b[3]);}
+assert.equal(annotations.length,3);console.log('Direct v1/v2/Delta-v labels stay separate from arrows and Chinese endpoint labels.');

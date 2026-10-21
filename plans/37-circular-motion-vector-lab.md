@@ -106,7 +106,7 @@
 
 | 學生看到／操作 | 畫面反應 | 答題及證據 |
 |---|---|---|
-| 開啟本頁 | 位置圖顯示模型正確的 vA、vB，兩箭頭等長且分別沿切線；一次短動畫把副本平移至速度向量圖共同起點 S，保留方向、大小及顏色 | 參考速度不從 V1 答案生成，不把前頁錯誤傳入本頁 |
+| 開啟本頁 | 位置圖顯示模型正確的初速度 v₁、末速度 v₂，兩箭頭等長且分別沿切線；一次短動畫把副本平移至速度向量圖共同起點 S，保留方向、大小及顏色 | 參考速度不從 V1 答案生成，不把前頁錯誤傳入本頁 |
 | 閱讀題目：「用圖中的兩個速度，作出末速度減初速度的向量。」 | 對齊後，標明「共同起點」「初速度末端」「末速度末端」；初／末速度與各自端點的文字及外觀對應，不只靠顏色 | 初始沒有學生 Δv 箭頭，不預填 U→V |
 | 選起點，再選終點 | 面板有上述三個語意完整的節點按鈕，各 ≥44px；先提示「選線段起點」，再提示「選線段終點」，圖上連成有向線段 | D1 評是否選到兩個速度的末端，D2 評相減的箭頭方向；正確建構為 U→V |
 | 把 B 拖近 A，再拉遠比較 | vB 及學生線段隨 U、V 更新；位置圖 A 點同步顯示「我的作圖方向」虛線方向提示，讓學生直接與圓心位置比較 | 不需學生再搬移線段；不自動把錯誤的 S→V 或 V→U 修成 U→V；不按拖近程度計分 |
@@ -188,7 +188,7 @@
 ### 數字與選項呈現
 
 - 時間、位移大小顯示三位有效數字及單位；內部幾何保留精度，不以顯示捨入值反算位置。沒有數值輸入題，也沒有有效數字作答扣分。
-- 四方向選項共用上述語意序列，以題目保存的 `choiceShift` 0–3 作循環位移；V1、A1、T1、T2 依序再加 0、1、2、3（模 4）。三選題 V2、A2、T3 以同一 shift 加 0、1、2 後模 3。顯示次序由 definition 固定，刷新及回顧不變。
+- 新 attempt 每題獨立抽取完整排列：方向題 24 種、理由題 6 種，以 definition.choiceRanks 保存各題排列編碼；拖動、清除答案、轉頁、檢查及 Moodle 還原不重新排序。舊快照缺少 choiceRanks 時沿用 choiceShift 循環位移，不改既有次序；standalone refresh 依共用契約建立新 attempt 及新次序。
 - 初始答案全部為 null；不能因候選箭頭已存在、B 已在某位置或平移動畫完成而視為學生作答。
 
 ## Responsive layout contract
@@ -200,7 +200,7 @@
 | Desktop / tablet | ≥900px 草案採舞台與 320–380px 面板左右；探究二舞台內位置圖與速度圖並排，標明圖域 |
 | Control-panel classification | `bounded split-panel`；學生需看圖同時作答，面板獨立捲動，文件本身無競爭的垂直捲動 |
 | Phone stage and controls | 頁首下方舞台 52dvh，正常高度保留 ≥96px 可見面板；探究二兩圖並排。高度 ≤400px 用緊湊任務 select 取代三個頁首任務按鈕；寬度 ≥480px 優先左右重排，更窄則保留 96px 面板並壓縮舞台非必要文字。按鈕仍 ≥44px，最後控制可捲至 |
-| Phone text | 主要控制與答題 16px、圖中必要標記至少 14px 實際呈現；細節另以面板文字及局部預覽支援，不能只指定未縮放 SVG 字級 |
+| Phone text | 面板正文、選項、提示、次要按鈕及回饋統一 18px，標題 22px、子標題 20px；公式分式採 displaystyle 避免分子／分母縮小；圖中必要標記至少 18px 實際呈現；細節另以面板文字及局部預覽支援，不能只指定未縮放 SVG 字級 |
 | Viewports | 320×500、390×500、390×600、390×844、480×320、320×225 短播放器、桌面、鍵盤／工具列改變與 200% zoom；均為待驗證尺寸 |
 | Scroll topology | bounded 活動頁＋原生 pan-y 舞台＋contained 面板，沒有 forwarding adapter 或 host lock；T1 外層 window、T2 越過無 range wrapper 的外層 window、T3 指定 scrollOwner 元素。實際證據逐命令列於後文；T4 尚待真實部署環境驗收 |
 
@@ -227,7 +227,7 @@
 
 | Decision | Activity specification and reason |
 |---|---|
-| Notation | 學習畫面位移寫 Δx，不加向量箭頭或絕對值；圖區旁顯示 Δx 及 Δt 數值。vA、vB、Δv、平均速度／加速度保留向量記號。正文、圖及結果使用本地 LaTeX SVG 字形與下標，不顯示原始 LaTeX 字串；物理模型內部 dr／Δr 仍是二維位移差 |
+| Notation | 學習畫面位移寫 Δx，不加向量箭頭或絕對值；圖區旁顯示 Δx 及 Δt 數值，位移箭頭旁直接標 Δx。速度箭頭直接標 v₁、v₂；學生完成相減連線後在該線旁標 Δv，參考線於正式提交後顯示。速度及加速度保留向量記號。正文、圖及結果使用本地 LaTeX SVG 字形與下標，不顯示原始 LaTeX 字串；物理模型內部 dr／Δr 仍是二維位移差 |
 | Arrow graphics | 位移、速度及學生連線均用連續實心箭身／箭頭；箭尖精確落在模型終點。短向量縮小箭頭外觀而不拉長幾何；延長線為細虛線且明確標「方向延長線」 |
 | Direction comparison | 探究二 A 點的「我的作圖方向」是無長度刻度的虛線方向提示，由學生線段推導，並非新增物理向量；實際 Δv 作圖仍保留於速度圖且按共同尺度呈現。空白／半作圖不顯示，錯答不補正 |
 | Snap | B 拖動限制在可見圓周合法弧段，投影角度取最近 1°，限制 5–60°；這是時間刻度控制，不是正確答案吸附。S/U/V 用語意按鈕選定節點，無自由座標或隱藏正解吸附 |
@@ -362,7 +362,8 @@
 | `definition.startIndex` | 必填整數 0、1、2、3，代表起點所在的 90° 區段 |
 | `definition.startOffsetDeg` | 新 attempt 必有 0–89 整數，與 startIndex 組成全圓 360 個隨機角度；舊 v1 快照缺少此欄時按 0° 還原，不重新抽位置；若欄位存在但無效則拒絕 |
 | `definition.sense` | 必填整數 −1 或 +1 |
-| `definition.choiceShift` | 必填整數 0、1、2、3；與起點／轉向分開選定 |
+| `definition.choiceShift` | 必填整數 0、1、2、3，保留舊 v1 快照的輪換次序 |
+| `definition.choiceRanks` | 新 attempt 必有，依 QUESTIONS 順序保存 7 個整數；方向題 0–23、理由題 0–5，各自獨立抽選。舊快照缺少時使用 legacy choiceShift；存在但長度／元素非法則拒絕，不重抽 |
 | `phase` | 必填 `edit` 或 `check`；review 快照只允許 check |
 | `task` | 必填整數 0、1、2；check 保留返回位置 |
 | `observation.positionGapDeg` | 必填整數 5–60；初始 60 |
@@ -603,3 +604,16 @@ Runtime commit `39e36014832fa33bf6de0ecefca26cb5762685f9` 已 push 並以 ls-rem
 Sites source commit `cb4b6f736cd8e87ef272bc666c402a5b783539b9` 經官方 helper 推送及封裝；15 個 runtime 資產與來源／archive 逐 byte 相同。2026-10-21 22:49（UTC+8），原生私人發布回傳 succeeded：deployment `appgdep_6ad8d0ff50e08191bf0ec3283362313a`，version `appgprj_6ad878e05e148191aee5ef92740b63f1~appgver_6c6b66823aa48191ba83151a3ee85566`。沿用[正式網址](https://circular-motion-vector-lab.ieyp.chatgpt.site/circular-motion-vector-lab/)及 owner-only 權限。
 
 Site archive `output/sites/circular-motion-vector-lab-large-cards.tar.gz` SHA-256 `9cc954070e7fb3f2ce14526ee3ad691cb874313fc5eb896d6d38b4672f609f44`；SCORM ZIP SHA-256 `293a0a23587f9bdbcf0daa284b3489f966422334456fb3337eded7c1d83bf643`。證據檔案 `output/sites/circular-vector-large-runtime-verification.json`、`circular-vector-large-deployment.json`。
+
+
+## 2026-10-21 面板字級、圖上符號與獨立選項排序
+
+依使用者回饋，檢查整個 Control Panel：正文、題目、文字選項、說明、清除此題、次要按鈕、端點狀態及回饋統一 18px；主／子標題為 22／20px。平均量公式改用 displaystyle，保留一般下標比例，分子／分母不再縮成小字。
+
+Δx 除了數值讀數，也直接以符號配細引線標在位移箭頭旁；第二部分位置圖的兩支切向速度及右圖兩支速度均標 v₁、v₂。學生完成連線後，紫色線旁標 Δv，圖例清楚說明為「我作出的 Δv」；不預先畫出正確差向量。正式提交後的綠色參考差向量另以同色 Δv 標示。公式統一為 Δv = v₂ − v₁。標籤為非互動圖形，保留 A／B、中文端點名稱及原有觸控區。
+
+之前只有循環輪換，新 attempt 改為每題獨立完整排列。保存排列編碼 choiceRanks，四選圖可達全部 24 種次序，三選文字可達全部 6 種；舊格式仍依 choiceShift 還原，學生答案與評分規則不變。模型測試遍歷所有排列，保存測試覆蓋新欄位 draft／review round-trip、非法排列及還原後續作；原 17,280 組舊格式矩陣保留。
+
+五個活動 Node entry、靜態檢查及 check:tests（252 entries）通過。正式 browser 已驗 source／真解壓 SCORM：54 組排版、48 組可信拖曳，逐一檢查面板可見正文不小於 18px、圖上符號存在，及非平凡排列在拖動、check／return、Moodle reload 後保持相同 DOM 次序。已檢視第一部分與第二部分實際截圖。本次完整嵌入／實機／真 Moodle 驗收仍另列，不以本地瀏覽器取代。
+
+本次最終 T2 source／package 各 4 列通過（320×500、390×844；initial、第二頁已答），報告 `output/playwright/circular-vector-symbols-T2-source-final.json`、`circular-vector-symbols-T2-package-final.json`。最長合法 draft／review／pending 為 684／711／942 UTF-8 bytes，低於 4,000 bytes。最終 runtime hash `b7d8e314ab1b52e7b5fb0d73da79a84687514e85607770b635589aa5d57ddb93` 與 browser report 一致。

@@ -24,7 +24,7 @@
   const scale=(v,k)=>v.map(n=>n*k);
   function draw(random,n){const x=random();if(!Number.isFinite(x)||x<0||x>=1)throw Error('Invalid random draw');return Math.floor(x*n);}
   function fresh(random=Math.random){
-    return {schemaVersion:1,modelVersion:1,rubricVersion:1,definition:{startIndex:draw(random,4),sense:draw(random,2)?1:-1,choiceShift:draw(random,4),startOffsetDeg:draw(random,90)},phase:'edit',task:0,
+    return {schemaVersion:1,modelVersion:1,rubricVersion:1,definition:{startIndex:draw(random,4),sense:draw(random,2)?1:-1,choiceShift:draw(random,4),startOffsetDeg:draw(random,90),choiceRanks:QUESTIONS.map(q=>draw(random,q.type==='direction'?24:6))},phase:'edit',task:0,
       observation:{positionGapDeg:60,velocityGapDeg:60,transferGapDeg:45},
       answers:{...Object.fromEntries(QUESTIONS.map(q=>[q.field,null])),deltaFrom:null,deltaTo:null}};
   }
@@ -37,6 +37,11 @@
   function direction(state,task,key){const g=scene(state,task);return {'forward-tangent':scale(g.vA,1/SPEED),'backward-tangent':scale(g.vA,-1/SPEED),inward:scale(g.rA,-1/RADIUS),outward:scale(g.rA,1/RADIUS)}[key];}
   function options(state,q){
     const values=q.type==='direction'?DIRECTIONS.map(key=>[key,key]):q.options;
+    if(state.definition.choiceRanks){
+      let rank=state.definition.choiceRanks[QUESTIONS.indexOf(q)];const remaining=values.slice(),ordered=[];
+      while(remaining.length){const factorial=remaining.length===4?6:remaining.length===3?2:1;ordered.push(remaining.splice(Math.floor(rank/factorial),1)[0]);rank%=factorial;}
+      return ordered;
+    }
     const fields=q.type==='direction'?['velocityDirection','accelerationDirection','transferVelocity','transferAcceleration']:['velocityReason','accelerationReason','transferReason'];
     const shift=(state.definition.choiceShift+fields.indexOf(q.field))%values.length;
     return values.slice(shift).concat(values.slice(0,shift));

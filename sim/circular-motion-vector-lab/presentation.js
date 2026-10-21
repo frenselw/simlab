@@ -4,7 +4,7 @@
   'use strict';
   const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const math=(tex,text=tex)=>CircuitMath.html({tex,text});
-  function prose(value){return String(value).split(/(Δv|Δx|Δt)/).map(s=>({'Δv':'\\Delta \\vec v','Δx':'\\Delta x','Δt':'\\Delta t'}[s]?math({'Δv':'\\Delta \\vec v','Δx':'\\Delta x','Δt':'\\Delta t'}[s],s):esc(s))).join('');}
+  function prose(value){const symbols={'Δv':'\\Delta \\vec v','Δx':'\\Delta x','Δt':'\\Delta t','v₁':'\\vec v_1','v₂':'\\vec v_2'};return String(value).split(/(Δv|Δx|Δt|v₁|v₂)/).map(s=>symbols[s]?math(symbols[s],s):esc(s)).join('');}
   function intersects(box,a,b){
     let lo=0,hi=1;
     for(let i=0;i<2;i++){const v=b[i]-a[i],min=box[i]-5,max=box[i+2]+5;if(Math.abs(v)<1e-9){if(a[i]<min||a[i]>max)return false;}else{const x=(min-a[i])/v,y=(max-a[i])/v;lo=Math.max(lo,Math.min(x,y));hi=Math.min(hi,Math.max(x,y));if(lo>hi)return false;}}
@@ -60,5 +60,16 @@
     if(!best)throw Error('No clear velocity annotation layout');
     return best;
   }
-  return {math,prose,labels,intersects,velocityOrigin,nodeName,positionGeometry,velocityLabels};
+  function quantityLabels(specs,width,height,segments,occupied=[],top=0){
+    const placed=[],size=height<140?18:24,overlap=(a,b)=>a[0]<b[2]+4&&a[2]>b[0]-4&&a[1]<b[3]+4&&a[3]>b[1]-4;
+    for(const spec of specs){
+      const metric=CircuitMath.measure(spec.tex,size),half=[metric.width/2+5,metric.height/2+4],mid=spec.from.map((n,i)=>(n+spec.to[i])/2),dx=spec.to[0]-spec.from[0],dy=spec.to[1]-spec.from[1],length=Math.hypot(dx,dy)||1,candidates=[];
+      const add=(x,y)=>{x=Math.max(half[0]+3,Math.min(width-half[0]-3,x));y=Math.max(top+half[1],Math.min(height-half[1]-3,y));const box=[x-half[0],y-half[1],x+half[0],y+half[1]];const blocked=occupied.concat(placed.map(p=>p.box)).filter(b=>overlap(box,b)).length,hits=segments.filter(([a,b])=>intersects(box,a,b)).length;candidates.push({...spec,x,y,box,size,baseline:y+(metric.ascent-metric.descent)/2,cost:blocked*1e6+hits*1e4+Math.hypot(x-mid[0],y-mid[1])});};
+      for(const fraction of [.5,.25,.75])for(const offset of [24,-24,42,-42,60,-60])add(spec.from[0]+dx*fraction-dy/length*offset,spec.from[1]+dy*fraction+dx/length*offset);
+      for(let col=0;col<3;col++)for(let row=0;row<3;row++)add(half[0]+4+(width-2*half[0]-8)*col/2,top+half[1]+(height-top-2*half[1]-4)*row/2);
+      candidates.sort((a,b)=>a.cost-b.cost);placed.push(candidates[0]);
+    }
+    return placed;
+  }
+  return {math,prose,labels,intersects,velocityOrigin,nodeName,positionGeometry,velocityLabels,quantityLabels};
 });

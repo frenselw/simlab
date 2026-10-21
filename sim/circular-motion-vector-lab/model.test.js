@@ -14,3 +14,6 @@ for(let startIndex=0;startIndex<4;startIndex++)for(const sense of [-1,1])for(con
 const s=M.fresh(()=>0);s.task=1;let n=M.change(s,{type:'node',value:'V'});assert.deepEqual(M.change(n,{type:'node',value:'V'}),n);n=M.change(n,{type:'node',value:'U'});assert.equal(n.answers.deltaTo,'U');n=M.change(n,{type:'gap',value:5});assert.equal(n.answers.deltaFrom,'V');assert.equal(n.answers.deltaTo,'U');
 assert.throws(()=>M.fresh(()=>1));assert.throws(()=>M.change(s,{type:'gap',value:0}));
 console.log(`Circular vector model: ${cases} physical configurations, finite-time limits, transfer and semantic node updates passed.`);
+
+for(const q of M.QUESTIONS){const permutations=new Set(),count=q.type==='direction'?24:6;for(let rank=0;rank<count;rank++){const s=M.fresh(()=>0);s.definition.choiceRanks[M.QUESTIONS.indexOf(q)]=rank;const keys=M.options(s,q).map(o=>o[0]);assert.equal(new Set(keys).size,q.type==='direction'?4:3);permutations.add(keys.join('|'));assert.deepEqual(M.options(M.navigate(s,q.task),q),M.options(s,q));}assert.equal(permutations.size,count);}
+console.log('Independent option orders: all 24 direction and 6 reason permutations are reachable and stable.');
