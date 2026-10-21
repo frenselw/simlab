@@ -1,6 +1,6 @@
 # 圓周運動：線速率與角速率量度
 
-狀態：**P2 第六輪展平尺單位、桌面圖例及概念題選項順序已修正並發布；手機面板高度經指導文件核對保持原設定。P3 真 Moodle／真手機驗收待做。**
+狀態：**P2 第七輪已核對兩情境轉速隨機抽題，放大並固定右上角計時顯示，完成測試、提交及 Sites 發布。P3 真 Moodle／真手機驗收待做。**
 
 本活動讓學生自行開始及停止量度，把圓周軌跡展平後讀取路程、時間及累積轉角，計算並比較線速率與角速率。以同軸與不打滑皮帶兩個情境對照「相同角速率」與「相同線速率」的不同約束。
 
@@ -550,5 +550,18 @@ GitHub CI 無需等待；真 Moodle、真手機 T4 及學生試用仍待驗，�
 | 自動驗證 | `node tools/check.js`、`node tools/test-registry.js`（251 entries）、四個本活動 Node 測試、`node tools/check-docs.js`、`git diff --check`、`node tools/package-all.js`、source／解壓 package browser 完整流程均通過。Browser 驗直尺 `m` 確實在 SVG 可見範圍、桌面圖例字 ≥17px、手機 panel ≥96px／stage ≤60dvh、同次選項順序穩定，以及既有兩情境 100／0 評分。SCORM ZIP 12 files，SHA-256 `91597F6EFFF273ED5CD28516B26A64A2F37B4FE1F06BCD744BDFA5B14C109D67`。 |
 | 手機可信手勢 | T0 standalone 1、T1 package 4（320×500、390×844）、T2 source nested 2、T3 package element 2 個選定情境，全部 completed、status passed、gesture issues 0；報告 `output/playwright/circular-speed-P2-round6-T0.json` 至 `T3.json`。T1 的 500px iframe 量得 stage 276px、panel 108.8px，兩輪組一致。 |
 | Sites | 沿用 owner-private project `appgprj_6ad85f290a0081919a849c43bdabdde5` 及[試用網址](https://circular-motion-speed-lab.ieyp.chatgpt.site)，已更新至 version 7，access policy 仍為 custom、只有 owner 一人。網站 10 個 runtime 檔案與本活動 branch 逐檔 SHA-256 一致；Site source commit `8170ec1624c6f56edbf4711182e9245ef7c57582`；tar SHA-256 `0778E1CC171EF9C814D117A1CB062D9204C580E02DAED0CBE08C10C9DE583318`；version `appgprj_6ad85f290a0081919a849c43bdabdde5~appgver_f7113a5d681c8191ade6945b60a0937e`，deployment `appgdep_6ad8d1b8d7a48191a24839acf0496607` succeeded。 |
+
+本輪未重跑全庫 Node 測試，亦未等 GitHub CI；真 Moodle／真手機 T4 仍是獨立驗收。
+
+### P2 第七輪轉速核對與計時顯示修訂證據（2026-10-21）
+
+| 項目 | 結果 |
+|---|---|
+| 轉速隨機性 | 原有 `Store.initial()` 已為同軸及皮帶兩情境各自呼叫 `Model.definition(random)`，獨立從 0.35、0.45、0.55、0.65 rad/s 抽主動角速率；同一 attempt 的重新量度保留該情境參數，以便重做量度與保持續作一致。新增固定亂數測試證實兩情境可抽得不同速度及重新量度不改速度；本輪無須更改物理模型或 snapshot。 |
+| 計時介面 | 把右上角 `Δt`、等號、數值、秒單位拆成固定格位，逐幀只更新數字文字；加大字體與對比。一般手機／桌面保留醒目大小；≤380px 極矮橫屏隱藏重複的情境標題並收緊計時格，避免越界。Browser regression 驗證 `0`、`9.99`、`10`、`100`、`8.64×10^4` 時各部分水平位置不變、數值不溢出，覆蓋 390×844、390×600、320×500、320×225、820×600、1280×800。 |
+| 活動 commit／push | Runtime 與測試 commit `2d30191b80a6e829eb731e813d6812749b516254` 已推送至 `origin/codex/circular-motion-speed-lab`；committed selection preview 為 `affected`，包含本活動 package 與 browser owner。 |
+| 自動驗證 | 四個本活動 Node 測試、`node tools/check.js`、`node tools/test-registry.js`（251 entries）、`node tools/package-all.js`、source／解壓 SCORM browser 完整流程與截圖核對均通過；本活動 SCORM ZIP 12 files，SHA-256 `C599BA6225597B21CD981836BBBFEC940B7F6BB8B98F3D55DA8B5805992D6994`。 |
+| 手機可信手勢 | T0 standalone、T1 package、T2 source nested、T3 package element 各一個 320×500 初始情境；`output/playwright/circular-speed-P2-round7-T0.json` 至 `T3.json` 全部 completed、passed，runtime errors 0。 |
+| Sites | 原 owner-private project 的[試用網址](https://circular-motion-speed-lab.ieyp.chatgpt.site)更新至 version 8；`get_site` 再核對 custom access 只有 owner、無外部訪客。10 個 runtime 檔案與本 branch SHA-256 逐檔一致；Site source commit `7bf7d4913ea1f70cd5ae0074624f4091588a9de3`，tar SHA-256 `F13BDC45F58ED4C020FB24A0D6387F7E0850766C49B293A25C17E7FBF07CEC92`，version `appgprj_6ad85f290a0081919a849c43bdabdde5~appgver_6860158d05d481919cbfdf4ceca50f60`，deployment `appgdep_6ad8d9407b68819192dc0da700fad3bb` succeeded。 |
 
 本輪未重跑全庫 Node 測試，亦未等 GitHub CI；真 Moodle／真手機 T4 仍是獨立驗收。
