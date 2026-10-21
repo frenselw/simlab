@@ -1,6 +1,6 @@
 # 圓周運動：線速率與角速率量度
 
-狀態：**P2 第五輪正修正轉角圖末端似多一個運動點的視覺問題；P3 真 Moodle／真手機驗收待做。**
+狀態：**P2 第五輪轉角圖端點已修正並發布到原私人網站；P3 真 Moodle／真手機驗收待做。**
 
 本活動讓學生自行開始及停止量度，把圓周軌跡展平後讀取路程、時間及累積轉角，計算並比較線速率與角速率。以同軸與不打滑皮帶兩個情境對照「相同角速率」與「相同線速率」的不同約束。
 
@@ -525,5 +525,17 @@ GitHub CI 無需等待；真 Moodle、真手機 T4 及學生試用仍待驗，�
 | 自動驗證 | `node tools/check.js`、`node tools/test-registry.js`（251 entries）、本活動四個 Node 測試、`node tools/check-docs.js`、`git diff --check`、`node tools/package-all.js` 及 source／解壓 package browser 完整流程通過。Browser 驗量度中角圖與實際 Δθ 一致、同軸一個角圖／皮帶兩個、跨過一圈後角弧半徑增大、停止後 rad／度數、既有展平及返回流程、100／0 分。SCORM ZIP 12 files，SHA-256 `4B606A7A43224D155F3F72E910D9F461FD06BDC03DBF7F9D80880828350B2B8A`。 |
 | 手機可信手勢 | T0 standalone 1、T1 package 8、T2 source nested 2、T3 package element 2 個情境，全部 completed、status passed、gesture issues 0；報告 `output/playwright/circular-speed-P2-round4-T0.json` 至 `T3.json`。另以 390×844 截圖核對量度中及跨圈停止後的角圖，圖片 `output/playwright/circular-speed-angle-live.png`、`circular-speed-angle-multiturn.png`。 |
 | Sites | 沿用原 owner-private project `appgprj_6ad85f290a0081919a849c43bdabdde5` 及[試用網址](https://circular-motion-speed-lab.ieyp.chatgpt.site)，已更新至 version 5，access policy 仍為 custom、只有 owner 一名使用者。網站 10 個 runtime 檔案與本活動 branch 逐檔 SHA-256 一致；Site source commit `42ddbfb9dbd2b47cc0dae9099a639ffaec18ff41`；tar SHA-256 `E58C820056A13DB6632D40768FEC51F6992DB2DB51EA15D508FD8092CF2F54D9`；version `appgprj_6ad85f290a0081919a849c43bdabdde5~appgver_423d8857a0fc819195fcd4a9789d288a`，deployment `appgdep_6ad895d24ca48191979373d9751cfab1` succeeded。 |
+
+本輪未重跑全庫 Node 測試，亦未等 GitHub CI；真 Moodle／真手機 T4 仍是獨立驗收。
+
+### P2 第五輪轉角圖端點修訂與交付證據（2026-10-21）
+
+| 項目 | 結果 |
+|---|---|
+| 視覺修訂 | 移除角弧末端額外的彩色圓點，改以角扇、起始／終止射線及無圓點的弧線表達轉角；A、B 輪緣仍各只有原來的運動點。保留跨圈向外延伸、整圈數及停止後 rad／度數讀數。 |
+| 活動 commit／push | `7da57b16e74e6fedc0f96f392f0d3d90c52a2a50` 已 push 到 `origin/codex/circular-motion-speed-lab`；committed selection preview 為 `affected`，選本活動 browser scope 和 package `circular-motion-speed-lab`。 |
+| 自動驗證 | `node tools/check.js`、`node tools/test-registry.js`（251 entries）、本活動四個 Node 測試、計劃連結及 `git diff --check` 通過；source／解壓 package browser 完整流程核對量度中與跨圈後角弧無額外端點、數值對應、既有展平／評分。`node tools/package-all.js` 通過；SCORM ZIP 12 files，SHA-256 `BB19C73692E9B60D7AE139C49C50E0350F347224031D2089945B6FD55DAA8DC4`。已視覺核對 `output/playwright/circular-speed-angle-live.png` 及 `circular-speed-angle-multiturn.png`。 |
+| 手機可信手勢 | T0 standalone 1、T1 package 4、T2 source nested 2、T3 package element 2 個選定情境，全部 completed、status passed、gesture issues 0；報告 `output/playwright/circular-speed-P2-round5-T0.json` 至 `T3.json`。 |
+| Sites | 原 owner-private project `appgprj_6ad85f290a0081919a849c43bdabdde5` 的[試用網址](https://circular-motion-speed-lab.ieyp.chatgpt.site)已更新至 version 6，access policy 仍為 custom、只有 owner 一名使用者。網站 10 個 runtime 檔案與本活動 branch 逐檔 SHA-256 一致；Site source commit `b3764daf5f6ef8cba9dfc62fa3ae33a3ac1e4ce9`；tar SHA-256 `CCDC6FC266FAC8E33ED2B937CADD22BB9E202123D44953AC2DE7C1F36670F7C9`；version `appgprj_6ad85f290a0081919a849c43bdabdde5~appgver_cba18322acd48191a14b2fd0089ff20e`，deployment `appgdep_6ad8cb3a1b408191b5b038d0e205ad46` succeeded。 |
 
 本輪未重跑全庫 Node 測試，亦未等 GitHub CI；真 Moodle／真手機 T4 仍是獨立驗收。
