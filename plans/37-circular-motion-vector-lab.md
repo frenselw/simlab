@@ -574,3 +574,10 @@
 - 已檢視 `output/playwright/circular-motion-vector-lab/source-665x604-difference.png`；整組速度圖位於右圖區中央。此為本地瀏覽器證據，不代表實體手機或真 Moodle 驗收。
 
 本次 source／真解壓 SCORM browser 全部通過（9 種 viewport×3 頁×2 套資產、48 組可信拖曳），報告 `output/playwright/circular-motion-vector-lab/report.json`；靜態檢查、check:tests 及文件連結檢查亦通過。T0–T3 的完整嵌入與實機驗收未於本次非互動圖形平移重新執行。
+
+
+本次 runtime commit `26f0ec3a76c4d6faa3f91e8caa203a365c0b2de5` 已 push 並以 ls-remote 複核。已提交範圍的 selection preview 選取 affected／219 tests（報告 `output/ci-tests/circular-vector-center-selection.json`；不冒稱全部已執行）；check:tests 維持 252 entries。最終 runtime hash `774c96c6444baa1c2a8320d05e16ea34e740d50e1e429181f3371aeb476ecd87` 與 browser report 一致。
+
+Sites source commit `0104013e97f0c1202856130f733d303e14f468c9` 已由官方 helper 推送及封裝，15 個 runtime 資產逐 byte 核對通過。原生私人發布回傳 succeeded：deployment `appgdep_6ad89123287c8191a0e69e48d7208d50`，version `appgprj_6ad878e05e148191aee5ef92740b63f1~appgver_7de5c2da8e4c81919444037407eb491a`，2026-10-21 18:17（澳門）。沿用[正式網址](https://circular-motion-vector-lab.ieyp.chatgpt.site/circular-motion-vector-lab/)及原有 owner-only 權限。
+
+封裝：`output/sites/circular-motion-vector-lab-centered.tar.gz`，SHA-256 `0933378b4d3a25973106e7901df52245cf44b58709a93390e390b2721fcd3add`；重建 SCORM ZIP SHA-256 `805853093fe4de0e39fa3fa4c31091fbdaaa65a8b5af15a0429402bc52ee3157`。交付證據位於 `output/sites/circular-vector-center-runtime-verification.json`、`circular-vector-center-deployment.json`。[本次 CI](https://github.com/frenselw/simlab/actions/runs/39582094935) 發布時仍 in_progress，與上述本地證據分開記錄。
