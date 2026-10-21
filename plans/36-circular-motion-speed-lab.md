@@ -440,12 +440,12 @@ P1 內部可以分批提交可審閱的 model、UI、scoring 工作，不把每�
 
 ## Package-ready checklist
 
-- [ ] 使用者已審查本計劃；模型、rubric、依賴、phase/schema、手機與測試決策齊全。
-- [ ] 上述 Node／UI、source／解壓 package、T0–T3 與 fullscreen 適用矩陣均通過，錯誤與未執行項目沒有混寫成通過。
+- [x] 使用者已審查本計劃；模型、rubric、依賴、phase/schema、手機與測試決策齊全。
+- [x] 本活動 Node／UI、source／解壓 package、T0–T3 與 fullscreen 適用矩陣均通過；真手機 T4 另列。
 - [ ] `npm run check`、`npm run check:tests`、`npm test`、`npm run package:all` 依指南通過，記命令、SHA、範圍與報告。
-- [ ] `git diff --check <實際base>...HEAD` 及工作區差異檢查通過；測試登記與 committed selection evidence 齊全。
-- [ ] SCORM 根 manifest、全部 runtime 相依及來源／解壓一致性已驗。
-- [ ] 本輪 commit 已 push；本活動 Site 部署成功，GitHub／Site source／archive／deployment 對應可追溯。
+- [x] `git diff --check <實際base>...HEAD` 及工作區差異檢查通過；測試登記與 committed selection evidence 齊全。
+- [x] SCORM 根 manifest、全部 runtime 相依及來源／解壓一致性已驗。
+- [x] 本輪 runtime commit 已 push；本活動私人 Site 部署成功，GitHub／Site source／archive／deployment 對應可追溯。
 
 ## Moodle-ready checklist
 
@@ -468,7 +468,8 @@ P1 內部可以分批提交可審閱的 model、UI、scoring 工作，不把每�
 | Node | `npm run test:fast` 通過 217/217；報告 `output/ci-tests/local-1792564606800-20820/report.json` |
 | 活動 browser | `node tools/circular-motion-speed-browser-regression.js`：source／解壓 package、390×844／320×225／1280×800、兩情境 100 分、空白 0 分、fullscreen、standalone refresh 通過；皮帶相切位置經圖片核對並增加範圍斷言 |
 | 手機 T0–T3 | trusted-touch 報告 `output/playwright/mobile-scroll-acceptance-T0-standalone.json`、`T1-phases-package.json`、`T2-phases-source.json`、`T3-phases-package.json`：完成 1／8／12／3 列（T2 含 committed），errors 0、issues 0；真手機／真 Moodle T4 待驗 |
-| 全套測試／package:all | `npm test` 正在執行；完成前不得標為通過。`npm run package:all` 待執行 |
-| Sites | 私人專用 project ID `appgprj_6ad85f290a0081919a849c43bdabdde5`；`output/sites/circular-motion-speed-lab/.openai/hosting.json` 已保存。擁有人權限已核對：custom 只含 owner 一人；尚未發布，無 live URL |
+| 全套測試／package:all | `npm run package:all` 通過，全部 SCORM ZIP 已驗，包括本活動 12 files。Windows 本機 `npm test` 跑至 browser 38/251，既有 household／AC 電路瀏覽器斷言各有一次失敗；該兩段電路 runtime 與 browser 測試在本 branch 均無改動，因此中止必然失敗的長跑，不能列為全套通過。log：`output/playwright/circular-full-test.log`。GitHub Quality run [39559236680](https://github.com/frenselw/simlab/actions/runs/39559236680) 對應 runtime commit `c99ca2fa6754879dabd6371d60aad788d73b2b9b`；Node／基本檢查已過，8 browser shards 尚在執行，結果待補。Package-ready 的全套測試門檻仍開放 |
+| Runtime commit／selection | `c99ca2fa6754879dabd6371d60aad788d73b2b9b` 已 push 至 `origin/codex/circular-motion-speed-lab`。以 base `e8800209c53f7e08b19b49ffe09123f5891e1b89`、head `c99ca2fa6754879dabd6371d60aad788d73b2b9b` 做 committed selection preview：mode `full`、packages `all`，原因 `Shared policy, infrastructure or dependency changed: sim/config.js`；`git diff --check` 通過 |
+| Sites | 私人 project ID `appgprj_6ad85f290a0081919a849c43bdabdde5`，Site source commit `0aecd0507261b60f65befac75364a7331ae42b00`；本機發布 tar SHA-256 `52417561E68016013D3783B7CD68ED5BE1BBA8772CC0C09BE0043001B4D045AB`，服務端 archive hash `sha256:08b038c6618bf54ac62c13333ea57f7544a2547b1734ebdc6ef5cead72b364b8`。Version 1 `appgprj_6ad85f290a0081919a849c43bdabdde5~appgver_6abb95f20a888191be9cf2a3f2e607ae`，deployment `appgdep_6ad866fc0f248191916f537a9bd97568` succeeded；[試用網址](https://circular-motion-speed-lab.ieyp.chatgpt.site)。`get_site` 複核 custom 權限只有 owner 一人、無群組及外部訪客。Site 與 SCORM 來源 runtime bytes 已逐檔 SHA-256 比對一致 |
 
 後續證據追加於本節並標明對應 commit；改動決策時更新前文現行規格，過期結果標示歷史，不能用舊通過記錄代替新版本驗證。
