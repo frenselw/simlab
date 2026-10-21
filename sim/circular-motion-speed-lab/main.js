@@ -278,7 +278,7 @@
     const timed = c.phase !== "ready", angleA = timed ? Model.angleAt(c.measurement.startAngles[0], p.omegaA, t) : Model.angleAt(0,p.omegaA,observationTime);
     const angleB = timed ? Model.angleAt(c.measurement.startAngles[1],p.omegaB,t) : Model.angleAt(0,p.omegaB,observationTime);
     const portrait = Boolean(portraitStage?.matches), compact = Boolean(compactStage?.matches);
-    el.timerReadout.innerHTML = `${math("dt")} = ${timed ? Model.format3(t) : "0"} s`;
+    el.timerValue.textContent = timed ? Model.format3(t) : "0";
     if (c.phase === "unwrapped" && !showOrbit) {
       el.motionSvg.setAttribute("viewBox", portrait || compact ? "70 0 560 380" : "0 0 700 380");
       const r = Model.readings(kind,c.definition,t), maximum = Math.max(r.sA,r.sB);

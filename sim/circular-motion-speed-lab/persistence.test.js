@@ -2,6 +2,10 @@
 const assert=require("node:assert/strict");
 const P=require("./persistence.js"),S=require("./scoring.js"),M=require("./model.js");
 const phases=["ready","measuring","captured","unwrapped"];
+let draw=0;const sampled=P.initial(()=>[0,0,0,0,0,.99][draw++]);
+assert.equal(M.parameters("coaxial",sampled.cases.coaxial.definition).omegaB,M.SPEEDS[0]);
+assert.equal(M.parameters("belt",sampled.cases.belt.definition).omegaB,M.SPEEDS[3],"each case draws its own drive speed");
+assert.equal(P.remeasure(sampled,"belt").cases.belt.definition.speedIndex,3,"remeasuring keeps this attempt's speed");
 function setPhase(c,phase){c.phase=phase;c.measurement=phase==="ready"?{startAngles:null,elapsed:0}:{startAngles:[0,0],elapsed:phase==="measuring"?0:30};if(phase==="unwrapped")c.answers.vA=".14";}
 for(const a of phases)for(const b of phases)for(const view of ["task","check"]){
   let s=P.initial(()=>0);setPhase(s.cases.coaxial,a);setPhase(s.cases.belt,b);s.view=view;s.activeCase="belt";
