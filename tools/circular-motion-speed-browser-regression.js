@@ -22,8 +22,9 @@ async function fullFlow(cdp,url,width,height){
       return {kind,r};
     };
     const attempt=async()=>{click('startButton');await wait(180);click('stopButton');click('unwrapButton');await wait(650);
-      const middle={arcs:document.querySelectorAll('.unroll-arc').length,heads:[...document.querySelectorAll('.unroll-line')].map(line=>Number(line.getAttribute('x2'))),caption:document.getElementById('sceneCaption').innerText};
-      await wait(1250);return {...fill(),middle,finishedArcs:document.querySelectorAll('.unroll-arc').length};};
+      const orbits=()=>[...document.querySelectorAll('.source-orbit')].map(circle=>[circle.getAttribute('cx'),circle.getAttribute('cy'),circle.getAttribute('r')]);
+      const middle={traces:[...document.querySelectorAll('.source-trace')].map(trace=>({total:Number(trace.dataset.totalAngle),remaining:Number(trace.dataset.remainingAngle)})),orbits:orbits(),heads:[...document.querySelectorAll('.unroll-line')].map(line=>Number(line.getAttribute('x2'))),caption:document.getElementById('sceneCaption').innerText,rollingCircles:document.querySelectorAll('.unroll-arc').length};
+      await wait(1250);return {...fill(),middle,finishedTraces:document.querySelectorAll('.source-trace').length,finishedOrbits:orbits(),finishedHeads:[...document.querySelectorAll('.unroll-line')].map(line=>Number(line.getAttribute('x2')))};};
     const coax=await attempt();
     const measuredBefore=JSON.parse(window.SimScorm.getLocalLog().filter(x=>x.key==='cmi.suspend_data').at(-1).value).answer.cases.coaxial.measurement.elapsed;
     click('orbitButton');
@@ -52,7 +53,16 @@ async function fullFlow(cdp,url,width,height){
       fullscreen:!!document.getElementById('fullscreenButton')};
   })()`);
   assert.ok(result.coax.r.sB>result.coax.r.sA,"outer point must have longer arc");
-  for(const item of [result.coax,result.belt])assert.ok(item.middle.arcs===2 && item.middle.heads.every(head=>head>120&&head<580) && item.middle.caption.includes("圓弧向右") && item.finishedArcs===0,"both curved tracks must roll into complete straight tracks");
+  for(const item of [result.coax,result.belt]){
+    assert.ok(item.middle.traces.length===2 && item.middle.heads.every(head=>head>240&&head<600) && item.middle.caption.includes("實際轉角") && item.middle.rollingCircles===0 && item.finishedTraces===0,"actual circular traces must shorten as straight tracks grow, with no surrogate rolling wheels");
+    assert.deepEqual(item.middle.orbits,item.finishedOrbits,"source circles must stay fixed throughout unwrapping");
+    for(const [index,key] of ["angleA","angleB"].entries()){
+      const trace=item.middle.traces[index],angleFraction=1-trace.remaining/trace.total,lineFraction=(item.middle.heads[index]-240)/(item.finishedHeads[index]-240);
+      assert.ok(trace.remaining>0 && trace.remaining<trace.total && Math.abs(trace.total-item.r[key])<0.002 && Math.abs(angleFraction-lineFraction)<0.02,"lost circular angle and gained straight length must represent the same measured fraction");
+    }
+  }
+  assert.equal(result.coax.middle.orbits[0][0],result.coax.middle.orbits[1][0],"coaxial tracks must share a centre");
+  assert.notEqual(result.belt.middle.orbits[0][1],result.belt.middle.orbits[1][1],"belt wheel tracks must have separate centres");
   assert.ok(result.orbit.canUnwrap && result.orbit.labels===0 && result.orbit.answer!=="","return to orbit must retain the reading and remove moving labels");
   assert.equal(result.measuredAfter,result.measuredBefore,"returning and re-unwrapping must not remeasure");
   assert.equal(result.belt.r.sA,result.belt.r.sB,"no-slip wheel rims must travel equally");
@@ -112,6 +122,9 @@ async function main(){
       await capture("unrolling");await wait(1250);
       await capture("unwrapped");
       await H.evaluate(cdp,"document.querySelector('[data-case=belt]').click()");await capture("belt");
+      await H.evaluate(cdp,"document.getElementById('startButton').click()");await wait(500);
+      await H.evaluate(cdp,"document.getElementById('stopButton').click();document.getElementById('unwrapButton').click()");await wait(650);
+      await capture("belt-unrolling");await wait(1250);await capture("belt-unwrapped");
       await load(cdp,source,320,225);await capture("short");
       await load(cdp,source,1280,800);await capture("desktop");
     }
