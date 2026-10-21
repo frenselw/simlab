@@ -8,7 +8,7 @@ Each entry runs as static HTML, CSS and JavaScript with SVG or Canvas. No front-
 
 ## Current scope
 
-The teaching tools listed below comprise **three teacher workbenches and 24 assessed student activities**, registered in [sim/config.js](sim/config.js).
+The teaching tools listed below comprise **three teacher workbenches and 25 assessed student activities**, registered in [sim/config.js](sim/config.js). The catalogue also includes a separate [SCORM fullscreen test variant](sim/newtons-third-law-fullscreen-test/index.html) of the Newton's Third Law activity.
 
 | Type | Purpose | Scores and saved work |
 |---|---|---|
@@ -81,6 +81,7 @@ The two assessed DC activities below already use this shared foundation. Assesse
 | [Free Fall: Stroboscopic Measurement Lab](sim/free-fall-stroboscopic-measurement-lab/index.html) — 自由落體：頻閃量度實驗室 | Set a flash frequency, measure positions and infer motion patterns |
 | [Motion Composition: Stroboscopic Trajectories](sim/motion-composition-stroboscopic-lab/index.html) — 運動合成：頻閃軌跡建構 | Compare component motions at equal time intervals and construct the resultant trajectory |
 | [Horizontal Projectile Motion: Trajectory Measurement and Fitting](sim/horizontal-projectile-lab/index.html) — 平拋運動：軌跡量度與擬合 | Adjust a recording trough, measure trajectory points, fit a curve and calculate the mean launch speed |
+| [Circular Motion: Linear and Angular Speed Measurement](sim/circular-motion-speed-lab/index.html) — 線速率與角速率量度 | Time points on one disc and two belt-driven wheels, unwrap their paths, then compare linear and angular speeds |
 | [Circular Motion: Velocity and Acceleration Directions](sim/circular-motion-vector-lab/index.html) — 圓周運動：由位移到速度與加速度方向 | Shorten the time interval, compare displacement directions and construct velocity changes to infer instantaneous directions |
 
 #### Forces and investigations
