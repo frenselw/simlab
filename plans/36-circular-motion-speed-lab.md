@@ -1,6 +1,6 @@
 # 圓周運動：線速率與角速率量度
 
-狀態：**P2 第一輪已發布；第二輪正按使用者回饋改善展平動畫及皮帶傳動視覺。P3 真 Moodle／真手機驗收待做。**
+狀態：**P2 第二輪展平動畫及皮帶傳動視覺已發布到原私人網站；P3 真 Moodle／真手機驗收待做。**
 
 本活動讓學生自行開始及停止量度，把圓周軌跡展平後讀取路程、時間及累積轉角，計算並比較線速率與角速率。以同軸與不打滑皮帶兩個情境對照「相同角速率」與「相同線速率」的不同約束。
 
@@ -488,3 +488,15 @@ P1 內部可以分批提交可審閱的 model、UI、scoring 工作，不把每�
 | Sites | 沿用原 owner-private project `appgprj_6ad85f290a0081919a849c43bdabdde5` 及[試用網址](https://circular-motion-speed-lab.ieyp.chatgpt.site)。已核對來源 runtime 10 個檔案與本 branch 完全一致；Site source commit `4cdbd93e6525687eed5a431dca4aef80ea2e8bc8`，發布 tar SHA-256 `D2958F8BC4E245466B237CBDDA60EB5739E827859B9C53D3E22EEF1C0E4758EA`；version `appgprj_6ad85f290a0081919a849c43bdabdde5~appgver_d3756b2419d08191b1851e0e43af130f`，deployment `appgdep_6ad87cc9051c8191ae0886bca0b2539f` 原生結果 `succeeded`。 |
 
 GitHub CI 無需等待；真 Moodle、真手機 T4 及學生試用仍待驗，不以本地瀏覽器結果代替。
+
+### P2 第二輪動畫及皮帶修訂（2026-10-21）
+
+| 項目 | 結果 |
+|---|---|
+| 動畫／傳動 | 展平時 A、B 的圓弧示意同步滾動、縮短，留下按共同尺量度的直線；約 1.8 秒，重播及返回圓圖可用，減少動態偏好直接顯示終態。皮帶真實切線閉合路徑加移動鏈節紋路，取消單一白點；暫停時鏈節及兩輪同步定格。不改模型、評分、持久 schema 或外部相依。 |
+| 活動 commit／push | `376996da9cc236ab5b1a2407a22d2a036eeaabc6` 已 push 至 `origin/codex/circular-motion-speed-lab`；從 `c31407a96e0a1c565234ba721c468ef0e07fb0b2` 的 committed diff 檢查通過。`test:affected --plan` 選本活動及其 browser scope、package `circular-motion-speed-lab`，無 fallback。 |
+| 自動驗證 | `npm run check`、`npm run check:tests`、四個本活動 Node 測試、source／解壓 package browser 完整流程、`npm run package:all` 及本計劃連結檢查通過。Browser 包括動畫中段兩條曲線及部分直線、動畫終態、返回／再次展平、整條皮帶紋路移動及暫停定格、兩情境評分 100／0、手機和桌面版面。SCORM ZIP 12 files，SHA-256 `CE52992457EB5B028B6B2819A641564556CBE95C4412E371790DF2B82B7B2B66`。 |
+| 手機可信手勢 | T0 standalone 1、T1 package 6、T2 source nested 3、T3 package element 3 個選定相關情境，全數 completed、errors 0、gesture issues 0；報告為 `output/playwright/circular-speed-P3-T0.json` 及 `circular-speed-P2-round2-T1.json`、`T2.json`、`T3.json`。首次並行 T1／T2 曾分別在 Chrome cleanup／CDP evaluation 逾時，減少並行後完整重跑通過。 |
+| Sites | 沿用 owner-private project `appgprj_6ad85f290a0081919a849c43bdabdde5` 及[試用網址](https://circular-motion-speed-lab.ieyp.chatgpt.site)，`get_site` 確認 version 3、owner-only。網站 10 個 runtime 檔案與本活動 branch 逐檔 byte hash 一致；Site source commit `1b60918d1f93acc9c229310d12a8d72ae3b50526`；tar SHA-256 `C3311568AA154E6F6EAB80EA4FA355ACF4B4AB1B8B9CD7D7F2985F973D9D7D17`；version `appgprj_6ad85f290a0081919a849c43bdabdde5~appgver_8ff6474d7ea08191908f52da0f2a0190`，deployment `appgdep_6ad8865a4b808191bff08cee48bf202e` succeeded。 |
+
+本輪未重跑全庫 217 項 Node 測試，亦未等 GitHub CI；真 Moodle／真手機 T4 仍是獨立驗收。
