@@ -24,7 +24,7 @@ async function fullFlow(cdp,url,width,height){
     const attempt=async()=>{click('startButton');await wait(180);
       for(let i=0;i<20&&!document.querySelector('.angle-guide');i++)await wait(50);
       if(!document.querySelector('.angle-guide'))throw new Error('angle guide did not appear while measuring');
-      const liveGuides=[...document.querySelectorAll('.angle-guide')].map(guide=>({sweep:Number(guide.dataset.sweep),path:!!guide.querySelector('.angle-sweep'),ray:!!guide.querySelector('.angle-end-ray')}));
+      const liveGuides=[...document.querySelectorAll('.angle-guide')].map(guide=>({sweep:Number(guide.dataset.sweep),path:!!guide.querySelector('.angle-sweep'),ray:!!guide.querySelector('.angle-end-ray'),extraPoint:!!guide.querySelector('circle[stroke="white"]')}));
       const liveCaption=document.getElementById('sceneCaption').innerText;
       click('stopButton');
       const capturedCaption=document.getElementById('sceneCaption').innerText,capturedMath=document.querySelectorAll('#sceneCaption math').length;
@@ -66,7 +66,7 @@ async function fullFlow(cdp,url,width,height){
     assert.ok(!item.liveCaption.includes('rad') && item.capturedCaption.includes('rad') && item.capturedCaption.includes('°') && item.capturedMath>=keys.length,"angle values should appear only after pausing or stopping, in radians and degrees with math typography");
     for(const [index,key] of keys.entries()){
       const guide=item.liveGuides[index];
-      assert.ok(guide.path && guide.ray && guide.sweep>0 && Math.abs(guide.sweep-item.r[key])<0.002,"live angle guide must track the measured angular displacement");
+      assert.ok(guide.path && guide.ray && !guide.extraPoint && guide.sweep>0 && Math.abs(guide.sweep-item.r[key])<0.002,"live angle guide must track the measured angular displacement without adding another point");
     }
   }
   for(const item of [result.coax,result.belt]){
@@ -107,11 +107,11 @@ async function multiTurnGuide(cdp,url){
   const early=await H.evaluate(cdp,`(()=>{const ray=document.querySelector('.angle-guide .angle-end-ray');return Math.hypot(ray.x2.baseVal.value-ray.x1.baseVal.value,ray.y2.baseVal.value-ray.y1.baseVal.value);})()`);
   await wait(Math.ceil((2*Math.PI/omega+0.25)*1000));
   const later=await H.evaluate(cdp,`(()=>{const guides=[...document.querySelectorAll('.angle-guide')],a=guides[0],ray=a.querySelector('.angle-end-ray');
-    const result={count:guides.length,sweep:Number(a.dataset.sweep),visible:Number(a.dataset.visibleSweep),radius:Math.hypot(ray.x2.baseVal.value-ray.x1.baseVal.value,ray.y2.baseVal.value-ray.y1.baseVal.value)};
+    const result={count:guides.length,sweep:Number(a.dataset.sweep),visible:Number(a.dataset.visibleSweep),radius:Math.hypot(ray.x2.baseVal.value-ray.x1.baseVal.value,ray.y2.baseVal.value-ray.y1.baseVal.value),extraPoint:!!a.querySelector('circle[stroke="white"]')};
     document.getElementById('stopButton').click();return {...result,caption:document.getElementById('sceneCaption').textContent,readout:document.getElementById('readAngleA').textContent};})()`);
   if(process.env.CIRCULAR_SPEED_SCREENSHOTS){const {data}=await cdp.send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false});
     fs.writeFileSync(path.join(root,"output","playwright","circular-speed-angle-multiturn.png"),Buffer.from(data,"base64"));}
-  assert.ok(later.count===2 && later.sweep>2*Math.PI && later.visible>2*Math.PI && later.radius>early+7 && later.caption.includes('1 整圈') && later.readout.endsWith('rad'),`after one turn the guide must grow outward while the actual angle remains readable: ${JSON.stringify({early,later})}`);
+  assert.ok(later.count===2 && later.sweep>2*Math.PI && later.visible>2*Math.PI && later.radius>early+7 && !later.extraPoint && later.caption.includes('1 整圈') && later.readout.endsWith('rad'),`after one turn the guide must grow outward without adding another point: ${JSON.stringify({early,later})}`);
 }
 async function blankFlow(cdp,url){
   await load(cdp,url,390,600);
