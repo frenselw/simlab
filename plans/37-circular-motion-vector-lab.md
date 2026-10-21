@@ -651,3 +651,12 @@ Archive `output/sites/circular-motion-vector-lab-plain-labels.tar.gz` SHA-256 `1
 桌面（寬度至少 900px）三個任務按鈕改為自然寬度，與「檢查答案」集中在頁首右方，全螢幕按鈕仍在最右側。沿用手機第二行任務導覽及矮屏下拉選單。沒有更改答案、評分、保存資料或觸控區。
 
 驗證新增 2940×800 闊畫面、桌面按鈕間距及無標籤引線檢查；presentation 測試增加闊圖端點名稱距離上限，原有避線、中文名稱及物理量標籤檢查通過。最終來源／真解壓 SCORM 瀏覽器及發布證據補記於下方。
+
+
+最終 source／真解壓 SCORM browser 通過：10 種 viewport×3 頁×2 套資產，共 60 組排版、48 組可信拖曳，以及既有空白／部分／完整評分、保存、提交、fullscreen 與鍵盤流程；零瀏覽器例外。已檢視第一部分、手機及 2940px 闊圖截圖。最終 runtime hash `979108d6d9a92eedbc044324e73c411b699ea07fcb7d027a74c3a4b14ee2ad16` 與報告相同；presentation、靜態、check:tests（252 entries）與文件檢查通過。沒有新增互動區，本次未重新做完整 T0–T3／實體手機／真 Moodle 驗收。
+
+Runtime commit `3d936c19df41bfd34178359decc5b5660b836649` 已 push 並以 ls-remote 核對。已提交範圍的選取證據存於 `output/ci-tests/circular-vector-no-leaders-selection.json`，僅代表選取，不代表全部被選項目已執行。
+
+Sites source `b4ecf4e650eab7f4083d6dbfe3f67bc0a4486f31` 經官方 helper 推送／封裝，全部 15 個 runtime 資產與 archive 逐 byte 核對。2026-10-22 00:04（澳門）私人發布 succeeded：deployment `appgdep_6ad8e27c48108191ab80ca8121b31fa5`，version `appgprj_6ad878e05e148191aee5ef92740b63f1~appgver_e5120506b37881919ad1f9d0e7e7be4f`。沿用[正式網址](https://circular-motion-vector-lab.ieyp.chatgpt.site/circular-motion-vector-lab/)及 owner-only 權限。
+
+Archive `output/sites/circular-motion-vector-lab-no-leaders.tar.gz` SHA-256 `f06f6c9a87e999b87bbfb077c6f54eec482ee278418fd2c7c1e55f361dc52655`；SCORM ZIP SHA-256 `96fc1bb2166e5f5041ad7dadcf585ffe60061ab8246d0ca9c5afb8014ee6a725`。證據：`output/sites/circular-vector-no-leaders-runtime-verification.json`、`circular-vector-no-leaders-deployment.json`。
