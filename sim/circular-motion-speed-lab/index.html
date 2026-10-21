@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#eef5f7">
+  <link rel="icon" href="data:,">
+  <title>圓周運動：線速率與角速率量度</title>
+  <link rel="stylesheet" href="../shared/styles.css">
+  <link rel="stylesheet" href="styles.css">
+  <script src="../shared/scorm.js" defer></script>
+  <script src="../shared/activity-flow.js" defer></script>
+  <script src="model.js" defer></script>
+  <script src="scoring.js" defer></script>
+  <script src="persistence.js" defer></script>
+  <script src="main.js" defer></script>
+  <script src="../shared/fullscreen.js" defer></script>
+</head>
+<body>
+  <main class="sim-app circle-app" data-sim-fullscreen-target>
+    <header class="sim-header circle-header" data-sim-fullscreen>
+      <div class="heading"><h1>線速率與角速率量度</h1><p>自己計時，觀察兩點走過的弧長，再攤平成同一把尺。</p></div>
+      <nav class="case-tabs" aria-label="選擇情境">
+        <button type="button" data-case="coaxial">1 同一圓盤</button>
+        <button type="button" data-case="belt">2 皮帶傳動</button>
+        <button type="button" id="checkButton">檢查答案</button>
+      </nav>
+    </header>
+    <div class="sim-shell circle-shell">
+      <section id="motionStage" class="sim-stage circle-stage" aria-label="輪、軌跡與展平直尺">
+        <div class="stage-topline"><strong id="sceneTitle">同一圓盤</strong><span id="timerReadout" class="timer-readout"><span data-math="dt"></span><span>=</span><span id="timerValue">0</span><span>s</span></span></div>
+        <div class="stage-legend" aria-label="運動點圖例"><span><i class="point-a" aria-hidden="true"></i>A · 小半徑</span><span><i class="point-b" aria-hidden="true"></i>B · 大半徑</span></div>
+        <svg id="motionSvg" viewBox="0 0 700 380" preserveAspectRatio="xMidYMid meet" role="img" aria-label="圓盤上 A 和 B 兩點的運動"></svg>
+        <p id="sceneCaption" class="stage-caption">按「開始量度」，兩點會由此刻起留下軌跡。</p>
+      </section>
+      <aside class="sim-panel circle-panel" aria-label="量度、作答與回饋">
+        <section id="taskSection">
+          <div class="controls">
+            <button type="button" id="startButton" data-action="start" class="primary-button">開始量度</button>
+            <button type="button" id="pauseButton" data-action="pause">暫停量度</button>
+            <button type="button" id="stopButton" data-action="stop">停止量度</button>
+            <button type="button" id="unwrapButton" data-action="unwrap" class="primary-button">展平軌跡</button>
+            <button type="button" id="orbitButton" data-action="orbit">返回圓周軌跡</button>
+            <button type="button" id="replayButton" data-action="replay">重播展平</button>
+            <button type="button" id="resetButton" data-action="reset">重新量度（清除軌跡及數值）</button>
+          </div>
+          <p id="statusText" class="status-text" role="status"></p>
+          <p id="radiusReadout" class="setup-readout"></p>
+          <div id="readingsCard" class="readings-card" aria-label="量度讀數">
+            <h3>量度讀數 <small>三位有效數字</small></h3>
+            <dl><div><dt>共同時間 <span data-math="dt"></span></dt><dd id="readDt">—</dd></div><div><dt>A 路程 <span data-math="sA"></span></dt><dd id="readSA">—</dd></div><div><dt>B 路程 <span data-math="sB"></span></dt><dd id="readSB">—</dd></div><div><dt>A 轉角 <span data-math="angleA"></span></dt><dd id="readAngleA">—</dd></div><div><dt>B 轉角 <span data-math="angleB"></span></dt><dd id="readAngleB">—</dd></div></dl>
+            <p><span data-math="speedFormula"></span>；<span data-math="angularFormula"></span>。這裏的量都是大小。</p>
+          </div>
+          <div id="numericForm" class="answer-card">
+            <h3>根據讀數計算</h3><p>展平後填寫。只輸入數值，不用寫單位。</p>
+            <label><span data-math="vA"></span><input data-answer="vA" type="text" inputmode="decimal" autocomplete="off"><span class="math-unit">m/s</span></label>
+            <label><span data-math="vB"></span><input data-answer="vB" type="text" inputmode="decimal" autocomplete="off"><span class="math-unit">m/s</span></label>
+            <label><span data-math="omegaA"></span><input data-answer="omegaA" type="text" inputmode="decimal" autocomplete="off"><span class="math-unit">rad/s</span></label>
+            <label><span data-math="omegaB"></span><input data-answer="omegaB" type="text" inputmode="decimal" autocomplete="off"><span class="math-unit">rad/s</span></label>
+          </div>
+          <div class="concept-card"><h3>判斷兩點的關係</h3><p>可以先作答，量度後再修改。</p><div id="conceptQuestions"></div></div>
+        </section>
+        <section id="checkSection" hidden><h2 tabindex="-1">提交前檢查</h2><p>以下列出已填和未填項目；未填項目得 0 分。提交後本次嘗試只可重看，並會顯示正誤。</p><div id="checkSummary"></div><button type="button" id="backButton">返回修改</button><button type="button" id="submitButton" class="primary-button">提交目前答案</button></section>
+        <section id="resultSection" hidden><h2 tabindex="-1">結果</h2><p id="resultStatus"></p><div id="resultSummary"></div><button type="button" id="retryButton" hidden>重試連線</button></section>
+        <p id="technicalMessage" class="technical-message" hidden role="alert"></p>
+        <div id="liveRegion" class="sr-only" aria-live="polite"></div>
+      </aside>
+    </div>
+  </main>
+</body>
+</html>

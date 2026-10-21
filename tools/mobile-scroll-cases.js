@@ -98,6 +98,17 @@ function activityProfiles(slug) {
       return restore(${JSON.stringify(slug)},encoded);`,
     continue:['[data-phase-pill="analysis"]'],expect:'window.__staticKineticFrictionApp.getState().phase==="analysis"&&Boolean(window.__staticKineticFrictionApp.getState().trial)'
   }];
+  if(slug==="circular-motion-speed-lab") {
+    const restored=(id,kind,phase,partial=false)=>({id,prepare:`const P=window.CircularSpeedPersistence,s=P.initial(()=>0);s.activeCase=${JSON.stringify(kind)};const c=s.cases[${JSON.stringify(kind)}];c.phase=${JSON.stringify(phase)};c.measurement={startAngles:[0,0],elapsed:${phase==='measuring'?2:30}};${partial?"c.answers.vA='0.035';":""}const encoded=P.encode(s);if(!P.decode(encoded))throw new Error('Invalid circular speed fixture');return restore('circular-motion-speed-lab',encoded);`,continue:['#checkButton',`[data-case="${kind}"]`]});
+    return [initial,click('belt-ready',['[data-case="belt"]']),
+      restored('coaxial-measuring','coaxial','measuring'),restored('coaxial-captured','coaxial','captured'),
+      restored('coaxial-unwrapped','coaxial','unwrapped',true),restored('belt-measuring','belt','measuring'),
+      restored('belt-captured','belt','captured'),restored('belt-unwrapped','belt','unwrapped',true),
+      {...click('check',['#checkButton']),noStageReason:'檢查頁正式隱藏舞台，全高面板提供答案摘要。'},
+      {...click('submitted',['#checkButton','#submitButton']),noStageReason:'提交結果頁正式隱藏舞台，全高面板提供回饋。'},
+      {id:'committed',prepare:"auditHost.API.LMSFinish=()=> 'false';click('#checkButton');click('#submitButton');",noStageReason:'分數已保存但工作階段未結束，正式結果頁唯讀。'},
+      {id:'pending',prepare:"auditHost.__failFinal=true;click('#checkButton');click('#submitButton');",noStageReason:'待確認提交正式隱藏舞台，答案凍結。'}];
+  }
   if(slug==="linear-motion-velocity-lab") {
     const restored=(id,phase,captured=false)=>({id,prepare:`const P=window.LinearMotionPersistence,M=window.LinearMotionModel;let s=P.navigate(P.initialState(M.createAttempt(77123)),${JSON.stringify(phase)});${captured?"s=P.continueOnce(P.continueOnce(s));":""}const encoded=P.encode(s);if(!P.decode(encoded))throw new Error('Invalid linear fixture');return restore('linear-motion-velocity-lab',encoded);`,continue:['[data-progress="2"]',`[data-progress="${phase==='uniform'?0:phase==='variable'?1:3}"]`]});
     const instant={id:'instant',prepare:`click('[data-progress="2"]');`};
