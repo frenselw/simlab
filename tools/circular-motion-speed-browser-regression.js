@@ -13,8 +13,8 @@ async function fullFlow(cdp,url,width,height){
   const timer=await H.evaluate(cdp,`(()=>{const readout=document.getElementById('timerReadout'),value=document.getElementById('timerValue'),label=readout.firstElementChild,unit=readout.lastElementChild;
     return ['0','9.99','10','100','8.64×10^4'].map(text=>{value.textContent=text;return {label:label.getBoundingClientRect().left,value:value.getBoundingClientRect().left,unit:unit.getBoundingClientRect().left,valueRight:value.getBoundingClientRect().right,unitRight:unit.getBoundingClientRect().right,readoutRight:readout.getBoundingClientRect().right,stageRight:document.getElementById('motionStage').getBoundingClientRect().right,valueFits:value.scrollWidth<=value.clientWidth+1,fontSize:parseFloat(getComputedStyle(readout).fontSize)};});})()`);
   for(const position of timer){
-    assert.ok(Math.abs(position.label-timer[0].label)<.2 && Math.abs(position.value-timer[0].value)<.2 && Math.abs(position.unit-timer[0].unit)<.2,"timer label, number and unit must not shift as digits change");
-    assert.ok(position.valueFits && position.valueRight<=position.unit+1 && position.unitRight<=position.readoutRight+1 && position.readoutRight<=position.stageRight+1 && position.fontSize>=(height<=380?13:17),`enlarged timer must fit its fixed slot at ${width}×${height}: ${JSON.stringify(position)}`);
+    assert.ok(Math.abs(position.label-timer[0].label)<.2 && Math.abs(position.value-timer[0].value)<.2,"timer label and number must not shift as digits change");
+    assert.ok(position.valueFits && position.unit-position.valueRight>=0 && position.unit-position.valueRight<8 && position.unitRight<=position.readoutRight+1 && position.readoutRight<=position.stageRight+1 && position.fontSize>=(height<=380?13:17),`compact timer must fit its fixed slot at ${width}×${height}: ${JSON.stringify(position)}`);
   }
   const result=await H.evaluate(cdp,`(async()=>{
     window.confirm=()=>{throw new Error('Native confirmation must not open');};
