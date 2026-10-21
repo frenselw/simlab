@@ -592,3 +592,14 @@ Sites source commit `0104013e97f0c1202856130f733d303e14f468c9` 已由官方 help
 第二部分的圖、操作按鈕、作答摘要及回饋統一使用「共同起點」「初速度末端」「末速度末端」。圖中文字以避讓配置及細虛線指回對應端點；矮圖區使用「起點／初速端／末速端」，固定按鈕保留全名。S／U／V 只作內部 key，既有 Moodle 保存資料不變，不重抽題或改評分。
 
 本次 presentation Node 檢查：原有 11,520 組圓周標籤、13,440 組速度圖中心及 360 個新起點皆通過；另驗 47,040 組中文標籤版面，涵蓋 5–60° 全部整數間隔、轉向及窄／矮圖區。其餘四個活動 Node 測試亦通過。正式 browser 新增整張圖卡的可信觸控及原生方向鍵選答、中文按鈕名稱和箭頭邊界檢查；source／真解壓 SCORM 與手機 T2 嵌入的最終結果另記於下方。
+
+
+最終來源／真解壓 SCORM browser 均通過：54 組 viewport／任務／資產排版，48 組可信 B 拖曳、整張圖卡可信觸控選答及原生方向鍵、既有空白／部分／完整成績與保存／提交生命週期。最終 runtime hash `b0443f03a9860f4c6dceea9191bf00be65ecf81138204cffb7aa3fa376e25dee` 與報告逐檔計算一致。
+
+最終 T2 手機嵌入 source／package 各 4 列（320×500、390×844；initial 及第二頁已答），所有檢查通過，包含拖曳、取消、放大預覽及非 owner 捲動。報告 `output/playwright/circular-vector-large-T2-source-final.json`、`circular-vector-large-T2-package-final.json`；較早 `circular-vector-large-T2-source.json` 為中途歷史證據。靜態檢查、check:tests（252 entries）及文件檢查通過；未重做完整 T0–T3／實機／真 Moodle 驗收。
+
+Runtime commit `39e36014832fa33bf6de0ecefca26cb5762685f9` 已 push 並以 ls-remote 複核。已提交範圍的 selection preview 為 affected／219 tests，檔案 `output/ci-tests/circular-vector-large-selection.json`；它是選取證據，不代表本機已執行全部 219 項。[本次 CI](https://github.com/frenselw/simlab/actions/runs/39620029340) 發布時仍在執行。
+
+Sites source commit `cb4b6f736cd8e87ef272bc666c402a5b783539b9` 經官方 helper 推送及封裝；15 個 runtime 資產與來源／archive 逐 byte 相同。2026-10-21 22:49（UTC+8），原生私人發布回傳 succeeded：deployment `appgdep_6ad8d0ff50e08191bf0ec3283362313a`，version `appgprj_6ad878e05e148191aee5ef92740b63f1~appgver_6c6b66823aa48191ba83151a3ee85566`。沿用[正式網址](https://circular-motion-vector-lab.ieyp.chatgpt.site/circular-motion-vector-lab/)及 owner-only 權限。
+
+Site archive `output/sites/circular-motion-vector-lab-large-cards.tar.gz` SHA-256 `9cc954070e7fb3f2ce14526ee3ad691cb874313fc5eb896d6d38b4672f609f44`；SCORM ZIP SHA-256 `293a0a23587f9bdbcf0daa284b3489f966422334456fb3337eded7c1d83bf643`。證據檔案 `output/sites/circular-vector-large-runtime-verification.json`、`circular-vector-large-deployment.json`。
