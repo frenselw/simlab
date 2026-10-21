@@ -29,10 +29,15 @@
       cases: { coaxial: emptyCase(Model.definition(random)), belt: emptyCase(Model.definition(random)) } };
   }
   const clone = (x) => JSON.parse(JSON.stringify(x));
+  const exactKeys = (value, keys) => value && typeof value === "object" && !Array.isArray(value) &&
+    Object.keys(value).length === keys.length && keys.every(key => Object.prototype.hasOwnProperty.call(value, key));
   function validCase(kind, item) {
-    if (!item || !Model.validDefinition(item.definition) || !["ready", "measuring", "captured", "unwrapped"].includes(item.phase)) return false;
+    if (!exactKeys(item, ["definition", "phase", "measurement", "answers"]) ||
+      !exactKeys(item.definition, ["radiusIndex", "ratioIndex", "speedIndex"]) ||
+      !Model.validDefinition(item.definition) || !["ready", "measuring", "captured", "unwrapped"].includes(item.phase)) return false;
     const m = item.measurement, a = item.answers;
-    if (!m || !Number.isFinite(m.elapsed) || m.elapsed < 0 || m.elapsed > Model.MAX_TIME || !a) return false;
+    if (!exactKeys(m, ["startAngles", "elapsed"]) || !Number.isFinite(m.elapsed) || m.elapsed < 0 || m.elapsed > Model.MAX_TIME ||
+      !exactKeys(a, ["vA", "vB", "omegaA", "omegaB", "speedRelation", "angularRelation", "speedReason", "angularReason"])) return false;
     const angles = m.startAngles;
     if (item.phase === "ready" ? angles !== null || m.elapsed !== 0 : !Array.isArray(angles) || angles.length !== 2 || angles.some(x => !Number.isFinite(x) || x < 0 || x >= Model.TAU)) return false;
     if (angles && kind === "coaxial" && Math.abs(angles[0] - angles[1]) > 1e-10) return false;
@@ -43,8 +48,9 @@
     return true;
   }
   function validate(s) {
-    return Boolean(s && s.schemaVersion === 1 && s.modelVersion === 1 && s.rubricVersion === 1 &&
-      ["task", "check"].includes(s.view) && Model.CASES.includes(s.activeCase) && s.cases &&
+    return Boolean(exactKeys(s, ["schemaVersion", "modelVersion", "rubricVersion", "view", "activeCase", "cases"]) &&
+      s.schemaVersion === 1 && s.modelVersion === 1 && s.rubricVersion === 1 &&
+      ["task", "check"].includes(s.view) && Model.CASES.includes(s.activeCase) && exactKeys(s.cases, Model.CASES) &&
       Model.CASES.every(kind => validCase(kind, s.cases[kind])));
   }
   function encode(s) { if (!validate(s)) throw new Error("Invalid circular-speed snapshot"); return clone(s); }

@@ -358,6 +358,7 @@
       else {mode="editable";Scorm.setDraftProvider(draftSnapshot); if (attempt.state === "new") persist();}
     } else if (entry === "review") {
       state=Store.decode(attempt.snapshot?.answer);
+      if (state?.view !== "check") state=null;
       mode="review";
       if (state) {
         const computed=Scoring.scoreAttempt(state);
@@ -369,10 +370,18 @@
         el.resultStatus.textContent=`Moodle 記錄分數：${recorded.score ?? "未能讀取"}；詳細答案未能安全核對。`;
       }
     } else if (entry === "frozen") {
-      const review=JSON.parse(attempt.snapshot.payload.reviewJson);
-      state=Store.decode(review.answer);
-      const computed=state&&Scoring.scoreAttempt(state);
-      if (!state || computed.score!==attempt.snapshot.payload.score || computed.passed!==attempt.snapshot.payload.passed) {
+      let valid=false;
+      try {
+        const payload=attempt.snapshot.payload, review=JSON.parse(payload.reviewJson);
+        state=Store.decode(review.answer);
+        if (state?.view === "check") {
+          const computed=Scoring.scoreAttempt(state);
+          const canonical=Scorm.makeSnapshot(ACTIVITY,"review",Store.encode(state),computed);
+          valid=payload.reviewJson===JSON.stringify(canonical) && payload.score===computed.score &&
+            payload.maxScore===computed.maxScore && payload.passed===computed.passed;
+        }
+      } catch (_) { valid=false; }
+      if (!valid) {
         Scorm.quarantinePending();mode="technical";technical="待確認提交資料未能核對，已鎖定；請聯絡教師。";
       } else {mode="frozen";retryMode="pending";technical="上次提交仍待確認；答案已凍結，可重試同一份提交。";}
     } else {mode="technical";technical="未能讀取本次 Moodle 嘗試資料；活動已鎖定。";}

@@ -38,6 +38,15 @@ for(const kind of M.CASES)for(const key of S.CONCEPT){
   assert.ok(orders.size>1,"generated questions vary their option order");
 }
 assert.throws(()=>P.orderedOptions("coaxial","__proto__",{radiusIndex:0,ratioIndex:0,speedIndex:0}),/Invalid choice order request/);
+for(const mutate of [
+  s=>{s.extra=1;}, s=>{s.cases.extra=1;}, s=>{s.cases.coaxial.extra=1;},
+  s=>{s.cases.coaxial.definition.extra=1;}, s=>{s.cases.coaxial.measurement.extra=1;},
+  s=>{s.cases.coaxial.answers.extra="x".repeat(2500);}
+]){
+  const unknown=P.initial(()=>0);mutate(unknown);
+  assert.equal(P.decode(unknown),null,"unknown snapshot fields must be rejected before resume");
+  assert.throws(()=>P.encode(unknown),/Invalid circular-speed snapshot/);
+}
 s=P.initial(()=>0);for(const kind of M.CASES){let c=s.cases[kind];c.phase="unwrapped";c.measurement={startAngles:[0,0],elapsed:M.MAX_TIME};for(const key of S.NUMERIC)c.answers[key]="9".repeat(32);Object.assign(c.answers,S.CORRECT[kind]);}
 const wrapped={version:1,activity:"circular-motion-speed-lab",kind:"pending-final",payload:{reviewJson:JSON.stringify({version:1,activity:"circular-motion-speed-lab",kind:"review",answer:s,score:100,passed:true}),score:100,maxScore:100,passed:true}};
 assert.ok(new TextEncoder().encode(JSON.stringify(wrapped)).length<=4000,"worst-case pending checkpoint fits SCORM");

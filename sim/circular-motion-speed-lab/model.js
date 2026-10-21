@@ -29,7 +29,8 @@
     if (!Number.isFinite(value)) return "—";
     if (value === 0) return "0";
     const rounded = Number(value.toPrecision(3));
-    return Math.abs(rounded) >= 10000 || Math.abs(rounded) < 0.001 ? rounded.toExponential(2).replace(/e\+?/, "×10^") : String(rounded);
+    return Math.abs(rounded) >= 10000 || Math.abs(rounded) < 0.001 ? rounded.toExponential(2).replace(/e([+-]?)(\d+)/, (_, sign, digits) =>
+      `×10${sign === "-" ? "⁻" : ""}${[...digits].map(digit => "⁰¹²³⁴⁵⁶⁷⁸⁹"[Number(digit)]).join("")}`) : String(rounded);
   }
   function displayedNumber(value) { return Number(Number(value).toPrecision(3)); }
   function readings(kind, def, elapsed) {

@@ -27,4 +27,6 @@ const r=M.readings("belt",d,100);
 assert.ok(r.turnsA>1&&r.angleA>2*Math.PI&&r.sA>2*Math.PI*.1);
 assert.equal(M.readings("belt",d,0),null);
 assert.equal(M.readings("belt",d,M.MAX_TIME+1),null);
+assert.equal(M.format3(86400),"8.64×10⁴");
+assert.equal(M.format3(.00035),"3.50×10⁻⁴");
 console.log("Circular speed model: 48 combinations and multi-turn readings passed");
