@@ -675,3 +675,8 @@ F37-01 的版面實作補充：高度 ≤400px 的左右面板斷點由 480px �
 第二輪複核過程另確認極矮左圖 A／v₂ 仍可能碰撞，並補修後再交兩位全面再驗。現在先更新讀數再選位，以實際讀數 SVG 框、O 字形、A／B 及點／線共同避讓；極矮速度頁可用讀數兩側空位，讀數背景透明。A／B 候選增加 42／60px 中間偏移，避免合法 review 因無候選而進入 technical。
 
 兩位 reviewer 對最終 runtime hash `2ca19d3da787f25c1f9e86ae327022514a9e7fd8a75e1faf7484dfe2e53d55bd` 各自完整複核，F37-01／F37-02 皆關閉，兩位均沒有未處理的新 finding。現有五個 Node entry 全通過；新增 14,112 組右圖中文／物理量／錯答／參考量共同配置，以及 2,160 組極矮左圖整數角度／轉向／review／速度／讀數／O 避讓。正式來源／真解壓 SCORM browser 通過 60 組排版、48 組可信拖曳、每套資產 20 組左右實際字形及 2 種啟動故障，零例外；完整初輪／複核結論及驗證界線另見最終審核報告。
+
+
+最終報告：[計畫37全面審核報告](../docs/reviews/37-circular-motion-vector-lab-audit.md)。受影響手勢矩陣 T2／T3×source／package 各6列（共24），涵蓋320×225、480×320的initial／task-1-answered／submitted-1，全部completed、零errors／issues；不是完整T0–T3再驗。修正commit `ca37f82cd83cbaa4158219c325b5ac6b1f910cf0` 已push；提交選取預覽為affected／219 tests，僅為選取證據。
+
+2026-10-22 00:35（澳門）既有Sites更新succeeded：source `6fdb799d9fdd41ed23b8c039893862116218a3f1`，deployment `appgdep_6ad8e9d2007c819199ca4f01ba264384`。15 runtime與archive逐byte一致、owner-only權限維持；完整version、hash及未驗證範圍見最終報告。未完成真手機／Moodle／真正200%zoom或全站驗收，不以兩位reviewer無新finding替代這些界線。
