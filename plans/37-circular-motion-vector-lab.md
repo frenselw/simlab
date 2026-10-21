@@ -549,3 +549,17 @@
 | 套件 | manifest 增加 presentation runtime、本地 MathJax renderer／bundle／license；重建 SCORM，共 16 files；browser 已比對逐檔來源與解壓資產 |
 
 以上為本次局部修訂的本地證據；先前完整 T0–T3 為初版歷史證據。本次不冒稱全站 browser、實體手機或真 Moodle 已重新驗收。
+
+
+本次靜態檢查、check:tests（252 entries：218 Node／34 browser）及文件連結檢查通過。已提交比較的 selection preview 為 `bc2e120…37ccb27`，因新增測試登記而正確選取 full／252 tests；檔案 `output/ci-tests/circular-vector-label-selection.json` 僅為選取證據，不冒稱已在本機執行全部 252 項。活動 runtime hash 為 `e5506fe61932d77169363df379efebb8595262803dfa4fdf15516e19776b6bd4`，與最終 browser report 相符。
+
+| 修訂交付 | 實際識別及結果 |
+|---|---|
+| GitHub runtime | `37ccb27ea818370893575828b8c368cf5127e6a3`，已 push 同一分支並以 ls-remote 複核 |
+| Sites source | `644209e7ea6b9a1cd23343a7f21019e327af7c6d`，官方 helper 推送／封裝完成；15 個 runtime 資產與已驗來源及 archive 逐 byte 相同 |
+| Site archive | `output/sites/circular-motion-vector-lab-labels.tar.gz`；SHA-256 `9512fa000a4f7196f2a6df7f9bdc956588c2ace6b5d112bbf246b61a357bdc8a` |
+| Saved version | `appgprj_6ad878e05e148191aee5ef92740b63f1~appgver_a1c336af1f508191a37d5cf6ccec5245` |
+| Deployment | `appgdep_6ad88bdc343881918dc32c200edab87f`，2026-10-21 17:54（澳門）回傳 succeeded；同一[正式網址](https://circular-motion-vector-lab.ieyp.chatgpt.site)，owner-only 權限不變 |
+| SCORM ZIP | `output/circular-motion-vector-lab-scorm.zip`，16 files；SHA-256 `5b24e4ad74fd72bdfc980f2dbdf8b3c8885bbf3cd79a0282f9400b3ff8318cc6` |
+| 證據檔案 | `output/sites/circular-vector-labels-runtime-verification.json`、`circular-vector-labels-deployment.json`；已開啟正式網址並關閉本次本機預覽 server |
+| GitHub CI | [Quality run 39580367639](https://github.com/frenselw/simlab/actions/runs/39580367639) 對應本次 runtime，發布時仍 pending；本次本地證據不代替其全站結果 |
