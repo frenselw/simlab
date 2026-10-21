@@ -461,8 +461,9 @@ P1 內部可以分批提交可審閱的 model、UI、scoring 工作，不把每�
 |---|---|
 | Worktree 建立／附加 | 已完成，路徑與分支見前文 |
 | 計劃 | 已依模板撰寫，待使用者審查 |
-| 文件／diff 檢查 | `node tools/check-docs.js plans/36-circular-motion-speed-lab.md` 通過、無 skipped links；新增文件 staged diff 空白檢查通過；正式 commit 後再核對整條 branch |
-| 計劃 commit／push | 待本輪結束前核對 |
+| 文件／diff 檢查 | `node tools/check-docs.js plans/36-circular-motion-speed-lab.md` 通過、無 skipped links；staged diff 及 `git diff --check e8800209c53f7e08b19b49ffe09123f5891e1b89...27ff676bd3e8e25f97bd79c778bc231b7efa1683` 均通過 |
+| Committed selection | `npm run test:affected -- --base=e8800209c53f7e08b19b49ffe09123f5891e1b89 --head=27ff676bd3e8e25f97bd79c778bc231b7efa1683 --plan` 通過；mode `docs`，原因 `Only ordinary documentation changed`，browser entries／packages 均為空，無 fallback；只使用原 checkout 的既有 Node dependencies，沒有新增套件 |
+| 計劃 commit／push | 計劃 commit `27ff676bd3e8e25f97bd79c778bc231b7efa1683` 已 push 至 `origin/codex/circular-motion-speed-lab` 並建立 upstream；本節為其後的純文件證據補記 |
 | Runtime／SCORM／browser／真手機／Moodle | 尚未實作或執行，所有交付 gate 未通過 |
 | Sites | 尚未建立；無 project ID、URL 或已部署版本 |
 
