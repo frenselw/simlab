@@ -1,6 +1,6 @@
 # 圓周運動：線速率與角速率量度
 
-狀態：**P2 第六輪正修正展平尺單位、桌面圖例及概念題選項順序，並覆核手機面板高度；P3 真 Moodle／真手機驗收待做。**
+狀態：**P2 第六輪展平尺單位、桌面圖例及概念題選項順序已修正並發布；手機面板高度經指導文件核對保持原設定。P3 真 Moodle／真手機驗收待做。**
 
 本活動讓學生自行開始及停止量度，把圓周軌跡展平後讀取路程、時間及累積轉角，計算並比較線速率與角速率。以同軸與不打滑皮帶兩個情境對照「相同角速率」與「相同線速率」的不同約束。
 
@@ -537,5 +537,18 @@ GitHub CI 無需等待；真 Moodle、真手機 T4 及學生試用仍待驗，�
 | 自動驗證 | `node tools/check.js`、`node tools/test-registry.js`（251 entries）、本活動四個 Node 測試、計劃連結及 `git diff --check` 通過；source／解壓 package browser 完整流程核對量度中與跨圈後角弧無額外端點、數值對應、既有展平／評分。`node tools/package-all.js` 通過；SCORM ZIP 12 files，SHA-256 `BB19C73692E9B60D7AE139C49C50E0350F347224031D2089945B6FD55DAA8DC4`。已視覺核對 `output/playwright/circular-speed-angle-live.png` 及 `circular-speed-angle-multiturn.png`。 |
 | 手機可信手勢 | T0 standalone 1、T1 package 4、T2 source nested 2、T3 package element 2 個選定情境，全部 completed、status passed、gesture issues 0；報告 `output/playwright/circular-speed-P2-round5-T0.json` 至 `T3.json`。 |
 | Sites | 原 owner-private project `appgprj_6ad85f290a0081919a849c43bdabdde5` 的[試用網址](https://circular-motion-speed-lab.ieyp.chatgpt.site)已更新至 version 6，access policy 仍為 custom、只有 owner 一名使用者。網站 10 個 runtime 檔案與本活動 branch 逐檔 SHA-256 一致；Site source commit `b3764daf5f6ef8cba9dfc62fa3ae33a3ac1e4ce9`；tar SHA-256 `CCDC6FC266FAC8E33ED2B937CADD22BB9E202123D44953AC2DE7C1F36670F7C9`；version `appgprj_6ad85f290a0081919a849c43bdabdde5~appgver_cba18322acd48191a14b2fd0089ff20e`，deployment `appgdep_6ad8cb3a1b408191b5b038d0e205ad46` succeeded。 |
+
+本輪未重跑全庫 Node 測試，亦未等 GitHub CI；真 Moodle／真手機 T4 仍是獨立驗收。
+
+### P2 第六輪尺、圖例、面板及選項修訂與交付證據（2026-10-21）
+
+| 項目 | 結果 |
+|---|---|
+| 介面決策 | 展平尺右端直接標 `m`，不只在標題及線長附單位。桌面 ≥820px 的 A／B 圖例字及色點隨可用空間增大（1280px 截圖核對）；手機維持緊湊圖例。按共同版面基線及生產指南，保留 bounded split-panel：stage 目標 60dvh，500px 高播放器實測 stage 276px、panel 約 109px，滿足 96 CSS px 硬下限且接近計劃的約 7rem；面板獨立捲動並可到達最後控制，不任意改比例。 |
+| 題目選項 | 兩道比較題及兩道原因題按當次隨機題目參數與題目種類作穩定打亂；重繪、返回或 Moodle 續作仍維持同一次順序，評分只看語意 key。測試覆蓋兩情境各 24 組參數：正解可出現在每個位置，選項集合完整，無新增 snapshot 欄位。 |
+| 活動 commit／push | `353e4dca4313c0b985389116bf248225d47e85bf` 已 push 到 `origin/codex/circular-motion-speed-lab`；committed selection preview 為 `affected`，選本活動 browser scope 及 package `circular-motion-speed-lab`。 |
+| 自動驗證 | `node tools/check.js`、`node tools/test-registry.js`（251 entries）、四個本活動 Node 測試、`node tools/check-docs.js`、`git diff --check`、`node tools/package-all.js`、source／解壓 package browser 完整流程均通過。Browser 驗直尺 `m` 確實在 SVG 可見範圍、桌面圖例字 ≥17px、手機 panel ≥96px／stage ≤60dvh、同次選項順序穩定，以及既有兩情境 100／0 評分。SCORM ZIP 12 files，SHA-256 `91597F6EFFF273ED5CD28516B26A64A2F37B4FE1F06BCD744BDFA5B14C109D67`。 |
+| 手機可信手勢 | T0 standalone 1、T1 package 4（320×500、390×844）、T2 source nested 2、T3 package element 2 個選定情境，全部 completed、status passed、gesture issues 0；報告 `output/playwright/circular-speed-P2-round6-T0.json` 至 `T3.json`。T1 的 500px iframe 量得 stage 276px、panel 108.8px，兩輪組一致。 |
+| Sites | 沿用 owner-private project `appgprj_6ad85f290a0081919a849c43bdabdde5` 及[試用網址](https://circular-motion-speed-lab.ieyp.chatgpt.site)，已更新至 version 7，access policy 仍為 custom、只有 owner 一人。網站 10 個 runtime 檔案與本活動 branch 逐檔 SHA-256 一致；Site source commit `8170ec1624c6f56edbf4711182e9245ef7c57582`；tar SHA-256 `0778E1CC171EF9C814D117A1CB062D9204C580E02DAED0CBE08C10C9DE583318`；version `appgprj_6ad85f290a0081919a849c43bdabdde5~appgver_f7113a5d681c8191ade6945b60a0937e`，deployment `appgdep_6ad8d1b8d7a48191a24839acf0496607` succeeded。 |
 
 本輪未重跑全庫 Node 測試，亦未等 GitHub CI；真 Moodle／真手機 T4 仍是獨立驗收。
