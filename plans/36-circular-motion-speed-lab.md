@@ -1,6 +1,6 @@
 # 圓周運動：線速率與角速率量度
 
-狀態：**P1 私人試用版已發布；P2 正按使用者回饋改善版面、數學排版及展平操作。**
+狀態：**P2 已按使用者回饋修訂、提交並發布到原私人試用網站；真 Moodle／真手機驗收待做。**
 
 本活動讓學生自行開始及停止量度，把圓周軌跡展平後讀取路程、時間及累積轉角，計算並比較線速率與角速率。以同軸與不打滑皮帶兩個情境對照「相同角速率」與「相同線速率」的不同約束。
 
@@ -472,4 +472,18 @@ P1 內部可以分批提交可審閱的 model、UI、scoring 工作，不把每�
 | Runtime commit／selection | `c99ca2fa6754879dabd6371d60aad788d73b2b9b` 已 push 至 `origin/codex/circular-motion-speed-lab`。以 base `e8800209c53f7e08b19b49ffe09123f5891e1b89`、head `c99ca2fa6754879dabd6371d60aad788d73b2b9b` 做 committed selection preview：mode `full`、packages `all`，原因 `Shared policy, infrastructure or dependency changed: sim/config.js`；`git diff --check` 通過 |
 | Sites | 私人 project ID `appgprj_6ad85f290a0081919a849c43bdabdde5`，Site source commit `0aecd0507261b60f65befac75364a7331ae42b00`；本機發布 tar SHA-256 `52417561E68016013D3783B7CD68ED5BE1BBA8772CC0C09BE0043001B4D045AB`，服務端 archive hash `sha256:08b038c6618bf54ac62c13333ea57f7544a2547b1734ebdc6ef5cead72b364b8`。Version 1 `appgprj_6ad85f290a0081919a849c43bdabdde5~appgver_6abb95f20a888191be9cf2a3f2e607ae`，deployment `appgdep_6ad866fc0f248191916f537a9bd97568` succeeded；[試用網址](https://circular-motion-speed-lab.ieyp.chatgpt.site)。`get_site` 複核 custom 權限只有 owner 一人、無群組及外部訪客。Site 與 SCORM 來源 runtime bytes 已逐檔 SHA-256 比對一致 |
 
-上表其餘 runtime、測試和 Sites 證據對應 P1，屬歷史記錄。P2 對應的新證據在本輪 commit、push 及 Sites 更新後追加；不能以 P1 通過記錄代替新版本驗證。
+上表其餘 runtime、測試和 Sites 證據對應 P1，屬歷史記錄；不能以 P1 通過記錄代替新版本驗證。
+
+### P2 使用者回饋修訂與交付證據（2026-10-21）
+
+| 項目 | P2 結果 |
+|---|---|
+| 交付內容 | 電腦版縮窄 panel、放大 stage；手機 stage 目標 60dvh，短屏預留 panel 高度；原生 MathML 排版物理量及關係；展平後可返回定格圓圖並再次展平，保留量度／答案；A／B 固定圖例取代跟隨轉動點的文字。皮帶輪心距縮至 1.6 倍半徑和，保留不重疊及真切線。 |
+| 活動 commit／push | `15e23347410c029f2d452f0d1a21c093723309f1` 已 push 到 `origin/codex/circular-motion-speed-lab`；`git diff --check c2b3bda735f36f8fb744688334b74463bd6687a1...15e23347410c029f2d452f0d1a21c093723309f1` 通過。 |
+| 基本／活動測試 | `npm run check`、`npm run check:tests`、四個活動 Node 測試、活動 source／解壓 package browser 完整流程、`npm run package:all`、計劃連結檢查均通過；SCORM ZIP 12 files，SHA-256 `BD06F6DD519BB608832062783AB36BC346A53E489400DE9050787F8153EC17DF`。Browser 覆蓋 390×844、390×600、320×500、320×225、820×600、1280×800、滿分／空白提交、返回／再次展平及保留答案。 |
+| 手機可信手勢 | T0 standalone 1、T1 解壓 package 24、T2 source nested 24、T3 package element 3 情境；報告在 `output/playwright/mobile-scroll-acceptance-*`，全部 completed，errors 0、gesture issues 0。320×500 首輪曾發現 panel 太矮，修正 stage 高度上限後重新通過。 |
+| 全庫 Node 測試 | `npm run test:fast` 執行 217 項，215 通過；`sim/force-composition-construction-lab/persistence.test.js` 與 `tools/ci-prepare.test.js` 在本機各達 120 秒 timeout。兩者均不屬本活動修改，單獨重跑均通過；報告 `output/ci-tests/local-1792571534672-33484/report.json`。整輪仍不能標成全庫通過。 |
+| 測試選取預覽 | `test:affected --base=c2b3bda735f36f8fb744688334b74463bd6687a1 --head=15e23347410c029f2d452f0d1a21c093723309f1 --plan`：mode `affected`、package `circular-motion-speed-lab`，沒有 fallback；活動瀏覽器回歸已獨立執行。 |
+| Sites | 沿用原 owner-private project `appgprj_6ad85f290a0081919a849c43bdabdde5` 及[試用網址](https://circular-motion-speed-lab.ieyp.chatgpt.site)。已核對來源 runtime 10 個檔案與本 branch 完全一致；Site source commit `4cdbd93e6525687eed5a431dca4aef80ea2e8bc8`，發布 tar SHA-256 `D2958F8BC4E245466B237CBDDA60EB5739E827859B9C53D3E22EEF1C0E4758EA`；version `appgprj_6ad85f290a0081919a849c43bdabdde5~appgver_d3756b2419d08191b1851e0e43af130f`，deployment `appgdep_6ad87cc9051c8191ae0886bca0b2539f` 原生結果 `succeeded`。 |
+
+GitHub CI 無需等待；真 Moodle、真手機 T4 及學生試用仍待驗，不以本地瀏覽器結果代替。
