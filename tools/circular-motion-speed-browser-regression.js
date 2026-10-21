@@ -21,10 +21,17 @@ async function fullFlow(cdp,url,width,height){
       for(const key of window.CircularSpeedScoring.CONCEPT){const input=document.querySelector('input[name="'+key+'"][value="'+correct[key]+'"]');input.checked=true;input.dispatchEvent(new Event('change',{bubbles:true}));}
       return {kind,r};
     };
-    const attempt=async()=>{click('startButton');await wait(180);click('stopButton');click('unwrapButton');await wait(650);
+    const attempt=async()=>{click('startButton');await wait(180);
+      for(let i=0;i<20&&!document.querySelector('.angle-guide');i++)await wait(50);
+      if(!document.querySelector('.angle-guide'))throw new Error('angle guide did not appear while measuring');
+      const liveGuides=[...document.querySelectorAll('.angle-guide')].map(guide=>({sweep:Number(guide.dataset.sweep),path:!!guide.querySelector('.angle-sweep'),ray:!!guide.querySelector('.angle-end-ray')}));
+      const liveCaption=document.getElementById('sceneCaption').innerText;
+      click('stopButton');
+      const capturedCaption=document.getElementById('sceneCaption').innerText,capturedMath=document.querySelectorAll('#sceneCaption math').length;
+      click('unwrapButton');await wait(650);
       const orbits=()=>[...document.querySelectorAll('.source-orbit')].map(circle=>[circle.getAttribute('cx'),circle.getAttribute('cy'),circle.getAttribute('r')]);
       const middle={traces:[...document.querySelectorAll('.source-trace')].map(trace=>({total:Number(trace.dataset.totalAngle),remaining:Number(trace.dataset.remainingAngle)})),orbits:orbits(),heads:[...document.querySelectorAll('.unroll-line')].map(line=>Number(line.getAttribute('x2'))),caption:document.getElementById('sceneCaption').innerText,rollingCircles:document.querySelectorAll('.unroll-arc').length};
-      await wait(1250);return {...fill(),middle,finishedTraces:document.querySelectorAll('.source-trace').length,finishedOrbits:orbits(),finishedHeads:[...document.querySelectorAll('.unroll-line')].map(line=>Number(line.getAttribute('x2')))};};
+      await wait(1250);return {...fill(),liveGuides,liveCaption,capturedCaption,capturedMath,middle,finishedTraces:document.querySelectorAll('.source-trace').length,finishedOrbits:orbits(),finishedHeads:[...document.querySelectorAll('.unroll-line')].map(line=>Number(line.getAttribute('x2')))};};
     const coax=await attempt();
     const measuredBefore=JSON.parse(window.SimScorm.getLocalLog().filter(x=>x.key==='cmi.suspend_data').at(-1).value).answer.cases.coaxial.measurement.elapsed;
     click('orbitButton');
@@ -53,6 +60,15 @@ async function fullFlow(cdp,url,width,height){
       fullscreen:!!document.getElementById('fullscreenButton')};
   })()`);
   assert.ok(result.coax.r.sB>result.coax.r.sA,"outer point must have longer arc");
+  assert.equal(result.coax.liveGuides.length,1,"coaxial points must share one angle guide");
+  assert.equal(result.belt.liveGuides.length,2,"belt wheels must show separate angle guides");
+  for(const [item,keys] of [[result.coax,["angleA"]],[result.belt,["angleA","angleB"]]]){
+    assert.ok(!item.liveCaption.includes('rad') && item.capturedCaption.includes('rad') && item.capturedCaption.includes('°') && item.capturedMath>=keys.length,"angle values should appear only after pausing or stopping, in radians and degrees with math typography");
+    for(const [index,key] of keys.entries()){
+      const guide=item.liveGuides[index];
+      assert.ok(guide.path && guide.ray && guide.sweep>0 && Math.abs(guide.sweep-item.r[key])<0.002,"live angle guide must track the measured angular displacement");
+    }
+  }
   for(const item of [result.coax,result.belt]){
     assert.ok(item.middle.traces.length===2 && item.middle.heads.every(head=>head>240&&head<600) && item.middle.caption.includes("實際轉角") && item.middle.rollingCircles===0 && item.finishedTraces===0,"actual circular traces must shorten as straight tracks grow, with no surrogate rolling wheels");
     assert.deepEqual(item.middle.orbits,item.finishedOrbits,"source circles must stay fixed throughout unwrapping");
@@ -81,6 +97,21 @@ async function fullFlow(cdp,url,width,height){
   assert.equal(result.stageTouch,"pan-y");
   assert.ok(result.fullscreen,"shared fullscreen control must mount");
   return result;
+}
+async function multiTurnGuide(cdp,url){
+  await load(cdp,url,390,844);
+  const omega=await H.evaluate(cdp,`(()=>{document.querySelector('[data-case="belt"]').click();document.getElementById('startButton').click();
+    const state=JSON.parse(window.SimScorm.getLocalLog().filter(x=>x.key==='cmi.suspend_data').at(-1).value).answer;
+    return window.CircularSpeedModel.parameters('belt',state.cases.belt.definition).omegaA;})()`);
+  await wait(200);
+  const early=await H.evaluate(cdp,`(()=>{const ray=document.querySelector('.angle-guide .angle-end-ray');return Math.hypot(ray.x2.baseVal.value-ray.x1.baseVal.value,ray.y2.baseVal.value-ray.y1.baseVal.value);})()`);
+  await wait(Math.ceil((2*Math.PI/omega+0.25)*1000));
+  const later=await H.evaluate(cdp,`(()=>{const guides=[...document.querySelectorAll('.angle-guide')],a=guides[0],ray=a.querySelector('.angle-end-ray');
+    const result={count:guides.length,sweep:Number(a.dataset.sweep),visible:Number(a.dataset.visibleSweep),radius:Math.hypot(ray.x2.baseVal.value-ray.x1.baseVal.value,ray.y2.baseVal.value-ray.y1.baseVal.value)};
+    document.getElementById('stopButton').click();return {...result,caption:document.getElementById('sceneCaption').textContent,readout:document.getElementById('readAngleA').textContent};})()`);
+  if(process.env.CIRCULAR_SPEED_SCREENSHOTS){const {data}=await cdp.send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false});
+    fs.writeFileSync(path.join(root,"output","playwright","circular-speed-angle-multiturn.png"),Buffer.from(data,"base64"));}
+  assert.ok(later.count===2 && later.sweep>2*Math.PI && later.visible>2*Math.PI && later.radius>early+7 && later.caption.includes('1 整圈') && later.readout.endsWith('rad'),`after one turn the guide must grow outward while the actual angle remains readable: ${JSON.stringify({early,later})}`);
 }
 async function blankFlow(cdp,url){
   await load(cdp,url,390,600);
@@ -117,7 +148,7 @@ async function main(){
       const capture=async name=>{const {data}=await cdp.send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false});
         const file=path.join(root,"output","playwright",`circular-speed-${name}.png`);fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,Buffer.from(data,"base64"));};
       await load(cdp,source,390,844);await capture("ready");
-      await H.evaluate(cdp,"document.getElementById('startButton').click()");await wait(500);
+      await H.evaluate(cdp,"document.getElementById('startButton').click()");await wait(3000);await capture("angle-live");
       await H.evaluate(cdp,"document.getElementById('stopButton').click();document.getElementById('unwrapButton').click()");await wait(650);
       await capture("unrolling");await wait(1250);
       await capture("unwrapped");
@@ -134,10 +165,11 @@ async function main(){
     await fullFlow(cdp,source,320,225);
     await fullFlow(cdp,source,820,600);
     await fullFlow(cdp,packaged,1280,800);
+    await multiTurnGuide(cdp,source);
     await blankFlow(cdp,packaged);
     assert.deepEqual(errors,[],`browser exceptions: ${errors.join("\n")}`);
     console.log("Circular-speed source/package browser flow, small/desktop layout, 100/0 score, fullscreen and standalone refresh passed");
-  }catch(error){failure=error;}
+  }catch(error){failure=error;if(errors.length)console.error("Browser exceptions:",errors);}
   const cleanup=[];
   try{await H.stopChrome(chrome,cdp);}catch(e){cleanup.push(e);}try{cdp?.close();}catch(e){cleanup.push(e);}
   for(const server of [sourceServer,packageServer])try{await H.closeServer(server);}catch(e){cleanup.push(e);}

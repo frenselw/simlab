@@ -262,6 +262,16 @@
     const first = point(cx, cy, radius, start);
     return `<path d="M ${first[0]} ${first[1]} A ${radius} ${radius} 0 ${sweep > Math.PI ? 1 : 0} 0 ${end[0]} ${end[1]}" fill="none" stroke-width="7" stroke-linecap="round"/>`;
   }
+  function angleGuide(cx,cy,wheelRadius,start,sweep,color) {
+    if (sweep <= 0.0001) return "";
+    const visible=Math.min(sweep,2*Model.TAU), from=start+sweep-visible;
+    const inner=30, outer=Math.min(wheelRadius-7,54), steps=Math.ceil(visible/(Math.PI/24));
+    const position=i=>point(cx,cy,inner+(outer-inner)*i/(2*Model.TAU),from+i);
+    const path=Array.from({length:steps+1},(_,n)=>{const xy=position(visible*n/steps);return `${n?"L":"M"} ${xy[0]} ${xy[1]}`;}).join(" ");
+    const first=position(0), last=position(visible), wedgeSweep=Math.min(sweep,Model.TAU-.0001), wedgeEnd=point(cx,cy,inner,start+wedgeSweep);
+    const sector=sweep>=Model.TAU ? `<circle cx="${cx}" cy="${cy}" r="${inner}" fill="${color}" fill-opacity=".13" stroke="none"/>` : `<path d="M ${cx} ${cy} L ${first[0]} ${first[1]} A ${inner} ${inner} 0 ${wedgeSweep>Math.PI?1:0} 0 ${wedgeEnd[0]} ${wedgeEnd[1]} Z" fill="${color}" fill-opacity=".16" stroke="none"/>`;
+    return `<g class="angle-guide" data-sweep="${sweep}" data-visible-sweep="${visible}" stroke="${color}" fill="none">${sector}<line x1="${cx}" y1="${cy}" x2="${first[0]}" y2="${first[1]}" stroke-dasharray="3 3" stroke-width="2"/><path d="${path}" stroke="white" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/><path class="angle-sweep" d="${path}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><line class="angle-end-ray" x1="${cx}" y1="${cy}" x2="${last[0]}" y2="${last[1]}" stroke-width="2"/><circle cx="${last[0]}" cy="${last[1]}" r="5" fill="${color}" stroke="white" stroke-width="1"/></g>`;
+  }
   function drawScene() {
     if (!state || el.motionStage.hidden) return;
     const kind = state.activeCase, c = item(), p = Model.parameters(kind, c.definition), t = c.measurement.elapsed;
@@ -320,10 +330,15 @@
       return `<g stroke="${colour}" opacity=".8">${circles}${remainder>0.0001?arc(cx,cy,r,start+sweep-remainder,remainder):""}</g>`;
     };
     el.motionSvg.setAttribute("aria-label",kind === "coaxial" ? "同一圓盤上，藍色 A 在內圈，橙色 B 在外圈" : "不交叉皮帶連接藍色 A 小輪與橙色 B 大輪，兩輪同向轉動");
-    const drawing = `${belt}${kind === "coaxial" ? wheel(cxB,rb,"#de7529","B",angleB)+wheel(cxA,ra,"#1179bc","A",angleA) : wheel(cxA,ra,"#1179bc","A",angleA)+wheel(cxB,rb,"#de7529","B",angleB)}${trace(cxA,ra,"#1179bc",0,p.omegaA)}${trace(cxB,rb,"#de7529",1,p.omegaB)}`;
+    const guides = !timed ? "" : kind === "coaxial" ? angleGuide(cxA,cy,ra,c.measurement.startAngles[0],p.omegaA*t,"#166f7b") : angleGuide(cxA,cy,ra,c.measurement.startAngles[0],p.omegaA*t,"#1179bc")+angleGuide(cxB,cy,rb,c.measurement.startAngles[1],p.omegaB*t,"#de7529");
+    const drawing = `${belt}${kind === "coaxial" ? wheel(cxB,rb,"#de7529","B",angleB)+wheel(cxA,ra,"#1179bc","A",angleA) : wheel(cxA,ra,"#1179bc","A",angleA)+wheel(cxB,rb,"#de7529","B",angleB)}${trace(cxA,ra,"#1179bc",0,p.omegaA)}${trace(cxB,rb,"#de7529",1,p.omegaB)}${guides}`;
     el.motionSvg.innerHTML = portrait && kind === "belt" ? `<g transform="translate(380 0) rotate(90)">${drawing}</g>` : drawing;
     const turns=t>0?`A 已走 ${Math.floor(p.omegaA*t/Model.TAU)} 整圈；B 已走 ${Math.floor(p.omegaB*t/Model.TAU)} 整圈。`:"";
-    el.sceneCaption.textContent = c.phase === "ready" ? kind === "coaxial" ? "A、B 固定在同一圓盤；開始量度後，同時留下軌跡。" : "B 主動輪以不打滑皮帶帶動 A；開始量度後，同時留下軌跡。" : c.phase === "unwrapped" ? "已返回定格的圓周軌跡；可再次展平對照直尺。" : `${turns}同色圓弧是量度開始後走過的軌跡；跨圈路程會累計。`;
+    el.sceneCaption.textContent = c.phase === "ready" ? kind === "coaxial" ? "A、B 固定在同一圓盤；開始量度後，同時留下軌跡。" : "B 主動輪以不打滑皮帶帶動 A；開始量度後，同時留下軌跡。" : c.phase === "unwrapped" ? "已返回定格的圓周軌跡；可再次展平對照直尺。" : `${turns}圓心細弧由量度起點表示累積轉角，每圈向外一層；超過兩圈顯示最近兩圈，總圈數及轉角以讀數為準。`;
+    if (timed && t>0 && !running) {
+      const displayAngle=(key,omega)=>`${math(key)} = ${Model.format3(omega*t)} rad（${Model.format3(omega*t*180/Math.PI)}°）`;
+      el.sceneCaption.innerHTML += ` ${kind === "coaxial" ? `${math("angleA")} = ${math("angleB")} = ${Model.format3(p.omegaA*t)} rad（${Model.format3(p.omegaA*t*180/Math.PI)}°）` : `${displayAngle("angleA",p.omegaA)}；${displayAngle("angleB",p.omegaB)}`}。`;
+    }
   }
   function frame(now) {
     const dt=Math.max((now-lastFrame)/1000,0); lastFrame=now;
