@@ -30,7 +30,7 @@
       const mode = this.flow.startup(attempt);
       if (mode === "editable") {
         try { this.state = attempt.state === "draft" ? P.decode(attempt.snapshot, "draft") : M.fresh(); this.mode = "editable";
-          const legacy = this.state.rv === 1; M.upgradeDraft(this.state);
+          const legacy = this.state.rv < 3; M.upgradeDraft(this.state);
           if (attempt.state === "new" || legacy) this.save(); }
         catch (_) { this.technical("草稿未能安全還原；原有資料保持不變。"); return; }
       } else if (mode === "review") this.restoreReview(attempt);

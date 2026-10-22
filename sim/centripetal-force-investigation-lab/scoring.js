@@ -11,18 +11,18 @@
   ];
   const near = (input, target) => typeof input === "string" && input.length > 0 && /^\d*(?:\.\d*)?$/.test(input) &&
     Math.abs(Number(input) - target) <= Math.max(0.01, 0.02 * Math.abs(target)) + 1e-12;
-  function fair(kind, run) {
+  function fair(kind, run, rv = 3) {
     if (!run || new Set(run.q.map(q => M.slot(kind === "omega" ? q : Math.abs(q)))).size < 2) return false;
     const [rA, rB, nA, nB] = run.cfg;
-    if (kind === "radius") return nA === nB && rA !== rB;
+    if (kind === "radius") return nA === nB && (rv >= 3 || rA !== rB);
     if (kind === "mass") return rA === rB && nA !== nB;
     return true;
   }
-  function comparison(kind, run) {
+  function comparison(kind, run, rv = 3) {
     if (!run || !run.fit || !M.fit(kind, run).ok) return "insufficient";
     if (kind === "omega") return "square";
     const [rA, rB, nA, nB] = run.cfg;
-    if (kind === "radius") return rA === rB ? "no-contrast" : nA !== nB ? "confounded" : "supports";
+    if (kind === "radius") return rv < 3 && rA === rB ? "no-contrast" : nA !== nB ? "confounded" : "supports";
     return nA === nB ? "no-contrast" : rA !== rB ? "confounded" : "supports";
   }
   function coverage(kind, run) {
@@ -39,7 +39,7 @@
       (task.inquiry[0] === (i === 0 ? "equal-mass" : "equal-radius") ? 3 : 0) +
       (task.inquiry[1] === "ratio-steady" ? 3 : 0) : (independent === expected.independent ? 2 : 0) +
       expected.controls.filter(key => controls?.includes(key)).length * 2;
-    const fairScore = fair(kind, run) ? 4 : 0;
+    const fairScore = fair(kind, run, state.rv) ? 4 : 0;
     const { span, slots, dataScore } = coverage(kind, run);
     const ratio = run ? kind === "radius" ? M.radius(run.cfg[0]) / M.radius(run.cfg[1]) :
       kind === "mass" ? M.mass(run.cfg[2]) / M.mass(run.cfg[3]) : 4 : null;
@@ -47,12 +47,12 @@
     const actualFit = run?.fit ? M.fit(kind, run) : null;
     const fitScore = !actualFit?.ok ? 0 : kind === "omega" ?
       (run.a[1] === "square" ? 3 : 0) + (run.a[2] === "coefficient" ? 3 : 0) :
-      (run.a[1] === comparison(kind, run) ? 3 : 0) +
-      (run.a[2] === (fair(kind, run) ? "coefficient" : "uncertain") ? 3 : 0);
+      (run.a[1] === comparison(kind, run, state.rv) ? 3 : 0) +
+      (run.a[2] === (fair(kind, run, state.rv) ? "coefficient" : "uncertain") ? 3 : 0);
     const lawScore = task.law === (kind === "omega" ? "square" : "linear") ? 6 : 0;
     return { roleScore, fairScore, dataScore, numericScore, fitScore, lawScore,
       score: roleScore + fairScore + dataScore + numericScore + fitScore + lawScore,
-      fit: actualFit, ratio, span, slots, fair: fair(kind, run) };
+      fit: actualFit, ratio, span, slots, fair: fair(kind, run, state.rv) };
   }
   function score(state) {
     const pages = M.KINDS.map((_, i) => page(state, i));

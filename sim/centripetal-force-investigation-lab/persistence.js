@@ -19,7 +19,7 @@
   function validate(state, kind = "draft") {
     if (!["draft", "review"].includes(kind)) throw new Error("Invalid kind");
     keys(state, fields);
-    if (state.v !== 1 || ![1, 2, 3].includes(state.mv) || ![1, 2].includes(state.rv) || !integer(state.seed, 0, 0xffffffff) ||
+    if (state.v !== 1 || ![1, 2, 3].includes(state.mv) || ![1, 2, 3].includes(state.rv) || !integer(state.seed, 0, 0xffffffff) ||
       !integer(state.page, 0, 2) || typeof state.fromReview !== "boolean" ||
       !["setup", "collect", "analyse", "check", "review"].includes(state.view)) throw new Error("Invalid state version or navigation");
     if (kind === "review" ? state.view !== "review" || state.returnTo !== null || state.fromReview || state.tasks?.some(task => task.current !== null) : state.view === "review") throw new Error("Invalid review phase");
@@ -28,8 +28,8 @@
     if (state.view === "check" && state.returnTo === null) throw new Error("Missing return route");
     if (!Array.isArray(state.tasks) || state.tasks.length !== 3) throw new Error("Invalid tasks");
     state.tasks.forEach((task, i) => {
-      keys(task, ["work", "current", "selected", "roles", "runs", "law", ...(state.rv === 2 ? ["inquiry"] : [])]); cfg(task.work);
-      if (state.rv === 2 && (!Array.isArray(task.inquiry) || task.inquiry.length !== 2 ||
+      keys(task, ["work", "current", "selected", "roles", "runs", "law", ...(state.rv >= 2 ? ["inquiry"] : [])]); cfg(task.work);
+      if (state.rv >= 2 && (!Array.isArray(task.inquiry) || task.inquiry.length !== 2 ||
         task.inquiry.some((answer, j) => answer !== null && (i === 2 || !(j === 0 ? M.SETUP_REASONS : M.SPEED_RELATIONS).includes(answer))))) throw new Error("Invalid inquiry answer");
       if (!Array.isArray(task.runs) || task.runs.length > 2 || !reference(task.current, task.runs.length) ||
         !reference(task.selected, task.runs.length) || !Array.isArray(task.roles) || task.roles.length !== 2 ||

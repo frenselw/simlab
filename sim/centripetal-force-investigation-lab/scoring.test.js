@@ -44,3 +44,15 @@ for (const kind of M.KINDS) {
   run.q=[-1000,-500,500];
   assert.equal(S.coverage(kind,run).dataScore,kind==="omega"?4:2,"radius/mass count magnitude; omega retains sign");
 }
+
+const equalRadius=M.fresh(21), equalTask=equalRadius.tasks[0];
+equalTask.inquiry=["equal-mass","ratio-steady"];equalTask.law="linear";
+M.begin(equalTask);for(const w of [.5,1.5,3])M.record(equalTask,w);
+M.fitCurrent("radius",equalTask);equalTask.runs[0].a=["1","supports","coefficient"];
+assert.equal(S.page(equalRadius,0).score,30,"equal radii are a valid 1:1 comparison under rv3");
+assert.equal(S.page(equalRadius,0).ratio,1);
+equalRadius.rv=2;equalTask.runs[0].a=["1","no-contrast","uncertain"];
+assert.equal(S.page(equalRadius,0).score,26,"rv2 retains its historical equal-radius score");
+equalRadius.rv=3;equalTask.runs[0].cfg[2]=4;equalTask.runs[0].a=["1","confounded","uncertain"];
+assert.equal(S.page(equalRadius,0).fairScore,0,"unequal masses still confound the radius comparison");
+assert.equal(S.page(equalRadius,0).fitScore,6,"recognising unequal masses still earns interpretation credit");

@@ -45,7 +45,7 @@ oldPending.retryFinal(); assert.equal(oldPending.mode,"review");
 assert.equal(oldPending.result.score,100); assert.deepEqual(oldPending.state,oldAnswer,"pending retry preserves the original version and answers");
 legacy.page=2; legacy.view="collect";
 const oldDraft = environment({durable:{state:"draft",snapshot:{version:1,activity:P.ACTIVITY,kind:"draft",answer:legacy}}}).c;
-assert.equal(oldDraft.state.mv,1); assert.equal(oldDraft.state.rv,2); assert.deepEqual(oldDraft.state.tasks[0].inquiry,[null,null]); assert.deepEqual(oldDraft.state.tasks[0].roles,legacy.tasks[0].roles); assert.ok(oldDraft.update(s=>M.record(s.tasks[2],-1)));
+assert.equal(oldDraft.state.mv,1); assert.equal(oldDraft.state.rv,3); assert.deepEqual(oldDraft.state.tasks[0].inquiry,[null,null]); assert.deepEqual(oldDraft.state.tasks[0].roles,legacy.tasks[0].roles); assert.ok(oldDraft.update(s=>M.record(s.tasks[2],-1)));
 assert.equal(oldDraft.state.mv,3); assert.deepEqual(oldDraft.state.tasks[2].runs[0].q,[500,1500,3000,-1000]);
 console.log("centripetal lifecycle ok");
 
@@ -66,3 +66,24 @@ const mv2Snapshot={version:1,activity:P.ACTIVITY,kind:"review",answer:mv2Review,
 const mv2Pending=environment({durable:{state:"pending-final",snapshot:{version:1,activity:P.ACTIVITY,kind:"pending-final",payload:{reviewJson:JSON.stringify(mv2Snapshot),score:mv2Result.score,maxScore:100,passed:mv2Result.passed}}}}).c;
 assert.equal(mv2Pending.mode,"frozen");assert.equal(mv2Pending.update(s=>s.mv=3),false);
 mv2Pending.retryFinal();assert.equal(mv2Pending.mode,"review");assert.equal(mv2Pending.result.score,100);assert.deepEqual(mv2Pending.state,mv2Review);
+
+const equalOld=M.fresh(22);equalOld.rv=2;
+const eq=equalOld.tasks[0];eq.inquiry=["equal-mass","ratio-steady"];eq.law="linear";
+M.begin(eq);for(const w of [.5,1.5,3])M.record(eq,w);M.fitCurrent("radius",eq);
+eq.runs[0].a=["1","no-contrast","uncertain"];equalOld.view="collect";
+const equalAnswer=P.review(equalOld),equalSnapshot={version:1,activity:P.ACTIVITY,kind:"review",answer:equalAnswer,score:26,passed:false};
+assert.equal(S.score(equalAnswer).score,26);
+const equalFinished=environment({durable:{state:"finished",snapshot:equalSnapshot,score:"26",status:"failed"}}).c;
+assert.equal(equalFinished.mode,"review");assert.equal(equalFinished.state.rv,2);assert.equal(equalFinished.result.score,26);
+const equalPending=environment({durable:{state:"pending-final",snapshot:{version:1,activity:P.ACTIVITY,kind:"pending-final",payload:{reviewJson:JSON.stringify(equalSnapshot),score:26,maxScore:100,passed:false}}}}).c;
+assert.equal(equalPending.mode,"frozen");equalPending.retryFinal();assert.equal(equalPending.mode,"review");
+assert.equal(equalPending.result.score,26);assert.equal(equalPending.state.rv,2);
+for(const view of ["setup","collect","analyse","check"]) {
+ const old=M.clone(equalOld);old.view=view;if(view==="check")old.returnTo=[0,"collect"];
+ const env=environment({durable:{state:"draft",snapshot:{version:1,activity:P.ACTIVITY,kind:"draft",answer:old}}});
+ assert.equal(env.c.state.rv,3);assert.equal(env.durable.snapshot.answer.rv,3,"upgraded draft is saved");
+ assert.deepEqual(env.c.state.tasks,old.tasks,"upgrade preserves learner answers and measurements");
+ if(view==="check")env.c.back();
+ assert.ok(env.c.update(s=>{s.tasks[0].runs[0].a=["1","supports","coefficient"];}));
+ env.c.check();env.c.submit();assert.equal(env.c.result.score,30,"equal-radius draft can continue to full page credit");
+}

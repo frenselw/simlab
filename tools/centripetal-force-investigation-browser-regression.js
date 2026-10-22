@@ -147,6 +147,8 @@ async function scenario(cdp, base, launch, label, width, height) {
   assert.ok(await H.evaluate(cdp, "document.querySelector('#taskIntro').compareDocumentPosition(document.querySelector('#setupPanel')) & Node.DOCUMENT_POSITION_FOLLOWING"), `${label}: learning objective precedes apparatus settings`);
   assert.equal(await H.evaluate(cdp,"document.getElementById('rolesField').hidden"),true,'first experiment replaces generic variable quiz');
   assert.equal(await H.evaluate(cdp,"document.getElementById('inquiryField').hidden"),false,'comparison questions available');
+  assert.match(await H.evaluate(cdp,"document.getElementById('taskPrompt').textContent"),/半徑可相同/);
+  assert.doesNotMatch(await H.evaluate(cdp,"document.getElementById('setupReasonPrompt').textContent"),/不同半徑/);
   const columns = await H.evaluate(cdp, `[...document.querySelectorAll('.quantity-step')].map(row=>[...row.querySelectorAll('button')].map(e=>e.getBoundingClientRect().x))`);
   assert.ok(columns.every(pair=>pair.every((x,i)=>Math.abs(x-columns[0][i])<1)), `${label}: mass and radius buttons share fixed columns`);
   const trayBounds = await rect(cdp, '#weightTray'), washer = await rect(cdp, '.mass-token.tray .washer');
@@ -176,6 +178,7 @@ async function scenario(cdp, base, launch, label, width, height) {
   for (let i = 0; i < 2; i++) await click(cdp, '[data-step="2:-1"]');
   assert.equal(await H.evaluate(cdp, "document.querySelectorAll('[data-assembly=\"A\"] .weight-plate').length"), 0, `${label}: zero weights leaves an empty holder`);
   assert.match(await H.evaluate(cdp, 'document.getElementById("mAValue").textContent'), /空托座/);
+  assert.match(await H.evaluate(cdp,"document.querySelector('[data-count-label=A]').textContent"),/砝碼 × 0/);
   assert.ok(await H.evaluate(cdp, 'document.getElementById("mAValue").innerHTML.includes("0.040")'), `${label}: empty holder still explains its mass`);
   for (let i = 0; i < 2; i++) await click(cdp, '[data-step="2:1"]');
   const tray = await rect(cdp, ".mass-token.tray"), tx = tray.x + tray.width / 2, ty = tray.y + tray.height / 2;
@@ -193,10 +196,13 @@ async function scenario(cdp, base, launch, label, width, height) {
   assert.equal(data, 4, `${label}: trusted radius drag changes one side`);
   await touchTo(cdp, ".mass-token.tray", '.mass-token.placed.a');
   assert.equal(await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].work[2]"), 3, `${label}: trusted mass placement`);
-  assert.equal(await H.evaluate(cdp, "document.querySelector('[data-assembly=\"A\"] .assembly-label').textContent"), 'A·3', `${label}: label shows all stacked weights`);
+  assert.equal(await H.evaluate(cdp, "document.querySelector('[data-count-label=A]').textContent.trim()"), "A：砝碼 × 3", "label states the actual number of weights");
   assert.equal(await H.evaluate(cdp, "document.querySelectorAll('[data-assembly=\"A\"] circle.weight-plate').length"), 1, `${label}: top view shows only the top disc`);
-  assert.equal(await H.evaluate(cdp, `document.querySelectorAll('[data-assembly="A"] .weight-count-mark[data-filled="true"]').length`), 3, `${label}: visible marks show each added weight`);
+  assert.equal(await H.evaluate(cdp, "document.querySelectorAll('.weight-count-mark').length"),0,"no decorative count rings");
+  assert.equal(await H.evaluate(cdp, "document.querySelectorAll('.force-meter').length"),2,"both force meters are visible");
+  assert.ok(await H.evaluate(cdp, "[...document.querySelectorAll('.weight-holder')].every(e=>Number(e.getAttribute('r'))<=15)"),"compact holders expose the meters");
   for (let i = 0; i < 6; i++) await click(cdp, '[data-step="3:1"]');
+  assert.match(await H.evaluate(cdp,"document.querySelector('[data-count-label=B]').textContent"),/砝碼 × 8/);
   await touchTo(cdp, '.mass-token.placed.a', '.mass-token.placed.b');
   assert.deepEqual(await H.evaluate(cdp, 'window.__centripetalApp.getState().tasks[0].work.slice(2)'), [3, 8], `${label}: full holder rejects transfer without losing a weight`);
   const weightsScreenshot = await cdp.send('Page.captureScreenshot', {format:'png',captureBeyondViewport:false});
@@ -376,6 +382,18 @@ async function buttonOnly(cdp, base, launch, label) {
   assert.equal(await H.evaluate(cdp, 'window.__centripetalApp.getState().tasks[0].runs[1].fit'), true, `${label}: legal continuation after redo`);
   await click(cdp, '#checkButton'); await click(cdp, '#submitButton');
   assert.equal(await H.evaluate(cdp, 'document.getElementById("restartRunButton").hidden'), true, `${label}: submitted work has no redo action`);
+}
+async function equalRadiusComparison(cdp, base, launch) {
+  await cdp.send("Page.navigate",{url:base+launch});await ready(cdp);
+  const answer=async(id,value)=>H.evaluate(cdp,`(()=>{const e=document.getElementById(${JSON.stringify(id)});e.value=${JSON.stringify(value)};e.dispatchEvent(new Event(e.id==="numericAnswer"?"input":"change",{bubbles:true}));})()`);
+  await answer("setupReason","equal-mass");await answer("speedRelation","ratio-steady");await answer("law","linear");
+  await click(cdp,"#startButton");await threePoints(cdp);await click(cdp,"#analyseView");await click(cdp,"#fitButton");
+  await answer("numericAnswer","1");await answer("comparison","supports");await answer("reason","coefficient");
+  const run=await H.evaluate(cdp,"window.__centripetalApp.getState().tasks[0].runs[0]");
+  assert.deepEqual(run.cfg,[2,2,2,2],"the default equal-radius setup is kept");
+  assert.deepEqual(run.a,["1","supports","coefficient"]);
+  await click(cdp,"#checkButton");await click(cdp,"#submitButton");
+  assert.match(await H.evaluate(cdp,"document.getElementById('scorePanel').textContent"),/30 \/ 100/,"a valid 1:1 comparison receives full page credit");
 }
 async function signedMeasurements(cdp, base, launch, label) {
   await cdp.send('Emulation.setDeviceMetricsOverride', {width:1280,height:800,deviceScaleFactor:1,mobile:false});
@@ -560,6 +578,7 @@ async function main() {
     await scenario(cdp, sourceBase, `/sim/${slug}/index.html`, "source", 1280, 800);
     await scenario(cdp, sourceBase, `/sim/${slug}/index.html`, "source", 390, 600);
     await buttonOnly(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
+    await equalRadiusComparison(cdp,sourceBase,`/sim/${slug}/index.html`);
     await signedMeasurements(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
     await lowSpeedFeedback(cdp, sourceBase, `/sim/${slug}/index.html`);
     for (const [width, height] of [[320,500],[390,500],[390,844],[480,320],[320,225]]) await layoutOnly(cdp, sourceBase, `/sim/${slug}/index.html`, width, height);
@@ -569,6 +588,7 @@ async function main() {
     await continuousRelease(cdp,`http://127.0.0.1:${server.address().port}`,extracted.activityPath,"package");
     await scenario(cdp, `http://127.0.0.1:${server.address().port}`, extracted.activityPath, "package", 390, 600);
     await buttonOnly(cdp, `http://127.0.0.1:${server.address().port}`, extracted.activityPath, "package");
+    await equalRadiusComparison(cdp,`http://127.0.0.1:${server.address().port}`,extracted.activityPath);
     await signedMeasurements(cdp, `http://127.0.0.1:${server.address().port}`, extracted.activityPath, "package");
     await lowSpeedFeedback(cdp, `http://127.0.0.1:${server.address().port}`, extracted.activityPath);
     await responsiveSpin(cdp, `http://127.0.0.1:${server.address().port}`, extracted.activityPath);

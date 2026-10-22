@@ -35,7 +35,7 @@ const legacyReview = P.review(legacy); assert.deepEqual(P.decode(snapshot(legacy
 const signed = M.fresh(8); signed.page = 2; signed.view = 'collect'; M.begin(signed.tasks[2]);
 for (const value of [-3, -1, 1, 3]) M.record(signed.tasks[2], value);
 roundtrip(signed, s => { assert.ok(M.fitCurrent('omega', s.tasks[2]).ok); assert.ok(P.validate(s)); });
-for (const change of [s => s.v = 2, s => s.tasks[0].work[0] = NaN, s => s.tasks[0].runs[0].q.push(250),
+for (const change of [s => s.v = 2, s => s.rv = 4, s => s.tasks[0].work[0] = NaN, s => s.tasks[0].runs[0].q.push(250),
   s => { s.tasks[0].runs[0].q = [250]; s.tasks[0].runs[0].fit = true; }, s => s.tasks[0].selected = 9, s => s.tasks[0].roles[1] = ["m", "m"], s => s.tasks[0].inquiry[0] = "bogus", s => s.tasks[2].inquiry[1] = "ratio-steady"]) {
   const bad = M.clone(full); change(bad); assert.throws(() => P.validate(bad));
 }
@@ -52,3 +52,8 @@ roundtrip(high,s=>{assert.ok(M.fitCurrent("omega",s.tasks[2]).ok);assert.ok(M.re
 for(const q of [-24001,24001]) {const bad=M.clone(high);bad.tasks[2].runs[0].q=[q];assert.throws(()=>P.validate(bad));}
 assert.equal(S.coverage("omega",high.tasks[2].runs[0]).dataScore,4);
 assert.equal(S.coverage("radius",{q:[22000,23000,24000]}).dataScore,4,"high-speed bins remain distinct");
+
+const rv2=M.fresh(31);rv2.rv=2;M.begin(rv2.tasks[0]);M.record(rv2.tasks[0],1);rv2.view="collect";
+roundtrip(rv2,s=>{M.upgradeDraft(s);assert.equal(s.rv,3);assert.ok(M.record(s.tasks[0],2));assert.ok(P.validate(s));});
+const rv2Review=P.review(rv2);
+assert.deepEqual(P.decode(snapshot(rv2Review,"review"),"review"),rv2Review,"old review roundtrip does not upgrade its rubric");

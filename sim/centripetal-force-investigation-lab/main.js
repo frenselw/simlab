@@ -3,7 +3,7 @@
   const M = CentripetalModel, P = CentripetalPersistence, S = CentripetalScoring;
   const $ = id => document.getElementById(id), stage = $("stageContent"), device = $("deviceSvg"), graph = $("graphSvg");
   const titles = ["半徑如何影響徑向力？", "質量如何影響徑向力？", "轉速如何影響徑向力？"];
-  const prompts = ["同質量、異半徑：改變轉速，力比與半徑比有甚麼關係？", "同半徑、異質量：改變轉速，力比與總質量比有甚麼關係？", "固定 A 側質量與半徑，改變角速度大小及正負方向。推轉、開始測量，再按住減速，觀察圖線。"];
+  const prompts = ["保持同質量，比較力比與半徑比。半徑可相同（1:1），亦可試其他比例。", "同半徑、異質量：改變轉速，力比與總質量比有甚麼關係？", "固定 A 側質量與半徑，改變角速度大小及正負方向。推轉、開始測量，再按住減速，觀察圖線。"];
   const compareOptions = [["supports", "斜率與設定比值相符，支持本題比例關係"], ["confounded", "兩個量同時改變，不能隔離"], ["no-contrast", "被研究量沒有差異"], ["insufficient", "資料不足"]];
   const reasonOptions = [["coefficient", "斜率對應兩側物理量比值／二次項對應質量與半徑的乘積"], ["constant", "只有常數項代表關係"], ["other", "係數與配置無關"], ["uncertain", "配置混雜或資料不足，不能隔離解釋"]];
   const lawOptions = [["linear", "徑向力與研究量成正比（其餘量固定）"], ["square", "徑向力與研究量的平方成正比（其餘量固定）"], ["inverse", "徑向力與研究量成反比"], ["none", "沒有可描述的關係"]];
@@ -56,7 +56,7 @@
       positionHit(document.querySelector(`.radius-handle[data-side="${side}"]`), x, radiusY(side));
       const button = document.querySelector(`.mass-token.placed.${side.toLowerCase()}`);
       const scale = mapPoint(0, 0).scale;
-      button.style.width = `${Math.max(44, 58 * scale)}px`;
+      button.style.width = `${Math.max(44, 30 * scale)}px`;
       button.style.height = button.style.width;
       positionHit(button, x, 230);
       button.setAttribute("aria-label", `${side} 托座：${cfg[i + 2]} 塊砝碼；可拖一塊回砝碼盤`);
@@ -85,40 +85,50 @@
   function drawDevice() {
     const cfg = displayedConfig(), setup = view() === "setup";
     device.setAttribute("viewBox", setup ? "80 45 440 370" : "0 0 600 550");
-    const scale = mapPoint(0, 0).scale, labelFont = Math.max(20, 16 / scale), countFont = Math.max(20, 14 / scale);
+    const scale = mapPoint(0, 0).scale, labelFont = Math.max(14, 16 / scale), countFont = Math.max(10, 14 / scale);
     const assemblies = ["A", "B"].map((side, i) => {
       const x = componentX(side, cfg[i]), direction = side === "A" ? 1 : -1, count = cfg[i + 2];
-      const colour = side === "A" ? "#087c95" : "#b56317", light = side === "A" ? "#d2f0f3" : "#ffdfad";
+      const colour = side === "A" ? "#087c95" : "#a9662a", light = side === "A" ? "#e5f3f5" : "#fbf0df";
+      const meterWidth = Math.min(40, Math.abs(x - 300) - 23), meterX = x - direction * (17 + meterWidth / 2);
       return `<g class="assembly" data-assembly="${side}" data-count="${count}" data-radius="${M.radius(cfg[i])}">
-        <path d="M300 230H${x}" stroke="${colour}" stroke-width="4"/>
-        <rect x="${x - direction * 34 - 8}" y="214" width="16" height="32" rx="4" fill="${light}" stroke="${colour}" stroke-width="3"/>
-        <path d="M${x - direction * 34} 219v22" stroke="${colour}" stroke-width="2" stroke-dasharray="3 2"/>
-        <circle class="weight-holder" cx="${x}" cy="230" r="29" fill="${light}" stroke="${colour}" stroke-width="4"/>
-        ${count ? `<circle class="weight-plate" cx="${x}" cy="230" r="23" fill="#cbd6dd" stroke="#667e8d" stroke-width="2"/><circle cx="${x}" cy="230" r="8" fill="${light}" stroke="#667e8d" stroke-width="2"/>` : ''}
-        <circle cx="${x}" cy="230" r="3" fill="${colour}"/>
-        ${setup ? Array.from({length:8}, (_, n) => { const a = Math.PI + n * Math.PI / 7; return `<circle class="weight-count-mark" cx="${x + 35 * Math.cos(a)}" cy="${230 + 35 * Math.sin(a)}" r="4" fill="${n < count ? colour : '#fff'}" stroke="${colour}" stroke-width="1" data-filled="${n < count}"/>`; }).join('') : ''}
-        <g class="assembly-label" data-x="${x}" data-y="230">${setup ? `<rect x="${x - countFont * 1.3}" y="250" width="${countFont * 2.6}" height="${countFont * 1.3}" rx="6" fill="${colour}"/><text x="${x}" y="${250 + countFont}" text-anchor="middle" fill="white" font-size="${countFont}" font-weight="700">${side}·${count}</text>` : `<text x="${x}" y="${230 + labelFont * .3}" text-anchor="middle" fill="${colour}" stroke="white" stroke-width="1.5" paint-order="stroke" font-size="${labelFont * .85}" font-weight="700">${side}</text>`}</g>
+        <path class="apparatus-line" d="M300 230H${x}" stroke="${colour}" stroke-width="1.5"/>
+        <g class="force-meter" aria-label="${side} 測力計">
+          <rect class="apparatus-line" x="${meterX - meterWidth / 2}" y="218" width="${meterWidth}" height="24" rx="3" fill="#fff" stroke="#728994" stroke-width="1.3"/>
+          <rect x="${meterX - meterWidth * .32}" y="222" width="${meterWidth * .64}" height="10" rx="1.5" fill="#e4edef"/>
+          <path class="apparatus-line" d="M${meterX - meterWidth * .24} 237h${meterWidth * .48}M${meterX - meterWidth * .12} 235v4M${meterX} 235v4M${meterX + meterWidth * .12} 235v4" fill="none" stroke="#91a4ad" stroke-width=".8"/>
+        </g>
+        <circle class="weight-holder apparatus-line" cx="${x}" cy="230" r="14" fill="${light}" stroke="${colour}" stroke-width="1.5"/>
+        ${count ? `<circle class="weight-plate apparatus-line" cx="${x}" cy="230" r="10" fill="#c4d0d6" stroke="#8196a0" stroke-width="1"/><circle cx="${x}" cy="230" r="3.5" fill="${light}"/>` : ''}
+        <g class="assembly-label" data-x="${setup ? meterX : x}" data-y="${setup ? 227 : 200}"><text x="${setup ? meterX : x}" y="${setup ? 230 : 205}" text-anchor="middle" fill="${colour}" font-size="${setup ? 9 : labelFont}" font-weight="600">${side}</text></g>
       </g>`;
     }).join("");
     const rulers = setup ? ["A", "B"].map((side, i) => {
       const direction = side === "A" ? 1 : -1, y = radiusY(side), x = componentX(side, cfg[i]);
-      return `<g class="radius-ruler" stroke="#758d9b" stroke-width="2"><path d="M300 ${y}H${300 + direction * 172}M${x} ${side === "A" ? 279 : 196}V${y}" stroke-dasharray="4 4"/>
-        ${Array.from({ length: 7 }, (_, n) => `<path d="M${componentX(side, n)} ${y - 9}v18"/>`).join("")}</g>`;
+      return `<g class="radius-ruler" fill="none" stroke="#95aab4" stroke-width="1"><path class="apparatus-line" d="M300 ${y}H${300 + direction * 172}"/>
+        <path class="apparatus-line" d="M${x} ${side === "A" ? 303 : 214}V${y}" stroke-dasharray="3 5"/>
+        ${Array.from({ length: 7 }, (_, n) => `<path class="apparatus-line" d="M${componentX(side, n)} ${y - 5}v10"/>`).join("")}</g>`;
+    }).join("") : "";
+    const counts = setup ? ["A", "B"].map((side,i) => {
+      const x = componentX(side,cfg[i]), anchor = i ? 190 : 410;
+      return `<g class="weight-count-label" data-count-label="${side}">
+        <path class="apparatus-line" d="M${x} 246v10L${anchor} 273" fill="none" stroke="#acbcc3" stroke-width=".8"/>
+        <text x="${anchor}" y="292" text-anchor="middle" font-size="${countFont}" fill="#365563"><tspan font-weight="700">${side}</tspan>：砝碼 × ${cfg[i+2]}</text>
+      </g>`;
     }).join("") : "";
     const radiusLabels = ["A", "B"].map((side, i) => {
       const index = setup && drag?.type === "radius" && drag.side === side ? drag.proposed : cfg[i];
       const spec = { tex: `r_${side}=${M.radius(index).toFixed(2)}\\,\\mathrm{m}`, text: `${side} 側半徑 ${M.radius(index).toFixed(2)} m` };
-      const x = setup ? (i ? 190 : 410) : (i ? 530 : 70), y = setup ? (i ? 83 : 407) : 520, colour = i ? "#a45b24" : "#087c95";
+      const x = setup ? (i ? 190 : 410) : (i ? 530 : 70), y = setup ? (i ? 83 : 390) : 520, colour = i ? "#a45b24" : "#087c95";
       return `<g class="radius-annotation" data-radius-label="${side}">${mathReady ? CircuitMath.svg(x, y, spec, labelFont, `fill="${colour}"`) : `<text x="${x}" y="${y}" text-anchor="middle" font-size="${labelFont}">${spec.text}</text>`}</g>`;
     }).join("");
-    device.innerHTML = `${setup ? '<rect x="95" y="190" width="410" height="92" rx="16" fill="#fff" stroke="#d3e0e4" stroke-width="2"/>' : `
+    device.innerHTML = `${setup ? '<rect class="apparatus-line" x="98" y="202" width="404" height="56" rx="9" fill="#fff" stroke="#d7e3e7" stroke-width="1"/>' : `
       <circle cx="300" cy="230" r="213" fill="none" stroke="#c49b52" stroke-width="9"/>
-      <circle cx="300" cy="230" r="196" fill="#fff" stroke="#d3e0e4" stroke-width="2"/>`}
-      <g id="rotatingAssembly"><path d="M116 230H484" stroke="#d8e3e9" stroke-width="22" stroke-linecap="round"/>
-        <path d="M116 230H484" stroke="#7994a5" stroke-width="2" stroke-dasharray="2 9"/>
-        ${assemblies}<circle cx="300" cy="230" r="12" fill="#355469" stroke="#f1f7fa" stroke-width="4"/>
-        <path d="M293 230h14M300 223v14" stroke="#d2e1e9" stroke-width="2"/>
-      </g>${rulers}${radiusLabels}`;
+      <circle class="apparatus-line" cx="300" cy="230" r="196" fill="#fff" stroke="#d3e0e4" stroke-width="1"/>`}
+      <g id="rotatingAssembly"><rect x="116" y="227" width="368" height="6" rx="3" fill="#dfe8ec"/>
+        <path class="apparatus-line" d="M116 230H484" stroke="#a4b6bf" stroke-width=".8" stroke-dasharray="1 11"/>
+        ${assemblies}<circle class="apparatus-line" cx="300" cy="230" r="5" fill="#f8fbfc" stroke="#607c8a" stroke-width="1.5"/>
+        <circle cx="300" cy="230" r="1.7" fill="#607c8a"/>
+      </g>${rulers}${counts}${radiusLabels}`;
   }
   function graphPoints(kind, run) {
     return M.points(kind, run).map(([x, y]) => [kind === "omega" && squaredGraph ? x * x : x, y]);
@@ -271,7 +281,7 @@
     for (const [id, target] of [["setupView", "setup"], ["collectView", "collect"], ["analyseView", "analyse"]]) $(id).setAttribute("aria-current", v === target ? "page" : "false");
     const inquiry = s.rv >= 2 && p < 2;
     $("inquiryField").hidden = !inquiry || v !== "setup"; $("rolesField").hidden = inquiry;
-    $("setupReasonPrompt").textContent = p === 0 ? "比較不同半徑的力，兩側質量應怎樣設定？為甚麼？" : "比較不同質量的力，兩側半徑應怎樣設定？為甚麼？";
+    $("setupReasonPrompt").textContent = p === 0 ? "比較兩側力比與半徑比，兩側質量應怎樣設定？為甚麼？" : "比較不同質量的力，兩側半徑應怎樣設定？為甚麼？";
     setSelect("setupReason", [["equal-mass", "質量相同，避免質量差異影響力比"], ["equal-radius", "半徑相同，避免半徑差異影響力比"], ["equal-force", "先把兩個力調成相同"], ["different-both", "質量和半徑都要不同"]], t.inquiry?.[0], !editing);
     setSelect("speedRelation", [["ratio-steady", "兩個力隨轉速改變，力比保持不變"], ["forces-steady", "兩個力都保持不變"], ["ratio-speed", "力比隨轉速增大"], ["unrelated", "兩個力沒有固定比例"]], t.inquiry?.[1], !editing);
     $("squareGraph").hidden = p !== 2 || v !== "analyse";
@@ -344,7 +354,7 @@
   }
   function massHit(event, side, pointerType) {
     const center = mapPoint(componentX(side, task().work[side === "A" ? 0 : 1]), 230);
-    return Math.hypot(event.clientX - center.x, event.clientY - center.y) <= Math.max(24, 29 * center.scale) + (pointerType === "touch" ? 18 : 10);
+    return Math.hypot(event.clientX - center.x, event.clientY - center.y) <= Math.max(24, 15 * center.scale) + (pointerType === "touch" ? 18 : 10);
   }
   function trayHit(event) {
     const r = $("weightTray").getBoundingClientRect();
