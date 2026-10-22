@@ -46,6 +46,29 @@ function formatError(error, indent = "") {
   return `${own}\n${Array.from(error.errors, (nested) => formatError(nested, `${indent}  `)).join("\n")}`;
 }
 
+async function saveBrowserFailure(cdp, directory, error, details, expression) {
+  const report = { error: formatError(error), details, diagnosticErrors: [] };
+  try {
+    const results = await Promise.allSettled([
+      withTimeout(Promise.resolve().then(() => evaluate(cdp, expression)), 2000, 'Failure state capture'),
+      withTimeout(Promise.resolve().then(() => cdp.send('Page.captureScreenshot', {format:'png'})), 2000, 'Failure screenshot')
+    ]);
+    for (const [index, result] of results.entries()) {
+      if (result.status === 'rejected') report.diagnosticErrors.push(String(result.reason));
+      else if (index === 0) report.state = result.value;
+      else {
+        try { fs.writeFileSync(path.join(directory, 'failure.png'), Buffer.from(result.value.data, 'base64')); report.screenshot = 'failure.png'; }
+        catch (captureError) { report.diagnosticErrors.push(String(captureError)); }
+      }
+    }
+    fs.writeFileSync(path.join(directory, 'failure.json'), JSON.stringify(report, null, 2) + '\n');
+  } catch (captureError) {
+    // Diagnostics must never replace the assertion or prevent the caller's cleanup.
+    console.error('Could not save browser failure evidence:', captureError.message);
+  }
+  return report;
+}
+
 function commandPath(command) {
   const lookup = spawnSync(process.platform === "win32" ? "where" : "which", [command], { encoding: "utf8" });
   return lookup.status === 0 ? lookup.stdout.split(/\r?\n/).find(Boolean) : null;
@@ -1753,7 +1776,7 @@ async function main() {
   console.log(summary);
 }
 
-module.exports = { CdpClient, buildAndExtractPackage, childHasExited, cleanupResources, closeServer, contentType, createServer, delay, devToolsPort, evaluate, fetchJson, findBrowser, listenServer, removeOwnedPackage, removeOwnedProfile, resolvePackageFile, resolveScoLaunchPath, stopChrome, validateOwnedDirectory, validateOwnedProfile, waitForChildExit, waitForCondition, withTimeout };
+module.exports = { CdpClient, buildAndExtractPackage, childHasExited, cleanupResources, closeServer, contentType, createServer, delay, devToolsPort, evaluate, fetchJson, findBrowser, listenServer, removeOwnedPackage, removeOwnedProfile, resolvePackageFile, resolveScoLaunchPath, saveBrowserFailure, stopChrome, validateOwnedDirectory, validateOwnedProfile, waitForChildExit, waitForCondition, withTimeout };
 
 if (require.main === module) {
   main().catch((error) => {

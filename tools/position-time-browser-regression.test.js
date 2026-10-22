@@ -11,6 +11,7 @@ const {
   cleanupResources,
   resolvePackageFile,
   resolveScoLaunchPath,
+  saveBrowserFailure,
   stopChrome,
   validateOwnedDirectory,
   validateOwnedProfile,
@@ -116,6 +117,30 @@ conditionCalls=0;
 await assert.rejects(waitForCondition(async()=>{conditionCalls++;await new Promise(r=>setTimeout(r,15));return false;},'slow evaluation',40,1),/slow evaluation timed out/);
 assert(conditionCalls<=3,'evaluation time counts towards the deadline');
 await assert.rejects(waitForCondition(async()=>{throw navigationError;},'navigation never finished',20,1),error=>/navigation never finished timed out/.test(error.message)&&error.cause===navigationError,'the last navigation error is preserved at the deadline');
+
+const failureDirectory=fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),'simlab-failure-test-'));
+try {
+  const originalFailure=new Error('Expected check mode, got edit'),details={source:'zip',selector:'#check'};
+  const failureCdp={async send(method){return method==='Runtime.evaluate'?{result:{value:{mode:'edit',events:['pointerup']}}}:{data:Buffer.from('screenshot fixture').toString('base64')};}};
+  await saveBrowserFailure(failureCdp,failureDirectory,originalFailure,details,'fixture');
+  let saved=JSON.parse(fs.readFileSync(path.join(failureDirectory,'failure.json'),'utf8'));
+  assert(saved.error.includes(originalFailure.message));assert.deepEqual(saved.details,details);
+  assert.equal(saved.state.mode,'edit');assert.equal(saved.screenshot,'failure.png');assert.deepEqual(saved.diagnosticErrors,[]);
+  assert.equal(fs.readFileSync(path.join(failureDirectory,'failure.png'),'utf8'),'screenshot fixture');
+  await saveBrowserFailure({async send(method){if(method==='Runtime.evaluate')throw Error('context gone');return failureCdp.send(method);}},failureDirectory,originalFailure,details,'fixture');
+  saved=JSON.parse(fs.readFileSync(path.join(failureDirectory,'failure.json'),'utf8'));
+  assert(saved.error.includes(originalFailure.message)&&saved.diagnosticErrors.some(e=>e.includes('context gone'))&&saved.screenshot,'one failed probe keeps the original assertion and other evidence');
+  await saveBrowserFailure({send:()=>new Promise(()=>{})},failureDirectory,originalFailure,details,'fixture');
+  saved=JSON.parse(fs.readFileSync(path.join(failureDirectory,'failure.json'),'utf8'));
+  assert.equal(saved.diagnosticErrors.length,2);assert(saved.diagnosticErrors.every(e=>e.includes('timed out after 2000 ms')));
+  assert(saved.error.includes(originalFailure.message));assert.equal(saved.screenshot,undefined,'an older screenshot is never attributed to this failed capture');
+  const originalConsole=console.error;let diagnostic;
+  try{console.error=(...args)=>{diagnostic=args.join(' ');};await saveBrowserFailure(failureCdp,path.join(failureDirectory,'missing'),originalFailure,details,'fixture');}
+  finally{console.error=originalConsole;}
+  assert(diagnostic.includes('Could not save browser failure evidence'),'artifact write failure is reported without throwing over the original assertion');
+} finally {
+  const safe=validateOwnedDirectory(failureDirectory,os.tmpdir(),/^simlab-failure-test-[A-Za-z0-9]+$/,'failure diagnostic fixture');fs.rmSync(safe,{recursive:true,force:false});
+}
 
 class FakeWebSocket {
   constructor() {
