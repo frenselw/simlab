@@ -81,7 +81,7 @@
     if (Math.abs(delta) > Math.PI * 0.8) return { ...state, pointerAngle: angle, time, omega: 0, history: [], warning: true };
     const nextAngle = state.angle + delta;
     // A stationary event must not erase the last push before pointerup.
-    if (Math.abs(delta) < 1e-6) return { ...state, pointerAngle: angle, time };
+    if (Math.abs(delta) < 0.002) return { ...state, pointerAngle: angle, time, angle: nextAngle };
     const history = state.omega * delta < 0 ? [] : (state.history || []).filter(sample => time - sample.time <= 80);
     if (!history.length) history.push({ angle: state.angle, time: state.time });
     history.push({ angle: nextAngle, time });
@@ -104,9 +104,10 @@
       run.q.length < MAX_SAMPLES && run.q.every(old => Math.abs(old - q) >= 250);
   }
   function coast(state, dt, braking = false) {
-    if (!Number.isFinite(dt) || dt <= 0 || dt > 0.12) return state;
+    if (!Number.isFinite(dt) || dt <= 0) return state;
     const omega = braking ? (Math.sign(state.omega) * Math.max(0, Math.abs(state.omega) - 0.45 * dt) || 0) : state.omega;
-    return { ...state, omega, angle: state.angle + (state.omega + omega) * dt / 2 };
+    const elapsed = braking ? Math.min(dt, Math.abs(state.omega) / 0.45) : dt;
+    return { ...state, omega, angle: state.angle + (state.omega + omega) * elapsed / 2 };
   }
   return Object.freeze({ KINDS, SETUP_REASONS, SPEED_RELATIONS, VARIABLES, COMPARE, REASONS, LAWS, SYNC, MASS_PARTS, clone, CFG, radius, mass,
     quantities, readings, slot, MAX_SAMPLES, MAX_OMEGA, points, fit, freshRun, freshTask, fresh, begin, record, fitCurrent, removeRun, setWork,

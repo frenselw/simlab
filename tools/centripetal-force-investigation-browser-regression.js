@@ -458,6 +458,70 @@ async function responsiveSpin(cdp,base,launch) {
   await click(cdp,'#measureButton');await pause(100);
   assert.ok((await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[0].runs[0].q')).some(q=>q>6000),'high-speed readings are saved');
 }
+async function continuousRelease(cdp, base, launch, label) {
+  const reports=[];
+  for(const rate of [1,4]) for(const measuring of [false,true]) for(const pointer of ["mouse","touch"]) {
+    await cdp.send("Emulation.setCPUThrottlingRate",{rate});
+    await cdp.send("Emulation.setDeviceMetricsOverride",{width:390,height:600,deviceScaleFactor:1,mobile:false});
+    await cdp.send("Emulation.setTouchEmulationEnabled",{enabled:pointer==="touch",maxTouchPoints:2});
+    await cdp.send("Page.navigate",{url:base+launch});await ready(cdp);await click(cdp,"#startButton");
+    if(measuring){await push(cdp,2);await click(cdp,"#measureButton");}
+    await H.evaluate(cdp,"CircuitMath.ready().then(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))))");
+    await H.evaluate(cdp,`(()=>{
+      window.__releaseFrames=[];window.__releaseInput=[];
+      window.__axisGlyph=document.getElementById("graphNotation").firstElementChild;
+      for(const type of ["pointermove","pointerup"])document.addEventListener(type,e=>{
+        const m=window.__centripetalApp.getMotion();
+        window.__releaseInput.push({type,t:performance.now(),eventTime:e.timeStamp,angle:m.angle,omega:m.omega});
+      });
+      const sample=()=>{
+        const transform=document.getElementById("rotatingAssembly").getAttribute("transform");
+        const angle=-Number(transform.match(/rotate\\(([^ ]+)/)[1])*Math.PI/180;
+        window.__releaseFrames.push({t:performance.now(),angle});
+        if(window.__releaseFrames.length<300)requestAnimationFrame(sample);
+      };requestAnimationFrame(sample);
+    })()`);
+    const g=await H.evaluate(cdp,"(()=>{const m=document.getElementById('deviceSvg').getScreenCTM();return{x:300*m.a+m.e,y:230*m.d+m.f,r:213*m.a};})()");
+    const input=async(type,a)=>{
+      const x=g.x+g.r*Math.cos(a),y=g.y+g.r*Math.sin(a);
+      if(pointer==="touch") await cdp.send("Input.dispatchTouchEvent",{type:{down:"touchStart",move:"touchMove",up:"touchEnd"}[type],touchPoints:type==="up"?[]:[{x,y,id:601,radiusX:1,radiusY:1,force:1}]});
+      else await cdp.send("Input.dispatchMouseEvent",{type:{down:"mousePressed",move:"mouseMoved",up:"mouseReleased"}[type],x,y,button:"left",buttons:type==="up"?0:1,clickCount:1});
+    };
+    const sign=pointer==="touch"?-1:1;
+    await input("down",0);
+    for(let i=1;i<=12;i++){await pause(16);await input("move",-sign*i*.2);}
+    await input("up",-sign*2.4);await pause(350);
+    const data=await H.evaluate(cdp,"({frames:window.__releaseFrames,input:window.__releaseInput,axesReused:window.__axisGlyph===document.getElementById('graphNotation').firstElementChild})");
+    const up=data.input.find(e=>e.type==="pointerup"),after=data.frames.filter(f=>f.t>=up.t);
+    assert.ok(sign*up.omega>1,"release has the gesture direction");
+    assert.ok(after.length>=6,"observe consecutive painted transforms after release");
+    assert.ok(sign*(after[0].angle-up.angle)>0,"the very first post-release frame advances");
+    const firstMoveMs=after[0].t-up.t;
+    assert.ok(firstMoveMs<50,"release has no multi-frame wait: "+JSON.stringify({rate,pointer,measuring,firstMoveMs}));
+    for(let i=1;i<after.length;i++) assert.ok(sign*(after[i].angle-after[i-1].angle)>0,"no stationary rendered frame after release");
+    assert.ok(data.axesReused,"sampling retains the fixed LaTeX axis glyphs");
+    const last=after.at(-1),expected=up.angle+up.omega*(last.t-up.eventTime)/1000;
+    assert.ok(Math.abs(last.angle-expected)<Math.abs(up.omega)*.02,"displayed angle follows elapsed time across the handoff");
+    const maxFrameMs=Math.max(...after.slice(1).map((f,i)=>f.t-after[i].t));
+    reports.push({rate,pointer,measuring,firstMoveMs,maxFrameMs,frames:after.length});
+    if(rate===1 && pointer==="mouse" && !measuring) {
+      await H.evaluate(cdp,"(()=>{const until=performance.now()+180;while(performance.now()<until){};})()");
+      await pause(80);
+      const f=await H.evaluate(cdp,"window.__releaseFrames.at(-1)");
+      assert.ok(Math.abs(f.angle-(up.angle+up.omega*(f.t-up.eventTime)/1000))<Math.abs(up.omega)*.02,"long task does not discard rotation time");
+    }
+    if(rate===1 && pointer==="mouse" && measuring) {
+      const before=await H.evaluate(cdp,"window.__centripetalApp.getState().tasks[0].runs[0].q.length");
+      await H.evaluate(cdp,"document.addEventListener('pointerup',()=>requestAnimationFrame(()=>window.dispatchEvent(new Event('blur'))),{once:true})");
+      await input("down",0);await pause(20);await input("move",-1);await input("up",-1);await pause(100);
+      assert.equal(await H.evaluate(cdp,"window.__centripetalApp.getState().tasks[0].runs[0].q.length"),before,"cancelling between the frame and queued sampling task records no point");
+      assert.equal(await H.evaluate(cdp,"window.__centripetalApp.getMotion().measuring"),false);
+    }
+  }
+  await cdp.send("Emulation.setCPUThrottlingRate",{rate:1});
+  fs.writeFileSync(path.join(root,"output/playwright",`centripetal-${label}-release-frames.json`),JSON.stringify(reports,null,2));
+  console.log(label+" release frames: "+JSON.stringify(reports));
+}
 async function lowSpeedFeedback(cdp, base, launch) {
   await cdp.send('Page.navigate',{url:base+launch});await ready(cdp);
   await click(cdp,'#startButton');await push(cdp,1);await click(cdp,'#measureButton');
@@ -478,6 +542,7 @@ async function main() {
     const errors = []; cdp.on("Runtime.exceptionThrown", event => errors.push(event.exceptionDetails?.exception?.description || event.exceptionDetails?.text));
     server = H.createServer(root); await H.listenServer(server);
     const sourceBase = `http://127.0.0.1:${server.address().port}`;
+    await continuousRelease(cdp,sourceBase,`/sim/${slug}/index.html`,"source");
     await responsiveSpin(cdp, sourceBase, `/sim/${slug}/index.html`);
     await scenario(cdp, sourceBase, `/sim/${slug}/index.html`, "source", 1280, 800);
     await scenario(cdp, sourceBase, `/sim/${slug}/index.html`, "source", 390, 600);
@@ -488,6 +553,7 @@ async function main() {
     await H.closeServer(server); server = null;
     const extracted = H.buildAndExtractPackage(tempRoot, { slug }); packageDirectory = extracted.packageDirectory;
     server = H.createServer(packageDirectory); await H.listenServer(server);
+    await continuousRelease(cdp,`http://127.0.0.1:${server.address().port}`,extracted.activityPath,"package");
     await scenario(cdp, `http://127.0.0.1:${server.address().port}`, extracted.activityPath, "package", 390, 600);
     await buttonOnly(cdp, `http://127.0.0.1:${server.address().port}`, extracted.activityPath, "package");
     await signedMeasurements(cdp, `http://127.0.0.1:${server.address().port}`, extracted.activityPath, "package");

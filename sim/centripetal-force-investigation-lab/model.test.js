@@ -71,3 +71,14 @@ assert.ok(M.coast(released,.016).angle<released.angle,"first frame after reverse
 assert.equal(M.sampleReady({q:[]},24),true); assert.equal(M.sampleReady({q:[]},24.001),false);
 for(let q=250;q<=6000;q++) assert.equal(M.slot(q),1+Math.min(23,Math.floor((q-250)/250)),"legacy speed bins unchanged");
 assert.deepEqual(M.releaseMotion(direct).history,[]);
+
+const flick=M.dragMotion(M.dragMotion(M.motion(),0,0),-.6,40);
+const tail=M.dragMotion(flick,-.6001,180);
+assert.equal(tail.omega,flick.omega,"subpixel release jitter cannot erase flick speed");
+assert.ok(Math.abs(tail.angle-.6001)<1e-12,"even tiny final displacement keeps its position");
+assert.equal(M.coast(flick,.18).angle,flick.angle+flick.omega*.18,"a long frame cannot discard elapsed rotation");
+assert.equal(M.coast(flick,.18).omega,flick.omega);
+const stopped=M.coast({...M.motion(),omega:.045},1,true);
+assert.equal(stopped.omega,0);assert.ok(Math.abs(stopped.angle-.00225)<1e-12,"braking integrates only until stopped");
+const reverseStop=M.coast({...M.motion(),omega:-.045},1,true);
+assert.equal(reverseStop.omega,0);assert.ok(Math.abs(reverseStop.angle+.00225)<1e-12);

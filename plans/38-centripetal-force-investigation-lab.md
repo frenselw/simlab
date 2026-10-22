@@ -728,3 +728,28 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 - Site source c0db3a7b8d25955d2fe750b1dded96b997cacdde；v10：appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_f2e9349762248191bf49d58d14aedbdc；deployment appgdep_6ada1e3133f08191af7d8eb8b64a2dac，Sites回報succeeded。沿用原owner-only權限及使用者已授權的官方工具憑證stdin流程。
 - 已重新載入並顯示原Site分頁；以實際瀏覽器拖動操作環再放手，讀數11.439 rad/s並持續旋轉；開始測量後按住減速2.5秒，降至10.315 rad/s，正常保存5點並顯示取點要求已達標。分頁保留供使用者試手感。
 - 網址：https://centripetal-force-investigation-lab.ieyp.chatgpt.site/centripetal-force-investigation-lab/
+
+## 拖動與慣性交接停頓修正（2026-10-22，動工前決策）
+
+- 使用者仍感到放手時停頓，要求再修。前輪「放手100ms後角度有變」不等於交接順暢，今輪需記錄輸入／每幀角度／首幀延遲及主線程工作。不上sub-agents。
+- 基線：390×600真CDP滑鼠，正常及4倍CPU減速、測量關／開。放手後首個移動幀約15.8／19.6／9.9／38.2ms（工具及機器相關，非真手機保證）。profile存output/playwright/centripetal-motion-before.json。
+- 範圍：本活動model的coast與微小位移、main的pointer／動畫／採樣排程、現有model及browser測試、計劃／套件／原私人Site。沒有新依賴或測試入口，mv3／rv2／評分與保存schema不變。
+- 移除coast把>120ms整幀丟棄的分支，用實際經過時間積分；煞停時只積分到零速時刻。可見性／取消仍暫停，恢復不跨頁自轉。
+- pointer事件只更新角度與速度及輕量轉盤transform，不同步重寫讀數／提示／圖表；單一RAF循環負責讀數更新。放手用事件時間接上動畫時鐘，採樣保存及重畫圖表排到獨立task，避免阻塞第一個旋轉幀。回呼仍檢查editable／階段／drag／measuring，原保存與錯誤流程保留。
+- 小於0.002rad的感測尾端抖動只更新位置，不抹去最後推速；約低於0.2px／100px半徑，最低可量轉速仍0.25rad/s。確實反向的較大位移照常反向。
+- 驗證：逐幀DOM角度非只測最後速度，mouse／touch及正反向、測量開關、CPU4倍負載；長幀後角位移補回，減速不反轉；取消時排隊採樣不得入庫。source／解壓package、五純測試、check／check:tests及committed selection。真手機／Safari／Moodle仍未驗。
+
+- 量測後續幀另發現動態跨度數值每次觸發新MathJax編譯；改用與即時讀數相同的「數字文字＋固定LaTeX單位」，減少圖點加入時的主線程工作。未變的數字與按鈕文字不重建文字節點。
+
+- 固定圖軸LaTeX節點亦改為沿用，取點只更新刻度／圖點。整體browser覆驗發現短視窗放手立即按測量時，按鈕曾要等讀數節流才啟用；已抽出輕量renderControls，在放手即更新按鈕狀態，仍不執行圖表／數式工作。
+
+### 慣性交接修正驗證
+
+- 五項純測試通過：model／scoring／persistence／lifecycle／interaction。新增細微尾端抖動不清速、180ms幀補回角位移、長時間煞停積分到零且不反向。mv3／rv2及3179／3215／3570-byte最大快照未變。
+- 維護中的完整source與真正解壓package browser通過，包括短視窗立即按測量、連續減速、反轉／再推、圖像、取消／只讀、fullscreen及320／390版面。
+- 新增每份source／package各8種逐幀情況：mouse／touch × 測量開／關 × CPU1／4。記錄requestAnimationFrame中的實際SVG transform；第一個release後回呼立即前進，其後19–21個回呼角度均前進。不是以100ms後的最終角度代替首幀驗證，也不把DOM觀察當作真手機螢幕延遲保證。
+- Source首幀6.8–15.8ms、package首幀7.9–16.5ms；一般CPU最大後續幀間隔19.1ms，CPU4最長38ms（降低負載環境仍可能掉一幀，未宣稱所有環境零掉幀）。報告output/playwright/centripetal-source-release-frames.json及centripetal-package-release-frames.json。
+- 同一測試另模擬180ms主線程繁忙，恢復後角位移仍符合實際時間；在首幀與排隊取點之間觸發取消，沒有寫入新點。固定圖軸MathJax glyph在取點前後為同一DOM節點。
+- check及check:tests（263 entries）通過；最後輕量按鈕更新以main語法及完整browser覆驗。沿用原登記、無新依賴，沒有sub-agent審核。
+- ZIP 16個runtime與canonical sim及Site dist逐位元組一致；SHA-256 f2390f03c3ea136ab4e5fdff744dd953f9aebdb86714b6ff428981e676cf757e。
+- 未驗真手機／Safari、真Moodle及全T0–T3矩陣；維持planned。

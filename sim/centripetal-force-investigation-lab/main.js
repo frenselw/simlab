@@ -8,13 +8,14 @@
   const reasonOptions = [["coefficient", "斜率對應兩側物理量比值／二次項對應質量與半徑的乘積"], ["constant", "只有常數項代表關係"], ["other", "係數與配置無關"], ["uncertain", "配置混雜或資料不足，不能隔離解釋"]];
   const lawOptions = [["linear", "徑向力與研究量成正比（其餘量固定）"], ["square", "徑向力與研究量的平方成正比（其餘量固定）"], ["inverse", "徑向力與研究量成反比"], ["none", "沒有可描述的關係"]];
   const controller = new CentripetalRuntime.Controller(SimScorm, SimActivityFlow, render);
-  let motion = M.motion(), running = false, drag = null, lastFrame = 0, localMessage = "", reviewRun = [null, null, null], mathReady = false, lastLocation = "", graphOpen = true, measuring = false, lastSampleAt = -Infinity, brakeHold = null, squaredGraph = false, graphProjection = null, lastReadoutAt = -Infinity;
+  let motion = M.motion(), running = false, drag = null, lastFrame = 0, localMessage = "", reviewRun = [null, null, null], mathReady = false, lastLocation = "", graphOpen = true, measuring = false, lastSampleAt = -Infinity, brakeHold = null, squaredGraph = false, graphProjection = null, lastReadoutAt = -Infinity, sampleTimer = null;
   const state = () => controller.state, page = () => controller.editable ? state().page : controller.reviewPage;
   const view = () => controller.editable ? state().view : controller.reviewView;
   const task = () => state()?.tasks[page()];
   const activeRun = () => task()?.current === null ? null : task().runs[task().current];
   const shownRun = () => controller.editable ? activeRun() : task()?.runs[reviewRun[page()] ?? task().selected ?? 0] || null;
   const fmt = value => Number(value.toPrecision(3)).toString();
+  function updateText(id, value) { const node = $(id); if (node.textContent !== value) node.textContent = value; }
   const safe = text => String(text).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   const math = (tex, label = tex) => mathReady ? CircuitMath.html({ tex, text: label }) : safe(label);
   function typesetStatic() {
@@ -149,10 +150,16 @@
       const x = result.minX + i / 50 * (result.maxX - result.minX);
       return `${i ? "L" : "M"}${px(x).toFixed(2)} ${py(NewtonFitting.predict(result.model, result.coefficients, x)).toFixed(2)}`;
     }).join(" ") : "";
-    graph.innerHTML = `<path d="M${px(0)} 25V${bottom}M66 ${bottom}H331" fill="none" stroke="#64818d" stroke-width="1.5"/>
-      <g stroke="#e2ebee" stroke-width="1">${[.5,1].map(f => `<path d="M66 ${py(maxY * f)}H331M${px(maxX * f)} 25V${bottom}"/>`).join("")}</g>
-      ${mathReady ? CircuitMath.svg(210, height - 9, axes.x, axisFont, 'fill="#284a5f"') : `<text x="210" y="${height - 9}" text-anchor="middle" font-size="${axisFont}">${axes.x.text}</text>`}
+    if (!$("graphNotation")) graph.innerHTML = '<g id="graphNotation"></g><g id="graphMarks"></g>';
+    const notation = $("graphNotation"), notationKey = [kind, squaredGraph, height, axisFont, mathReady].join(":");
+    if (notation.dataset.key !== notationKey) {
+      notation.innerHTML = `      ${mathReady ? CircuitMath.svg(210, height - 9, axes.x, axisFont, 'fill="#284a5f"') : `<text x="210" y="${height - 9}" text-anchor="middle" font-size="${axisFont}">${axes.x.text}</text>`}
       <g transform="translate(16 ${(bottom + 25) / 2}) rotate(-90)">${mathReady ? CircuitMath.svg(0, 0, axes.y, axisFont, 'fill="#284a5f"') : `<text text-anchor="middle" font-size="${axisFont}">${axes.y.text}</text>`}</g>
+`;
+      notation.dataset.key = notationKey;
+    }
+    $("graphMarks").innerHTML = `<path d="M${px(0)} 25V${bottom}M66 ${bottom}H331" fill="none" stroke="#64818d" stroke-width="1.5"/>
+      <g stroke="#e2ebee" stroke-width="1">${[.5,1].map(f => `<path d="M66 ${py(maxY * f)}H331M${px(maxX * f)} 25V${bottom}"/>`).join("")}</g>
       <g fill="#56717d" font-size="${tickFont}"><text x="66" y="${bottom + 20}">${fmt(minX)}</text>${minX < 0 ? `<text x="${px(0)}" y="${bottom + 20}" text-anchor="middle">0</text>` : ''}<text x="331" y="${bottom + 20}" text-anchor="end">${fmt(maxX)}</text><text x="59" y="32" text-anchor="end">${fmt(maxY)}</text></g>
       ${other.map(([x,y]) => `<circle cx="${px(x)}" cy="${py(y)}" r="4" fill="#b07932" opacity=".65"/>`).join("")}
       ${curve ? `<path class="fit-curve" d="${curve}" fill="none" stroke="#bd5a25" stroke-width="2"/>` : ""}
@@ -162,11 +169,23 @@
     $("graphLegend").hidden = !points.length && !other.length;
     $("graphLegend").textContent = `實心：正轉 · 空心：反轉 · 橙十字：即時讀數${other.length ? " · 棕色：另一組" : ""}`;
   }
-  function renderMotion(force = false) {
+  function renderRotor() {
     if (!state()) return;
     const angle = view() === "setup" ? 0 : -motion.angle * 180 / Math.PI;
     device.querySelector("#rotatingAssembly")?.setAttribute("transform", `rotate(${angle} 300 230)`);
     device.querySelectorAll(".assembly-label").forEach(label => label.setAttribute("transform", `rotate(${-angle} ${label.dataset.x} ${label.dataset.y})`));
+  }
+  function renderControls() {
+    const full = activeRun()?.q.length >= M.MAX_SAMPLES;
+    $("measureButton").disabled = !controller.editable || view() !== "collect" || !running || !!drag || !measuring && (Math.abs(motion.omega) < .25 || full);
+    updateText("measureButton", measuring ? "暫停測量" : "開始測量");
+    $("measureButton").setAttribute("aria-pressed", String(measuring));
+    $("brakeButton").disabled = !controller.editable || view() !== "collect" || !running || !!drag || !motion.omega;
+    $("brakeButton").setAttribute("aria-pressed", String(!!brakeHold));
+  }
+  function renderMotion(force = false) {
+    if (!state()) return;
+    renderRotor();
     const now = performance.now();
     if (!force && now - lastReadoutAt < 50) return;
     lastReadoutAt = now;
@@ -178,18 +197,14 @@
       live.setAttribute("visibility", visible ? "visible" : "hidden");
       if (visible) live.setAttribute("transform", `translate(${px(x)} ${py(reading.a)})`);
     }
-    $("omegaRead").textContent = motion.omega.toFixed(3);
-    $("forceARead").textContent = fmt(reading.a);
-    $("forceBRead").textContent = fmt(reading.b);
-    $("compactOmega").textContent = motion.omega.toFixed(3);
-    $("compactForceA").textContent = fmt(reading.a); $("compactForceB").textContent = fmt(reading.b);
+    updateText("omegaRead", motion.omega.toFixed(3));
+    updateText("forceARead", fmt(reading.a));
+    updateText("forceBRead", fmt(reading.b));
+    updateText("compactOmega", motion.omega.toFixed(3));
+    updateText("compactForceA", fmt(reading.a)); updateText("compactForceB", fmt(reading.b));
 
     const full = activeRun()?.q.length >= M.MAX_SAMPLES;
-    $("measureButton").disabled = !controller.editable || view() !== "collect" || !running || !!drag || !measuring && (Math.abs(motion.omega) < .25 || full);
-    $("measureButton").textContent = measuring ? "暫停測量" : "開始測量";
-    $("measureButton").setAttribute("aria-pressed", String(measuring));
-    $("brakeButton").disabled = !controller.editable || view() !== "collect" || !running || !!drag || !motion.omega;
-    $("brakeButton").setAttribute("aria-pressed", String(!!brakeHold));
+    renderControls();
     let hint, status;
     if (full) { status = "full"; hint = "已達儲存上限；可往「3 圖像」分析。"; }
     else if (drag) { status = "dragging"; hint = "推轉中，暫不取點；放手後繼續。"; }
@@ -217,7 +232,7 @@
     const coverage = S.coverage(M.KINDS[p], run), enough = coverage.dataScore === 4;
     $("samplingGuide").dataset.sufficient = String(enough);
     $("samplingGuide").innerHTML = enough ? `取點要求已達標${editing ? "，可往「3 圖像」" : ""}；更多點不另加取點分。` :
-      `取點要求：至少 3 個轉速區間、跨度 ${math("1\\,\\mathrm{rad}/\\mathrm{s}", "1 rad/s")}。目前 ${coverage.slots} 個、${math(coverage.span.toFixed(3) + "\\,\\mathrm{rad}/\\mathrm{s}", coverage.span.toFixed(3) + " rad/s")}；毋須收集48點。`;
+      `取點要求：至少 3 個轉速區間、跨度 ${math("1\\,\\mathrm{rad}/\\mathrm{s}", "1 rad/s")}。目前 ${coverage.slots} 個、${coverage.span.toFixed(3)} ${math("\\mathrm{rad}/\\mathrm{s}", "rad/s")}；毋須收集48點。`;
     $("notice").hidden = !controller.notice && !localMessage;
     $("notice").textContent = localMessage || controller.notice;
     $("saveRetryButton").hidden = !controller.editable || !controller.unsaved;
@@ -351,7 +366,7 @@
       releaseBrake();
       drag.center = mapPoint(300, 230);
       motion = M.dragMotion({ ...motion, pointerAngle: null }, Math.atan2(event.clientY - drag.center.y, event.clientX - drag.center.x), event.timeStamp);
-      renderMotion(true);
+      renderRotor(); renderControls();
     }
     if (type === "mass") {
       $("app").dataset.drag = "mass";
@@ -377,7 +392,7 @@
       }
       if (motion.warning) { localMessage = "手勢跳幅過大；請慢一點重新推動。"; $("notice").hidden = false; $("notice").textContent = localMessage; }
       else localMessage = "";
-      renderMotion();
+      renderRotor();
     } else if (drag.type === "radius") {
       const direction = drag.side === "A" ? 1 : -1;
       drag.preview = Math.max(0, Math.min(6, drag.startIndex + direction * (svgPoint(event).x - drag.startX) / 21.5));
@@ -413,7 +428,8 @@
         motion = M.dragMotion(motion, Math.atan2(event.clientY - y, event.clientX - x), event.timeStamp);
       }
       motion = M.releaseMotion(motion);
-      renderMotion(true);
+      lastFrame = Math.min(performance.now(), event.timeStamp);
+      renderRotor(); renderControls();
       return;
     }
     clearDropPreview();
@@ -453,9 +469,16 @@
     running = true; motion = { ...motion, omega: Math.max(-M.MAX_OMEGA, Math.min(M.MAX_OMEGA, omega)) };
     render();
   }
-  function frame(time) {
-    const dt = lastFrame ? (time - lastFrame) / 1000 : 0; lastFrame = time;
-    if (running && !drag && controller.editable && view() === "collect") { motion = M.coast(motion, dt, !!brakeHold); if (!motion.omega) releaseBrake(); recordCurrent(); renderMotion(); }
+  function frame() {
+    const time = performance.now(), dt = lastFrame ? (time - lastFrame) / 1000 : 0; lastFrame = time;
+    if (running && controller.editable && view() === "collect") {
+      if (!drag) { motion = M.coast(motion, dt, !!brakeHold); if (!motion.omega) releaseBrake(); }
+      renderMotion();
+      // Keep saving and graph layout out of the frame that hands off the gesture.
+      if (!drag && measuring && sampleTimer === null && M.sampleReady(activeRun(), motion.omega)) {
+        sampleTimer = setTimeout(() => { sampleTimer = null; recordCurrent(); }, 0);
+      }
+    }
     requestAnimationFrame(frame);
   }
   function setupEvents() {
