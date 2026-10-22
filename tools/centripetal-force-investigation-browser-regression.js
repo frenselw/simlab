@@ -37,6 +37,57 @@ async function touchTo(cdp, from, to) {
   const a = await rect(cdp, from), b = await rect(cdp, to);
   await touchDrag(cdp, from, b.x + b.width / 2 - a.x - a.width / 2, b.y + b.height / 2 - a.y - a.height / 2);
 }
+async function radiusFollow(cdp, side, scale, mouse = false) {
+  const selector = `.radius-handle[data-side="${side}"]`, holder = `[data-assembly="${side}"] .weight-holder`;
+  const field = side === 'A' ? 0 : 1, direction = side === 'A' ? 1 : -1;
+  const initial = await rect(cdp, selector), body = await rect(cdp, holder);
+  const x = initial.x + initial.width / 2 + 8, y = initial.y + initial.height / 2 + 6;
+  const input = async (type, px = x, py = y) => {
+    if (mouse) await cdp.send('Input.dispatchMouseEvent', {type:{start:'mousePressed',move:'mouseMoved',end:'mouseReleased'}[type],x:px,y:py,button:'left',buttons:type === 'end' ? 0 : 1,clickCount:1});
+    else await cdp.send('Input.dispatchTouchEvent', {type:{start:'touchStart',move:'touchMove',end:'touchEnd',cancel:'touchCancel'}[type],touchPoints:['end','cancel'].includes(type) ? [] : [{x:px,y:py,id:131,radiusX:1,radiusY:1,force:1}]});
+    await pause(25);
+  };
+  await H.evaluate(cdp, `window.__heldRadius=document.querySelector(${JSON.stringify(selector)})`);
+  await input('start');
+  assert.ok(Math.abs((await rect(cdp, selector)).x - initial.x) < .1, `${side}: off-centre grab does not jump`);
+  for (const distance of [27, 29, 43]) {
+    await input('move', x + direction * distance * scale, y + 28);
+    const handle = await rect(cdp, selector), movedBody = await rect(cdp, holder);
+    assert.ok(Math.abs(handle.x - initial.x - direction * distance * scale) < 1, `${side}: handle follows every horizontal move before release`);
+    assert.ok(Math.abs(movedBody.x - body.x - direction * distance * scale) < 1, `${side}: apparatus follows the finger before release`);
+    assert.equal(await H.evaluate(cdp, `window.__centripetalApp.getState().tasks[0].work[${field}]`), 2, `${side}: preview does not save partial drag`);
+    assert.ok(await H.evaluate(cdp, `window.__heldRadius===document.querySelector(${JSON.stringify(selector)})`), `${side}: captured handle stays mounted`);
+  }
+  assert.match(await H.evaluate(cdp, `document.getElementById('r${side}Value').innerHTML`), /0\.30/, `${side}: radius readout updates while held`);
+  const preview = await rect(cdp, '#radiusPreview');
+  for (const target of ['[data-assembly="A"] .weight-holder', '[data-assembly="B"] .weight-holder', selector]) {
+    const r = await rect(cdp, target);
+    assert.ok(preview.x + preview.width <= r.x || r.x + r.width <= preview.x || preview.y + preview.height <= r.y || r.y + r.height <= preview.y, `${side}: preview leaves apparatus and active handle visible`);
+  }
+  fs.writeFileSync(path.join(root, 'output/playwright', `centripetal-held-${side}-${mouse ? 'mouse' : 'touch'}.png`), Buffer.from((await cdp.send('Page.captureScreenshot', {format:'png',captureBeyondViewport:false})).data, 'base64'));
+  await input('end', x + direction * 43 * scale, y + 28);
+  assert.equal(await H.evaluate(cdp, `window.__centripetalApp.getState().tasks[0].work[${field}]`), 4, `${side}: diagonal release snaps to the nearest tick`);
+  if (mouse) return;
+  const settled = await rect(cdp, holder);
+  await input('start', x + direction * 43 * scale, y);
+  await input('move', x - direction * 9 * scale, y + 28);
+  await input('cancel');
+  assert.ok(Math.abs((await rect(cdp, holder)).x - settled.x) < .1, `${side}: cancellation restores visible apparatus`);
+  assert.equal(await H.evaluate(cdp, `window.__centripetalApp.getState().tasks[0].work[${field}]`), 4, `${side}: cancellation preserves saved radius`);
+  // A tiny horizontal movement still follows continuously, then settles back to the same tick.
+  await input('start', x + direction * 43 * scale, y);
+  await input('move', x + direction * 45 * scale, y + 28);
+  assert.ok(Math.abs((await rect(cdp, holder)).x - settled.x - direction * 2 * scale) < 1);
+  await input('end', x + direction * 45 * scale, y + 28);
+  assert.ok(Math.abs((await rect(cdp, holder)).x - settled.x) < .1, `${side}: unchanged tick clears fractional preview`);
+  const bounds = await rect(cdp, '#stageContent');
+  for (const [endX, expected] of [[direction > 0 ? bounds.x + bounds.width - 1 : bounds.x + 1, 6], [bounds.x + bounds.width / 2 - direction * 20, 0]]) {
+    const handle = await rect(cdp, selector), startX = handle.x + handle.width / 2;
+    await input('start', startX, y); await input('move', endX, y + 28); await input('end', endX, y + 28);
+    assert.equal(await H.evaluate(cdp, `window.__centripetalApp.getState().tasks[0].work[${field}]`), expected, `${side}: clamp stays on its own rail`);
+  }
+  for (let i = 0; i < 4; i++) await click(cdp, `[data-step="${field}:1"]`);
+}
 async function key(cdp, name) {
   await cdp.send("Input.dispatchKeyEvent", { type: "keyDown", key: name, code: name, windowsVirtualKeyCode: 39 });
   await cdp.send("Input.dispatchKeyEvent", { type: "keyUp", key: name, code: name, windowsVirtualKeyCode: 39 });
@@ -76,6 +127,9 @@ async function scenario(cdp, base, launch, label, width, height) {
   assert.equal(await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].work[2]"), 3, `${label}: visible add-weight button`);
   await click(cdp, '[data-step="2:-1"]');
   assert.equal(await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].work[2]"), 2, `${label}: visible remove-weight button`);
+  for (let i = 0; i < 2; i++) await click(cdp, '[data-step="2:-1"]');
+  assert.equal(await H.evaluate(cdp, "document.querySelectorAll('[data-assembly=\"A\"] .weight-plate').length"), 0, `${label}: zero weights leaves an empty holder`);
+  for (let i = 0; i < 2; i++) await click(cdp, '[data-step="2:1"]');
   const tray = await rect(cdp, ".mass-token.tray"), tx = tray.x + tray.width / 2, ty = tray.y + tray.height / 2;
   const finger = (x, y) => ({ x, y, id: 119, radiusX: 1, radiusY: 1, force: 1 });
   await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [finger(tx, ty)] });
@@ -84,12 +138,15 @@ async function scenario(cdp, base, launch, label, width, height) {
   await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
   assert.equal(await H.evaluate(cdp, "document.querySelector('.mass-token.tray').classList.contains('dragging')"), false, `${label}: released weight returns to tray`);
   const scale = await H.evaluate(cdp, 'document.getElementById("deviceSvg").getScreenCTM().a');
-  await touchDrag(cdp, '.radius-handle[data-side="A"]', 43 * scale, 0);
+  await radiusFollow(cdp, 'A', scale);
+  await radiusFollow(cdp, 'B', scale, width > 900);
+  for (let i = 0; i < 2; i++) await click(cdp, '[data-step="1:-1"]');
   data = await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].work[0]");
   assert.equal(data, 4, `${label}: trusted radius drag changes one side`);
   await touchTo(cdp, ".mass-token.tray", '.mass-token.placed.a');
   assert.equal(await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].work[2]"), 3, `${label}: trusted mass placement`);
-  assert.equal(await H.evaluate(cdp, "document.querySelectorAll('[data-assembly=\"A\"] .weight-plate').length"), 3, `${label}: added weight is drawn on A holder`);
+  assert.equal(await H.evaluate(cdp, "document.querySelector('[data-assembly=\"A\"] .assembly-label').textContent"), 'A 3塊', `${label}: label shows all stacked weights`);
+  assert.equal(await H.evaluate(cdp, "document.querySelectorAll('[data-assembly=\"A\"] circle.weight-plate').length"), 1, `${label}: top view shows only the top disc`);
   for (let i = 0; i < 6; i++) await click(cdp, '[data-step="3:1"]');
   await touchTo(cdp, '.mass-token.placed.a', '.mass-token.placed.b');
   assert.deepEqual(await H.evaluate(cdp, 'window.__centripetalApp.getState().tasks[0].work.slice(2)'), [3, 8], `${label}: full holder rejects transfer without losing a weight`);
@@ -109,6 +166,11 @@ async function scenario(cdp, base, launch, label, width, height) {
   const beforePush = await H.evaluate(cdp, "Math.abs(window.__centripetalApp.getMotion().omega)");
   await click(cdp, "#pushButton");
   assert.ok(await H.evaluate(cdp, "Math.abs(window.__centripetalApp.getMotion().omega)") > beforePush, `${label}: visible push button accelerates`);
+  await pause(300);
+  assert.ok(Math.abs(await H.evaluate(cdp, 'window.__centripetalApp.getMotion().angle')) > .1, `${label}: inspect a rotated apparatus`);
+  assert.equal(await H.evaluate(cdp, "document.querySelectorAll('#deviceSvg ellipse,#deviceSvg linearGradient').length"), 0, `${label}: rotating view has no side-view weights or directional shading`);
+  assert.ok(await H.evaluate(cdp, "[...document.querySelectorAll('.assembly-label')].every(e=>e.getAttribute('transform')?.startsWith('rotate('))"), `${label}: count labels stay upright`);
+  fs.writeFileSync(path.join(folder, `centripetal-${label}-rotating-${width}x${height}.png`), Buffer.from((await cdp.send('Page.captureScreenshot', {format:'png',captureBeyondViewport:false})).data, 'base64'));
   const touchEvidence = await H.evaluate(cdp, "window.__touchEvidence");
   assert.ok(touchEvidence.filter(event => event.trusted && event.type === "touch").length >= 4, `${label}: drag targets received trusted touch pointer events`);
   const ring = await rect(cdp, ".spin-segment"), x = ring.x + ring.width / 2, y = ring.y + ring.height / 2;
@@ -183,9 +245,9 @@ async function buttonOnly(cdp, base, launch, label) {
   assert.deepEqual(await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].runs[0]"), saved, `${label}: returning preserves measurements and answers`);
   assert.equal(await H.evaluate(cdp, "document.querySelector('#rotatingAssembly').getAttribute('transform')"), 'rotate(0 300 230)', `${label}: setup restores the aligned apparatus pose`);
   await click(cdp, '[data-step="2:1"]');
-  assert.equal(await H.evaluate(cdp, "document.querySelectorAll('[data-assembly=\"A\"] .weight-plate').length"), 4, `${label}: setup shows working masses`);
+  assert.equal(await H.evaluate(cdp, "document.querySelector('[data-assembly=\"A\"]').dataset.count"), '4', `${label}: setup shows working masses`);
   await click(cdp, '#collectView');
-  assert.equal(await H.evaluate(cdp, "document.querySelectorAll('[data-assembly=\"A\"] .weight-plate').length"), 3, `${label}: old run shows its frozen masses`);
+  assert.equal(await H.evaluate(cdp, "document.querySelector('[data-assembly=\"A\"]').dataset.count"), '3', `${label}: old run shows its frozen masses`);
   await click(cdp, '#pushButton');
   const live = await H.evaluate(cdp, "({force:Number(document.getElementById('forceARead').textContent),omega:Math.abs(window.__centripetalApp.getMotion().omega)})");
   assert.ok(Math.abs(live.force - .1 * .2 * live.omega ** 2) < .0001, `${label}: old run readout uses frozen configuration`);

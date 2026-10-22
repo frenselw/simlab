@@ -154,9 +154,9 @@
 |---|---|
 | Notation | m、r、ω、F 均表示大小；運動方向另以圖示標記。F_A/F_B 下標固定，ω 是角速率非帶符號 Ω。物理量、公式、圖軸與單位以本地 MathJax 的 LaTeX 排版；不向學生顯示 raw LaTeX |
 | Arrows | 如顯示感應器量測方向，用單一實心箭頭及明確「徑向讀數」，不加第三個物體／額外合力；A/B 標記跟托座移動、文字正向，讀數欄固定 |
-| Radius snap | 沿尺投影到合法格，連續預覽後放手保持；可見格的最近點、touch 12px／mouse 8px 門檻；相鄰格不足 24px 時提供放大讀尺與 ± 按鈕，不暗吸到本題正解 |
+| Radius snap | 保留按下位置與拖柄的偏移，按水平位移連續預覽器材及拖柄；限制於本側合法範圍，放手取最近尺格，不要求手指貼近尺線；取消則回滾。相鄰格不足 24px 時提供放大讀尺與 ± 按鈕，不暗吸到本題正解 |
 | Mass snap | 砝碼 drop 到可見樽蓋目標，touch 18px／mouse 10px 局部距離；未命中回工具盤，n 到上限不多加；增減按鈕等效 |
-| Touch preview | 半徑拖動顯示軸心方向、尺格、被測質心及當前 snap，2× 放大、固定無遮擋角；砝碼拖動時預覽砝碼跟隨手指，放錯位置回工具盤；操作環不需精密預覽 |
+| Touch preview | 半徑拖動時器材質心即時跟隨，角落顯示最近三格的讀尺及放手定位值，設定讀數同步更新；砝碼拖動時俯視圓片跟隨手指，放錯位置回工具盤；操作環不需精密預覽 |
 | Graph | A/B 散點以共同資料生成；固定 x=F_B、y=F_A，顯示 N；ω圖顯示 rad/s 與 N。刻度選正常數，不把不同組各自變形後疊成同一線 |
 
 ## Touch gesture ownership contract
@@ -167,7 +167,7 @@
 |---|---|---|---|
 | 操作環／collect | `.spin-segment` 24 個環形分段，至少 44px 局部範圍，環內空白無 overlay | 穩定 HTML 節點，none 在 down 前已設；旋轉不重建捕捉元素 | 左右鍵改速度、Space 暫停；面板有推快／減慢按鈕 |
 | A/B 半徑把手／setup | `.radius-handle[data-side]` 可見手柄＋44px 局部範圍，不覆蓋全尺 | 穩定 HTML，none | 左右鍵移一格 |
-| 砝碼／setup | `.mass-token.tray` 66×62（手機60×54）；`.placed` 貼合可見托座及圓片堆，至少44px，兩側最小半徑亦不重疊 | 穩定 HTML，none；拖動時托座命中提示；滿8塊不接受移入也不扣走來源 | 選 A/B，± 加減 |
+| 砝碼／setup | `.mass-token.tray` 66×62（手機60×54）；`.placed` 貼合俯視圓形托座，至少44px，兩側最小半徑亦不重疊 | 穩定 HTML，none；拖動時托座命中提示；滿8塊不接受移入也不扣走來源 | 選 A/B，± 加減 |
 | 資料組／圖像控制 | 原生 button/select；圖像本身唯讀 | auto；不把整圖設 none | 原生鍵盤 |
 
 | Touch starts on | Owner | Strategy | Evidence |
@@ -444,7 +444,7 @@ Site `dist` 檔案及SHA-256（其中13個為SCORM runtime，根頁為Site入口
 | private deploy | version 2，`appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_b3ce401c8430819193fb3d79451e808c`；deployment `appgdep_6ad9c572383c81919f9525b685d3ce0d` 回報 `succeeded` |
 | audience／URL | owner-only，無外部訪客；https://centripetal-force-investigation-lab.ieyp.chatgpt.site |
 
-## 裝置及返回設定重新設計（2026-10-22）
+## 裝置及返回設定重新設計（2026-10-22，歷史版本）
 
 使用者指出旋轉物件、砝碼位置與返回設定均不直觀。本輪沿用既有物理模型、rubric、snapshot 及依賴，修改裝置繪圖、操作配置及其瀏覽器驗證：
 
@@ -479,3 +479,28 @@ Site `dist` 檔案及SHA-256（其中13個為SCORM runtime，根頁為Site入口
 | Site source | `376d69a5a2d877c7db82edcf2008d9f62775218c`；16個 runtime 與最後 SCORM 相同 |
 | private deploy | version `appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_2d8bf9d2a0d4819195b6b62d9ee6b439`，deployment `appgdep_6ad9cc1de09c8191ae0e459eb5f42ae6` 回報 `succeeded`；owner-only 存取範圍維持不變 |
 | URL | https://centripetal-force-investigation-lab.ieyp.chatgpt.site |
+
+## 統一俯視及即時拖動修正（2026-10-22）
+
+使用者指出側視堆疊圓片在俯視轉盤旋轉時形狀不合理，A/B 拖柄亦未即時帶動器材。本輪範圍為裝置繪圖、砝碼預覽、半徑手勢與既有 browser driver；物理模型、rubric、snapshot、依賴及提交流程沿用。
+
+- 器材、砝碼盤及拖動預覽一致使用平面圓環；俯視只見最上層圓片，數量由正向的 A/B 數量標籤顯示，零塊只畫空托座。移除側面堆疊、偏移陰影與方向性金屬漸層。
+- A/B 拖柄保留抓取偏移，按水平位移連續帶動托座、測力計及引導線，不受垂直偏離尺線影響。放手才把最近合法尺格寫入 working cfg；取消／第二指／失焦回到原設定。預覽不寫入 snapshot。
+- 驗證決策：source／解壓包用可信觸控按住並逐步移動，核對放手前器材與拖柄的位置、即時讀數、抓取偏移、斜拖、A/B 方向、邊界及取消回滾；保留砝碼／採樣／返回設定／提交測試。檢視不同旋轉角度與手機截圖，重跑 T2 package 設定及收集階段。
+
+| 本輪驗證 | 已執行證據 |
+|---|---|
+| source／SCORM browser | 最後版本的既有 browser driver 通過；手機兩側可信 touch、桌面含 mouse；每次 move 的器材與拖柄位移在 1px 內一致，含 2 SVG 單位微移、離尺線 28px 的斜拖、偏心抓取、上下限、取消回滾、同格放手清除預覽。放手前 working cfg 不變，讀數即時預覽，放手後才保存 |
+| 圖像／遮擋 | 只顯示頂層圓片，0 塊為空托座，數量標籤反映配置；已審 390×600 按住 A/B、桌面及手機旋轉截圖。讀尺框改在左下砝碼盤位置，拖半徑期間暫隱砝碼盤；自動核對不遮托座或活動拖柄。手機收集提示移由面板提供，避免蓋住旋轉中的數量標籤 |
+| T2 package | 390×600 的 initial／setup-1／setup-2／returned-setup／collect-0 共 5 案例通過，issues 0；報告 `output/playwright/centripetal-flat-drag-T2-package.json` |
+| 模型／靜態／登記 | 活動五個 node 測試、最後版本 `npm run check`、`git diff --check`、plan 文件連結檢查通過；`check:tests` 263 entries（227 node、36 browser），沿用原 browser entry |
+| 打包／資產 | `npm run package:all` 通過；SCORM 17 檔、16 個 runtime，Site dist 逐檔與 ZIP 相同。ZIP SHA-256：`1c91ce75df194c1cbd6d9cb4924faf157188f1a1e4e51c6e9b537b12899d1d0d` |
+| 限制 | 未重跑前述已知失敗的全套測試；真手機、T4 真 Moodle 及全手勢矩陣未驗。本輪不提升 package-ready／Moodle-ready 狀態 |
+
+本輪三個 runtime 變更檔案 SHA-256；其餘 13 個沿用前輪：
+
+| 路徑 | SHA-256 |
+|---|---|
+| `centripetal-force-investigation-lab/index.html` | `994240353d528f7e1b0017e1a5aa95643fc8f0455d642c64fd8cfed51c9fe6ce` |
+| `centripetal-force-investigation-lab/main.js` | `293caf00677fb40513680a58b53aa1d49057280da0bfcae30f920bb841a92ea8` |
+| `centripetal-force-investigation-lab/styles.css` | `05275175f04212411e2db528af9f0580c093f02d749e88f78618468a1acf2f99` |

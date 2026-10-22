@@ -38,7 +38,11 @@
   }
   const componentX = (side, index) => 300 + (side === "A" ? 1 : -1) * M.radius(index) * 430;
   const radiusY = side => side === "A" ? 318 : 142;
-  const displayedConfig = () => view() === "setup" ? task().work : shownRun()?.cfg || task().work;
+  const displayedConfig = () => {
+    const cfg = view() === "setup" ? task().work.slice() : shownRun()?.cfg || task().work;
+    if (view() === "setup" && drag?.type === "radius") cfg[drag.side === "A" ? 0 : 1] = drag.preview;
+    return cfg;
+  };
   function positionHit(button, x, y) {
     const p = mapPoint(x, y), r = stage.getBoundingClientRect();
     button.style.left = `${p.x - r.left - button.offsetWidth / 2}px`;
@@ -46,17 +50,18 @@
   }
   function layoutTargets() {
     if (!state()) return;
-    const cfg = task().work;
+    const cfg = displayedConfig();
     for (const [side, i] of [["A", 0], ["B", 1]]) {
       const x = componentX(side, cfg[i]);
       positionHit(document.querySelector(`.radius-handle[data-side="${side}"]`), x, radiusY(side));
       const button = document.querySelector(`.mass-token.placed.${side.toLowerCase()}`);
-      const stackHeight = Math.max(0, cfg[i + 2] - 1) * 4, scale = mapPoint(0, 0).scale;
+      const scale = mapPoint(0, 0).scale;
       button.style.width = `${Math.max(44, 58 * scale)}px`;
-      button.style.height = `${Math.max(44, (58 + stackHeight) * scale)}px`;
-      positionHit(button, x, 230 - stackHeight / 2);
+      button.style.height = button.style.width;
+      positionHit(button, x, 230);
       button.setAttribute("aria-label", `${side} 托座：${cfg[i + 2]} 塊砝碼；可拖一塊回砝碼盤`);
     }
+    if (view() !== "collect") return;
     const radius = 213 * mapPoint(0, 0).scale;
     document.querySelectorAll(".spin-segment").forEach((button, i) => {
       const size = Math.max(44, Math.min(64, 2 * Math.PI * radius / 24 + 8));
@@ -82,13 +87,13 @@
     const assemblies = ["A", "B"].map((side, i) => {
       const x = componentX(side, cfg[i]), direction = side === "A" ? 1 : -1, count = cfg[i + 2];
       const colour = side === "A" ? "#087c95" : "#b56317", light = side === "A" ? "#d2f0f3" : "#ffdfad";
-      const plates = Array.from({ length: count }, (_, j) => `<ellipse class="weight-plate" cx="${x}" cy="${230 - j * 4}" rx="23" ry="13" fill="url(#metal)" stroke="#667783" stroke-width="2"/>`).join("");
       return `<g class="assembly" data-assembly="${side}" data-count="${count}" data-radius="${M.radius(cfg[i])}">
         <path d="M300 230H${x}" stroke="${colour}" stroke-width="4"/>
         <rect x="${x - direction * 34 - 8}" y="214" width="16" height="32" rx="4" fill="${light}" stroke="${colour}" stroke-width="3"/>
         <path d="M${x - direction * 34} 219v22" stroke="${colour}" stroke-width="2" stroke-dasharray="3 2"/>
-        <circle cx="${x}" cy="230" r="29" fill="${light}" stroke="${colour}" stroke-width="4"/>
-        ${plates}<circle cx="${x}" cy="${230 - Math.max(0, count - 1) * 4}" r="5" fill="#344957" stroke="#eaf2f5" stroke-width="2"/>
+        <circle class="weight-holder" cx="${x}" cy="230" r="29" fill="${light}" stroke="${colour}" stroke-width="4"/>
+        ${count ? `<circle class="weight-plate" cx="${x}" cy="230" r="23" fill="#cbd6dd" stroke="#667e8d" stroke-width="2"/><circle cx="${x}" cy="230" r="8" fill="${light}" stroke="#667e8d" stroke-width="2"/>` : ''}
+        <circle cx="${x}" cy="230" r="3" fill="${colour}"/>
         <g class="assembly-label" data-x="${x}" data-y="230"><rect x="${x - 39}" y="250" width="78" height="29" rx="9" fill="${colour}"/><text x="${x}" y="271" text-anchor="middle" fill="white" font-size="20" font-weight="700">${side} ${count}塊</text></g>
       </g>`;
     }).join("");
@@ -97,8 +102,7 @@
       return `<g class="radius-ruler" stroke="#758d9b" stroke-width="2"><path d="M300 ${y}H${300 + direction * 172}M${x} ${side === "A" ? 279 : 196}V${y}" stroke-dasharray="4 4"/>
         ${Array.from({ length: 7 }, (_, n) => `<path d="M${componentX(side, n)} ${y - 9}v18"/>`).join("")}</g>`;
     }).join("") : "";
-    device.innerHTML = `<defs><linearGradient id="metal" x2="0.8" y2="1"><stop stop-color="#f8fbfc"/><stop offset=".42" stop-color="#c1ccd3"/><stop offset="1" stop-color="#80939f"/></linearGradient></defs>
-      ${setup ? '<rect x="95" y="193" width="410" height="88" rx="18" fill="#f9fcfd" stroke="#b9cbd5" stroke-width="2"/>' : `<circle cx="300" cy="234" r="201" fill="#afc0c9" opacity=".28"/>
+    device.innerHTML = `${setup ? '<rect x="95" y="193" width="410" height="88" rx="18" fill="#f9fcfd" stroke="#b9cbd5" stroke-width="2"/>' : `
       <circle cx="300" cy="230" r="213" fill="none" stroke="#b98429" stroke-width="13"/>
       <circle cx="300" cy="230" r="196" fill="#f9fcfd" stroke="#87a2b1" stroke-width="3"/>`}
       <g id="rotatingAssembly"><path d="M116 230H484" stroke="#d8e3e9" stroke-width="22" stroke-linecap="round"/>
@@ -241,10 +245,11 @@
   }
   function cancelDrag() {
     if (!drag) return;
+    const operation = drag; drag = null;
     clearDropPreview();
-    if (drag.type === "mass") { drag.target.style.left = ""; drag.target.style.top = ""; drag.target.style.bottom = ""; drag.target.classList.remove("dragging"); }
-    try { drag.target.releasePointerCapture(drag.id); } catch (_) {}
-    drag = null; $("radiusPreview").hidden = true; layoutTargets();
+    if (operation.type === "mass") { operation.target.style.left = ""; operation.target.style.top = ""; operation.target.style.bottom = ""; operation.target.classList.remove("dragging"); }
+    try { operation.target.releasePointerCapture(operation.id); } catch (_) {}
+    $("radiusPreview").hidden = true; layoutTargets();
   }
   function angleOf(event) { const p = svgPoint(event); return Math.atan2(p.y - 230, p.x - 300); }
   function massHit(event, side, pointerType) {
@@ -267,11 +272,20 @@
       document.querySelectorAll(".mass-token.placed").forEach(button => button.classList.add("drop-ready"));
       $("stageHint").textContent = "把圓片放到 A／B 托座；移除砝碼可拖回砝碼盤。";
     }
-    if (type === "radius") showRadiusPreview(target.dataset.side, task().work[target.dataset.side === "A" ? 0 : 1]);
+    if (type === "radius") {
+      $("app").dataset.drag = "radius";
+      drag.startX = svgPoint(event).x;
+      drag.startIndex = task().work[drag.side === "A" ? 0 : 1];
+      drag.preview = drag.startIndex; drag.proposed = drag.startIndex;
+      showRadiusPreview(drag.side, drag.proposed);
+    }
   }
   function showRadiusPreview(side, index) {
     const preview = $("radiusPreview"); preview.hidden = false;
-    preview.innerHTML = `<strong>${side} 側 · 2× 放大</strong><br>軸心 ━━━ ●<br>${math(`r_${side}=${M.radius(index).toFixed(2)}\\,\\mathrm{m}`, `${side} 側半徑 ${M.radius(index).toFixed(2)} m`)}`;
+    const value = math(`r_${side}=${M.radius(index).toFixed(2)}\\,\\mathrm{m}`, `${side} 側半徑 ${M.radius(index).toFixed(2)} m`);
+    const first = Math.max(0, Math.min(4, index - 1));
+    preview.innerHTML = `<strong>放手定位</strong><svg viewBox="0 0 120 32" width="120" height="24" aria-hidden="true"><path d="M20 16H100M20 8v16M60 8v16M100 8v16" fill="none" stroke="#7994a5" stroke-width="2"/><circle cx="${20 + (index - first) * 40}" cy="16" r="7" fill="${side === 'A' ? '#087c95' : '#b56317'}"/></svg>${value}`;
+    $(side === "A" ? "rAValue" : "rBValue").innerHTML = value;
   }
   function move(event) {
     if (!drag || drag.id !== event.pointerId) return;
@@ -284,12 +298,11 @@
       else localMessage = "";
       recordCurrent(); renderMotion();
     } else if (drag.type === "radius") {
-      const p = svgPoint(event), side = drag.side, distance = Math.abs(p.x - 300);
-      const index = Math.max(0, Math.min(6, Math.round((distance - 43) / 21.5)));
-      const snap = mapPoint(componentX(side, index), radiusY(side)), threshold = drag.pointerType === "touch" ? 12 : 8;
-      drag.proposed = Math.hypot(event.clientX - snap.x, event.clientY - snap.y) <= threshold ? index : null;
-      if (drag.proposed !== null) positionHit(drag.target, componentX(side, index), radiusY(side));
-      showRadiusPreview(side, index);
+      const direction = drag.side === "A" ? 1 : -1;
+      drag.preview = Math.max(0, Math.min(6, drag.startIndex + direction * (svgPoint(event).x - drag.startX) / 21.5));
+      const index = Math.round(drag.preview);
+      if (index !== drag.proposed) { drag.proposed = index; showRadiusPreview(drag.side, index); }
+      drawDevice(); layoutTargets();
     } else if (drag.type === "mass") {
       const rect = stage.getBoundingClientRect();
       drag.target.style.left = `${event.clientX - rect.left - drag.target.offsetWidth / 2}px`;
@@ -313,7 +326,7 @@
     if (operation.type === "spin") { motion = { ...motion, pointerAngle: null, time: null }; renderMotion(); return; }
     if (operation.type === "radius" && operation.proposed !== null) {
       const field = operation.side === "A" ? 0 : 1;
-      controller.update(next => M.setWork(next.tasks[next.page], field, operation.proposed));
+      if (!controller.update(next => M.setWork(next.tasks[next.page], field, operation.proposed))) render();
       return;
     }
     if (operation.type === "mass") {
