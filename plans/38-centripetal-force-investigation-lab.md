@@ -777,3 +777,10 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 - 完整browser同時覆蓋測量再推、持續減速、取點／擬合、取消不得取點、只讀／提交、fullscreen及320／390等版面。報告output/playwright/centripetal-source-release-frames.json與centripetal-package-release-frames.json；DOM逐幀觀察不能代替使用者硬件／螢幕實際手感。
 - ZIP SHA-256 a2c060194a25c5b2df00d397481106b1ca197b040c2e75529d360be444706e57，16個runtime與sim及Site dist逐位元組相同。沿用測試登記及依賴，沒有sub-agent審核。
 - 真手機／Safari、真Moodle及全T0–T3矩陣今輪未重驗，維持planned；只改本次轉動交接。
+
+### 持續動畫時鐘 Site v12 交付
+
+- 功能commit 21b213312d4b1ac197390bbfe9759adb0be3452b已推到origin。Committed selection preview：5e9e95377c4b5b25ab431684ccf5c27d6dceda7b → 21b2133，mode=affected，packages僅本活動；output/centripetal-continuous-clock-selection.json。實際測試證據見上節，非整個選取清單全跑。
+- 官方helper推送Site source bab42bd38d32319e6cc9f3aa5e0f5bd68e1774ca；原owner-only audience不變，使用已授權的隱藏stdin憑證流程。v12 appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_7e76ff17078881918863d88352eaf6d2，deployment appgdep_6ada316540e08191a3ee3e0f71a933ec，Sites回報succeeded（2026-10-22T15:53:17Z）。
+- 已開回原私人Site分頁，實際拖動並放手讀數+10.920 rad/s；開始測量、按住減速2.4秒後+9.829 rad/s，保存5點並顯示取點要求已達標。保留該頁供使用者試。這項上線操作不能替代使用者原硬件的手感驗證。
+- 網址：https://centripetal-force-investigation-lab.ieyp.chatgpt.site/centripetal-force-investigation-lab/
