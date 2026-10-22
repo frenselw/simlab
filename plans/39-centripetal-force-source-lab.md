@@ -507,3 +507,4 @@ pending／technical不顯示「提交後正解」以免技術錯誤冒充完成�
 
 - 按使用者要求刪除放大預覽的「箭尖放大 ×2」文字及兩條專屬文字樣式；保留預覽圖、全圖縮圖及操作行為。
 - 靜態核對文字已刪除、兩個預覽SVG仍存在，diff check通過；重建15檔SCORM包。此輪只刪除文字／樣式，未重跑完整互動、手機或Moodle測試。
+- Runtime commit `be67515` 已推送；以`7e2999d`為base的committed selection：affected／本活動package／230 entries，僅選擇預覽。Site source `f1aa9cf21cf4d3fe46996ae0a863dbf73f5aa08f`，v9 deployment `appgdep_6ad9f0a243d08191a4271cf0bb2082de` succeeded，原owner-only網址不變。
