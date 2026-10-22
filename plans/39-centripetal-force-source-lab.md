@@ -51,7 +51,7 @@
 | ui-runtime.js | shared startup／submission 的活動控制器、鎖定與retry |
 | tests | model.test.js、scoring.test.js、persistence.test.js、interaction.test.js、lifecycle.test.js |
 | browser | tools/centripetal-force-source-browser-regression.js；同driver跑source及解壓package |
-| manifest | sim/manifests/centripetal-force-source-lab.xml；七自有runtime檔＋四shared依賴 |
+| manifest | sim/manifests/centripetal-force-source-lab.xml；十自有runtime檔＋四shared依賴 |
 
 閱讀參考：[既有受力圖](21-force-equilibrium-diagram-lab.md)、[圓周方向活動](37-circular-motion-vector-lab.md)。前者的圖長不評分與手機預覽適用；後者的方向表達可沿用。不能把平衡題的「合力為零」或先前活動的歷史尺寸直接搬入本模型；本活動不依賴它們的runtime／測試資料。
 
@@ -87,7 +87,7 @@
 | trough 凹路底 | 汽車最低點瞬間，同樣忽略水平驅動／制動，仍接觸；圓心上方 | 重力下、路面支持上 | F向=N−mg=mv²/r |
 | earth 地球繞太陽 | 太陽近似固定，地球按圓軌道等速；示意尺寸與時間不按真實比例 | 太陽對地球引力，指向太陽 | F向=F引；可解釋等於mv²/r，首版不考萬有引力計數 |
 
-拱／凹是兩個正式評分題；頁首提供相鄰切換，兩題畫面與作答各自保存。圓心位於畫面外時用虛線半徑及「圓心方向」位置關係提示，不能為了顯示完整圓而把車／箭頭縮細。
+拱／凹是兩個正式評分題；頁首提供相鄰切換，兩題畫面與作答各自保存。圓心選項用八方位箭頭；選定後以藍色虛線箭頭標示學生所選方向，與實線的實際力分開。不能為了顯示完整圓而把車／箭頭縮細。
 
 ### 重點迷思與回饋
 
@@ -156,7 +156,7 @@
 
 | Decision | Activity specification and reason |
 |---|---|
-| Notation | T、N、mg、f_s、F引、F向代表大小，方向由實際箭頭；學生式子標「我的關係」。θ從豎直量；向量合成在獨立區域解釋 |
+| Notation | 圖中及力卡用帶向量箭號的 G、F_g、T、N、f_s 等；關係式用大小 T、N、mg、f_s、F_c，明示 G=mg。LaTeX 以既有 MathJax 在建置時產出本地SVG path，無遠端字體／CDN。θ從豎直量 |
 | Arrow graphics | 一個連續實心箭形，箭尖對準canonical端點；學生箭同樣可讀但不按長度評大小。參考層不同顏色＋文字／空心，色覺非唯一區別 |
 | Labels | 力名與來源（如「太陽對地球的引力」）固定列表可查；stage短符號避免碰箭頭；選中提示不遮重心或繩 |
 | Snap | 同一場景所有力均可吸到可見水平／豎直、繩方向及反向、徑向及反向；不按所選kind縮成只剩正解。touch角距≤8°、mouse≤5°且端點距候選射線≤14/10 CSS px；保持拖動preview與放手一致 |
@@ -164,7 +164,7 @@
 | Touch preview | 必須；首次定向／箭尖拖動／改長度時2×局部圖含重心、真實繩／表面／圓心參照及學生箭，固定無遮擋角，無參考答案；up/cancel/切題/鎖定清理 |
 | Geometry assistance | null方向以重心旁「方向未定」小標及可拖handle呈現，不顯示默認向內箭；鍵盤可直接選八方向再微調1°／5°，所有方向都可選 |
 
-第一版不要求全舞台自由起筆：先選力再拖穩定handle，減少手機精準起點負擔。保留左右可滑帶，圖本身空白不捕捉；不同箭頭端點重疊時從panel力清單選定再拖，不能因多個halo遮住整幅圖。
+先按力卡，再從研究對象中心的44px觸控區拖畫；箭尖可編輯，保留方向按鈕及鍵盤替代。保留左右可滑帶，圖本身空白不捕捉；不同箭頭端點重疊時從panel力清單選定再拖，不能因多個halo遮住整幅圖。
 
 ## Touch gesture ownership contract
 
@@ -328,12 +328,12 @@ pending／technical不顯示「提交後正解」以免技術錯誤冒充完成�
 
 | Item | Decision / evidence |
 |---|---|
-| Runtime declaration | 本slug manifest：八自有runtime（含scene.js）＋shared styles/scorm/activity-flow/fullscreen |
-| Logical entries | 六個本slug *.test.js（含scene.test.js）；kind node、scope資料夾slug |
+| Runtime declaration | 本slug manifest：十自有runtime（含scene.js、notation.js、math-glyphs.js）＋shared styles/scorm/activity-flow/fullscreen |
+| Logical entries | 七個本slug *.test.js（含scene.test.js、notation.test.js）；kind node、scope資料夾slug |
 | Browser owner | file `tools/centripetal-force-source-browser-regression.js`，kind browser，scope本slug；source/package同entry執行 |
 | Helpers | 首版N/A，不為預期未用需求拆helper；有新增時照命名／literal import/consumers規則登記 |
 | Manual gates | 既有mobile-scroll manual runner新增本活動矩陣；實機T4另列，不拿manual登記豁免source/package |
-| Registration validation | 修訂版 `npm run check:tests`：264 entries，228 Node、36 browser、48 helpers、2 manual |
+| Registration validation | 本輪 `npm run check:tests`：265 entries，229 Node、36 browser、48 helpers、2 manual |
 | Committed selection | `4aa4d50680f9c757b932e7db08be118f80142950` → `192cd7bda1cd324863345e164b272c64f5d78e86`；`npm run test:affected -- --base=... --head=HEAD --plan` 選 full、packages all，含本活動五項 Node 與專屬 browser；鍵盤修正 commit 為 `ac0c336f9e09d77a8f5ba75f1b696e45e6a49471` |
 | Actual GitHub | 首個實作 SHA `192cd7bda1cd324863345e164b272c64f5d78e86` 的 [Quality run](https://github.com/frenselw/simlab/actions/runs/39740026658) plan/checks/四個 Node 分片已通過；鍵盤修正 SHA 的 [Quality run](https://github.com/frenselw/simlab/actions/runs/39742626251) 待最終結果 |
 
@@ -423,3 +423,20 @@ pending／technical不顯示「提交後正解」以免技術錯誤冒充完成�
 | Sites v3 | 同一 owner-only project `appgprj_6ad9ab2ffe008191bea6e486a6000e05`；八自有 runtime 與 worktree SHA-256 一致。Site source commit `cbd9c18a97dccf80e544355e8d99194d7d07aa4c`；version `appgprj_6ad9ab2ffe008191bea6e486a6000e05~appgver_a25849402d448191a4e2b46113c9e836`；deployment `appgdep_6ad9ca956d408191afe6b8c16d910bb7` succeeded；[預覽](https://centripetal-force-source-lab.ieyp.chatgpt.site) |
 | Git 與 selection | runtime commit `6c167cafc3cfa0d1563a0b2ac55f2c064d3adcf5` 已推送 `codex/centripetal-force-source-lab`；以 `ac0c336f9e09d77a8f5ba75f1b696e45e6a49471` 為 base 的 committed `--affected --plan` 選 full／packages all／264 entries；CI 未等待終態 |
 | 限制 | 不等待 GitHub CI 才交付；本輪不重跑全專案 Node 或全部 T0–T3 phase matrix。真 Moodle／實機 T4 未驗證，package-ready／Moodle-ready 清單維持未勾選，不能冒稱完成 |
+
+
+## 2026-10-22 第二次審閱修訂：畫力呈現、LaTeX與方向箭頭
+
+使用者明確要求參考力合成／分解及受力分析模擬的作圖方式、力用LaTeX、圓心方向改為箭頭。上一節v3證據保留作歷史；本輪不改權威答案形狀或評分。
+
+| 項目 | 實作與驗證 |
+|---|---|
+| 呈現 | 參考 force-equilibrium-diagram-lab/scene.js 的連續實心箭頭及避線標籤、force-composition-construction-lab 的小控制點。全幅受力圖、按力種類分色、力卡直接選取；刪除重複的縮小場景圖以增加畫力空間。 |
+| 圓心方向 | 八個SVG箭頭按3×3實際方位環繞物件；可見選項無方向文字，保留aria-label。所選方向另在舞台畫藍色虛線開口箭頭；明示只表示方向，不能當額外力評分。 |
+| LaTeX | notation.js 為TeX來源與統一呈現；執行 `node sim/centripetal-force-source-lab/notation.js` 用已安裝mathjax-full編譯math-glyphs.js。所有glyph自包含path，runtime無新套件、無CDN。圖／力卡為向量，關係式為大小，G=mg。 |
+| 觸控 | 44px透明拖動區及小箭尖圓點；放大鏡跟隨箭尖，角落小圖保留全幅參照。取消／多指仍不提交作圖。 |
+| 相容 | answer v2/model v2/rubric v1不變；方向仍存八方向key，力仍存kind／angle／length；先前橋頂等待、v1遷移、草稿與結果鎖定保持。 |
+| 測試 | 七個活動Node測試通過；新增測試比對TeX重新編譯產物、無遠端glyph引用、離線browser路徑、實心箭頭末端、六情景標籤無重疊。最終source/package完整互動回歸通過，含視覺方向、LaTeX、分色箭頭、六題作圖截圖、箭尖放大鏡對位與全幅小圖斷言。 |
+| 手機 | T3 focused source／package：direct-drawing、complete × 320×500／390×844，各4/4零issues；其餘拓撲未重跑，不冒稱全矩陣。 |
+| 檢查／套件 | check、check:tests（265 entries）、check-docs、diff check通過；本活動ZIP 15 entries，SHA-256 `B2786BD6961B18DFEEAC7758C149D0C7343999ADDD8432C452377A36188ADF55`；十自有runtime與Sites逐檔相同。 |
+| 部署 | 同一owner-only Site；source commit `89d6e55581223bc9ed3742a915d5ce6c2493c8d1` 已推送，版本部署回覆待記錄。不等待GitHub CI終態。 |

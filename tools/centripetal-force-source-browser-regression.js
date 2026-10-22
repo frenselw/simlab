@@ -23,7 +23,7 @@ async function open(base,state=null,{standalone=false,retain='',deny=false}={}){
 }
 async function rect(selector){return call(`const e=d.querySelector(${JSON.stringify(selector)});if(!e||e.disabled||e.hidden||!e.getClientRects().length)throw Error('Unavailable ${selector}');e.scrollIntoView({block:'nearest'});const r=e.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2,width:r.width,height:r.height,hit:d.elementFromPoint(r.left+r.width/2,r.top+r.height/2)?.closest(${JSON.stringify(selector)})===e};`);}
 async function tap(selector){const p=await rect(selector);assert(p.hit,`blocked touch target ${selector}: ${JSON.stringify(p)}`);const id=touchId++,t={x:p.x,y:p.y,id,radiusX:1,radiusY:1,force:1};await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[t]});await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await H.delay(35);}
-async function choose(selector,value){if(selector==='#forcePalette')await analyse();await call(`const e=d.querySelector(${JSON.stringify(selector)});e.value=${JSON.stringify(String(value))};e.dispatchEvent(new Event('change',{bubbles:true}));`);}
+async function choose(selector,value){if(selector==='#forcePalette'){await analyse();await tap(`[data-palette="${value}"]`);return;}await call(`const e=d.querySelector(${JSON.stringify(selector)});e.value=${JSON.stringify(String(value))};e.dispatchEvent(new Event('change',{bubbles:true}));`);}
 async function analyse(){
   if(await call('return app.controller.mode==="edit"&&app.getState().view==="scene"&&!d.getElementById("analyseButton").disabled;'))await tap('#analyseButton');
   await wait(()=>call('return app.getState().view==="analysis";'),'analysis target reached');
@@ -36,6 +36,7 @@ async function dragForce(angle,selector='#forceHandle'){
   await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[touch(start.x,start.y)]});
   for(let i=1;i<=5;i++){const x=start.x+(end.x-start.x)*i/5,y=start.y+(end.y-start.y)*i/5;await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[touch(x,y)]});await H.delay(25);}
   assert(await call('return !d.getElementById("preview").hidden;'),'touch preview missing');
+  const focus=await call('const box=d.getElementById("previewSvg").viewBox.baseVal,r=d.getElementById("diagram").getBoundingClientRect();return {x:r.left+box.x+box.width/2,y:r.top+box.y+box.height/2,overview:!!d.getElementById("previewOverview").querySelector(".force-vector")};');assert(Math.hypot(focus.x-end.x,focus.y-end.y)<8&&focus.overview,'magnifier must follow the arrow tip with a context overview');
   await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await H.delay(35);
 }
 async function screenshot(label){fs.mkdirSync(out,{recursive:true});const r=await cdp.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});fs.writeFileSync(path.join(out,label+'.png'),Buffer.from(r.data,'base64'));}
@@ -56,12 +57,15 @@ async function layoutChecks(base,label){
 }
 async function fill(base,label){
   await viewport(390,844);await open(base,null,{retain:label+'-filled'});
-  assert(await call('return Boolean(d.querySelector("#relationChoices math msub"));'),'native formula notation missing');
+  assert(await call('return Boolean(d.querySelector("#relationChoices svg[data-tex] path"));'),'LaTeX formula glyphs missing');
   for(let page=0;page<6;page++){
     await choose('#compactNav',page);await analyse();
     const s=await call('return app.getState();'),p=M.physics(s.def,page,s.items[page].pose),item=M.CASES[page];
     await tap(`[data-inward="${p.inward}"]`);
     for(const [kind,angle] of p.forces){await choose('#forcePalette',kind);await dragForce(angle,'#originHandle');const after=await call('return app.getState();');assert(M.difference(after.items[page].arrows.at(-1)[1],angle)<=100,JSON.stringify({page,angle,actual:after.items[page].arrows.at(-1)}));}
+    assert(await call(`const buttons=[...d.querySelectorAll('#directionChoices button')];return buttons.length===8&&buttons.every(b=>b.querySelector('svg')&&!b.textContent.trim())&&d.querySelector('[data-inward-indicator="${p.inward}"]')&&d.querySelectorAll('#diagramSvg .force-math[data-tex]').length===${p.forces.length};`),'visual direction / LaTeX force labels missing');
+    const shapes=await call('return [...d.querySelectorAll("#diagramSvg .force-vector")].map(e=>({d:e.getAttribute("d"),fill:e.getAttribute("fill")}));');assert(shapes.every(e=>e.d.endsWith(' Z')));assert(new Set(shapes.map(e=>e.fill)).size===p.forces.length);
+    await call('d.getElementById("forceControls").scrollIntoView({block:"start"});');await screenshot(`${label}-drawn-${page}`);
     await tap(`input[name="relation"][value="${item.relation}"]`);
   }
   await tap('input[name="concept"][value="radial-effect"]');

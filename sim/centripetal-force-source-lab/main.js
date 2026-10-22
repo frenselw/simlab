@@ -1,11 +1,13 @@
 (function(){
   'use strict';
-  const M=CentripetalSourceModel,Scene=CentripetalSourceScene;
+  const M=CentripetalSourceModel,Scene=CentripetalSourceScene,N=CentripetalSourceNotation;
   const d=Object.fromEntries([...document.querySelectorAll('[id]')].map(e=>[e.id,e]));
   const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-  const mathLabel=x=>esc(x).replace(/F向|F引|fₛ|μₛ|mv²/g,t=>({'F向':'<math><msub><mi>F</mi><mtext>向</mtext></msub></math>','F引':'<math><msub><mi>F</mi><mtext>引</mtext></msub></math>','fₛ':'<math><msub><mi>f</mi><mi>s</mi></msub></math>','μₛ':'<math><msub><mi>μ</mi><mi>s</mi></msub></math>','mv²':'<math><mrow><mi>m</mi><msup><mi>v</mi><mn>2</mn></msup></mrow></math>'}[t]));
-  const kindText=i=>M.KINDS[i]?.[1]||'';
-  const symbol=['mg','F引','T','N','fₛ','fₖ','F向','F離','F驅'];
+  const kindText=i=>N.forces[i]?`${N.forces[i].source}的${N.forces[i].name}`:'';
+  const directionCells=[[3,2],[3,1],[2,1],[1,1],[1,2],[1,3],[2,3],[3,3]];
+  function directionPad(attribute,selected,editable){
+    return M.DIRECTIONS.map((key,i)=>`<button type="button" ${attribute}="${attribute==='data-inward'?key:i*450}" style="grid-column:${directionCells[i][0]};grid-row:${directionCells[i][1]}" aria-label="${M.DIRECTION_LABELS[i]}" title="${M.DIRECTION_LABELS[i]}" aria-pressed="${selected===key}" ${editable?'':'disabled'}>${N.directionIcon(i*450)}</button>`).join('')+'<span class="direction-origin" aria-hidden="true"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="10" fill="#dbeafe" stroke="#476b96" stroke-width="2"/><circle cx="24" cy="24" r="3" fill="#334155"/></svg></span>';
+  }
   const feedback=[
     '水平拉力提供徑向合力；重力與支持力在豎直方向平衡。不要另外畫一個向心力。',
     '靜摩擦指向圓心，不一定沿運動反方向；這裏沒有相對滑動。',
@@ -21,41 +23,39 @@
   const diagnostics={down:0,move:0,up:0,cancel:0,trustedTouch:0};
   d.caseNav.innerHTML=M.CASES.map((q,i)=>`<button type="button" data-page="${i}">${i+1} ${esc(q.title)}</button>`).join('');
   d.compactNav.innerHTML=M.CASES.map((q,i)=>`<option value="${i}">${i+1} ${esc(q.title)}</option>`).join('');
-  d.forcePalette.innerHTML+=[...M.KINDS].map(([key,label],i)=>`<option value="${i}">${esc(label)}</option>`).join('');
+  d.kindSelect.innerHTML=N.forces.map((f,i)=>`<option value="${i}">${esc(f.name+'：'+f.source)}</option>`).join('');
+  d.notationHint.innerHTML='箭頭上的符號表示力矢量；重力大小 '+N.prose('G = mg')+'。';
   const point=(cx,cy,a,length)=>[cx+Math.cos(a*Math.PI/1800)*length,cy-Math.sin(a*Math.PI/1800)*length];
-  function arrow(cx,cy,a,len,color,outline=false){
-    const [x,y]=point(cx,cy,a,len),dx=(x-cx)/len,dy=(y-cy)/len,head=Math.min(13,len*.45),wing=Math.min(6,len*.22),bx=x-dx*head,by=y-dy*head,nx=-dy,ny=dx;
-    return `<path d="M${cx},${cy} L${bx},${by} M${x},${y} L${bx+nx*wing},${by+ny*wing} L${bx-nx*wing},${by-ny*wing} Z" stroke="${color}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="${outline?'white':color}"/>`;
-  }
   const text=(x,y,value,attr='')=>`<text x="${x}" y="${y}" ${attr}>${esc(value)}</text>`;
   const circle=(x,y,r,fill,stroke='none')=>`<circle cx="${x}" cy="${y}" r="${r}" fill="${fill}" stroke="${stroke}" stroke-width="2"/>`;
   function geometry(){
-    const r=d.diagram.getBoundingClientRect(),w=Math.max(1,r.width),h=Math.max(1,r.height),top=h>=240?Math.min(155,h*.34):0;
-    const scale=Math.max(.3,Math.min(2.4,(w-64)/220,(h-top-40)/210));
-    return {w,h,cx:w/2,cy:top+(h-top)/2+5,scale,top};
+    const r=d.diagram.getBoundingClientRect(),w=Math.max(1,r.width),h=Math.max(1,r.height);
+    const scale=Math.max(.3,Math.min(2.6,(w-74)/220,(h-68)/210));
+    return {w,h,cx:w/2,cy:h/2+7,scale};
   }
   function analysisDrawing(state,page,geo,reference=false,previewArrow=null){
-    const {w,h,cx,cy,scale}=geo,item=state.items[page],forces=reference?M.physics(state.def,page,item.pose).forces.map(([kind,a,m])=>[kind,a,m]):item.arrows.slice();
+    const {w,h,cx,cy,scale}=geo,item=state.items[page],physics=M.physics(state.def,page,item.pose);
+    const forces=reference?physics.forces.map(([kind,a,m])=>[kind,a,m]):item.arrows.slice();
     if(previewArrow?.creating&&previewArrow.angle!==null)forces.push([item.palette,previewArrow.angle,previewArrow.length]);
-    let svg='';
-    if(geo.top){
-      const snapshotPose=(page===3||page===4)?.5:(item.pose??0)/10000;
-      svg+=`<svg class="scene-snapshot" x="0" y="0" width="${w}" height="${geo.top-8}" viewBox="0 0 ${w} ${geo.top-8}">${Scene.scene(page,state.def,{w,h:geo.top-8},snapshotPose)}</svg>`;
-    }
-    const heading=page<3?'沿半徑的豎直剖面 · 從物件畫力':page===3?'汽車在橋頂的受力圖':page===4?'汽車在最低點的受力圖':'地球的受力圖';
-    if(geo.top!==undefined)svg+=text(8,(geo.top||0)+19,heading,'class="analysis-heading"');
+    let svg=`<rect width="${w}" height="${h}" fill="#fff"/>`;
+    if(!geo.mini)svg+=text(8,20,page<3?'沿半徑的豎直剖面':page===3?'汽車在拱橋頂部':page===4?'汽車在凹路最低點':'地球受力分析','class="analysis-heading"');
     svg+=Scene.backdrop(page,state.def,geo,item.pose);
-    let referenceScale=1;
-    if(reference){const max=Math.max(...forces.map(f=>f[2]));referenceScale=76/max;}
-    forces.forEach(([kind,angle,len],i)=>{
-      const a=previewArrow&&previewArrow.index===i?previewArrow.angle:angle;
-      const displayLength=reference?len*referenceScale*scale:(previewArrow&&previewArrow.index===i?previewArrow.length:len)*scale;
-      if(a===null){svg+=circle(cx+20*scale,cy-20*scale,5,'#7049a4')+text(cx+28*scale,cy-22*scale,'方向未定');return;}
-      svg+=arrow(cx,cy,a,displayLength,reference?'#18734b':'#7049a4',reference);
-      const [x,y]=point(cx,cy,a,displayLength*.65),rad=a*Math.PI/1800;
-      svg+=text(Math.max(20,Math.min(w-20,x-Math.sin(rad)*16*scale)),Math.max((geo.top||0)+23,Math.min(h-8,y-Math.cos(rad)*16*scale)),symbol[kind],`text-anchor="middle" fill="${reference?'#18734b':'#7049a4'}"`);
-    });
-    return svg;
+    const inward=reference?physics.inward:item.inward;
+    if(inward){
+      const a=M.directionAngle(inward),[x,y]=point(cx,cy,a,105*scale),rad=a*Math.PI/1800,ux=Math.cos(rad),uy=-Math.sin(rad),bx=x-9*ux,by=y-9*uy;
+      svg+=`<g class="inward-indicator" data-inward-indicator="${inward}" aria-label="所選圓心方向：${M.DIRECTION_LABELS[M.DIRECTIONS.indexOf(inward)]}"><path d="M${cx} ${cy}L${x} ${y}" stroke="#2563eb" stroke-width="2" stroke-dasharray="5 5"/><path d="M${bx-5*uy} ${by+5*ux}L${x} ${y}L${bx+5*uy} ${by-5*ux}" stroke="#2563eb" stroke-width="2" fill="none"/></g>`;
+    }
+    const size=Math.max(16,Math.min(25,21*scale)),normalise=reference?76/Math.max(...forces.map(f=>f[2])):1;
+    const entries=forces.map(([kind,angle,len],i)=>{
+      const a=previewArrow?.index===i?previewArrow.angle:angle,length=(previewArrow?.index===i?previewArrow.length:len)*normalise*scale;
+      const force=N.forces[kind],measure=N.measure(force.tex,size);return {i,kind,angle:a,length,force,width:measure.width+4,height:measure.height+4};
+    }).filter(e=>e.angle!==null);
+    const labels=Scene.labelPositions(entries,geo);
+    svg+='<g class="student-arrows">';
+    for(const e of labels)svg+=`<path class="force-vector" data-arrow="${e.i}" data-kind="${e.kind}" d="${Scene.arrowPath(geo,e.angle,e.length)}" fill="${e.force.color}" opacity="${reference||item.selected===null||item.selected===e.i?1:.8}"/><circle cx="${e.end.x}" cy="${e.end.y}" r="2.8" fill="#fff" stroke="${e.force.color}" stroke-width="1.5"/>`;
+    svg+='</g><g class="force-labels">';
+    for(const e of labels)svg+=`<rect x="${e.box.x-2}" y="${e.box.y-2}" width="${e.width+4}" height="${e.height+4}" rx="3" fill="#ffffffed"/>`+N.svg(e.force.tex,e.force.name,e.box,size,e.force.color);
+    return svg+'</g>'+circle(cx,cy,3.5,'#334155');
   }
   function syncMotion(c){
     if(!c.state)return;
@@ -87,17 +87,21 @@
     if(scene)d.motionPosition.value=String(Math.min(9999,Math.floor(Scene.phase(motion.travel)*10000)));
     d.originHandle.hidden=scene||controller.mode!=='edit'||item.palette===null||item.arrows.length>=6;
     d.originHandle.style.left=layout.cx+'px';d.originHandle.style.top=layout.cy+'px';
+    d.originHandle.style.setProperty('--force-color',N.forces[item.palette]?.color||'#2563eb');
     const selected=item.selected===null?null:item.arrows[item.selected];
     d.forceHandle.hidden=scene||controller.mode!=='edit'||!selected||Boolean(drag?.creating);
     if(selected&&!d.forceHandle.hidden){
       const a=drag?drag.angle:selected[1],len=drag?drag.length:selected[2],at=a===null?[layout.cx+20*layout.scale,layout.cy-20*layout.scale]:point(layout.cx,layout.cy,a,len*layout.scale);
+      d.forceHandle.style.setProperty('--force-color',N.forces[selected[0]].color);
       d.forceHandle.style.left=at[0]+'px';d.forceHandle.style.top=at[1]+'px';d.forceHandle.dataset.index=String(item.selected);
       d.forceHandle.setAttribute('aria-label',`${kindText(selected[0])}，${a===null?'方向未定':(a/10).toFixed(1)+'度'}；拖動箭尖或使用方向控制`);
     }
     if(drag&&drag.touch){
       d.preview.hidden=false;const stage=d.stage.getBoundingClientRect();d.preview.style.left=(drag.clientX>stage.left+stage.width/2?4:Math.max(4,stage.width-144))+'px';
-      d.previewSvg.setAttribute('viewBox',`${layout.cx-35} ${layout.cy-30} 70 60`);
+      const focus=drag.angle===null?[layout.cx,layout.cy]:point(layout.cx,layout.cy,drag.angle,drag.length*layout.scale);
+      d.previewSvg.setAttribute('viewBox',`${focus[0]-35} ${focus[1]-30} 70 60`);
       d.previewSvg.innerHTML=analysisDrawing(s,page,layout,false,drag);
+      d.previewOverview.setAttribute('viewBox',`0 0 ${layout.w} ${layout.h}`);d.previewOverview.innerHTML=d.previewSvg.innerHTML;
     }else d.preview.hidden=true;
   }
   function render(c){
@@ -112,7 +116,7 @@
     d.retryFinal.hidden=!['committed','frozen'].includes(c.mode);d.feedback.hidden=!c.trusted;
     d.app.classList.toggle('checking',c.mode==='technical'||c.mode==='mismatch');
     if(hasState){
-      const q=M.CASES[page];d.caseTitle.textContent=`${page+1}. ${q.title}`;d.caseNote.textContent=q.note;
+      const q=M.CASES[page];d.caseTitle.textContent=`${page+1}. ${q.title}`;d.caseNote.innerHTML=N.prose(q.note);
       const scene=c.state.view==='scene';
       d.answerArea.hidden=editable&&scene;d.motionControls.hidden=!editable||!scene;
       d.analyseButton.disabled=!editable||!scene||motion.pending!==null;d.sceneButton.disabled=!editable||motion.pending!==null;
@@ -121,19 +125,24 @@
       d.motionPosition.disabled=motion.pending!==null;
       d.motionMessage.textContent=motion.pending!==null?(page===3?'等待汽車到達橋頂；若已駛過，會在下一圈到頂時停下。':'等待汽車到達最低點；若已駛過，會在下一圈到達時停下。'):page===3||page===4?'先觀察汽車運動，再按分析按鈕；汽車會到指定位置才停下。':'可暫停或拖動位置，再開始畫力。';
       d.directionHint.textContent=page===5?'選擇最接近的八方位；畫力時箭頭須指向太陽。':page<3?'依受力圖的徑向豎直剖面判斷。':'';
-      d.directionChoices.innerHTML=M.DIRECTIONS.map((key,i)=>`<button type="button" data-inward="${key}" aria-pressed="${item.inward===key}" ${editable?'':'disabled'}>${M.DIRECTION_LABELS[i]}</button>`).join('');
-      d.forcePalette.value=item.palette===null?'':String(item.palette);d.forcePalette.disabled=!editable;d.addForce.disabled=!editable||item.palette===null||item.arrows.length>=6;
-      d.forceList.innerHTML=item.arrows.map(([kind,angle],i)=>`<div class="force-row" data-selected="${item.selected===i}"><button type="button" data-select="${i}" ${editable?'':'disabled'} aria-pressed="${item.selected===i}">${i+1} 選取</button><select data-kind="${i}" aria-label="第${i+1}支力的種類與來源" ${editable?'':'disabled'}>${M.KINDS.map(([key,label],j)=>`<option value="${j}" ${j===kind?'selected':''}>${esc(label)}</option>`).join('')}</select><span class="force-state">${angle===null?'方向未定':`方向 ${(angle/10).toFixed(1)}°`}</span></div>`).join('')||'<p>尚未加入任何力。</p>';
-      d.directionTools.hidden=item.selected===null;d.selectedForceLabel.textContent=item.selected===null?'':kindText(item.arrows[item.selected][0]);
-      d.arrowDirections.innerHTML=M.DIRECTIONS.map((key,i)=>`<button type="button" data-arrow-angle="${i*450}" ${editable?'':'disabled'}>${M.DIRECTION_LABELS[i]}</button>`).join('');
+      d.directionChoices.innerHTML=directionPad('data-inward',item.inward,editable);
+      d.forcePalette.innerHTML=N.forces.map((f,i)=>`<button type="button" class="force-card" data-palette="${i}" style="--force-color:${f.color}" aria-label="選擇${esc(kindText(i))}" aria-pressed="${item.palette===i}" ${editable?'':'disabled'}><span class="force-symbol">${N.forceHtml(i)}</span><span><b>${esc(f.name)}</b><small>${esc(f.source)}</small></span></button>`).join('');
+      d.addForce.disabled=!editable||item.palette===null||item.arrows.length>=6;
+      d.drawInstruction.innerHTML=item.palette===null?'先按選一種力。':`${N.forceHtml(item.palette)} 已選取：從物件中心拖出箭頭。`;
+      d.forceList.innerHTML=item.arrows.map(([kind,angle],i)=>`<button type="button" class="force-chip" data-select="${i}" style="--force-color:${N.forces[kind].color}" ${editable?'':'disabled'} aria-label="選取第${i+1}支${esc(kindText(kind))}" aria-pressed="${item.selected===i}"><span class="force-symbol">${N.forceHtml(kind)}</span>${angle===null?'<span class="pending-direction">方向未定</span>':N.directionIcon(angle)}</button>`).join('')||'<p class="hint">尚未畫力。</p>';
+      d.directionTools.hidden=item.selected===null;
+      const selected=item.selected===null?null:item.arrows[item.selected];
+      d.selectedForceLabel.innerHTML=selected?N.forceHtml(selected[0])+' '+esc(N.forces[selected[0]].name):'';
+      d.kindSelect.disabled=!editable;d.kindSelect.value=selected?String(selected[0]):'';
+      d.arrowDirections.innerHTML=directionPad('data-arrow-angle',selected&&selected[1]!==null?M.angleDirection(selected[1]):null,editable);
       d.deleteForce.disabled=!editable||item.selected===null;d.clearDrawing.disabled=!editable||!item.arrows.length;d.clearPage.disabled=!editable;
-      d.relationChoices.innerHTML=M.options(c.state,page).map(([key,label])=>`<label class="choice"><input type="radio" name="relation" value="${key}" ${item.relation===key?'checked':''} ${editable?'':'disabled'}><span>${mathLabel(label)}</span></label>`).join('');
+      d.relationChoices.innerHTML=M.options(c.state,page).map(([key,label])=>`<label class="choice"><input type="radio" name="relation" value="${key}" ${item.relation===key?'checked':''} ${editable?'':'disabled'}><span>${N.prose(label)}</span></label>`).join('');
       d.conceptChoices.innerHTML=M.CONCEPT.map(([key,label])=>`<label class="choice"><input type="radio" name="concept" value="${key}" ${c.state.concept===key?'checked':''} ${editable?'':'disabled'}><span>${esc(label)}</span></label>`).join('');
       d.conceptField.hidden=page!==5;
-      d.checkSummary.innerHTML=M.CASES.map((q,i)=>{const a=c.state.items[i],answered=[a.inward!==null,a.arrows.some(x=>x[1]!==null),a.relation!==null].filter(Boolean).length,geo={w:290,h:150,cx:145,cy:76,scale:.7};return `<div class="summary-row"><button type="button" data-return="${i}">${i+1} ${esc(q.title)}</button>${answered}/3 項已答；${a.arrows.filter(x=>x[1]===null).length} 支力方向未定<svg viewBox="0 0 290 150" role="img" aria-label="${esc(q.title)}的目前受力圖">${analysisDrawing(c.state,i,geo)}</svg></div>`;}).join('')+`<p>共同概念：${c.state.concept===null?'未答':'已答'}</p>`;
+      d.checkSummary.innerHTML=M.CASES.map((q,i)=>{const a=c.state.items[i],answered=[a.inward!==null,a.arrows.some(x=>x[1]!==null),a.relation!==null].filter(Boolean).length,geo={w:290,h:150,cx:145,cy:76,scale:.7,mini:true};return `<div class="summary-row"><button type="button" data-return="${i}">${i+1} ${esc(q.title)}</button>${answered}/3 項已答；${a.arrows.filter(x=>x[1]===null).length} 支力方向未定<svg viewBox="0 0 290 150" role="img" aria-label="${esc(q.title)}的目前受力圖">${analysisDrawing(c.state,i,geo)}</svg></div>`;}).join('')+`<p>共同概念：${c.state.concept===null?'未答':'已答'}</p>`;
       d.returnEdit.disabled=false;d.submitButton.disabled=c.unsaved;
       if(c.trusted){
-        d.feedbackList.innerHTML=M.CASES.map((q,i)=>{const result=c.result.detail[i],refGeo={w:290,h:150,cx:145,cy:76,scale:.7},forces=M.physics(c.state.def,i,c.state.items[i].pose).forces;return `<article class="feedback-card"><h3>${i+1}. ${esc(q.title)} — ${result.earned.toFixed(2)} / 16</h3><p>圓心 ${result.inward}/3；力種類與來源 ${result.force.toFixed(2)}/6；方向 ${result.direction.toFixed(2)}/4；關係 ${result.relation}/3</p><svg viewBox="0 0 290 150" role="img" aria-label="${esc(q.title)}的參考受力圖">${analysisDrawing(c.state,i,refGeo,true)}</svg><p>參考實際力：${forces.map(f=>esc(kindText(f[0]))).join('、')}。</p><p>${esc(feedback[i])}</p></article>`;}).join('')+`<p>共同概念 ${c.result.concept}/4。向心力是徑向合效果，不是參考圖上另一支外力箭頭。等速圓周運動的全合力向內；一般變速圓周運動只有徑向分量提供向心加速度。</p>`;
+        d.feedbackList.innerHTML=M.CASES.map((q,i)=>{const result=c.result.detail[i],refGeo={w:290,h:150,cx:145,cy:76,scale:.7,mini:true},forces=M.physics(c.state.def,i,c.state.items[i].pose).forces;return `<article class="feedback-card"><h3>${i+1}. ${esc(q.title)} — ${result.earned.toFixed(2)} / 16</h3><p>圓心 ${result.inward}/3；力種類與來源 ${result.force.toFixed(2)}/6；方向 ${result.direction.toFixed(2)}/4；關係 ${result.relation}/3</p><svg viewBox="0 0 290 150" role="img" aria-label="${esc(q.title)}的參考受力圖">${analysisDrawing(c.state,i,refGeo,true)}</svg><p>參考實際力：${forces.map(f=>N.forceHtml(f[0])+' '+esc(N.forces[f[0]].name)).join('、')}。</p><p>${N.prose(feedback[i])}</p></article>`;}).join('')+`<p>共同概念 ${c.result.concept}/4。向心力是徑向合效果，不是參考圖上另一支外力箭頭。等速圓周運動的全合力向內；一般變速圓周運動只有徑向分量提供向心加速度。</p>`;
       }
       if(c.mode!=='technical'&&c.mode!=='mismatch')try{drawStage();}catch(_){c.technical('圖像暫時無法呈現，本次作答已停止修改。請聯絡教師檢查。');return;}
     }else{d.diagramSvg.innerHTML='';d.forceHandle.hidden=true;d.originHandle.hidden=true;d.preview.hidden=true;}
@@ -193,10 +202,10 @@
   d.motionPosition.addEventListener('input',()=>{if(controller.mode!=='edit'||motion.pending!==null)return;motion.travel=Number(d.motionPosition.value)/10000;motion.playing=false;render(controller);});
   reduced.addEventListener('change',()=>{if(reduced.matches){if(motion.pending!==null){motion.travel=motion.pending;finishAnalysis();}else{motion.playing=false;render(controller);}}});
   d.directionChoices.addEventListener('click',e=>{const b=e.target.closest('[data-inward]');if(b)controller.command({type:'inward',value:b.dataset.inward});});
-  d.forcePalette.addEventListener('change',()=>controller.command({type:'palette',value:d.forcePalette.value===''?null:Number(d.forcePalette.value)}));
+  d.forcePalette.addEventListener('click',e=>{const b=e.target.closest('[data-palette]');if(b)controller.command({type:'palette',value:Number(b.dataset.palette)});});
   d.addForce.addEventListener('click',()=>controller.command({type:'add'}));
   d.forceList.addEventListener('click',e=>{const b=e.target.closest('[data-select]');if(b)controller.command({type:'select',index:Number(b.dataset.select)});});
-  d.forceList.addEventListener('change',e=>{const x=e.target.closest('[data-kind]');if(x){controller.command({type:'select',index:Number(x.dataset.kind)});controller.command({type:'kind',value:Number(x.value)});}});
+  d.kindSelect.addEventListener('change',()=>controller.command({type:'kind',value:Number(d.kindSelect.value)}));
   d.arrowDirections.addEventListener('click',e=>{const b=e.target.closest('[data-arrow-angle]');if(b){const item=controller.state.items[controller.page],a=item.arrows[item.selected];controller.command({type:'arrow',angle:Number(b.dataset.arrowAngle),length:a[2]});}});
   d.deleteForce.addEventListener('click',()=>controller.command({type:'delete'}));d.clearDrawing.addEventListener('click',()=>controller.command({type:'clear-drawing'}));d.clearPage.addEventListener('click',()=>{controller.command({type:'clear-page'});controller.command({type:'scene'});});
   d.relationChoices.addEventListener('change',e=>{if(e.target.name==='relation')controller.command({type:'relation',value:e.target.value});});

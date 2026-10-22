@@ -71,19 +71,39 @@
       svg+=`<rect x="4" y="${cy+13*s}" width="${w-8}" height="${15*s}" rx="4" fill="#d6e4df"/>`;
       if(page===0)svg+=line(cx,cy,cx+sign*92*s,cy,'#9b8155',3)+circle(cx+sign*92*s,cy,5*s,'#6c827b')+ball(cx,cy,12*s);
       else svg+=`<rect x="${cx-15*s}" y="${cy-13*s}" width="${30*s}" height="${26*s}" rx="3" fill="#e0a04e" stroke="#af7a32" stroke-width="2"/>`;
-      svg+=label(cx+sign*92*s,cy-15*s,'圓心','text-anchor="middle"');
+      svg+=label(cx+sign*92*s,cy-15*s,'O','text-anchor="middle"');
     }else if(page===2){
       const theta=M.physics(def,page).values.theta,px=cx+sign*84*s*Math.sin(theta),py=cy-84*s*Math.cos(theta);
       svg+=line(cx,cy,px,py,'#9b8155',3)+line(px,py,px,cy+8*s,'#a8b7b4',1.5,'stroke-dasharray="4 4"')+circle(px,py,5*s,'#6c827b')+ball(cx,cy,12*s)+label(px+sign*17*s,py-7*s,'懸點','text-anchor="middle"');
     }else if(page===3||page===4){
       const road=cy+21*s,edge=road+(page===3?1:-1)*30*s;
       svg+=`<path d="M4,${edge} Q${cx},${2*road-edge} ${w-4},${edge}" fill="none" stroke="#8c9fa6" stroke-width="8"/>`+car(cx,road-4*s,0,.6*s);
-      const centerY=cy+(page===3?1:-1)*78*s;svg+=line(cx,cy,cx,centerY,'#a4b4bd',1.5,'stroke-dasharray="4 5"')+label(cx+10*s,centerY,'圓心方向');
     }else{
       const a=M.physics(def,page,pose).forces[0][1]*Math.PI/1800,sx=cx+Math.cos(a)*81*s,sy=cy-Math.sin(a)*81*s;
       svg+=line(cx,cy,sx,sy,'#abbac8',1.5,'stroke-dasharray="4 4"')+circle(sx,sy,13*s,'#edb640')+label(sx+14*s,sy+4*s,'太陽')+earth(cx,cy,12*s);
     }
     return svg+circle(cx,cy,3.5,'#243e50');
   }
-  return Object.freeze({phase,car,carPose,nextTarget,duration,scene,backdrop});
+  const endpoint=(geo,a,length)=>({x:geo.cx+Math.cos(a*Math.PI/1800)*length,y:geo.cy-Math.sin(a*Math.PI/1800)*length});
+  function arrowPath(geo,angle,length){
+    const a=angle*Math.PI/1800,u={x:Math.cos(a),y:-Math.sin(a)},n={x:-u.y,y:u.x},end=endpoint(geo,angle,length),size=Math.min(1.4,Math.max(.8,geo.scale));
+    const head=Math.min(14*size,length*.4),half=Math.min(6*size,length*.18),shaft=Math.min(1.8*size,half*.55),base={x:end.x-u.x*head,y:end.y-u.y*head};
+    return [[geo.cx+n.x*shaft,geo.cy+n.y*shaft],[base.x+n.x*shaft,base.y+n.y*shaft],[base.x+n.x*half,base.y+n.y*half],[end.x,end.y],[base.x-n.x*half,base.y-n.y*half],[base.x-n.x*shaft,base.y-n.y*shaft],[geo.cx-n.x*shaft,geo.cy-n.y*shaft]].map((p,i)=>(i?'L':'M')+p.join(',')).join(' ')+' Z';
+  }
+  function labelPositions(entries,geo){
+    const placed=[],overlap=(a,b)=>a.x<b.x+b.width&&a.x+a.width>b.x&&a.y<b.y+b.height&&a.y+a.height>b.y;
+    const body={x:geo.cx-22*geo.scale,y:geo.cy-18*geo.scale,width:44*geo.scale,height:36*geo.scale};
+    return entries.map(entry=>{
+      const end=endpoint(geo,entry.angle,entry.length),a=entry.angle*Math.PI/1800,ux=Math.cos(a),uy=-Math.sin(a),options=[];
+      for(const side of [1,-1])for(const gap of [19,33,48])for(const along of [8,-18]){
+        const x=Math.max(4,Math.min(geo.w-entry.width-4,end.x-uy*gap*side+ux*along-entry.width/2));
+        const y=Math.max(28,Math.min(geo.h-entry.height-5,end.y+ux*gap*side+uy*along-entry.height/2));
+        const box={x,y,width:entry.width,height:entry.height};let penalty=gap+(overlap(box,body)?200:0)+placed.filter(other=>overlap(box,other)).length*500;
+        for(const line of entries)for(let t=.25;t<=1;t+=.15){const p=endpoint(geo,line.angle,line.length*t);if(p.x>box.x-3&&p.x<box.x+box.width+3&&p.y>box.y-3&&p.y<box.y+box.height+3)penalty+=55;}
+        options.push({box,penalty});
+      }
+      options.sort((a,b)=>a.penalty-b.penalty);placed.push(options[0].box);return {...entry,end,box:options[0].box};
+    });
+  }
+  return Object.freeze({phase,car,carPose,nextTarget,duration,scene,backdrop,arrowPath,labelPositions,endpoint});
 });
