@@ -493,3 +493,12 @@ pending／technical不顯示「提交後正解」以免技術錯誤冒充完成�
 - 已顯示的圓心統一以實心點及LaTeX `O`標示；圓錐擺的圓心位於懸點正下方、水平圓周平面內，與懸點分開。
 - 按使用者本輪要求，圓心方向只在control panel的八個箭號選項作答；刪除舞台／預覽／檢查／參考圖的藍色虛線方向箭頭、畫布方向工具及提示。保留原權威inward key及其評分／續作，不改答案schema。
 - 力標籤移除不透明矩形底，只保留LaTeX字形與既有避線定位；力箭頭繼續直接拖畫。沿用現有測試入口，更新已移除工具的browser與手機fixture，驗證空白／部分／唯讀狀態、圓心選項獨立於力、標籤透明和支架間距。
+
+### 本輪驗證與部署
+
+- 七個活動Node測試、check、check:tests（265 entries）及diff check通過。支架幾何檢查涵蓋四種尺寸、完整360個相位；瀏覽器另在手機及桌面逐相位檢查豎直支架間距，並保存最接近位置截圖。
+- 最終source/package專屬browser均completed=true、errors=0，包含八個圓心選項與力獨立操作、LaTeX圓心點、無方向覆蓋箭頭／標籤底框、六題13次可信畫力100分、320／390／1280寬度的六張檢查／參考圖及原橋頂等待流程。已視覺檢視支架最近位置、圓錐擺受力圖及提交後參考圖。
+- T3 focused：inward-choice／direct-drawing／complete × 320×500／390×844，source與package各6/6、零errors／issues；兩者runtime SHA-256一致為`c4a8cd20c00a838eee80ffd05d842bda51e45b0eb790b4f6ea4a37974be76108`。未重跑其餘容器矩陣、真手機或真Moodle。
+- 專屬browser assetHash `c39f28fe197371a54ebbd101cdbcbe8826e4e6e633bb9d61798c12073dbc88c6`；SCORM ZIP SHA-256 `BAD3BA4532743A3DE9911554C1D0820A4DFFE3484C2512C56FE76D2EFD7FB39B`。十個自有runtime與Site來源逐檔一致。
+- 同一owner-only Site source `e1e9da18cb4185a67caf95e696a3443029518b92`；v8 `appgprj_6ad9ab2ffe008191bea6e486a6000e05~appgver_fc9724c0f4f48191b15ab6fdb3fa5e20`；deployment `appgdep_6ad9ed10274c819195d7b195b61b890a` succeeded。[更新版](https://centripetal-force-source-lab.ieyp.chatgpt.site/centripetal-force-source-lab/)。
+- Runtime commit `5dc2135ebe0e2684e51cf8a4834ba08649655e6a` 已推送；以`1f25c14`為base的committed selection：full／packages all／265 entries（只記錄選擇預覽，不代表全數執行）。未等待GitHub CI終態。
