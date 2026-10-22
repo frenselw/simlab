@@ -16,7 +16,7 @@
   const controller=new CentripetalSourceRuntime.Controller(SimScorm,SimActivityFlow,render);
   let drag=null,layout=null,resizeFrame=0;
   const reduced=window.matchMedia('(prefers-reduced-motion: reduce)');
-  const motion={page:-1,travel:0,playing:false,pending:null,last:0,paint:0};
+  const motion={page:-1,travel:0,playing:false,pending:null,last:0};
   const diagnostics={down:0,move:0,up:0,cancel:0,trustedTouch:0};
   d.caseNav.innerHTML=M.CASES.map((q,i)=>`<button type="button" data-page="${i}">${i+1} ${esc(q.title)}</button>`).join('');
   d.compactNav.innerHTML=M.CASES.map((q,i)=>`<option value="${i}">${i+1} ${esc(q.title)}</option>`).join('');
@@ -67,7 +67,7 @@
     if(controller.mode==='edit'&&controller.state?.view==='scene'&&motion.playing){
       motion.travel+=elapsed/Scene.duration(controller.state.def,controller.page);
       if(motion.pending!==null&&motion.travel>=motion.pending){motion.travel=motion.pending;finishAnalysis();}
-      else if(now-motion.paint>=40){motion.paint=now;try{drawStage();}catch(_){controller.technical('圖像暫時無法呈現，本次作答已停止修改。請聯絡教師檢查。');}}
+      else try{drawStage();}catch(_){controller.technical('圖像暫時無法呈現，本次作答已停止修改。請聯絡教師檢查。');}
     }
     requestAnimationFrame(animate);
   }

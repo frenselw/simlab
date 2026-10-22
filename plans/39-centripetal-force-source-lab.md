@@ -539,3 +539,11 @@ pending／technical不顯示「提交後正解」以免技術錯誤冒充完成�
 - Root最終mobile：T0 standalone 9 profiles×320×500／390×844=18 cases；T3 source320×500及T2 package390×844各case-0-partial／direct-drawing=2 cases，全部completed=true、status=passed、errors/issues=0。15檔digest `3dd4afc3469542e6ba53ed18ffd2f6a4d04cd853758e828fba304c4abd8ad343`；A、B各自核對T0測試啟動時舊HEAD欄位與現行runtime指紋的差別，確認實際測了修正版。未宣稱全T0–T3矩陣、真手機或真Moodle通過。
 - 15檔SCORM ZIP SHA-256 `1B19C591AE2C5466DF5AFC0CF0CE64D51D7B3036204270931E93CF1541DE5D3E`。Site source `f57dc3f54acd01e1274a47857152a540434323cb`，v12 deployment `appgdep_6ad9fd4ba80c8191b6f41c47f7fd1c62` succeeded；十個自有runtime逐檔一致，原owner-only網址不變。
 - 以`93244e8`為base、`7d24616`為head的committed selection：full／packages all／265 entries，僅選擇預覽。修正已推送；未等待GitHub CI。
+
+## 2026-10-22 動畫更新率：跟隨螢幕逐幀繪畫
+
+- 按使用者要求提高至60FPS目標：移除40ms繪畫節流及其paint時間欄位，播放時每次requestAnimationFrame都重畫。在一般60Hz螢幕以每刷新一畫為目標；實際更新率仍由瀏覽器／裝置決定，不硬編固定dt，不因幀數提高改變運動速度。
+- 沿用既有browser入口，新增六情景×390／1280寬度×source／解壓package共24組更新率採樣：每組60次瀏覽器刷新都錄得60次SVG更新，測得56.07–56.63 FPS；不把測試環境實測值聲稱成保證60FPS。按時間推進與暫停靜止均通過。
+- 完整source/package回歸completed=true、errors=[]；橋頂／凹底指定位置與跨圈等待、地球吸附、可信作圖／評分／提交及先前審核修正全部通過。main及browser語法、check、check:tests（265 entries）、diff check通過。未重跑獨立Node模型測試、全部T0–T3矩陣、真手機或真Moodle。
+- Browser assetHash `235a744744ce0dbfb200216d994b6d8ad8e8eabf3044d1376a51edd9294c99a3`；15檔SCORM ZIP SHA-256 `F85FB751CBDA649CBF1064D5B345187516BE86D430DF21AE2A83374DA0AB7658`。
+- 同一owner-only Site已更新：source `49bfb7a4f930a8e22cebd177acad51402ce52837`，v13 deployment `appgdep_6ada00771dcc8191a6bffa4b00d41fb8` succeeded，更新的main.js與工作樹逐檔一致；其餘runtime未變。

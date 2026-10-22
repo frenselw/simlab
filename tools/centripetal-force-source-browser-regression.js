@@ -43,6 +43,34 @@ async function dragForce(angle,selector='#forceHandle'){
   await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await H.delay(35);
 }
 async function screenshot(label){fs.mkdirSync(out,{recursive:true});const r=await cdp.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});fs.writeFileSync(path.join(out,label+'.png'),Buffer.from(r.data,'base64'));}
+async function animationCadence(base,label){
+  const samples=[];
+  for(const [width,height]of [[390,844],[1280,800]]){
+    await viewport(width,height);await open(base,M.fresh(()=>.2));
+    for(let page=0;page<6;page++){
+      if(width<600)await choose('#compactNav',page);else await tap(`[data-page="${page}"]`);
+      if(!await call('return app.getMotion().playing;'))await tap('#sceneButton');
+      const sample=await call(`return new Promise(resolve=>{
+        const svg=d.getElementById('diagramSvg'),times=[];let paints=0,startTravel;
+        const observer=new MutationObserver(records=>{paints+=records.length;});
+        function tick(now){
+          if(!times.length){startTravel=app.getMotion().travel;observer.observe(svg,{childList:true});}
+          times.push(now);
+          if(times.length<61){requestAnimationFrame(tick);return;}
+          observer.disconnect();const elapsed=now-times[0],duration=CentripetalSourceScene.duration(app.getState().def,app.controller.page);
+          resolve({callbacks:60,paints,fps:60000/elapsed,paintFps:paints*1000/elapsed,elapsed,simulatedMs:(app.getMotion().travel-startTravel)*duration*1000});
+        }
+        requestAnimationFrame(tick);
+      });`);
+      assert(sample.paints>=sample.callbacks-1&&sample.paints<=sample.callbacks+1,'animation must redraw every browser frame: '+JSON.stringify({width,page,sample}));
+      assert(Math.abs(sample.simulatedMs-sample.elapsed)<150,'more redraws must preserve elapsed-time motion speed: '+JSON.stringify(sample));
+      await tap('#sceneButton');const paused=await call('return [app.getMotion().travel,d.getElementById("diagramSvg").innerHTML];');await H.delay(100);
+      assert.deepEqual(await call('return [app.getMotion().travel,d.getElementById("diagramSvg").innerHTML];'),paused,'paused scene must stay still');
+      samples.push({width,page,...sample});
+    }
+  }
+  report[label].push({flow:'all six scenes redraw each animation frame, retain real-time speed and pause, mobile/desktop',samples});
+}
 async function inputAudit(base,label){
   await viewport(390,844);
   const state=M.fresh(()=>.2);state.view='analysis';Object.assign(state.items[0],{palette:0,selected:0,arrows:[[0,2700,60]]});
@@ -294,7 +322,7 @@ async function main(){
     cdp.on('Runtime.exceptionThrown',e=>report.errors.push(e.exceptionDetails?.exception?.description||e.exceptionDetails?.text));
     for(const [label,directory]of [['source',path.join(root,'sim')],['package',extracted.packageDirectory]]){
       server=H.createServer(directory);await H.listenServer(server);const base=`http://127.0.0.1:${server.address().port}`;
-      await inputAudit(base,label);await shortReferences(base,label);await reviewPresentation(base,label);await panelDirections(base,label);await revisedScenes(base,label);await layoutChecks(base,label);await fill(base,label);await edgeFlows(base,label);await H.closeServer(server);server=null;
+      await animationCadence(base,label);await inputAudit(base,label);await shortReferences(base,label);await reviewPresentation(base,label);await panelDirections(base,label);await revisedScenes(base,label);await layoutChecks(base,label);await fill(base,label);await edgeFlows(base,label);await H.closeServer(server);server=null;
     }
     assert.deepEqual(report.errors,[]);report.completed=true;console.log('Centripetal source source/package browser regression passed.');
   }finally{
