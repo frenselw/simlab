@@ -12,7 +12,23 @@ for(const page of [3,4]){
   assert.equal(middle.x,300);assert.equal(Math.abs(middle.rotation),0);assert.equal(before.y,after.y);
   assert(page===3?middle.y<before.y:middle.y>before.y);
   assert.equal(V.carPose(page,600,400,1.5).y,middle.y);
+  for(const [w,h]of [[256,80],[326,371],[876,690]]){
+    const svg=V.scene(page,s.def,{w,h},.5),road=svg.match(/data-road="surface" d="([^"]+)"/)[1],points=road.match(/-?\d+(?:\.\d+)?(?:e[-+]?\d+)?/gi).map(Number);
+    const [x0,y0,cx,cy,x1,y1]=points;
+    assert.equal(x0,0);assert.equal(x1,w);assert.equal(cx,w/2);assert.equal(y0,y1);assert(y0>=0&&y0<h);
+    for(const t of [0,.1,.25,.5,.75,.9,.9999]){
+      const p=V.carPose(page,w,h,t),u=p.x/w,y=(1-u)**2*y0+2*(1-u)*u*cy+u*u*y1,slope=2*((1-u)*(cy-y0)+u*(y1-cy))/w;
+      assert(Math.abs(p.y-y)<1e-8,'car stays on the extended road');assert(Math.abs(p.rotation-Math.atan(slope)*180/Math.PI)<1e-8,'car follows the continuous road tangent');
+    }
+  }
 }
+const far=V.pendulumPose(160,200,80,Math.PI/2),near=V.pendulumPose(160,200,80,3*Math.PI/2);
+assert(near.scale/far.scale>1.5&&near.y>far.y,'near side must be visibly larger and lower');
+for(let i=0;i<=36;i++){
+  const a=i*Math.PI/18,p=V.pendulumPose(160,200,80,a),rx=80/Math.sqrt(1-.26**2),ry=80*.28/(1-.26**2),cy=200+.26*ry;
+  assert(Math.abs(((p.x-160)/rx)**2+((p.y-cy)/ry)**2-1)<1e-10,'bob must follow its projected orbit');
+}
+assert(Math.abs(V.pendulumPose(160,200,80,0).x-V.pendulumPose(160,200,80,2*Math.PI).x)<1e-8,'perspective must loop continuously');
 assert.equal(V.nextTarget(.2),.5);assert.equal(V.nextTarget(.5),.5);assert.equal(V.nextTarget(.7),1.5);assert.equal(V.nextTarget(2.9),3.5);
 for(const pose of [0,1345,3876,5000,9999]){
   let state=M.navigate(s,5);state=M.change(state,{type:'analyse',pose});

@@ -8,8 +8,8 @@ assert.equal(browser.prose('F向 = mg − N = mv²/r'),N.prose('F向 = mg − N 
 assert(browser.prose('F向 = mg − N = mv²/r').includes('data-mml-node="mfrac"'));
 assert(N.prose('T sin θ').includes('data-tex="T\\sin\\theta"'));assert(!N.prose('<script>').includes('<script>'));
 for(const force of N.forces){assert(N.html(force.tex,force.name).includes('data-mml-node="mover"'));assert(N.measure(force.tex,22).height>10);}
-for(const [w,h]of [[256,220],[326,371],[876,690]]){
-  const geo={w,h,cx:w/2,cy:h/2+7,scale:Math.min(2.6,(w-74)/220,(h-68)/210)};
+for(const [w,h]of [[256,220],[326,371],[876,690],[320,230]]){
+  const geo={w,h,cx:w/2,cy:h===230?115:h/2+7,scale:h===230?1:Math.min(2.6,(w-74)/220,(h-68)/210)};
   for(let page=0;page<6;page++){
     const entries=M.physics(M.fresh(()=>.2).def,page).forces.map(([kind,angle])=>({angle,length:60*geo.scale,...N.measure(N.forces[kind].tex,21)}));
     const labels=V.labelPositions(entries,geo);

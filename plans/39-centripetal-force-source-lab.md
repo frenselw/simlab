@@ -469,3 +469,10 @@ pending／technical不顯示「提交後正解」以免技術錯誤冒充完成�
 - 最終source/package瀏覽器回歸通過，completed=true、errors=0；assetHash `7789d3efe5ed13edcc185c7a4db8135b5fabbdbb1003d23dd3688f5a3263e68b`。check、check:tests（265 entries）、check-docs及diff check通過。未重跑Node邏輯測試、全部容器矩陣、實機手機或真Moodle。
 - SCORM ZIP SHA-256 `553699C424BB98770B0B3117DA3CC0385C461B8C227BE752DFBF3F287DBD5825`；十個自有runtime與Site一致。Site source `6cf47a116c15407068504b19e8484acb6c3063fb`；v6 `appgprj_6ad9ab2ffe008191bea6e486a6000e05~appgver_95c1c6ca364481918a15ea030178ca88`；deployment `appgdep_6ad9e1a93b10819191db6aa1ef842da3` succeeded，維持owner-only原網址。
 - Runtime commit `27b96247bbd991104e98ca70d770306e1cd73c62` 已推送；以 `7260f19` 為base的committed selection：affected／本活動package／230 entries。只記錄選擇結果，不代表全數執行；未等待GitHub CI。
+
+## 2026-10-22 第五次審閱：動畫景深、連續道路及結果圖比例
+
+- 圓錐擺以同一透視投影計算小球位置與大小，遠小近大；軌道前後弧、繩及球按前後關係呈現。
+- 拱橋／凹路延伸同一條平滑拋物線至畫面左右邊緣，地面填滿邊緣；汽車保持原行駛範圍及中央停車相位，不改橋頂等待。
+- 修正結果卡的全域svg尺寸規則誤套行內LaTeX的問題；檢查／參考受力圖採一致的viewBox及比例，圖中文字保持可讀。原圓心方向選項、力拖畫及無鍵盤說明要求持續適用。
+- 僅更改呈現；answer v2／model v2／rubric v1、評分、保存、依賴均不變。驗證加入遠近尺寸與軌道對位、道路邊緣及車輛路線、提交前後所有六圖與行內公式的瀏覽器尺寸斷言及手機／桌面截圖；沿用scene、notation與既有browser登記。

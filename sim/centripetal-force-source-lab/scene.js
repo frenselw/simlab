@@ -19,6 +19,10 @@
     const slope=(page===3?1:-1)*4*depth*u/span;
     return {x,y,rotation:Math.atan(slope)*180/Math.PI,base,depth,span};
   }
+  function pendulumPose(cx,cy,r,a){
+    const depth=Math.sin(a),scale=1/(1+.26*depth);
+    return {x:cx+r*Math.cos(a)*scale,y:cy-r*.28*depth*scale,scale,depth};
+  }
   function nextTarget(travel){return Math.abs(phase(travel)-.5)<.00001?travel:Math.floor(travel-.5)+1.5;}
   function duration(def,page){
     const p=M.physics(def,page).values;
@@ -42,18 +46,22 @@
       svg+=`<g data-object="block" transform="translate(${x} ${y}) rotate(${-a*180/Math.PI})"><rect x="${-16*s}" y="${-12*s}" width="${32*s}" height="${25*s}" rx="4" fill="#d68b34" stroke="#9b6528" stroke-width="2"/><path d="M${-11*s},${-6*s} H${11*s}" stroke="#f7c876" stroke-width="3"/></g>`;
       svg+=label(w*.08,h*.11,'水平圓盤 · 俯視')+label(cx,h*.94,'物體與盤面一起轉動', 'text-anchor="middle"');
     }else if(page===2){
-      const pivot=h*.18,orbitY=h*.71,ry=r*.28,bx=cx+r*Math.cos(a),by=orbitY-ry*Math.sin(a);
+      const pivot=h*.18,orbitY=h*.68,p=pendulumPose(cx,orbitY,r,a),rx=r/Math.sqrt(1-.26**2),ry=r*.28/(1-.26**2),ellipseY=orbitY+.26*ry;
       svg+=`<path d="M${w*.13},${h*.86} H${w*.23} V${h*.12} H${cx+25*s}" fill="none" stroke="#627e88" stroke-width="${8*s}" stroke-linejoin="round"/><path d="M${cx},${h*.12}V${pivot}" stroke="#627e88" stroke-width="${5*s}"/>`;
-      svg+=`<ellipse cx="${cx}" cy="${orbitY}" rx="${r}" ry="${ry}" fill="#dce9e7" stroke="#8caaa9" stroke-dasharray="5 5"/>`;
-      svg+=line(cx,pivot,cx,orbitY,'#9caeae',2,'stroke-dasharray="5 5"')+line(cx,pivot,bx,by,'#927443',3*s)+circle(cx,pivot,6*s,'#526d74')+ball(bx,by,17*s)+circle(cx,orbitY,3,'#849e9c');
+      svg+=`<path d="M${cx},${pivot} L${cx-rx},${ellipseY} A${rx},${ry} 0 0 0 ${cx+rx},${ellipseY} Z" fill="#b8d5cc33"/><ellipse cx="${cx}" cy="${ellipseY}" rx="${rx}" ry="${ry}" fill="#dce9e780"/>`;
+      const front=`<path data-orbit="front" d="M${cx-rx},${ellipseY} A${rx},${ry} 0 0 0 ${cx+rx},${ellipseY}" fill="none" stroke="#7c9c98" stroke-width="2" stroke-dasharray="5 5"/>`;
+      svg+=`<path data-orbit="back" d="M${cx-rx},${ellipseY} A${rx},${ry} 0 0 1 ${cx+rx},${ellipseY}" fill="none" stroke="#a9bcb8" stroke-width="1.5" stroke-dasharray="4 6"/>`+line(cx,pivot,cx,orbitY,'#9caeae',1.5,'stroke-dasharray="5 5"')+circle(cx,orbitY,3,'#849e9c');
+      const moving=`<g data-pendulum-scale="${p.scale}">${line(cx,pivot,p.x,p.y,'#927443',3*s*p.scale)}${ball(p.x,p.y,17*s*p.scale)}</g>`;
+      svg+=p.depth>0?moving+front:front+moving;
+      svg+=circle(cx,pivot,6*s,'#526d74');
       svg+=label(w*.08,h*.08,'圓錐擺 · 立體示意')+label(cx+10*s,pivot+9*s,'懸點')+label(cx,h*.94,'小球沿水平圓周運動','text-anchor="middle"');
     }else if(page===3||page===4){
-      const p=carPose(page,w,h,t),left=carPose(page,w,h,0),right={x:w*.89,y:p.base},control=p.base+(page===3?-2:2)*p.depth;
-      const path=`M${left.x},${left.y} Q${cx},${control} ${right.x},${right.y}`;
+      const p=carPose(page,w,h,t),edge=p.base+(page===3?1:-1)*p.depth*((w/p.span)**2-1),control=2*(p.base+(page===3?-1:1)*p.depth)-edge;
+      const path=`M0,${edge} Q${cx},${control} ${w},${edge}`;
       svg+=`<path d="M0,${h*.84} Q${w*.18},${h*.52} ${w*.42},${h*.87} Q${w*.7},${h*.66} ${w},${h*.86} V${h}H0Z" fill="#dfebe3"/>`;
-      if(page===3){svg+=`<path d="${path} L${right.x},${h*.94} H${left.x}Z" fill="#d1dbe0"/>`;for(let i=1;i<7;i++){const px=w*.11+w*.78*i/7,u=2*i/7-1,py=p.base-p.depth*(1-u*u);svg+=line(px,py+9*s,px,h*.93,'#aebfc6',5*s);}}
-      else svg+=`<path d="${path} V${h} H${left.x}Z" fill="#ceddcf"/>`;
-      svg+=`<path d="${path}" fill="none" stroke="#82969e" stroke-width="${16*s}"/><path d="${path}" fill="none" stroke="#f1e8c7" stroke-width="${2*s}" stroke-dasharray="${13*s} ${11*s}"/>`;
+      svg+=`<path d="${path} V${h} H0Z" fill="${page===3?'#d1dbe0':'#ceddcf'}"/>`;
+      if(page===3)for(let i=1;i<7;i++){const px=w*.11+w*.78*i/7,u=2*i/7-1,py=p.base-p.depth*(1-u*u);svg+=line(px,py+9*s,px,h,'#aebfc6',5*s);}
+      svg+=`<path data-road="surface" d="${path}" fill="none" stroke="#82969e" stroke-width="${16*s}"/><path d="${path}" fill="none" stroke="#f1e8c7" stroke-width="${2*s}" stroke-dasharray="${13*s} ${11*s}"/>`;
       svg+=car(p.x,p.y-8*s,p.rotation,s);
       const target=carPose(page,w,h,.5);svg+=line(cx,target.y+16*s,cx,target.y+31*s,'#a77e38',2)+label(cx,target.y+48*s,page===3?'橋頂':'最低點','text-anchor="middle"');
       svg+=label(w*.08,h*.11,page===3?'汽車駛過拱橋':'汽車駛過凹形路面');
@@ -105,5 +113,5 @@
       options.sort((a,b)=>a.penalty-b.penalty);placed.push(options[0].box);return {...entry,end,box:options[0].box};
     });
   }
-  return Object.freeze({phase,car,carPose,nextTarget,duration,scene,backdrop,arrowPath,labelPositions,endpoint});
+  return Object.freeze({phase,car,carPose,pendulumPose,nextTarget,duration,scene,backdrop,arrowPath,labelPositions,endpoint});
 });
