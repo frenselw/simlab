@@ -547,3 +547,11 @@ Site `dist` 檔案及SHA-256（其中13個為SCORM runtime，根頁為Site入口
 | `centripetal-force-investigation-lab/index.html` | `eba3ed9b2ff1661e2258ee83234a9d9c39271c77aa0eabbde683a99e56392b59` |
 | `centripetal-force-investigation-lab/main.js` | `1eda5699685f68dccc88b8123144e9080d23987b3f24e650f4ec3091bd03fb5e` |
 | `centripetal-force-investigation-lab/styles.css` | `0cb7beff5d0cc87a16633481645cdde73679258216b463ea78663b23a21d5f5c` |
+
+| 本輪交付 | 已核對資料 |
+|---|---|
+| branch | `codex/centripetal-force-investigation-lab`，功能commit `fdb6aac32f2e0497dbad218368e3ca2681adf414` 已推到origin |
+| committed selection | `run-tests.js --base=c547b50e7367858f88b41aa94e73823af6572c68 --head=fdb6aac32f2e0497dbad218368e3ca2681adf414 --plan` 成功；full263，原因 `Unrecognised dependency: tools/mobile-scroll-cases.js`。只是選取預覽，並非263項全通過；輸出 `output/centripetal-layout-selection.json` |
+| Site source | `7ceeafbce8babb4598dea24ff21429478e7ba81b`，16個runtime與最終SCORM逐位元組相同 |
+| private deploy | version5，`appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_70bef56d9b9881919819c506d2d8b84c`；deployment `appgdep_6ad9df760f3881918059050c25f19957` 回報 `succeeded`，維持owner-only |
+| URL | https://centripetal-force-investigation-lab.ieyp.chatgpt.site/centripetal-force-investigation-lab/ |
