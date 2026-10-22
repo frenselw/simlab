@@ -5,6 +5,14 @@ const {groups:dcGroups}=require('./circuit-test-groups');
 const root=path.resolve(__dirname,'..');
 
 const registeredTests = [
+  'sim/centripetal-force-source-lab/model.test.js',
+  'sim/centripetal-force-source-lab/scene.test.js',
+  'sim/centripetal-force-source-lab/notation.test.js',
+  'sim/centripetal-force-source-lab/scoring.test.js',
+  'sim/centripetal-force-source-lab/persistence.test.js',
+  'sim/centripetal-force-source-lab/interaction.test.js',
+  'sim/centripetal-force-source-lab/lifecycle.test.js',
+  {file:'tools/centripetal-force-source-browser-regression.js',kind:'browser',scope:'centripetal-force-source-lab'},
   'sim/circular-motion-vector-lab/model.test.js',
   'sim/circular-motion-vector-lab/presentation.test.js',
   'sim/circular-motion-vector-lab/scoring.test.js',

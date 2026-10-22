@@ -36,6 +36,25 @@ function mirror(id,kinds,extra={}) {
   return {id,settleMs:400,prepare:prepare+kinds.slice(1).map(k=>`click('[data-action="add"][data-segment="${k}"]');`).join(''),...extra};
 }
 function activityProfiles(slug) {
+  if(slug==='centripetal-force-source-lab'){
+    const M=require('../sim/centripetal-force-source-lab/model.js'),P=require('../sim/centripetal-force-source-lab/persistence.js');
+    const restored=(id,s,continuation=[],extra={})=>({id,prepare:`const s=${JSON.stringify(P.draft(s))};window.CentripetalSourcePersistence.validate(s,'draft');return restore('${slug}',s);`,continue:continuation,expect:'Boolean(window.__centripetalSourceApp.getState())',...extra});
+    const profiles=[{id:'initial'}];
+    for(let page=0;page<6;page++){
+      let s=M.fresh(()=>.2);s.page=page;profiles.push(restored(`case-${page}-scene`,s,['#analyseButton'],{beforeContinue:page===3||page===4?'const slider=document.getElementById("motionPosition");slider.value=4990;slider.dispatchEvent(new Event("input",{bubbles:true}));':'',settleMs:250,expectReady:'window.__centripetalSourceApp.getState().view==="analysis"'}));
+      s=M.change(s,{type:'palette',value:M.physics(s.def,page).forces[0][0]});s=M.change(s,{type:'add'});profiles.push(restored(`case-${page}-null-force`,s,['#checkButton',`[data-return="${page}"]`],{ownedTarget:'.force-handle:not([hidden])'}));
+      s=M.change(s,{type:'arrow',angle:M.physics(s.def,page).forces[0][1],length:60});profiles.push(restored(`case-${page}-partial`,s,['#checkButton',`[data-return="${page}"]`],{ownedTarget:'.force-handle:not([hidden])'}));
+    }
+    let drawing=M.change(M.fresh(()=>.2),{type:'analyse',pose:1200});profiles.push(restored('inward-choice',drawing,['[data-inward="N"]'],{expectReady:'window.__centripetalSourceApp.getState().items[0].inward==="N"'}));
+    drawing=M.change(drawing,{type:'palette',value:2});profiles.push(restored('direct-drawing',drawing,[],{ownedTarget:'#originHandle'}));
+    let done=M.fresh(()=>.2);done.items.forEach((item,page)=>{const p=M.physics(done.def,page);item.inward=p.inward;item.relation=M.CASES[page].relation;item.arrows=p.forces.map(([kind,a])=>[kind,a,60]);item.selected=0;});done.view='analysis';done.concept='radial-effect';
+    profiles.push(restored('complete',done,['#checkButton','#returnEdit'],{ownedTarget:'.force-handle:not([hidden])'}));
+    profiles.push(restored('check',done,['#checkButton']));
+    profiles.push(restored('submitted',done,['#checkButton','#submitButton']));
+    profiles.push(restored('pending',done,['#checkButton','#submitButton'],{beforeContinue:'auditHost.__failFinal=true;'}));
+    profiles.push(restored('committed',done,['#checkButton','#submitButton'],{beforeContinue:"auditHost.API.LMSFinish=()=> 'false';"}));
+    return profiles;
+  }
   if(slug==='circular-motion-vector-lab'){
     const M=require('../sim/circular-motion-vector-lab/model.js'),P=require('../sim/circular-motion-vector-lab/persistence.js'),T=require('../sim/circular-motion-vector-lab/test-support.js');
     const restored=(id,s,continuation=['#checkButton',`[data-return="${s.task}"]`],extra={})=>({id,prepare:`const s=${JSON.stringify(P.draft(s))};window.CircularVectorPersistence.validate(s,'draft');return restore('${slug}',s);`,continue:continuation,expect:'Boolean(window.__circularVectorApp.getState())',...extra});
@@ -149,6 +168,7 @@ function profiles(slug) {
   });
 }
 function standaloneProfiles(slug){
+  if(slug==='centripetal-force-source-lab')return [{id:'initial'},...[0,1,2,3,4,5].map(page=>click(`case-${page}`,[`[data-page="${page}"]`])),click('check',['#checkButton']),click('submitted',['#checkButton','#submitButton'])];
   if(slug!=='circular-motion-vector-lab')return [{id:'initial'}];
   return [{id:'initial'},click('task-1',['[data-task="1"]']),click('task-2',['[data-task="2"]']),
     click('check',['#checkButton'],{noStageReason:'正式check頁將舞台track設為零，全高面板展示檢查內容。'}),
