@@ -78,6 +78,17 @@ function activityProfiles(slug) {
   }
   if(slug==="newtons-third-law-fullscreen-test")slug="newtons-third-law-reaction-force-lab";
   const initial={id:"initial"};
+  if(slug==="centripetal-force-investigation-lab") {
+    const experiment=(page,phase)=>({id:`${phase}-${page}`,prepare:`${page?`click('[data-page="${page}"]');`:''}click('#startButton');${phase==='analyse'?"click('#stopButton');":''}`,
+      expect:`window.__centripetalApp.getState().page===${page}&&window.__centripetalApp.getState().view===${JSON.stringify(phase)}`});
+    const fitted=page=>({id:`fitted-${page}`,prepare:`const M=window.CentripetalModel,P=window.CentripetalPersistence,s=M.fresh(12),t=s.tasks[${page}];s.page=${page};M.begin(t);for(const q of [500,1500,3000])M.record(t,q/1000);s.view='analyse';if(!M.fitCurrent(M.KINDS[${page}],t).ok)throw Error('Fixture cannot fit');return restore('${slug}',P.validate(s));`,
+      continue:['#resumeFromGraph','#stopButton'],expect:`window.__centripetalApp.getState().tasks[${page}].runs[0].fit===true`});
+    return [initial,...[1,2].map(page=>click(`setup-${page}`,[`[data-page="${page}"]`])),
+      ...[0,1,2].flatMap(page=>[experiment(page,'collect'),experiment(page,'analyse'),fitted(page)]),
+      click('check',['#checkButton']),click('submitted',['#checkButton','#submitButton']),
+      {id:'pending',prepare:"auditHost.__failFinal=true;click('#checkButton');click('#submitButton');"},
+      {id:'committed',prepare:"auditHost.API.LMSFinish=()=> 'false';click('#checkButton');click('#submitButton');"}];
+  }
   if(slug.startsWith("force-equilibrium"))return [initial,...Array.from({length:5},(_,i)=>click(`question-${i+1}`,[`#questionNav button:nth-child(${i+1})`])),...Array.from({length:5},(_,i)=>({id:`question-${i+1}-partial`,prepare:`click('#questionNav button:nth-child(${i+1})');click('[data-add-kind]:not(:disabled)');`,handoffTarget:".origin-hit:not([hidden])"})),...submit("#checkButton","#submitButton")];
   if(slug==="newtons-third-law-reaction-force-lab")return [initial,...Array.from({length:5},(_,i)=>click(`question-${i+1}`,[`#questionNav button:nth-child(${i+1})`])),...Array.from({length:5},(_,i)=>({id:`question-${i+1}-partial`,prepare:`click('#questionNav button:nth-child(${i+1})');click('#bodyChoices button:not(:disabled)');click('#anchorChoices button:not(:disabled)');`,handoffTarget:'.anchor-hit:not([hidden])'})),...submit("#checkButton","#submitButton")];
   if(slug==="newtons-second-law-investigation-lab") {

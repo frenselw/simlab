@@ -83,6 +83,7 @@ The two assessed DC activities below already use this shared foundation. Assesse
 | [Horizontal Projectile Motion: Trajectory Measurement and Fitting](sim/horizontal-projectile-lab/index.html) — 平拋運動：軌跡量度與擬合 | Adjust a recording trough, measure trajectory points, fit a curve and calculate the mean launch speed |
 | [Circular Motion: Linear and Angular Speed Measurement](sim/circular-motion-speed-lab/index.html) — 線速率與角速率量度 | Time points on one disc and two belt-driven wheels, unwrap their paths, then compare linear and angular speeds |
 | [Circular Motion: Velocity and Acceleration Directions](sim/circular-motion-vector-lab/index.html) — 圓周運動：由位移到速度與加速度方向 | Shorten the time interval, compare displacement directions and construct velocity changes to infer instantaneous directions |
+| [Centripetal Force Investigation](sim/centripetal-force-investigation-lab/index.html) — 向心力探究：操作轉盤與同步量測 | Push a turntable, compare synchronous radial force readings and fit the observed relationships |
 
 #### Forces and investigations
 

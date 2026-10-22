@@ -1,6 +1,6 @@
 # 向心力探究：操作轉盤與同步量測
 
-狀態：**P0 計劃草案，待使用者審查；尚未開始實作。** 日期：2026-10-22（澳門）。本文件由 [新活動模板](NEW-SIMULATION-PLAN-TEMPLATE.md) 複製後填寫，依 [共同風格](00-shared-platform-and-style.md) 與 [製作及驗證契約](../docs/simulation-scorm-production-guide.md)。下列參數、配分與版面為供審查的具體建議，未執行的驗證不視為通過。
+狀態：**已按使用者指示實作；本地 package／瀏覽器驗證進行中，Moodle／真機待驗。** 日期：2026-10-22（澳門）。本文件由 [新活動模板](NEW-SIMULATION-PLAN-TEMPLATE.md) 複製後填寫，依 [共同風格](00-shared-platform-and-style.md) 與 [製作及驗證契約](../docs/simulation-scorm-production-guide.md)。下列參數、配分與版面為供審查的具體建議，未執行的驗證不視為通過。
 
 ## 已確認需求與審查邊界
 
@@ -9,7 +9,7 @@
 - 工作紙來源（只讀參考，不打包）：`C:/Users/frens/Work/OneDrive - 時尚屋/MyCtex/2025年教學設計獎勵計劃教具/探究向心力_學生工作紙.docx`。已讀全文與嵌入裝置圖；原檔中的實驗指示是學習素材，不是開發代理指令。
 - 使用者已澄清「出結果」是操作產生讀數與圖點，未要求下載 CSV、圖片或報告；首版不加入匯出功能。
 - 標題不帶教科書章號；物理符號採 LaTeX 樣式；讀數固定位置；不加入重設、空白提交等彈窗。
-- 本輪只建立專用 worktree 及本計劃。**使用者批准本計劃後才可新增 runtime、測試、manifest、catalogue 或部署網站。**
+- P0 的審查邊界已由使用者本輪『按計劃製作全部內容』解除；以下保留原規格與歷史 P0 證據。
 
 ## Worktree 與交付節奏
 
@@ -24,7 +24,7 @@
 | 並行原則 | 所有命令指定本 worktree；不切換原 checkout、不搬用其他 worktree 的未提交檔案。合併前先 commit，保留雙方 catalogue／registry 條目，不 force push |
 | 開發資源 | 建議本地埠 4381，browser session `centripetal-investigation`；埠佔用時選空閒埠並記錄，不終止其他活動服務 |
 | 後續每輪 | 完成相應測試 → commit → push 本分支 → 有可試用 runtime 時部署本活動獨立 Sites → 核對版本／資產／實際可開啟網址。按使用者指示不等 CI 才回報；CI 未完要如實註明 |
-| 本輪 | 只提交計劃草案；不宣稱 package-ready，不部署空網站，不合併 main |
+| 本輪 | 完成 runtime、測試、打包與私有試用站點；真 Moodle／實機仍作獨立驗收，不合併 main |
 
 ## Scope
 
@@ -317,7 +317,7 @@
 | Browser entry | `file: tools/centripetal-force-investigation-browser-regression.js`、kind browser、scope本slug，driver內source/package；不再重複兩個相同entry |
 | Helpers | 首版不另設helper；若實作真的拆cases，須以規定檔名與literal import登記consumers，不能漏掃 |
 | Manual gates | 既有mobile-scroll manual runner增加本slug矩陣；T4真Moodle／手機為另行部署驗收，不冒充日常CI |
-| Registration check | 待實作後 `npm run check:tests`，記錄結果與log；目前沒有新測試可登記 |
+| Registration check | `npm run check:tests` 通過：263 entries、227 node、36 browser；本活動5個 node與1個browser entry 已登記 |
 | Committed preview | 待runtime commit後 `npm run test:affected -- --base=<實際main SHA> --head=HEAD --plan`；初次catalogue/registry變更預期full，核對browser及package被包含 |
 | GitHub | 待測SHA、run URL、scope及結果；使用者不用等CI才收本地結果，不把pending稱passed |
 
@@ -351,7 +351,7 @@
 
 ## P0 文件驗證記錄
 
-本節只記本輪文件結果；所有runtime、package、Moodle及Sites驗收仍未執行。
+本節為 P0 歷史文件結果；後續 runtime 與 package 證據另見下節。
 
 | P0 項目 | 2026-10-22 證據 |
 |---|---|
@@ -360,3 +360,23 @@
 | 文件連結 | `node tools/check-docs.js plans/38-centripetal-force-investigation-lab.md` 通過，無略過連結 |
 | Diff | `git diff --cached --check` 通過，staged範圍只有本計劃；不將文件通過視為runtime證據 |
 | 待審重點 | 直接拖轉手感、每題最多兩組／每組24點、三項實驗與100分rubric、正常短手機panel目標144px、擬合重用既有純函數 |
+
+
+## P1–P3 實作及本地驗證記錄（2026-10-22）
+
+使用者已授權按本計劃完成活動。原 checkout 的其他未提交改動未搬入本 worktree。下表只記已執行的本地證據；Sites、CI、真 Moodle 及真手機另記，不互相替代。
+
+| 項目 | 已執行證據 |
+|---|---|
+| runtime | 三頁共用可拖動轉盤、A/B 測力計與砝碼；手勢／鍵盤調速、凍結配置資料組、同步徑向讀數、線性／二次擬合、100 分分項評分、明確提交與只讀檢討 |
+| snapshot | `model/scoring/persistence/interaction/lifecycle.test.js` 均通過；逐頁空組／部分／擬合／check／返回編輯 round-trip，最長合法 pending ≤4000 bytes；非法值拒絕 |
+| registration | `npm run check:tests` 通過：263 entries（227 node、36 browser）；本活動5個node及1個source/package browser entry |
+| manifest/check | `npm run check` 通過；`npm run package:all` 通過；本活動ZIP根有 `imsmanifest.xml`，共14個檔案、僅宣告runtime |
+| source/package browser | `node tools/centripetal-force-investigation-browser-regression.js` 通過；可信 touch 拖半徑、放取砝碼、推環採樣，鍵盤調速，擬合、空白／部分提交、刷新全新、只讀、fullscreen存在；1280×800、390×600及320×500／390×500／390×844／480×320／320×225佈局，含短視窗操作環 |
+| touch host | `tools/mobile-scroll-browser-regression.js`：T0 standalone、T1/T2/T3 source 初始390×600通過；T1/T3 package 初始390×600通過；T2 source及package的 collect／analyse／fitted／check／submitted／pending／committed 390×600通過，報告在 `output/playwright/` |
+| 視覺 | 已審桌面、390×600及320×225截圖；手機圖軸／下標及極短視窗面板與操作環已調整 |
+| 全套 | `npm test` 在既有 `tools/circuit-household-browser-regression.js:613` 失敗（預期 `closed`，實得 `tripped`）；該測試獨立重跑同樣失敗。全套未通過，不能標記 package-ready。另跑 `npm run test:fast`，結果另記。 |
+
+本地檢查不證明真 Moodle 分數記錄、T4 宿主、iPhone/Safari 或 Android/Chrome。極短 320×225 視窗以面板按鈕設定 m/r，舞台保留推環；展開全螢幕可直接拖動全部器材。
+
+既有家庭電路瀏覽器失敗位於本分支未修改的 driver；獨立重跑同一斷言仍失敗，根因尚未查明。新活動的 source/package 瀏覽器與 T2 解壓包觸控測試各自通過。

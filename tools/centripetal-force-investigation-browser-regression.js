@@ -1,0 +1,151 @@
+#!/usr/bin/env node
+"use strict";
+const assert = require("node:assert/strict"), fs = require("node:fs"), os = require("node:os"), path = require("node:path"), { spawn } = require("node:child_process");
+const H = require("./position-time-browser-regression.js");
+const root = path.resolve(__dirname, ".."), slug = "centripetal-force-investigation-lab", tempRoot = os.tmpdir();
+const pause = H.delay;
+async function ready(cdp) {
+  for (let i = 0; i < 100; i++) {
+    if (await H.evaluate(cdp, "Boolean(window.__centripetalApp?.getState()?.tasks)") ) return;
+    await pause(50);
+  }
+  throw Error("Activity did not start");
+}
+async function rect(cdp, selector) {
+  return H.evaluate(cdp, `(()=>{const e=document.querySelector(${JSON.stringify(selector)});if(!e)throw Error('Missing ${selector}');const r=e.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height};})()`);
+}
+async function click(cdp, selector) {
+  await H.evaluate(cdp, `document.querySelector(${JSON.stringify(selector)}).scrollIntoView({block:'nearest'})`);
+  const r = await rect(cdp, selector), x = r.x + r.width / 2, y = r.y + r.height / 2;
+  await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", clickCount: 1 });
+  await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", clickCount: 1 });
+}
+async function touchDrag(cdp, selector, dx, dy) {
+  const r = await rect(cdp, selector), x = r.x + r.width / 2, y = r.y + r.height / 2;
+  const point = (tx, ty) => ({ x: tx, y: ty, id: 101, radiusX: 1, radiusY: 1, force: 1 });
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [point(x, y)] });
+  for (let i = 1; i <= 5; i++) {
+    await pause(30);
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [point(x + dx * i / 5, y + dy * i / 5)] });
+  }
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+}
+async function touchTo(cdp, from, to) {
+  const a = await rect(cdp, from), b = await rect(cdp, to);
+  await touchDrag(cdp, from, b.x + b.width / 2 - a.x - a.width / 2, b.y + b.height / 2 - a.y - a.height / 2);
+}
+async function key(cdp, name) {
+  await cdp.send("Input.dispatchKeyEvent", { type: "keyDown", key: name, code: name, windowsVirtualKeyCode: 39 });
+  await cdp.send("Input.dispatchKeyEvent", { type: "keyUp", key: name, code: name, windowsVirtualKeyCode: 39 });
+}
+async function fullscreen(cdp, expected, label) {
+  for (let i = 0; i < 50; i++) {
+    const value = await H.evaluate(cdp, `({active:Boolean(document.fullscreenElement),busy:document.getElementById('fullscreenButton').disabled})`);
+    if (value.active === expected && !value.busy) return;
+    await pause(20);
+  }
+  throw Error(`${label}: fullscreen did not settle`);
+}
+async function scenario(cdp, base, launch, label, width, height) {
+  await cdp.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false });
+  await cdp.send("Page.navigate", { url: base + launch }); await ready(cdp);
+  const layout = await H.evaluate(cdp, `(()=>({root:document.documentElement.scrollHeight-document.documentElement.clientHeight,panel:document.getElementById('controlPanel').clientHeight,fullscreen:!!document.getElementById('fullscreenButton'),stage:getComputedStyle(document.getElementById('stage')).touchAction}))()`);
+  assert.ok(layout.root < 3 && layout.panel >= 96 && layout.fullscreen && layout.stage === "pan-y", `${label} layout: ${JSON.stringify(layout)}`);
+  await click(cdp, "#fullscreenButton");
+  await fullscreen(cdp, true, `${label} entry`);
+  await click(cdp, "#fullscreenButton");
+  await fullscreen(cdp, false, `${label} exit`);
+  await click(cdp, "#checkButton"); await click(cdp, "#submitButton");
+  let data = await H.evaluate(cdp, `({score:document.getElementById('scorePanel').textContent,locked:document.getElementById('taskPanel').hidden})`);
+  assert.match(data.score, /0 \/ 100/); assert.equal(data.locked, false, "review keeps read-only tasks visible");
+  await cdp.send("Page.reload", { ignoreCache: true }); await ready(cdp);
+  data = await H.evaluate(cdp, `({view:window.__centripetalApp.getState().view,runs:window.__centripetalApp.getState().tasks[0].runs.length})`);
+  assert.deepEqual(data, { view: "setup", runs: 0 }, "standalone refresh starts fresh");
+  await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 2 });
+  await H.evaluate(cdp, `(()=>{window.__touchEvidence=[];document.addEventListener('pointerdown',event=>window.__touchEvidence.push({trusted:event.isTrusted,type:event.pointerType,target:event.target.className}),true);return true;})()`);
+  const content = await rect(cdp, "#stageContent"), scale = Math.min(content.width / 600, content.height / 360);
+  await touchDrag(cdp, '.radius-handle[data-side="A"]', 36 * scale, 0);
+  data = await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].work[0]");
+  assert.equal(data, 4, `${label}: trusted radius drag changes one side`);
+  await touchTo(cdp, ".mass-token.tray", '.radius-handle[data-side="A"]');
+  assert.equal(await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].work[2]"), 3, `${label}: trusted mass placement`);
+  await touchTo(cdp, ".mass-token.placed.a", ".mass-token.tray");
+  assert.equal(await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].work[2]"), 2, `${label}: trusted mass removal; ${JSON.stringify(await H.evaluate(cdp, 'window.__touchEvidence'))}`);
+  await click(cdp, "#startButton");
+  await touchDrag(cdp, ".spin-segment", -20 * scale, 55 * scale);
+  data = await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].runs[0].q.length");
+  assert.ok(data >= 1, `${label}: trusted ring drag records a real speed`);
+  const touchEvidence = await H.evaluate(cdp, "window.__touchEvidence");
+  assert.ok(touchEvidence.filter(event => event.trusted && event.type === "touch").length >= 4, `${label}: drag targets received trusted touch pointer events`);
+  const ring = await rect(cdp, ".spin-segment"), x = ring.x + ring.width / 2, y = ring.y + ring.height / 2;
+  const finger = (id, fx, fy) => ({ id, x: fx, y: fy, radiusX: 1, radiusY: 1, force: 1 });
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [finger(201, x, y)] });
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [finger(201, x - 5, y + 8)] });
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [finger(201, x - 5, y + 8), finger(202, x - 28, y)] });
+  assert.equal(await H.evaluate(cdp, "window.__centripetalApp.getMotion().running"), false, `${label}: second finger safely pauses collection`);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await click(cdp, "#resumeButton");
+  await click(cdp, ".spin-segment");
+  for (let i = 0; i < 6; i++) await key(cdp, "ArrowRight");
+  data = await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].runs[0].q.length");
+  assert.ok(data >= 2, `${label}: trusted operation and keyboard create distinct measured points (${data})`);
+  await click(cdp, "#stopButton"); await click(cdp, "#fitButton");
+  data = await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].runs[0].fit");
+  assert.equal(data, true, `${label}: fit uses real points`);
+  await click(cdp, "#checkButton"); await click(cdp, "#submitButton");
+  data = await H.evaluate(cdp, `({locked:!document.getElementById('startButton').disabled,review:document.getElementById('resultPanel').hidden,score:document.getElementById('scorePanel').textContent})`);
+  assert.equal(data.locked, false); assert.equal(data.review, false); assert.match(data.score, /\/ 100/);
+  await click(cdp, "#fullscreenButton");
+  await fullscreen(cdp, true, `${label} review entry`);
+  await click(cdp, "#fullscreenButton");
+  await fullscreen(cdp, false, `${label} review exit`);
+  const screenshot = await cdp.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
+  const folder = path.join(root, "output", "playwright"); fs.mkdirSync(folder, { recursive: true });
+  fs.writeFileSync(path.join(folder, `centripetal-${label}-${width}x${height}.png`), Buffer.from(screenshot.data, "base64"));
+  return { label, width, height, samples: data, layout };
+}
+async function layoutOnly(cdp, base, launch, width, height) {
+  await cdp.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false });
+  await cdp.send("Page.navigate", { url: base + launch }); await ready(cdp);
+  const layout = await H.evaluate(cdp, `(()=>{const panel=document.getElementById('controlPanel').getBoundingClientRect(),stage=document.getElementById('stage').getBoundingClientRect();return {root:document.documentElement.scrollHeight-document.documentElement.clientHeight,panelHeight:panel.height,panelBottom:panel.bottom,stageHeight:stage.height,stageBottom:stage.bottom,viewport:innerHeight,button:getComputedStyle(document.getElementById('startButton')).fontSize};})()`);
+  assert.ok(layout.root < 3 && layout.panelHeight >= 96 && layout.panelBottom <= height + 2 && layout.stageHeight >= 35,
+    `${width}x${height} bounded layout: ${JSON.stringify(layout)}`);
+  if (width === 320 && height === 225) {
+    const screenshot = await cdp.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
+    const folder = path.join(root, "output", "playwright"); fs.mkdirSync(folder, { recursive: true });
+    fs.writeFileSync(path.join(folder, `centripetal-layout-320x225.png`), Buffer.from(screenshot.data, "base64"));
+    await click(cdp, "#startButton");
+    const ring = await rect(cdp, ".spin-segment");
+    assert.ok(ring.y >= 56 && ring.y + ring.height <= 56 + layout.stageHeight + 2, "Short-view ring remains touchable inside stage");
+    await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 2 });
+    await touchDrag(cdp, ".spin-segment", -5, 12);
+    assert.ok(await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].runs[0].q.length") >= 1, "Short-view ring still produces data");
+  }
+}
+async function main() {
+  const browser = H.findBrowser(); if (!browser) throw Error("Chrome/Chromium not found");
+  const profile = fs.mkdtempSync(path.join(tempRoot, "simlab-position-time-chrome-"));
+  let chrome, cdp, server, packageDirectory;
+  try {
+    chrome = spawn(browser, ["--headless=new", "--remote-debugging-address=127.0.0.1", "--remote-debugging-port=0", `--user-data-dir=${profile}`, "--no-first-run", "--no-default-browser-check", "--disable-background-networking", "about:blank"], { stdio: ["ignore", "ignore", "pipe"] });
+    const port = await H.withTimeout(H.devToolsPort(profile, chrome), 35000, "Chrome startup");
+    const target = await H.fetchJson(`http://127.0.0.1:${port}/json/new?about:blank`, { method: "PUT" });
+    cdp = new H.CdpClient(target.body.webSocketDebuggerUrl); await cdp.send("Page.enable"); await cdp.send("Runtime.enable");
+    const errors = []; cdp.on("Runtime.exceptionThrown", event => errors.push(event.exceptionDetails?.exception?.description || event.exceptionDetails?.text));
+    server = H.createServer(root); await H.listenServer(server);
+    const sourceBase = `http://127.0.0.1:${server.address().port}`;
+    await scenario(cdp, sourceBase, `/sim/${slug}/index.html`, "source", 1280, 800);
+    await scenario(cdp, sourceBase, `/sim/${slug}/index.html`, "source", 390, 600);
+    for (const [width, height] of [[320,500],[390,500],[390,844],[480,320],[320,225]]) await layoutOnly(cdp, sourceBase, `/sim/${slug}/index.html`, width, height);
+    await H.closeServer(server); server = null;
+    const extracted = H.buildAndExtractPackage(tempRoot, { slug }); packageDirectory = extracted.packageDirectory;
+    server = H.createServer(packageDirectory); await H.listenServer(server);
+    await scenario(cdp, `http://127.0.0.1:${server.address().port}`, extracted.activityPath, "package", 390, 600);
+    await layoutOnly(cdp, `http://127.0.0.1:${server.address().port}`, extracted.activityPath, 320, 225);
+    assert.deepEqual(errors, [], `Browser exceptions: ${errors.join("\n")}`);
+    console.log("Centripetal source and extracted-package browser regression passed");
+  } finally {
+    await H.cleanupResources({ chrome, cdp, server, profileDirectory: profile, packageDirectory, tempRoot });
+  }
+}
+if (require.main === module) main().catch(error => { console.error(error.stack || error); process.exitCode = 1; });

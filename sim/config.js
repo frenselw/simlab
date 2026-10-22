@@ -1,4 +1,5 @@
 const simulationList = [
+  {title:'向心力探究：操作轉盤與同步量測',folder:'centripetal-force-investigation-lab',categories:['Mechanics'],description:'親手推動旋轉平台，調整兩側質量與半徑，由同步測力讀數及擬合探究向心力關係。',tags:['physics','mechanics','centripetal-force','fair-test','measurement','curve-fitting','scorm'],status:'planned'},
   {title:'圓周運動：由位移到速度與加速度方向',folder:'circular-motion-vector-lab',categories:['Mechanics'],description:'縮短兩個時刻的間隔，觀察位移方向、建構速度變化量，判斷瞬時速度與向心加速度方向。',tags:['physics','mechanics','circular-motion','displacement','velocity-change','centripetal-acceleration','vectors','scorm'],status:'active'},
   {title:'平拋運動：軌跡量度與擬合',folder:'horizontal-projectile-lab',categories:['Mechanics'],description:'調槽留印並讀尺，自動描點後擬合；選公式計出各點初速度，再求平均初速度。',tags:['physics','mechanics','projectile-motion','measurement','curve-fitting','scorm'],status:'active'},
   {title:'家庭電路工作台',folder:'circuit-household-workbench',categories:['Electricity'],description:'用小型電路探索火線、零線、地線、人體接觸與保護裝置。',tags:['physics','electricity','household','workbench'],status:'active'},
