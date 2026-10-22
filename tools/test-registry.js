@@ -6,6 +6,7 @@ const root=path.resolve(__dirname,'..');
 
 const registeredTests = [
   'sim/centripetal-force-source-lab/model.test.js',
+  'sim/centripetal-force-source-lab/scene.test.js',
   'sim/centripetal-force-source-lab/scoring.test.js',
   'sim/centripetal-force-source-lab/persistence.test.js',
   'sim/centripetal-force-source-lab/interaction.test.js',

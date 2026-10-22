@@ -23,9 +23,14 @@ async function open(base,state=null,{standalone=false,retain='',deny=false}={}){
 }
 async function rect(selector){return call(`const e=d.querySelector(${JSON.stringify(selector)});if(!e||e.disabled||e.hidden||!e.getClientRects().length)throw Error('Unavailable ${selector}');e.scrollIntoView({block:'nearest'});const r=e.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2,width:r.width,height:r.height,hit:d.elementFromPoint(r.left+r.width/2,r.top+r.height/2)?.closest(${JSON.stringify(selector)})===e};`);}
 async function tap(selector){const p=await rect(selector);assert(p.hit,`blocked touch target ${selector}: ${JSON.stringify(p)}`);const id=touchId++,t={x:p.x,y:p.y,id,radiusX:1,radiusY:1,force:1};await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[t]});await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await H.delay(35);}
-async function choose(selector,value){await call(`const e=d.querySelector(${JSON.stringify(selector)});e.value=${JSON.stringify(String(value))};e.dispatchEvent(new Event('change',{bubbles:true}));`);}
-async function dragForce(angle){
-  const start=await rect('#forceHandle');assert(start.width>=44&&start.height>=44);
+async function choose(selector,value){if(selector==='#forcePalette')await analyse();await call(`const e=d.querySelector(${JSON.stringify(selector)});e.value=${JSON.stringify(String(value))};e.dispatchEvent(new Event('change',{bubbles:true}));`);}
+async function analyse(){
+  if(await call('return app.controller.mode==="edit"&&app.getState().view==="scene"&&!d.getElementById("analyseButton").disabled;'))await tap('#analyseButton');
+  await wait(()=>call('return app.getState().view==="analysis";'),'analysis target reached');
+}
+async function seek(value){await call(`const e=d.getElementById('motionPosition');e.value=${value};e.dispatchEvent(new Event('input',{bubbles:true}));`);}
+async function dragForce(angle,selector='#forceHandle'){
+  const start=await rect(selector);assert(start.width>=44&&start.height>=44);
   const end=await call(`const g=app.getLayout(),r=d.getElementById('diagram').getBoundingClientRect(),a=${angle}*Math.PI/1800;return{x:r.left+g.cx+Math.cos(a)*60*g.scale,y:r.top+g.cy-Math.sin(a)*60*g.scale};`);
   const id=touchId++,touch=(x,y)=>({x,y,id,radiusX:1,radiusY:1,force:1});
   await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[touch(start.x,start.y)]});
@@ -39,7 +44,7 @@ async function layoutChecks(base,label){
     await viewport(width,height);await open(base);
     for(let page=0;page<6;page++){
       if(width<600)await choose('#compactNav',page);else await tap('[data-page="'+page+'"]');
-      if(await call('return !d.getElementById("analyseButton").disabled;'))await tap('#analyseButton');
+      await analyse();
       const x=await call(`const p=d.getElementById('controlPanel'),s=d.getElementById('stage'),last=d.getElementById('clearPage');p.scrollTop=p.scrollHeight;const r=last.getBoundingClientRect(),pr=p.getBoundingClientRect();return{rootRange:d.scrollingElement.scrollHeight-innerHeight,rootWidth:d.scrollingElement.scrollWidth,panelHeight:pr.height,panelBottom:pr.bottom,lastTop:r.top,lastBottom:r.bottom,stageHeight:s.getBoundingClientRect().height,side:[...d.querySelectorAll('.side-strip')].map(e=>e.getBoundingClientRect().width)};`);
       assert(x.rootRange<=1&&x.rootWidth<=width+1&&x.panelHeight>=95&&x.panelBottom<=height+1,JSON.stringify({width,height,page,x}));
       assert(x.lastTop>=x.panelBottom-x.panelHeight-1&&x.lastBottom<=x.panelBottom+1,JSON.stringify({width,height,page,x}));
@@ -53,10 +58,10 @@ async function fill(base,label){
   await viewport(390,844);await open(base,null,{retain:label+'-filled'});
   assert(await call('return Boolean(d.querySelector("#relationChoices math msub"));'),'native formula notation missing');
   for(let page=0;page<6;page++){
-    await choose('#compactNav',page);if(await call('return !d.getElementById("analyseButton").disabled;'))await tap('#analyseButton');
-    const s=await call('return app.getState();'),p=M.physics(s.def,page),item=M.CASES[page];
+    await choose('#compactNav',page);await analyse();
+    const s=await call('return app.getState();'),p=M.physics(s.def,page,s.items[page].pose),item=M.CASES[page];
     await tap(`[data-inward="${p.inward}"]`);
-    for(const [kind,angle] of p.forces){await choose('#forcePalette',kind);await tap('#addForce');await dragForce(angle);const after=await call('return app.getState();');assert(M.difference(after.items[page].arrows.at(-1)[1],angle)<=100,JSON.stringify({page,angle,actual:after.items[page].arrows.at(-1)}));}
+    for(const [kind,angle] of p.forces){await choose('#forcePalette',kind);await dragForce(angle,'#originHandle');const after=await call('return app.getState();');assert(M.difference(after.items[page].arrows.at(-1)[1],angle)<=100,JSON.stringify({page,angle,actual:after.items[page].arrows.at(-1)}));}
     await tap(`input[name="relation"][value="${item.relation}"]`);
   }
   await tap('input[name="concept"][value="radial-effect"]');
@@ -89,19 +94,54 @@ async function edgeFlows(base,label){
   const full=await call('return d.querySelector(".sim-fullscreen-button,[data-sim-fullscreen-control]")?.outerHTML||null;');assert(full,'fullscreen control missing');
   await tap('.sim-fullscreen-button');assert(await call('return Boolean(d.fullscreenElement);'));await call('return d.exitFullscreen();');
   assert.equal(await call('return JSON.stringify(app.getState());'),before);
-  await open(base);await choose('#compactNav',5);await choose('#forcePalette',1);await tap('#addForce');await dragForce(430);
+  await open(base);await choose('#compactNav',5);await seek(0);await choose('#forcePalette',1);await tap('#addForce');await dragForce(430);
   assert.equal(await call('return app.getState().items[5].arrows[0][1];'),450,'outward diagonal did not snap');
   await call('const e=d.getElementById("diagramSvg");Object.defineProperty(e,"innerHTML",{set(){throw Error("SVG failure fixture");}});app.controller.navigate(1);');
   assert.equal(await call('return app.controller.mode;'),'technical');assert(await call('return !d.getElementById("notice").hidden&&d.getElementById("stage").getBoundingClientRect().height<1;'));
-  await open(base,M.fresh(()=>.2));assert(await call('return !d.getElementById("diagramSvg").querySelector("animateTransform")&&!d.getElementById("sceneButton").disabled;'));
-  await tap('#sceneButton');assert(await call('return Boolean(d.getElementById("diagramSvg").querySelector("animateTransform"));'));
+  await open(base,M.fresh(()=>.2));assert(await call('return !app.getMotion().playing&&!d.getElementById("sceneButton").disabled;'));
+  await tap('#sceneButton');assert(await call('return app.getMotion().playing;'));
   await cdp.send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});await open(base);
-  assert(await call('return !d.getElementById("diagramSvg").querySelector("animateTransform");'));
+  assert(await call('return !app.getMotion().playing;'));
   await cdp.send('Emulation.setEmulatedMedia',{features:[]});
   await viewport(320,500);await open(base);await cdp.send('Emulation.setPageScaleFactor',{pageScaleFactor:2});await H.delay(40);
   assert(await call('return visualViewport.scale>=1.9&&d.scrollingElement.scrollWidth<=innerWidth+1&&d.getElementById("controlPanel").getBoundingClientRect().height>=96;'));
   await cdp.send('Emulation.setPageScaleFactor',{pageScaleFactor:1});
   report[label].push({flow:'blank,extra force,keyboard arrow,partial,resume,standalone refresh,pending,committed,cancel,secondary touch,fullscreen,diagonal reverse snap,renderer failure,paused scene restore,reduced motion,200% zoom',passed:true});
+}
+async function revisedScenes(base,label){
+  for(const [width,height]of [[390,844],[1280,800]]){
+    await viewport(width,height);await open(base);
+    for(let page=0;page<6;page++){
+      if(width<600)await choose('#compactNav',page);else await tap('[data-page="'+page+'"]');
+      await seek(2500);
+      const object=['ball','block','ball','car','car','earth'][page];
+      assert(await call(`const e=d.querySelector('[data-scene="${M.CASES[page].id}"] [data-object="${object}"]');const r=e?.getBoundingClientRect();return r&&r.width>12&&r.height>12;`),'scene object absent '+page);
+      await screenshot(`${label}-scene-${page}-${width}`);
+    }
+  }
+  await viewport(390,844);await open(base);
+  for(const page of [3,4])for(const value of [2500,7500]){
+    await choose('#compactNav',page);if(await call('return app.getState().view==="analysis";'))await tap('#sceneButton');
+    await seek(value);await tap('#analyseButton');
+    assert.equal(await call('return app.getState().view;'),'scene','analysis opened before car reached target');
+    const target=await call('return app.getMotion().pending;');assert.equal(target,value<5000?.5:1.5);
+    assert(await call('return d.getElementById("answerArea").hidden&&d.getElementById("motionPosition").disabled;'));
+    await wait(()=>call('return app.getState().view==="analysis";'),'bridge next target');
+    assert.equal(await call(`return app.getState().items[${page}].pose;`),5000);
+    assert.equal(await call('return app.getMotion().travel;'),target);
+    await screenshot(`${label}-analysis-${page}-${value}`);
+  }
+  await choose('#compactNav',5);await seek(1376);await analyse();assert.equal(await call('return app.getState().items[5].pose;'),1376);
+  const p=await call('const s=app.getState();return CentripetalSourceModel.physics(s.def,5,s.items[5].pose);');
+  await choose('#forcePalette',1);await dragForce(p.forces[0][1],'#originHandle');
+  assert.equal(await call('return app.getState().items[5].arrows.length;'),1);
+  const pose=await call('return app.getState().items[5].pose;');await tap('#sceneButton');await seek(6200);await analyse();assert.equal(await call('return app.getState().items[5].pose;'),pose);
+  await choose('#forcePalette',0);const before=await call('return JSON.stringify(app.getState());'),r=await rect('#originHandle'),id=touchId++;
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:r.x,y:r.y,id}]});
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:r.x,y:r.y+45,id}]});
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});
+  assert.equal(await call('return JSON.stringify(app.getState());'),before);
+  report[label].push({flow:'six visible scenes; direct drawing and cancel; arbitrary observation; both bridges before/after target and wrap',passed:true});
 }
 async function main(){
   const temp=fs.realpathSync(os.tmpdir());fs.mkdirSync(out,{recursive:true});
@@ -119,7 +159,7 @@ async function main(){
     cdp.on('Runtime.exceptionThrown',e=>report.errors.push(e.exceptionDetails?.exception?.description||e.exceptionDetails?.text));
     for(const [label,directory]of [['source',path.join(root,'sim')],['package',extracted.packageDirectory]]){
       server=H.createServer(directory);await H.listenServer(server);const base=`http://127.0.0.1:${server.address().port}`;
-      await layoutChecks(base,label);await fill(base,label);await edgeFlows(base,label);await H.closeServer(server);server=null;
+      await revisedScenes(base,label);await layoutChecks(base,label);await fill(base,label);await edgeFlows(base,label);await H.closeServer(server);server=null;
     }
     assert.deepEqual(report.errors,[]);report.completed=true;console.log('Centripetal source source/package browser regression passed.');
   }finally{

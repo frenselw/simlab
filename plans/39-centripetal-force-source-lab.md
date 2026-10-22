@@ -1,6 +1,6 @@
 # 誰提供向心力：受力分析與圓心方向
 
-狀態：**依使用者 2026-10-22 指示實作中；本地與部署證據見文末。** 由 [新活動模板](NEW-SIMULATION-PLAN-TEMPLATE.md) 複製後填寫，遵循 [共同風格](00-shared-platform-and-style.md) 及 [製作及驗證契約](../docs/simulation-scorm-production-guide.md)。P0 草案是歷史記錄，不能代替實際驗收。
+狀態：**依使用者 2026-10-22 審閱意見重做動態情境與畫力操作；本地與部署證據見文末。** 由 [新活動模板](NEW-SIMULATION-PLAN-TEMPLATE.md) 複製後填寫，遵循 [共同風格](00-shared-platform-and-style.md) 及 [製作及驗證契約](../docs/simulation-scorm-production-guide.md)。P0 草案及前版驗證屬歷史記錄，不能代替新版驗收。
 
 ## 已確認需求與審查邊界
 
@@ -46,7 +46,8 @@
 | model.js | 題庫definition、合法幾何與物理條件、實際力集合、方向與關係字典 |
 | main.js | 場景、箭頭編輯、指針／鍵盤、preview、shared生命周期，無直接LMS API |
 | scoring.js | 一對一配對、缺漏／額外力、方向容差、關係式及整合題分數 |
-| persistence.js | v1定義、深層驗證、還原、受力圖與canonical答案 |
+| persistence.js | v2定義、v1遷移、深層驗證、還原、受力圖與canonical答案 |
+| scene.js | 六個SVG情景、運動相位、車輛位置及下一次橋頂／凹底目標 |
 | ui-runtime.js | shared startup／submission 的活動控制器、鎖定與retry |
 | tests | model.test.js、scoring.test.js、persistence.test.js、interaction.test.js、lifecycle.test.js |
 | browser | tools/centripetal-force-source-browser-regression.js；同driver跑source及解壓package |
@@ -68,7 +69,7 @@
 ## 學生流程與情境
 
 1. 直接開第一情境，短循環動畫表示運動，預設無答案／受力箭頭。六情境按固定教學次序導航，不依答對解鎖。
-2. 「分析此刻」停止演示，顯示運動軌跡、研究對象及分析圖。若直接選答案／加力亦自動定格，無需多一次確認。
+2. 一般情境按「畫受力圖」保存目前觀察位置；橋題按「分析車在拱橋頂部時」／「分析車在凹路最低點時」，等待汽車下一次到達指定點才顯示作答區。學生選力後從物件拖出箭頭，或用加入鍵和方向按鈕；已作答題的保存位置不隨重播而改變。
 3. 選圓心方向；它是明確答案，初始null。圖中可見軌跡／圓心是物理證據，但不預填標準向心箭頭。
 4. 從力的種類／來源選單選一項，按「加入」，由物體重心產生待定方向標記。拖箭尖或鍵盤定方向；沒有方向的力屬合法部分答案，不冒充完成。
 5. 回答「哪些實際作用力或分量提供向心力？」用情境專屬的關係式選項。它不依賴前項是否答對，不從學生錯圖反算物理運動。
@@ -256,11 +257,11 @@ inward為八方向key，題目幾何均支援該集合；方向作圖則連續�
 
 ## Persistence contract
 
-用shared makeSnapshot，活動v1、modelVersion1、rubricVersion1。草稿與review保存同一權威答案形狀，review需足以重畫及重新評分；saved score僅比較metadata。
+用shared makeSnapshot（envelope version 1），answer v2、modelVersion2、rubricVersion1。草稿與review保存同一權威答案形狀，review需足以重畫及重新評分；saved score僅比較metadata。
 
 | Field | Exact schema / valid values |
 |---|---|
-| `v,mv,rv` | 各整數1；未知版本拒絕 |
+| `v,mv,rv` | 2、2、1；舊1、1、1按嚴格遷移規則還原；未知版本拒絕 |
 | `seed` | uint32，固定完整選項排列；物理題目由具體definition保存，不重抽替換 |
 | `def` | 固定6個variant tuples，對應下面題型；以版本化definition規則驗合法組合，不重抽或用seed覆蓋；seed只控制選項排列 |
 | `def[0]` | [mirror0/1,mIndex0/1,rIndex0/1,vIndex0/1] |
@@ -271,6 +272,7 @@ inward為八方向key，題目幾何均支援該集合；方向作圖則連續�
 | `phase,view,page` | phase edit/check/review；view scene/analysis；page0…5 |
 | `fromReview,returnTo` | boolean；null或[page0…5,scene/analysis]；check需有效returnTo |
 | `items` | 固定6個I，不能缺題；空白是合法I不是省略欄位 |
+| `I.pose` | null 或 0–9999 整數；橋頂／凹底只准 null 或 5000；舊題null保留原方向 |
 | `I.inward` | null或八方向key（E/NE/N/NW/W/SW/S/SE），錯誤方向合法 |
 | `I.arrows` | 0…6個[kindIndex0…8,angle:null或0…3599整數,length:40…100整數]；重複kind合法錯答，不能decoder拒絕 |
 | `I.relation` | null或本題關係式字典key；錯式合法，未知key非法 |
@@ -281,11 +283,11 @@ definition採具體tuples為物理權威，seed只派生選項順序；實作時
 
 | Category | Treatment |
 |---|---|
-| Authoritative | definition、答案kind/angle/length、inward/relation/concept、palette/selected、page/view/returnTo/fromReview、seed/version |
-| Transient | 動畫相位／播放、pointer狀態、未commit拖動、hover、preview、fullscreen；還原不重播中途動作 |
+| Authoritative | definition、每題pose、答案kind/angle/length、inward/relation/concept、palette/selected、page/view/returnTo/fromReview、seed/version |
+| Transient | 未保存的播放位置／等待目標／播放、pointer狀態、未commit拖動、hover、preview、fullscreen；還原不重播中途動作 |
 | Derived | reference directions/forces、diagram位置、arrow ids、文字／選項順序、score、enabled controls；重新計算 |
 | Size | 6題×6箭上界；最大draft/review及有效pending連shared envelope實測≤4000 UTF-8 bytes。不存圖像、自由長文或每幀位置 |
-| Version | v1無legacy migration；未知模型／rubric需technical lock，若將來migration須逐例測，不靜默改正解 |
+| Version | v1嚴格驗證後補pose:null並升至v2；draft/review/pending均驗原分數不變。未知模型／rubric需technical lock，不靜默改正解 |
 | Invalid editable | 首版technical load lock，不自動清除；有證據未提交的恢復才按shared契約另處理 |
 | Invalid finished | 維持review-only，只顯可信Moodle摘要；不能變新題 |
 | Invalid pending | quarantinePending後technical lock，無重試／清除／編輯；合法payload才可shared retry |
@@ -314,26 +316,26 @@ pending／technical不顯示「提交後正解」以免技術錯誤冒充完成�
 
 ## Test plan
 
-- [ ] model：六情境全部variant的力集合、左右鏡像、圓心方向、橋頂N>0、盤上f_s≤μ_sN、圓錐擺r/ω/T一致、earth任意位置向太陽，沒有錯把反作用力畫在地球。
-- [ ] scoring：滿分100、空白0、種類但null方向的部分分、方向10°邊界／跨360°、重複一對一、extra扣分下限、選所有力無優勢、關係式與前項獨立、錐擺等價表述。
-- [ ] persistence：每矩陣列round-trip＋合法下一動作、最壞4000bytes、selected刪除重映、未知版本／invalid def、錯誤答案合法、方向precision、review與pending canonical mismatch。
-- [ ] interaction：實際controller的新增null箭／首次方向／改種類不轉向／cancel回滾／清圖不清關係／preview清理；不以source字串檢查代替。
-- [ ] lifecycle：四startup、四submission及retryable分支、invalid finished、pending quarantine、review trust mismatch/unknown、獨立刷新與Moodle同attempt。
-- [ ] browser：source及真正解壓package；六情境可信觸控作答、換題、check返回、空白/部分/完整提交、唯讀回看、extra箭、fullscreen、減少動態與fallback。
+- [x] model：六情境全部variant的力集合、左右鏡像、圓心方向、橋頂N>0、盤上f_s≤μ_sN、圓錐擺r/ω/T一致、earth任意位置向太陽，沒有錯把反作用力畫在地球。
+- [x] scoring：滿分100、空白0、種類但null方向的部分分、方向10°邊界／跨360°、重複一對一、extra扣分下限、選所有力無優勢、關係式與前項獨立、錐擺等價表述。
+- [x] persistence：每矩陣列round-trip＋合法下一動作、最壞4000bytes、selected刪除重映、未知版本／invalid def、錯誤答案合法、方向precision、review與pending canonical mismatch。
+- [x] interaction：實際controller的新增null箭／首次方向／改種類不轉向／cancel回滾／清圖不清關係／preview清理；不以source字串檢查代替。
+- [x] lifecycle：四startup、四submission及retryable分支、invalid finished、pending quarantine、review trust mismatch/unknown、獨立刷新與Moodle同attempt。
+- [x] browser：source及真正解壓package；六情境可信觸控作答、換題、check返回、空白/部分/完整提交、唯讀回看、extra箭、fullscreen、減少動態與fallback。
 - [ ] 所有T0–T3幾何／模式／viewport與move-release手勢證據；Windows依guide用Git Bash，server啟動/HTTP ready/結束清理；stdout有`### Error`即失敗。
 
 ### Test registration and CI selection evidence
 
 | Item | Decision / evidence |
 |---|---|
-| Runtime declaration | 本slug manifest：七自有runtime＋shared styles/scorm/activity-flow/fullscreen；若後續加shared touch helper必須同列 |
-| Logical entries | 上述五個本slug *.test.js；kind node、scope資料夾slug |
+| Runtime declaration | 本slug manifest：八自有runtime（含scene.js）＋shared styles/scorm/activity-flow/fullscreen |
+| Logical entries | 六個本slug *.test.js（含scene.test.js）；kind node、scope資料夾slug |
 | Browser owner | file `tools/centripetal-force-source-browser-regression.js`，kind browser，scope本slug；source/package同entry執行 |
 | Helpers | 首版N/A，不為預期未用需求拆helper；有新增時照命名／literal import/consumers規則登記 |
 | Manual gates | 既有mobile-scroll manual runner新增本活動矩陣；實機T4另列，不拿manual登記豁免source/package |
-| Registration validation | 待實作後npm run check:tests，記實際log；P0沒有runtime測試可新增 |
-| Committed selection | runtime commit後以實際base/head跑npm run test:affected -- --base=<SHA> --head=HEAD --plan；初次catalogue/registry預期full，核對此活動browser/package被選 |
-| Actual GitHub | 待SHA、run URL、範圍與結果；CI未完成不阻交付本地結果，但不得寫通過 |
+| Registration validation | 修訂版 `npm run check:tests`：264 entries，228 Node、36 browser、48 helpers、2 manual |
+| Committed selection | `4aa4d50680f9c757b932e7db08be118f80142950` → `192cd7bda1cd324863345e164b272c64f5d78e86`；`npm run test:affected -- --base=... --head=HEAD --plan` 選 full、packages all，含本活動五項 Node 與專屬 browser；鍵盤修正 commit 為 `ac0c336f9e09d77a8f5ba75f1b696e45e6a49471` |
+| Actual GitHub | 首個實作 SHA `192cd7bda1cd324863345e164b272c64f5d78e86` 的 [Quality run](https://github.com/frenselw/simlab/actions/runs/39740026658) plan/checks/四個 Node 分片已通過；鍵盤修正 SHA 的 [Quality run](https://github.com/frenselw/simlab/actions/runs/39742626251) 待最終結果 |
 
 ## 實施階段與交付
 
@@ -375,7 +377,7 @@ pending／technical不顯示「提交後正解」以免技術錯誤冒充完成�
 | Diff | `git diff --cached --check` 通過，staged範圍只有本計劃；不當作runtime驗收 |
 | 待審重點 | 六題各16分＋概念4分、先選力再拖方向、橋頂／橋底正式成對、地球題只辨引力來源、手機方向預覽 |
 
-## 2026-10-22 實作與驗證記錄
+## 2026-10-22 前版實作與驗證記錄（歷史）
 
 | 項目 | 實際證據／狀態 |
 |---|---|
@@ -385,8 +387,38 @@ pending／technical不顯示「提交後正解」以免技術錯誤冒充完成�
 | 註冊與靜態檢查 | `npm run check:tests`：263 entries（227 Node、36 browser）；`npm run check`：JavaScript 與全部 SCORM manifest profile 通過 |
 | 打包 | `npm run package:all` 通過；本活動 ZIP 12 entries（manifest＋七自有 runtime＋四 shared），專屬 browser driver 比較 manifest 引用、source 與解壓 ZIP 各檔位元組 |
 | 專屬瀏覽器 | source／解壓 package 都跑六題可信觸控作圖、13次拖動取得滿分、320×500 至 1280×800 七種 viewport、空白／部分提交、Moodle fake draft/pending/committed 續作、standalone 刷新、cancel、fullscreen；見 `output/playwright/centripetal-force-source-lab/report.json`（ignored artifact） |
-| 共用手勢矩陣 | T2 source `--phases=all --viewports=320x500,390x844`：48/48 profile／viewport，全部零 issues；其他宿主／package 待驗 |
-| 全專案 Node | 首輪 `npm run test:fast` 226/227；既有 `force-composition-construction-lab/persistence.test.js` 在共用 120 秒上限逾時，隔離重跑通過；完整重跑中，尚不列通過 |
-| Sites | 獨立 project `appgprj_6ad9ab2ffe008191bea6e486a6000e05`、version 1 `appgprj_6ad9ab2ffe008191bea6e486a6000e05~appgver_bf9786d7b1ac8191b544cd5f90c04310`、deployment `appgdep_6ad9b79f5104819181101525fcbbdb4c` 成功；source commit `6fdf09bca7505139d9c12b317b6fd650dcb19e84`；`https://centripetal-force-source-lab.ieyp.chatgpt.site`；custom allowlist 僅擁有人、零 external visitor；七自有及四 shared runtime 與工作樹逐檔 SHA-256 一致 |
-| SCORM 資產 | ZIP SHA-256 `D25B428C62CD5371EE1F25BB281355DBE53B6592FF94A0FE81D88E89B2F0AB9F` |
+| 共用手勢矩陣 | T2 source 與 package 均 `--phases=all --viewports=320x500,390x844`：各48/48 profile／viewport，全部零 issues；T1 source/package亦各48/48通過；T3前版執行已停止，未完成 |
+| 全專案 Node | `npm run test:fast` 225/227；既有 `force-composition-construction-lab/persistence.test.js` 與 `tools/ci-prepare.test.js` 各超過本機 runner 120 秒上限，兩者單獨執行均通過。GitHub 四個 Node 分片通過；本機 full 命令不可記為通過 |
+| Sites | 獨立 project `appgprj_6ad9ab2ffe008191bea6e486a6000e05`、version 2 `appgprj_6ad9ab2ffe008191bea6e486a6000e05~appgver_3876d3cbdda88191b6a26eb581561c54`、deployment `appgdep_6ad9bed0fba481919ef938f0de8d6439` 成功；source commit `72fddcdfa07ce9a9e37f56b575de1c9ae4506f48`；`https://centripetal-force-source-lab.ieyp.chatgpt.site`；custom allowlist 僅擁有人、零 external visitor；七自有及四 shared runtime 與工作樹逐檔 SHA-256 一致 |
+| SCORM 資產 | 鍵盤修正後 ZIP SHA-256 `00B4F4FD3B422370AA3DA1AB54143A10FA5E6FC9C5E2525E277E32725B12052C` |
 | Moodle／實機 | 未驗證；本地 fake LMS 與 Chrome 觸控不能代替真 Moodle 或手機 |
+
+## 2026-10-22 審閱修訂：場景、操作與定點分析
+
+使用者審閱前版後要求六情境重新繪製，加入真正由物體拖出實際力箭頭的操作，並修正橋頂分析時序。上表僅為前版證據；新版須重新跑受影響的 source／package、持續性與手機驗收，重新打包及更新同一私人 Sites。
+
+| 決定 | 新版契約 |
+|---|---|
+| 評分風險與rubric | 仍為形成性前端 96＋4 分；力種類、方向與關係不變。場景中的移動位置是物理題目上下文，不能讓重播動畫悄悄改變已畫的答案。 |
+| 六個場景 | SVG 繪出桌面、細線、小球；有刻度的轉盤與物塊；懸點、繩、圓錐擺球；有車身、車輪與弧形路面的拱橋和凹路；太陽、地球與公轉軌跡。全由本活動本地 runtime 生成，無遠端圖片依賴。 |
+| 操作／畫力 | 場景可播放／暫停及拖曳時間滑桿；分析後保留情境截圖和局部受力圖。學生先選實際力，再由研究對象直接拖出箭頭；既有加入鍵、箭尖編輯、方向鍵及觸控放大預覽作替代。繪圖在指針放開時才原子保存，取消回滾。 |
+| 一般情境 | 水平細線、圓盤、圓錐擺及地球可在當前位置立即分析；保存首次／重新選定的運動相位。前三題的正式受力圖是隨物體轉動的徑向剖面，避免把俯視平面上的重力誤作徑向力；地球題的太陽方向須按保存相位計算。已有答案時重播只作觀察，不暗改保存相位。 |
+| 橋頂／凹底 | 按鍵分別寫「分析車在拱橋頂部時」、「分析車在凹路最低點時」；從目前汽車位置繼續播放，到下一次經過中央最高／最低點才停車、保存相位並開受力圖。已超過中央點要循環到下一圈。偏好減少動態時直接顯示目標點。 |
+| 權威快照 | answer schema v2，每題新增 `pose`：`null` 或 0–9999 的一圈相位，橋題固定 5000；模型／評分只用已保存的pose。舊 v1 draft/review/pending 嚴格驗證後遷移為 `pose:null`，保留原答案和舊評分。動畫播放位置與等待狀態只是暫態，不進 SCORM。 |
+| 依賴 | 新 `scene.js` 為本活動自有純 SVG/運動幾何 runtime；加入 `index.html`、manifest、package 與 test registry。shared SCORM/activity-flow/fullscreen 不改。 |
+| 必跑驗證 | scene 幾何／車到頂事件／跨圈及六物件測試；v1→v2 與所有 editable phase/variant round-trip；直接拖畫、取消、多指、鍵盤、橋頂已過時等待與停車的真觸控 browser；source／解壓 package、短屏與 T0–T3、ZIP 位元組及 Sites 版本核對。 |
+
+### 修訂版實測與交付
+
+| 項目 | 2026-10-22 證據 |
+|---|---|
+| 六個場景與畫力 | scene.js 六種具體物件與背景；播放／暫停／進度拖曳；從物件直接拖出力及箭尖編輯；參考既有 force-equilibrium-diagram-lab 的原點拖畫／取消模型，無新增外部依賴 |
+| 邏輯 | 六個本活動 Node 測試通過；任意地球相位、原點拖畫、橋頂／凹底前後及跨圈、舊 v1 review/pending 維持 100 分、嚴格橋題 pose、最大 pending ≤4000 bytes |
+| 專屬 browser | 最終 source／解壓 package 均通過：六物件截圖、橋題 2500／7500 相位按分析後等待至下一個 5000、任意地球 1376 相位、已答重播保持相位、直接畫力與取消、13 次可信觸控作圖取得 100 分；七種 viewport、鍵盤、空白／部分、續作、鎖定、fullscreen及200% zoom |
+| Browser report | `output/playwright/centripetal-force-source-lab/report.json` completed=true、errors=[]；assetHash `5ec0188dd348b905f69b0e3588cc6bc52e4d7cb1a820b140e7c1904bd526aa1d` |
+| 手機容器 | 新版 focused T3 source：initial、橋頂分析、直接畫力、完整作答 × 320×500／390×844，各 8/8 零 issues。package同矩陣執行中；未把前版全部T1/T2證據宣稱為新版全矩陣 |
+| 手勢判定修正 | 共用觀察器加入本活動權威state；動畫自動變動的motionPosition只作播放進度，不列作答。新增測試證明保存pose變動仍報錯；觀察器測試通過 |
+| 靜態與包裝 | check、check-docs、check:tests、git diff --check 及 package:all 通過；本 ZIP 13 entries（manifest＋八自有＋四shared） |
+| SCORM ZIP | `output/centripetal-force-source-lab-scorm.zip`；SHA-256 `19F39FF6F43982692BBD65D9C4DB8E0705130C70B608E6A03085E42A7E9F4438` |
+| Sites source | 同一 owner-only project；八自有 runtime 與 worktree SHA-256 一致；已推送 Site source commit `cbd9c18a97dccf80e544355e8d99194d7d07aa4c`，部署回覆待記錄 |
+| 限制 | 不等待 GitHub CI 才交付；本輪不重跑全專案 Node 或全部 T0–T3 phase matrix。真 Moodle／實機 T4 未驗證，package-ready／Moodle-ready 清單維持未勾選，不能冒稱完成 |

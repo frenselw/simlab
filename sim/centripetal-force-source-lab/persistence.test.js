@@ -17,11 +17,19 @@ for(let page=0;page<6;page++)for(const phase of ['edit','check'])for(const varia
 }
 {
   const s=M.fresh(()=>.9);for(const item of s.items){item.arrows=Array.from({length:6},(_,i)=>[i,3599,100]);item.selected=5;item.palette=8;item.inward='SW';item.relation='';}M.CASES.forEach((q,i)=>s.items[i].relation=q.choices[0][0]);
+  s.items.forEach((item,page)=>{item.pose=page===3||page===4?5000:9999;});
   const review=snap(s,'review'),result=S.score(P.decode(review,'review'));review.score=result.score;review.passed=result.passed;
   const pending={version:1,activity:M.ACTIVITY,kind:'pending-final',payload:{reviewJson:JSON.stringify(review),score:result.score,maxScore:100,passed:result.passed}};
   assert(P.bytes(pending)<=4000,`pending uses ${P.bytes(pending)} bytes`);
 }
-for(const mutate of [s=>{s.mv=2;},s=>{s.def[3][0]=9;},s=>{s.def[4][0]=1-s.def[3][0];},s=>{s.items[0].arrows=[[0,3600,60]];},s=>{s.items[0].selected=0;},s=>{s.items[0].relation='bogus';},s=>{delete s.concept;},s=>{s.seed=-1;}]){
+for(const mutate of [s=>{s.mv=3;},s=>{s.items[0].pose=10000;},s=>{s.items[3].pose=7500;},s=>{s.def[3][0]=9;},s=>{s.def[4][0]=1-s.def[3][0];},s=>{s.items[0].arrows=[[0,3600,60]];},s=>{s.items[0].selected=0;},s=>{s.items[0].relation='bogus';},s=>{delete s.concept;},s=>{s.seed=-1;}]){
   const s=M.fresh(()=>.2);mutate(s);assert.throws(()=>P.validate(s));
+}
+for(const kind of ['draft','review']){
+  const s=M.fresh(()=>.2);s.items[0].arrows=[[0,2700,60]];s.phase=kind==='review'?'review':'edit';
+  const score=S.score(s).score;s.v=1;s.mv=1;s.items.forEach(item=>delete item.pose);
+  const restored=P.decode({version:1,activity:M.ACTIVITY,kind,answer:s},kind);
+  assert.equal(restored.v,2);assert.equal(restored.items[0].pose,null);assert.equal(S.score(restored).score,score);
+  s.items[0].unexpected=true;assert.throws(()=>P.decode({version:1,activity:M.ACTIVITY,kind,answer:s},kind));
 }
 console.log('Centripetal source persistence: phase/variant round trips, legal continuation, corrupt rejection and pending size passed.');

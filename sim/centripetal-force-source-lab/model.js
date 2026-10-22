@@ -52,17 +52,22 @@
       bridge,bridge.slice(),[draw(random,8),draw(random,2)]
     ];
     const seed=Math.floor(random()*4294967296);
-    return {v:1,mv:1,rv:1,seed,def,phase:'edit',view:'scene',page:0,fromReview:false,returnTo:null,
-      items:CASES.map(()=>({inward:null,arrows:[],relation:null,palette:null,selected:null})),concept:null};
+    return {v:2,mv:2,rv:1,seed,def,phase:'edit',view:'scene',page:0,fromReview:false,returnTo:null,
+      items:CASES.map(()=>({inward:null,arrows:[],relation:null,palette:null,selected:null,pose:null})),concept:null};
   }
-  function inward(def,page) {
+  function poseAngle(def,page,pose=null) {
+    const start=page===5?def[5][0]*45:page<3?(def[page][0]?180:0):0;
+    const sense=page===5?(def[5][1]===0?1:-1):1;
+    return angle(start+sense*360*(pose??0)/10000);
+  }
+  function inward(def,page,pose=null) {
     if (page===3) return 'S';
     if (page===4) return 'N';
-    if (page===5) return DIRECTIONS[(def[5][0]+4)%8];
+    if (page===5) return angleDirection((poseAngle(def,page,pose)+1800)%3600);
     return def[page][0]===0?'W':'E';
   }
-  function physics(def,page) {
-    const inner=inward(def,page),a=directionAngle(inner),gravity=angle(270),up=angle(90);
+  function physics(def,page,pose=null) {
+    const inner=inward(def,page,pose),a=page===5?(poseAngle(def,page,pose)+1800)%3600:directionAngle(inner),gravity=angle(270),up=angle(90);
     if (page===0) {const [,mi,ri,vi]=def[0],m=[.1,.2][mi],r=[.3,.45][ri],v=[.6,.9][vi];return {inward:inner,forces:[[0,gravity,m*G],[3,up,m*G],[2,a,m*v*v/r]],values:{m,r,v}};}
     if (page===1) {const [,mi,ri,vi]=def[1],m=[.1,.2][mi],r=[.3,.4][ri],v=[.5,.7][vi];return {inward:inner,forces:[[0,gravity,m*G],[3,up,m*G],[4,a,m*v*v/r]],values:{m,r,v,mu:.5}};}
     if (page===2) {const [,mi,li,ti]=def[2],m=[.2,.3][mi],L=[1,1.2][li],theta=[25,35,45][ti]*Math.PI/180,r=L*Math.sin(theta),T=m*G/Math.cos(theta),omega=Math.sqrt(G/(L*Math.cos(theta))),v=omega*r;return {inward:inner,forces:[[0,gravity,m*G],[2,angle(inner==='E'?90-theta*180/Math.PI:90+theta*180/Math.PI),T]],values:{m,L,theta,r,T,omega,v}};}
@@ -79,23 +84,27 @@
     if (state.phase!=='edit') throw Error('Answers locked');
     const n=clone(state),item=n.items[n.page];
     switch(action.type) {
-      case 'analyse': n.view='analysis'; break;
+      case 'analyse':
+        if(action.pose!==undefined){if(!integer(action.pose,0,9999)||((n.page===3||n.page===4)&&action.pose!==5000))throw Error('Invalid observation');if(!hasAnswers(item))item.pose=action.pose;}
+        n.view='analysis'; break;
       case 'scene': n.view='scene'; break;
       case 'inward': if(action.value!==null&&!DIRECTIONS.includes(action.value))throw Error('Invalid direction');item.inward=action.value;n.view='analysis';break;
       case 'relation': if(action.value!==null&&!CASES[n.page].choices.some(c=>c[0]===action.value))throw Error('Invalid relation');item.relation=action.value;n.view='analysis';break;
       case 'concept': if(action.value!==null&&!CONCEPT.some(c=>c[0]===action.value))throw Error('Invalid concept');n.concept=action.value;break;
-      case 'palette': if(action.value!==null&&!integer(action.value,0,8))throw Error('Invalid palette');item.palette=action.value;break;
+      case 'palette': if(action.value!==null&&!integer(action.value,0,8))throw Error('Invalid palette');item.palette=action.value;item.selected=null;break;
       case 'add': if(item.palette===null||item.arrows.length>=6)throw Error('Choose a force; six is the limit');item.arrows.push([item.palette,null,60]);item.selected=item.arrows.length-1;n.view='analysis';break;
+      case 'draw': if(item.palette===null||item.arrows.length>=6||!integer(action.angle,0,3599)||!integer(action.length,40,100))throw Error('Invalid drawn force');item.arrows.push([item.palette,action.angle,action.length]);item.selected=item.arrows.length-1;n.view='analysis';break;
       case 'select': if(!integer(action.index,0,item.arrows.length-1))throw Error('Invalid force');item.selected=action.index;break;
       case 'kind': if(!integer(item.selected,0,item.arrows.length-1)||!integer(action.value,0,8))throw Error('Invalid force');item.arrows[item.selected][0]=action.value;break;
       case 'arrow': if(!integer(item.selected,0,item.arrows.length-1)||!integer(action.angle,0,3599)||!integer(action.length,40,100))throw Error('Invalid arrow');item.arrows[item.selected][1]=action.angle;item.arrows[item.selected][2]=action.length;n.view='analysis';break;
       case 'delete': if(!integer(item.selected,0,item.arrows.length-1))throw Error('Invalid force');item.arrows.splice(item.selected,1);item.selected=item.arrows.length?Math.min(item.selected,item.arrows.length-1):null;break;
       case 'clear-drawing': item.arrows=[];item.selected=null;break;
-      case 'clear-page': n.items[n.page]={inward:null,arrows:[],relation:null,palette:null,selected:null};break;
+      case 'clear-page': n.items[n.page]={inward:null,arrows:[],relation:null,palette:null,selected:null,pose:null};break;
       default: throw Error('Unknown action');
     }
     return n;
   }
-  function navigate(state,page) {if(!integer(page,0,5))throw Error('Invalid page');const n=clone(state);n.page=page;n.phase='edit';return n;}
-  return Object.freeze({ACTIVITY,G,KINDS,DIRECTIONS,DIRECTION_LABELS,CASES,CONCEPT,clone,integer,angle,difference,directionAngle,angleDirection,validDefinition,fresh,inward,physics,options,change,navigate});
+  function hasAnswers(item){return item.inward!==null||item.arrows.length>0||item.relation!==null;}
+  function navigate(state,page) {if(!integer(page,0,5))throw Error('Invalid page');const n=clone(state);if(page!==n.page)n.view=n.items[page].pose!==null||hasAnswers(n.items[page])?'analysis':'scene';n.page=page;n.phase='edit';return n;}
+  return Object.freeze({ACTIVITY,G,KINDS,DIRECTIONS,DIRECTION_LABELS,CASES,CONCEPT,clone,integer,angle,difference,directionAngle,angleDirection,validDefinition,fresh,poseAngle,inward,physics,options,change,navigate,hasAnswers});
 });

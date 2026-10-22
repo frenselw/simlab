@@ -8,7 +8,7 @@
  <organizations default="ORG-CENTRIPETAL-SOURCE"><organization identifier="ORG-CENTRIPETAL-SOURCE"><title>誰提供向心力：受力分析與圓心方向</title><item identifier="ITEM-CENTRIPETAL-SOURCE" identifierref="RES-CENTRIPETAL-SOURCE"><title>誰提供向心力：受力分析與圓心方向</title></item></organization></organizations>
  <resources><resource identifier="RES-CENTRIPETAL-SOURCE" type="webcontent" adlcp:scormtype="sco" href="centripetal-force-source-lab/index.html">
   <file href="centripetal-force-source-lab/index.html"/><file href="centripetal-force-source-lab/styles.css"/><file href="centripetal-force-source-lab/main.js"/>
-  <file href="centripetal-force-source-lab/model.js"/><file href="centripetal-force-source-lab/persistence.js"/><file href="centripetal-force-source-lab/scoring.js"/><file href="centripetal-force-source-lab/ui-runtime.js"/>
+  <file href="centripetal-force-source-lab/model.js"/><file href="centripetal-force-source-lab/scene.js"/><file href="centripetal-force-source-lab/persistence.js"/><file href="centripetal-force-source-lab/scoring.js"/><file href="centripetal-force-source-lab/ui-runtime.js"/>
   <file href="shared/styles.css"/><file href="shared/scorm.js"/><file href="shared/activity-flow.js"/><file href="shared/fullscreen.js"/>
  </resource></resources>
 </manifest>

@@ -83,7 +83,7 @@ async function observation() {
     const rect=e=>{if(!e)return null;const r=e.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height};};
     const vv=w=>w.visualViewport?Object.fromEntries(['pageTop','pageLeft','offsetTop','offsetLeft','width','height','scale'].map(k=>[k,w.visualViewport[k]])):null;
     const scrollers=[...document.querySelectorAll('*')].filter(e=>{const c=window.getComputedStyle(e);return /auto|scroll/.test(c.overflowY)&&e.scrollHeight>e.clientHeight+1;}).map(e=>({id:e.id,class:e.className?.baseVal||e.className,top:e.scrollTop,range:e.scrollHeight-e.clientHeight,height:e.clientHeight}));
-    const hooks=['__forceCompositionApp','__forceOrthogonalApp','__equilibriumApp','__advancedEquilibriumApp','__reactionApp','__newtonApp','__kinematicsGraphDebug','__centreMassDebug','__hookesLawApp','__staticKineticFrictionApp','__motionComposition','__projectileApp','__circularVectorApp'];
+    const hooks=['__centripetalSourceApp','__forceCompositionApp','__forceOrthogonalApp','__equilibriumApp','__advancedEquilibriumApp','__reactionApp','__newtonApp','__kinematicsGraphDebug','__centreMassDebug','__hookesLawApp','__staticKineticFrictionApp','__motionComposition','__projectileApp','__circularVectorApp'];
     const state={};for(const name of hooks){const app=window[name];if(app?.getState)state[name]=app.getState();}
     if(window.CircuitHouseholdWorkbench)state.household=window.CircuitHouseholdWorkbench.captureSession();
     if(window.__freeFallDebug?.state)state.freeFall=window.__freeFallDebug.state();
@@ -216,7 +216,8 @@ function differences(before,after,region,direction,position) {
   if(before.documentRange>tolerance||after.documentRange>tolerance)issues.push('activity document has an unintended scroll range');
   if(Math.abs(after.document-before.document)>tolerance)issues.push('activity document scrolled');
   if(Math.abs(after.documentX-before.documentX)>tolerance)issues.push('activity horizontal scroll');
-  const semantic=state=>({hooks:state.hooks,forms:state.forms,phase:state.phase});
+  // Playback position advances without editing the saved observation or answers.
+  const semantic=state=>({hooks:state.hooks,forms:state.forms.filter(e=>!state.hooks.__centripetalSourceApp||e.id!=='motionPosition'),phase:state.phase});
   if(JSON.stringify(semantic(after.state))!==JSON.stringify(semantic(before.state)))issues.push('learner state changed');
   if(after.state.suspend!==before.state.suspend)issues.push('SCORM checkpoint changed during blank swipe');
   const vv=(a,b)=>Math.abs(a.pageTop-b.pageTop)>tolerance||Math.abs(a.pageLeft-b.pageLeft)>tolerance||Math.abs(a.offsetTop-b.offsetTop)>tolerance||Math.abs(a.offsetLeft-b.offsetLeft)>tolerance||Math.abs(a.scale-b.scale)>.001;

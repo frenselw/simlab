@@ -5,7 +5,7 @@
   <title>誰提供向心力：受力分析與圓心方向</title><link rel="icon" href="data:,">
   <link rel="stylesheet" href="../shared/styles.css"><link rel="stylesheet" href="styles.css">
   <script defer src="../shared/scorm.js"></script><script defer src="../shared/activity-flow.js"></script><script defer src="../shared/fullscreen.js"></script>
-  <script defer src="model.js"></script><script defer src="persistence.js"></script><script defer src="scoring.js"></script><script defer src="ui-runtime.js"></script><script defer src="main.js"></script>
+  <script defer src="model.js"></script><script defer src="scene.js"></script><script defer src="persistence.js"></script><script defer src="scoring.js"></script><script defer src="ui-runtime.js"></script><script defer src="main.js"></script>
 </head>
 <body>
 <main id="app" class="sim-app" data-sim-fullscreen-target>
@@ -17,7 +17,7 @@
   </header>
   <section id="stage" class="sim-stage" aria-label="運動情境與受力分析圖">
     <div class="side-strip" aria-hidden="true"></div>
-    <div id="diagram" class="diagram"><svg id="diagramSvg" role="img" aria-label="研究對象及學生所畫的實際受力圖"></svg><button id="forceHandle" class="force-handle" type="button" aria-label="拖動選定力的箭尖；方向鍵可微調" hidden></button></div>
+    <div id="diagram" class="diagram"><svg id="diagramSvg" role="img" aria-label="研究對象及學生所畫的實際受力圖"></svg><button id="originHandle" class="force-handle origin-handle" type="button" aria-label="從研究對象拖出所選的力" hidden></button><button id="forceHandle" class="force-handle" type="button" aria-label="拖動選定力的箭尖；方向鍵可微調" hidden></button></div>
     <div class="side-strip" aria-hidden="true"></div>
     <div id="preview" class="preview" hidden><span>局部放大</span><svg id="previewSvg" role="img" aria-label="正在調整的箭頭及情境參照"></svg></div>
   </section>
@@ -26,9 +26,11 @@
     <section id="resultPanel" hidden><h2 id="resultTitle"></h2><p id="scoreText"></p><button id="retryFinal" type="button" hidden>重試提交</button></section>
     <section id="learningPanel">
       <h2 id="caseTitle"></h2><p id="caseNote"></p>
-      <div class="button-row"><button id="analyseButton" type="button">分析此刻</button><button id="sceneButton" type="button">觀看運動</button></div>
-      <fieldset><legend>圓心在研究對象的哪個方向？</legend><div id="directionChoices" class="choice-grid"></div></fieldset>
-      <section id="forceControls"><h3>實際受力圖</h3><p class="hint">選一種作用在研究對象上的力，再拖箭尖定方向。箭長只供示意，不按大小評分。</p>
+      <div class="button-row"><button id="analyseButton" class="primary" type="button">畫受力圖</button><button id="sceneButton" type="button">暫停運動</button></div>
+      <div id="motionControls"><label for="motionPosition">拖動觀察運動位置</label><input id="motionPosition" type="range" min="0" max="9999" value="0"><p id="motionMessage" class="hint" role="status"></p></div>
+      <div id="answerArea">
+      <fieldset><legend>圓心在研究對象的哪個方向？</legend><p id="directionHint" class="hint"></p><div id="directionChoices" class="choice-grid"></div></fieldset>
+      <section id="forceControls"><h3>親手畫出實際受力</h3><p class="hint">先選力的來源，再從圖中物件的圓點拖出箭頭。拖箭尖可調整方向；也可按「加入」後用方向按鈕。箭長只供示意，不按大小評分。</p>
         <div class="button-row"><select id="forcePalette" aria-label="力的種類與來源"><option value="">選擇力的種類與來源</option></select><button id="addForce" type="button">加入</button></div>
         <div id="forceList" aria-label="已加入的力"></div>
         <div id="directionTools" hidden><p>選定力的方向：<span id="selectedForceLabel"></span></p><div id="arrowDirections" class="choice-grid"></div><p class="hint">方向鍵左右微調 1°，Shift 加速至 5°；上下調整示意箭長。</p></div>
@@ -37,6 +39,7 @@
       <fieldset><legend>哪些實際作用力或分量提供向心力？</legend><div id="relationChoices"></div></fieldset>
       <fieldset id="conceptField"><legend>共同概念：向心力是甚麼？</legend><div id="conceptChoices"></div></fieldset>
       <button id="clearPage" type="button">清除本題全部答案</button>
+      </div>
     </section>
     <section id="checkPanel" hidden><h2>檢查目前作答</h2><p>空白及部分答案都可以提交；未答部分得 0 分。提交後答案會鎖定。</p><div id="checkSummary"></div><div class="button-row"><button id="returnEdit" type="button">返回修改</button><button id="submitButton" class="primary" type="button">提交目前答案</button></div></section>
     <section id="feedback" hidden><h2>學生圖與參考圖</h2><p>圖中僅列實際作用力；徑向合力在下方另行說明，不當作額外外力。</p><div id="feedbackList"></div></section>

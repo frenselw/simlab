@@ -41,10 +41,11 @@ function activityProfiles(slug) {
     const restored=(id,s,continuation=[],extra={})=>({id,prepare:`const s=${JSON.stringify(P.draft(s))};window.CentripetalSourcePersistence.validate(s,'draft');return restore('${slug}',s);`,continue:continuation,expect:'Boolean(window.__centripetalSourceApp.getState())',...extra});
     const profiles=[{id:'initial'}];
     for(let page=0;page<6;page++){
-      let s=M.fresh(()=>.2);s.page=page;profiles.push(restored(`case-${page}-scene`,s,['#analyseButton']));
+      let s=M.fresh(()=>.2);s.page=page;profiles.push(restored(`case-${page}-scene`,s,['#analyseButton'],{beforeContinue:page===3||page===4?'const slider=document.getElementById("motionPosition");slider.value=4990;slider.dispatchEvent(new Event("input",{bubbles:true}));':'',settleMs:250,expectReady:'window.__centripetalSourceApp.getState().view==="analysis"'}));
       s=M.change(s,{type:'palette',value:M.physics(s.def,page).forces[0][0]});s=M.change(s,{type:'add'});profiles.push(restored(`case-${page}-null-force`,s,['#checkButton',`[data-return="${page}"]`],{ownedTarget:'.force-handle:not([hidden])'}));
       s=M.change(s,{type:'arrow',angle:M.physics(s.def,page).forces[0][1],length:60});profiles.push(restored(`case-${page}-partial`,s,['#checkButton',`[data-return="${page}"]`],{ownedTarget:'.force-handle:not([hidden])'}));
     }
+    let drawing=M.change(M.change(M.fresh(()=>.2),{type:'analyse',pose:1200}),{type:'palette',value:2});profiles.push(restored('direct-drawing',drawing,[],{ownedTarget:'#originHandle'}));
     let done=M.fresh(()=>.2);done.items.forEach((item,page)=>{const p=M.physics(done.def,page);item.inward=p.inward;item.relation=M.CASES[page].relation;item.arrows=p.forces.map(([kind,a])=>[kind,a,60]);item.selected=0;});done.view='analysis';done.concept='radial-effect';
     profiles.push(restored('complete',done,['#checkButton','#returnEdit'],{ownedTarget:'.force-handle:not([hidden])'}));
     profiles.push(restored('check',done,['#checkButton']));

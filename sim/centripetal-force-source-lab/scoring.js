@@ -7,7 +7,7 @@
   function score(s){
     P.validate(s,s.phase==='review'?'review':'draft');
     const detail=M.CASES.map((q,page)=>{
-      const item=s.items[page],physics=M.physics(s.def,page),reference=physics.forces;
+      const item=s.items[page],physics=M.physics(s.def,page,item.pose),reference=physics.forces;
       const inward=item.inward===physics.inward?3:0;
       const used=new Set(),matches=[];
       for(const [kind,correctAngle] of reference){
