@@ -110,7 +110,7 @@ async function brake(cdp, duration=1500, touch=true, cancel=false) {
   else await cdp.send('Input.dispatchMouseEvent',{type:'mouseReleased',x,y,button:'left',clickCount:1});
 }
 async function reSpin(cdp) {
-  const g=await H.evaluate(cdp,`(()=>{const m=document.getElementById('deviceSvg').getScreenCTM();return{x:300*m.a+m.e,y:230*m.d+m.f,r:213*m.a};})()`);
+  let g=await H.evaluate(cdp,`(()=>{const m=document.getElementById('deviceSvg').getScreenCTM();return{x:300*m.a+m.e,y:230*m.d+m.f,r:213*m.a};})()`);
   const count=await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[0].runs[0].q.length');
   const finger=a=>({x:g.x+g.r*Math.cos(a),y:g.y+g.r*Math.sin(a),id:411,radiusX:1,radiusY:1,force:1});
   await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[finger(0)]});
@@ -414,24 +414,49 @@ async function signedMeasurements(cdp, base, launch, label) {
 async function responsiveSpin(cdp,base,launch) {
   await cdp.send('Page.navigate',{url:base+launch});await ready(cdp);await click(cdp,'#startButton');
   await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:2});
-  const g=await H.evaluate(cdp,"(()=>{const m=document.getElementById('deviceSvg').getScreenCTM();return{x:300*m.a+m.e,y:230*m.d+m.f,r:213*m.a};})()");
+  let g=await H.evaluate(cdp,"(()=>{const m=document.getElementById('deviceSvg').getScreenCTM();return{x:300*m.a+m.e,y:230*m.d+m.f,r:213*m.a};})()");
   const finger=a=>({x:g.x+g.r*Math.cos(a),y:g.y+g.r*Math.sin(a),id:501,radiusX:1,radiusY:1,force:1});
-  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[finger(0)]});
-  await pause(30);await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[finger(-.6)]});
-  await pause(30);await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[finger(-1.2)]});
-  await pause(40);
-  const held=await H.evaluate(cdp,'window.__centripetalApp.getMotion()');
-  assert.ok(Math.abs(held.angle-1.2)<.01,'fast touch tracks the full gesture angle while held: '+JSON.stringify({held,g}));
-  assert.ok(held.omega>4,'short fast stroke reaches a high release speed');
-  await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await pause(100);
-  const released=await H.evaluate(cdp,'window.__centripetalApp.getMotion()');
-  assert.ok(released.angle-held.angle>.2,'release continues rotating immediately without a delayed restart');
-  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[finger(0)]});
-  await pause(30);await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[finger(.6)]});
-  await pause(30);await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[finger(1.2)]});
-  await pause(40);
-  assert.ok((await H.evaluate(cdp,'window.__centripetalApp.getMotion().omega'))<-4,'reverse fast stroke responds directly');
-  await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  for(const sign of [1,-1]) {
+    const before=await H.evaluate(cdp,'window.__centripetalApp.getMotion()');
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[finger(0)]});
+    await pause(30);await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[finger(-sign*.6)]});
+    await pause(30);await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[finger(-sign*1.2)]});
+    await pause(40);
+    const held=await H.evaluate(cdp,'window.__centripetalApp.getMotion()');
+    // Free rotation before the second pointerdown can advance the starting angle.
+    if(sign===1) assert.ok(Math.abs(held.angle-before.angle-1.2)<.01,'touch follows full pointer displacement');
+    assert.ok(sign*held.omega>6,'fast stroke exceeds the old 6 rad/s cap: '+JSON.stringify(held));
+    await pause(300);
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await pause(100);
+    const released=await H.evaluate(cdp,'window.__centripetalApp.getMotion()');
+    assert.ok(sign*(released.angle-held.angle)>.2,'touch release after a short hold continues on the first frames');
+    assert.ok(Math.abs(released.omega-held.omega)<.01,'touch release preserves last moving velocity');
+  }
+  await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:false});
+  await cdp.send('Page.navigate',{url:base+launch});await ready(cdp);await click(cdp,'#startButton');
+  g=await H.evaluate(cdp,"(()=>{const m=document.getElementById('deviceSvg').getScreenCTM();return{x:300*m.a+m.e,y:230*m.d+m.f,r:213*m.a};})()");
+  for(const sign of [1,-1]) {
+    const mouse=async(type,a,buttons)=>{const p=finger(a);await cdp.send('Input.dispatchMouseEvent',{type,x:p.x,y:p.y,button:'left',buttons,clickCount:1});};
+    await mouse('mousePressed',0,1);
+    await pause(30);await mouse('mouseMoved',-sign*.6,1);
+    await pause(30);await mouse('mouseMoved',-sign*1.2,1);
+    const held=await H.evaluate(cdp,'window.__centripetalApp.getMotion()');
+    assert.ok(sign*held.omega>6,'fast mouse stroke exceeds the old cap: '+JSON.stringify({sign,held,g}));
+    await pause(300);await mouse('mouseMoved',-sign*1.2,1);
+    await mouse('mouseReleased',-sign*1.2,0);await pause(100);
+    const released=await H.evaluate(cdp,'window.__centripetalApp.getMotion()');
+    assert.ok(sign*(released.angle-held.angle)>.2,'stationary mouse event and delayed release retain inertia');
+    assert.ok(Math.abs(released.omega-held.omega)<.01,'mouse release preserves last moving velocity');
+  }
+  // Some devices deliver the final displacement only with pointerup.
+  const p=finger(0),end=finger(-.8);
+  await cdp.send('Input.dispatchMouseEvent',{type:'mousePressed',x:p.x,y:p.y,button:'left',buttons:1,clickCount:1});
+  await pause(30);
+  await cdp.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:end.x,y:end.y,button:'left',buttons:0,clickCount:1});
+  await pause(80);
+  assert.ok((await H.evaluate(cdp,'window.__centripetalApp.getMotion().omega'))>6,'final pointerup displacement contributes to launch speed');
+  await click(cdp,'#measureButton');await pause(100);
+  assert.ok((await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[0].runs[0].q')).some(q=>q>6000),'high-speed readings are saved');
 }
 async function lowSpeedFeedback(cdp, base, launch) {
   await cdp.send('Page.navigate',{url:base+launch});await ready(cdp);

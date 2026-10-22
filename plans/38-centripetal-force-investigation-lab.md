@@ -703,3 +703,21 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 - Site source c5fcb01f84f73849c129257412095603183357b3；v9：appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_8523885425bc8191bec16b722c9bf7fa；deployment appgdep_6ada0e3da6e88191a1f97ee2e935bb28，回報succeeded，私人設定保持。
 - 原本Site分頁已重新載入並保留；上線後以鍵盤推轉／按住減速／反向確認7點、空心反轉點與即時十字均出現。可信touch快推／放手的驗證在上述source與package執行，沒有將鍵盤檢查當成真機手勢驗證。
 - 網址：https://centripetal-force-investigation-lab.ieyp.chatgpt.site/centripetal-force-investigation-lab/
+
+## 放手續轉與高速手勢修正（2026-10-22，動工前決策）
+
+- 使用者回報放手即停，要求跟隨最後手速及容許更快推轉。上一輪120ms放手清零與長事件間隔清零的決策由本節取代；保留最後有效移動速度，靜止事件不抹去速度，放手即續轉。暫停／取消仍明確停止。
+- 範圍：model運動及取點範圍、main手勢與鍵盤上限、persistence／runtime版本、既有五項純測試與browser、SCORM及原私人Site。不上新依賴，不開sub-agents。
+- 統一MAX_OMEGA=24 rad/s（正反向）；實際速度按位移／時間估計，不加人工加速。長事件間隔用實際時間估速；最後pointerup若有新位移也納入。
+- mv3允許整數q絕對值250–24000；mv1／mv2仍按原250–6000驗證，舊review／pending保持原版本、分數及鎖定，草稿首次更新升mv3。rv2評分不改；速度區間計算延伸到24，舊範圍結果逐一相同。48點容量保留，驗證五位數最大snapshot仍小於4000 bytes。
+- 驗證：快推、反向、靜止事件、停留300ms才放手及最後up位移；trusted mouse／touch在source與解壓package續轉及高於6。高速取點、擬合、保存往返、mv1／mv2兼容及非法範圍拒絕；check／check:tests及committed selection。真手機／Safari與真Moodle仍未驗。
+
+### 放手續轉修正驗證
+
+- 五項純測試通過；高速正負取點、24.001拒絕、長事件間隔估速、反向、靜止事件不清零、放手第一幀續轉。舊250–6000每個整數的區間計算與原版完全相同；高速區間仍可獲原取點分。
+- mv3 draft／review／pending最大UTF-8 bytes為3179／3215／3570，低於4000。mv1及mv2保持原驗證上限、已交／pending原分數與鎖定；mv2草稿恢復後可保留舊點並加入-24 rad/s。
+- 維護中的source及實際解壓package browser通過。可信touch與mouse雙向快推均超過6 rad/s；停留300ms再放手，100ms內角度繼續前進且速度不變；滑鼠額外同位置move不清零；最後位移僅在pointerup抵達也可推轉及保存高速點。既有連續減速、再推、取消／只讀、fullscreen及320／390版面通過。
+- 新mouse測試最初錯把按住時的CDP button送成none，造成lostpointercapture；已改成專案既有left+buttons=1，完整測試通過。未為測試移除產品的取消保護。check最初因未載入既有NODE_PATH失敗，補上後check與check:tests（263 entries）通過。
+- 最後只移除測試診斷事件記錄，未再改runtime。沒有新增入口／依賴；無sub-agent審核。
+- SCORM 16個runtime與sim及Site dist逐位元組一致。ZIP SHA-256：a3b8e7728ab0aa1346f7970b9d2223453e24540c36fd246616db0a7d457d0f20。
+- 真手機／Safari、真Moodle T4及全T0–T3矩陣未驗，維持planned。

@@ -14,7 +14,7 @@
   const SYNC = ["same-omega", "same-force", "same-mass", "unknown"];
   const MASS_PARTS = ["cap-screw-weights", "weights-only", "sensor-and-weights", "cap-only"];
   const CFG = [2, 2, 2, 2];
-  const MAX_SAMPLES = 48;
+  const MAX_SAMPLES = 48, MAX_OMEGA = 24;
   const clone = value => JSON.parse(JSON.stringify(value));
   const radius = index => 0.1 + 0.05 * index;
   const mass = count => 0.04 + 0.02 * count;
@@ -23,7 +23,7 @@
     const { rA, rB, mA, mB } = quantities(cfg);
     return { omega, a: mA * rA * omega ** 2, b: mB * rB * omega ** 2 };
   };
-  const slot = q => Math.sign(q) * (1 + Math.min(23, Math.floor((Math.abs(q) - 250) / 250)));
+  const slot = q => Math.sign(q) * (1 + Math.floor((Math.abs(q) - 250) / 250));
   const points = (kind, run) => run.q.map(q => {
     const values = readings(run.cfg, q / 1000);
     return kind === "omega" ? [values.omega, values.a] : [values.b, values.a];
@@ -32,7 +32,7 @@
   const freshRun = cfg => ({ cfg: cfg.slice(), q: [], fit: false, a: [null, null, null] });
   const freshTask = () => ({ work: CFG.slice(), current: null, selected: null, roles: [null, null], inquiry: [null, null], runs: [], law: null });
   const fresh = (seed = Math.floor(Math.random() * 0x100000000)) => ({
-    v: 1, mv: 2, rv: 2, seed: seed >>> 0, page: 0, view: "setup", fromReview: false,
+    v: 1, mv: 3, rv: 2, seed: seed >>> 0, page: 0, view: "setup", fromReview: false,
     returnTo: null, tasks: KINDS.map(freshTask), sync: null, massParts: null
   });
   function begin(task) {
@@ -45,7 +45,7 @@
   function record(task, omega) {
     if (task.current === null || !Number.isFinite(omega)) return false;
     const q = Math.round(omega * 1000);
-    if (Math.abs(q) < 250 || Math.abs(q) > 6000) return false;
+    if (Math.abs(q) < 250 || Math.abs(q) > MAX_OMEGA * 1000) return false;
     const run = task.runs[task.current];
     if (run.q.length >= MAX_SAMPLES || run.q.includes(q)) return false;
     run.q.push(q);
@@ -80,15 +80,16 @@
     if (!(dt > 0)) return state;
     if (Math.abs(delta) > Math.PI * 0.8) return { ...state, pointerAngle: angle, time, omega: 0, history: [], warning: true };
     const nextAngle = state.angle + delta;
-    if (dt > 0.12) return { ...state, pointerAngle: angle, time, angle: nextAngle, omega: 0, history: [{ angle: nextAngle, time }], warning: false };
+    // A stationary event must not erase the last push before pointerup.
+    if (Math.abs(delta) < 1e-6) return { ...state, pointerAngle: angle, time };
     const history = state.omega * delta < 0 ? [] : (state.history || []).filter(sample => time - sample.time <= 80);
     if (!history.length) history.push({ angle: state.angle, time: state.time });
     history.push({ angle: nextAngle, time });
-    const omega = Math.max(-6, Math.min(6, (nextAngle - history[0].angle) / ((time - history[0].time) / 1000)));
+    const omega = Math.max(-MAX_OMEGA, Math.min(MAX_OMEGA, (nextAngle - history[0].angle) / ((time - history[0].time) / 1000)));
     return { ...state, pointerAngle: angle, time, angle: nextAngle, omega, history, warning: false };
   }
-  function releaseMotion(state, time) {
-    return { ...state, omega: time - state.time > 120 ? 0 : state.omega, pointerAngle: null, time: null, history: [] };
+  function releaseMotion(state) {
+    return { ...state, pointerAngle: null, time: null, history: [] };
   }
   function upgradeDraft(state) {
     if (state.rv === 1) {
@@ -99,7 +100,7 @@
   }
   function sampleReady(run, omega) {
     const q = Math.round(omega * 1000);
-    return !!run && Number.isFinite(q) && Math.abs(q) >= 250 && Math.abs(q) <= 6000 &&
+    return !!run && Number.isFinite(q) && Math.abs(q) >= 250 && Math.abs(q) <= MAX_OMEGA * 1000 &&
       run.q.length < MAX_SAMPLES && run.q.every(old => Math.abs(old - q) >= 250);
   }
   function coast(state, dt, braking = false) {
@@ -108,6 +109,6 @@
     return { ...state, omega, angle: state.angle + (state.omega + omega) * dt / 2 };
   }
   return Object.freeze({ KINDS, SETUP_REASONS, SPEED_RELATIONS, VARIABLES, COMPARE, REASONS, LAWS, SYNC, MASS_PARTS, clone, CFG, radius, mass,
-    quantities, readings, slot, MAX_SAMPLES, points, fit, freshRun, freshTask, fresh, begin, record, fitCurrent, removeRun, setWork,
+    quantities, readings, slot, MAX_SAMPLES, MAX_OMEGA, points, fit, freshRun, freshTask, fresh, begin, record, fitCurrent, removeRun, setWork,
     motion, dragMotion, releaseMotion, coast, sampleReady, upgradeDraft });
 });

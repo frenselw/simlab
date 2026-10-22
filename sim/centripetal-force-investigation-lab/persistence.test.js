@@ -20,7 +20,7 @@ for (const page of [0, 1, 2]) for (const variant of ["empty", "partial", "fit", 
 }
 const full = M.fresh(0xffffffff); full.sync = "same-omega"; full.massParts = "sensor-and-weights";
 for (const [i, t] of full.tasks.entries()) for (let run = 0; run < 2; run++) {
-  M.begin(t); for (let q = 5953; q <= 6000; q++) M.record(t, -q / 1000);
+  M.begin(t); for (let q = 23953; q <= 24000; q++) M.record(t, -q / 1000);
   t.runs[run].a = ["123456789012", i === 2 ? "square" : "supports", "coefficient"];
   t.inquiry = i < 2 ? ["different-both", "forces-steady"] : [null,null]; t.roles = ["force",["omega","force"]]; t.law = "inverse";
 }
@@ -40,3 +40,15 @@ for (const change of [s => s.v = 2, s => s.tasks[0].work[0] = NaN, s => s.tasks[
   const bad = M.clone(full); change(bad); assert.throws(() => P.validate(bad));
 }
 console.log("centripetal persistence ok");
+
+for (const mv of [1,2]) {
+  const old=M.fresh(9); old.mv=mv; M.begin(old.tasks[0]); M.record(old.tasks[0],6);
+  roundtrip(old,s=>{s.mv=3;assert.ok(M.record(s.tasks[0],-24));assert.ok(P.validate(s));});
+  const bad=M.clone(old);bad.tasks[0].runs[0].q=[6001];assert.throws(()=>P.validate(bad));
+}
+const high=M.fresh(10);high.page=2;high.view="collect";M.begin(high.tasks[2]);
+for(const omega of [-24,-12,12,24]) assert.ok(M.record(high.tasks[2],omega));
+roundtrip(high,s=>{assert.ok(M.fitCurrent("omega",s.tasks[2]).ok);assert.ok(M.record(s.tasks[2],20));assert.ok(P.validate(s));});
+for(const q of [-24001,24001]) {const bad=M.clone(high);bad.tasks[2].runs[0].q=[q];assert.throws(()=>P.validate(bad));}
+assert.equal(S.coverage("omega",high.tasks[2].runs[0]).dataScore,4);
+assert.equal(S.coverage("radius",{q:[22000,23000,24000]}).dataScore,4,"high-speed bins remain distinct");

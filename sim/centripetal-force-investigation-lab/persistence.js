@@ -19,7 +19,7 @@
   function validate(state, kind = "draft") {
     if (!["draft", "review"].includes(kind)) throw new Error("Invalid kind");
     keys(state, fields);
-    if (state.v !== 1 || ![1, 2].includes(state.mv) || ![1, 2].includes(state.rv) || !integer(state.seed, 0, 0xffffffff) ||
+    if (state.v !== 1 || ![1, 2, 3].includes(state.mv) || ![1, 2].includes(state.rv) || !integer(state.seed, 0, 0xffffffff) ||
       !integer(state.page, 0, 2) || typeof state.fromReview !== "boolean" ||
       !["setup", "collect", "analyse", "check", "review"].includes(state.view)) throw new Error("Invalid state version or navigation");
     if (kind === "review" ? state.view !== "review" || state.returnTo !== null || state.fromReview || state.tasks?.some(task => task.current !== null) : state.view === "review") throw new Error("Invalid review phase");
@@ -40,7 +40,7 @@
       task.runs.forEach(run => {
         keys(run, ["cfg", "q", "fit", "a"]); cfg(run.cfg);
         if (!Array.isArray(run.q) || run.q.length > (state.mv === 1 ? 24 : M.MAX_SAMPLES) ||
-          run.q.some(q => !Number.isInteger(q) || Math.abs(q) < 250 || Math.abs(q) > 6000 || state.mv === 1 && q < 0) ||
+          run.q.some(q => !Number.isInteger(q) || Math.abs(q) < 250 || Math.abs(q) > (state.mv < 3 ? 6000 : M.MAX_OMEGA * 1000) || state.mv === 1 && q < 0) ||
           new Set(state.mv === 1 ? run.q.map(M.slot) : run.q).size !== run.q.length || typeof run.fit !== "boolean" ||
           (run.fit && !M.fit(M.KINDS[i], run).ok) || !Array.isArray(run.a) || run.a.length !== 3 ||
           (run.a[0] !== null && (typeof run.a[0] !== "string" || run.a[0].length > 12 || !/^\d*(?:\.\d*)?$/.test(run.a[0]))) ||

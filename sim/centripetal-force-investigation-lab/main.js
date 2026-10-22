@@ -408,7 +408,11 @@
     if (!drag || drag.id !== event.pointerId) return;
     event.preventDefault(); const operation = drag; drag = null;
     if (operation.type === "spin") {
-      motion = M.releaseMotion(motion, event.timeStamp);
+      const { x, y, scale } = operation.center;
+      if (Math.hypot(event.clientX - x, event.clientY - y) >= 30 * scale) {
+        motion = M.dragMotion(motion, Math.atan2(event.clientY - y, event.clientX - x), event.timeStamp);
+      }
+      motion = M.releaseMotion(motion);
       renderMotion(true);
       return;
     }
@@ -446,7 +450,7 @@
   }
   function setSpeed(omega) {
     if (!controller.editable || view() !== "collect") return;
-    running = true; motion = { ...motion, omega: Math.max(-6, Math.min(6, omega)) };
+    running = true; motion = { ...motion, omega: Math.max(-M.MAX_OMEGA, Math.min(M.MAX_OMEGA, omega)) };
     render();
   }
   function frame(time) {

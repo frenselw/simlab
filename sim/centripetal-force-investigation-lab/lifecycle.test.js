@@ -46,7 +46,7 @@ assert.equal(oldPending.result.score,100); assert.deepEqual(oldPending.state,old
 legacy.page=2; legacy.view="collect";
 const oldDraft = environment({durable:{state:"draft",snapshot:{version:1,activity:P.ACTIVITY,kind:"draft",answer:legacy}}}).c;
 assert.equal(oldDraft.state.mv,1); assert.equal(oldDraft.state.rv,2); assert.deepEqual(oldDraft.state.tasks[0].inquiry,[null,null]); assert.deepEqual(oldDraft.state.tasks[0].roles,legacy.tasks[0].roles); assert.ok(oldDraft.update(s=>M.record(s.tasks[2],-1)));
-assert.equal(oldDraft.state.mv,2); assert.deepEqual(oldDraft.state.tasks[2].runs[0].q,[500,1500,3000,-1000]);
+assert.equal(oldDraft.state.mv,3); assert.deepEqual(oldDraft.state.tasks[2].runs[0].q,[500,1500,3000,-1000]);
 console.log("centripetal lifecycle ok");
 
 const latestLegacy=M.clone(oldAnswer);latestLegacy.mv=2;
@@ -56,3 +56,13 @@ assert.equal(environment({durable:{state:"finished",snapshot:latestSnapshot,scor
 const upgraded=M.upgradeDraft(M.clone(legacy));upgraded.mv=2;
 upgraded.tasks[0].inquiry=["equal-mass","ratio-steady"];upgraded.tasks[1].inquiry=["equal-radius","ratio-steady"];
 assert.equal(S.score(upgraded).score,100,"fully answered new rubric still totals 100");
+
+const mv2Draft=M.clone(upgraded);mv2Draft.page=2;mv2Draft.view="collect";
+const resumedMv2=environment({durable:{state:"draft",snapshot:{version:1,activity:P.ACTIVITY,kind:"draft",answer:mv2Draft}}}).c;
+assert.equal(resumedMv2.state.mv,2);assert.ok(resumedMv2.update(s=>M.record(s.tasks[2],-24)));assert.equal(resumedMv2.state.mv,3);
+assert.deepEqual(resumedMv2.state.tasks[2].runs[0].q,[500,1500,3000,-24000],"old draft retains data while accepting faster measurements");
+const mv2Review=P.review(upgraded),mv2Result=S.score(mv2Review);
+const mv2Snapshot={version:1,activity:P.ACTIVITY,kind:"review",answer:mv2Review,score:mv2Result.score,passed:mv2Result.passed};
+const mv2Pending=environment({durable:{state:"pending-final",snapshot:{version:1,activity:P.ACTIVITY,kind:"pending-final",payload:{reviewJson:JSON.stringify(mv2Snapshot),score:mv2Result.score,maxScore:100,passed:mv2Result.passed}}}}).c;
+assert.equal(mv2Pending.mode,"frozen");assert.equal(mv2Pending.update(s=>s.mv=3),false);
+mv2Pending.retryFinal();assert.equal(mv2Pending.mode,"review");assert.equal(mv2Pending.result.score,100);assert.deepEqual(mv2Pending.state,mv2Review);
