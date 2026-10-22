@@ -633,3 +633,6 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 最終SCORM SHA-256：`c94a01e482f9e378b0d664c1b39b79d3d8ffb1cf705202017e12aa4c9dcf00ef`。
 
 已逐檔核對ZIP內16個runtime與sim來源一致。
+
+- 最後數量標示修正的T2解壓包：320×500／390×600 collect-0兩項均通過，issues 0。
+- 功能commit：`c3baa25d6516cea0da3a0db90c32b17659b63bda`。已執行committed selection preview（base `8d739728ebb4fb32c0fdb532ab04681fcaa17ee1` → 上述head）；full263，原因 `Unrecognised dependency: tools/mobile-scroll-cases.js`，packages=all。這只是選取預覽，並非263項全通過；實際執行見本節驗證表。輸出 `output/centripetal-brake-selection.json`。
