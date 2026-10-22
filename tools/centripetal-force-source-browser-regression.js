@@ -65,13 +65,14 @@ async function inputAudit(base,label){
     const at=await rect(target),b={x:at.x,y:at.y,id:other};
     await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[moved,b]});
     assert(await call('return d.getElementById("preview").hidden;'),'secondary touch must cancel immediately');
-    assert(await call('return w.__auditPointerIds.length===2&&w.__auditPointerIds.every(id=>!d.getElementById("forceHandle").hasPointerCapture(id)&&!d.getElementById("originHandle").hasPointerCapture(id));'),'cancelled pointers must release capture');
+    assert(await call('const id=w.__auditPointerIds[0];return w.__auditPointerIds.length===2&&!d.getElementById("forceHandle").hasPointerCapture(id)&&!d.getElementById("originHandle").hasPointerCapture(id);'),'cancelled primary pointer must release capture');
     const next={...b,x:b.x+42,y:b.y-28};await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[moved,next]});
     const remaining=firstLift==='primary'?next:moved;
     await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[remaining]});
     await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{...remaining,x:remaining.x+20}]});
     await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
     await unchanged(before,`${target}, ${firstLift} first: neither finger may restart cancelled drag`);
+    assert(await call('return w.__auditPointerIds.every(id=>!d.getElementById("forceHandle").hasPointerCapture(id)&&!d.getElementById("originHandle").hasPointerCapture(id));'),'released pointers must not retain capture');
   }
   await dragForce(1800);assert.equal(await call('return app.getState().items[0].arrows[0][1];'),1800,'new primary drag after cancellation must work');
   const key=async(key,code)=>{await cdp.send('Input.dispatchKeyEvent',{type:'rawKeyDown',key,code:key,windowsVirtualKeyCode:code});await cdp.send('Input.dispatchKeyEvent',{type:'keyUp',key,code:key,windowsVirtualKeyCode:code});};
