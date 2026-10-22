@@ -14,7 +14,7 @@
     '作用在地球上的徑向力是太陽對地球的引力，不另加向心力或離心力。地球對太陽的引力作用在太陽。'
   ];
   const controller=new CentripetalSourceRuntime.Controller(SimScorm,SimActivityFlow,render);
-  let drag=null,layout=null,resizeFrame=0,drawingInward=true;
+  let drag=null,layout=null,resizeFrame=0;
   const reduced=window.matchMedia('(prefers-reduced-motion: reduce)');
   const motion={page:-1,travel:0,playing:false,pending:null,last:0,paint:0};
   const diagnostics={down:0,move:0,up:0,cancel:0,trustedTouch:0};
@@ -33,15 +33,10 @@
   function analysisDrawing(state,page,geo,reference=false,previewArrow=null){
     const {w,h,cx,cy,scale}=geo,item=state.items[page],physics=M.physics(state.def,page,item.pose);
     const forces=reference?physics.forces.map(([kind,a,m])=>[kind,a,m]):item.arrows.slice();
-    if(previewArrow?.creating&&!previewArrow.inward&&previewArrow.angle!==null)forces.push([item.palette,previewArrow.angle,previewArrow.length]);
+    if(previewArrow?.creating&&previewArrow.angle!==null)forces.push([item.palette,previewArrow.angle,previewArrow.length]);
     let svg=`<rect width="${w}" height="${h}" fill="#fff"/>`;
     if(!geo.mini)svg+=text(8,20,page<3?'沿半徑的豎直剖面':page===3?'汽車在拱橋頂部':page===4?'汽車在凹路最低點':'地球受力分析','class="analysis-heading"');
     svg+=Scene.backdrop(page,state.def,geo,item.pose);
-    const inward=reference?physics.inward:previewArrow?.inward&&previewArrow.angle!==null?M.angleDirection(previewArrow.angle):item.inward;
-    if(inward){
-      const a=M.directionAngle(inward),[x,y]=point(cx,cy,a,105*scale),rad=a*Math.PI/1800,ux=Math.cos(rad),uy=-Math.sin(rad),bx=x-9*ux,by=y-9*uy;
-      svg+=`<g class="inward-indicator" data-inward-indicator="${inward}" aria-label="所選圓心方向：${M.DIRECTION_LABELS[M.DIRECTIONS.indexOf(inward)]}"><path d="M${cx} ${cy}L${x} ${y}" stroke="#2563eb" stroke-width="2" stroke-dasharray="5 5"/><path d="M${bx-5*uy} ${by+5*ux}L${x} ${y}L${bx+5*uy} ${by-5*ux}" stroke="#2563eb" stroke-width="2" fill="none"/></g>`;
-    }
     const size=Math.max(16,Math.min(25,21*scale)),normalise=reference?76/Math.max(...forces.map(f=>f[2])):1;
     const entries=forces.map(([kind,angle,len],i)=>{
       const a=previewArrow?.index===i?previewArrow.angle:angle,length=(previewArrow?.index===i?previewArrow.length:len)*normalise*scale;
@@ -51,13 +46,12 @@
     svg+='<g class="student-arrows">';
     for(const e of labels)svg+=`<path class="force-vector" data-arrow="${e.i}" data-kind="${e.kind}" d="${Scene.arrowPath(geo,e.angle,e.length)}" fill="${e.force.color}" opacity="${reference||item.selected===null||item.selected===e.i?1:.8}"/><circle cx="${e.end.x}" cy="${e.end.y}" r="2.8" fill="#fff" stroke="${e.force.color}" stroke-width="1.5"/>`;
     svg+='</g><g class="force-labels">';
-    for(const e of labels)svg+=`<rect x="${e.box.x-2}" y="${e.box.y-2}" width="${e.width+4}" height="${e.height+4}" rx="3" fill="#ffffffed"/>`+N.svg(e.force.tex,e.force.name,e.box,size,e.force.color);
+    for(const e of labels)svg+=N.svg(e.force.tex,e.force.name,e.box,size,e.force.color);
     return svg+'</g>'+circle(cx,cy,3.5,'#334155');
   }
   function syncMotion(c){
     if(!c.state)return;
     if(motion.page!==c.page){
-      drawingInward=c.state.items[c.page].palette===null;
       motion.page=c.page;motion.travel=(c.state.items[c.page].pose??0)/10000;motion.pending=null;
       motion.playing=c.startedNew&&!reduced.matches;
     }
@@ -83,17 +77,17 @@
     d.diagramSvg.setAttribute('viewBox',`0 0 ${layout.w} ${layout.h}`);
     d.diagramSvg.innerHTML=scene?Scene.scene(page,s.def,layout,Scene.phase(motion.travel)):analysisDrawing(s,page,layout,false,drag);
     if(scene)d.motionPosition.value=String(Math.min(9999,Math.floor(Scene.phase(motion.travel)*10000)));
-    d.originHandle.hidden=scene||controller.mode!=='edit'||(!drawingInward&&(item.palette===null||item.arrows.length>=6));
+    d.originHandle.hidden=scene||controller.mode!=='edit'||item.palette===null||item.arrows.length>=6;
     d.originHandle.style.left=layout.cx+'px';d.originHandle.style.top=layout.cy+'px';
-    d.originHandle.style.setProperty('--force-color',drawingInward?'#2563eb':N.forces[item.palette]?.color);
-    d.originHandle.setAttribute('aria-label',drawingInward?'從物件中心向圓心拖出箭頭':'從物件中心拖出所選的力');
-    const selected=drawingInward?(item.inward?[null,M.directionAngle(item.inward),105]:null):item.selected===null?null:item.arrows[item.selected];
+    d.originHandle.style.setProperty('--force-color',N.forces[item.palette]?.color);
+    d.originHandle.setAttribute('aria-label','從物件中心拖出所選的力');
+    const selected=item.selected===null?null:item.arrows[item.selected];
     d.forceHandle.hidden=scene||controller.mode!=='edit'||!selected||Boolean(drag?.creating);
     if(selected&&!d.forceHandle.hidden){
       const a=drag?drag.angle:selected[1],len=drag?drag.length:selected[2],at=a===null?[layout.cx+20*layout.scale,layout.cy-20*layout.scale]:point(layout.cx,layout.cy,a,len*layout.scale);
-      d.forceHandle.style.setProperty('--force-color',drawingInward?'#2563eb':N.forces[selected[0]].color);
+      d.forceHandle.style.setProperty('--force-color',N.forces[selected[0]].color);
       d.forceHandle.style.left=at[0]+'px';d.forceHandle.style.top=at[1]+'px';d.forceHandle.dataset.index=String(item.selected);
-      d.forceHandle.setAttribute('aria-label',`${drawingInward?'圓心方向':kindText(selected[0])}，${a===null?'方向未定':(a/10).toFixed(1)+'度'}；拖動箭尖可修改`);
+      d.forceHandle.setAttribute('aria-label',`${kindText(selected[0])}，${a===null?'方向未定':(a/10).toFixed(1)+'度'}；拖動箭尖可修改`);
     }
     if(drag&&drag.touch){
       d.preview.hidden=false;const stage=d.stage.getBoundingClientRect();d.preview.style.left=(drag.clientX>stage.left+stage.width/2?4:Math.max(4,stage.width-144))+'px';
@@ -125,16 +119,14 @@
       d.motionMessage.textContent=motion.pending!==null?(page===3?'等待汽車到達橋頂；若已駛過，會在下一圈到頂時停下。':'等待汽車到達最低點；若已駛過，會在下一圈到達時停下。'):page===3||page===4?'先觀察汽車運動，再按分析按鈕；汽車會到指定位置才停下。':'可暫停或拖動位置，再開始畫力。';
       d.directionHint.textContent=page<3?'依受力圖的徑向豎直剖面判斷。':'';
       d.directionChoices.innerHTML=M.DIRECTIONS.map((key,i)=>`<button type="button" data-inward="${key}" style="grid-column:${directionCells[i][0]};grid-row:${directionCells[i][1]}" aria-label="${M.DIRECTION_LABELS[i]}" aria-pressed="${item.inward===key}" ${editable?'':'disabled'}>${N.directionIcon(i*450)}</button>`).join('')+'<span class="direction-origin" aria-hidden="true"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="10" fill="#dbeafe" stroke="#476b96" stroke-width="2"/><circle cx="24" cy="24" r="3" fill="#334155"/></svg></span>';
-      d.drawInward.disabled=!editable;d.drawInward.setAttribute('aria-pressed',String(drawingInward));
-      d.drawInward.textContent=item.inward?'修改圓心方向':'標示圓心方向';
-      d.forcePalette.innerHTML=N.forces.map((f,i)=>`<button type="button" class="force-card" data-palette="${i}" style="--force-color:${f.color}" aria-label="選擇${esc(kindText(i))}" aria-pressed="${!drawingInward&&item.palette===i}" ${editable?'':'disabled'}><span class="force-symbol">${N.forceHtml(i)}</span><span><b>${esc(f.name)}</b><small>${esc(f.source)}</small></span></button>`).join('');
-      d.drawInstruction.innerHTML=drawingInward||item.palette===null?'按選一種力，再在畫布上拖畫。':`${N.forceHtml(item.palette)} 已選取：從物件中心拖出箭頭。`;
-      d.forceList.innerHTML=item.arrows.map(([kind,angle],i)=>`<button type="button" class="force-chip" data-select="${i}" style="--force-color:${N.forces[kind].color}" ${editable?'':'disabled'} aria-label="選取第${i+1}支${esc(kindText(kind))}" aria-pressed="${!drawingInward&&item.selected===i}"><span class="force-symbol">${N.forceHtml(kind)}</span>${angle===null?'<span class="pending-direction">方向未定</span>':N.directionIcon(angle)}</button>`).join('')||'<p class="hint">尚未畫力。</p>';
-      d.directionTools.hidden=drawingInward||item.selected===null;
+      d.forcePalette.innerHTML=N.forces.map((f,i)=>`<button type="button" class="force-card" data-palette="${i}" style="--force-color:${f.color}" aria-label="選擇${esc(kindText(i))}" aria-pressed="${item.palette===i}" ${editable?'':'disabled'}><span class="force-symbol">${N.forceHtml(i)}</span><span><b>${esc(f.name)}</b><small>${esc(f.source)}</small></span></button>`).join('');
+      d.drawInstruction.innerHTML=item.palette===null?'按選一種力，再在畫布上拖畫。':`${N.forceHtml(item.palette)} 已選取：從物件中心拖出箭頭。`;
+      d.forceList.innerHTML=item.arrows.map(([kind,angle],i)=>`<button type="button" class="force-chip" data-select="${i}" style="--force-color:${N.forces[kind].color}" ${editable?'':'disabled'} aria-label="選取第${i+1}支${esc(kindText(kind))}" aria-pressed="${item.selected===i}"><span class="force-symbol">${N.forceHtml(kind)}</span>${angle===null?'<span class="pending-direction">方向未定</span>':N.directionIcon(angle)}</button>`).join('')||'<p class="hint">尚未畫力。</p>';
+      d.directionTools.hidden=item.selected===null;
       const selected=item.selected===null?null:item.arrows[item.selected];
       d.selectedForceLabel.innerHTML=selected?N.forceHtml(selected[0])+' '+esc(N.forces[selected[0]].name):'';
       d.kindSelect.disabled=!editable;d.kindSelect.value=selected?String(selected[0]):'';
-      d.deleteForce.disabled=!editable||drawingInward||item.selected===null;d.clearDrawing.disabled=!editable||!item.arrows.length;d.clearPage.disabled=!editable;
+      d.deleteForce.disabled=!editable||item.selected===null;d.clearDrawing.disabled=!editable||!item.arrows.length;d.clearPage.disabled=!editable;
       d.relationChoices.innerHTML=M.options(c.state,page).map(([key,label])=>`<label class="choice"><input type="radio" name="relation" value="${key}" ${item.relation===key?'checked':''} ${editable?'':'disabled'}><span>${N.prose(label)}</span></label>`).join('');
       d.conceptChoices.innerHTML=M.CONCEPT.map(([key,label])=>`<label class="choice"><input type="radio" name="concept" value="${key}" ${c.state.concept===key?'checked':''} ${editable?'':'disabled'}><span>${esc(label)}</span></label>`).join('');
       d.conceptField.hidden=page!==5;
@@ -151,7 +143,6 @@
   function cancelDrag(){if(!drag)return;diagnostics.cancel++;drag=null;d.preview.hidden=true;drawStage();}
   function locate(e){
     const r=d.diagram.getBoundingClientRect(),x=e.clientX-r.left-layout.cx,y=layout.cy-(e.clientY-r.top),radius=Math.hypot(x,y),raw=M.angle(Math.atan2(y,x)*180/Math.PI),touch=e.pointerType==='touch';
-    if(drag?.inward)return {angle:M.directionAngle(M.angleDirection(raw)),length:105,moved:radius>=12};
     const inward=M.directionAngle(M.inward(controller.state.def,controller.page,controller.state.items[controller.page].pose));
     const candidate=[0,900,1800,2700,inward,M.angle(inward/10+180),...M.physics(controller.state.def,controller.page,controller.state.items[controller.page].pose).forces.flatMap(f=>[f[1],M.angle(f[1]/10+180)])];
     let a=raw,best=Infinity;for(const snap of candidate){const diff=M.difference(raw,snap);if(diff<best&&diff<=(touch?80:50)&&Math.sin(diff*Math.PI/1800)*radius<=(touch?14:10)){best=diff;a=snap;}}
@@ -160,17 +151,17 @@
   for(const handle of [d.originHandle,d.forceHandle]){
     handle.addEventListener('pointerdown',e=>{
       if(controller.mode!=='edit'||controller.state.view!=='analysis'||drag)return;
-      const item=controller.state.items[controller.page],creating=handle===d.originHandle,index=drawingInward?null:creating?item.arrows.length:item.selected;
-      if(!drawingInward&&(creating?(item.palette===null||item.arrows.length>=6):index===null))return;
+      const item=controller.state.items[controller.page],creating=handle===d.originHandle,index=creating?item.arrows.length:item.selected;
+      if(creating?(item.palette===null||item.arrows.length>=6):index===null)return;
       e.preventDefault();handle.setPointerCapture(e.pointerId);
-      drag={inward:drawingInward,creating,index,angle:creating?null:drawingInward?M.directionAngle(item.inward):item.arrows[index][1],length:drawingInward?105:creating?60:item.arrows[index][2],moved:false,pointerId:e.pointerId,touch:e.pointerType==='touch',clientX:e.clientX};
+      drag={creating,index,angle:creating?null:item.arrows[index][1],length:creating?60:item.arrows[index][2],moved:false,pointerId:e.pointerId,touch:e.pointerType==='touch',clientX:e.clientX};
       diagnostics.down++;if(e.isTrusted&&e.pointerType==='touch')diagnostics.trustedTouch++;
       drawStage();
     });
     handle.addEventListener('pointermove',e=>{if(!drag||e.pointerId!==drag.pointerId)return;Object.assign(drag,locate(e));drag.clientX=e.clientX;diagnostics.move++;drawStage();});
     handle.addEventListener('pointerup',e=>{
       if(!drag||e.pointerId!==drag.pointerId)return;
-      const end=locate(e),commit=!drag.creating||(drag.moved&&end.moved),command=drag.inward?{type:'inward',value:M.angleDirection(end.angle)}:{type:drag.creating?'draw':'arrow',angle:end.angle,length:end.length};drag=null;diagnostics.up++;d.preview.hidden=true;
+      const end=locate(e),commit=!drag.creating||(drag.moved&&end.moved),command={type:drag.creating?'draw':'arrow',angle:end.angle,length:end.length};drag=null;diagnostics.up++;d.preview.hidden=true;
       if(commit)controller.command(command);else drawStage();
     });
     handle.addEventListener('pointercancel',cancelDrag);
@@ -180,15 +171,11 @@
     const angle={ArrowRight:0,ArrowUp:900,ArrowLeft:1800,ArrowDown:2700}[e.key];
     if(angle===undefined||controller.mode!=='edit'||controller.state.view!=='analysis'||drag)return;
     const item=controller.state.items[controller.page];
-    if(!drawingInward&&(item.palette===null||item.arrows.length>=6))return;
-    e.preventDefault();controller.command(drawingInward?{type:'inward',value:M.angleDirection(angle)}:{type:'draw',angle,length:60});d.forceHandle.focus();
+    if((item.palette===null||item.arrows.length>=6))return;
+    e.preventDefault();controller.command({type:'draw',angle,length:60});d.forceHandle.focus();
   });
   d.forceHandle.addEventListener('keydown',e=>{
     if(controller.mode!=='edit'||drag)return;const item=controller.state.items[controller.page];
-    if(drawingInward){
-      if(!item.inward||!['ArrowLeft','ArrowRight'].includes(e.key))return;
-      e.preventDefault();controller.command({type:'inward',value:M.angleDirection((M.directionAngle(item.inward)+(e.key==='ArrowLeft'?450:3150))%3600)});return;
-    }
     const a=item.arrows[item.selected];if(!a)return;
     const step=e.shiftKey?50:10;let next=a[1],len=a[2];
     if(e.key==='ArrowLeft')next=((next??0)+step)%3600;else if(e.key==='ArrowRight')next=((next??0)-step+3600)%3600;else if(e.key==='ArrowUp')len=Math.min(100,len+5);else if(e.key==='ArrowDown')len=Math.max(40,len-5);else return;
@@ -213,10 +200,9 @@
   });
   d.motionPosition.addEventListener('input',()=>{if(controller.mode!=='edit'||motion.pending!==null)return;motion.travel=Number(d.motionPosition.value)/10000;motion.playing=false;render(controller);});
   reduced.addEventListener('change',()=>{if(reduced.matches){if(motion.pending!==null){motion.travel=motion.pending;finishAnalysis();}else{motion.playing=false;render(controller);}}});
-  d.drawInward.addEventListener('click',()=>{cancelDrag();drawingInward=true;render(controller);});
-  d.directionChoices.addEventListener('click',e=>{const b=e.target.closest('[data-inward]');if(b){cancelDrag();drawingInward=true;controller.command({type:'inward',value:b.dataset.inward});}});
-  d.forcePalette.addEventListener('click',e=>{const b=e.target.closest('[data-palette]');if(b){cancelDrag();drawingInward=false;controller.command({type:'palette',value:Number(b.dataset.palette)});}});
-  d.forceList.addEventListener('click',e=>{const b=e.target.closest('[data-select]');if(b){cancelDrag();drawingInward=false;controller.command({type:'select',index:Number(b.dataset.select)});}});
+  d.directionChoices.addEventListener('click',e=>{const b=e.target.closest('[data-inward]');if(b){cancelDrag();controller.command({type:'inward',value:b.dataset.inward});}});
+  d.forcePalette.addEventListener('click',e=>{const b=e.target.closest('[data-palette]');if(b){cancelDrag();controller.command({type:'palette',value:Number(b.dataset.palette)});}});
+  d.forceList.addEventListener('click',e=>{const b=e.target.closest('[data-select]');if(b){cancelDrag();controller.command({type:'select',index:Number(b.dataset.select)});}});
   d.kindSelect.addEventListener('change',()=>controller.command({type:'kind',value:Number(d.kindSelect.value)}));
   d.deleteForce.addEventListener('click',()=>controller.command({type:'delete'}));d.clearDrawing.addEventListener('click',()=>controller.command({type:'clear-drawing'}));d.clearPage.addEventListener('click',()=>{controller.command({type:'clear-page'});controller.command({type:'scene'});});
   d.relationChoices.addEventListener('change',e=>{if(e.target.name==='relation')controller.command({type:'relation',value:e.target.value});});

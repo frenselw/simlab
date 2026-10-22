@@ -28,7 +28,7 @@
     'mg − N = mv²/r':'mg-N=\\frac{mv^2}{r}','N − mg = mv²/r':'N-mg=\\frac{mv^2}{r}',
     'F向 = mg':'F_{\\mathrm{c}}=mg','F向 = N':'F_{\\mathrm{c}}=N','F向 = T':'F_{\\mathrm{c}}=T',
     'T sin θ':'T\\sin\\theta','T cos θ':'T\\cos\\theta','mv²/r':'\\frac{mv^2}{r}',
-    'G = mg':'G=mg','F向':'F_{\\mathrm{c}}','F引':'F_{\\mathrm{g}}','fₛ':'f_{\\mathrm{s}}','μₛ':'\\mu_{\\mathrm{s}}','θ':'\\theta','mg':'mg','T':'T','N':'N'
+    'G = mg':'G=mg','F向':'F_{\\mathrm{c}}','F引':'F_{\\mathrm{g}}','fₛ':'f_{\\mathrm{s}}','μₛ':'\\mu_{\\mathrm{s}}','θ':'\\theta','mg':'mg','T':'T','N':'N','O':'O'
   };
   const cache=new Map();
   function glyph(t){if(!cache.has(t))cache.set(t,convert(t));return cache.get(t);}

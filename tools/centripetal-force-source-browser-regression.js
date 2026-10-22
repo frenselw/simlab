@@ -29,9 +29,9 @@ async function analyse(){
   await wait(()=>call('return app.getState().view==="analysis";'),'analysis target reached');
 }
 async function seek(value){await call(`const e=d.getElementById('motionPosition');e.value=${value};e.dispatchEvent(new Event('input',{bubbles:true}));`);}
-async function dragForce(angle,selector='#forceHandle',inward=false){
+async function dragForce(angle,selector='#forceHandle'){
   const start=await rect(selector);assert(start.width>=44&&start.height>=44);
-  const end=await call(`const g=app.getLayout(),r=d.getElementById('diagram').getBoundingClientRect(),a=${angle}*Math.PI/1800;return{x:r.left+g.cx+Math.cos(a)*${inward?105:60}*g.scale,y:r.top+g.cy-Math.sin(a)*${inward?105:60}*g.scale};`);
+  const end=await call(`const g=app.getLayout(),r=d.getElementById('diagram').getBoundingClientRect(),a=${angle}*Math.PI/1800;return{x:r.left+g.cx+Math.cos(a)*60*g.scale,y:r.top+g.cy-Math.sin(a)*60*g.scale};`);
   const id=touchId++,touch=(x,y)=>({x,y,id,radiusX:1,radiusY:1,force:1});
   await call('w.__sourceLastMove=null;w.__sourceMoveObserver=e=>{if(e.isTrusted)w.__sourceLastMove={x:e.clientX,y:e.clientY};};d.addEventListener("pointermove",w.__sourceMoveObserver);');
   await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[touch(start.x,start.y)]});
@@ -39,7 +39,7 @@ async function dragForce(angle,selector='#forceHandle',inward=false){
   await wait(()=>call(`const p=w.__sourceLastMove;return p&&Math.hypot(p.x-${end.x},p.y-${end.y})<1;`),'final trusted drag movement');
   await call('d.removeEventListener("pointermove",w.__sourceMoveObserver);return new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));');
   assert(await call('return !d.getElementById("preview").hidden;'),'touch preview missing');
-  const focus=await call(`const box=d.getElementById("previewSvg").viewBox.baseVal,r=d.getElementById("diagram").getBoundingClientRect();return {x:r.left+box.x+box.width/2,y:r.top+box.y+box.height/2,overview:!!d.getElementById("previewOverview").querySelector("${inward?'.inward-indicator':'.force-vector'}")};`);assert(Math.hypot(focus.x-end.x,focus.y-end.y)<8&&focus.overview,'magnifier must follow the arrow tip with a context overview: '+JSON.stringify({focus,end,start,angle,selector}));
+  const focus=await call(`const box=d.getElementById("previewSvg").viewBox.baseVal,r=d.getElementById("diagram").getBoundingClientRect();return {x:r.left+box.x+box.width/2,y:r.top+box.y+box.height/2,overview:!!d.getElementById("previewOverview").querySelector(".force-vector")};`);assert(Math.hypot(focus.x-end.x,focus.y-end.y)<8&&focus.overview,'magnifier must follow the arrow tip with a context overview: '+JSON.stringify({focus,end,start,angle,selector}));
   await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await H.delay(35);
 }
 async function screenshot(label){fs.mkdirSync(out,{recursive:true});const r=await cdp.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});fs.writeFileSync(path.join(out,label+'.png'),Buffer.from(r.data,'base64'));}
@@ -48,12 +48,14 @@ async function reviewPresentation(base,label){
   state.items.forEach((item,page)=>{const p=M.physics(state.def,page);item.inward=p.inward;item.arrows=p.forces.map(([kind,angle])=>[kind,angle,60]);item.relation=M.CASES[page].relation;});state.concept='radial-effect';
   for(const [width,height]of [[320,500],[390,844],[1280,800]]){
     await viewport(width,height);await open(base,state);await tap('#checkButton');
+    assert(await call('return !d.querySelector(".inward-indicator,[data-inward-indicator],.force-labels rect");'),'check diagrams must retain transparent force labels without direction overlays');
     assert(await call('return [...d.querySelectorAll(".summary-row > svg")].every(e=>e.getBoundingClientRect().height>=165);'),'check diagrams must remain readable');
     await call('d.getElementById("controlPanel").scrollTop=0;');await screenshot(`${label}-check-${width}`);
     await tap('#submitButton');assert.equal(await call('return app.controller.mode;'),'review');
+    assert(await call('return !d.querySelector(".inward-indicator,[data-inward-indicator],.force-labels rect");'),'reference diagrams must retain transparent force labels without direction overlays');
     const metrics=await call(`return [...d.querySelectorAll('#feedbackList .math-inline')].map(e=>{const r=e.getBoundingClientRect(),font=parseFloat(getComputedStyle(e).fontSize);return {tex:e.dataset.tex,width:r.width,height:r.height,expectedWidth:parseFloat(e.getAttribute('width'))*font,expectedHeight:parseFloat(e.getAttribute('height'))*font,display:getComputedStyle(e).display};});`);
     assert(metrics.length>6&&metrics.every(e=>Math.abs(e.height-e.expectedHeight)<1&&Math.abs(e.width-e.expectedWidth)<1&&e.display==='inline-block'),'inline LaTeX must keep its own dimensions: '+JSON.stringify(metrics));
-    const diagrams=await call(`return [...d.querySelectorAll('.feedback-card > svg')].map(e=>{const r=e.getBoundingClientRect(),m=e.querySelector('.force-math').getBoundingClientRect();return {width:r.width,height:r.height,labelHeight:m.height};});`);
+    const diagrams=await call(`return [...d.querySelectorAll('.feedback-card > svg')].map(e=>{const r=e.getBoundingClientRect(),m=e.querySelector('.force-labels .force-math').getBoundingClientRect();return {width:r.width,height:r.height,labelHeight:m.height};});`);
     assert.equal(diagrams.length,6);assert(diagrams.every(e=>e.height>=165&&e.height<350&&e.labelHeight>=12&&e.labelHeight<32),'reference diagrams and force labels must have consistent readable sizes: '+JSON.stringify(diagrams));
     for(let page=0;page<6;page++){
       await call(`d.querySelectorAll('.feedback-card')[${page}].scrollIntoView({block:'start'});`);await screenshot(`${label}-feedback-${page}-${width}`);
@@ -61,33 +63,20 @@ async function reviewPresentation(base,label){
   }
   report[label].push({flow:'all six check/reference diagrams and inline LaTeX proportions at 320,390,1280 widths',passed:true});
 }
-async function canvasDirections(base,label){
+async function panelDirections(base,label){
   await viewport(390,844);await open(base);await analyse();
-  await tap('#originHandle');assert.equal(await call('return app.getState().items[0].inward;'),null,'a tap must not invent a direction');
-  await call('d.getElementById("originHandle").focus();');await cdp.send('Input.dispatchKeyEvent',{type:'rawKeyDown',key:'ArrowUp',code:'ArrowUp',windowsVirtualKeyCode:38});await cdp.send('Input.dispatchKeyEvent',{type:'keyUp',key:'ArrowUp',code:'ArrowUp',windowsVirtualKeyCode:38});assert.equal(await call('return app.getState().items[0].inward;'),'N');
-  await dragForce(0,'#originHandle',true);
-  for(const key of M.DIRECTIONS){await dragForce(M.directionAngle(key),'#forceHandle',true);assert.equal(await call('return app.getState().items[0].inward;'),key);assert.equal(await call('return d.querySelector("#directionChoices [aria-pressed=true]").dataset.inward;'),key);}
-  for(const key of M.DIRECTIONS){await tap(`[data-inward="${key}"]`);assert.equal(await call('return app.getState().items[0].inward;'),key);assert.equal(await call('return d.querySelector("#diagramSvg [data-inward-indicator]").dataset.inwardIndicator;'),key);}
-  for(const selector of ['#originHandle','#forceHandle']){
-    const before=await call('return JSON.stringify(app.getState());'),r=await rect(selector),id=touchId++,t=(x,y)=>({x,y,id,radiusX:1,radiusY:1,force:1});
-    await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[t(r.x,r.y)]});
-    await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[t(r.x+30,r.y-30)]});
-    assert.equal(await call('return JSON.stringify(app.getState());'),before,'direction preview must not save before release');
-    await cdp.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});
-    assert.equal(await call('return JSON.stringify(app.getState());'),before,'cancel must retain the saved direction');
-    await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[t(r.x,r.y)]});
-    await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[t(r.x+20,r.y-20)]});
-    await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[t(r.x+20,r.y-20),{...t(r.x-60,r.y),id:touchId++}]});
-    await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
-    assert.equal(await call('return JSON.stringify(app.getState());'),before,'second touch must cancel direction edits');
+  assert(await call('return d.getElementById("originHandle").hidden&&d.getElementById("forceHandle").hidden&&!d.getElementById("drawInward");'),'blank direction work must not offer a canvas direction tool');
+  for(const key of M.DIRECTIONS){
+    await tap(`[data-inward="${key}"]`);assert.equal(await call('return app.getState().items[0].inward;'),key);
+    assert.equal(await call('return d.querySelector("#directionChoices [aria-pressed=true]").dataset.inward;'),key);
+    assert(await call('return !d.querySelector(".inward-indicator,[data-inward-indicator]")&&d.getElementById("originHandle").hidden;'),'direction answers stay in the control panel');
   }
-  assert.equal(await call('return app.getState().items[0].arrows.length;'),0,'direction indicators are not force arrows');
-  await choose('#forcePalette',2);await dragForce(1800,'#originHandle');
-  await tap('[data-inward="N"]');
-  assert.deepEqual(await call('const i=app.getState().items[0];return [i.inward,i.arrows];'),['N',[[2,1800,60]]],'switching drawing tools must preserve the other answer');
-  await tap('[data-select="0"]');await dragForce(0);assert.equal(await call('return app.getState().items[0].inward;'),'N');
-  await tap('#drawInward');await call('d.getElementById("directionChoices").closest("fieldset").scrollIntoView({block:"start"});');await screenshot(label+'-canvas-direction');
-  report[label].push({flow:'eight circle-direction options synced with canvas, force editing without direction options, no-op tap, cancel, second touch and independent answers',passed:true});
+  await choose('#forcePalette',2);await dragForce(1800,'#originHandle');await tap('[data-inward="N"]');
+  assert.deepEqual(await call('const i=app.getState().items[0];return [i.inward,i.arrows];'),['N',[[2,1800,60]]],'choosing a circle direction must preserve forces');
+  await dragForce(0);assert.equal(await call('return app.getState().items[0].inward;'),'N');
+  assert(await call('return !d.querySelector(".inward-indicator,.force-labels rect")&&d.querySelector("#diagramSvg .circle-center circle")&&d.querySelector("#diagramSvg .circle-center [data-tex=O] path");'),'point O and transparent force labels must be present without a direction overlay');
+  await call('d.getElementById("directionChoices").closest("fieldset").scrollIntoView({block:"start"});');await screenshot(label+'-panel-direction');
+  report[label].push({flow:'eight panel-only circle directions, independent force editing, LaTeX O point and transparent force labels',passed:true});
 }
 async function layoutChecks(base,label){
   for(const [width,height] of [[320,500],[390,500],[390,600],[390,844],[480,320],[320,225],[1280,800]]){
@@ -112,7 +101,7 @@ async function fill(base,label){
     const s=await call('return app.getState();'),p=M.physics(s.def,page,s.items[page].pose),item=M.CASES[page];
     await tap(`[data-inward="${p.inward}"]`);
     for(const [kind,angle] of p.forces){await choose('#forcePalette',kind);await dragForce(angle,'#originHandle');const after=await call('return app.getState();');assert(M.difference(after.items[page].arrows.at(-1)[1],angle)<=100,JSON.stringify({page,angle,actual:after.items[page].arrows.at(-1)}));}
-    assert(await call(`const options=[...d.querySelectorAll('#directionChoices [data-inward]')];return options.length===8&&options.every(b=>b.querySelector('svg')&&!b.textContent.trim())&&d.querySelectorAll('.direction-pad').length===1&&!d.querySelector('#arrowDirections,#addForce,#forceControls .direction-pad')&&!/方向鍵|鍵盤|Shift/.test(d.body.textContent+[...d.querySelectorAll('[aria-label],[title]')].map(e=>e.getAttribute('aria-label')+e.title).join(''))&&d.querySelector('[data-inward-indicator="${p.inward}"]')&&d.querySelectorAll('#diagramSvg .force-math[data-tex]').length===${p.forces.length};`),'circle-direction options / canvas force editing / LaTeX labels missing');
+    assert(await call(`const options=[...d.querySelectorAll('#directionChoices [data-inward]')];return options.length===8&&options.every(b=>b.querySelector('svg')&&!b.textContent.trim())&&d.querySelectorAll('.direction-pad').length===1&&!d.querySelector('#arrowDirections,#addForce,#forceControls .direction-pad')&&!/方向鍵|鍵盤|Shift/.test(d.body.textContent+[...d.querySelectorAll('[aria-label],[title]')].map(e=>e.getAttribute('aria-label')+e.title).join(''))&&!d.querySelector('.inward-indicator,[data-inward-indicator],.force-labels rect,#drawInward')&&d.querySelectorAll('#diagramSvg .force-labels .force-math[data-tex]').length===${p.forces.length};`),'circle-direction options / canvas force editing / LaTeX labels missing');
     const shapes=await call('return [...d.querySelectorAll("#diagramSvg .force-vector")].map(e=>({d:e.getAttribute("d"),fill:e.getAttribute("fill")}));');assert(shapes.every(e=>e.d.endsWith(' Z')));assert(new Set(shapes.map(e=>e.fill)).size===p.forces.length);
     await call('d.getElementById("forceControls").scrollIntoView({block:"start"});');await screenshot(`${label}-drawn-${page}`);
     await tap(`input[name="relation"][value="${item.relation}"]`);
@@ -179,6 +168,15 @@ async function revisedScenes(base,label){
           await seek(pose);sizes.push(await call('const e=d.querySelector("[data-pendulum-scale]"),ball=e.querySelector("[data-object=ball]").getBoundingClientRect();return {scale:Number(e.dataset.pendulumScale),width:ball.width};'));await screenshot(`${label}-pendulum-${pose}-${width}`);
         }
         sizes.sort((a,b)=>a.scale-b.scale);assert(sizes[1].width/sizes[0].width>1.5,'pendulum must be visibly larger on its near side');
+        let closest={gap:Infinity,pose:0};
+        for(let pose=0;pose<10000;pose+=250){
+          await seek(pose);
+          const gap=await call('const post=d.querySelector("[data-support=post]").getBoundingClientRect(),bob=d.querySelector("[data-pendulum-scale] [data-object=ball]").getBoundingClientRect();return bob.left-post.right;');
+          if(gap<closest.gap)closest={gap,pose};
+        }
+        assert(closest.gap>8,'bob must clear the vertical support throughout its orbit: '+JSON.stringify(closest));
+        await seek(closest.pose);await screenshot(`${label}-pendulum-support-${width}`);
+        assert(await call('return !!d.querySelector(".circle-center circle")&&!!d.querySelector(".circle-center [data-tex=O] path");'),'conical orbit centre needs a visible point and LaTeX O');
       }
       if(page===3||page===4){
         assert(await call('const p=d.querySelector("[data-road=surface]"),end=p.getPointAtLength(p.getTotalLength());return p.getPointAtLength(0).x===0&&Math.abs(end.x-app.getLayout().w)<1;'),'road must extend continuously to both canvas edges');
@@ -226,7 +224,7 @@ async function main(){
     cdp.on('Runtime.exceptionThrown',e=>report.errors.push(e.exceptionDetails?.exception?.description||e.exceptionDetails?.text));
     for(const [label,directory]of [['source',path.join(root,'sim')],['package',extracted.packageDirectory]]){
       server=H.createServer(directory);await H.listenServer(server);const base=`http://127.0.0.1:${server.address().port}`;
-      await reviewPresentation(base,label);await canvasDirections(base,label);await revisedScenes(base,label);await layoutChecks(base,label);await fill(base,label);await edgeFlows(base,label);await H.closeServer(server);server=null;
+      await reviewPresentation(base,label);await panelDirections(base,label);await revisedScenes(base,label);await layoutChecks(base,label);await fill(base,label);await edgeFlows(base,label);await H.closeServer(server);server=null;
     }
     assert.deepEqual(report.errors,[]);report.completed=true;console.log('Centripetal source source/package browser regression passed.');
   }finally{

@@ -29,7 +29,7 @@
       <div class="button-row"><button id="analyseButton" class="primary" type="button">畫受力圖</button><button id="sceneButton" type="button">暫停運動</button></div>
       <div id="motionControls"><label for="motionPosition">拖動觀察運動位置</label><input id="motionPosition" type="range" min="0" max="9999" value="0"><p id="motionMessage" class="hint" role="status"></p></div>
       <div id="answerArea">
-      <fieldset><legend>在畫布標示圓心方向</legend><p class="hint">選擇指向圓心的箭頭，或從畫布中的物件中心向圓心拖畫。</p><p id="directionHint" class="hint"></p><div id="directionChoices" class="direction-pad" role="group" aria-label="圓心相對物體的方向"></div><button id="drawInward" type="button">標示圓心方向</button><p class="direction-key">藍色虛線只標方向，不是一個力。</p></fieldset>
+      <fieldset><legend>圓心方向</legend><p class="hint">選擇指向圓心的箭頭。</p><p id="directionHint" class="hint"></p><div id="directionChoices" class="direction-pad" role="group" aria-label="圓心相對物體的方向"></div></fieldset>
       <section id="forceControls"><h3>親手畫出實際受力</h3><p class="hint">按選一種力，再從物件中心拖出箭頭。拖箭尖可修改；箭長只供示意。</p><p id="notationHint" class="hint"></p>
         <div id="forcePalette" class="force-palette" role="group" aria-label="選擇力的種類與來源"></div><p id="drawInstruction" role="status" class="draw-instruction"></p>
         <div id="forceList" aria-label="已加入的力"></div>

@@ -1,14 +1,17 @@
 (function(root,factory){
   const node=typeof module==='object'&&module.exports;
-  const api=factory(node?require('./model.js'):root.CentripetalSourceModel);
+  const api=factory(node?require('./model.js'):root.CentripetalSourceModel,node?require('./notation.js'):root.CentripetalSourceNotation);
   if(node)module.exports=api;if(root)root.CentripetalSourceScene=api;
-})(typeof window==='undefined'?globalThis:window,function(M){
+})(typeof window==='undefined'?globalThis:window,function(M,N){
   'use strict';
   const phase=t=>((t%1)+1)%1;
   const line=(x1,y1,x2,y2,color='#8a9ca8',width=2,extra='')=>`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-width="${width}" ${extra}/>`;
   const circle=(x,y,r,fill,extra='')=>`<circle cx="${x}" cy="${y}" r="${r}" fill="${fill}" ${extra}/>`;
   const label=(x,y,value,extra='')=>`<text x="${x}" y="${y}" fill="#344b5c" font-size="14" ${extra}>${value}</text>`;
   const ball=(x,y,r=15)=>`<g data-object="ball">${circle(x,y,r,'#e29430','stroke="#a76723" stroke-width="2"')}${circle(x-r*.3,y-r*.35,r*.3,'#ffdc8b')}</g>`;
+  function centerMarker(x,y,s,dx=8,dy=7,color='#334155'){
+    return `<g class="circle-center" aria-label="圓心 O">${circle(x,y,Math.max(2.5,Math.min(4,3.5*s)),'#334155','stroke="#fff" stroke-width="1"')}${N.svg('O','圓心 O',{x:x+dx*s,y:y+dy*s},Math.max(14,Math.min(20,18*s)),color)}</g>`;
+  }
   const earth=(x,y,r=19)=>`<g data-object="earth" transform="translate(${x} ${y}) scale(${r/20})">${circle(0,0,20,'#267eaf','stroke="#b0e5f6" stroke-width="2"')}<path d="M-12-14 -3-17 1-11 -4-6 -1 0 -7 4 -9 13 -15 8 -16-2Z M8-13 15-8 18 0 12 3 8 14 3 10 5 2 1-5Z" fill="#8cc293"/>${circle(-7,-9,5,'#ffffff33')}</g>`;
   function car(x,y,rotation=0,scale=1){
     return `<g data-object="car" transform="translate(${x} ${y}) rotate(${rotation}) scale(${scale})"><ellipse cx="0" cy="-1" rx="36" ry="4" fill="#192f4226"/><path d="M-34-9 -32-23 -19-26 -10-38 11-38 23-25 34-21 36-8Z" fill="#197e89" stroke="#155865" stroke-width="2"/><path d="M-15-26 -7-35 9-35 18-26Z" fill="#b9e2e4"/><path d="M3-35V-26 M-19-22H19 M1-22V-12" stroke="#155865" stroke-width="2"/><rect x="29" y="-20" width="7" height="5" rx="2" fill="#ffdd83"/><rect x="-34" y="-20" width="4" height="5" rx="1" fill="#ef927c"/>${[-22,23].map(cx=>circle(cx,-8,9,'#263c4c')+circle(cx,-8,4,'#d6e0e5')).join('')}</g>`;
@@ -37,23 +40,23 @@
     if(page===0){
       svg+=`<rect x="${w*.06}" y="${h*.13}" width="${w*.88}" height="${h*.76}" rx="18" fill="#dce8dd" stroke="#a7bcae" stroke-width="3"/><path d="M${w*.1},${h*.89} v${h*.05} H${w*.9} v-${h*.05}" fill="#afc5b7"/>`;
       svg+=circle(cx,cy,r,'none','stroke="#9cae9f" stroke-width="2" stroke-dasharray="5 6"');
-      svg+=line(cx,cy,x,y,'#8d6f48',4*s)+circle(cx,cy,9*s,'#586b61')+circle(cx,cy,3*s,'#c6d1c5')+ball(x,y,17*s);
-      svg+=label(w*.08,h*.11,'光滑桌面 · 俯視')+label(cx+12*s,cy+18*s,'固定點');
+      svg+=line(cx,cy,x,y,'#8d6f48',4*s)+circle(cx,cy,9*s,'#586b61')+centerMarker(cx,cy,s)+ball(x,y,17*s);
+      svg+=label(w*.08,h*.11,'光滑桌面 · 俯視');
     }else if(page===1){
       svg+=circle(cx,cy+7*s,r+19*s,'#9aadb4')+circle(cx,cy,r+19*s,'#d6e8e9','stroke="#92b5b9" stroke-width="3"');
       for(let i=0;i<8;i++){const b=a+i*Math.PI/4;svg+=line(cx,cy,cx+(r+12*s)*Math.cos(b),cy-(r+12*s)*Math.sin(b),'#b2cfd1',2);}
-      svg+=circle(cx,cy,r,'none','stroke="#7da8ad" stroke-dasharray="4 6"')+circle(cx,cy,10*s,'#5c8286')+circle(cx,cy,4*s,'#e9f4f1');
+      svg+=circle(cx,cy,r,'none','stroke="#7da8ad" stroke-dasharray="4 6"')+circle(cx,cy,10*s,'#5c8286')+centerMarker(cx,cy,s);
       svg+=`<g data-object="block" transform="translate(${x} ${y}) rotate(${-a*180/Math.PI})"><rect x="${-16*s}" y="${-12*s}" width="${32*s}" height="${25*s}" rx="4" fill="#d68b34" stroke="#9b6528" stroke-width="2"/><path d="M${-11*s},${-6*s} H${11*s}" stroke="#f7c876" stroke-width="3"/></g>`;
       svg+=label(w*.08,h*.11,'水平圓盤 · 俯視')+label(cx,h*.94,'物體與盤面一起轉動', 'text-anchor="middle"');
     }else if(page===2){
       const pivot=h*.18,orbitY=h*.68,p=pendulumPose(cx,orbitY,r,a),rx=r/Math.sqrt(1-.26**2),ry=r*.28/(1-.26**2),ellipseY=orbitY+.26*ry;
-      svg+=`<path d="M${w*.13},${h*.86} H${w*.23} V${h*.12} H${cx+25*s}" fill="none" stroke="#627e88" stroke-width="${8*s}" stroke-linejoin="round"/><path d="M${cx},${h*.12}V${pivot}" stroke="#627e88" stroke-width="${5*s}"/>`;
+      svg+=line(w*.015,h*.88,w*.085,h*.88,'#627e88',8*s)+line(w*.045,h*.88,w*.045,h*.12,'#627e88',8*s,'data-support="post"')+line(w*.045,h*.12,cx+25*s,h*.12,'#627e88',8*s)+line(cx,h*.12,cx,pivot,'#627e88',5*s);
       svg+=`<path d="M${cx},${pivot} L${cx-rx},${ellipseY} A${rx},${ry} 0 0 0 ${cx+rx},${ellipseY} Z" fill="#b8d5cc33"/><ellipse cx="${cx}" cy="${ellipseY}" rx="${rx}" ry="${ry}" fill="#dce9e780"/>`;
       const front=`<path data-orbit="front" d="M${cx-rx},${ellipseY} A${rx},${ry} 0 0 0 ${cx+rx},${ellipseY}" fill="none" stroke="#7c9c98" stroke-width="2" stroke-dasharray="5 5"/>`;
-      svg+=`<path data-orbit="back" d="M${cx-rx},${ellipseY} A${rx},${ry} 0 0 1 ${cx+rx},${ellipseY}" fill="none" stroke="#a9bcb8" stroke-width="1.5" stroke-dasharray="4 6"/>`+line(cx,pivot,cx,orbitY,'#9caeae',1.5,'stroke-dasharray="5 5"')+circle(cx,orbitY,3,'#849e9c');
+      svg+=`<path data-orbit="back" d="M${cx-rx},${ellipseY} A${rx},${ry} 0 0 1 ${cx+rx},${ellipseY}" fill="none" stroke="#a9bcb8" stroke-width="1.5" stroke-dasharray="4 6"/>`+line(cx,pivot,cx,orbitY,'#9caeae',1.5,'stroke-dasharray="5 5"');
       const moving=`<g data-pendulum-scale="${p.scale}">${line(cx,pivot,p.x,p.y,'#927443',3*s*p.scale)}${ball(p.x,p.y,17*s*p.scale)}</g>`;
       svg+=p.depth>0?moving+front:front+moving;
-      svg+=circle(cx,pivot,6*s,'#526d74');
+      svg+=circle(cx,pivot,6*s,'#526d74')+centerMarker(cx,orbitY,s);
       svg+=label(w*.08,h*.08,'圓錐擺 · 立體示意')+label(cx+10*s,pivot+9*s,'懸點')+label(cx,h*.94,'小球沿水平圓周運動','text-anchor="middle"');
     }else if(page===3||page===4){
       const p=carPose(page,w,h,t),edge=p.base+(page===3?1:-1)*p.depth*((w/p.span)**2-1),control=2*(p.base+(page===3?-1:1)*p.depth)-edge;
@@ -68,7 +71,7 @@
     }else{
       for(let i=0;i<24;i++){const sx=((i*137+23)%997)/997*w,sy=((i*251+91)%991)/991*h;svg+=circle(sx,sy,i%3===0?1.4:.8,'#c0d4e4','opacity=".6"');}
       svg+=circle(cx,cy,r,'none','stroke="#67859d" stroke-width="1.5" stroke-dasharray="4 6"')+circle(cx,cy,33*s,'#efba4222')+circle(cx,cy,26*s,'#efba4233')+circle(cx,cy,20*s,'#f7c24d')+circle(cx-5*s,cy-5*s,10*s,'#ffe18b');
-      svg+=earth(x,y,19*s)+`<text x="${cx}" y="${cy+43*s}" text-anchor="middle" fill="#e5edf2" font-size="14">太陽</text><text x="${w*.08}" y="${h*.11}" fill="#e5edf2" font-size="14">地球繞太陽 · 俯視</text>`;
+      svg+=earth(x,y,19*s)+centerMarker(cx,cy,s,29,-9,'#e5edf2')+`<text x="${cx}" y="${cy+43*s}" text-anchor="middle" fill="#e5edf2" font-size="14">太陽</text><text x="${w*.08}" y="${h*.11}" fill="#e5edf2" font-size="14">地球繞太陽 · 俯視</text>`;
     }
     return `<g data-scene="${M.CASES[page].id}">${svg}</g>`;
   }
@@ -79,16 +82,16 @@
       svg+=`<rect x="4" y="${cy+13*s}" width="${w-8}" height="${15*s}" rx="4" fill="#d6e4df"/>`;
       if(page===0)svg+=line(cx,cy,cx+sign*92*s,cy,'#9b8155',3)+circle(cx+sign*92*s,cy,5*s,'#6c827b')+ball(cx,cy,12*s);
       else svg+=`<rect x="${cx-15*s}" y="${cy-13*s}" width="${30*s}" height="${26*s}" rx="3" fill="#e0a04e" stroke="#af7a32" stroke-width="2"/>`;
-      svg+=label(cx+sign*92*s,cy-15*s,'O','text-anchor="middle"');
+      svg+=centerMarker(cx+sign*92*s,cy,s);
     }else if(page===2){
       const theta=M.physics(def,page).values.theta,px=cx+sign*84*s*Math.sin(theta),py=cy-84*s*Math.cos(theta);
-      svg+=line(cx,cy,px,py,'#9b8155',3)+line(px,py,px,cy+8*s,'#a8b7b4',1.5,'stroke-dasharray="4 4"')+circle(px,py,5*s,'#6c827b')+ball(cx,cy,12*s)+label(px+sign*17*s,py-7*s,'懸點','text-anchor="middle"');
+      svg+=line(cx,cy,px,py,'#9b8155',3)+line(px,py,px,cy+8*s,'#a8b7b4',1.5,'stroke-dasharray="4 4"')+circle(px,py,5*s,'#6c827b')+ball(cx,cy,12*s)+label(px+sign*17*s,py-7*s,'懸點','text-anchor="middle"')+centerMarker(px,cy,s);
     }else if(page===3||page===4){
       const road=cy+21*s,edge=road+(page===3?1:-1)*30*s;
       svg+=`<path d="M4,${edge} Q${cx},${2*road-edge} ${w-4},${edge}" fill="none" stroke="#8c9fa6" stroke-width="8"/>`+car(cx,road-4*s,0,.6*s);
     }else{
       const a=M.physics(def,page,pose).forces[0][1]*Math.PI/1800,sx=cx+Math.cos(a)*81*s,sy=cy-Math.sin(a)*81*s;
-      svg+=line(cx,cy,sx,sy,'#abbac8',1.5,'stroke-dasharray="4 4"')+circle(sx,sy,13*s,'#edb640')+label(sx+14*s,sy+4*s,'太陽')+earth(cx,cy,12*s);
+      svg+=line(cx,cy,sx,sy,'#abbac8',1.5,'stroke-dasharray="4 4"')+circle(sx,sy,13*s,'#edb640')+label(sx+14*s,sy+4*s,'太陽')+earth(cx,cy,12*s)+centerMarker(sx,sy,s,17,-22);
     }
     return svg+circle(cx,cy,3.5,'#243e50');
   }

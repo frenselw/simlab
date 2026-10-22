@@ -486,3 +486,10 @@ pending／technical不顯示「提交後正解」以免技術錯誤冒充完成�
 - Runtime assetHash `66c4994799a5b1c18eedd6b37a5ec1f464f2f203268cc81bfa6caf2600c5bc2e`；SCORM ZIP SHA-256 `BBF66457FA21CD5E9EB29A52A2E4725CF4B6DD7D6BD75B12E94310CFEB9DDBC4`；十個runtime與Site來源逐檔一致。
 - 同一owner-only Site source `1c126a54d9ab51903a97ab7b248386db65c9d626`；v7 `appgprj_6ad9ab2ffe008191bea6e486a6000e05~appgver_f7515df727dc81918d28543373dc9385`；deployment `appgdep_6ad9e5ac2bac81918caa2f5d78df0906` succeeded。
 - Runtime commit `a6456097659a649e7a6c1d5852c806e4405c94ef` 已推送；以 `a125577` 為base的committed selection：affected／本活動package／230 entries（僅選擇預覽，非全數執行）。未重跑全部T0–T3矩陣、真手機或真Moodle；未等待GitHub CI。
+
+## 2026-10-22 第六次審閱：支架避讓、圓心標示及透明力標籤
+
+- 圓錐擺豎直支架及底座移到小球整圈掃過範圍外；沿用近大遠小投影。加入完整一圈及手機／桌面尺寸的間距檢查。
+- 已顯示的圓心統一以實心點及LaTeX `O`標示；圓錐擺的圓心位於懸點正下方、水平圓周平面內，與懸點分開。
+- 按使用者本輪要求，圓心方向只在control panel的八個箭號選項作答；刪除舞台／預覽／檢查／參考圖的藍色虛線方向箭頭、畫布方向工具及提示。保留原權威inward key及其評分／續作，不改答案schema。
+- 力標籤移除不透明矩形底，只保留LaTeX字形與既有避線定位；力箭頭繼續直接拖畫。沿用現有測試入口，更新已移除工具的browser與手機fixture，驗證空白／部分／唯讀狀態、圓心選項獨立於力、標籤透明和支架間距。

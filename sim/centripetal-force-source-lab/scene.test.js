@@ -29,6 +29,19 @@ for(let i=0;i<=36;i++){
   assert(Math.abs(((p.x-160)/rx)**2+((p.y-cy)/ry)**2-1)<1e-10,'bob must follow its projected orbit');
 }
 assert(Math.abs(V.pendulumPose(160,200,80,0).x-V.pendulumPose(160,200,80,2*Math.PI).x)<1e-8,'perspective must loop continuously');
+for(const [w,h]of [[256,80],[256,220],[326,371],[876,690]]){
+  const scale=Math.max(.5,Math.min(1.25,w/460,h/290)),half=4*scale;
+  for(let i=0;i<360;i++){
+    const svg=V.scene(2,s.def,{w,h},i/360),match=svg.match(/data-object="ball"><circle cx="([^"]+)" cy="([^"]+)" r="([^"]+)"/),[x,y,radius]=match.slice(1).map(Number);
+    for(const [x1,y1,x2,y2]of [[w*.045,h*.12,w*.045,h*.88],[w*.015,h*.88,w*.085,h*.88],[w*.045,h*.12,w/2+25*scale,h*.12]]){
+      const px=Math.max(x1,Math.min(x2,x)),py=Math.max(y1,Math.min(y2,y));
+      assert(Math.hypot(x-px,y-py)>radius+half+8,`pendulum hits support at ${w}x${h}, phase ${i}/360`);
+    }
+  }
+  for(const page of [0,1,2,5])for(const svg of [V.scene(page,s.def,{w,h},.35),V.backdrop(page,s.def,{w,cx:w/2,cy:h/2,scale},null)]){
+    assert(svg.includes('class="circle-center"')&&svg.includes('data-tex="O"'),'circle center needs a point and LaTeX O');
+  }
+}
 assert.equal(V.nextTarget(.2),.5);assert.equal(V.nextTarget(.5),.5);assert.equal(V.nextTarget(.7),1.5);assert.equal(V.nextTarget(2.9),3.5);
 for(const pose of [0,1345,3876,5000,9999]){
   let state=M.navigate(s,5);state=M.change(state,{type:'analyse',pose});
