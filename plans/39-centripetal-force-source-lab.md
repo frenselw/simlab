@@ -502,3 +502,8 @@ pending／technical不顯示「提交後正解」以免技術錯誤冒充完成�
 - 專屬browser assetHash `c39f28fe197371a54ebbd101cdbcbe8826e4e6e633bb9d61798c12073dbc88c6`；SCORM ZIP SHA-256 `BAD3BA4532743A3DE9911554C1D0820A4DFFE3484C2512C56FE76D2EFD7FB39B`。十個自有runtime與Site來源逐檔一致。
 - 同一owner-only Site source `e1e9da18cb4185a67caf95e696a3443029518b92`；v8 `appgprj_6ad9ab2ffe008191bea6e486a6000e05~appgver_fc9724c0f4f48191b15ab6fdb3fa5e20`；deployment `appgdep_6ad9ed10274c819195d7b195b61b890a` succeeded。[更新版](https://centripetal-force-source-lab.ieyp.chatgpt.site/centripetal-force-source-lab/)。
 - Runtime commit `5dc2135ebe0e2684e51cf8a4834ba08649655e6a` 已推送；以`1f25c14`為base的committed selection：full／packages all／265 entries（只記錄選擇預覽，不代表全數執行）。未等待GitHub CI終態。
+
+## 2026-10-22 第七次審閱：刪除預覽說明文字
+
+- 按使用者要求刪除放大預覽的「箭尖放大 ×2」文字及兩條專屬文字樣式；保留預覽圖、全圖縮圖及操作行為。
+- 靜態核對文字已刪除、兩個預覽SVG仍存在，diff check通過；重建15檔SCORM包。此輪只刪除文字／樣式，未重跑完整互動、手機或Moodle測試。
