@@ -514,3 +514,6 @@ pending／technical不顯示「提交後正解」以免技術錯誤冒充完成�
 - 地球開始新的受力分析時，將觀察相位吸附至最近的1/8圈，讓太陽方向與八個圓心箭號選項之一完全一致；運動可順／逆轉，末段相位可就近跨回零點。一般播放與拖動觀察仍連續。
 - 吸附只定義新作答的位置，不自動選答案。已有答案的原相位及力保持不變；舊任意相位的保存／參考圖／評分照常解碼，不改answer v2／model v2／rubric v1或權威快照欄位。
 - 沿用model、scene和專屬browser測試入口；覆蓋八個初始角度、雙轉向、半格邊界、跨圈、最短角距、畫面太陽方向與按鈕一致、保存還原續作及已作答位置固定。
+- 本輪七個Node測試、check、check:tests（265 entries）、main語法及diff check通過。source/package專屬browser均completed=true、errors=0；兩者各執行18個地球停止案例，確認實際太陽位置與選項一致，並通過原六題畫力／提交、橋頂等待及觸控流程。未重跑全部T0–T3矩陣、實機手機或真Moodle。
+- Browser assetHash `3eb12e94b3d8d8cb505fef2aaa4def6a3eb5b5edcdc76b884a8ad36bb42b2268`；15檔SCORM ZIP SHA-256 `647B2E15E3776C1DA5E533E12A08C0C4A9BD30FD89CD08C5253F1008D338E9F6`；十個自有runtime與Site來源逐檔一致。
+- Runtime commit `b1bbc8e6cd07f14f1ed1d110f299776648172ce1` 已推送；以`6308a44`為base的committed selection為affected／本活動package／230 entries，僅選擇預覽。Site source `32278a2732e7822922a449c494417172218ff9ea`；v10 deployment `appgdep_6ad9f2ea6f0c8191b9f0d307378b0c53` succeeded，維持原owner-only網址；未等待GitHub CI。
