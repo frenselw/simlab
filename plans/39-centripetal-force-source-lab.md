@@ -416,9 +416,10 @@ pending／technical不顯示「提交後正解」以免技術錯誤冒充完成�
 | 邏輯 | 六個本活動 Node 測試通過；任意地球相位、原點拖畫、橋頂／凹底前後及跨圈、舊 v1 review/pending 維持 100 分、嚴格橋題 pose、最大 pending ≤4000 bytes |
 | 專屬 browser | 最終 source／解壓 package 均通過：六物件截圖、橋題 2500／7500 相位按分析後等待至下一個 5000、任意地球 1376 相位、已答重播保持相位、直接畫力與取消、13 次可信觸控作圖取得 100 分；七種 viewport、鍵盤、空白／部分、續作、鎖定、fullscreen及200% zoom |
 | Browser report | `output/playwright/centripetal-force-source-lab/report.json` completed=true、errors=[]；assetHash `5ec0188dd348b905f69b0e3588cc6bc52e4d7cb1a820b140e7c1904bd526aa1d` |
-| 手機容器 | 新版 focused T3 source：initial、橋頂分析、直接畫力、完整作答 × 320×500／390×844，各 8/8 零 issues。package同矩陣執行中；未把前版全部T1/T2證據宣稱為新版全矩陣 |
+| 手機容器 | 新版 focused T3 source／package：initial、橋頂分析、直接畫力、完整作答 × 320×500／390×844，各 8/8 零 issues。未把前版全部T1/T2證據宣稱為新版全矩陣 |
 | 手勢判定修正 | 共用觀察器加入本活動權威state；動畫自動變動的motionPosition只作播放進度，不列作答。新增測試證明保存pose變動仍報錯；觀察器測試通過 |
 | 靜態與包裝 | check、check-docs、check:tests、git diff --check 及 package:all 通過；本 ZIP 13 entries（manifest＋八自有＋四shared） |
 | SCORM ZIP | `output/centripetal-force-source-lab-scorm.zip`；SHA-256 `19F39FF6F43982692BBD65D9C4DB8E0705130C70B608E6A03085E42A7E9F4438` |
-| Sites source | 同一 owner-only project；八自有 runtime 與 worktree SHA-256 一致；已推送 Site source commit `cbd9c18a97dccf80e544355e8d99194d7d07aa4c`，部署回覆待記錄 |
+| Sites v3 | 同一 owner-only project `appgprj_6ad9ab2ffe008191bea6e486a6000e05`；八自有 runtime 與 worktree SHA-256 一致。Site source commit `cbd9c18a97dccf80e544355e8d99194d7d07aa4c`；version `appgprj_6ad9ab2ffe008191bea6e486a6000e05~appgver_a25849402d448191a4e2b46113c9e836`；deployment `appgdep_6ad9ca956d408191afe6b8c16d910bb7` succeeded；[預覽](https://centripetal-force-source-lab.ieyp.chatgpt.site) |
+| Git 與 selection | runtime commit `6c167cafc3cfa0d1563a0b2ac55f2c064d3adcf5` 已推送 `codex/centripetal-force-source-lab`；以 `ac0c336f9e09d77a8f5ba75f1b696e45e6a49471` 為 base 的 committed `--affected --plan` 選 full／packages all／264 entries；CI 未等待終態 |
 | 限制 | 不等待 GitHub CI 才交付；本輪不重跑全專案 Node 或全部 T0–T3 phase matrix。真 Moodle／實機 T4 未驗證，package-ready／Moodle-ready 清單維持未勾選，不能冒稱完成 |
