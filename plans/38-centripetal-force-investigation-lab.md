@@ -760,3 +760,20 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 - 官方Sites helper提交／推送／打包Site source c825f5bd093f63aed72c037a521da15c88be539c；v11 appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_e13e32408084819187f48cd951bf853e；deployment appgdep_6ada29fd49d48191be8342ab01f7c71b，回報succeeded。owner-only audience保持，憑證仍只經已授權官方工具的隱藏stdin傳送。
 - 已重新載入原本Site分頁，實際瀏覽器拖動放手得+11.638 rad/s；開始測量後直接反向重推，按住減速2秒後為-10.389 rad/s，5點正常保存並達取點要求。分頁保留供使用者直接試；沒有把這項上線操作當作真手機逐幀延遲驗證。
 - 網址：https://centripetal-force-investigation-lab.ieyp.chatgpt.site/centripetal-force-investigation-lab/
+
+## 持續動畫時鐘修正（2026-10-22，動工前決策）
+
+- 使用者錄影逐格顯示8.708–9.458秒約750ms停止；期間減速掣灰色，恢復轉動同時啟用。使用者確認Firefox及Chrome相同，停止瀏覽器差異調查；不開sub-agents。
+- 具體缺口：目前frame在drag存在時停止積分，必須等pointerup才恢復。先加入延後900ms才送出pointerup的回歸，確認舊版會停；這是程式缺口的重現，不宣稱已測得使用者硬件事件延遲。
+- 範圍：model的手勢估速與主畫面單一時鐘、既有model/browser測試、計劃／SCORM／原私人Site。gesture累積角與裝置角分開，手勢只更新速度；時鐘在按住／移動／放手期間持續積分，放手不重設時間、不重啟引擎。重新按住不清零，正負快推及24rad/s上限保留。
+- 暫停、取消、離頁、只讀仍停轉；測量仍待放手才取點。mv3／rv2、評分、容量及權威snapshot不變，沒有新依賴／入口／export。
+- 驗證：延後放手的間隔及放手後逐幀SVG角度、雙向滑鼠／觸控、測量開關、CPU1／4；既有減速與重推、保存／取消／只讀，source與解壓package；五純測試及check／check:tests／committed selection。手感仍須使用者在原設備確認。
+
+### 持續動畫時鐘驗證
+
+- 舊版先執行延後pointerup回歸，確實在「rotation must continue while waiting for pointerup」失敗；修正後完整source及實際解壓package通過。沒有以瀏覽器差異解釋問題，未加Firefox工具或依賴。
+- 每入口8種情況（滑鼠／觸控、正負方向、測量開關、CPU1／4），最後move後900ms才送up；期間49–51個被觀察SVG幀均前進，之後19–22幀亦均前進。舊有即時放手、300ms停留、最後位移僅由up送達亦通過。
+- 所有5個純測試及check／check:tests（263 entries）通過；包含再按住不清速、手勢與時鐘位移不混算、無效跳點不清速、長幀、減速不反轉。快照最大3179／3215／3570 bytes及舊mv1/mv2兼容維持。
+- 完整browser同時覆蓋測量再推、持續減速、取點／擬合、取消不得取點、只讀／提交、fullscreen及320／390等版面。報告output/playwright/centripetal-source-release-frames.json與centripetal-package-release-frames.json；DOM逐幀觀察不能代替使用者硬件／螢幕實際手感。
+- ZIP SHA-256 a2c060194a25c5b2df00d397481106b1ca197b040c2e75529d360be444706e57，16個runtime與sim及Site dist逐位元組相同。沿用測試登記及依賴，沒有sub-agent審核。
+- 真手機／Safari、真Moodle及全T0–T3矩陣今輪未重驗，維持planned；只改本次轉動交接。

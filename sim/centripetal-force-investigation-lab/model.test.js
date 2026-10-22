@@ -15,9 +15,9 @@ const saved = M.clone(t.runs[0]); M.setWork(t, 2, 8); assert.deepEqual(t.runs[0]
 assert.equal(M.begin(t), true); assert.equal(M.begin(t), false, "third run needs explicit deletion");
 assert.equal(M.removeRun(t, 0), true); assert.equal(t.selected, null, "delete must not silently score another run");
 let spin = M.motion(); spin = M.dragMotion(spin, 3.1, 0); spin = M.dragMotion(spin, -3.1, 40);
-assert.ok(spin.omega < 0 && spin.omega >= -M.MAX_OMEGA && spin.angle < 0, "clockwise crossing π stays negative and capped");
-const before = spin.angle; spin = M.dragMotion(spin, -2.9, 40); assert.equal(spin.angle, before, "zero time cannot change angle");
-spin = M.dragMotion(spin, -2.7, 500); assert.ok(spin.angle < before, "long event gap still follows pointer position"); assert.ok(Math.abs(spin.omega + .4/.46)<1e-12,"long event gap uses actual elapsed time without clearing release speed");
+assert.ok(spin.omega < 0 && spin.omega >= -M.MAX_OMEGA && spin.gestureAngle < 0, "clockwise crossing π stays negative and capped");
+const before = spin.gestureAngle; spin = M.dragMotion(spin, -2.9, 40); assert.equal(spin.gestureAngle, before, "zero time cannot change angle");
+spin = M.dragMotion(spin, -2.7, 500); assert.ok(spin.gestureAngle < before, "long event gap still measures pointer displacement"); assert.ok(Math.abs(spin.omega + .4/.46)<1e-12,"long event gap uses actual elapsed time without clearing release speed");
 spin = M.dragMotion(spin, 0.1, 520); assert.equal(spin.warning, true, "ambiguous jump is discarded");
 const coast = M.coast(spin, 0.05); assert.equal(coast.angle, spin.angle + spin.omega * 0.05);
 const fast = M.dragMotion(M.dragMotion(M.motion(), 0, 0), 0.2, 40);
@@ -57,11 +57,12 @@ for (const sign of [-1,1]) {
 
 let direct=M.dragMotion(M.motion(),0,0);
 direct=M.dragMotion(direct,-.8,30);
-assert.ok(Math.abs(direct.angle-.8)<1e-12,"fast dragging follows the full pointer angle instead of clipping to 6*dt");
+assert.ok(Math.abs(direct.gestureAngle-.8)<1e-12,"speed estimation uses the full pointer displacement");
+assert.equal(direct.angle,0,"pointer input does not compete with the animation clock for position");
 assert.equal(direct.omega,M.MAX_OMEGA,"fast hand speed can reach the expanded range");
 direct=M.dragMotion(direct,-.5,60);
 assert.ok(direct.omega<0,"direction reversal immediately changes the release direction");
-assert.ok(Math.abs(direct.angle-.5)<1e-12);
+assert.ok(Math.abs(direct.gestureAngle-.5)<1e-12);
 assert.equal(M.releaseMotion(direct).omega,direct.omega,"immediate release retains the latest gesture speed");
 const still=M.dragMotion(direct,-.5,360);
 assert.equal(still.omega,direct.omega,"stationary event retains last moving speed");
@@ -75,10 +76,26 @@ assert.deepEqual(M.releaseMotion(direct).history,[]);
 const flick=M.dragMotion(M.dragMotion(M.motion(),0,0),-.6,40);
 const tail=M.dragMotion(flick,-.6001,180);
 assert.equal(tail.omega,flick.omega,"subpixel release jitter cannot erase flick speed");
-assert.ok(Math.abs(tail.angle-.6001)<1e-12,"even tiny final displacement keeps its position");
+assert.ok(Math.abs(tail.gestureAngle-.6001)<1e-12,"even tiny final displacement keeps its position");
 assert.equal(M.coast(flick,.18).angle,flick.angle+flick.omega*.18,"a long frame cannot discard elapsed rotation");
 assert.equal(M.coast(flick,.18).omega,flick.omega);
 const stopped=M.coast({...M.motion(),omega:.045},1,true);
 assert.equal(stopped.omega,0);assert.ok(Math.abs(stopped.angle-.00225)<1e-12,"braking integrates only until stopped");
 const reverseStop=M.coast({...M.motion(),omega:-.045},1,true);
 assert.equal(reverseStop.omega,0);assert.ok(Math.abs(reverseStop.angle+.00225)<1e-12);
+
+for (const sign of [-1,1]) {
+  let continuous={...M.motion(),angle:2,omega:sign*8};
+  continuous=M.dragMotion(continuous,0,100);
+  assert.equal(continuous.omega,sign*8,"grabbing a moving ring must not stop it");
+  continuous=M.dragMotion(continuous,-sign*.4,150);
+  for(let i=0;i<60;i++) continuous=M.coast(continuous,1/60);
+  assert.ok(Math.abs(continuous.angle-(2+sign*8))<1e-10,"the clock keeps moving while release is delayed a second");
+  const next=M.dragMotion(continuous,-sign*.8,200);
+  assert.equal(next.omega,sign*8,"gesture speed excludes animation displacement");
+  assert.equal(next.angle,continuous.angle,"a new input does not rewind the animated position");
+  const released=M.releaseMotion(next);
+  assert.equal(released.angle,next.angle);assert.equal(released.omega,next.omega);
+  const jump=M.dragMotion(next,sign*2,220);
+  assert.equal(jump.warning,true);assert.equal(jump.omega,next.omega,"invalid pointer jump cannot stop rotation");
+}

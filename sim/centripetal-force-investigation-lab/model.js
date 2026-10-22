@@ -72,24 +72,24 @@
     return true;
   }
   const wrap = angle => Math.atan2(Math.sin(angle), Math.cos(angle));
-  function motion() { return { angle: 0, omega: 0, pointerAngle: null, time: null, history: [], warning: false }; }
+  function motion() { return { angle: 0, omega: 0, pointerAngle: null, gestureAngle: 0, time: null, history: [], warning: false }; }
   function dragMotion(state, angle, time) {
     if (!Number.isFinite(angle) || !Number.isFinite(time)) return state;
-    if (state.pointerAngle === null) return { ...state, pointerAngle: angle, time, omega: 0, history: [{ angle: state.angle, time }], warning: false };
+    if (state.pointerAngle === null) return { ...state, pointerAngle: angle, gestureAngle: 0, time, history: [{ angle: 0, time }], warning: false };
     const dt = (time - state.time) / 1000, delta = -wrap(angle - state.pointerAngle);
     if (!(dt > 0)) return state;
-    if (Math.abs(delta) > Math.PI * 0.8) return { ...state, pointerAngle: angle, time, omega: 0, history: [], warning: true };
-    const nextAngle = state.angle + delta;
+    if (Math.abs(delta) > Math.PI * 0.8) return { ...state, pointerAngle: angle, time, history: [], warning: true };
+    const nextAngle = state.gestureAngle + delta;
     // A stationary event must not erase the last push before pointerup.
-    if (Math.abs(delta) < 0.002) return { ...state, pointerAngle: angle, time, angle: nextAngle };
+    if (Math.abs(delta) < 0.002) return { ...state, pointerAngle: angle, time, gestureAngle: nextAngle };
     const history = state.omega * delta < 0 ? [] : (state.history || []).filter(sample => time - sample.time <= 80);
-    if (!history.length) history.push({ angle: state.angle, time: state.time });
+    if (!history.length) history.push({ angle: state.gestureAngle, time: state.time });
     history.push({ angle: nextAngle, time });
     const omega = Math.max(-MAX_OMEGA, Math.min(MAX_OMEGA, (nextAngle - history[0].angle) / ((time - history[0].time) / 1000)));
-    return { ...state, pointerAngle: angle, time, angle: nextAngle, omega, history, warning: false };
+    return { ...state, pointerAngle: angle, time, gestureAngle: nextAngle, omega, history, warning: false };
   }
   function releaseMotion(state) {
-    return { ...state, pointerAngle: null, time: null, history: [] };
+    return { ...state, pointerAngle: null, gestureAngle: 0, time: null, history: [] };
   }
   function upgradeDraft(state) {
     if (state.rv === 1) {

@@ -423,8 +423,7 @@ async function responsiveSpin(cdp,base,launch) {
     await pause(30);await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[finger(-sign*1.2)]});
     await pause(40);
     const held=await H.evaluate(cdp,'window.__centripetalApp.getMotion()');
-    // Free rotation before the second pointerdown can advance the starting angle.
-    if(sign===1) assert.ok(Math.abs(held.angle-before.angle-1.2)<.01,'touch follows full pointer displacement');
+    if(sign===1) assert.ok(held.angle>before.angle,'the animation clock advances during the stroke');
     assert.ok(sign*held.omega>6,'fast stroke exceeds the old 6 rad/s cap: '+JSON.stringify(held));
     await pause(300);
     await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await pause(100);
@@ -490,9 +489,14 @@ async function continuousRelease(cdp, base, launch, label) {
     const sign=pointer==="touch"?-1:1;
     await input("down",0);
     for(let i=1;i<=12;i++){await pause(16);await input("move",-sign*i*.2);}
+    await pause(900); // The animation must not wait for a delayed pointerup.
     await input("up",-sign*2.4);await pause(350);
     const data=await H.evaluate(cdp,"({frames:window.__releaseFrames,input:window.__releaseInput,axesReused:window.__axisGlyph===document.getElementById('graphNotation').firstElementChild})");
     const up=data.input.find(e=>e.type==="pointerup"),after=data.frames.filter(f=>f.t>=up.t);
+    const lastMove=data.input.filter(e=>e.type==="pointermove").at(-1);
+    const waiting=data.frames.filter(f=>f.t>lastMove.t+33 && f.t<up.t);
+    assert.ok(waiting.length>=10,"observe the gap before the delayed release");
+    for(let i=1;i<waiting.length;i++) assert.ok(sign*(waiting[i].angle-waiting[i-1].angle)>0,"rotation must continue while waiting for pointerup");
     assert.ok(sign*up.omega>1,"release has the gesture direction");
     assert.ok(after.length>=6,"observe consecutive painted transforms after release");
     assert.ok(sign*(after[0].angle-up.angle)>0,"the very first post-release frame advances");
@@ -500,15 +504,15 @@ async function continuousRelease(cdp, base, launch, label) {
     assert.ok(firstMoveMs<50,"release has no multi-frame wait: "+JSON.stringify({rate,pointer,measuring,firstMoveMs}));
     for(let i=1;i<after.length;i++) assert.ok(sign*(after[i].angle-after[i-1].angle)>0,"no stationary rendered frame after release");
     assert.ok(data.axesReused,"sampling retains the fixed LaTeX axis glyphs");
-    const last=after.at(-1),expected=up.angle+up.omega*(last.t-up.eventTime)/1000;
+    const last=after.at(-1),expected=up.angle+up.omega*(last.t-up.t)/1000;
     assert.ok(Math.abs(last.angle-expected)<Math.abs(up.omega)*.02,"displayed angle follows elapsed time across the handoff");
     const maxFrameMs=Math.max(...after.slice(1).map((f,i)=>f.t-after[i].t));
-    reports.push({rate,pointer,measuring,firstMoveMs,maxFrameMs,frames:after.length});
+    reports.push({rate,pointer,measuring,waitingFrames:waiting.length,firstMoveMs,maxFrameMs,frames:after.length});
     if(rate===1 && pointer==="mouse" && !measuring) {
       await H.evaluate(cdp,"(()=>{const until=performance.now()+180;while(performance.now()<until){};})()");
       await pause(80);
       const f=await H.evaluate(cdp,"window.__releaseFrames.at(-1)");
-      assert.ok(Math.abs(f.angle-(up.angle+up.omega*(f.t-up.eventTime)/1000))<Math.abs(up.omega)*.02,"long task does not discard rotation time");
+      assert.ok(Math.abs(f.angle-(up.angle+up.omega*(f.t-up.t)/1000))<Math.abs(up.omega)*.02,"long task does not discard rotation time");
     }
     if(rate===1 && pointer==="mouse" && measuring) {
       const before=await H.evaluate(cdp,"window.__centripetalApp.getState().tasks[0].runs[0].q.length");

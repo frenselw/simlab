@@ -363,6 +363,7 @@
     event.preventDefault(); target.focus({ preventScroll: true }); target.setPointerCapture(event.pointerId);
     drag = { target, id: event.pointerId, type, side: target.dataset.side || target.dataset.mass, proposed: null, pointerType: event.pointerType };
     if (type === "spin") {
+      advanceMotion();
       releaseBrake();
       drag.center = mapPoint(300, 230);
       motion = M.dragMotion({ ...motion, pointerAngle: null }, Math.atan2(event.clientY - drag.center.y, event.clientX - drag.center.x), event.timeStamp);
@@ -385,6 +386,7 @@
     if (!drag || drag.id !== event.pointerId) return;
     event.preventDefault();
     if (drag.type === "spin") {
+      advanceMotion();
       const events = event.getCoalescedEvents?.() || [], { x, y, scale } = drag.center;
       for (const point of events.length ? events : [event]) {
         if (Math.hypot(point.clientX - x, point.clientY - y) < 30 * scale) continue;
@@ -423,12 +425,12 @@
     if (!drag || drag.id !== event.pointerId) return;
     event.preventDefault(); const operation = drag; drag = null;
     if (operation.type === "spin") {
+      advanceMotion();
       const { x, y, scale } = operation.center;
       if (Math.hypot(event.clientX - x, event.clientY - y) >= 30 * scale) {
         motion = M.dragMotion(motion, Math.atan2(event.clientY - y, event.clientX - x), event.timeStamp);
       }
       motion = M.releaseMotion(motion);
-      lastFrame = Math.min(performance.now(), event.timeStamp);
       renderRotor(); renderControls();
       return;
     }
@@ -466,13 +468,21 @@
   }
   function setSpeed(omega) {
     if (!controller.editable || view() !== "collect") return;
+    advanceMotion();
     running = true; motion = { ...motion, omega: Math.max(-M.MAX_OMEGA, Math.min(M.MAX_OMEGA, omega)) };
     render();
   }
-  function frame() {
-    const time = performance.now(), dt = lastFrame ? (time - lastFrame) / 1000 : 0; lastFrame = time;
+  function advanceMotion(time = performance.now()) {
+    const dt = lastFrame ? (time - lastFrame) / 1000 : 0; lastFrame = time;
     if (running && controller.editable && view() === "collect") {
-      if (!drag) { motion = M.coast(motion, dt, !!brakeHold); if (!motion.omega) releaseBrake(); }
+      // One clock drives rotation, including gaps between pointer events.
+      motion = M.coast(motion, dt, !!brakeHold);
+      if (!motion.omega) releaseBrake();
+    }
+  }
+  function frame() {
+    advanceMotion();
+    if (running && controller.editable && view() === "collect") {
       renderMotion();
       // Keep saving and graph layout out of the frame that hands off the gesture.
       if (!drag && measuring && sampleTimer === null && M.sampleReady(activeRun(), motion.omega)) {
