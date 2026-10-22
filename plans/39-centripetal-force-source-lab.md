@@ -441,3 +441,19 @@ pending／technical不顯示「提交後正解」以免技術錯誤冒充完成�
 | 檢查／套件 | check、check:tests（265 entries）、check-docs、diff check通過；本活動ZIP 15 entries，SHA-256 `B2786BD6961B18DFEEAC7758C149D0C7343999ADDD8432C452377A36188ADF55`；十自有runtime與Sites逐檔相同。 |
 | 部署 | 同一owner-only Site；source commit `89d6e55581223bc9ed3742a915d5ce6c2493c8d1`；v4 `appgprj_6ad9ab2ffe008191bea6e486a6000e05~appgver_f4a9a47dbfec819193c8e22e2f8d4bd0`；deployment `appgdep_6ad9d4c570a08191b7116ab39568af61` succeeded；[同一私人預覽網址](https://centripetal-force-source-lab.ieyp.chatgpt.site)。不等待GitHub CI終態。 |
 | 最終證據 | runtime commit `f9c5266177c74f47f0eae67a75720aa8f61740ad` 已推送；從 `a2460194c8b4d91c6741970b5564bbea19843575` 的 committed selection 為 full／packages all／265 entries。browser report completed=true、errors=0、assetHash `47cdeae0543a169a43d0e8b041e3abe7b773b5cb861ebd93deafa0f536f46a0c`。真Moodle、真手機及全套拓撲矩陣未驗完。 |
+
+## 2026-10-22 第三次審閱修訂：直接在畫布操作
+
+使用者要求刪除方向控制圖，直接在畫布操作，所有介面均不說明鍵盤操作。此要求取代前版方向按鈕與操作提示；前節證據僅代表歷史版本。
+
+- 移除兩組3×3方向選擇圖、加入後另設方向按鈕及鍵盤提示。圓心方向由物件中心拖畫藍色虛線箭頭，箭尖可直接調整；力卡選取後從物件中心拖畫力。
+- 圓心方向沿用八方向權威key，選擇工具只作暫態；不改answer v2／model v2／rubric v1、依賴及評分。拖動只預覽，放開才保存；取消或多指回滾，單點不憑空作答。
+- 舊版未定方向力仍可續作、編輯和部分提交。保留LaTeX、六情境及橋頂等待；唯讀／凍結狀態不可作圖。
+- 驗證範圍：專屬source/package瀏覽器回歸新增圓心原點拖畫、八方向箭尖編輯、取消、多指、工具切換及無方向圖／鍵盤說明斷言；手機profile新增inward-drawing並執行focused T3，原Node測試、靜態檢查及SCORM包裝一併核對。
+
+### 本輪證據
+
+- 七個活動Node測試、check、check:tests（265 entries）、check-docs、diff check通過。最終source/package專屬瀏覽器回歸completed=true、errors=0，包含六題19次可信觸控作圖取得100分、舊未定方向力續作及上述新操作。
+- 最終runtime assetHash：`b3c1b6a3ceaef3ce6e4793515a6cce4b469dfc5945a990145c3938472f0f86dc`；SCORM ZIP 15 entries，SHA-256 `ED54EC28BDC65F3CC346ACB51418C7E98A51454CA8B7B5C9639F71BFFEA80072`。
+- T3 focused：inward-drawing／direct-drawing／complete × 320×500／390×844，source及package各6/6零issues。source在最後可及性與選取樣式微調前執行；package及完整source/package互動回歸使用最終runtime。其餘容器矩陣及真手機／真Moodle未重測。
+- 十個自有runtime與同一owner-only Site逐檔一致。Site source commit `ac125a18a63a20f38bde886d1aaaffe421e66f72`；v5 `appgprj_6ad9ab2ffe008191bea6e486a6000e05~appgver_ad0a366489948191884d42bd15a9cd8d`；deployment `appgdep_6ad9d9ad74ac8191ac9752060c372660` succeeded。[更新版](https://centripetal-force-source-lab.ieyp.chatgpt.site/centripetal-force-source-lab/)。

@@ -45,7 +45,8 @@ function activityProfiles(slug) {
       s=M.change(s,{type:'palette',value:M.physics(s.def,page).forces[0][0]});s=M.change(s,{type:'add'});profiles.push(restored(`case-${page}-null-force`,s,['#checkButton',`[data-return="${page}"]`],{ownedTarget:'.force-handle:not([hidden])'}));
       s=M.change(s,{type:'arrow',angle:M.physics(s.def,page).forces[0][1],length:60});profiles.push(restored(`case-${page}-partial`,s,['#checkButton',`[data-return="${page}"]`],{ownedTarget:'.force-handle:not([hidden])'}));
     }
-    let drawing=M.change(M.change(M.fresh(()=>.2),{type:'analyse',pose:1200}),{type:'palette',value:2});profiles.push(restored('direct-drawing',drawing,[],{ownedTarget:'#originHandle'}));
+    let drawing=M.change(M.fresh(()=>.2),{type:'analyse',pose:1200});profiles.push(restored('inward-drawing',drawing,[],{ownedTarget:'#originHandle'}));
+    drawing=M.change(drawing,{type:'palette',value:2});profiles.push(restored('direct-drawing',drawing,[],{ownedTarget:'#originHandle'}));
     let done=M.fresh(()=>.2);done.items.forEach((item,page)=>{const p=M.physics(done.def,page);item.inward=p.inward;item.relation=M.CASES[page].relation;item.arrows=p.forces.map(([kind,a])=>[kind,a,60]);item.selected=0;});done.view='analysis';done.concept='radial-effect';
     profiles.push(restored('complete',done,['#checkButton','#returnEdit'],{ownedTarget:'.force-handle:not([hidden])'}));
     profiles.push(restored('check',done,['#checkButton']));

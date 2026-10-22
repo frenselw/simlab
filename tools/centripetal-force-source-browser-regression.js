@@ -29,17 +29,44 @@ async function analyse(){
   await wait(()=>call('return app.getState().view==="analysis";'),'analysis target reached');
 }
 async function seek(value){await call(`const e=d.getElementById('motionPosition');e.value=${value};e.dispatchEvent(new Event('input',{bubbles:true}));`);}
-async function dragForce(angle,selector='#forceHandle'){
+async function dragForce(angle,selector='#forceHandle',inward=false){
   const start=await rect(selector);assert(start.width>=44&&start.height>=44);
-  const end=await call(`const g=app.getLayout(),r=d.getElementById('diagram').getBoundingClientRect(),a=${angle}*Math.PI/1800;return{x:r.left+g.cx+Math.cos(a)*60*g.scale,y:r.top+g.cy-Math.sin(a)*60*g.scale};`);
+  const end=await call(`const g=app.getLayout(),r=d.getElementById('diagram').getBoundingClientRect(),a=${angle}*Math.PI/1800;return{x:r.left+g.cx+Math.cos(a)*${inward?105:60}*g.scale,y:r.top+g.cy-Math.sin(a)*${inward?105:60}*g.scale};`);
   const id=touchId++,touch=(x,y)=>({x,y,id,radiusX:1,radiusY:1,force:1});
   await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[touch(start.x,start.y)]});
   for(let i=1;i<=5;i++){const x=start.x+(end.x-start.x)*i/5,y=start.y+(end.y-start.y)*i/5;await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[touch(x,y)]});await H.delay(25);}
   assert(await call('return !d.getElementById("preview").hidden;'),'touch preview missing');
-  const focus=await call('const box=d.getElementById("previewSvg").viewBox.baseVal,r=d.getElementById("diagram").getBoundingClientRect();return {x:r.left+box.x+box.width/2,y:r.top+box.y+box.height/2,overview:!!d.getElementById("previewOverview").querySelector(".force-vector")};');assert(Math.hypot(focus.x-end.x,focus.y-end.y)<8&&focus.overview,'magnifier must follow the arrow tip with a context overview');
+  const focus=await call(`const box=d.getElementById("previewSvg").viewBox.baseVal,r=d.getElementById("diagram").getBoundingClientRect();return {x:r.left+box.x+box.width/2,y:r.top+box.y+box.height/2,overview:!!d.getElementById("previewOverview").querySelector("${inward?'.inward-indicator':'.force-vector'}")};`);assert(Math.hypot(focus.x-end.x,focus.y-end.y)<8&&focus.overview,'magnifier must follow the arrow tip with a context overview');
   await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await H.delay(35);
 }
 async function screenshot(label){fs.mkdirSync(out,{recursive:true});const r=await cdp.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});fs.writeFileSync(path.join(out,label+'.png'),Buffer.from(r.data,'base64'));}
+async function canvasDirections(base,label){
+  await viewport(390,844);await open(base);await analyse();
+  await tap('#originHandle');assert.equal(await call('return app.getState().items[0].inward;'),null,'a tap must not invent a direction');
+  await call('d.getElementById("originHandle").focus();');await cdp.send('Input.dispatchKeyEvent',{type:'rawKeyDown',key:'ArrowUp',code:'ArrowUp',windowsVirtualKeyCode:38});await cdp.send('Input.dispatchKeyEvent',{type:'keyUp',key:'ArrowUp',code:'ArrowUp',windowsVirtualKeyCode:38});assert.equal(await call('return app.getState().items[0].inward;'),'N');
+  await dragForce(0,'#originHandle',true);
+  for(const key of M.DIRECTIONS){await dragForce(M.directionAngle(key),'#forceHandle',true);assert.equal(await call('return app.getState().items[0].inward;'),key);}
+  for(const selector of ['#originHandle','#forceHandle']){
+    const before=await call('return JSON.stringify(app.getState());'),r=await rect(selector),id=touchId++,t=(x,y)=>({x,y,id,radiusX:1,radiusY:1,force:1});
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[t(r.x,r.y)]});
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[t(r.x+30,r.y-30)]});
+    assert.equal(await call('return JSON.stringify(app.getState());'),before,'direction preview must not save before release');
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});
+    assert.equal(await call('return JSON.stringify(app.getState());'),before,'cancel must retain the saved direction');
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[t(r.x,r.y)]});
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[t(r.x+20,r.y-20)]});
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[t(r.x+20,r.y-20),{...t(r.x-60,r.y),id:touchId++}]});
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    assert.equal(await call('return JSON.stringify(app.getState());'),before,'second touch must cancel direction edits');
+  }
+  assert.equal(await call('return app.getState().items[0].arrows.length;'),0,'direction indicators are not force arrows');
+  await choose('#forcePalette',2);await dragForce(1800,'#originHandle');
+  await tap('#drawInward');await dragForce(900,'#forceHandle',true);
+  assert.deepEqual(await call('const i=app.getState().items[0];return [i.inward,i.arrows];'),['N',[[2,1800,60]]],'switching drawing tools must preserve the other answer');
+  await tap('[data-select="0"]');await dragForce(0);assert.equal(await call('return app.getState().items[0].inward;'),'N');
+  await tap('#drawInward');await screenshot(label+'-canvas-direction');
+  report[label].push({flow:'canvas direction creation, eight tip directions, no-op tap, cancel, second touch and independent force editing',passed:true});
+}
 async function layoutChecks(base,label){
   for(const [width,height] of [[320,500],[390,500],[390,600],[390,844],[480,320],[320,225],[1280,800]]){
     await viewport(width,height);await open(base);
@@ -61,9 +88,9 @@ async function fill(base,label){
   for(let page=0;page<6;page++){
     await choose('#compactNav',page);await analyse();
     const s=await call('return app.getState();'),p=M.physics(s.def,page,s.items[page].pose),item=M.CASES[page];
-    await tap(`[data-inward="${p.inward}"]`);
+    await tap('#drawInward');await dragForce(M.directionAngle(p.inward),'#originHandle',true);
     for(const [kind,angle] of p.forces){await choose('#forcePalette',kind);await dragForce(angle,'#originHandle');const after=await call('return app.getState();');assert(M.difference(after.items[page].arrows.at(-1)[1],angle)<=100,JSON.stringify({page,angle,actual:after.items[page].arrows.at(-1)}));}
-    assert(await call(`const buttons=[...d.querySelectorAll('#directionChoices button')];return buttons.length===8&&buttons.every(b=>b.querySelector('svg')&&!b.textContent.trim())&&d.querySelector('[data-inward-indicator="${p.inward}"]')&&d.querySelectorAll('#diagramSvg .force-math[data-tex]').length===${p.forces.length};`),'visual direction / LaTeX force labels missing');
+    assert(await call(`return !d.querySelector('.direction-pad,#arrowDirections,#directionChoices,#addForce')&&!/方向鍵|鍵盤|Shift/.test(d.body.textContent+[...d.querySelectorAll('[aria-label],[title]')].map(e=>e.getAttribute('aria-label')+e.title).join(''))&&d.querySelector('[data-inward-indicator="${p.inward}"]')&&d.querySelectorAll('#diagramSvg .force-math[data-tex]').length===${p.forces.length};`),'canvas-only directions / LaTeX force labels missing');
     const shapes=await call('return [...d.querySelectorAll("#diagramSvg .force-vector")].map(e=>({d:e.getAttribute("d"),fill:e.getAttribute("fill")}));');assert(shapes.every(e=>e.d.endsWith(' Z')));assert(new Set(shapes.map(e=>e.fill)).size===p.forces.length);
     await call('d.getElementById("forceControls").scrollIntoView({block:"start"});');await screenshot(`${label}-drawn-${page}`);
     await tap(`input[name="relation"][value="${item.relation}"]`);
@@ -79,14 +106,16 @@ async function fill(base,label){
 }
 async function edgeFlows(base,label){
   await viewport(390,844);await open(base);await tap('#checkButton');await tap('#submitButton');assert.equal(await call('return app.controller.result.score;'),0);
-  await open(base);await choose('#forcePalette',6);await tap('#addForce');await dragForce(0);await tap('#checkButton');await tap('#submitButton');assert.equal(await call('return app.controller.result.score;'),0);
-  await open(base);await choose('#forcePalette',2);await tap('#addForce');await call('d.getElementById("forceHandle").focus();');await cdp.send('Input.dispatchKeyEvent',{type:'rawKeyDown',key:'ArrowLeft',code:'ArrowLeft',windowsVirtualKeyCode:37});await cdp.send('Input.dispatchKeyEvent',{type:'keyUp',key:'ArrowLeft',code:'ArrowLeft',windowsVirtualKeyCode:37});assert.equal(await call('return app.getState().items[0].arrows[0][1];'),10);
-  await open(base);await choose('#forcePalette',0);await tap('#addForce');await tap('#checkButton');await tap('#submitButton');assert.equal(await call('return app.controller.result.score;'),2);
-  await open(base,null,{retain:label+'-resume'});await choose('#forcePalette',0);await tap('#addForce');await cdp.send('Page.reload');await wait(()=>call('return app?.getState()?.items[0].arrows.length===1;'),'Moodle draft resume');
-  await open(base,null,{standalone:true,deny:true});await choose('#forcePalette',0);await tap('#addForce');await cdp.send('Page.reload');await wait(()=>call('return app?.getState()?.items[0].arrows.length===0;'),'standalone fresh refresh');
+  await open(base);await choose('#forcePalette',6);await dragForce(0,'#originHandle');await tap('#checkButton');await tap('#submitButton');assert.equal(await call('return app.controller.result.score;'),0);
+  await open(base);await choose('#forcePalette',2);await call('d.getElementById("originHandle").focus();');await cdp.send('Input.dispatchKeyEvent',{type:'rawKeyDown',key:'ArrowRight',code:'ArrowRight',windowsVirtualKeyCode:39});await cdp.send('Input.dispatchKeyEvent',{type:'keyUp',key:'ArrowRight',code:'ArrowRight',windowsVirtualKeyCode:39});assert.equal(await call('return app.getState().items[0].arrows[0][1];'),0);assert.equal(await call('return d.activeElement.id;'),'forceHandle');await cdp.send('Input.dispatchKeyEvent',{type:'rawKeyDown',key:'ArrowLeft',code:'ArrowLeft',windowsVirtualKeyCode:37});await cdp.send('Input.dispatchKeyEvent',{type:'keyUp',key:'ArrowLeft',code:'ArrowLeft',windowsVirtualKeyCode:37});assert.equal(await call('return app.getState().items[0].arrows[0][1];'),10);
+  const partial=M.change(M.change(M.fresh(()=>.2),{type:'palette',value:0}),{type:'add'});
+  await open(base,partial);await tap('#checkButton');await tap('#submitButton');assert.equal(await call('return app.controller.result.score;'),2);
+  await open(base,partial);await dragForce(2700);assert.equal(await call('return app.getState().items[0].arrows[0][1];'),2700,'old null-direction draft remains editable on canvas');
+  await open(base,null,{retain:label+'-resume'});await choose('#forcePalette',0);await dragForce(2700,'#originHandle');await cdp.send('Page.reload');await wait(()=>call('return app?.getState()?.items[0].arrows.length===1;'),'Moodle draft resume');
+  await open(base,null,{standalone:true,deny:true});await choose('#forcePalette',0);await dragForce(2700,'#originHandle');await cdp.send('Page.reload');await wait(()=>call('return app?.getState()?.items[0].arrows.length===0;'),'standalone fresh refresh');
   await open(base,null,{retain:label+'-pending'});await call('w.__failFinal=true;');await tap('#checkButton');await tap('#submitButton');assert.equal(await call('return app.controller.mode;'),'frozen');await cdp.send('Page.reload');await wait(()=>call('return app?.controller.mode==="frozen";'),'pending resume');await tap('#retryFinal');assert.equal(await call('return app.controller.mode;'),'review');
   await open(base);await call('w.__failFinish=true;');await tap('#checkButton');await tap('#submitButton');assert.equal(await call('return app.controller.mode;'),'committed');await call('w.__failFinish=false;');await tap('#retryFinal');assert.equal(await call('return app.controller.mode;'),'review');
-  await open(base);await choose('#forcePalette',0);await tap('#addForce');
+  await open(base);await choose('#forcePalette',0);await dragForce(2700,'#originHandle');
   const before=await call('return JSON.stringify(app.getState());'),start=await rect('#forceHandle'),id=touchId++,t=(x,y)=>({x,y,id,radiusX:1,radiusY:1,force:1});
   await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[t(start.x,start.y)]});await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[t(start.x+35,start.y-25)]});
   assert(await call('return !d.getElementById("preview").hidden;'));await cdp.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});
@@ -98,7 +127,7 @@ async function edgeFlows(base,label){
   const full=await call('return d.querySelector(".sim-fullscreen-button,[data-sim-fullscreen-control]")?.outerHTML||null;');assert(full,'fullscreen control missing');
   await tap('.sim-fullscreen-button');assert(await call('return Boolean(d.fullscreenElement);'));await call('return d.exitFullscreen();');
   assert.equal(await call('return JSON.stringify(app.getState());'),before);
-  await open(base);await choose('#compactNav',5);await seek(0);await choose('#forcePalette',1);await tap('#addForce');await dragForce(430);
+  await open(base);await choose('#compactNav',5);await seek(0);await choose('#forcePalette',1);await dragForce(430,'#originHandle');
   assert.equal(await call('return app.getState().items[5].arrows[0][1];'),450,'outward diagonal did not snap');
   await call('const e=d.getElementById("diagramSvg");Object.defineProperty(e,"innerHTML",{set(){throw Error("SVG failure fixture");}});app.controller.navigate(1);');
   assert.equal(await call('return app.controller.mode;'),'technical');assert(await call('return !d.getElementById("notice").hidden&&d.getElementById("stage").getBoundingClientRect().height<1;'));
@@ -163,7 +192,7 @@ async function main(){
     cdp.on('Runtime.exceptionThrown',e=>report.errors.push(e.exceptionDetails?.exception?.description||e.exceptionDetails?.text));
     for(const [label,directory]of [['source',path.join(root,'sim')],['package',extracted.packageDirectory]]){
       server=H.createServer(directory);await H.listenServer(server);const base=`http://127.0.0.1:${server.address().port}`;
-      await revisedScenes(base,label);await layoutChecks(base,label);await fill(base,label);await edgeFlows(base,label);await H.closeServer(server);server=null;
+      await canvasDirections(base,label);await revisedScenes(base,label);await layoutChecks(base,label);await fill(base,label);await edgeFlows(base,label);await H.closeServer(server);server=null;
     }
     assert.deepEqual(report.errors,[]);report.completed=true;console.log('Centripetal source source/package browser regression passed.');
   }finally{

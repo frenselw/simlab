@@ -17,7 +17,7 @@
   </header>
   <section id="stage" class="sim-stage" aria-label="運動情境與受力分析圖">
     <div class="side-strip" aria-hidden="true"></div>
-    <div id="diagram" class="diagram"><svg id="diagramSvg" role="img" aria-label="研究對象及學生所畫的實際受力圖"></svg><button id="originHandle" class="force-handle origin-handle" type="button" aria-label="從研究對象拖出所選的力" hidden></button><button id="forceHandle" class="force-handle" type="button" aria-label="拖動選定力的箭尖；方向鍵可微調" hidden></button></div>
+    <div id="diagram" class="diagram"><svg id="diagramSvg" role="img" aria-label="研究對象及學生所畫的實際受力圖"></svg><button id="originHandle" class="force-handle origin-handle" type="button" aria-label="從研究對象拖出所選的力" hidden></button><button id="forceHandle" class="force-handle" type="button" aria-label="拖動選定箭頭的箭尖" hidden></button></div>
     <div class="side-strip" aria-hidden="true"></div>
     <div id="preview" class="preview" hidden><span>箭尖放大 ×2</span><svg id="previewSvg" role="img" aria-label="正在調整的箭尖及力標籤"></svg><svg id="previewOverview" class="preview-overview" aria-hidden="true"></svg></div>
   </section>
@@ -29,12 +29,11 @@
       <div class="button-row"><button id="analyseButton" class="primary" type="button">畫受力圖</button><button id="sceneButton" type="button">暫停運動</button></div>
       <div id="motionControls"><label for="motionPosition">拖動觀察運動位置</label><input id="motionPosition" type="range" min="0" max="9999" value="0"><p id="motionMessage" class="hint" role="status"></p></div>
       <div id="answerArea">
-      <fieldset><legend>選出指向圓心的箭頭</legend><p id="directionHint" class="hint"></p><div id="directionChoices" class="direction-pad" role="group" aria-label="圓心相對物體的方向"></div><p class="direction-key"><span aria-hidden="true">┄➤</span> 藍色虛線只標方向，不是一個力。</p></fieldset>
+      <fieldset><legend>在畫布標示圓心方向</legend><p class="hint">從物件中心向圓心拖出箭頭；拖動箭尖可修改。</p><p id="directionHint" class="hint"></p><button id="drawInward" type="button">標示圓心方向</button><p class="direction-key">藍色虛線只標方向，不是一個力。</p></fieldset>
       <section id="forceControls"><h3>親手畫出實際受力</h3><p class="hint">按選一種力，再從物件中心拖出箭頭。拖箭尖可修改；箭長只供示意。</p><p id="notationHint" class="hint"></p>
         <div id="forcePalette" class="force-palette" role="group" aria-label="選擇力的種類與來源"></div><p id="drawInstruction" role="status" class="draw-instruction"></p>
-        <button id="addForce" class="keyboard-add" type="button">加入後用方向按鈕設定</button>
         <div id="forceList" aria-label="已加入的力"></div>
-        <div id="directionTools" hidden><p>選定力：<span id="selectedForceLabel"></span></p><label class="kind-change">更改力的種類 <select id="kindSelect" aria-label="選定力的種類"></select></label><div id="arrowDirections" class="direction-pad" role="group" aria-label="調整選定力的方向"></div><p class="hint">方向鍵左右微調 1°，Shift 加速至 5°；上下調整示意箭長。</p></div>
+        <div id="directionTools" hidden><p>選定力：<span id="selectedForceLabel"></span></p><label class="kind-change">更改力的種類 <select id="kindSelect" aria-label="選定力的種類"></select></label></div>
         <div class="button-row"><button id="deleteForce" type="button">刪除選定力</button><button id="clearDrawing" type="button">清空本題受力圖</button></div>
       </section>
       <fieldset><legend>哪些實際作用力或分量提供向心力？</legend><div id="relationChoices"></div></fieldset>
