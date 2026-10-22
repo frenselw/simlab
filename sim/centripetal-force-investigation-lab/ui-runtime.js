@@ -13,7 +13,7 @@
       this.unsaved = false; this.final = null; this.before = null; this.reviewPage = 0; this.reviewView = "analyse";
     }
     get editable() { return this.mode === "editable"; }
-    emit() { this.scorm.setDraftProvider(this.editable ? () => this.draftSnapshot() : null); this.render(this); }
+    emit(render = true) { this.scorm.setDraftProvider(this.editable ? () => this.draftSnapshot() : null); if (render) this.render(this); }
     draftSnapshot() { return this.scorm.makeSnapshot(P.ACTIVITY, "draft", P.validate(this.state)); }
     save() {
       try { this.unsaved = !this.scorm.saveDraft(this.draftSnapshot()); }
@@ -64,13 +64,13 @@
         this.notice = "提交尚未確認；答案已凍結，可重試同一份提交。";
       } catch (_) { this.scorm.quarantinePending(); this.technical("凍結資料未能通過驗證；已停止重試，需要技術檢查。"); }
     }
-    update(change) {
+    update(change, render = true) {
       if (!this.editable || this.state.view === "check") return false;
       try {
         const next = M.upgradeDraft(M.clone(this.state)); next.mv = 2; change(next);
         P.validate(next);
         if (JSON.stringify(next) === JSON.stringify(this.state)) return false;
-        this.state = next; this.save(); this.emit(); return true;
+        this.state = next; this.save(); this.emit(render); return true;
       } catch (_) { return false; }
     }
     navigate(page, view = "setup") {

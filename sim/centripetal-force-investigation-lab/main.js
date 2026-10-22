@@ -8,7 +8,7 @@
   const reasonOptions = [["coefficient", "斜率對應兩側物理量比值／二次項對應質量與半徑的乘積"], ["constant", "只有常數項代表關係"], ["other", "係數與配置無關"], ["uncertain", "配置混雜或資料不足，不能隔離解釋"]];
   const lawOptions = [["linear", "徑向力與研究量成正比（其餘量固定）"], ["square", "徑向力與研究量的平方成正比（其餘量固定）"], ["inverse", "徑向力與研究量成反比"], ["none", "沒有可描述的關係"]];
   const controller = new CentripetalRuntime.Controller(SimScorm, SimActivityFlow, render);
-  let motion = M.motion(), running = false, drag = null, lastFrame = 0, localMessage = "", reviewRun = [null, null, null], mathReady = false, lastLocation = "", graphOpen = true, measuring = false, lastSampleAt = -Infinity, brakeHold = null, squaredGraph = false;
+  let motion = M.motion(), running = false, drag = null, lastFrame = 0, localMessage = "", reviewRun = [null, null, null], mathReady = false, lastLocation = "", graphOpen = true, measuring = false, lastSampleAt = -Infinity, brakeHold = null, squaredGraph = false, graphProjection = null, lastReadoutAt = -Infinity;
   const state = () => controller.state, page = () => controller.editable ? state().page : controller.reviewPage;
   const view = () => controller.editable ? state().view : controller.reviewView;
   const task = () => state()?.tasks[page()];
@@ -140,6 +140,7 @@
     const other = alternate ? graphPoints(kind, alternate) : [];
     const all = points.concat(other), maxX = Math.max(0.1, ...all.map(p => kind === "omega" ? Math.abs(p[0]) : p[0])) * 1.12, minX = kind === "omega" && !squaredGraph ? -maxX : 0, maxY = Math.max(0.1, ...all.map(p => p[1])) * 1.12;
     const px = x => 66 + (x - minX) / (maxX - minX) * 265, py = y => bottom - y / maxY * (bottom - 25);
+    graphProjection = { px, py, minX, maxX, maxY };
     const box = graph.getBoundingClientRect(), scale = Math.min(box.width / 360, box.height / height);
     if (!scale) return;
     const axisFont = Math.max(18, 16 / scale), tickFont = Math.max(13, 13 / scale);
@@ -155,23 +156,34 @@
       <g fill="#56717d" font-size="${tickFont}"><text x="66" y="${bottom + 20}">${fmt(minX)}</text>${minX < 0 ? `<text x="${px(0)}" y="${bottom + 20}" text-anchor="middle">0</text>` : ''}<text x="331" y="${bottom + 20}" text-anchor="end">${fmt(maxX)}</text><text x="59" y="32" text-anchor="end">${fmt(maxY)}</text></g>
       ${other.map(([x,y]) => `<circle cx="${px(x)}" cy="${py(y)}" r="4" fill="#b07932" opacity=".65"/>`).join("")}
       ${curve ? `<path class="fit-curve" d="${curve}" fill="none" stroke="#bd5a25" stroke-width="2"/>` : ""}
-      ${points.map(([x,y], i) => `<circle class="measured-point" cx="${px(x)}" cy="${py(y)}" r="4" fill="#087c95" stroke="white" stroke-width="1"/>${view() === "collect" && i === points.length - 1 && performance.now() - lastSampleAt < 750 ? `<circle class="new-point-ring" cx="${px(x)}" cy="${py(y)}" r="8" fill="none" stroke="#b56317" stroke-width="2" aria-hidden="true"/>` : ""}`).join("")}
+      ${points.map(([x,y], i) => `<circle class="measured-point" data-direction="${run.q[i] < 0 ? 'negative' : 'positive'}" cx="${px(x)}" cy="${py(y)}" r="${run.q[i] < 0 ? 6 : 4}" fill="${run.q[i] < 0 ? 'none' : '#087c95'}" stroke="${run.q[i] < 0 ? '#087c95' : 'white'}" stroke-width="${run.q[i] < 0 ? 2 : 1}"/>${view() === "collect" && i === points.length - 1 && performance.now() - lastSampleAt < 750 ? `<circle class="new-point-ring" cx="${px(x)}" cy="${py(y)}" r="8" fill="none" stroke="#b56317" stroke-width="2" aria-hidden="true"/>` : ""}`).join("")}
+      <path id="livePoint" d="M-8 0H8M0-8V8" fill="none" stroke="#bc5c17" stroke-width="2.5" visibility="hidden"/>
       ${!points.length ? `<text x="205" y="${(bottom + 25) / 2}" text-anchor="middle" fill="#6d8590" font-size="${tickFont}">${view() === 'collect' && controller.editable ? '推轉後開始測量，再按住減速' : '本組尚未記錄數據'}</text>` : ''}`;
-    $("graphLegend").hidden = !other.length;
-    $("graphLegend").textContent = `藍色：本組 ${points.length} 點 · 棕色：另一組 ${other.length} 點`;
+    $("graphLegend").hidden = !points.length && !other.length;
+    $("graphLegend").textContent = `實心：正轉 · 空心：反轉 · 橙十字：即時讀數${other.length ? " · 棕色：另一組" : ""}`;
   }
-  function renderMotion() {
+  function renderMotion(force = false) {
     if (!state()) return;
+    const angle = view() === "setup" ? 0 : -motion.angle * 180 / Math.PI;
+    device.querySelector("#rotatingAssembly")?.setAttribute("transform", `rotate(${angle} 300 230)`);
+    device.querySelectorAll(".assembly-label").forEach(label => label.setAttribute("transform", `rotate(${-angle} ${label.dataset.x} ${label.dataset.y})`));
+    const now = performance.now();
+    if (!force && now - lastReadoutAt < 50) return;
+    lastReadoutAt = now;
     if (performance.now() - lastSampleAt >= 750) graph.querySelector(".new-point-ring")?.remove();
-    const reading = M.readings(displayedConfig(), motion.omega);
+    const reading = M.readings(displayedConfig(), motion.omega), live = graph.querySelector("#livePoint");
+    if (live && graphProjection) {
+      const { px, py, minX, maxX, maxY } = graphProjection, x = page() === 2 ? motion.omega : reading.b;
+      const visible = view() === "collect" && running && shownRun()?.q.length && x >= minX && x <= maxX && reading.a <= maxY;
+      live.setAttribute("visibility", visible ? "visible" : "hidden");
+      if (visible) live.setAttribute("transform", `translate(${px(x)} ${py(reading.a)})`);
+    }
     $("omegaRead").textContent = motion.omega.toFixed(3);
     $("forceARead").textContent = fmt(reading.a);
     $("forceBRead").textContent = fmt(reading.b);
     $("compactOmega").textContent = motion.omega.toFixed(3);
     $("compactForceA").textContent = fmt(reading.a); $("compactForceB").textContent = fmt(reading.b);
-    const angle = view() === "setup" ? 0 : -motion.angle * 180 / Math.PI;
-    device.querySelector("#rotatingAssembly")?.setAttribute("transform", `rotate(${angle} 300 230)`);
-    device.querySelectorAll(".assembly-label").forEach(label => label.setAttribute("transform", `rotate(${-angle} ${label.dataset.x} ${label.dataset.y})`));
+
     const full = activeRun()?.q.length >= M.MAX_SAMPLES;
     $("measureButton").disabled = !controller.editable || view() !== "collect" || !running || !!drag || !measuring && (Math.abs(motion.omega) < .25 || full);
     $("measureButton").textContent = measuring ? "暫停測量" : "開始測量";
@@ -196,8 +208,20 @@
   }
   function renderRuns() {
     const t = task(), locked = !controller.editable || state().view === "check";
-    $("runList").innerHTML = t.runs.length ? t.runs.map((run, i) => `<div class="run-card ${t.current === i || locked && reviewRun[page()] === i ? "current" : ""}"><strong>資料組 ${i + 1}</strong><p>${run.q.length} 個量測點 · ${math(`m_A=${fmt(M.mass(run.cfg[2]))}\\,\\mathrm{kg},\\ r_A=${fmt(M.radius(run.cfg[0]))}\\,\\mathrm{m}`, 'A 側質量與半徑')} · ${math(`m_B=${fmt(M.mass(run.cfg[3]))}\\,\\mathrm{kg},\\ r_B=${fmt(M.radius(run.cfg[1]))}\\,\\mathrm{m}`, 'B 側質量與半徑')}</p><div class="run-actions"><button data-run="view:${i}" ${controller.mode === "technical" || controller.mode === "mismatch" || state().view === "check" && controller.editable ? "disabled" : ""}>查看</button><button data-run="select:${i}" aria-pressed="${t.selected === i}" ${locked ? "disabled" : ""}>${t.selected === i ? "評分組 ✓" : "選為評分組"}</button>${locked ? "" : `<button data-run="delete:${i}">刪除本組</button>`}</div></div>`).join("") : "<p>尚未收集資料。你仍可回答概念題或檢查作答。</p>";
+    $("runList").innerHTML = t.runs.length ? t.runs.map((run, i) => `<div class="run-card ${t.current === i || locked && reviewRun[page()] === i ? "current" : ""}"><strong>資料組 ${i + 1}</strong><p><span data-run-count="${i}">${run.q.length}</span> 個量測點 · ${math(`m_A=${fmt(M.mass(run.cfg[2]))}\\,\\mathrm{kg},\\ r_A=${fmt(M.radius(run.cfg[0]))}\\,\\mathrm{m}`, 'A 側質量與半徑')} · ${math(`m_B=${fmt(M.mass(run.cfg[3]))}\\,\\mathrm{kg},\\ r_B=${fmt(M.radius(run.cfg[1]))}\\,\\mathrm{m}`, 'B 側質量與半徑')}</p><div class="run-actions"><button data-run="view:${i}" ${controller.mode === "technical" || controller.mode === "mismatch" || state().view === "check" && controller.editable ? "disabled" : ""}>查看</button><button data-run="select:${i}" aria-pressed="${t.selected === i}" ${locked ? "disabled" : ""}>${t.selected === i ? "評分組 ✓" : "選為評分組"}</button>${locked ? "" : `<button data-run="delete:${i}">刪除本組</button>`}</div></div>`).join("") : "<p>尚未收集資料。你仍可回答概念題或檢查作答。</p>";
     $("runHint").textContent = t.runs.length >= 2 ? "最多保留兩組；如要再收集，先明確刪除其中一組。" : "可返回設定，換另一個半徑比或質量比，再建立第二組比較斜率；舊組數據保留。";
+  }
+  function renderSampling() {
+    const run = shownRun(), p = page(), cfg = task().work, editing = controller.editable && view() !== "check";
+    $("collectStatus").textContent = `已記錄 ${run?.q.length || 0} 點 · A ${run?.cfg[2] ?? cfg[2]}塊 · B ${run?.cfg[3] ?? cfg[3]}塊`;
+    const coverage = S.coverage(M.KINDS[p], run), enough = coverage.dataScore === 4;
+    $("samplingGuide").dataset.sufficient = String(enough);
+    $("samplingGuide").innerHTML = enough ? `取點要求已達標${editing ? "，可往「3 圖像」" : ""}；更多點不另加取點分。` :
+      `取點要求：至少 3 個轉速區間、跨度 ${math("1\\,\\mathrm{rad}/\\mathrm{s}", "1 rad/s")}。目前 ${coverage.slots} 個、${math(coverage.span.toFixed(3) + "\\,\\mathrm{rad}/\\mathrm{s}", coverage.span.toFixed(3) + " rad/s")}；毋須收集48點。`;
+    $("notice").hidden = !controller.notice && !localMessage;
+    $("notice").textContent = localMessage || controller.notice;
+    $("saveRetryButton").hidden = !controller.editable || !controller.unsaved;
+    document.querySelectorAll("[data-run-count]").forEach(node => { node.textContent = task().runs[Number(node.dataset.runCount)].q.length; });
   }
   function render() {
     const s = state(), locked = !controller.editable, p = page(), v = view();
@@ -255,11 +279,7 @@
     $("brakeButton").hidden = !editing || v !== "collect";
     $("reverseButton").disabled = !editing || v !== "collect";
     $("resumeButton").hidden = running; $("resumeButton").disabled = !editing;
-    $("collectStatus").textContent = `已記錄 ${run?.q.length || 0} 點 · A ${run?.cfg[2] ?? cfg[2]}塊 · B ${run?.cfg[3] ?? cfg[3]}塊`;
-    const coverage = S.coverage(M.KINDS[p], run), enough = coverage.dataScore === 4;
-    $("samplingGuide").dataset.sufficient = String(enough);
-    $("samplingGuide").innerHTML = enough ? `取點要求已達標${editing ? "，可往「3 圖像」" : ""}；更多點不另加取點分。` :
-      `取點要求：至少 3 個轉速區間、跨度 ${math("1\\,\\mathrm{rad}/\\mathrm{s}", "1 rad/s")}。目前 ${coverage.slots} 個、${math(coverage.span.toFixed(3) + "\\,\\mathrm{rad}/\\mathrm{s}", coverage.span.toFixed(3) + " rad/s")}；毋須收集48點。`;
+    renderSampling();
     $("fitButton").disabled = !editing || !activeRun(); $("resumeFromGraph").disabled = !editing || !activeRun();
     $("axisLabel").innerHTML = p === 2 && squaredGraph ? `橫軸 ${math("\\omega^2", "角速度平方")}；縱軸 ${math("F_A", "A 側徑向力")}。檢查直線斜率及截距；原角速度圖與答案保留。` : p === 2 ? `橫軸 ${math('\\omega\\,(\\mathrm{rad}/\\mathrm{s})', '角速度（rad/s）')}；縱軸 ${math('F_A\\,(\\mathrm{N})', 'A 側徑向力（N）')}。二次擬合含一次項及常數項。` : `橫軸 ${math('F_B\\,(\\mathrm{N})', 'B 側徑向力（N）')}；縱軸 ${math('F_A\\,(\\mathrm{N})', 'A 側徑向力（N）')}。兩軸都是同步量測的力；比較斜率與設定比值，並檢查截距。`;
     const fit = run?.fit ? graphFit(M.KINDS[p], run) : null;
@@ -294,7 +314,7 @@
       $("feedback").innerHTML = result?.detail?.pages ? result.detail.pages.map((part, i) => `<p>實驗 ${i + 1}：${part.score} / 30。${i === 2 ? `理想關係 ${math('F_A=m_A r_A\\omega^2', 'A 側徑向力公式')}；二次係數是 ${math('m_A r_A', '質量與半徑的乘積')}。` : i === 0 ? `同時刻兩側 ${math('\\omega', '角速度')} 相同；公平比較時 ${math('F_A/F_B=r_A/r_B', '兩側徑向力與半徑比相等')}。` : `同時刻兩側 ${math('\\omega', '角速度')} 相同；公平比較時 ${math('F_A/F_B=m_A/m_B', '兩側徑向力與質量比相等')}。`}</p>`).join("") : "";
     }
     drawDevice(); drawGraph();
-    renderMotion(); layoutTargets();
+    renderMotion(true); layoutTargets();
   }
   function clearDropPreview() {
     delete $("app").dataset.drag;
@@ -309,7 +329,6 @@
     try { operation.target.releasePointerCapture(operation.id); } catch (_) {}
     layoutTargets();
   }
-  function angleOf(event) { const p = svgPoint(event); return Math.atan2(p.y - 230, p.x - 300); }
   function massHit(event, side, pointerType) {
     const center = mapPoint(componentX(side, task().work[side === "A" ? 0 : 1]), 230);
     return Math.hypot(event.clientX - center.x, event.clientY - center.y) <= Math.max(24, 29 * center.scale) + (pointerType === "touch" ? 18 : 10);
@@ -328,7 +347,12 @@
     if (type === "mass" && target.dataset.mass !== "tray" && task().work[target.dataset.mass === "A" ? 2 : 3] === 0) return;
     event.preventDefault(); target.focus({ preventScroll: true }); target.setPointerCapture(event.pointerId);
     drag = { target, id: event.pointerId, type, side: target.dataset.side || target.dataset.mass, proposed: null, pointerType: event.pointerType };
-    if (type === "spin") { motion = M.dragMotion({ ...motion, pointerAngle: null }, angleOf(event), event.timeStamp); renderMotion(); }
+    if (type === "spin") {
+      releaseBrake();
+      drag.center = mapPoint(300, 230);
+      motion = M.dragMotion({ ...motion, pointerAngle: null }, Math.atan2(event.clientY - drag.center.y, event.clientX - drag.center.x), event.timeStamp);
+      renderMotion(true);
+    }
     if (type === "mass") {
       $("app").dataset.drag = "mass";
       document.querySelectorAll(".mass-token.placed").forEach(button => button.classList.add("drop-ready"));
@@ -346,9 +370,11 @@
     if (!drag || drag.id !== event.pointerId) return;
     event.preventDefault();
     if (drag.type === "spin") {
-      const p = svgPoint(event);
-      if (Math.hypot(p.x - 300, p.y - 230) < 30) return;
-      motion = M.dragMotion(motion, angleOf(event), event.timeStamp);
+      const events = event.getCoalescedEvents?.() || [], { x, y, scale } = drag.center;
+      for (const point of events.length ? events : [event]) {
+        if (Math.hypot(point.clientX - x, point.clientY - y) < 30 * scale) continue;
+        motion = M.dragMotion(motion, Math.atan2(point.clientY - y, point.clientX - x), point.timeStamp);
+      }
       if (motion.warning) { localMessage = "手勢跳幅過大；請慢一點重新推動。"; $("notice").hidden = false; $("notice").textContent = localMessage; }
       else localMessage = "";
       renderMotion();
@@ -381,10 +407,14 @@
   function up(event) {
     if (!drag || drag.id !== event.pointerId) return;
     event.preventDefault(); const operation = drag; drag = null;
+    if (operation.type === "spin") {
+      motion = M.releaseMotion(motion, event.timeStamp);
+      renderMotion(true);
+      return;
+    }
     clearDropPreview();
     if (operation.type === "mass") { operation.target.style.left = ""; operation.target.style.top = ""; operation.target.style.bottom = ""; operation.target.classList.remove("dragging"); }
     layoutTargets();
-    if (operation.type === "spin") { motion = { ...motion, pointerAngle: null, time: null }; renderMotion(); return; }
     if (operation.type === "radius" && operation.proposed !== null) {
       const field = operation.side === "A" ? 0 : 1;
       if (!controller.update(next => M.setWork(next.tasks[next.page], field, operation.proposed))) render();
@@ -404,7 +434,9 @@
   function recordCurrent() {
     if (!measuring || !running || drag || !controller.editable || state().view !== "collect" || !M.sampleReady(activeRun(), motion.omega)) return;
     lastSampleAt = performance.now();
-    controller.update(next => M.record(next.tasks[next.page], motion.omega));
+    if (controller.update(next => M.record(next.tasks[next.page], motion.omega), false)) {
+      renderSampling(); drawGraph(); renderMotion(true);
+    }
   }
 
   function releaseBrake() {
@@ -423,7 +455,7 @@
     requestAnimationFrame(frame);
   }
   function setupEvents() {
-    $("measureButton").addEventListener("click", () => { measuring = !measuring; recordCurrent(); renderMotion(); });
+    $("measureButton").addEventListener("click", () => { measuring = !measuring; recordCurrent(); renderMotion(true); });
     $("squareGraph").addEventListener("click", () => { squaredGraph = !squaredGraph; render(); });
     const brake = $("brakeButton");
     brake.addEventListener("pointerdown", event => {

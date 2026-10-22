@@ -219,10 +219,12 @@ async function scenario(cdp, base, launch, label, width, height) {
   assert.equal(await H.evaluate(cdp,"Boolean(document.querySelector('.new-point-ring'))"),false,'new-point marker expires even with reduced motion');
   assert.equal(await H.evaluate(cdp,"document.getElementById('collectStatus').textContent.includes('/ 48')"),false,'capacity is not shown as a completion target');
   assert.match(await H.evaluate(cdp,"document.getElementById('samplingGuide').textContent"),/毋須收集48點/,'requirement is explicit before coverage is sufficient');
+  await H.evaluate(cdp,"window.__samplingNodes={apparatus:document.querySelector('#rotatingAssembly'),option:document.querySelector('#law option'),select:document.querySelector('#law')}");
   const beforeBrake=await H.evaluate(cdp,'window.__centripetalApp.getMotion()');
   const beforeCount=await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[0].runs[0].q.length');
   await brake(cdp,1500,width<900);
   const afterBrake=await H.evaluate(cdp,'window.__centripetalApp.getMotion()');
+  assert.equal(await H.evaluate(cdp,"window.__samplingNodes.apparatus===document.querySelector('#rotatingAssembly')&&window.__samplingNodes.option===document.querySelector('#law option')&&window.__samplingNodes.select===document.querySelector('#law')"),true,'sampling keeps apparatus and answer DOM mounted');
   assert.ok(Math.abs(afterBrake.omega)<Math.abs(beforeBrake.omega),'holding brake reduces speed');
   assert.equal(afterBrake.measuring,true,'release keeps measurement active');
   await pause(150);
@@ -384,6 +386,14 @@ async function signedMeasurements(cdp, base, launch, label) {
   assert.equal(await H.evaluate(cdp,"document.getElementById('measurementHint').dataset.status"),'repeated','unchanged speed explains why no point is added');
   assert.match(await H.evaluate(cdp,"document.getElementById('measurementHint').textContent"),/已記錄/);
   assert.equal(await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[2].runs[0].q.length'),count,'steady speed does not add duplicate points');
+  const markerBefore=await H.evaluate(cdp,"document.getElementById('livePoint').getAttribute('transform')");
+  const noAdd=await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[2].runs[0].q.length');
+  await brake(cdp,100);
+  await pause(100);
+  assert.notEqual(await H.evaluate(cdp,"document.getElementById('livePoint').getAttribute('transform')"),markerBefore,'live marker moves even between saved samples');
+  assert.equal(await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[2].runs[0].q.length'),noAdd,'live marker does not manufacture an extra saved point');
+  const directions=await H.evaluate(cdp,"[...document.querySelectorAll('.measured-point')].map(e=>({direction:e.dataset.direction,fill:e.getAttribute('fill')}))");
+  assert.ok(directions.some(p=>p.direction==='negative'&&p.fill==='none')&&directions.some(p=>p.direction==='positive'&&p.fill!=='none'),'opposite directions have different point styles');
   await brake(cdp,100,true,true);
   assert.equal(await H.evaluate(cdp,'window.__centripetalApp.getMotion().braking'),false,'touchcancel releases brake');
   assert.equal(await H.evaluate(cdp,'window.__centripetalApp.getMotion().measuring'),false,'cancel stops collection safely');
@@ -400,6 +410,28 @@ async function signedMeasurements(cdp, base, launch, label) {
   assert.ok(await H.evaluate(cdp,"Boolean(document.querySelector('.fit-curve'))"),'square graph fits line');
   await click(cdp,'#squareGraph');
   fs.writeFileSync(path.join(root,'output/playwright',`centripetal-${label}-signed-1280x800.png`),Buffer.from((await cdp.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
+}
+async function responsiveSpin(cdp,base,launch) {
+  await cdp.send('Page.navigate',{url:base+launch});await ready(cdp);await click(cdp,'#startButton');
+  await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:2});
+  const g=await H.evaluate(cdp,"(()=>{const m=document.getElementById('deviceSvg').getScreenCTM();return{x:300*m.a+m.e,y:230*m.d+m.f,r:213*m.a};})()");
+  const finger=a=>({x:g.x+g.r*Math.cos(a),y:g.y+g.r*Math.sin(a),id:501,radiusX:1,radiusY:1,force:1});
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[finger(0)]});
+  await pause(30);await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[finger(-.6)]});
+  await pause(30);await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[finger(-1.2)]});
+  await pause(40);
+  const held=await H.evaluate(cdp,'window.__centripetalApp.getMotion()');
+  assert.ok(Math.abs(held.angle-1.2)<.01,'fast touch tracks the full gesture angle while held: '+JSON.stringify({held,g}));
+  assert.ok(held.omega>4,'short fast stroke reaches a high release speed');
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await pause(100);
+  const released=await H.evaluate(cdp,'window.__centripetalApp.getMotion()');
+  assert.ok(released.angle-held.angle>.2,'release continues rotating immediately without a delayed restart');
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[finger(0)]});
+  await pause(30);await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[finger(.6)]});
+  await pause(30);await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[finger(1.2)]});
+  await pause(40);
+  assert.ok((await H.evaluate(cdp,'window.__centripetalApp.getMotion().omega'))<-4,'reverse fast stroke responds directly');
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
 }
 async function lowSpeedFeedback(cdp, base, launch) {
   await cdp.send('Page.navigate',{url:base+launch});await ready(cdp);
@@ -421,6 +453,7 @@ async function main() {
     const errors = []; cdp.on("Runtime.exceptionThrown", event => errors.push(event.exceptionDetails?.exception?.description || event.exceptionDetails?.text));
     server = H.createServer(root); await H.listenServer(server);
     const sourceBase = `http://127.0.0.1:${server.address().port}`;
+    await responsiveSpin(cdp, sourceBase, `/sim/${slug}/index.html`);
     await scenario(cdp, sourceBase, `/sim/${slug}/index.html`, "source", 1280, 800);
     await scenario(cdp, sourceBase, `/sim/${slug}/index.html`, "source", 390, 600);
     await buttonOnly(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
@@ -434,6 +467,7 @@ async function main() {
     await buttonOnly(cdp, `http://127.0.0.1:${server.address().port}`, extracted.activityPath, "package");
     await signedMeasurements(cdp, `http://127.0.0.1:${server.address().port}`, extracted.activityPath, "package");
     await lowSpeedFeedback(cdp, `http://127.0.0.1:${server.address().port}`, extracted.activityPath);
+    await responsiveSpin(cdp, `http://127.0.0.1:${server.address().port}`, extracted.activityPath);
     await layoutOnly(cdp, `http://127.0.0.1:${server.address().port}`, extracted.activityPath, 320, 500);
     await layoutOnly(cdp, `http://127.0.0.1:${server.address().port}`, extracted.activityPath, 320, 225);
     assert.deepEqual(errors, [], `Browser exceptions: ${errors.join("\n")}`);

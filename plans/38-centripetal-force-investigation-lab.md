@@ -676,3 +676,22 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 - Site source a30264c43f283fe455fb89e6de1615949281cf67；v8：appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_bcd5c8b1138c819181205c4d3f16026b；deployment appgdep_6ada021c0fa8819186bde97908ffa6b5，succeeded，保留私人存取。
 - 已在原本Site分頁實際以鍵盤推至3 rad/s，開始測量後按住減速3秒，收集6點（低於48）；顯示「取點要求已達標」及「這段轉速已記錄；取點已足夠，可分析」。分頁保留供使用者試用。
 - 網址：https://centripetal-force-investigation-lab.ieyp.chatgpt.site/centripetal-force-investigation-lab/
+
+
+## 跟手與連續顯示修正（2026-10-22，動工前決策）
+
+- 使用者要求先修正，今輪不開sub-agents。範圍：本活動motion／main／runtime、既有model／interaction／browser測試、說明、套件及原私人Site。
+- 拖動時畫面角度直接跟隨手勢，不再以6 rad/s裁切手指位移；放手角速度仍限制±6，以最近80ms手勢估計，反向立即重算，停住超過120ms才放手則不沿用過期速度。長事件間隔仍跟隨位置，不製造極端速度。
+- 每一採樣保留既有驗證、保存及失敗提示，只重畫圖表與資料摘要；不再重建器材、所有數式與作答控制。器材transform每幀更新，文字讀數最多20Hz。快照／rubric／採樣間距不改。
+- 正反向同大小角速度的徑向力依理想模型相等，F_A–F_B圖本來重合；保留物理結果，以實心／空心點區分方向，第三頁維持帶符號橫軸。加橙色即時讀數十字，即使已有點而不重複保存，圖上仍顯示當前讀數移動。明示理想化無測量誤差，不添加人造散點。
+- 測試：快速手勢角位移一比一、放手立即續轉、停住再放手、長事件間隔及反向；sample-only update仍保存與呈現失敗；可信touch的快推／反向／連續放手，DOM器材及選單不因取點重建、重複掃描時即時標記移動而點數不增；source／解壓package及320／390可用性。無sub-agent審核。
+
+
+### 跟手修正驗證
+
+- 五項純測試通過：完整手指位移、±6釋放範圍、最近手勢反向、長間隔位置／速度區分、停住放手；局部更新仍做快照驗證、保存與失敗標記。scoring／persistence／lifecycle舊行為通過，快照容量不變。
+- 維護中的source／真正解壓package browser通過：可信touch快速1.2rad手勢完整跟隨、短劃達高轉速、放手100ms內角度繼續前進、反向立即響應；採樣期間rotatingAssembly／答案select及option的DOM身分不變；即時十字在兩個已保存樣本之間移動但不添加假點；正負點分別實心／空心。原有減速、重新推轉、取消、只讀、fullscreen及手機版面繼續通過。
+- 新touch斷言起初在瀏覽器尚未派發最後touchmove時讀狀態，已等40ms讓已排隊輸入完成後核對；未放寬1.2rad位置及即時續轉要求。
+- npm run check、check:tests（263 entries）通過；沿用測試登記。390×600最終旋轉截圖可見即時十字、空心／實心點，圖軸首屏完整。
+- SCORM 16個runtime與sim來源及Site dist逐位元組核對，ZIP SHA-256：`a3c9a5959abd2ba0f4463e659c423ae7ce76e43b138776419b75f3f0942a571f`。
+- 按使用者指示沒有sub-agent審核。未驗真手機／Safari、真Moodle及全T0–T3矩陣，維持planned。

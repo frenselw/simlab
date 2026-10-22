@@ -17,7 +17,7 @@ assert.equal(M.removeRun(t, 0), true); assert.equal(t.selected, null, "delete mu
 let spin = M.motion(); spin = M.dragMotion(spin, 3.1, 0); spin = M.dragMotion(spin, -3.1, 40);
 assert.ok(spin.omega < 0 && spin.omega >= -6 && spin.angle < 0, "clockwise crossing π stays negative and capped");
 const before = spin.angle; spin = M.dragMotion(spin, -2.9, 40); assert.equal(spin.angle, before, "zero time cannot change angle");
-spin = M.dragMotion(spin, -2.7, 500); assert.equal(spin.angle, before, "long event gap cannot invent speed");
+spin = M.dragMotion(spin, -2.7, 500); assert.ok(spin.angle < before, "long event gap still follows pointer position"); assert.equal(spin.omega,0,"long event gap cannot invent release speed");
 spin = M.dragMotion(spin, 0.1, 520); assert.equal(spin.warning, true, "ambiguous jump is discarded");
 const coast = M.coast(spin, 0.05); assert.equal(coast.angle, spin.angle + spin.omega * 0.05);
 const fast = M.dragMotion(M.dragMotion(M.motion(), 0, 0), 0.2, 40);
@@ -53,3 +53,15 @@ for (const sign of [-1,1]) {
   assert.equal(M.sampleReady(task.runs[0],sign*6),false,"steady or repeated speed does not refill run");
   assert.equal(M.sampleReady(task.runs[0],-sign*6),true,"reverse sweep remains available");
 }
+
+
+let direct=M.dragMotion(M.motion(),0,0);
+direct=M.dragMotion(direct,-.8,30);
+assert.ok(Math.abs(direct.angle-.8)<1e-12,"fast dragging follows the full pointer angle instead of clipping to 6*dt");
+assert.equal(direct.omega,6,"released speed remains inside apparatus range");
+direct=M.dragMotion(direct,-.5,60);
+assert.ok(direct.omega<0,"direction reversal immediately changes the release direction");
+assert.ok(Math.abs(direct.angle-.5)<1e-12);
+assert.equal(M.releaseMotion(direct,75).omega,direct.omega,"immediate release retains the latest gesture speed");
+assert.equal(M.releaseMotion(direct,200).omega,0,"holding still before release does not reuse a stale fling");
+assert.deepEqual(M.releaseMotion(direct,75).history,[]);

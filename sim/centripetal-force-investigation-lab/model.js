@@ -72,15 +72,23 @@
     return true;
   }
   const wrap = angle => Math.atan2(Math.sin(angle), Math.cos(angle));
-  function motion() { return { angle: 0, omega: 0, pointerAngle: null, time: null, warning: false }; }
+  function motion() { return { angle: 0, omega: 0, pointerAngle: null, time: null, history: [], warning: false }; }
   function dragMotion(state, angle, time) {
     if (!Number.isFinite(angle) || !Number.isFinite(time)) return state;
-    if (state.pointerAngle === null) return { ...state, pointerAngle: angle, time, warning: false };
+    if (state.pointerAngle === null) return { ...state, pointerAngle: angle, time, omega: 0, history: [{ angle: state.angle, time }], warning: false };
     const dt = (time - state.time) / 1000, delta = -wrap(angle - state.pointerAngle);
-    if (!(dt > 0) || dt > 0.12) return { ...state, pointerAngle: angle, time, warning: false };
-    if (Math.abs(delta) > Math.PI * 0.8) return { ...state, pointerAngle: angle, time, warning: true };
-    const limited = Math.max(-6 * dt, Math.min(6 * dt, delta));
-    return { ...state, pointerAngle: angle, time, angle: state.angle + limited, omega: limited / dt, warning: false };
+    if (!(dt > 0)) return state;
+    if (Math.abs(delta) > Math.PI * 0.8) return { ...state, pointerAngle: angle, time, omega: 0, history: [], warning: true };
+    const nextAngle = state.angle + delta;
+    if (dt > 0.12) return { ...state, pointerAngle: angle, time, angle: nextAngle, omega: 0, history: [{ angle: nextAngle, time }], warning: false };
+    const history = state.omega * delta < 0 ? [] : (state.history || []).filter(sample => time - sample.time <= 80);
+    if (!history.length) history.push({ angle: state.angle, time: state.time });
+    history.push({ angle: nextAngle, time });
+    const omega = Math.max(-6, Math.min(6, (nextAngle - history[0].angle) / ((time - history[0].time) / 1000)));
+    return { ...state, pointerAngle: angle, time, angle: nextAngle, omega, history, warning: false };
+  }
+  function releaseMotion(state, time) {
+    return { ...state, omega: time - state.time > 120 ? 0 : state.omega, pointerAngle: null, time: null, history: [] };
   }
   function upgradeDraft(state) {
     if (state.rv === 1) {
@@ -101,5 +109,5 @@
   }
   return Object.freeze({ KINDS, SETUP_REASONS, SPEED_RELATIONS, VARIABLES, COMPARE, REASONS, LAWS, SYNC, MASS_PARTS, clone, CFG, radius, mass,
     quantities, readings, slot, MAX_SAMPLES, points, fit, freshRun, freshTask, fresh, begin, record, fitCurrent, removeRun, setWork,
-    motion, dragMotion, coast, sampleReady, upgradeDraft });
+    motion, dragMotion, releaseMotion, coast, sampleReady, upgradeDraft });
 });

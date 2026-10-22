@@ -20,3 +20,16 @@ const reset = environment(); reset.c.update(s => { M.begin(s.tasks[0]); s.tasks[
 assert.equal(reset.c.update(s => { s.tasks[0] = M.freshTask(); s.view = "setup"; }), true);
 assert.equal(reset.c.state.tasks[0].runs.length, 0); assert.equal(reset.c.state.tasks[1].law, "inverse"); assert.equal(reset.c.state.sync, "same-omega");
 console.log("centripetal interaction ok");
+
+
+for(const saveFail of [false,true]) {
+  const sample=environment({saveFail});let renders=0;sample.c.render=()=>{renders++;};
+  sample.c.update(s=>{M.begin(s.tasks[0]);s.view="collect";});
+  const before=sample.events.saves;renders=0;
+  assert.equal(sample.c.update(s=>M.record(s.tasks[0],2),false),true);
+  assert.equal(renders,0,"sampling does not rebuild the activity");
+  assert.equal(sample.events.saves,before+1,"partial rendering still checkpoints data");
+  assert.equal(sample.c.unsaved,saveFail,"save failures remain visible to the caller");
+  assert.deepEqual(sample.scorm.provider().answer.tasks[0].runs[0].q,[2000],"lifecycle provider includes the latest point");
+  sample.c.check();assert.ok(renders>0,"normal navigation still renders fully");
+}
