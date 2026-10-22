@@ -748,8 +748,15 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 - 五項純測試通過：model／scoring／persistence／lifecycle／interaction。新增細微尾端抖動不清速、180ms幀補回角位移、長時間煞停積分到零且不反向。mv3／rv2及3179／3215／3570-byte最大快照未變。
 - 維護中的完整source與真正解壓package browser通過，包括短視窗立即按測量、連續減速、反轉／再推、圖像、取消／只讀、fullscreen及320／390版面。
 - 新增每份source／package各8種逐幀情況：mouse／touch × 測量開／關 × CPU1／4。記錄requestAnimationFrame中的實際SVG transform；第一個release後回呼立即前進，其後19–21個回呼角度均前進。不是以100ms後的最終角度代替首幀驗證，也不把DOM觀察當作真手機螢幕延遲保證。
-- Source首幀6.8–15.8ms、package首幀7.9–16.5ms；一般CPU最大後續幀間隔19.1ms，CPU4最長38ms（降低負載環境仍可能掉一幀，未宣稱所有環境零掉幀）。報告output/playwright/centripetal-source-release-frames.json及centripetal-package-release-frames.json。
+- Source首幀6.8–15.8ms、package首幀7.9–16.5ms；一般CPU最大後續幀間隔19.1ms，CPU4最長38ms（CPU降速環境仍可能掉一幀，未宣稱所有環境零掉幀）。報告output/playwright/centripetal-source-release-frames.json及centripetal-package-release-frames.json。
 - 同一測試另模擬180ms主線程繁忙，恢復後角位移仍符合實際時間；在首幀與排隊取點之間觸發取消，沒有寫入新點。固定圖軸MathJax glyph在取點前後為同一DOM節點。
 - check及check:tests（263 entries）通過；最後輕量按鈕更新以main語法及完整browser覆驗。沿用原登記、無新依賴，沒有sub-agent審核。
 - ZIP 16個runtime與canonical sim及Site dist逐位元組一致；SHA-256 f2390f03c3ea136ab4e5fdff744dd953f9aebdb86714b6ff428981e676cf757e。
 - 未驗真手機／Safari、真Moodle及全T0–T3矩陣；維持planned。
+
+### 慣性交接修正 Site v11 交付
+
+- 功能commit 3948ea3b4926d27cbf2c7b60ef124ff56ffe80f0已推到origin。Committed selection preview：060cd8b3eeb9d8bd5fe67c504eafb11db4e43f30 → 3948ea3，mode=affected，packages僅本活動；輸出output/centripetal-smooth-selection.json，實際執行測試以上節為準。
+- 官方Sites helper提交／推送／打包Site source c825f5bd093f63aed72c037a521da15c88be539c；v11 appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_e13e32408084819187f48cd951bf853e；deployment appgdep_6ada29fd49d48191be8342ab01f7c71b，回報succeeded。owner-only audience保持，憑證仍只經已授權官方工具的隱藏stdin傳送。
+- 已重新載入原本Site分頁，實際瀏覽器拖動放手得+11.638 rad/s；開始測量後直接反向重推，按住減速2秒後為-10.389 rad/s，5點正常保存並達取點要求。分頁保留供使用者直接試；沒有把這項上線操作當作真手機逐幀延遲驗證。
+- 網址：https://centripetal-force-investigation-lab.ieyp.chatgpt.site/centripetal-force-investigation-lab/
