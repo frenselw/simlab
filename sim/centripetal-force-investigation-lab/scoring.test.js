@@ -1,7 +1,7 @@
 "use strict";
 const assert = require("node:assert/strict"), M = require("./model.js"), S = require("./scoring.js");
 const s = M.fresh(1); assert.equal(S.score(s).score, 0);
-s.tasks[0].roles = ["r", ["m", "omega"]]; s.tasks[0].law = "linear";
+s.tasks[0].inquiry = ["equal-mass", "ratio-steady"]; s.tasks[0].law = "linear";
 assert.equal(S.score(s).detail.pages[0].score, 12, "concept credit is independent of data");
 assert.equal(M.begin(s.tasks[0]), true); const run = s.tasks[0].runs[0]; run.cfg = [4, 2, 2, 2];
 for (const q of [500, 1250, 2250, 3500]) assert.equal(M.record(s.tasks[0], q / 1000), true);
@@ -20,3 +20,10 @@ assert.equal(S.page(s, 2).score, 30);
 s.sync = "same-omega"; s.massParts = "cap-screw-weights";
 assert.equal(S.score(s).detail.syncScore + S.score(s).detail.massPartsScore, 10);
 console.log("centripetal scoring ok");
+
+const inquiry=M.fresh(99);inquiry.tasks[0].inquiry=["equal-mass",null];
+assert.equal(S.page(inquiry,0).roleScore,3);
+inquiry.tasks[0].inquiry=["equal-radius","ratio-steady"];
+assert.equal(S.page(inquiry,0).roleScore,3);
+inquiry.tasks[1].inquiry=["equal-radius","ratio-steady"];
+assert.equal(S.page(inquiry,1).roleScore,6);

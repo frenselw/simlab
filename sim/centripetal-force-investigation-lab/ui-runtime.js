@@ -30,7 +30,8 @@
       const mode = this.flow.startup(attempt);
       if (mode === "editable") {
         try { this.state = attempt.state === "draft" ? P.decode(attempt.snapshot, "draft") : M.fresh(); this.mode = "editable";
-          if (attempt.state === "new") this.save(); }
+          const legacy = this.state.rv === 1; M.upgradeDraft(this.state);
+          if (attempt.state === "new" || legacy) this.save(); }
         catch (_) { this.technical("草稿未能安全還原；原有資料保持不變。"); return; }
       } else if (mode === "review") this.restoreReview(attempt);
       else if (mode === "frozen") this.restorePending(attempt.snapshot);
@@ -66,7 +67,7 @@
     update(change) {
       if (!this.editable || this.state.view === "check") return false;
       try {
-        const next = M.clone(this.state); next.mv = 2; change(next);
+        const next = M.upgradeDraft(M.clone(this.state)); next.mv = 2; change(next);
         P.validate(next);
         if (JSON.stringify(next) === JSON.stringify(this.state)) return false;
         this.state = next; this.save(); this.emit(); return true;

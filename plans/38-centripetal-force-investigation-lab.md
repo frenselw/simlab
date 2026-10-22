@@ -556,7 +556,7 @@ Site `dist` 檔案及SHA-256（其中13個為SCORM runtime，根頁為Site入口
 | private deploy | version5，`appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_70bef56d9b9881919819c506d2d8b84c`；deployment `appgdep_6ad9df760f3881918059050c25f19957` 回報 `succeeded`，維持owner-only |
 | URL | https://centripetal-force-investigation-lab.ieyp.chatgpt.site/centripetal-force-investigation-lab/ |
 
-## 手動穩速量測與砝碼操作修正（2026-10-22，動工前決策）
+## 手動穩速量測與砝碼操作修正（2026-10-22，歷史版本）
 
 - 範圍：本活動 model／persistence／controller／main／HTML／CSS、五個既有純測試與browser driver、mobile-scroll fixtures及本計劃。共用SCORM／fitting及依賴不變。
 - 使用者要求先推轉、放手後按量測。改為準備轉盤→自由調速→放手勻速→「量測一點」，拖動及動畫不自動採樣。每次同步量度A/B，測量時共同角速度固定；可再調速、放手及量下一點以作既有F_A–F_B圖。第三頁顯示帶正負的角速度，逆時針為正，力仍取徑向大小。
@@ -599,3 +599,37 @@ Site `dist` 檔案及SHA-256（其中13個為SCORM runtime，根頁為Site入口
 | Site source | `dfdd8524c7da5db5a07460be66502d9ff6021612`，16個runtime與最終SCORM逐位元組相同 |
 | private deploy | version6，`appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_3fa6242c0f448191b0be04dfab673acc`；deployment `appgdep_6ad9e8a44a648191af07ede9ada34bf1` 回報 `succeeded`，維持owner-only |
 | URL | https://centripetal-force-investigation-lab.ieyp.chatgpt.site/centripetal-force-investigation-lab/ |
+
+## 同步比值探究與按住減速採樣（2026-10-22，動工前決策）
+
+本節取代前述手動逐點採樣及前兩頁變量分類；歷史驗證不代表本輪已通過。
+
+- 使用者已確認分析建議：前兩頁以同步比較與比值驗證為主；質量相同／半徑相同是兩側比較條件，共同角速度可在不同讀數間改變。半徑與質量資料仍作 F_A–F_B 線性擬合，比較斜率與設定比值；可保留第二組不同比值作比較。第三頁固定 m/r，作帶正負角速度的二次圖，分析可切換 F–ω² 線性圖。
+- 先顯示研究問題，再設定。前兩頁移除自變量／控制量分類，改為兩側設定理由與變速時力／力比的判斷，每項3分，取代原6分。第三頁沿用變量6分；其餘分項與總分100不變。同步綜合題明確詢問同時量測的理由；不提前顯示理論斜率。配置混雜的正確解釋仍有分。
+- 推轉→放手→「開始測量」；開始後自動同步取點。舞台左側放44px以上的「按住減速」按鈕，按住以0.45 rad/s²減小角速度大小，不越零或反轉；放手保持速度。可直接再拖外圈推快，拖動期間暫停採樣，放手繼續原次測量，無需停止／重開。移除面板推快與逐次減慢按鈕；保留外圈鍵盤方向鍵及反向操作。
+- 自動取點使用當時實際角速度（0.001精度），與已有點至少相差0.25 rad/s才增加，避免勻速及停頓灌滿數據。正負都可取點，每組48點／兩組及±6範圍保留；48點足以覆蓋兩個方向的範圍，滿額明示不刪舊資料。低於0.25暫停取點，提示可直接推快；放開減速不關閉測量。
+- 測量開關、減速按住、動畫、平方圖切換都是暫態，不寫入快照。切頁／返回設定／分析／提交／失焦／隱藏／取消手勢停止測量與減速。恢復頁面需重新推轉及開始，既有數據保留。
+- rubric rv2新增各題 inquiry:[設定理由key|null,變速關係key|null]；第三頁固定空值。rv1仍按舊schema及rubric驗證review／pending，已提交及凍結不改寫。舊可編輯草稿啟動時加入未答inquiry並升rv2，保留全部舊roles及數據，避免把舊答案當成新題答案；mv2沿用。最大draft/review/pending須重驗≤4000bytes。
+- 變更範圍：本活動model／scoring／persistence／ui-runtime／main／HTML／CSS、既有五個純測試、browser driver及mobile fixtures、計劃與打包／Site runtime。共用SCORM／fitting不改，無新依賴、無新增測試入口。舊已提交分數及pending重試須保持一致。
+- 驗證：減速正負方向不反轉、放手不繼續減速；未開始／拖動時無取點，開始後持續取點，重推無需重開，勻速不重複、低速不造點、取消／blur／第二指／切頁／提交中止；新題部分分及舊紀錄兼容、全部合法階段還原與繼續、容量；桌面與390／320手機可信touch／鍵盤及重疊檢查；source及解壓包、T2受影響profiles。完成後由兩位既有審核員分別覆核操作與數據生命週期。
+
+
+### rv2 快照與本輪驗證
+
+rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法key為equal-mass／equal-radius／equal-force／different-both，第二格為ratio-steady／forces-steady／ratio-speed／unrelated；null為未答。第三頁兩格必須null。正解依頁次為equal-mass、equal-radius及兩頁共通ratio-steady；每格3分、獨立給分。所有原phase與variant繼續合法，恢復後動畫及測量均關閉。rv1不得含inquiry，rv2不得缺inquiry；錯enum／第三頁意外答案拒絕。
+
+- 兩位獨立審核：data_flow_audit確認新版3+3分、rv1 review／pending保留舊分數及鎖定、草稿升級不把舊roles當新答案、暫態不保存；指出平方圖回collect隱藏切換及重推測試只用鍵盤。已改回collect還原帶符號圖，並補可信touch重推：按住q不增，放手測量仍開啟且取得新點。
+- ux_audit獨立完成1280×800／390×600／320×500的連續減速、放手維持、直接重推、Enter按住與放開、取消／轉頁／分析停止。指出預測題順序、收集時頂部擋圖及窄屏兩行標示過近；已改目標→預測→器材，預測欄只在setup顯示。旋轉時數量搬到圖表資料列（依run凍結cfg），canvas保留半徑，設定的數量標籤／八格不變。最後320／390標字與環、減速掣分開；390完整圖y497.67–597.67，320完整圖仍需捲動面板。
+
+| 本輪驗證 | 實際證據 |
+|---|---|
+| 純測試 | model／scoring／persistence／lifecycle／interaction五項通過；涵蓋rv2部分與完整答案、100分、新舊rv1/mv1及rv1/mv2 review與pending、草稿升級與合法繼續；最大draft 2891、review 2927、pending 3282 UTF-8 bytes |
+| source／解壓包browser | 連續減速、放手維持、真touch重推不中斷取點、拖住不採樣、正負角速度、平方圖切換、收合後採樣、返回設定／重做／提交及fullscreen通過。最後只有canvas數量移到圖表資料列，另用下列窄屏package檢查及審核員截圖覆驗 |
+| T2 package | 390×600九個受影響profiles全通過、issues 0；報告output/playwright/centripetal-brake-T2-package.json。數量標示最後調整後另驗320×500／390×600 collect-0，報告centripetal-brake-T2-final-labels.json |
+| 靜態／登記 | npm run check及check:tests通過；263 entries（227 node、36 browser），沿用原登記；最後main語法與git diff --check通過 |
+| 套件 | 活動SCORM 17檔、16個runtime；無新依賴 |
+| 交付限制 | 線上版本仍為v6：自動審批拒絕將Site臨時來源儲存庫憑證傳入本機官方工具的stdin，已向使用者要求此步明確授權；未同步Site source、未部署。真手機／Safari、真Moodle T4及全T0–T3矩陣未驗，維持planned |
+
+最終SCORM SHA-256：`c94a01e482f9e378b0d664c1b39b79d3d8ffb1cf705202017e12aa4c9dcf00ef`。
+
+已逐檔核對ZIP內16個runtime與sim來源一致。

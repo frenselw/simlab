@@ -28,7 +28,9 @@
   function page(state, i) {
     const task = state.tasks[i], kind = M.KINDS[i], run = task.selected === null ? null : task.runs[task.selected];
     const [independent, controls] = task.roles, expected = roles[i];
-    const roleScore = (independent === expected.independent ? 2 : 0) +
+    const roleScore = state.rv >= 2 && i < 2 ?
+      (task.inquiry[0] === (i === 0 ? "equal-mass" : "equal-radius") ? 3 : 0) +
+      (task.inquiry[1] === "ratio-steady" ? 3 : 0) : (independent === expected.independent ? 2 : 0) +
       expected.controls.filter(key => controls?.includes(key)).length * 2;
     const fairScore = fair(kind, run) ? 4 : 0;
     const samples = run ? run.q.map(q => kind === "omega" ? q : Math.abs(q)) : [];

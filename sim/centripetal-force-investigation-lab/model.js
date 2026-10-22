@@ -5,6 +5,8 @@
 })(typeof window !== "undefined" ? window : globalThis, function (Fitting) {
   "use strict";
   const KINDS = ["radius", "mass", "omega"];
+  const SETUP_REASONS = ["equal-mass", "equal-radius", "equal-force", "different-both"];
+  const SPEED_RELATIONS = ["ratio-steady", "forces-steady", "ratio-speed", "unrelated"];
   const VARIABLES = ["m", "r", "omega", "force"];
   const COMPARE = ["supports", "confounded", "no-contrast", "insufficient"];
   const REASONS = ["coefficient", "constant", "other", "uncertain"];
@@ -28,9 +30,9 @@
   });
   const fit = (kind, run) => Fitting.fit(kind === "omega" ? "quadratic" : "linear", points(kind, run));
   const freshRun = cfg => ({ cfg: cfg.slice(), q: [], fit: false, a: [null, null, null] });
-  const freshTask = () => ({ work: CFG.slice(), current: null, selected: null, roles: [null, null], runs: [], law: null });
+  const freshTask = () => ({ work: CFG.slice(), current: null, selected: null, roles: [null, null], inquiry: [null, null], runs: [], law: null });
   const fresh = (seed = Math.floor(Math.random() * 0x100000000)) => ({
-    v: 1, mv: 2, rv: 1, seed: seed >>> 0, page: 0, view: "setup", fromReview: false,
+    v: 1, mv: 2, rv: 2, seed: seed >>> 0, page: 0, view: "setup", fromReview: false,
     returnTo: null, tasks: KINDS.map(freshTask), sync: null, massParts: null
   });
   function begin(task) {
@@ -80,11 +82,24 @@
     const limited = Math.max(-6 * dt, Math.min(6 * dt, delta));
     return { ...state, pointerAngle: angle, time, angle: state.angle + limited, omega: limited / dt, warning: false };
   }
-  function coast(state, dt) {
-    if (!Number.isFinite(dt) || dt <= 0 || dt > 0.12) return state;
-    return { ...state, angle: state.angle + state.omega * dt };
+  function upgradeDraft(state) {
+    if (state.rv === 1) {
+      state.tasks.forEach(task => { task.inquiry = [null, null]; });
+      state.rv = 2;
+    }
+    return state;
   }
-  return Object.freeze({ KINDS, VARIABLES, COMPARE, REASONS, LAWS, SYNC, MASS_PARTS, clone, CFG, radius, mass,
+  function sampleReady(run, omega) {
+    const q = Math.round(omega * 1000);
+    return !!run && Number.isFinite(q) && Math.abs(q) >= 250 && Math.abs(q) <= 6000 &&
+      run.q.length < MAX_SAMPLES && run.q.every(old => Math.abs(old - q) >= 250);
+  }
+  function coast(state, dt, braking = false) {
+    if (!Number.isFinite(dt) || dt <= 0 || dt > 0.12) return state;
+    const omega = braking ? (Math.sign(state.omega) * Math.max(0, Math.abs(state.omega) - 0.45 * dt) || 0) : state.omega;
+    return { ...state, omega, angle: state.angle + (state.omega + omega) * dt / 2 };
+  }
+  return Object.freeze({ KINDS, SETUP_REASONS, SPEED_RELATIONS, VARIABLES, COMPARE, REASONS, LAWS, SYNC, MASS_PARTS, clone, CFG, radius, mass,
     quantities, readings, slot, MAX_SAMPLES, points, fit, freshRun, freshTask, fresh, begin, record, fitCurrent, removeRun, setWork,
-    motion, dragMotion, coast });
+    motion, dragMotion, coast, sampleReady, upgradeDraft });
 });

@@ -31,3 +31,18 @@ assert.equal(M.coast(fast, .1).omega, fast.omega, "released apparatus keeps angu
 assert.ok(M.points('omega', many.runs[0]).every(([x,y]) => x < 0 && y > 0));
 assert.equal(M.fit("quadratic", M.freshRun(cfg)).ok, false, "empty run has no fitted curve");
 console.log("centripetal model ok");
+
+for (const sign of [-1,1]) {
+  let state = {...M.motion(),omega:sign*6}; const task=M.freshTask();M.begin(task);
+  for(let i=0;i<1500;i++) {
+    if(M.sampleReady(task.runs[0],state.omega)) M.record(task,state.omega);
+    const old=state; state=M.coast(state,.01,true);
+    assert.ok(Math.abs(state.omega)<=Math.abs(old.omega));
+    assert.ok(sign*state.omega>=0,"braking never reverses direction");
+  }
+  assert.equal(state.omega,0); assert.ok(task.runs[0].q.length>=22);
+  assert.equal(M.sampleReady(task.runs[0],0),false);
+  const middle={...state,omega:sign*2};assert.equal(M.coast(middle,.1).omega,middle.omega,"release holds current speed");
+  assert.equal(M.sampleReady(task.runs[0],sign*6),false,"steady or repeated speed does not refill run");
+  assert.equal(M.sampleReady(task.runs[0],-sign*6),true,"reverse sweep remains available");
+}

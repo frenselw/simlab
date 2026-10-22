@@ -25,7 +25,7 @@ const quarantined = environment({ durable: damaged }); assert.equal(quarantined.
 const invalidDraft = M.clone(draft.durable); invalidDraft.snapshot.answer.tasks[0].work[0] = -1;
 assert.equal(environment({ durable: invalidDraft }).c.mode, "technical");
 assert.equal(environment().c.state.tasks[0].work[0], 2, "standalone new launch starts fresh");
-const legacy = M.fresh(12); legacy.mv = 1;
+const legacy = M.fresh(12); legacy.mv = 1; legacy.rv = 1; legacy.tasks.forEach(t => delete t.inquiry);
 for (const [i,t] of legacy.tasks.entries()) {
   t.work = [[4,2,2,2],[2,2,4,2],[2,2,2,2]][i];
   t.roles = [["r",["m","omega"]],["m",["r","omega"]],["omega",["m","r"]]][i];
@@ -45,6 +45,14 @@ oldPending.retryFinal(); assert.equal(oldPending.mode,"review");
 assert.equal(oldPending.result.score,100); assert.deepEqual(oldPending.state,oldAnswer,"pending retry preserves the original version and answers");
 legacy.page=2; legacy.view="collect";
 const oldDraft = environment({durable:{state:"draft",snapshot:{version:1,activity:P.ACTIVITY,kind:"draft",answer:legacy}}}).c;
-assert.equal(oldDraft.state.mv,1); assert.ok(oldDraft.update(s=>M.record(s.tasks[2],-1)));
+assert.equal(oldDraft.state.mv,1); assert.equal(oldDraft.state.rv,2); assert.deepEqual(oldDraft.state.tasks[0].inquiry,[null,null]); assert.deepEqual(oldDraft.state.tasks[0].roles,legacy.tasks[0].roles); assert.ok(oldDraft.update(s=>M.record(s.tasks[2],-1)));
 assert.equal(oldDraft.state.mv,2); assert.deepEqual(oldDraft.state.tasks[2].runs[0].q,[500,1500,3000,-1000]);
 console.log("centripetal lifecycle ok");
+
+const latestLegacy=M.clone(oldAnswer);latestLegacy.mv=2;
+latestLegacy.tasks[2].runs[0].q=[-3000,-1500,500];
+const latestSnapshot={...oldSnapshot,answer:latestLegacy};
+assert.equal(environment({durable:{state:"finished",snapshot:latestSnapshot,score:"100",status:"passed"}}).c.mode,"review");
+const upgraded=M.upgradeDraft(M.clone(legacy));upgraded.mv=2;
+upgraded.tasks[0].inquiry=["equal-mass","ratio-steady"];upgraded.tasks[1].inquiry=["equal-radius","ratio-steady"];
+assert.equal(S.score(upgraded).score,100,"fully answered new rubric still totals 100");

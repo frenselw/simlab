@@ -94,6 +94,37 @@ async function key(cdp, name) {
   await cdp.send("Input.dispatchKeyEvent", { type: "keyDown", key: name, code: name, windowsVirtualKeyCode: 39 });
   await cdp.send("Input.dispatchKeyEvent", { type: "keyUp", key: name, code: name, windowsVirtualKeyCode: 39 });
 }
+async function push(cdp, count=1) {
+  await click(cdp,'.spin-segment');
+  const direction=await H.evaluate(cdp,'window.__centripetalApp.getMotion().omega<0');
+  for(let i=0;i<count;i++) await key(cdp,direction?'ArrowLeft':'ArrowRight');
+  await pause(60);
+}
+async function brake(cdp, duration=1500, touch=true, cancel=false) {
+  const r=await rect(cdp,'#brakeButton'),x=r.x+r.width/2,y=r.y+r.height/2;
+  if(touch) await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y,id:301,radiusX:1,radiusY:1,force:1}]});
+  else await cdp.send('Input.dispatchMouseEvent',{type:'mousePressed',x,y,button:'left',buttons:1,clickCount:1});
+  await pause(duration);
+  assert.ok(await H.evaluate(cdp,'window.__centripetalApp.getMotion().braking'),'hold owns brake: '+JSON.stringify(await H.evaluate(cdp,`({motion:window.__centripetalApp.getMotion(),target:document.elementFromPoint(${x},${y})?.outerHTML,events:window.__touchEvidence?.slice(-4)})`)));
+  if(touch) await cdp.send('Input.dispatchTouchEvent',{type:cancel?'touchCancel':'touchEnd',touchPoints:[]});
+  else await cdp.send('Input.dispatchMouseEvent',{type:'mouseReleased',x,y,button:'left',clickCount:1});
+}
+async function reSpin(cdp) {
+  const g=await H.evaluate(cdp,`(()=>{const m=document.getElementById('deviceSvg').getScreenCTM();return{x:300*m.a+m.e,y:230*m.d+m.f,r:213*m.a};})()`);
+  const count=await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[0].runs[0].q.length');
+  const finger=a=>({x:g.x+g.r*Math.cos(a),y:g.y+g.r*Math.sin(a),id:411,radiusX:1,radiusY:1,force:1});
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[finger(0)]});
+  for(let i=1;i<=4;i++) {
+    await pause(25);await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[finger(-i*.18)]});
+    assert.equal(await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[0].runs[0].q.length'),count,'held re-spin never samples');
+  }
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await pause(100);
+  assert.equal(await H.evaluate(cdp,'window.__centripetalApp.getMotion().measuring'),true,'true touch re-spin keeps measurement armed');
+  assert.ok(await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[0].runs[0].q.length')>count,'release resumes without pressing Start again');
+}
+async function threePoints(cdp) {
+  await push(cdp,6); await click(cdp,'#measureButton'); await brake(cdp,1500);
+}
 async function fullscreen(cdp, expected, label) {
   for (let i = 0; i < 50; i++) {
     const value = await H.evaluate(cdp, `({active:Boolean(document.fullscreenElement),busy:document.getElementById('fullscreenButton').disabled})`);
@@ -109,6 +140,8 @@ async function scenario(cdp, base, launch, label, width, height) {
   for (let i = 0; i < 100 && !await H.evaluate(cdp, "Boolean(document.querySelector('[data-tex] svg'))"); i++) await pause(50);
   assert.ok(await H.evaluate(cdp, "Boolean(document.querySelector('[data-tex] svg'))"), `${label}: LaTeX quantities rendered`);
   assert.ok(await H.evaluate(cdp, "document.querySelector('#taskIntro').compareDocumentPosition(document.querySelector('#setupPanel')) & Node.DOCUMENT_POSITION_FOLLOWING"), `${label}: learning objective precedes apparatus settings`);
+  assert.equal(await H.evaluate(cdp,"document.getElementById('rolesField').hidden"),true,'first experiment replaces generic variable quiz');
+  assert.equal(await H.evaluate(cdp,"document.getElementById('inquiryField').hidden"),false,'comparison questions available');
   const columns = await H.evaluate(cdp, `[...document.querySelectorAll('.quantity-step')].map(row=>[...row.querySelectorAll('button')].map(e=>e.getBoundingClientRect().x))`);
   assert.ok(columns.every(pair=>pair.every((x,i)=>Math.abs(x-columns[0][i])<1)), `${label}: mass and radius buttons share fixed columns`);
   const trayBounds = await rect(cdp, '#weightTray'), washer = await rect(cdp, '.mass-token.tray .washer');
@@ -179,22 +212,24 @@ async function scenario(cdp, base, launch, label, width, height) {
   await click(cdp, '#measureButton');
   data = await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].runs[0].q.length");
   assert.ok(data >= 1, `${label}: trusted touch on visible gold ring records a real speed; ${JSON.stringify(await H.evaluate(cdp, `({target:document.elementFromPoint(${ringPoint.x},${ringPoint.y})?.outerHTML?.slice(0,180),events:window.__touchEvidence,motion:window.__centripetalApp.getMotion()})`))}`);
-  const beforePush = await H.evaluate(cdp, "Math.abs(window.__centripetalApp.getMotion().omega)");
-  await click(cdp, "#pushButton");
-  assert.ok(await H.evaluate(cdp, "Math.abs(window.__centripetalApp.getMotion().omega)") > beforePush, `${label}: visible push button accelerates`);
-  assert.equal(await H.evaluate(cdp, 'window.__centripetalApp.getState().tasks[0].runs[0].q.length'), 1, `${label}: speed controls do not collect measurements`);
-  await click(cdp, '#measureButton');
-  assert.equal(await H.evaluate(cdp, "document.querySelectorAll('#graphSvg .measured-point').length === window.__centripetalApp.getState().tasks[0].runs[0].q.length"), true, `${label}: collection shows real samples immediately`);
-  const apparatus = await rect(cdp, '#deviceSvg'), chart = await rect(cdp, '#graphSvg');
-  assert.ok(apparatus.x + apparatus.width <= chart.x || apparatus.y + apparatus.height <= chart.y, `${label}: chart and apparatus occupy separate regions`);
-  const sampleCount = await H.evaluate(cdp, 'window.__centripetalApp.getState().tasks[0].runs[0].q.length');
-  await click(cdp, '#toggleGraph');
-  assert.equal(await H.evaluate(cdp, 'document.getElementById("graphBody").hidden'), true, `${label}: graph can collapse while collecting`);
-  await click(cdp, '#pushButton');
-  await click(cdp, '#measureButton');
-  assert.ok(await H.evaluate(cdp, 'window.__centripetalApp.getState().tasks[0].runs[0].q.length') > sampleCount, `${label}: collapsed graph keeps recording`);
-  await click(cdp, '#toggleGraph');
-  assert.equal(await H.evaluate(cdp, "document.querySelectorAll('#graphSvg .measured-point').length === window.__centripetalApp.getState().tasks[0].runs[0].q.length"), true, `${label}: expanded graph shows all collected points`);
+  const beforeBrake=await H.evaluate(cdp,'window.__centripetalApp.getMotion()');
+  const beforeCount=await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[0].runs[0].q.length');
+  await brake(cdp,1500,width<900);
+  const afterBrake=await H.evaluate(cdp,'window.__centripetalApp.getMotion()');
+  assert.ok(Math.abs(afterBrake.omega)<Math.abs(beforeBrake.omega),'holding brake reduces speed');
+  assert.equal(afterBrake.measuring,true,'release keeps measurement active');
+  await pause(150);
+  assert.equal(await H.evaluate(cdp,'window.__centripetalApp.getMotion().omega'),afterBrake.omega,'release stops deceleration');
+  // A slow initial spin can be replaced directly without stopping measurement.
+  await reSpin(cdp);await brake(cdp,1500);
+  assert.ok(await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[0].runs[0].q.length')>beforeCount,'re-spin resumes same measurement');
+  assert.equal(await H.evaluate(cdp,"document.querySelectorAll('#graphSvg .measured-point').length === window.__centripetalApp.getState().tasks[0].runs[0].q.length"),true,'live plot matches real samples');
+  const apparatus=await rect(cdp,'#deviceSvg'),chart=await rect(cdp,'#graphSvg');
+  assert.ok(apparatus.x+apparatus.width<=chart.x||apparatus.y+apparatus.height<=chart.y,'chart remains outside apparatus');
+  const count=await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[0].runs[0].q.length');
+  await click(cdp,'#toggleGraph');await click(cdp,'#reverseButton');await brake(cdp,1500);
+  assert.ok(await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[0].runs[0].q.length')>count,'collapsed graph keeps recording');
+  await click(cdp,'#toggleGraph');
   await H.evaluate(cdp, "document.getElementById('controlPanel').scrollTop=0");
   await pause(300);
   assert.ok(Math.abs(await H.evaluate(cdp, 'window.__centripetalApp.getMotion().angle')) > .1, `${label}: inspect a rotated apparatus`);
@@ -285,7 +320,7 @@ async function buttonOnly(cdp, base, launch, label) {
   await click(cdp, '[data-step="2:1"]');
   assert.equal(await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].work[2]"), 3, `${label}: add-weight button`);
   await click(cdp, "#startButton");
-  for (let i = 0; i < 3; i++) { await click(cdp, "#pushButton"); await click(cdp, "#measureButton"); }
+  await threePoints(cdp);
   assert.ok(await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].runs[0].q.length") >= 3, `${label}: speed and measurement buttons record three speeds`);
   await click(cdp, "#analyseView"); await click(cdp, "#fitButton");
   assert.equal(await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].runs[0].fit"), true, `${label}: button-only measurements fit`);
@@ -300,7 +335,7 @@ async function buttonOnly(cdp, base, launch, label) {
   assert.equal(await H.evaluate(cdp, "document.querySelector('[data-assembly=\"A\"]').dataset.count"), '4', `${label}: setup shows working masses`);
   await click(cdp, '#collectView');
   assert.equal(await H.evaluate(cdp, "document.querySelector('[data-assembly=\"A\"]').dataset.count"), '3', `${label}: old run shows its frozen masses`);
-  await click(cdp, '#pushButton');
+  await push(cdp);
   const live = await H.evaluate(cdp, "({force:Number(document.getElementById('forceARead').textContent),omega:Math.abs(window.__centripetalApp.getMotion().omega)})");
   assert.ok(Math.abs(live.force - .1 * .2 * live.omega ** 2) < .0001, `${label}: old run readout uses frozen configuration`);
   const frozenPlot = await H.evaluate(cdp, `(()=>{
@@ -310,7 +345,7 @@ async function buttonOnly(cdp, base, launch, label) {
   })()`);
   assert.ok(frozenPlot, `${label}: live plot coordinates use the old run's frozen configuration`);
   await click(cdp, '#setupView'); await click(cdp, '#startButton');
-  for (let i = 0; i < 3; i++) { await click(cdp, "#pushButton"); await click(cdp, "#measureButton"); }
+  await threePoints(cdp);
   await click(cdp, '#analyseView'); await click(cdp, '#fitButton');
   await click(cdp, '#setupView'); await click(cdp, '[data-step="0:1"]');
   await click(cdp, '#restartRunButton');
@@ -318,7 +353,7 @@ async function buttonOnly(cdp, base, launch, label) {
   assert.equal(redo.view, 'collect'); assert.equal(redo.tasks[0].runs.length, 2);
   assert.deepEqual(redo.tasks[0].runs[0], saved, `${label}: redo preserves the other group`);
   assert.deepEqual(redo.tasks[0].runs[1], {cfg:[3,2,4,2],q:[],fit:false,a:[null,null,null]}, `${label}: redo clears only current data and uses new settings`);
-  for (let i = 0; i < 3; i++) { await click(cdp, "#pushButton"); await click(cdp, "#measureButton"); }
+  await threePoints(cdp);
   await click(cdp, '#analyseView'); await click(cdp, '#fitButton');
   assert.equal(await H.evaluate(cdp, 'window.__centripetalApp.getState().tasks[0].runs[1].fit'), true, `${label}: legal continuation after redo`);
   await click(cdp, '#checkButton'); await click(cdp, '#submitButton');
@@ -328,34 +363,28 @@ async function signedMeasurements(cdp, base, launch, label) {
   await cdp.send('Emulation.setDeviceMetricsOverride', {width:1280,height:800,deviceScaleFactor:1,mobile:false});
   await cdp.send('Page.navigate', {url:base+launch}); await ready(cdp);
   await click(cdp, '[data-page="2"]'); await click(cdp, '#startButton');
-  for (let i=0;i<3;i++) { await click(cdp, '#pushButton'); await click(cdp, '#measureButton'); }
-  await click(cdp, '#reverseButton'); await click(cdp, '#measureButton');
-  assert.ok(Number(await H.evaluate(cdp, 'document.getElementById("omegaRead").textContent')) < 0, `${label}: reverse shows negative angular velocity`);
-  await click(cdp, '#measureButton');
-  assert.match(await H.evaluate(cdp, 'document.getElementById("measurementHint").textContent'), /已量過/);
-  const geometry = await H.evaluate(cdp, `(()=>{const m=document.getElementById('deviceSvg').getScreenCTM();return {x:300*m.a+m.e,y:230*m.d+m.f,r:213*m.a};})()`);
-  for (let i=0;i<60;i++) {
-    if (await H.evaluate(cdp, 'window.__centripetalApp.getState().tasks[2].runs[0].q.length') >= 48) break;
-    const x=geometry.x+geometry.r, y=geometry.y, angle=.03+i*.003;
-    await cdp.send('Input.dispatchMouseEvent', {type:'mousePressed',x,y,button:'left',buttons:1,clickCount:1});
-    assert.equal(await H.evaluate(cdp, 'document.getElementById("measureButton").disabled'), true, `${label}: held turntable cannot be measured`);
-    await pause(40);
-    const endX=geometry.x+geometry.r*Math.cos(angle), endY=geometry.y+geometry.r*Math.sin(angle);
-    await cdp.send('Input.dispatchMouseEvent', {type:'mouseMoved',x:endX,y:endY,button:'left',buttons:1});
-    await cdp.send('Input.dispatchMouseEvent', {type:'mouseReleased',x:endX,y:endY,button:'left',clickCount:1});
-    await click(cdp, '#measureButton');
-  }
-  const run = await H.evaluate(cdp, 'window.__centripetalApp.getState().tasks[2].runs[0]');
-  assert.equal(run.q.length, 48, `${label}: manual measurements continue beyond 24 to the declared capacity`);
-  assert.ok(run.q.some(q=>q<0) && run.q.some(q=>q>0));
-  assert.match(await H.evaluate(cdp, 'document.getElementById("measurementHint").textContent'), /48點已滿/);
-  assert.equal(await H.evaluate(cdp, 'document.getElementById("measureButton").disabled'), true);
+  assert.equal(await H.evaluate(cdp,"document.getElementById('rolesField').hidden"),false,'third experiment retains variable roles');
+  await push(cdp,10); await click(cdp,'#measureButton'); await brake(cdp,2500);
+  await click(cdp,'#reverseButton');await brake(cdp,2500);
+  const run=await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[2].runs[0]');
+  assert.ok(run.q.some(q=>q<0)&&run.q.some(q=>q>0),'both rotation directions are sampled');
+  const count=run.q.length;await pause(250);
+  assert.equal(await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[2].runs[0].q.length'),count,'steady speed does not add duplicate points');
+  await brake(cdp,100,true,true);
+  assert.equal(await H.evaluate(cdp,'window.__centripetalApp.getMotion().braking'),false,'touchcancel releases brake');
+  assert.equal(await H.evaluate(cdp,'window.__centripetalApp.getMotion().measuring'),false,'cancel stops collection safely');
   await click(cdp, '#analyseView'); await click(cdp, '#fitButton');
   assert.equal(await H.evaluate(cdp, 'window.__centripetalApp.getState().tasks[2].runs[0].fit'), true);
   const plot = await H.evaluate(cdp, `({xs:[...document.querySelectorAll('.measured-point')].map(e=>Number(e.getAttribute('cx'))),curve:document.querySelector('.fit-curve').getAttribute('d')})`);
   assert.ok(Math.min(...plot.xs) < 198.5 && Math.max(...plot.xs) > 198.5, `${label}: graph includes both angular velocity directions`);
   assert.ok(Number(plot.curve.match(/^M([\d.]+)/)[1]) < 198.5, `${label}: fitted curve starts in the measured negative range`);
   assert.equal(await H.evaluate(cdp, '/e-\\d+/.test(document.getElementById("fitResult").innerHTML)'), false, `${label}: fitted formula does not display floating-point residue as raw e-notation`);
+  const beforeSquare=await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[2].runs[0]');
+  await click(cdp,'#squareGraph');
+  assert.equal(await H.evaluate(cdp,"document.getElementById('squareGraph').getAttribute('aria-pressed')"),'true');
+  assert.deepEqual(await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[2].runs[0]'),beforeSquare,'square plot preserves measurements and answers');
+  assert.ok(await H.evaluate(cdp,"Boolean(document.querySelector('.fit-curve'))"),'square graph fits line');
+  await click(cdp,'#squareGraph');
   fs.writeFileSync(path.join(root,'output/playwright',`centripetal-${label}-signed-1280x800.png`),Buffer.from((await cdp.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
 }
 async function main() {

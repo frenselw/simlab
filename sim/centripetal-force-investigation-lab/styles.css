@@ -182,3 +182,12 @@ h3 { font-size: 1.05rem; margin-bottom: 8px; }
   .radius-annotation { display: none; }
   .panel-nav { position: static; }
 }
+
+.brake-button { position: absolute; z-index: 4; left: 0; top: 50%; transform: translateY(-50%); width: 78px; min-height: 62px; padding: 6px 3px; background: #fff4df; border: 2px solid #b77825; color: #7d4d0d; touch-action: none; user-select: none; -webkit-user-select: none; }
+.brake-button strong, .brake-button small { display: block; }
+.brake-button strong { font-size: 16px; }
+.brake-button small { font-size: 12px; margin-top: 4px; }
+.brake-button[aria-pressed="true"] { background: #9b5c12; color: #fff; box-shadow: inset 0 2px 4px #60370966; }
+.brake-button[hidden] { display: none; }
+.graph-switch { display: block; margin: 4px auto; font-size: .88rem; }
+@media (max-height: 260px) and (max-width: 479px) { .brake-button { top: 50%; min-height: 44px; } .brake-button small { display: none; } }
