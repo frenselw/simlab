@@ -826,3 +826,11 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 - v12連續動畫時鐘及v13減速／直接反向等既有回歸維持：兩入口各8種延後900ms放手情境（mouse／touch、測量開關、CPU1／4）通過。
 - 實際檢視1280×800、390×600及320×500畫面；修正窄屏半徑標示貼近操作掣，縮短實驗提示使320×500首屏完整呈現。細邊線、兩測力計、細托座及分離數量文字符合此次設計；沒有外圈計數珠或A·n徽章。
 - SCORM ZIP SHA-256：dec76e3af24d9ac292d33445b2b17386b884bdc2b2c7fa6ab291655272259ccc；16個runtime與canonical sim及Site dist逐位元組相同。沿用既有測試登記，沒有新依賴或sub-agent。真手機／真Moodle及全T0–T3矩陣未重驗，維持planned。
+
+### 設定裝置 Site v14 交付
+
+- 功能commit 931de1e3769528bd532f890c5ff12d91d17e3fb8已推到origin；committed selection preview：c03f7e495c4e5b8a9c8c2e55467126ddea49bf0e → 931de1e，mode=affected，packages僅本活動；output/centripetal-apparatus-selection.json。實際執行項目見上節，非選取清單全跑。
+- 官方helper推送Site source f5ed3caa620d50190ff5fdb0db6b885496e1d741；沿用原owner-private audience。v14 appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_1d862d8306e0819183c6ebe890626d34，deployment appgdep_6ada3d78d4fc8191911de2f8cf1e667d，Sites回報succeeded（2026-10-22T16:44:48.868906+00:00）。
+- 原Site分頁已重新載入並保留於第一頁設定；實際畫面確認新測力計／小托座／A與B各砝碼×2，以及「半徑可相同（1:1），亦可試其他比例」。截圖centripetal-apparatus-v14.png存於當前visualizations目錄，交付連結仍為原網址。
+- 網址：https://centripetal-force-investigation-lab.ieyp.chatgpt.site/centripetal-force-investigation-lab/
+
