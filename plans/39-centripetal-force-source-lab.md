@@ -466,3 +466,6 @@ pending／technical不顯示「提交後正解」以免技術錯誤冒充完成�
 - 恢復原3×3圓心箭號選擇及選中狀態，與畫布中的藍色方向箭頭同步。選圓心方向不改動已畫的力。
 - 力方向繼續在畫布直接拖動箭尖，沒有力方向按鈕或任何鍵盤操作說明。其餘模型、評分、保存格式及依賴不變。
 - 更新既有瀏覽器回歸：逐一點選八個圓心箭號、雙向同步、力圖獨立、唯讀鎖定、六題使用圓心選項與畫布力箭頭取得滿分，並確認力控制區沒有方向選項。沿用已登記的測試入口。
+- 最終source/package瀏覽器回歸通過，completed=true、errors=0；assetHash `7789d3efe5ed13edcc185c7a4db8135b5fabbdbb1003d23dd3688f5a3263e68b`。check、check:tests（265 entries）、check-docs及diff check通過。未重跑Node邏輯測試、全部容器矩陣、實機手機或真Moodle。
+- SCORM ZIP SHA-256 `553699C424BB98770B0B3117DA3CC0385C461B8C227BE752DFBF3F287DBD5825`；十個自有runtime與Site一致。Site source `6cf47a116c15407068504b19e8484acb6c3063fb`；v6 `appgprj_6ad9ab2ffe008191bea6e486a6000e05~appgver_95c1c6ca364481918a15ea030178ca88`；deployment `appgdep_6ad9e1a93b10819191db6aa1ef842da3` succeeded，維持owner-only原網址。
+- Runtime commit `27b96247bbd991104e98ca70d770306e1cd73c62` 已推送；以 `7260f19` 為base的committed selection：affected／本活動package／230 entries。只記錄選擇結果，不代表全數執行；未等待GitHub CI。
