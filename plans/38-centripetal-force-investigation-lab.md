@@ -628,7 +628,7 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 | T2 package | 390×600九個受影響profiles全通過、issues 0；報告output/playwright/centripetal-brake-T2-package.json。數量標示最後調整後另驗320×500／390×600 collect-0，報告centripetal-brake-T2-final-labels.json |
 | 靜態／登記 | npm run check及check:tests通過；263 entries（227 node、36 browser），沿用原登記；最後main語法與git diff --check通過 |
 | 套件 | 活動SCORM 17檔、16個runtime；無新依賴 |
-| 交付限制 | 線上版本仍為v6：自動審批拒絕將Site臨時來源儲存庫憑證傳入本機官方工具的stdin，已向使用者要求此步明確授權；未同步Site source、未部署。真手機／Safari、真Moodle T4及全T0–T3矩陣未驗，維持planned |
+| 交付限制 | 原先的憑證傳送審批阻擋已於使用者明確授權後解除，現已更新私人Site v7（見下）。真手機／Safari、真Moodle T4及全T0–T3矩陣未驗，維持planned |
 
 最終SCORM SHA-256：`c94a01e482f9e378b0d664c1b39b79d3d8ffb1cf705202017e12aa4c9dcf00ef`。
 
@@ -636,3 +636,13 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 
 - 最後數量標示修正的T2解壓包：320×500／390×600 collect-0兩項均通過，issues 0。
 - 功能commit：`c3baa25d6516cea0da3a0db90c32b17659b63bda`。已執行committed selection preview（base `8d739728ebb4fb32c0fdb532ab04681fcaa17ee1` → 上述head）；full263，原因 `Unrecognised dependency: tools/mobile-scroll-cases.js`，packages=all。這只是選取預覽，並非263項全通過；實際執行見本節驗證表。輸出 `output/centripetal-brake-selection.json`。
+
+
+### 私人 Site v7 發佈（2026-10-22）
+
+- 使用者明確授權把本 Site 的臨時來源儲存庫憑證交予本機 Sites 官方工具；憑證僅經隱藏 stdin 傳入，沒有保存到檔案。原有 owner-only audience 保持不變。
+- 以官方 source workflow 開啟既有 checkout；SCORM 內 16 個 runtime 與 canonical sim 來源及 Site dist 逐位元組一致。官方工具完成 commit、push 與 archive，Site source SHA：`49d419a06f68c0893c4b5d370cf4b82bc76c387f`。
+- 私人部署 v7：`appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_4a183a6c28a48191b3abdf91e0e8dea4`。Deployment：`appgdep_6ad9fbb8f7248191bbea0b18b8b5b793`，Sites 回報 `succeeded`。
+- 已重新載入並顯示原本的瀏覽器分頁，確認新版「同步比較：設定與預測」位於器材設定之前。
+- 網址：https://centripetal-force-investigation-lab.ieyp.chatgpt.site/centripetal-force-investigation-lab/
+- 本次只同步並發佈已測試的相同 runtime，未修改程式，沿用上述測試與兩位審核員結果。
