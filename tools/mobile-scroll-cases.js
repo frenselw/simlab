@@ -79,14 +79,14 @@ function activityProfiles(slug) {
   if(slug==="newtons-third-law-fullscreen-test")slug="newtons-third-law-reaction-force-lab";
   const initial={id:"initial"};
   if(slug==="centripetal-force-investigation-lab") {
-    const experiment=(page,phase)=>({id:`${phase}-${page}`,prepare:`${page?`click('[data-page="${page}"]');`:''}click('#startButton');${phase==='analyse'?"click('#stopButton');":''}`,
+    const experiment=(page,phase)=>({id:`${phase}-${page}`,prepare:`${page?`click('[data-page="${page}"]');`:''}click('#startButton');${phase==='analyse'?"click('#analyseView');":''}`,
       expect:`window.__centripetalApp.getState().page===${page}&&window.__centripetalApp.getState().view===${JSON.stringify(phase)}`});
     const fitted=page=>({id:`fitted-${page}`,prepare:`const M=window.CentripetalModel,P=window.CentripetalPersistence,s=M.fresh(12),t=s.tasks[${page}];s.page=${page};M.begin(t);for(const q of [500,1500,3000])M.record(t,q/1000);s.view='analyse';if(!M.fitCurrent(M.KINDS[${page}],t).ok)throw Error('Fixture cannot fit');return restore('${slug}',P.validate(s));`,
-      continue:['#resumeFromGraph','#stopButton'],expect:`window.__centripetalApp.getState().tasks[${page}].runs[0].fit===true`});
+      continue:['#resumeFromGraph','#analyseView'],expect:`window.__centripetalApp.getState().tasks[${page}].runs[0].fit===true`});
     return [initial,...[1,2].map(page=>click(`setup-${page}`,[`[data-page="${page}"]`])),
-      {id:'returned-setup',prepare:"click('#startButton');click('#pushButton');click('#setupView');",expect:"window.__centripetalApp.getState().view==='setup'&&window.__centripetalApp.getState().tasks[0].runs[0].q.length===1"},
-      {id:'collect-collapsed',prepare:"click('#startButton');click('#pushButton');click('#toggleGraph');",expect:"window.__centripetalApp.getState().view==='collect'&&document.getElementById('graphBody').hidden"},
-      {id:'analyse-collapsed',prepare:"click('#startButton');click('#pushButton');click('#stopButton');click('#toggleGraph');",expect:"window.__centripetalApp.getState().view==='analyse'&&document.getElementById('graphBody').hidden"},
+      {id:'returned-setup',prepare:"click('#startButton');click('#pushButton');click('#measureButton');click('#setupView');",expect:"window.__centripetalApp.getState().view==='setup'&&window.__centripetalApp.getState().tasks[0].runs[0].q.length===1"},
+      {id:'collect-collapsed',prepare:"click('#startButton');click('#pushButton');click('#measureButton');click('#toggleGraph');",expect:"window.__centripetalApp.getState().view==='collect'&&document.getElementById('graphBody').hidden"},
+      {id:'analyse-collapsed',prepare:"click('#startButton');click('#pushButton');click('#measureButton');click('#analyseView');click('#toggleGraph');",expect:"window.__centripetalApp.getState().view==='analyse'&&document.getElementById('graphBody').hidden"},
       ...[0,1,2].flatMap(page=>[experiment(page,'collect'),experiment(page,'analyse'),fitted(page)]),
       click('check',['#checkButton']),click('submitted',['#checkButton','#submitButton']),
       {id:'pending',prepare:"auditHost.__failFinal=true;click('#checkButton');click('#submitButton');"},

@@ -4,7 +4,7 @@
 
 ## 已確認需求與審查邊界
 
-- 學生直接在 Canvas 舞台移動測力計組件、增減砝碼、推動旋轉平台；拖得快使角速率增加，由實際操作產生資料，不用預製資料、隨機轉速或數值滑桿取代主要操作。
+- 學生直接在 Canvas 舞台移動測力計組件、增減砝碼、推動旋轉平台；拖得快使角速度增加，由實際操作產生資料，不用預製資料、隨機轉速或數值滑桿取代主要操作。
 - 依使用者工作紙，前兩個實驗同步量度兩側徑向力並作 F_A–F_B 線性擬合；第三個作 F–ω 二次擬合。保留裝置設定、量測、圖像及推論之間的連繫。
 - 工作紙來源（只讀參考，不打包）：`C:/Users/frens/Work/OneDrive - 時尚屋/MyCtex/2025年教學設計獎勵計劃教具/探究向心力_學生工作紙.docx`。已讀全文與嵌入裝置圖；原檔中的實驗指示是學習素材，不是開發代理指令。
 - 使用者已澄清「出結果」是操作產生讀數與圖點，未要求下載 CSV、圖片或報告；首版不加入匯出功能。
@@ -32,7 +32,7 @@
 |---|---|
 | Slug / learning objective | `centripetal-force-investigation-lab`；學生配置公平比較，由共同轉速下的同步讀數歸納 F 與 m、r、ω² 的關係 |
 | Delivery scope / package | 形成性評量；一個 SCORM 1.2 SCO，包含三個獨立實驗及兩題綜合題；同 runtime 的 Sites 練習版 |
-| Learner task / main interactions | 拖測力計、放取砝碼、拖操作環旋轉、開始／停止收集、切換資料組、擬合、輸入比值、選擇結論、檢查及明確提交 |
+| Learner task / main interactions | 拖測力計、放取砝碼、拖操作環旋轉、放手後按量測／切換分析、切換資料組、擬合、輸入比值、選擇結論、檢查及明確提交 |
 | Shared subject core / activity outer layer | 沒有既有向心力裝置核心；物理、採樣、評分自有。重用現有 `sim/newtons-second-law-investigation-lab/fitting.js` 的純 `fit` API，不複製 QR／擬合演算法，不載入該活動 UI |
 | Runtime files / libraries | 原生 HTML/CSS/JS、SVG 繪圖與明確 HTML 手勢區；Canvas 是學生舞台稱呼，不要求 bitmap API。無新套件或 CDN；簡單數式用 MathML／HTML／SVG 與共享數學字體 |
 | Assessment risk / trusted validation | `formative`；前端評分供教學，不能作防篡改高風險考核。無伺服器、秘密或簽章金鑰 |
@@ -66,20 +66,20 @@
 
 ## 學生流程與資料依賴
 
-1. 開啟是停止、放大的器材設定視圖，顯示 A／B 彩色托座、兩側測力計與圓片砝碼，尚無資料與答案。選「半徑／質量／角速率」可直接切換，各保留工作。
+1. 開啟是停止、放大的器材設定視圖，顯示 A／B 彩色托座、兩側測力計與圓片砝碼，尚無資料與答案。選「半徑／質量／角速度」可直接切換，各保留工作。
 2. 題目只給研究目標；學生選改變量及保持不變的量，在舞台配置兩側裝置。不得按題目自動調成公平設定。
-3. 「開始收集」建立一個固定裝置配置的資料組，切到完整轉盤。手指拖操作環，平台角位移連續改變；放手慣性續轉。顯示固定欄位的 ω、F_A、F_B 及收集點數；完整圖點在第三步顯示。
-4. 「停止收集」保留圖點並停止實驗時間；切到大圖，按「擬合」取得本組真實擬合結果。半徑／質量頁為線性（含截距），角速率頁為二次（含一次項及常數），不強制過原點。
+3. 「準備轉盤」建立固定裝置配置的資料組；推動、放手勻速續轉後，按「量測一點」同步記錄兩側讀數。拖動／動畫／調速按鈕不自動採樣；記錄後圖點立即更新。
+4. 按「3 圖像」暫停轉盤，保留圖點；按「擬合」取得本組真實擬合結果，裝置保留顯示。半徑／質量頁為線性（含截距），角速度頁為二次（含一次項及常數），不強制過原點。
 5. 學生算比值／倍數、比較擬合、選有控制條件的結論。實驗一／二另可換比例開第二組比較；不是完成門檻。
 6. 「檢查」始終可達，包括停止未推動、空資料組、未擬合或全空白。明確提交後才給分及完整物理解釋。
 
 | 實驗 | 正確裝置條件 | 圖像（固定軸次序） | 提交後理論解釋 |
 |---|---|---|---|
-| radius | m_A=m_B，r_A≠r_B；整組配置不變 | x=F_B，y=F_A | k=r_A/r_B；共同 ω 可隨時間變，每次同步比較 ω_A=ω_B |
+| radius | m_A=m_B，r_A≠r_B；整組配置不變 | x=F_B，y=F_A | k=r_A/r_B；每次放手後保持共同 ω 不變並同步量測，ω_A=ω_B |
 | mass | r_A=r_B，m_A≠m_B | x=F_B，y=F_A | k=m_A/m_B |
 | omega | 選定 A 作被測組件，m_A、r_A 在組內不變；B 保留在平台 | x=ω，y=F_A | F=aω²+bω+c；理想 a=m_A r_A，b=c=0；a 是擬合係數，不是加速度 |
 
-工作紙「控制 ω」解釋為前兩組每對 A/B 同時具有相同角速率，不是整段採樣永遠一個轉速。兩側同平台約束自動成立；學生仍需辨認相等條件。另一側器材保留與工作紙一致，但不聲稱任意配置都完全動平衡；首版假設轉軸固定且忽略晃動。
+前兩組每次先推轉、放手，維持共同角速度不變後才同步量測A/B；量測之間可再調速，以取得F_A–F_B比較圖。兩側同平台約束自動成立；學生仍需辨認相等條件。另一側器材保留與工作紙一致，但不聲稱任意配置都完全動平衡；首版假設轉軸固定且忽略晃動。
 
 ## Physics or subject model
 
@@ -89,7 +89,7 @@
 | 砝碼數 n_A、n_B | m_i=m_0+0.020n_i；n_i 整數 0…8 | kg | 每塊 0.020，總質量 0.040…0.200 |
 | 半徑 r_i | 軸心到被測組件質心；尺上離散位置 | m | 0.10…0.40，每格 0.05，共 7 格 |
 | 初始配置 | 三頁均 r_A=r_B=0.20、n_A=n_B=2；不預造半徑／質量差異 | 同上 | 預設不構成前兩頁完整有效對比 |
-| 轉角 φ、帶符號轉速 Ω | 拖動期間由連續展開的觸控角與時間得到；放手 φ 增量=ΩΔt | rad、rad/s | |Ω|上限 6；新開平台 Ω=0；ω=|Ω| 作圖，轉向獨立顯示 |
+| 轉角 φ、帶符號轉速 Ω | 拖動期間由連續展開的觸控角與時間得到；放手 φ 增量=ΩΔt | rad、rad/s | |Ω|上限 6；新開平台 Ω=0；ω=Ω帶符號作圖，逆時針為正、順時針為負 |
 | 徑向讀數 | F_i=m_i r_i ω²；同一採樣的 ω 同時計算兩側 | N | 無噪聲；原始運算保留精度，顯示三位有效數字 |
 | 加速期間 | 徑向加速度 rω²、切向加速度 rα | m/s² | 感應器理想化為只讀徑向分量；固定裝置傳遞切向作用，不把量測值稱總合力 |
 | 擬合 | 現有 fit('linear'/'quadratic', points)，使用保留樣本重建的未顯示捨入讀數 | 隨軸 | 奇異／不同橫座標不足回傳無結果，不能注入理論係數 |
@@ -106,10 +106,10 @@
 
 ### 採樣、資料組與擬合
 
-- 點「開始收集」才建立 run 並固定 cfg；動畫有動但未收集時不產生評分資料。ω=0 可顯示原點，不把它自動當學生記錄。
-- 記錄解析度為 0.001 rad/s：接受真實操作得到的 ω 後轉為整數 q=round(1000ω)，q∈[250,6000]，以 q/1000 作該次權威量測值。F_A、F_B 由同一 q 與凍結 cfg 推得。
-- 以 0.25 rad/s 間隔分成 24 個採樣槽；每槽保留第一個真實樣本，6.000 歸最後槽。不把資料換成槽中心，不插值補足未經過的轉速，不按幀數生成假點。停留在同速只更新 live 讀數。
-- 每頁最多兩個 run，每組最多 24 點；預計完整資料最多 144 個整數。開始另一組前停止現組；已有兩組時須由學生明確刪除一組，不能自動丟棄舊組。
+- 點「準備轉盤」建立run並固定cfg；只有放手勻速後按「量測一點」才產生評分資料。拖動／動畫／調速均不記點，低於可量速度時明示需推快。
+- 記錄解析度為 0.001 rad/s：接受真實操作得到的 ω 後轉為整數 q=round(1000ω)，q∈[-6000,-250]∪[250,6000]，以 q/1000 作該次權威量測值。F_A、F_B 由同一 q 與凍結 cfg 推得。
+- 移除採樣槽排除；每次按量測保留實際整數q，只有完全相同q視為重複並提示調速。0.25rad/s區間只用於評分的覆蓋度，不再阻止記點；半徑／質量以角速度大小評覆蓋，第三頁以帶符號角速度評覆蓋。
+- 每頁最多兩個run，每組最多48點（共288整數）；介面顯示已量／48，滿額停用量測並提示另開組，不默刪舊點。開始另一組前停止現組；已有兩組時須由學生明確刪除一組，不能自動丟棄舊組。
 - 修改 m／r 只改下一組 working cfg，不覆寫任何舊 run；當前作答及擬合都綁定 run。使用者選定的評分資料組另以 selected 索引保存，切換看圖不暗換評分組。
 - 擬合可在數學上可識別時執行：線性至少 2 個不同 x，二次至少 3 個不同 x；充分採樣得分另見 rubric。繼續採樣後舊擬合標記清除，已填結論保留並頁內提醒重新比較，不彈窗。
 - 原始圖點由量測資料生成，不可拖動到理論線上。曲線沒有資料時不預畫；錯誤配置仍畫其真實結果。半徑與質量頁即使同時變兩量也可能有直線，須透過設定評分與 k 的解釋辨認混雜。
@@ -122,7 +122,7 @@
 | Fullscreen | 外層 main 標記 data-sim-fullscreen-target，header 標記 data-sim-fullscreen；重用 shared/fullscreen.js，預留右上 44px，不手寫第二個按鈕 |
 | Desktop / tablet | ≥900px，舞台 1fr、面板 340px（最多可用寬的 34%）；裝置與 live 圖並列。桌面圖例至少 20px，讀數 22px |
 | Classification | bounded split-panel；看裝置／圖時仍需操作面板，面板獨立捲動 |
-| Phone | 收集時舞台 37dvh；設定時 38dvh，≤359px 且高>400px 時舞台至少190px，先顯示探究目標再列器材控制。320×500 面板硬下限 ≥96 CSS px；≤359px 即時讀數分兩行，長小數不裁切；按鈕至少44px |
+| Phone | 收集時舞台 34dvh；設定時 38dvh，≤359px 且高>400px 時舞台至少190px，先顯示探究目標再列器材控制。320×500 面板硬下限 ≥96 CSS px；≤359px 即時讀數分兩行，長小數不裁切；按鈕至少44px |
 | Short viewport | 高≤400 且寬≥480 用左右欄；更窄保留 ≥96px 面板，圖像以面板原生捲動查看，裝置仍保留。200% zoom 重新排列，不靠整頁橫捲 |
 | Phone text | 控制／正文 18px，必要圖標 16px 實際縮放後，讀數 20px；44px 操作目標，公式真上下標，數字固定等寬欄 |
 | Viewports | 320×500、390×500、390×600、390×844、480×320、320×225、1280×800；工具列／鍵盤／200% zoom 均待驗 |
@@ -152,7 +152,7 @@
 
 | Decision | Activity specification and reason |
 |---|---|
-| Notation | m、r、ω、F 均表示大小；運動方向另以圖示標記。F_A/F_B 下標固定，ω 是角速率非帶符號 Ω。物理量、公式、圖軸與單位以本地 MathJax 的 LaTeX 排版；不向學生顯示 raw LaTeX |
+| Notation | m、r、F表示大小；ω表示帶符號角速度，逆時針正、順時針負。F_A/F_B 下標固定。物理量、公式、圖軸與單位以本地 MathJax 的 LaTeX 排版；不向學生顯示 raw LaTeX |
 | Arrows | 如顯示感應器量測方向，用單一實心箭頭及明確「徑向讀數」，不加第三個物體／額外合力；A/B 標記跟托座移動、文字正向，讀數欄固定 |
 | Radius snap | 保留按下位置與拖柄的偏移，按水平位移連續預覽器材及拖柄；限制於本側合法範圍，放手取最近尺格，不要求手指貼近尺線；取消則回滾。相鄰格不足24px時直接標示最近合法半徑並提供 ± 按鈕，不另開預覽窗，不暗吸到本題正解 |
 | Mass snap | 砝碼 drop 到可見樽蓋目標，touch 18px／mouse 10px 局部距離；未命中回工具盤，n 到上限不多加；增減按鈕等效 |
@@ -191,7 +191,7 @@
 | Phase / geometry variant | Production fixture + continuation | Targets / blanks | Coverage |
 |---|---|---|---|
 | 三頁 setup，空白及不同半徑／砝碼 | 正式 startup→拖動任一裝置 | 各 radius、mass，兩側帶、環內空白、panel | T0–T3 source/package |
-| collect，0點／部分點／24點 | 由 setup 開始→可信推動→放手 | 環各象限、跨π、重抓、反向、快速flick；空白不得變速度或採樣模式 | 同上 |
+| collect，0點／部分點／48點 | 由 setup 開始→可信推動→放手→按量測 | 環各象限、跨π、重抓、反向、快速flick；空白不得變速度或採樣模式 | 同上 |
 | pause／analyse 未擬合、已擬合、第二組 | 正式樣本 fixture→續採樣／fit／切組 | 圖空白、原生按鈕、側帶、panel top/bottom | 三頁圖不同軸與標籤均驗 |
 | check→返回編輯 | 空白／部分／完整資料→edit→合法再收集 | 保留資料，恢復所有合法目標 | 同上 |
 | review／committed／frozen／technical | shared fake LMS 各正式 outcome | 所有舊拖動區停用；唯讀切圖、fullscreen、panel | 同上 |
@@ -208,7 +208,7 @@
 | 自變量／控制量角色 | 6 | 自變量正確 2；兩個應控制量各 2。控制量最多選 2，錯答保留；ω頁控制 m/r，r頁控制 m/共同ω，m頁控制 r/共同ω |
 | 實際公平配置 | 4 | selected run 至少有兩個不同樣本；r頁等質量且異半徑，m頁等半徑且異質量；ω頁組內凍結 m/r 且實際有改轉速。角色答錯不連坐 |
 | 資料範圍 | 4 | 至少3個不同槽且 ω跨度≥1.0 rad/s 得4；至少2槽且跨度≥0.5得2；其餘0。資料不公平仍可得真實採樣部分分 |
-| 定量比較 | 4 | r/m頁輸入 selected cfg 的 r_A/r_B 或 m_A/m_B；ω頁填「角速率加倍時力的倍數」4。數值正確可獨立得分，不能預填 |
+| 定量比較 | 4 | r/m頁輸入 selected cfg 的 r_A/r_B 或 m_A/m_B；ω頁填「角速度加倍時力的倍數」4。數值正確可獨立得分，不能預填 |
 | 擬合解讀 | 6 | r/m頁比較實測 k 與剛填的物理比值、判斷能否支持單變量結論，各3；須本組 fit 成功。錯配置的正確「不能隔離」解釋亦可得分。ω頁二次型判斷3、二次項／常數項意義3 |
 | 有條件的物理結論 | 6 | 單選正比 m／正比 r／正比 ω²，選項都附正確控制條件；與自己資料是否充分分開評，未採樣仍可回答概念 |
 
@@ -227,7 +227,7 @@
 | setup/new | 三頁合法 working cfg，空 run、全 null 答案 | selected/current=null | 拖裝置、開始、check |
 | setup/changed | 新 working cfg；可以保留既有 run | 舊 run cfg 永不改 | 新建第1/2組或返回舊圖、check |
 | collect/empty | current 指向合法 run，samples=[] | fitted=false | 推動／停止／check |
-| collect/partial/full | current run 含1…24唯一槽樣本 | 角色與概念答案可有可無 | 還原後暫停，繼續推動／停止／check |
+| collect/partial/full | current run 含1…48唯一q樣本 | 角色與概念答案可有可無 | 還原後暫停，繼續推動／停止／check |
 | analyse/unfitted | current run 可空、少點或夠點 | fitted=false；所有概念答案可獨立保留 | 收集、合法fit、check |
 | analyse/fitted | current run fitted=true 且資料可識別 | fit係數派生不存 | 輸入、選selected、續採樣使fitted=false、check |
 | check/blank-partial-complete | 三頁答案與所選組，returnPage/returnView有效 | 不要求所有頁已訪問／fit | submit 或回有效頁 |
@@ -247,11 +247,11 @@
 
 ## Persistence contract
 
-用 shared makeSnapshot envelope，活動 answer schema v1 / modelVersion1 / rubricVersion1。以下名稱與範圍是實作契約，不是 runtime 已存在。深層拒絕非法參照／非有限值／未知版本；錯誤物理答案不是壞資料。
+用 shared makeSnapshot envelope，活動answer schema v1 / modelVersion2 / rubricVersion1，兼容既有mv1。以下為現行實作契約。深層拒絕非法參照／非有限值／未知版本；錯誤物理答案不是壞資料。
 
 | Field | Exact type / values |
 |---|---|
-| `v,mv,rv` | 各為整數1 |
+| `v,mv,rv` | v=1、rv=1；新稿mv=2，舊稿mv=1按原限制解碼；只在editable更新時升級，review／pending保持原樣 |
 | `seed` | uint32；只控制選項排列，不控制學生轉速 |
 | `page,view,fromReview` | page=0…2；view 上表enum；boolean |
 | `returnTo` | null 或 [page,setup/collect/analyse]，collect/analyse須有合法current |
@@ -261,7 +261,7 @@
 | `T.roles` | [自變量key或null,控制量key陣列或null]；控制量最多2且不同；錯誤角色合法 |
 | `T.runs` | 0…2個 R |
 | `R.cfg` | 同T.work型別，run成立後不可變 |
-| `R.q` | 0…24個整數250…6000，按獲取次序、槽不得重複；力從cfg/q重建 |
+| `R.q` | mv2：0…48個唯一整數，250≤abs(q)≤6000；mv1：0…24正整數且原槽不重複。按獲取次序保存，力從cfg/q重建 |
 | `R.fit` | boolean；true須線性／二次資料可識別且與頁相符 |
 | `R.a` | [定量輸入字串或null,比較key或null,理由key或null]；字串≤12；選項按各頁字典驗證 |
 | `T.law` | null或本頁關係選項key；不綁資料組，不被刪組清掉 |
@@ -272,8 +272,8 @@
 | Authoritative | cfg、真實接受的q、角色／各組答案／結論、selected/current、view/returnTo/fromReview、seed及版本 |
 | Transient | 連續φ/Ω、rAF時間、指針窗口、drag preview、capture、hover、fullscreen、圖像展開狀態；草稿還原一律暫停，不補背景時間 |
 | Derived | F讀數、fit係數、圖點座標、DOM ids、score、選項排列、按鈕狀態；由已驗權威資料重建 |
-| Size | 6組×24整數為上界；以最長合法輸入及shared envelope/result實測draft/review/有效pending均≤4000 UTF-8 bytes。超標先縮DTO重複key，不刪學生資料、不降低精度 |
-| Versions | v1前無歷史格式；未知版本拒絕，不猜測遷移。模型或rubric變更須版本決定與測試 |
+| Size | 6組×48整數為上界；以最長合法輸入及shared envelope/result實測draft/review/有效pending均≤4000 UTF-8 bytes。超標先縮DTO重複key，不刪學生資料、不降低精度 |
+| Versions | mv1的正數資料、已提交分數及pending均保留相容；mv1 editable更新時升mv2，未知版本拒絕。相容性由有分數review／pending重試測試保護 |
 | Invalid editable | 首版採technical load lock，不自動清除；避免誤判finished而擦除。未提交且可證明安全的恢復另走shared契約 |
 | Invalid finished/pending | finished保持鎖定只顯可信LMS摘要；pending深層驗證失敗先quarantinePending，再technical lock，無retry/clear/edit |
 
@@ -302,7 +302,7 @@
 ## Test plan
 
 - [ ] model：質量含基座、半徑以質心、F比例、改ω時同步比值恆定、錯配置k、反轉同ω同F、α不污染徑向值、跨π/零dt/大dt/中心/限速／續轉連續性。
-- [ ] 採樣：未開始不記錄、只收真實值、同槽不堆點、24槽上限、0/250/6000界線、暫停隱藏不補樣、改cfg不覆寫舊組、第三組不得默刪；擬合奇異與實際錯配置。
+- [ ] 採樣：未開始不記錄、只收真實值、每按一次一點、重複q提示、48點上限、±250/±6000界線、暫停隱藏不補樣、改cfg不覆寫舊組、第三組不得默刪；擬合奇異與實際錯配置。
 - [ ] scoring：100分、全空白0、部分項獨立、錯配置但正確判斷混雜、比值與跨度容差邊界、選項全部／重複拒絕、preset不給分。
 - [ ] persistence：逐矩陣列round-trip＋合法續作、最壞bytes、空run／未選selected、刪組參照、fit缺資料、未知版本、NaN/Infinity、非法q／重槽與錯答案合法性。
 - [ ] interaction／lifecycle：測真controller入口，shared所有startup/submit/trust結果、pending canonical mismatch隔離、空白check/submit、review鎖定、standalone刷新與Moodle同attempt分別測。
@@ -360,7 +360,7 @@
 | Template | 與原模板逐一比較，全部14個二級節均保留並填寫；另補學生流程、手動旋轉模型與實施階段 |
 | 文件連結 | `node tools/check-docs.js plans/38-centripetal-force-investigation-lab.md` 通過，無略過連結 |
 | Diff | `git diff --cached --check` 通過，staged範圍只有本計劃；不將文件通過視為runtime證據 |
-| 待審重點 | 直接拖轉手感、每題最多兩組／每組24點、三項實驗與100分rubric、正常短手機panel目標144px、擬合重用既有純函數 |
+| 待審重點 | 直接拖轉手感、每題最多兩組／每組48點、三項實驗與100分rubric、正常短手機panel目標144px、擬合重用既有純函數 |
 
 
 ## P1–P3 實作及本地驗證記錄（2026-10-22）
@@ -513,7 +513,7 @@ Site `dist` 檔案及SHA-256（其中13個為SCORM runtime，根頁為Site入口
 | private deploy | version 4，`appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_abc1e42ed0608191ae4ea2fe421dd075`；deployment `appgdep_6ad9d41b03f88191a7607d7c1dcaf293` 回報 `succeeded`，owner-only 範圍維持不變 |
 | URL | https://centripetal-force-investigation-lab.ieyp.chatgpt.site |
 
-## 教學流程、裝置標示與即時圖像重整（2026-10-22）
+## 教學流程、裝置標示與即時圖像重整（2026-10-22，歷史版本）
 
 使用者要求移除半徑預覽窗、直接在裝置標值；改善標字遮擋及拖柄；先交代任務才設定器材；收集期間顯示即時圖像，圖像可收合且不可蓋住儀器；完成後由兩位 sub agents 獨立審核並跟進。
 
@@ -555,3 +555,39 @@ Site `dist` 檔案及SHA-256（其中13個為SCORM runtime，根頁為Site入口
 | Site source | `7ceeafbce8babb4598dea24ff21429478e7ba81b`，16個runtime與最終SCORM逐位元組相同 |
 | private deploy | version5，`appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_70bef56d9b9881919819c506d2d8b84c`；deployment `appgdep_6ad9df760f3881918059050c25f19957` 回報 `succeeded`，維持owner-only |
 | URL | https://centripetal-force-investigation-lab.ieyp.chatgpt.site/centripetal-force-investigation-lab/ |
+
+## 手動穩速量測與砝碼操作修正（2026-10-22，動工前決策）
+
+- 範圍：本活動 model／persistence／controller／main／HTML／CSS、五個既有純測試與browser driver、mobile-scroll fixtures及本計劃。共用SCORM／fitting及依賴不變。
+- 使用者要求先推轉、放手後按量測。改為準備轉盤→自由調速→放手勻速→「量測一點」，拖動及動畫不自動採樣。每次同步量度A/B，測量時共同角速度固定；可再調速、放手及量下一點以作既有F_A–F_B圖。第三頁顯示帶正負的角速度，逆時針為正，力仍取徑向大小。
+- 移除24個區間的採樣排除，保留0.001rad/s真實精度；每組最多48個不同讀數、兩組不變，顯示容量及重複／滿額原因，不默刪舊點。來源角速度範圍±6，最低可量大小0.25；負值合法。模型版本mv2；舊mv1草稿可編輯升級，已提交／pending保留原版本及分數。
+- 評分仍100分；正數舊資料分數保持一致，半徑／質量的充分採樣依不同角速度大小，第三頁依帶符號角速度；曲線使用實際負x範圍，不預畫理論線。最大合法draft/review/pending須實測≤4000bytes。
+- 固定面板四欄寬度，砝碼塊數與總質量分行；砝碼盤改成有內距、清楚「取用／放回」的整塊命中區，拖回時高亮並提示。俯視托座周圍八格表示已加砝碼數，零塊明示空托座與基礎質量0.040kg（托座連螺絲），不是零質量。
+- 驗證：量測前無採樣、拖住時不能量、放手後速度不變且每按一次只加一點、正負轉向及跨24點、重複與滿額、舊草稿／review／pending相容、返回／提交鎖定；桌面與窄屏加減欄對齊、砝碼完整在盤內、拖入與拖回提示和零塊狀態。完成後沿用兩位審核員覆核具體改動。
+
+
+### 本輪審核及驗證結果
+
+- `ux_audit`獨立測桌面1280×800、390×600、320×500：四列加減鈕同欄且44px；砝碼可拖回整個盤（包括右下角），綠框及放手提示有效；零塊／八塊及每格標示跟實際數量一致；推轉、調速、反向均不偷記點，按量測才加一點。發現盤蓋B徽章、重複浮動提示及手機量測列擠圖，全部修正。最後320半徑標示範圍A x72.09–154.35、B x165.71–248.07，相隔11.36px；390完整圖y497.67–597.67。320完整圖仍需面板捲動。
+- `data_flow_audit`核對正負角速度、畫面轉向、負x擬合及每次採樣caller；以舊HEAD模型建立100分mv1稿，確認新scorer、review及pending重試不變，舊draft更新可升mv2且保留原q。修正提示role=status每幀重寫問題，只在文字改變時更新；有分數的舊review／pending／draft路徑已補入lifecycle測試。
+
+| 驗證 | 已執行證據 |
+|---|---|
+| 純測試 | model／scoring／persistence／interaction／lifecycle五項通過；48個負q與完整答案的draft 2779、review 2816、pending 3158 UTF-8 bytes，均低於4000 |
+| 最終browser | 原始頁與解壓包通過；可信觸控／滑鼠拖入取回、固定按鈕欄、圖示內距、零塊基礎質量、放手勻速、拖住不可量、調速不記點、每按一次一點、重複提示、實際量至48點、正負x圖與擬合範圍、滿額明示且不刪資料；保留返回／重做／只讀／fullscreen測試 |
+| T2 package | 390×600全部19 profiles通過，issues為0；含三頁、fitted、返回設定、收合、submitted／pending／committed。報告 `output/playwright/centripetal-manual-T2-package-all.json`；其後只有擬合顯示的數值格式微調，最終source／package browser已重驗 |
+| 靜態／登記 | npm run check、check:tests通過，263 entries（227 node、36 browser）；最後JS語法／文件連結／git diff --check通過，沿用既有登記 |
+| 套件 | npm run package:all通過；本活動17檔、16個runtime與Site逐位元組一致。ZIP SHA-256：`26940946a43cf857f279aeee9381edab35206e52ccb4c98e1b39483b236adf65` |
+| 限制 | 未重跑先前已知失敗的全套測試；未驗真手機／Safari、T4真Moodle及全T0–T3矩陣。維持planned，不宣稱package-ready／Moodle-ready；320×500需要捲動面板看完整圖 |
+
+本輪7個runtime變更檔案SHA-256；其餘9個沿用上輪：
+
+| 路徑 | SHA-256 |
+|---|---|
+| `centripetal-force-investigation-lab/index.html` | `783cb4390f7928c5fa22cf9b7cc6c8badfeef229c207014a8b0b40c78753622b` |
+| `centripetal-force-investigation-lab/main.js` | `7d38fddb0090a12f808960b8d083276861de3e83e83d4b99162cf2845490f4e0` |
+| `centripetal-force-investigation-lab/model.js` | `47d89ddb5507c7b2954548e39dfef32dc4677a150286cfc2862c72616410fa99` |
+| `centripetal-force-investigation-lab/persistence.js` | `f4e32755f96399ec480dba8f366566440c1684776b531fe1107d20b4613d34c9` |
+| `centripetal-force-investigation-lab/scoring.js` | `3ba3c8c1452e4e41aba803b4bfbc5e08e9523ac8353ba7e3453246642760b044` |
+| `centripetal-force-investigation-lab/styles.css` | `33ceb2de56ef5521ab8c41c5a7e07be74a010be97ccac7b8ef4d4676347854ec` |
+| `centripetal-force-investigation-lab/ui-runtime.js` | `f67d5b9e0a88abe022c9d9bf535120f919e2795605928ad595a61c77e4c2a4e1` |

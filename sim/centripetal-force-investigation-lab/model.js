@@ -12,15 +12,16 @@
   const SYNC = ["same-omega", "same-force", "same-mass", "unknown"];
   const MASS_PARTS = ["cap-screw-weights", "weights-only", "sensor-and-weights", "cap-only"];
   const CFG = [2, 2, 2, 2];
+  const MAX_SAMPLES = 48;
   const clone = value => JSON.parse(JSON.stringify(value));
   const radius = index => 0.1 + 0.05 * index;
   const mass = count => 0.04 + 0.02 * count;
   const quantities = cfg => ({ rA: radius(cfg[0]), rB: radius(cfg[1]), mA: mass(cfg[2]), mB: mass(cfg[3]) });
   const readings = (cfg, omega) => {
     const { rA, rB, mA, mB } = quantities(cfg);
-    return { omega: Math.abs(omega), a: mA * rA * omega ** 2, b: mB * rB * omega ** 2 };
+    return { omega, a: mA * rA * omega ** 2, b: mB * rB * omega ** 2 };
   };
-  const slot = q => Math.min(23, Math.floor((q - 250) / 250));
+  const slot = q => Math.sign(q) * (1 + Math.min(23, Math.floor((Math.abs(q) - 250) / 250)));
   const points = (kind, run) => run.q.map(q => {
     const values = readings(run.cfg, q / 1000);
     return kind === "omega" ? [values.omega, values.a] : [values.b, values.a];
@@ -29,7 +30,7 @@
   const freshRun = cfg => ({ cfg: cfg.slice(), q: [], fit: false, a: [null, null, null] });
   const freshTask = () => ({ work: CFG.slice(), current: null, selected: null, roles: [null, null], runs: [], law: null });
   const fresh = (seed = Math.floor(Math.random() * 0x100000000)) => ({
-    v: 1, mv: 1, rv: 1, seed: seed >>> 0, page: 0, view: "setup", fromReview: false,
+    v: 1, mv: 2, rv: 1, seed: seed >>> 0, page: 0, view: "setup", fromReview: false,
     returnTo: null, tasks: KINDS.map(freshTask), sync: null, massParts: null
   });
   function begin(task) {
@@ -41,10 +42,10 @@
   }
   function record(task, omega) {
     if (task.current === null || !Number.isFinite(omega)) return false;
-    const q = Math.round(Math.abs(omega) * 1000);
-    if (q < 250 || q > 6000) return false;
-    const run = task.runs[task.current], bin = slot(q);
-    if (run.q.some(saved => slot(saved) === bin)) return false;
+    const q = Math.round(omega * 1000);
+    if (Math.abs(q) < 250 || Math.abs(q) > 6000) return false;
+    const run = task.runs[task.current];
+    if (run.q.length >= MAX_SAMPLES || run.q.includes(q)) return false;
     run.q.push(q);
     run.fit = false;
     return true;
@@ -73,7 +74,7 @@
   function dragMotion(state, angle, time) {
     if (!Number.isFinite(angle) || !Number.isFinite(time)) return state;
     if (state.pointerAngle === null) return { ...state, pointerAngle: angle, time, warning: false };
-    const dt = (time - state.time) / 1000, delta = wrap(angle - state.pointerAngle);
+    const dt = (time - state.time) / 1000, delta = -wrap(angle - state.pointerAngle);
     if (!(dt > 0) || dt > 0.12) return { ...state, pointerAngle: angle, time, warning: false };
     if (Math.abs(delta) > Math.PI * 0.8) return { ...state, pointerAngle: angle, time, warning: true };
     const limited = Math.max(-6 * dt, Math.min(6 * dt, delta));
@@ -84,6 +85,6 @@
     return { ...state, angle: state.angle + state.omega * dt };
   }
   return Object.freeze({ KINDS, VARIABLES, COMPARE, REASONS, LAWS, SYNC, MASS_PARTS, clone, CFG, radius, mass,
-    quantities, readings, slot, points, fit, freshRun, freshTask, fresh, begin, record, fitCurrent, removeRun, setWork,
+    quantities, readings, slot, MAX_SAMPLES, points, fit, freshRun, freshTask, fresh, begin, record, fitCurrent, removeRun, setWork,
     motion, dragMotion, coast });
 });

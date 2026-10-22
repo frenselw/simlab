@@ -12,7 +12,7 @@
   const near = (input, target) => typeof input === "string" && input.length > 0 && /^\d*(?:\.\d*)?$/.test(input) &&
     Math.abs(Number(input) - target) <= Math.max(0.01, 0.02 * Math.abs(target)) + 1e-12;
   function fair(kind, run) {
-    if (!run || new Set(run.q.map(M.slot)).size < 2) return false;
+    if (!run || new Set(run.q.map(q => M.slot(kind === "omega" ? q : Math.abs(q)))).size < 2) return false;
     const [rA, rB, nA, nB] = run.cfg;
     if (kind === "radius") return nA === nB && rA !== rB;
     if (kind === "mass") return rA === rB && nA !== nB;
@@ -31,8 +31,9 @@
     const roleScore = (independent === expected.independent ? 2 : 0) +
       expected.controls.filter(key => controls?.includes(key)).length * 2;
     const fairScore = fair(kind, run) ? 4 : 0;
-    const span = run?.q.length ? (Math.max(...run.q) - Math.min(...run.q)) / 1000 : 0;
-    const slots = run ? new Set(run.q.map(M.slot)).size : 0;
+    const samples = run ? run.q.map(q => kind === "omega" ? q : Math.abs(q)) : [];
+    const span = samples.length ? (Math.max(...samples) - Math.min(...samples)) / 1000 : 0;
+    const slots = new Set(samples.map(M.slot)).size;
     const dataScore = slots >= 3 && span >= 1 ? 4 : slots >= 2 && span >= 0.5 ? 2 : 0;
     const ratio = run ? kind === "radius" ? M.radius(run.cfg[0]) / M.radius(run.cfg[1]) :
       kind === "mass" ? M.mass(run.cfg[2]) / M.mass(run.cfg[3]) : 4 : null;

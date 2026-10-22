@@ -109,6 +109,10 @@ async function scenario(cdp, base, launch, label, width, height) {
   for (let i = 0; i < 100 && !await H.evaluate(cdp, "Boolean(document.querySelector('[data-tex] svg'))"); i++) await pause(50);
   assert.ok(await H.evaluate(cdp, "Boolean(document.querySelector('[data-tex] svg'))"), `${label}: LaTeX quantities rendered`);
   assert.ok(await H.evaluate(cdp, "document.querySelector('#taskIntro').compareDocumentPosition(document.querySelector('#setupPanel')) & Node.DOCUMENT_POSITION_FOLLOWING"), `${label}: learning objective precedes apparatus settings`);
+  const columns = await H.evaluate(cdp, `[...document.querySelectorAll('.quantity-step')].map(row=>[...row.querySelectorAll('button')].map(e=>e.getBoundingClientRect().x))`);
+  assert.ok(columns.every(pair=>pair.every((x,i)=>Math.abs(x-columns[0][i])<1)), `${label}: mass and radius buttons share fixed columns`);
+  const trayBounds = await rect(cdp, '#weightTray'), washer = await rect(cdp, '.mass-token.tray .washer');
+  assert.ok(washer.x > trayBounds.x + 2 && washer.y > trayBounds.y + 2 && washer.x + washer.width < trayBounds.x + trayBounds.width - 2 && washer.y + washer.height < trayBounds.y + trayBounds.height - 2, `${label}: weight icon has room inside its tray border`);
   const firstScreenshot = await cdp.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
   fs.writeFileSync(path.join(folder, `centripetal-${label}-setup-${width}x${height}.png`), Buffer.from(firstScreenshot.data, "base64"));
   const layout = await H.evaluate(cdp, `(()=>({root:document.documentElement.scrollHeight-document.documentElement.clientHeight,panel:document.getElementById('controlPanel').clientHeight,fullscreen:!!document.getElementById('fullscreenButton'),stage:getComputedStyle(document.getElementById('stage')).touchAction}))()`);
@@ -133,6 +137,8 @@ async function scenario(cdp, base, launch, label, width, height) {
   assert.equal(await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].work[2]"), 2, `${label}: visible remove-weight button`);
   for (let i = 0; i < 2; i++) await click(cdp, '[data-step="2:-1"]');
   assert.equal(await H.evaluate(cdp, "document.querySelectorAll('[data-assembly=\"A\"] .weight-plate').length"), 0, `${label}: zero weights leaves an empty holder`);
+  assert.match(await H.evaluate(cdp, 'document.getElementById("mAValue").textContent'), /空托座/);
+  assert.ok(await H.evaluate(cdp, 'document.getElementById("mAValue").innerHTML.includes("0.040")'), `${label}: empty holder still explains its mass`);
   for (let i = 0; i < 2; i++) await click(cdp, '[data-step="2:1"]');
   const tray = await rect(cdp, ".mass-token.tray"), tx = tray.x + tray.width / 2, ty = tray.y + tray.height / 2;
   const finger = (x, y) => ({ x, y, id: 119, radiusX: 1, radiusY: 1, force: 1 });
@@ -151,6 +157,7 @@ async function scenario(cdp, base, launch, label, width, height) {
   assert.equal(await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].work[2]"), 3, `${label}: trusted mass placement`);
   assert.equal(await H.evaluate(cdp, "document.querySelector('[data-assembly=\"A\"] .assembly-label').textContent"), 'A·3', `${label}: label shows all stacked weights`);
   assert.equal(await H.evaluate(cdp, "document.querySelectorAll('[data-assembly=\"A\"] circle.weight-plate').length"), 1, `${label}: top view shows only the top disc`);
+  assert.equal(await H.evaluate(cdp, `document.querySelectorAll('[data-assembly="A"] .weight-count-mark[data-filled="true"]').length`), 3, `${label}: visible marks show each added weight`);
   for (let i = 0; i < 6; i++) await click(cdp, '[data-step="3:1"]');
   await touchTo(cdp, '.mass-token.placed.a', '.mass-token.placed.b');
   assert.deepEqual(await H.evaluate(cdp, 'window.__centripetalApp.getState().tasks[0].work.slice(2)'), [3, 8], `${label}: full holder rejects transfer without losing a weight`);
@@ -165,11 +172,18 @@ async function scenario(cdp, base, launch, label, width, height) {
   const collectScreenshot = await cdp.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
   fs.writeFileSync(path.join(folder, `centripetal-${label}-collect-${width}x${height}.png`), Buffer.from(collectScreenshot.data, "base64"));
   await touchAt(cdp, ringPoint.x, ringPoint.y, 55 * ringPoint.scale, 13 * ringPoint.scale);
+  assert.equal(await H.evaluate(cdp, 'window.__centripetalApp.getState().tasks[0].runs[0].q.length'), 0, `${label}: dragging does not collect measurements`);
+  const released = await H.evaluate(cdp, 'window.__centripetalApp.getMotion().omega');
+  await pause(200);
+  assert.equal(await H.evaluate(cdp, 'window.__centripetalApp.getMotion().omega'), released, `${label}: released turntable holds angular velocity steady`);
+  await click(cdp, '#measureButton');
   data = await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].runs[0].q.length");
   assert.ok(data >= 1, `${label}: trusted touch on visible gold ring records a real speed; ${JSON.stringify(await H.evaluate(cdp, `({target:document.elementFromPoint(${ringPoint.x},${ringPoint.y})?.outerHTML?.slice(0,180),events:window.__touchEvidence,motion:window.__centripetalApp.getMotion()})`))}`);
   const beforePush = await H.evaluate(cdp, "Math.abs(window.__centripetalApp.getMotion().omega)");
   await click(cdp, "#pushButton");
   assert.ok(await H.evaluate(cdp, "Math.abs(window.__centripetalApp.getMotion().omega)") > beforePush, `${label}: visible push button accelerates`);
+  assert.equal(await H.evaluate(cdp, 'window.__centripetalApp.getState().tasks[0].runs[0].q.length'), 1, `${label}: speed controls do not collect measurements`);
+  await click(cdp, '#measureButton');
   assert.equal(await H.evaluate(cdp, "document.querySelectorAll('#graphSvg .measured-point').length === window.__centripetalApp.getState().tasks[0].runs[0].q.length"), true, `${label}: collection shows real samples immediately`);
   const apparatus = await rect(cdp, '#deviceSvg'), chart = await rect(cdp, '#graphSvg');
   assert.ok(apparatus.x + apparatus.width <= chart.x || apparatus.y + apparatus.height <= chart.y, `${label}: chart and apparatus occupy separate regions`);
@@ -177,6 +191,7 @@ async function scenario(cdp, base, launch, label, width, height) {
   await click(cdp, '#toggleGraph');
   assert.equal(await H.evaluate(cdp, 'document.getElementById("graphBody").hidden'), true, `${label}: graph can collapse while collecting`);
   await click(cdp, '#pushButton');
+  await click(cdp, '#measureButton');
   assert.ok(await H.evaluate(cdp, 'window.__centripetalApp.getState().tasks[0].runs[0].q.length') > sampleCount, `${label}: collapsed graph keeps recording`);
   await click(cdp, '#toggleGraph');
   assert.equal(await H.evaluate(cdp, "document.querySelectorAll('#graphSvg .measured-point').length === window.__centripetalApp.getState().tasks[0].runs[0].q.length"), true, `${label}: expanded graph shows all collected points`);
@@ -198,9 +213,10 @@ async function scenario(cdp, base, launch, label, width, height) {
   await click(cdp, "#resumeButton");
   await click(cdp, ".spin-segment");
   for (let i = 0; i < 6; i++) await key(cdp, "ArrowRight");
+  await click(cdp, '#measureButton');
   data = await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].runs[0].q.length");
   assert.ok(data >= 2, `${label}: trusted operation and keyboard create distinct measured points (${data})`);
-  await click(cdp, "#stopButton"); await click(cdp, "#fitButton");
+  await click(cdp, "#analyseView"); await click(cdp, "#fitButton");
   assert.equal(await H.evaluate(cdp, "document.getElementById('deviceSvg').getBoundingClientRect().height > 0 && !document.getElementById('graphBody').hidden && Boolean(document.querySelector('.fit-curve'))"), true, `${label}: fitting keeps the apparatus visible`);
   await click(cdp, '#toggleGraph');
   assert.equal(await H.evaluate(cdp, 'document.getElementById("graphBody").hidden'), true, `${label}: analysis graph can collapse`);
@@ -259,6 +275,7 @@ async function layoutOnly(cdp, base, launch, width, height) {
     assert.ok(ring.y >= 56 && ring.y + ring.height <= 56 + layout.stageHeight + 2, "Short-view ring remains touchable inside stage");
     await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 2 });
     await touchDrag(cdp, ".spin-segment", -5, 12);
+    await click(cdp, '#measureButton');
     assert.ok(await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].runs[0].q.length") >= 1, "Short-view ring still produces data");
   }
 }
@@ -268,9 +285,9 @@ async function buttonOnly(cdp, base, launch, label) {
   await click(cdp, '[data-step="2:1"]');
   assert.equal(await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].work[2]"), 3, `${label}: add-weight button`);
   await click(cdp, "#startButton");
-  for (let i = 0; i < 3; i++) await click(cdp, "#pushButton");
-  assert.ok(await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].runs[0].q.length") >= 3, `${label}: push button alone records three speeds`);
-  await click(cdp, "#stopButton"); await click(cdp, "#fitButton");
+  for (let i = 0; i < 3; i++) { await click(cdp, "#pushButton"); await click(cdp, "#measureButton"); }
+  assert.ok(await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].runs[0].q.length") >= 3, `${label}: speed and measurement buttons record three speeds`);
+  await click(cdp, "#analyseView"); await click(cdp, "#fitButton");
   assert.equal(await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].runs[0].fit"), true, `${label}: button-only measurements fit`);
   const saved = await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].runs[0]");
   await H.evaluate(cdp, "document.getElementById('controlPanel').scrollTop=10000");
@@ -293,19 +310,53 @@ async function buttonOnly(cdp, base, launch, label) {
   })()`);
   assert.ok(frozenPlot, `${label}: live plot coordinates use the old run's frozen configuration`);
   await click(cdp, '#setupView'); await click(cdp, '#startButton');
-  for (let i = 0; i < 3; i++) await click(cdp, '#pushButton');
-  await click(cdp, '#stopButton'); await click(cdp, '#fitButton');
+  for (let i = 0; i < 3; i++) { await click(cdp, "#pushButton"); await click(cdp, "#measureButton"); }
+  await click(cdp, '#analyseView'); await click(cdp, '#fitButton');
   await click(cdp, '#setupView'); await click(cdp, '[data-step="0:1"]');
   await click(cdp, '#restartRunButton');
   const redo = await H.evaluate(cdp, 'window.__centripetalApp.getState()');
   assert.equal(redo.view, 'collect'); assert.equal(redo.tasks[0].runs.length, 2);
   assert.deepEqual(redo.tasks[0].runs[0], saved, `${label}: redo preserves the other group`);
   assert.deepEqual(redo.tasks[0].runs[1], {cfg:[3,2,4,2],q:[],fit:false,a:[null,null,null]}, `${label}: redo clears only current data and uses new settings`);
-  for (let i = 0; i < 3; i++) await click(cdp, '#pushButton');
-  await click(cdp, '#stopButton'); await click(cdp, '#fitButton');
+  for (let i = 0; i < 3; i++) { await click(cdp, "#pushButton"); await click(cdp, "#measureButton"); }
+  await click(cdp, '#analyseView'); await click(cdp, '#fitButton');
   assert.equal(await H.evaluate(cdp, 'window.__centripetalApp.getState().tasks[0].runs[1].fit'), true, `${label}: legal continuation after redo`);
   await click(cdp, '#checkButton'); await click(cdp, '#submitButton');
   assert.equal(await H.evaluate(cdp, 'document.getElementById("restartRunButton").hidden'), true, `${label}: submitted work has no redo action`);
+}
+async function signedMeasurements(cdp, base, launch, label) {
+  await cdp.send('Emulation.setDeviceMetricsOverride', {width:1280,height:800,deviceScaleFactor:1,mobile:false});
+  await cdp.send('Page.navigate', {url:base+launch}); await ready(cdp);
+  await click(cdp, '[data-page="2"]'); await click(cdp, '#startButton');
+  for (let i=0;i<3;i++) { await click(cdp, '#pushButton'); await click(cdp, '#measureButton'); }
+  await click(cdp, '#reverseButton'); await click(cdp, '#measureButton');
+  assert.ok(Number(await H.evaluate(cdp, 'document.getElementById("omegaRead").textContent')) < 0, `${label}: reverse shows negative angular velocity`);
+  await click(cdp, '#measureButton');
+  assert.match(await H.evaluate(cdp, 'document.getElementById("measurementHint").textContent'), /已量過/);
+  const geometry = await H.evaluate(cdp, `(()=>{const m=document.getElementById('deviceSvg').getScreenCTM();return {x:300*m.a+m.e,y:230*m.d+m.f,r:213*m.a};})()`);
+  for (let i=0;i<60;i++) {
+    if (await H.evaluate(cdp, 'window.__centripetalApp.getState().tasks[2].runs[0].q.length') >= 48) break;
+    const x=geometry.x+geometry.r, y=geometry.y, angle=.03+i*.003;
+    await cdp.send('Input.dispatchMouseEvent', {type:'mousePressed',x,y,button:'left',buttons:1,clickCount:1});
+    assert.equal(await H.evaluate(cdp, 'document.getElementById("measureButton").disabled'), true, `${label}: held turntable cannot be measured`);
+    await pause(40);
+    const endX=geometry.x+geometry.r*Math.cos(angle), endY=geometry.y+geometry.r*Math.sin(angle);
+    await cdp.send('Input.dispatchMouseEvent', {type:'mouseMoved',x:endX,y:endY,button:'left',buttons:1});
+    await cdp.send('Input.dispatchMouseEvent', {type:'mouseReleased',x:endX,y:endY,button:'left',clickCount:1});
+    await click(cdp, '#measureButton');
+  }
+  const run = await H.evaluate(cdp, 'window.__centripetalApp.getState().tasks[2].runs[0]');
+  assert.equal(run.q.length, 48, `${label}: manual measurements continue beyond 24 to the declared capacity`);
+  assert.ok(run.q.some(q=>q<0) && run.q.some(q=>q>0));
+  assert.match(await H.evaluate(cdp, 'document.getElementById("measurementHint").textContent'), /48點已滿/);
+  assert.equal(await H.evaluate(cdp, 'document.getElementById("measureButton").disabled'), true);
+  await click(cdp, '#analyseView'); await click(cdp, '#fitButton');
+  assert.equal(await H.evaluate(cdp, 'window.__centripetalApp.getState().tasks[2].runs[0].fit'), true);
+  const plot = await H.evaluate(cdp, `({xs:[...document.querySelectorAll('.measured-point')].map(e=>Number(e.getAttribute('cx'))),curve:document.querySelector('.fit-curve').getAttribute('d')})`);
+  assert.ok(Math.min(...plot.xs) < 198.5 && Math.max(...plot.xs) > 198.5, `${label}: graph includes both angular velocity directions`);
+  assert.ok(Number(plot.curve.match(/^M([\d.]+)/)[1]) < 198.5, `${label}: fitted curve starts in the measured negative range`);
+  assert.equal(await H.evaluate(cdp, '/e-\\d+/.test(document.getElementById("fitResult").innerHTML)'), false, `${label}: fitted formula does not display floating-point residue as raw e-notation`);
+  fs.writeFileSync(path.join(root,'output/playwright',`centripetal-${label}-signed-1280x800.png`),Buffer.from((await cdp.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
 }
 async function main() {
   const browser = H.findBrowser(); if (!browser) throw Error("Chrome/Chromium not found");
@@ -322,12 +373,14 @@ async function main() {
     await scenario(cdp, sourceBase, `/sim/${slug}/index.html`, "source", 1280, 800);
     await scenario(cdp, sourceBase, `/sim/${slug}/index.html`, "source", 390, 600);
     await buttonOnly(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
+    await signedMeasurements(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
     for (const [width, height] of [[320,500],[390,500],[390,844],[480,320],[320,225]]) await layoutOnly(cdp, sourceBase, `/sim/${slug}/index.html`, width, height);
     await H.closeServer(server); server = null;
     const extracted = H.buildAndExtractPackage(tempRoot, { slug }); packageDirectory = extracted.packageDirectory;
     server = H.createServer(packageDirectory); await H.listenServer(server);
     await scenario(cdp, `http://127.0.0.1:${server.address().port}`, extracted.activityPath, "package", 390, 600);
     await buttonOnly(cdp, `http://127.0.0.1:${server.address().port}`, extracted.activityPath, "package");
+    await signedMeasurements(cdp, `http://127.0.0.1:${server.address().port}`, extracted.activityPath, "package");
     await layoutOnly(cdp, `http://127.0.0.1:${server.address().port}`, extracted.activityPath, 320, 500);
     await layoutOnly(cdp, `http://127.0.0.1:${server.address().port}`, extracted.activityPath, 320, 225);
     assert.deepEqual(errors, [], `Browser exceptions: ${errors.join("\n")}`);

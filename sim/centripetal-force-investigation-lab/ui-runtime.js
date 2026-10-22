@@ -66,7 +66,7 @@
     update(change) {
       if (!this.editable || this.state.view === "check") return false;
       try {
-        const next = M.clone(this.state); change(next);
+        const next = M.clone(this.state); next.mv = 2; change(next);
         P.validate(next);
         if (JSON.stringify(next) === JSON.stringify(this.state)) return false;
         this.state = next; this.save(); this.emit(); return true;

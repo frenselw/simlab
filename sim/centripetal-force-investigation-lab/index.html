@@ -15,34 +15,34 @@
   <header class="sim-header" data-sim-fullscreen>
     <div class="title"><h1>向心力探究</h1><span id="attemptStatus">操作轉盤與同步量測</span></div>
     <nav class="experiments" aria-label="實驗切換">
-      <button data-page="0">1 半徑</button><button data-page="1">2 質量</button><button data-page="2">3 角速率</button>
+      <button data-page="0">1 半徑</button><button data-page="1">2 質量</button><button data-page="2">3 角速度</button>
       <button id="checkButton" class="check-button">檢查作答</button>
     </nav>
   </header>
   <section id="stage" class="stage" aria-label="旋轉平台與資料圖像">
     <div class="scroll-strip left" aria-hidden="true"></div><div class="scroll-strip right" aria-hidden="true"></div>
-      <div class="readouts" aria-live="off"><span><span data-tex="\omega" data-math-label="角速率">ω</span> <strong id="omegaRead">0.000</strong> <small data-tex="\mathrm{rad}/\mathrm{s}" data-math-label="弧度每秒">rad/s</small></span><span><span data-tex="F_A" data-math-label="A 側徑向力">Fₐ</span> <strong id="forceARead">0.000</strong> <small data-tex="\mathrm{N}" data-math-label="牛頓">N</small></span><span><span data-tex="F_B" data-math-label="B 側徑向力">Fᵦ</span> <strong id="forceBRead">0.000</strong> <small data-tex="\mathrm{N}" data-math-label="牛頓">N</small></span></div>
+      <div class="readouts" aria-live="off"><span><span data-tex="\omega" data-math-label="角速度">ω</span> <strong id="omegaRead">0.000</strong> <small data-tex="\mathrm{rad}/\mathrm{s}" data-math-label="弧度每秒">rad/s</small></span><span><span data-tex="F_A" data-math-label="A 側徑向力">Fₐ</span> <strong id="forceARead">0.000</strong> <small data-tex="\mathrm{N}" data-math-label="牛頓">N</small></span><span><span data-tex="F_B" data-math-label="B 側徑向力">Fᵦ</span> <strong id="forceBRead">0.000</strong> <small data-tex="\mathrm{N}" data-math-label="牛頓">N</small></span></div>
     <div id="stageContent" class="stage-content">
       <svg id="deviceSvg" viewBox="0 0 600 460" preserveAspectRatio="xMidYMid meet" aria-label="兩側測力計與旋轉平台"></svg>
       <div id="spinTargets" aria-label="拖動操作環推動平台"></div>
       <button class="radius-handle" data-side="A" aria-label="左右拖動 A 調整半徑"><span>A</span><span aria-hidden="true">↔</span></button>
       <button class="radius-handle" data-side="B" aria-label="左右拖動 B 調整半徑"><span>B</span><span aria-hidden="true">↔</span></button>
-      <div id="weightTray" class="weight-tray" aria-hidden="true"></div>
-      <button class="mass-token tray" data-mass="tray" aria-label="從砝碼盤拖一塊圓片到 A 或 B 托座"><span class="washer" aria-hidden="true"></span><span>拖一塊</span></button>
+      <div id="weightTray" class="weight-tray"><strong>砝碼盤</strong><span id="trayHint">取用／放回</span></div>
+      <button class="mass-token tray" data-mass="tray" aria-label="從砝碼盤拖一塊圓片到 A 或 B 托座；拖回此盤可取下砝碼"><span class="washer" aria-hidden="true"></span></button>
       <button class="mass-token placed a" data-mass="A" aria-label="拖走 A 托座的一塊砝碼"></button>
       <button class="mass-token placed b" data-mass="B" aria-label="拖走 B 托座的一塊砝碼"></button>
       <p id="stageHint" class="stage-hint" role="status">先在面板加砝碼、調半徑，再按「開始收集」。</p>
     </div>
   </section>
   <aside id="controlPanel" class="control-panel" aria-label="實驗操作面板">
-    <div id="compactReadouts" class="compact-readouts" aria-live="off"><span data-tex="\omega" data-math-label="角速率">ω</span> <strong id="compactOmega">0.000</strong> <span data-tex="\mathrm{rad}/\mathrm{s}" data-math-label="弧度每秒">rad/s</span> · <span data-tex="F_A" data-math-label="A 側徑向力">Fₐ</span> <strong id="compactForceA">0</strong> <span data-tex="\mathrm{N}" data-math-label="牛頓">N</span> · <span data-tex="F_B" data-math-label="B 側徑向力">Fᵦ</span> <strong id="compactForceB">0</strong> <span data-tex="\mathrm{N}" data-math-label="牛頓">N</span></div>
+    <div id="compactReadouts" class="compact-readouts" aria-live="off"><span data-tex="\omega" data-math-label="角速度">ω</span> <strong id="compactOmega">0.000</strong> <span data-tex="\mathrm{rad}/\mathrm{s}" data-math-label="弧度每秒">rad/s</span> · <span data-tex="F_A" data-math-label="A 側徑向力">Fₐ</span> <strong id="compactForceA">0</strong> <span data-tex="\mathrm{N}" data-math-label="牛頓">N</span> · <span data-tex="F_B" data-math-label="B 側徑向力">Fᵦ</span> <strong id="compactForceB">0</strong> <span data-tex="\mathrm{N}" data-math-label="牛頓">N</span></div>
     <p id="notice" class="notice" role="status" hidden></p>
     <button id="saveRetryButton" hidden>重試保存</button>
     <section id="resultPanel" hidden><h2 id="reviewTitle">只讀檢討</h2><p id="scorePanel"></p><button id="retryFinalButton" hidden>重試同一份提交</button></section>
     <section id="taskPanel">
       <nav class="panel-nav" aria-label="實驗步驟"><button id="setupView">1 設定</button><button id="collectView">2 收集</button><button id="analyseView">3 圖像</button></nav>
       <section id="taskIntro" class="task-intro"><p class="eyebrow" id="taskNumber">實驗 1 / 3</p><h2 id="taskTitle"></h2><p id="taskPrompt"></p></section>
-      <section id="setupPanel"><h3>設定器材</h3><p class="small">左右拖 A／B 調半徑；按「＋」或拖入砝碼。半徑與塊數直接標在俯視圖上。</p>
+      <section id="setupPanel"><h3>設定器材</h3><p class="small">左右拖 A／B 調半徑；砝碼拖入托座，拖回「砝碼盤」取下，亦可用 ＋／−。托座外圈每一格代表一塊。</p>
         <div class="setting-row side-a"><strong><span class="side-letter">A</span> A 托座</strong>
           <div class="quantity-step"><span>砝碼</span><button data-step="2:-1" aria-label="A 移除一塊砝碼">−</button><output id="mAValue"></output><button data-step="2:1" aria-label="A 增加一塊砝碼">＋</button></div>
           <div class="quantity-step"><span>半徑</span><button data-step="0:-1" aria-label="A 半徑減少一格">−</button><output id="rAValue"></output><button data-step="0:1" aria-label="A 半徑增加一格">＋</button></div>
@@ -51,28 +51,29 @@
           <div class="quantity-step"><span>砝碼</span><button data-step="3:-1" aria-label="B 移除一塊砝碼">−</button><output id="mBValue"></output><button data-step="3:1" aria-label="B 增加一塊砝碼">＋</button></div>
           <div class="quantity-step"><span>半徑</span><button data-step="1:-1" aria-label="B 半徑減少一格">−</button><output id="rBValue"></output><button data-step="1:1" aria-label="B 半徑增加一格">＋</button></div>
         </div>
-        <p class="small">半徑由軸心量至組件質心，每格 <span data-tex="0.05\,\mathrm{m}">0.05 m</span>；每塊砝碼 <span data-tex="0.020\,\mathrm{kg}">0.020 kg</span>。總質量包括樽蓋、螺絲及砝碼。</p><p id="setupRunNote" class="setup-run-note"></p><div class="setup-actions"><button id="startButton" class="primary">開始收集 →</button><button id="restartRunButton" hidden>清除本組並重做</button></div><p id="restartRunNote" class="small" hidden>重做會清除本組數據、擬合與圖像答案；其他資料組及概念答案保留。</p>
+        <p class="small">空托座連螺絲仍有 <span data-tex="0.040\,\mathrm{kg}">0.040 kg</span>，所以零砝碼也能量測；每塊砝碼另加 <span data-tex="0.020\,\mathrm{kg}">0.020 kg</span>。總質量不包括測力計。半徑由軸心量至組件質心，每格 <span data-tex="0.05\,\mathrm{m}">0.05 m</span>。</p><p id="setupRunNote" class="setup-run-note"></p><div class="setup-actions"><button id="startButton" class="primary">準備轉盤 →</button><button id="restartRunButton" hidden>清除本組並重做</button></div><p id="restartRunNote" class="small" hidden>重做會清除本組數據、擬合與圖像答案；其他資料組及概念答案保留。</p>
       </section>
       <section id="collectPanel" hidden>
-        <div class="button-row"><button id="pushButton" class="primary">＋ 推快</button><button id="slowButton">− 減慢</button><button id="resumeButton">繼續收集</button><button id="stopButton">停止／分析</button></div>
+        <div class="button-row"><button id="pushButton">推快</button><button id="slowButton">減慢</button><button id="reverseButton">反向</button><button id="resumeButton">恢復操作</button><button id="measureButton" class="primary">量測一點</button></div>
+        <p id="measurementHint" class="measurement-hint" role="status">先推動轉盤，再放手量測。</p>
       </section>
       <section id="graphCard" class="graph-card" hidden>
         <div class="graph-heading"><div><h3>同步量測圖</h3><p id="collectStatus" role="status"></p></div><button id="toggleGraph" aria-expanded="true" aria-controls="graphBody">收合圖像</button></div>
         <div id="graphBody"><svg id="graphSvg" viewBox="0 0 360 210" preserveAspectRatio="xMidYMid meet" role="img" aria-label="量測散點圖"></svg><p id="graphLegend" class="graph-legend" hidden></p></div>
       </section>
-      <section id="collectHelp" class="collect-help" hidden><p>沿金色外圈拖動，或用上方按鈕調速；每個新轉速的同步讀數會加入圖像。</p><p>要改器材，按「← 返回設定」。數據會保留。</p><p class="small">鍵盤：聚焦外圈，←／→ 調速，空白鍵暫停。</p></section>
+      <section id="collectHelp" class="collect-help" hidden><p>① 拖金色外圈調速 → ② 放手，讓轉盤勻速轉動 → ③ 按「量測一點」。拖動時不記錄；每次量測時兩側角速度相同且保持不變。</p><p>逆時針為正、順時針為負；改轉速後可再量下一點。要改器材，按「← 返回設定」，數據會保留。</p><p class="small">每組保留最多48個不同讀數，滿額會提示。鍵盤：聚焦外圈，←／→ 調速，空白鍵暫停。</p></section>
       <section id="analysePanel" hidden><h3>比較與解釋</h3><div class="button-row"><button id="fitButton" class="primary">擬合本組圖點</button><button id="resumeFromGraph">繼續採樣</button></div><p id="fitResult" aria-live="polite"></p><p id="axisLabel" class="small"></p>
         <label>定量比較 <span id="numericPrompt"></span><input id="numericAnswer" type="text" inputmode="decimal" maxlength="12" placeholder="填數值"></label>
         <label>圖像支持甚麼判斷？<select id="comparison"></select></label>
         <label>怎樣解讀擬合？<select id="reason"></select></label>
       </section>
       <fieldset id="rolesField"><legend>公平比較：我要改變甚麼？保持甚麼不變？</legend>
-        <label>自變量 <select id="independent"><option value="">未選</option><option value="r">半徑</option><option value="m">質量</option><option value="omega">角速率</option><option value="force">徑向力</option></select></label>
-        <div class="controls-choice"><span>控制量（最多兩項）</span><label><input type="checkbox" data-control="r">半徑</label><label><input type="checkbox" data-control="m">質量</label><label><input type="checkbox" data-control="omega">共同角速率</label><label><input type="checkbox" data-control="force">徑向力</label></div>
+        <label>自變量 <select id="independent"><option value="">未選</option><option value="r">半徑</option><option value="m">質量</option><option value="omega">角速度</option><option value="force">徑向力</option></select></label>
+        <div class="controls-choice"><span>控制量（最多兩項）</span><label><input type="checkbox" data-control="r">半徑</label><label><input type="checkbox" data-control="m">質量</label><label><input type="checkbox" data-control="omega">共同角速度</label><label><input type="checkbox" data-control="force">徑向力</label></div>
       </fieldset>
       <section id="runsPanel"><h3>資料組</h3><div id="runList"></div><p id="runHint" class="small"></p></section>
       <label class="law-field">在公平控制條件下，<span id="lawPrompt"></span><select id="law"></select></label>
-      <section class="synthesis"><h3>綜合問題</h3><label>同一時刻，兩側哪個量相同？<select id="syncAnswer"><option value="">未答</option><option value="same-omega">角速率</option><option value="same-force">徑向力</option><option value="same-mass">質量</option><option value="unknown">不能判斷</option></select></label><label>被測總質量包括甚麼？<select id="massPartsAnswer"><option value="">未答</option><option value="cap-screw-weights">樽蓋、螺絲及砝碼</option><option value="weights-only">只有砝碼</option><option value="sensor-and-weights">測力計及砝碼</option><option value="cap-only">只有樽蓋</option></select></label></section>
+      <section class="synthesis"><h3>綜合問題</h3><label>同一時刻，兩側哪個量相同？<select id="syncAnswer"><option value="">未答</option><option value="same-omega">角速度</option><option value="same-force">徑向力</option><option value="same-mass">質量</option><option value="unknown">不能判斷</option></select></label><label>被測總質量包括甚麼？<select id="massPartsAnswer"><option value="">未答</option><option value="cap-screw-weights">樽蓋、螺絲及砝碼</option><option value="weights-only">只有砝碼</option><option value="sensor-and-weights">測力計及砝碼</option><option value="cap-only">只有樽蓋</option></select></label></section>
       <button id="clearTaskButton">清除此題設定、資料與答案</button>
     </section>
     <section id="checkPanel" hidden><h2>提交前檢查</h2><p>未答項目得 0 分；已完成部分保留分數。提交後只可重看，不可清除或重做。</p><div id="checkSummary"></div><div class="button-row"><button id="backButton">返回修改</button><button id="submitButton" class="primary">提交目前答案</button></div></section>
