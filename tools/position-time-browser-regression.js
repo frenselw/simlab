@@ -24,6 +24,22 @@ function withTimeout(promise, milliseconds, label) {
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
+async function waitForCondition(check, label, milliseconds = 15000, interval = 40) {
+  const deadline = performance.now() + milliseconds;
+  let lastNavigationError;
+  while (performance.now() < deadline) {
+    try {
+      if (await withTimeout(Promise.resolve().then(check), Math.max(1, deadline - performance.now()), label)) return;
+    } catch (error) {
+      // Navigation may replace the execution context; transport and application errors are fatal.
+      if (!/^(?:Runtime\.evaluate: )?(?:Cannot find context with specified id|Execution context was destroyed)(?:\.|$)/.test(error.message)) throw error;
+      lastNavigationError = error;
+    }
+    await delay(Math.max(0, Math.min(interval, deadline - performance.now())));
+  }
+  throw new Error(`${label} timed out after ${milliseconds} ms.`, { cause: lastNavigationError });
+}
+
 function formatError(error, indent = "") {
   const own = `${indent}${error.stack || error.message || String(error)}`;
   if (!(error instanceof AggregateError)) return own;
@@ -1737,7 +1753,7 @@ async function main() {
   console.log(summary);
 }
 
-module.exports = { CdpClient, buildAndExtractPackage, childHasExited, cleanupResources, closeServer, contentType, createServer, delay, devToolsPort, evaluate, fetchJson, findBrowser, listenServer, removeOwnedPackage, removeOwnedProfile, resolvePackageFile, resolveScoLaunchPath, stopChrome, validateOwnedDirectory, validateOwnedProfile, waitForChildExit, withTimeout };
+module.exports = { CdpClient, buildAndExtractPackage, childHasExited, cleanupResources, closeServer, contentType, createServer, delay, devToolsPort, evaluate, fetchJson, findBrowser, listenServer, removeOwnedPackage, removeOwnedProfile, resolvePackageFile, resolveScoLaunchPath, stopChrome, validateOwnedDirectory, validateOwnedProfile, waitForChildExit, waitForCondition, withTimeout };
 
 if (require.main === module) {
   main().catch((error) => {

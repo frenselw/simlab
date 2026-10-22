@@ -37,7 +37,7 @@ async function main(){
   const preload=`window.__trusted=[];for(const type of ['pointerdown','pointerup'])document.addEventListener(type,e=>__trusted.push({type,trusted:e.isTrusted,pointer:e.pointerType}),true);if(new URLSearchParams(location.search).has('unsupported')){Element.prototype.requestFullscreen=undefined;Element.prototype.webkitRequestFullscreen=undefined;}`;
   await cdp.send('Page.addScriptToEvaluateOnNewDocument',{source:preload});
   const inside=async code=>{try{return await H.evaluate(cdp,'('+context+').eval('+JSON.stringify(code)+')');}catch(error){error.message+='\nEvaluation in '+context+': '+code.slice(0,700);throw error;}},call=code=>inside(api+'.'+code);
-  async function wait(code){for(let i=0;i<120;i++){try{if(await inside(code))return;}catch(error){if(/CDP .+ timed out/.test(error.message))throw error;}await H.delay(40);}throw new Error('Timed out: '+context+' '+code+' '+await inside('document.body.innerText.slice(0,600)'));}
+  async function wait(code){return H.waitForCondition(()=>H.evaluate(cdp,'('+context.replaceAll('.frames[','?.frames[')+')?.eval('+JSON.stringify(code)+')'),context+' '+code);}
   async function load(url,ctx='window',name='CircuitACWorkbench'){context=ctx;api=name;await cdp.send('Page.navigate',{url:'http://127.0.0.1:'+activeServer.address().port+url});await wait('!!window.'+api);await H.delay(80);if(await inside('typeof '+api+'.setPlayback==="function"'))await call('setPlayback({paused:true})');}
   async function freshPage(){
    const {targetInfo}=await cdp.send('Target.getTargetInfo'),previous=cdp,{body:fresh}=await H.fetchJson('http://127.0.0.1:'+port+'/json/new?about:blank',{method:'PUT'},30000);

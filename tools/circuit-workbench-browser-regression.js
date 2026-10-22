@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 "use strict";
 const assert = require("node:assert/strict"), fs = require("node:fs"), path = require("node:path"), os = require("node:os"), { spawn } = require("node:child_process"), AdmZip = require("adm-zip");
-const { CdpClient, createServer, listenServer, devToolsPort, evaluate, fetchJson, findBrowser, stopChrome, closeServer, delay, validateOwnedDirectory } = require("./position-time-browser-regression");
+const { CdpClient, createServer, listenServer, devToolsPort, evaluate, fetchJson, findBrowser, stopChrome, closeServer, delay, validateOwnedDirectory, waitForCondition } = require("./position-time-browser-regression");
 const { build } = require("./package-circuit-workbench"), M = require("../sim/circuit-workbench/circuit-model"), G = require("../sim/circuit-workbench/circuit-routing"), P = require("../sim/circuit-workbench/presets");
 const {cameraCases,hostedCameraCases}=require("./circuit-camera-browser-cases");
 const {presetCases}=require("./circuit-preset-browser-cases");
@@ -108,7 +108,7 @@ async function main() {
     let context = "window";
     let activeTargetId=target.id;
     const inside = (expression) => evaluate(cdp, `(${context}).eval(${JSON.stringify(expression)})`);
-    async function ready() { for (let i = 0; i < 100; i++) { try { if (await inside("Boolean(window.CircuitWorkbench)")) return; } catch {} await delay(50); } throw new Error("Workbench did not start: " + context); }
+    async function ready() { return waitForCondition(() => evaluate(cdp, `Boolean((${context.replaceAll('.contentWindow','?.contentWindow')})?.CircuitWorkbench)`), 'Workbench initialization: '+context); }
     async function point(selector, exposed=false) { return inside(`(() => {const e=document.querySelector(${JSON.stringify(selector)});if(!e)throw new Error('Missing '+${JSON.stringify(selector)});e.scrollIntoView({block:'nearest',inline:'nearest'});const r=e.getBoundingClientRect();let x=r.left+r.width/2,y=r.top+r.height/2,w=window;if(${exposed}&&e.dataset.hit?.startsWith("body:")){const exposed=[[.5,.5],[.25,.25],[.75,.25],[.25,.75],[.75,.75],[.1,.1],[.9,.1],[.1,.9],[.9,.9]].map(([fx,fy])=>({x:r.left+r.width*fx,y:r.top+r.height*fy})).find(p=>document.elementFromPoint(p.x,p.y)===e);if(!exposed)throw new Error("No exposed body target "+e.dataset.hit);x=exposed.x;y=exposed.y;}while(w!==w.top){const f=w.frameElement.getBoundingClientRect();x+=f.left;y+=f.top;w=w.parent;}return {x,y,width:r.width,height:r.height};})()`); }
     async function click(selector) { const p = await point(selector,true); await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", ...p, button: "left", clickCount: 1 }); await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", ...p, button: "left", clickCount: 1 }); await delay(30); }
     async function selectionAction(id) {

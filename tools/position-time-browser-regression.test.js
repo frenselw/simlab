@@ -15,6 +15,7 @@ const {
   validateOwnedDirectory,
   validateOwnedProfile,
   waitForChildExit,
+  waitForCondition,
   withTimeout
 } = require("./position-time-browser-regression.js");
 
@@ -97,6 +98,24 @@ assert.equal(validateOwnedDirectory(ownedPackage, fakeTemp, /^simlab-position-ti
 assert.throws(() => validateOwnedDirectory(path.join(fakeTemp, "other-package"), fakeTemp, /^simlab-position-time-package-[A-Za-z0-9]+$/, "SCORM package", fakeFileSystem), /unowned SCORM package/, "unrelated package directory is rejected");
 
 await assert.rejects(withTimeout(new Promise(() => {}), 10, "test operation"), /test operation timed out/, "bounded operations cannot hang forever");
+
+let conditionCalls=0;
+await waitForCondition(async()=>++conditionCalls===3,'initialization',1000,1);
+assert.equal(conditionCalls,3,'unready checks can become ready');
+const navigationError=new Error('Runtime.evaluate: Cannot find context with specified id');
+conditionCalls=0;
+await waitForCondition(async()=>{if(++conditionCalls===1)throw navigationError;return true;},'navigation',1000,1);
+assert.equal(conditionCalls,2,'navigation context replacement is transient');
+for(const message of ['CDP Runtime.evaluate timed out after 15000 ms.','Chrome DevTools WebSocket closed.','TypeError: broken activity','AssertionError: wrong answer']){
+  const fatal=new Error(message);conditionCalls=0;
+  await assert.rejects(waitForCondition(async()=>{conditionCalls++;throw fatal;},'fatal',1000,1),error=>error===fatal);
+  assert.equal(conditionCalls,1,'fatal errors are not polled or replaced');
+}
+await assert.rejects(waitForCondition(()=>new Promise(()=>{}),'hung evaluation',20,1),/hung evaluation timed out/,'one hung evaluation cannot exceed the overall deadline');
+conditionCalls=0;
+await assert.rejects(waitForCondition(async()=>{conditionCalls++;await new Promise(r=>setTimeout(r,15));return false;},'slow evaluation',40,1),/slow evaluation timed out/);
+assert(conditionCalls<=3,'evaluation time counts towards the deadline');
+await assert.rejects(waitForCondition(async()=>{throw navigationError;},'navigation never finished',20,1),error=>/navigation never finished timed out/.test(error.message)&&error.cause===navigationError,'the last navigation error is preserved at the deadline');
 
 class FakeWebSocket {
   constructor() {

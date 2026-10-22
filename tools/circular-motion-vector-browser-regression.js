@@ -5,7 +5,7 @@ const H=require('./position-time-browser-regression.js'),M=require('../sim/circu
 const root=path.resolve(__dirname,'..'),slug=M.ACTIVITY,out=path.join(root,'output/playwright',slug),report={errors:[],flows:[],layouts:[],drags:[],completed:false};
 let cdp,chrome,profile,extracted,server,touchId=100;
 const call=code=>H.evaluate(cdp,`(()=>{const w=window,d=document,app=w.__circularVectorApp;${code}})()`);
-async function wait(fn,label){for(let i=0;i<140;i++){try{if(await fn())return;}catch(_){}await H.delay(35);}throw Error('Timeout: '+label);}
+async function wait(fn,label){return H.waitForCondition(fn,label);}
 async function viewport(width,height){await cdp.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:width<600});await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:2});await H.delay(70);}
 async function open(base,s=null,extra={}){
   const values=extra.values||(s?{'cmi.core.lesson_status':'incomplete','cmi.suspend_data':JSON.stringify(T.snapshot(s))}:{'cmi.core.lesson_status':'not attempted'});
