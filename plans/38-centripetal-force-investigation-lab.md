@@ -62,7 +62,7 @@
 | categories | Mechanics |
 | description | 親手推動旋轉平台，調整兩側質量與半徑，由同步測力讀數及擬合探究向心力關係。 |
 | tags | physics、mechanics、centripetal-force、fair-test、measurement、curve-fitting、scorm |
-| status | 實作中 planned；通過可部署驗證後 active。本輪不修改 catalogue |
+| status | 實作中 planned；通過 package-ready 閘門後改 active。現已加入 catalogue，因全套測試未通過，仍標 planned |
 
 ## 學生流程與資料依賴
 
@@ -315,11 +315,11 @@
 | Runtime resources | 本slug manifest列六自有檔＋四shared＋既有fitting；反向資產消費須涵蓋Newton fitting |
 | Logical entries | 本slug上述五個*.test.js，各node、scope由資料夾繼承 |
 | Browser entry | `file: tools/centripetal-force-investigation-browser-regression.js`、kind browser、scope本slug，driver內source/package；不再重複兩個相同entry |
-| Helpers | 首版不另設helper；若實作真的拆cases，須以規定檔名與literal import登記consumers，不能漏掃 |
+| Helpers | `sim/centripetal-force-investigation-lab/test-support.js` 僅供兩個node測試，不入package；無另設browser cases helper。其變更觸發full selection，詳見下列預覽 |
 | Manual gates | 既有mobile-scroll manual runner增加本slug矩陣；T4真Moodle／手機為另行部署驗收，不冒充日常CI |
 | Registration check | `npm run check:tests` 通過：263 entries、227 node、36 browser；本活動5個 node與1個browser entry 已登記 |
-| Committed preview | 待runtime commit後 `npm run test:affected -- --base=<實際main SHA> --head=HEAD --plan`；初次catalogue/registry變更預期full，核對browser及package被包含 |
-| GitHub | 待測SHA、run URL、scope及結果；使用者不用等CI才收本地結果，不把pending稱passed |
+| Committed preview | `main=4aa4d50680f9c757b932e7db08be118f80142950`、實作commit `1d58f9ba2a26d6e922a90f3e52cb753989d58c2c`；`npm run test:affected -- --base=main --head=HEAD --plan` 選 full：新增 `test-support.js` 無runtime資產消費者，而 catalogue／registry 也屬全套觸發；包括本活動browser與全部package |
+| GitHub | 實作commit的 PR-triggered workflow 查詢回傳空陣列；未取得可核對的CI通過結果或run URL，不把branch push當CI pass |
 
 ## 實施階段與交付
 
@@ -332,7 +332,7 @@
 | P4 | 可試用版本commit/push後，讀Sites skill並建立此活動獨立站點；只部署manifest runtime，保留私人來源／owner-only存取慣例，核對實際設定，不沿用另一活動project id |
 | P5 | 真實Moodle與手機驗收；若環境未提供，清楚標為package-ready待Moodle，不能勾選未驗證項 |
 
-部署每輪記錄 branch SHA、runtime檔案清單及hash、Site project/version/deployment id、存取範圍與可用網址；不打包工作紙或個人路徑。部署指南屬執行前需重新核對的服務規格，本輪不建立站點。
+部署每輪記錄 branch SHA、runtime檔案清單及hash、Site project/version/deployment id、存取範圍與可用網址；不打包工作紙或個人路徑。部署指南屬執行前需重新核對的服務規格；P0 當時未建立站點，P4 的實際部署證據見下節。
 
 ## Package-ready checklist
 
@@ -375,8 +375,38 @@
 | source/package browser | `node tools/centripetal-force-investigation-browser-regression.js` 通過；可信 touch 拖半徑、放取砝碼、推環採樣，鍵盤調速，擬合、空白／部分提交、刷新全新、只讀、fullscreen存在；1280×800、390×600及320×500／390×500／390×844／480×320／320×225佈局，含短視窗操作環 |
 | touch host | `tools/mobile-scroll-browser-regression.js`：T0 standalone、T1/T2/T3 source 初始390×600通過；T1/T3 package 初始390×600通過；T2 source及package的 collect／analyse／fitted／check／submitted／pending／committed 390×600通過，報告在 `output/playwright/` |
 | 視覺 | 已審桌面、390×600及320×225截圖；手機圖軸／下標及極短視窗面板與操作環已調整 |
-| 全套 | `npm test` 在既有 `tools/circuit-household-browser-regression.js:613` 失敗（預期 `closed`，實得 `tripped`）；該測試獨立重跑同樣失敗。全套未通過，不能標記 package-ready。另跑 `npm run test:fast`，結果另記。 |
+| 全套 | `npm test` 在既有 `tools/circuit-household-browser-regression.js:613` 失敗（預期 `closed`，實得 `tripped`）；該測試獨立重跑同樣失敗。`npm run test:fast` 225/227 通過，既有 force-composition persistence 及 ci-prepare 各在120秒限時逾時；兩者獨立不設限時重跑均通過。全套閘門仍未通過，不能標記 package-ready。 |
 
 本地檢查不證明真 Moodle 分數記錄、T4 宿主、iPhone/Safari 或 Android/Chrome。極短 320×225 視窗以面板按鈕設定 m/r，舞台保留推環；展開全螢幕可直接拖動全部器材。
 
 既有家庭電路瀏覽器失敗位於本分支未修改的 driver；獨立重跑同一斷言仍失敗，根因尚未查明。新活動的 source/package 瀏覽器與 T2 解壓包觸控測試各自通過。
+
+補充可信觸控證據：T1 source 的 `--phases=all` 於 320×500 及 390×844 共32個案例完成，錯誤0、手勢所有權問題0；包含三頁 setup/collect/analyse/fitted、check、submitted、pending、committed。T0–T3 所有 mode／viewport／phase 組合尚未全跑，故不宣稱完整手勢矩陣通過。
+
+## P4 私人 Site 部署記錄（2026-10-22）
+
+| 項目 | 已核對資料 |
+|---|---|
+| branch | `codex/centripetal-force-investigation-lab`，實作commit `1d58f9ba2a26d6e922a90f3e52cb753989d58c2c` 已推上origin |
+| SCORM | 最終 `npm run package:all` 通過；本活動ZIP共14檔，13個runtime資產與下列Site檔案逐位元組相同，Site額外根頁只作入口轉址 |
+| Site | private／owner-only，project `appgprj_6ad9b25e7b4c8191987acc391bcc66de`，source commit `ccf936de40f5265db8d2473e0c9b5bb249c1f2bf`，version `appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_1c17b7dcaab8819180beb3456487177a`，deployment `appgdep_6ad9b2cc1e108191ad3278204db8750c` 已回報 `succeeded` |
+| URL | https://centripetal-force-investigation-lab.ieyp.chatgpt.site |
+
+Site `dist` 檔案及SHA-256（其中13個為SCORM runtime，根頁為Site入口）：
+
+| 路徑 | SHA-256 |
+|---|---|
+| `centripetal-force-investigation-lab/index.html` | `36b75f0a2403ca55016134989714a13882177975c0900045dcaf5c76ed6a44e7` |
+| `centripetal-force-investigation-lab/main.js` | `f8a46b372dfdde0875e4ba53f18e1c76d41bd36714a2b1c693e6e5ac62ddc640` |
+| `centripetal-force-investigation-lab/model.js` | `2916a6babbfab81f97a1b905f19adf7ab62e3db37763e3840d304a9522e3aea0` |
+| `centripetal-force-investigation-lab/persistence.js` | `ff054cc4b999e9e320933ac8718ac9d15c3d2ba3e1ff4ff60288424e4be807d0` |
+| `centripetal-force-investigation-lab/scoring.js` | `c91809d4188dae90f1e6ed97c9bccd2f34b74767c7ae67fecad8bfe3fdc7e04d` |
+| `centripetal-force-investigation-lab/styles.css` | `75cc7e98669f49bd7539b62bbcd736a38f385686e83f5d9cf348ebc111c57b80` |
+| `centripetal-force-investigation-lab/ui-runtime.js` | `5891e7932eb7a4c935b03511f69a3f330b747726c059244f589267d2018c49b5` |
+| `config.js` | `0a64557bbd060fe05d1283e4bdf970f1773034b61f82b70f0efae1ef96d2835d` |
+| `index.html` | `1e08b2dd24dcfa6dd6e6af94f7092fb7c99838d3b6e383c4431eb2cd3071a11f` |
+| `newtons-second-law-investigation-lab/fitting.js` | `04058829952839db0310d04e6bfce8ad306a0ce0a29c48dd3a26f78ae6fa090f` |
+| `shared/activity-flow.js` | `125497c68f792b303f7ec2e71c9ed23d7ef76e0f6e4b73ab8d3554ab5fd39d79` |
+| `shared/fullscreen.js` | `055324bc99add2c0d5c7bfa5d5947363d3fbe5d1f3f72e8320aefcd4b1f2be5a` |
+| `shared/scorm.js` | `7fd3bdf36249c942ebb94003fcc5b3dff07c3cfed5b494a887dffdc334e05ca8` |
+| `shared/styles.css` | `e750bf358e83cf738a9fb1df8f63056148e80cd89c35ea4d72b3dc51fcb7cbc2` |
