@@ -784,3 +784,20 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 - 官方helper推送Site source bab42bd38d32319e6cc9f3aa5e0f5bd68e1774ca；原owner-only audience不變，使用已授權的隱藏stdin憑證流程。v12 appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_7e76ff17078881918863d88352eaf6d2，deployment appgdep_6ada316540e08191a3ee3e0f71a933ec，Sites回報succeeded（2026-10-22T15:53:17Z）。
 - 已開回原私人Site分頁，實際拖動並放手讀數+10.920 rad/s；開始測量、按住減速2.4秒後+9.829 rad/s，保存5點並顯示取點要求已達標。保留該頁供使用者試。這項上線操作不能替代使用者原硬件的手感驗證。
 - 網址：https://centripetal-force-investigation-lab.ieyp.chatgpt.site/centripetal-force-investigation-lab/
+
+## 簡化操作及加快減速（2026-10-22，動工前決策）
+
+- 使用者確認v12轉動基本可用，要求加快減速、正反轉圖點相同樣式、移除「反向／恢復操作」；反轉及暫停後繼續都直接以手勢操作，不開sub-agents。
+- 減速由0.45改為1.8rad/s²（4倍）；保持放開即定速、零速不反轉。圖點統一大小／填色／邊框，移除方向圖例；第三題仍以正負角速度座標表示，權威數據不變。前文0.45及空心／實心方向區分為歷史決策，以下節取代。
+- 刪除兩按鈕及事件／render分支；收集階段暫停時仍可抓金環，pointerdown恢復動畫。保留取消／離頁／多指與只讀保護，以及鍵盤方向鍵。已確認的v12連續時鐘保持。
+- 修改範圍：本活動model／main／index、既有model及browser測試、計劃／套件／原私人Site；無新依賴／入口／export。mv3／rv2、評分與保存schema不變。
+- 驗證：雙向加速減速率及到零、放開保持；真pointer手勢反向及取消後重新抓環恢復；同款圖點／沒有刪除的按鈕；連續時鐘既有測試、source及解壓package、五純測試、check／check:tests及committed selection。真手機／Moodle仍未驗。
+
+### 簡化操作驗證
+
+- 五純測試、check及check:tests（263 entries）通過。新增正負6rad/s按住0.5秒後為正負5.1rad/s，積分角2.775rad；到零不反轉，放開維持轉速。
+- 完整source及真正解壓package browser通過。取消後金環仍可抓取，真touch直接恢復，未自動開始測量；手勢反向、按住減速、測量中再推、取消保護與只讀維持。確認兩按鈕不存在，正負量測點r／fill／stroke／stroke-width完全一致，方向圖例已移除；第三題正負座標及擬合仍正確。
+- 更快減速令舊「2.5秒後仍在轉動」測試情境停至零，已把需要保持旋轉的測試按住時間改為1.2秒；到零行為另有model及low-speed browser驗證。未改產品速度以遷就舊測試。
+- v12的mouse／touch、測量開關、CPU1／4及延後900ms放手逐幀測試仍通過；source／package各8種情況均持續前進。另含既有手機尺寸、fullscreen、提交／只讀、圖像收合與保存流程。
+- 16個runtime與canonical sim及Site dist逐位元組一致；ZIP SHA-256：cafd46c6355ee120b4dbb59ae209f82db82271e86e029a79861facc9e2d436b9。
+- 沒有新依賴／測試入口或sub-agent。真手機／真Moodle及全T0–T3矩陣未重驗，維持planned。

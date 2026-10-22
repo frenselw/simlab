@@ -79,10 +79,10 @@ assert.equal(tail.omega,flick.omega,"subpixel release jitter cannot erase flick 
 assert.ok(Math.abs(tail.gestureAngle-.6001)<1e-12,"even tiny final displacement keeps its position");
 assert.equal(M.coast(flick,.18).angle,flick.angle+flick.omega*.18,"a long frame cannot discard elapsed rotation");
 assert.equal(M.coast(flick,.18).omega,flick.omega);
-const stopped=M.coast({...M.motion(),omega:.045},1,true);
-assert.equal(stopped.omega,0);assert.ok(Math.abs(stopped.angle-.00225)<1e-12,"braking integrates only until stopped");
-const reverseStop=M.coast({...M.motion(),omega:-.045},1,true);
-assert.equal(reverseStop.omega,0);assert.ok(Math.abs(reverseStop.angle+.00225)<1e-12);
+const stopped=M.coast({...M.motion(),omega:.18},1,true);
+assert.equal(stopped.omega,0);assert.ok(Math.abs(stopped.angle-.009)<1e-12,"braking integrates only until stopped");
+const reverseStop=M.coast({...M.motion(),omega:-.18},1,true);
+assert.equal(reverseStop.omega,0);assert.ok(Math.abs(reverseStop.angle+.009)<1e-12);
 
 for (const sign of [-1,1]) {
   let continuous={...M.motion(),angle:2,omega:sign*8};
@@ -98,4 +98,11 @@ for (const sign of [-1,1]) {
   assert.equal(released.angle,next.angle);assert.equal(released.omega,next.omega);
   const jump=M.dragMotion(next,sign*2,220);
   assert.equal(jump.warning,true);assert.equal(jump.omega,next.omega,"invalid pointer jump cannot stop rotation");
+}
+
+for(const sign of [-1,1]) {
+  const braking=M.coast({...M.motion(),omega:sign*6},.5,true);
+  assert.ok(Math.abs(braking.omega-sign*5.1)<1e-12,"brake reduces speed by 1.8 rad/s every second");
+  assert.ok(Math.abs(braking.angle-sign*2.775)<1e-12,"faster braking integrates the changing speed");
+  assert.equal(M.coast(braking,.5).omega,braking.omega,"letting go holds the reduced speed");
 }

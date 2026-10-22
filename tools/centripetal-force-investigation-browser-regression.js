@@ -104,23 +104,27 @@ async function brake(cdp, duration=1500, touch=true, cancel=false) {
   const r=await rect(cdp,'#brakeButton'),x=r.x+r.width/2,y=r.y+r.height/2;
   if(touch) await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y,id:301,radiusX:1,radiusY:1,force:1}]});
   else await cdp.send('Input.dispatchMouseEvent',{type:'mousePressed',x,y,button:'left',buttons:1,clickCount:1});
-  await pause(duration);
   assert.ok(await H.evaluate(cdp,'window.__centripetalApp.getMotion().braking'),'hold owns brake: '+JSON.stringify(await H.evaluate(cdp,`({motion:window.__centripetalApp.getMotion(),target:document.elementFromPoint(${x},${y})?.outerHTML,events:window.__touchEvidence?.slice(-4)})`)));
+  await pause(duration);
   if(touch) await cdp.send('Input.dispatchTouchEvent',{type:cancel?'touchCancel':'touchEnd',touchPoints:[]});
   else await cdp.send('Input.dispatchMouseEvent',{type:'mouseReleased',x,y,button:'left',clickCount:1});
 }
-async function reSpin(cdp) {
+async function reSpin(cdp, sign=1) {
   let g=await H.evaluate(cdp,`(()=>{const m=document.getElementById('deviceSvg').getScreenCTM();return{x:300*m.a+m.e,y:230*m.d+m.f,r:213*m.a};})()`);
-  const count=await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[0].runs[0].q.length');
+  const samples="(()=>{const s=window.__centripetalApp.getState();return s.tasks[s.page].runs[0].q.length;})()";
+  const count=await H.evaluate(cdp,samples), measuring=await H.evaluate(cdp,'window.__centripetalApp.getMotion().measuring');
   const finger=a=>({x:g.x+g.r*Math.cos(a),y:g.y+g.r*Math.sin(a),id:411,radiusX:1,radiusY:1,force:1});
   await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[finger(0)]});
   for(let i=1;i<=4;i++) {
-    await pause(25);await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[finger(-i*.18)]});
-    assert.equal(await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[0].runs[0].q.length'),count,'held re-spin never samples');
+    await pause(25);await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[finger(-sign*i*.18)]});
+    assert.equal(await H.evaluate(cdp,samples),count,'held re-spin never samples');
   }
   await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await pause(100);
-  assert.equal(await H.evaluate(cdp,'window.__centripetalApp.getMotion().measuring'),true,'true touch re-spin keeps measurement armed');
-  assert.ok(await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[0].runs[0].q.length')>count,'release resumes without pressing Start again');
+  assert.equal(await H.evaluate(cdp,'window.__centripetalApp.getMotion().measuring'),measuring,'true touch re-spin preserves measurement state');
+  const after=await H.evaluate(cdp,'window.__centripetalApp.getMotion()');
+  assert.ok(after.running && sign*after.omega>0,'hand gesture starts or reverses rotation without buttons');
+  if(measuring) assert.ok(await H.evaluate(cdp,samples)>count,'release resumes without pressing Start again');
+  else assert.equal(await H.evaluate(cdp,samples),count,'resuming rotation does not start measurement');
 }
 async function threePoints(cdp) {
   await push(cdp,6); await click(cdp,'#measureButton'); await brake(cdp,1500);
@@ -236,7 +240,7 @@ async function scenario(cdp, base, launch, label, width, height) {
   const apparatus=await rect(cdp,'#deviceSvg'),chart=await rect(cdp,'#graphSvg');
   assert.ok(apparatus.x+apparatus.width<=chart.x||apparatus.y+apparatus.height<=chart.y,'chart remains outside apparatus');
   const count=await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[0].runs[0].q.length');
-  await click(cdp,'#toggleGraph');await click(cdp,'#reverseButton');await brake(cdp,1500);
+  await click(cdp,'#toggleGraph');await reSpin(cdp,-1);await brake(cdp,1500);
   assert.ok(await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[0].runs[0].q.length')>count,'collapsed graph keeps recording');
   await click(cdp,'#toggleGraph');
   await H.evaluate(cdp, "document.getElementById('controlPanel').scrollTop=0");
@@ -256,7 +260,10 @@ async function scenario(cdp, base, launch, label, width, height) {
   await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [fingerTwo(201, x - 5, y + 8), fingerTwo(202, x - 28, y)] });
   assert.equal(await H.evaluate(cdp, "window.__centripetalApp.getMotion().running"), false, `${label}: second finger safely pauses collection`);
   await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
-  await click(cdp, "#resumeButton");
+  assert.equal(await H.evaluate(cdp,"document.querySelectorAll('#reverseButton,#resumeButton').length"),0,'redundant controls are removed');
+  assert.equal(await H.evaluate(cdp,"document.getElementById('spinTargets').hidden"),false,'paused ring remains available');
+  await reSpin(cdp);
+  assert.doesNotMatch(await H.evaluate(cdp,"document.getElementById('stageHint').textContent"),/已暫停/);
   await click(cdp, ".spin-segment");
   for (let i = 0; i < 6; i++) await key(cdp, "ArrowRight");
   await click(cdp, '#measureButton');
@@ -375,8 +382,8 @@ async function signedMeasurements(cdp, base, launch, label) {
   await cdp.send('Page.navigate', {url:base+launch}); await ready(cdp);
   await click(cdp, '[data-page="2"]'); await click(cdp, '#startButton');
   assert.equal(await H.evaluate(cdp,"document.getElementById('rolesField').hidden"),false,'third experiment retains variable roles');
-  await push(cdp,10); await click(cdp,'#measureButton'); await brake(cdp,2500);
-  await click(cdp,'#reverseButton');await brake(cdp,2500);
+  await push(cdp,10); await click(cdp,'#measureButton'); await brake(cdp,1200);
+  await reSpin(cdp,-1);await brake(cdp,1200);
   const run=await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[2].runs[0]');
   assert.ok(run.q.some(q=>q<0)&&run.q.some(q=>q>0),'both rotation directions are sampled');
   assert.ok(run.q.length<48,'sufficient data is reached below storage capacity');
@@ -386,14 +393,16 @@ async function signedMeasurements(cdp, base, launch, label) {
   assert.equal(await H.evaluate(cdp,"document.getElementById('measurementHint').dataset.status"),'repeated','unchanged speed explains why no point is added');
   assert.match(await H.evaluate(cdp,"document.getElementById('measurementHint').textContent"),/已記錄/);
   assert.equal(await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[2].runs[0].q.length'),count,'steady speed does not add duplicate points');
+  await push(cdp); // A fresh measured speed leaves space to observe the live marker alone.
   const markerBefore=await H.evaluate(cdp,"document.getElementById('livePoint').getAttribute('transform')");
   const noAdd=await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[2].runs[0].q.length');
-  await brake(cdp,100);
+  await brake(cdp,60);
   await pause(100);
   assert.notEqual(await H.evaluate(cdp,"document.getElementById('livePoint').getAttribute('transform')"),markerBefore,'live marker moves even between saved samples');
   assert.equal(await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[2].runs[0].q.length'),noAdd,'live marker does not manufacture an extra saved point');
-  const directions=await H.evaluate(cdp,"[...document.querySelectorAll('.measured-point')].map(e=>({direction:e.dataset.direction,fill:e.getAttribute('fill')}))");
-  assert.ok(directions.some(p=>p.direction==='negative'&&p.fill==='none')&&directions.some(p=>p.direction==='positive'&&p.fill!=='none'),'opposite directions have different point styles');
+  const styles=await H.evaluate(cdp,"[...document.querySelectorAll('.measured-point')].map(e=>['r','fill','stroke','stroke-width'].map(a=>e.getAttribute(a)))");
+  assert.ok(styles.length>1 && styles.every(style=>JSON.stringify(style)===JSON.stringify(['4','#087c95','white','1'])),'positive and negative measurements have identical point styles');
+  assert.doesNotMatch(await H.evaluate(cdp,"document.getElementById('graphLegend').textContent"),/空心|正轉|反轉/);
   await brake(cdp,100,true,true);
   assert.equal(await H.evaluate(cdp,'window.__centripetalApp.getMotion().braking'),false,'touchcancel releases brake');
   assert.equal(await H.evaluate(cdp,'window.__centripetalApp.getMotion().measuring'),false,'cancel stops collection safely');

@@ -105,8 +105,8 @@
   }
   function coast(state, dt, braking = false) {
     if (!Number.isFinite(dt) || dt <= 0) return state;
-    const omega = braking ? (Math.sign(state.omega) * Math.max(0, Math.abs(state.omega) - 0.45 * dt) || 0) : state.omega;
-    const elapsed = braking ? Math.min(dt, Math.abs(state.omega) / 0.45) : dt;
+    const omega = braking ? (Math.sign(state.omega) * Math.max(0, Math.abs(state.omega) - 1.8 * dt) || 0) : state.omega;
+    const elapsed = braking ? Math.min(dt, Math.abs(state.omega) / 1.8) : dt;
     return { ...state, omega, angle: state.angle + (state.omega + omega) * elapsed / 2 };
   }
   return Object.freeze({ KINDS, SETUP_REASONS, SPEED_RELATIONS, VARIABLES, COMPARE, REASONS, LAWS, SYNC, MASS_PARTS, clone, CFG, radius, mass,

@@ -163,11 +163,11 @@
       <g fill="#56717d" font-size="${tickFont}"><text x="66" y="${bottom + 20}">${fmt(minX)}</text>${minX < 0 ? `<text x="${px(0)}" y="${bottom + 20}" text-anchor="middle">0</text>` : ''}<text x="331" y="${bottom + 20}" text-anchor="end">${fmt(maxX)}</text><text x="59" y="32" text-anchor="end">${fmt(maxY)}</text></g>
       ${other.map(([x,y]) => `<circle cx="${px(x)}" cy="${py(y)}" r="4" fill="#b07932" opacity=".65"/>`).join("")}
       ${curve ? `<path class="fit-curve" d="${curve}" fill="none" stroke="#bd5a25" stroke-width="2"/>` : ""}
-      ${points.map(([x,y], i) => `<circle class="measured-point" data-direction="${run.q[i] < 0 ? 'negative' : 'positive'}" cx="${px(x)}" cy="${py(y)}" r="${run.q[i] < 0 ? 6 : 4}" fill="${run.q[i] < 0 ? 'none' : '#087c95'}" stroke="${run.q[i] < 0 ? '#087c95' : 'white'}" stroke-width="${run.q[i] < 0 ? 2 : 1}"/>${view() === "collect" && i === points.length - 1 && performance.now() - lastSampleAt < 750 ? `<circle class="new-point-ring" cx="${px(x)}" cy="${py(y)}" r="8" fill="none" stroke="#b56317" stroke-width="2" aria-hidden="true"/>` : ""}`).join("")}
+      ${points.map(([x,y], i) => `<circle class="measured-point" cx="${px(x)}" cy="${py(y)}" r="4" fill="#087c95" stroke="white" stroke-width="1"/>${view() === "collect" && i === points.length - 1 && performance.now() - lastSampleAt < 750 ? `<circle class="new-point-ring" cx="${px(x)}" cy="${py(y)}" r="8" fill="none" stroke="#b56317" stroke-width="2" aria-hidden="true"/>` : ""}`).join("")}
       <path id="livePoint" d="M-8 0H8M0-8V8" fill="none" stroke="#bc5c17" stroke-width="2.5" visibility="hidden"/>
       ${!points.length ? `<text x="205" y="${(bottom + 25) / 2}" text-anchor="middle" fill="#6d8590" font-size="${tickFont}">${view() === 'collect' && controller.editable ? '推轉後開始測量，再按住減速' : '本組尚未記錄數據'}</text>` : ''}`;
     $("graphLegend").hidden = !points.length && !other.length;
-    $("graphLegend").textContent = `實心：正轉 · 空心：反轉 · 橙十字：即時讀數${other.length ? " · 棕色：另一組" : ""}`;
+    $("graphLegend").textContent = `藍點：量測記錄 · 橙十字：即時讀數${other.length ? " · 棕色：另一組" : ""}`;
   }
   function renderRotor() {
     if (!state()) return;
@@ -292,8 +292,6 @@
     $("restartRunButton").disabled = !editing;
     $("collectView").textContent = t.current === null || v === "collect" ? "2 收集" : "2 繼續本組";
     $("brakeButton").hidden = !editing || v !== "collect";
-    $("reverseButton").disabled = !editing || v !== "collect";
-    $("resumeButton").hidden = running; $("resumeButton").disabled = !editing;
     renderSampling();
     $("fitButton").disabled = !editing || !activeRun(); $("resumeFromGraph").disabled = !editing || !activeRun();
     $("axisLabel").innerHTML = p === 2 && squaredGraph ? `橫軸 ${math("\\omega^2", "角速度平方")}；縱軸 ${math("F_A", "A 側徑向力")}。檢查直線斜率及截距；原角速度圖與答案保留。` : p === 2 ? `橫軸 ${math('\\omega\\,(\\mathrm{rad}/\\mathrm{s})', '角速度（rad/s）')}；縱軸 ${math('F_A\\,(\\mathrm{N})', 'A 側徑向力（N）')}。二次擬合含一次項及常數項。` : `橫軸 ${math('F_B\\,(\\mathrm{N})', 'B 側徑向力（N）')}；縱軸 ${math('F_A\\,(\\mathrm{N})', 'A 側徑向力（N）')}。兩軸都是同步量測的力；比較斜率與設定比值，並檢查截距。`;
@@ -313,13 +311,13 @@
     $("syncAnswer").disabled = !editing; $("massPartsAnswer").disabled = !editing;
     $("clearTaskButton").disabled = !editing;
     renderRuns();
-    const canOperate = editing && v === "collect" && running;
+    const canOperate = editing && v === "collect";
     $("spinTargets").hidden = !canOperate;
     for (const button of document.querySelectorAll(".radius-handle,.mass-token")) button.hidden = !editing || v !== "setup";
     $("weightTray").hidden = !editing || v !== "setup";
     $("stageHint").textContent = matchMedia("(max-height:260px) and (max-width:479px)").matches ?
       v === "collect" ? "拖金色環推動；讀數在下方。" : "短視窗可用下方按鈕設定；全螢幕可直接拖動。" :
-      v === "analyse" ? "轉盤已暫停；數據圖可收合，裝置保留顯示。" : v === "collect" ? running ? "沿金色外圈拖動轉盤" : "已暫停；按「繼續收集」後再推動。" : v === "check" ? "檢查及提交在操作面板。" : "左右拖 A／B 調整半徑";
+      v === "analyse" ? "轉盤已暫停；數據圖可收合，裝置保留顯示。" : v === "collect" ? running ? "沿金色外圈拖動轉盤" : "已暫停；直接拖動金色外圈繼續。" : v === "check" ? "檢查及提交在操作面板。" : "左右拖 A／B 調整半徑";
     if (v === "check") {
       $("checkSummary").innerHTML = s.tasks.map((item, i) => `<div class="check-row"><strong>實驗 ${i + 1} · ${titles[i]}</strong><small>資料組 ${item.runs.length}；評分組 ${item.selected === null ? "未選" : item.selected + 1}；結論 ${item.law === null ? "未答" : "已答"}</small></div>`).join("") + `<div class="check-row">綜合問題：${[s.sync, s.massParts].filter(Boolean).length} / 2 已答</div>`;
       $("submitButton").disabled = !controller.editable || controller.unsaved;
@@ -358,12 +356,14 @@
     const target = event.target.closest(".spin-segment,.radius-handle,.mass-token");
     if (!target || target.hidden) return;
     const type = target.classList.contains("spin-segment") ? "spin" : target.classList.contains("radius-handle") ? "radius" : "mass";
-    if (type === "spin" && !(view() === "collect" && running) || type !== "spin" && view() !== "setup") return;
+    if (type === "spin" && view() !== "collect" || type !== "spin" && view() !== "setup") return;
     if (type === "mass" && target.dataset.mass !== "tray" && task().work[target.dataset.mass === "A" ? 2 : 3] === 0) return;
     event.preventDefault(); target.focus({ preventScroll: true }); target.setPointerCapture(event.pointerId);
     drag = { target, id: event.pointerId, type, side: target.dataset.side || target.dataset.mass, proposed: null, pointerType: event.pointerType };
     if (type === "spin") {
       advanceMotion();
+      running = true;
+      $("stageHint").textContent = "沿金色外圈拖動轉盤";
       releaseBrake();
       drag.center = mapPoint(300, 230);
       motion = M.dragMotion({ ...motion, pointerAngle: null }, Math.atan2(event.clientY - drag.center.y, event.clientX - drag.center.x), event.timeStamp);
@@ -529,8 +529,6 @@
       pause(); motion = M.motion(); localMessage = "";
       if (controller.update(next => { const t = next.tasks[next.page]; t.runs[t.current] = M.freshRun(t.work); next.view = "collect"; })) { running = true; render(); }
     });
-    $("reverseButton").addEventListener("click", () => setSpeed(motion.omega ? -motion.omega : -.5));
-    $("resumeButton").addEventListener("click", () => { running = true; render(); });
     $("resumeFromGraph").addEventListener("click", () => { if (controller.navigate(page(), "collect")) { running = true; render(); } });
     $("fitButton").addEventListener("click", () => { const kind = M.KINDS[page()], result = M.fit(kind, activeRun());
       if (result.ok) controller.update(next => { next.tasks[next.page].runs[next.tasks[next.page].current].fit = true; });
