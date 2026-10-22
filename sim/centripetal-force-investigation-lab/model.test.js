@@ -106,3 +106,16 @@ for(const sign of [-1,1]) {
   assert.ok(Math.abs(braking.angle-sign*2.775)<1e-12,"faster braking integrates the changing speed");
   assert.equal(M.coast(braking,.5).omega,braking.omega,"letting go holds the reduced speed");
 }
+
+for (const sign of [1, -1]) {
+  const task=M.freshTask();M.begin(task);
+  for(let i=0;i<48;i++) assert.ok(M.record(task,sign*(.25+i*.4),"omega"));
+  const first=task.runs[0].q.slice();
+  assert.equal(M.record(task,sign*24,"omega"),false,"one direction cannot use the other quota");
+  assert.equal(M.sampleReady(task.runs[0],sign*24,"omega"),false);
+  assert.equal(M.sampleReady(task.runs[0],-sign*24,"omega"),true,"opposite direction remains available after 48 points");
+  for(let i=0;i<48;i++) assert.ok(M.record(task,-sign*(.25+i*.4),"omega"));
+  assert.equal(task.runs[0].q.length,96);
+  assert.deepEqual(task.runs[0].q.slice(0,48),first,"original readings are retained");
+  assert.equal(M.record(task,-sign*24,"omega"),false);
+}

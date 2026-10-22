@@ -1,6 +1,6 @@
 "use strict";
 const assert = require("node:assert/strict"), M = require("./model.js"), P = require("./persistence.js"), S = require("./scoring.js");
-const snapshot = (answer, kind = "draft") => ({ version: 1, activity: P.ACTIVITY, kind, answer,
+const snapshot = (answer, kind = "draft") => ({ version: 1, activity: P.ACTIVITY, kind, answer: P.encode(answer),
   ...(kind === "review" ? { score: S.score(answer).score, passed: S.score(answer).passed } : {}) });
 function roundtrip(s, continuation) {
   const saved = snapshot(s); assert.deepEqual(P.decode(JSON.parse(JSON.stringify(saved)), "draft"), s);
@@ -20,7 +20,7 @@ for (const page of [0, 1, 2]) for (const variant of ["empty", "partial", "fit", 
 }
 const full = M.fresh(0xffffffff); full.sync = "same-omega"; full.massParts = "sensor-and-weights";
 for (const [i, t] of full.tasks.entries()) for (let run = 0; run < 2; run++) {
-  M.begin(t); for (let q = 23953; q <= 24000; q++) M.record(t, -q / 1000);
+  M.begin(t); for (let q = 23953; q <= 24000; q++) { M.record(t, -q / 1000, M.KINDS[i]); if(i===2) M.record(t, q / 1000, "omega"); }
   t.runs[run].a = ["123456789012", i === 2 ? "square" : "supports", "coefficient"];
   t.inquiry = i < 2 ? ["different-both", "forces-steady"] : [null,null]; t.roles = ["force",["omega","force"]]; t.law = "inverse";
 }
@@ -57,3 +57,15 @@ const rv2=M.fresh(31);rv2.rv=2;M.begin(rv2.tasks[0]);M.record(rv2.tasks[0],1);rv
 roundtrip(rv2,s=>{M.upgradeDraft(s);assert.equal(s.rv,3);assert.ok(M.record(s.tasks[0],2));assert.ok(P.validate(s));});
 const rv2Review=P.review(rv2);
 assert.deepEqual(P.decode(snapshot(rv2Review,"review"),"review"),rv2Review,"old review roundtrip does not upgrade its rubric");
+
+assert.equal(full.tasks[2].runs[0].q.length,96);
+roundtrip(full,s=>{assert.ok(M.fitCurrent("omega",s.tasks[2]).ok);assert.ok(P.validate(s));});
+for(const value of ["x", "ZZZZ", "zzzz", "0000".repeat(49), [], "0000".repeat(97)]) {
+ const bad=snapshot(full);bad.answer.tasks[2].runs[0].q=value;
+ assert.throws(()=>P.decode(bad,"draft"),"malformed and excessive encoded samples are rejected");
+}
+const oldFull=M.fresh(33);oldFull.mv=3;oldFull.page=2;oldFull.view="collect";M.begin(oldFull.tasks[2]);
+for(let i=0;i<48;i++) M.record(oldFull.tasks[2],1+i*.25);
+roundtrip(oldFull,s=>{M.upgradeDraft(s);assert.ok(M.record(s.tasks[2],-1,"omega"));assert.ok(P.validate(s));});
+const legacyFullReview=P.review(oldFull);
+assert.deepEqual(P.decode(snapshot(legacyFullReview,"review"),"review"),legacyFullReview);

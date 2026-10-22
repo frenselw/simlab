@@ -32,7 +32,7 @@
   const freshRun = cfg => ({ cfg: cfg.slice(), q: [], fit: false, a: [null, null, null] });
   const freshTask = () => ({ work: CFG.slice(), current: null, selected: null, roles: [null, null], inquiry: [null, null], runs: [], law: null });
   const fresh = (seed = Math.floor(Math.random() * 0x100000000)) => ({
-    v: 1, mv: 3, rv: 3, seed: seed >>> 0, page: 0, view: "setup", fromReview: false,
+    v: 1, mv: 4, rv: 3, seed: seed >>> 0, page: 0, view: "setup", fromReview: false,
     returnTo: null, tasks: KINDS.map(freshTask), sync: null, massParts: null
   });
   function begin(task) {
@@ -42,12 +42,15 @@
     if (task.selected === null) task.selected = task.current;
     return true;
   }
-  function record(task, omega) {
+  const sampleLimit = kind => kind === "omega" ? 2 * MAX_SAMPLES : MAX_SAMPLES;
+  const hasSampleRoom = (run, omega, kind) => !!run && (kind === "omega" ?
+    run.q.filter(q => Math.sign(q) === Math.sign(omega)).length < MAX_SAMPLES : run.q.length < MAX_SAMPLES);
+  function record(task, omega, kind) {
     if (task.current === null || !Number.isFinite(omega)) return false;
     const q = Math.round(omega * 1000);
     if (Math.abs(q) < 250 || Math.abs(q) > MAX_OMEGA * 1000) return false;
     const run = task.runs[task.current];
-    if (run.q.length >= MAX_SAMPLES || run.q.includes(q)) return false;
+    if (!hasSampleRoom(run, q, kind) || run.q.includes(q)) return false;
     run.q.push(q);
     run.fit = false;
     return true;
@@ -95,13 +98,15 @@
     if (state.rv === 1) {
       state.tasks.forEach(task => { task.inquiry = [null, null]; });
     }
-    state.rv = 3;
+    state.rv = 3; state.mv = 4;
+    const work = state.tasks[2].work;
+    work[1] = work[0]; work[3] = work[2];
     return state;
   }
-  function sampleReady(run, omega) {
+  function sampleReady(run, omega, kind) {
     const q = Math.round(omega * 1000);
     return !!run && Number.isFinite(q) && Math.abs(q) >= 250 && Math.abs(q) <= MAX_OMEGA * 1000 &&
-      run.q.length < MAX_SAMPLES && run.q.every(old => Math.abs(old - q) >= 250);
+      hasSampleRoom(run, q, kind) && run.q.every(old => Math.abs(old - q) >= 250);
   }
   function coast(state, dt, braking = false) {
     if (!Number.isFinite(dt) || dt <= 0) return state;
@@ -111,5 +116,5 @@
   }
   return Object.freeze({ KINDS, SETUP_REASONS, SPEED_RELATIONS, VARIABLES, COMPARE, REASONS, LAWS, SYNC, MASS_PARTS, clone, CFG, radius, mass,
     quantities, readings, slot, MAX_SAMPLES, MAX_OMEGA, points, fit, freshRun, freshTask, fresh, begin, record, fitCurrent, removeRun, setWork,
-    motion, dragMotion, releaseMotion, coast, sampleReady, upgradeDraft });
+    motion, dragMotion, releaseMotion, coast, sampleReady, sampleLimit, hasSampleRoom, upgradeDraft });
 });

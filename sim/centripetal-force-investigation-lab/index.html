@@ -21,7 +21,8 @@
   </header>
   <section id="stage" class="stage" aria-label="旋轉平台與資料圖像">
     <div class="scroll-strip left" aria-hidden="true"></div><div class="scroll-strip right" aria-hidden="true"></div>
-      <div class="readouts" aria-live="off"><span><span data-tex="\omega" data-math-label="角速度">ω</span> <strong id="omegaRead">0.000</strong> <small data-tex="\mathrm{rad}/\mathrm{s}" data-math-label="弧度每秒">rad/s</small></span><span><span data-tex="F_A" data-math-label="A 側徑向力">Fₐ</span> <strong id="forceARead">0.000</strong> <small data-tex="\mathrm{N}" data-math-label="牛頓">N</small></span><span><span data-tex="F_B" data-math-label="B 側徑向力">Fᵦ</span> <strong id="forceBRead">0.000</strong> <small data-tex="\mathrm{N}" data-math-label="牛頓">N</small></span></div>
+      <div class="readouts" aria-live="off"><span><span data-tex="\omega" data-math-label="角速度">ω</span> <strong id="omegaRead">0.000</strong> <small data-tex="\mathrm{rad}/\mathrm{s}" data-math-label="弧度每秒">rad/s</small></span><span><span data-tex="F_A" data-math-label="A 側徑向力">Fₐ</span> <strong id="forceARead">0.000</strong> <small data-tex="\mathrm{N}" data-math-label="牛頓">N</small></span><span class="force-b"><span data-tex="F_B" data-math-label="B 側徑向力">Fᵦ</span> <strong id="forceBRead">0.000</strong> <small data-tex="\mathrm{N}" data-math-label="牛頓">N</small></span></div>
+    <p id="measurementRoles" class="measurement-roles-banner" hidden><strong>A 測力計</strong>　｜　B 配重（不量測）</p>
     <div id="stageContent" class="stage-content">
       <svg id="deviceSvg" viewBox="0 0 600 460" preserveAspectRatio="xMidYMid meet" aria-label="兩側測力計與旋轉平台"></svg>
       <div id="spinTargets" aria-label="拖動操作環推動平台"></div>
@@ -36,7 +37,7 @@
     </div>
   </section>
   <aside id="controlPanel" class="control-panel" aria-label="實驗操作面板">
-    <div id="compactReadouts" class="compact-readouts" aria-live="off"><span data-tex="\omega" data-math-label="角速度">ω</span> <strong id="compactOmega">0.000</strong> <span data-tex="\mathrm{rad}/\mathrm{s}" data-math-label="弧度每秒">rad/s</span> · <span data-tex="F_A" data-math-label="A 側徑向力">Fₐ</span> <strong id="compactForceA">0</strong> <span data-tex="\mathrm{N}" data-math-label="牛頓">N</span> · <span data-tex="F_B" data-math-label="B 側徑向力">Fᵦ</span> <strong id="compactForceB">0</strong> <span data-tex="\mathrm{N}" data-math-label="牛頓">N</span></div>
+    <div id="compactReadouts" class="compact-readouts" aria-live="off"><span data-tex="\omega" data-math-label="角速度">ω</span> <strong id="compactOmega">0.000</strong> <span data-tex="\mathrm{rad}/\mathrm{s}" data-math-label="弧度每秒">rad/s</span> · <span data-tex="F_A" data-math-label="A 側徑向力">Fₐ</span> <strong id="compactForceA">0</strong> <span data-tex="\mathrm{N}" data-math-label="牛頓">N</span><span class="force-b"> · <span data-tex="F_B" data-math-label="B 側徑向力">Fᵦ</span> <strong id="compactForceB">0</strong> <span data-tex="\mathrm{N}" data-math-label="牛頓">N</span></span></div>
     <p id="notice" class="notice" role="status" hidden></p>
     <button id="saveRetryButton" hidden>重試保存</button>
     <section id="resultPanel" hidden><h2 id="reviewTitle">只讀檢討</h2><p id="scorePanel"></p><button id="retryFinalButton" hidden>重試同一份提交</button></section>
@@ -44,7 +45,7 @@
       <nav class="panel-nav" aria-label="實驗步驟"><button id="setupView">1 設定</button><button id="collectView">2 收集</button><button id="analyseView">3 圖像</button></nav>
       <section id="taskIntro" class="task-intro"><p class="eyebrow" id="taskNumber">實驗 1 / 3</p><h2 id="taskTitle"></h2><p id="taskPrompt"></p></section>
       <fieldset id="inquiryField" hidden><legend>同步比較：設定與預測</legend><label><span id="setupReasonPrompt"></span><select id="setupReason"></select></label><label>維持本組器材設定，改變共同轉速時，你預測會怎樣？<select id="speedRelation"></select></label></fieldset>
-      <section id="setupPanel"><h3>設定器材</h3><p class="small">左右拖 A／B 調半徑；砝碼拖入托座，拖回「砝碼盤」取下，亦可用 ＋／−。圖中「砝碼 × 數量」顯示各側放入的塊數。</p>
+      <section id="setupPanel"><h3>設定器材</h3><p id="setupHelp" class="small">左右拖 A／B 調半徑；砝碼拖入托座，拖回「砝碼盤」取下，亦可用 ＋／−。圖中「砝碼 × 數量」顯示各側放入的塊數。</p>
         <div class="setting-row side-a"><strong><span class="side-letter">A</span> A 托座</strong>
           <div class="quantity-step"><span>砝碼</span><button data-step="2:-1" aria-label="A 移除一塊砝碼">−</button><output id="mAValue"></output><button data-step="2:1" aria-label="A 增加一塊砝碼">＋</button></div>
           <div class="quantity-step"><span>半徑</span><button data-step="0:-1" aria-label="A 半徑減少一格">−</button><output id="rAValue"></output><button data-step="0:1" aria-label="A 半徑增加一格">＋</button></div>
@@ -60,11 +61,11 @@
         <p id="measurementHint" class="measurement-hint" role="status">先推動轉盤，再放手量測。</p>
       </section>
       <section id="graphCard" class="graph-card" hidden>
-        <div class="graph-heading"><div><h3>同步量測圖</h3><p id="collectStatus" role="status"></p></div><button id="toggleGraph" aria-expanded="true" aria-controls="graphBody">收合圖像</button></div>
+        <div class="graph-heading"><div><h3 id="graphTitle">同步量測圖</h3><p id="collectStatus" role="status"></p></div><button id="toggleGraph" aria-expanded="true" aria-controls="graphBody">收合圖像</button></div>
         <div id="graphBody"><button id="squareGraph" class="graph-switch" aria-pressed="false" hidden>改看角速度平方圖</button><svg id="graphSvg" viewBox="0 0 360 210" preserveAspectRatio="xMidYMid meet" role="img" aria-label="量測散點圖"></svg><p id="graphLegend" class="graph-legend" hidden></p></div>
       </section>
       <p id="samplingGuide" class="sampling-guide" hidden></p>
-      <section id="collectHelp" class="collect-help" hidden><p>橙色十字顯示當前讀數，經過已量過的轉速也會移動；正反轉均以同款實心點記錄。本模擬使用無測量誤差的理想讀數：正反轉的轉速大小相同，兩側徑向力相同，所以前兩頁的力–力圖會重合；第三頁用正負角速度分開兩方向。</p><p>① 拖外圈推轉並放手 → ② 開始測量 → ③ 按住舞台的「減速」，觀察新圖點逐漸出現。放開減速掣，維持當時轉速。</p><p>沿相反方向拖外圈即可反轉；暫停後直接拖外圈即可繼續。太慢時直接再拖外圈推快，放手即繼續測量，毋須停下或重新開始。拖動期間暫停取點；逆時針為正，順時針為負。</p><p class="small">與已記錄轉速相隔至少 <span data-tex="0.25\,\mathrm{rad}/\mathrm{s}">0.25 rad/s</span> 才加新點；再次經過同一段轉速不會增加點數。48點只是儲存上限，不是目標；達到取點要求後，不因少於48點扣除此項分數。半徑與質量實驗按角速度大小計算跨度；角速度實驗保留正負號。外圈 ←／→ 可調速；減速掣可按住空白鍵或 Enter。返回設定可保留本組、另試一個比值。</p></section>
+      <section id="collectHelp" class="collect-help" hidden><p>橙色十字顯示當前讀數，經過已量過的轉速也會移動；正反轉均以同款實心點記錄。本模擬使用無測量誤差的理想讀數：正反轉的轉速大小相同，兩側徑向力相同，所以前兩頁的力–力圖會重合；第三頁用正負角速度分開兩方向。</p><p>① 拖外圈推轉並放手 → ② 開始測量 → ③ 按住舞台的「減速」，觀察新圖點逐漸出現。放開減速掣，維持當時轉速。</p><p>沿相反方向拖外圈即可反轉；暫停後直接拖外圈即可繼續。太慢時直接再拖外圈推快，放手即繼續測量，毋須停下或重新開始。拖動期間暫停取點；逆時針為正，順時針為負。</p><p class="small">與已記錄轉速相隔至少 <span data-tex="0.25\,\mathrm{rad}/\mathrm{s}">0.25 rad/s</span> 才加新點；再次經過同一段轉速不會增加點數。<span id="capacityHelp">48點只是儲存上限，不是目標；達到取點要求後，不因少於48點扣除此項分數。</span>半徑與質量實驗按角速度大小計算跨度；角速度實驗保留正負號。外圈 ←／→ 可調速；減速掣可按住空白鍵或 Enter。返回設定可保留本組、另試一個比值。</p></section>
       <section id="analysePanel" hidden><h3>比較與解釋</h3><div class="button-row"><button id="fitButton" class="primary">擬合本組圖點</button><button id="resumeFromGraph">繼續採樣</button></div><p id="fitResult" aria-live="polite"></p><p id="axisLabel" class="small"></p>
         <label>定量比較 <span id="numericPrompt"></span><input id="numericAnswer" type="text" inputmode="decimal" maxlength="12" placeholder="填數值"></label>
         <label>圖像支持甚麼判斷？<select id="comparison"></select></label>

@@ -228,7 +228,7 @@ async function scenario(cdp, base, launch, label, width, height) {
   await pause(850);
   assert.equal(await H.evaluate(cdp,"Boolean(document.querySelector('.new-point-ring'))"),false,'new-point marker expires even with reduced motion');
   assert.equal(await H.evaluate(cdp,"document.getElementById('collectStatus').textContent.includes('/ 48')"),false,'capacity is not shown as a completion target');
-  assert.match(await H.evaluate(cdp,"document.getElementById('samplingGuide').textContent"),/毋須收集48點/,'requirement is explicit before coverage is sufficient');
+  assert.match(await H.evaluate(cdp,"document.getElementById('samplingGuide').textContent"),/毋須收滿儲存位置/,'requirement is explicit before coverage is sufficient');
   await H.evaluate(cdp,"window.__samplingNodes={apparatus:document.querySelector('#rotatingAssembly'),option:document.querySelector('#law option'),select:document.querySelector('#law')}");
   const beforeBrake=await H.evaluate(cdp,'window.__centripetalApp.getMotion()');
   const beforeCount=await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[0].runs[0].q.length');
@@ -394,6 +394,49 @@ async function equalRadiusComparison(cdp, base, launch) {
   assert.deepEqual(run.a,["1","supports","coefficient"]);
   await click(cdp,"#checkButton");await click(cdp,"#submitButton");
   assert.match(await H.evaluate(cdp,"document.getElementById('scorePanel').textContent"),/30 \/ 100/,"a valid 1:1 comparison receives full page credit");
+}
+async function directionalCapacity(cdp, base, launch, label) {
+  await cdp.send('Emulation.setDeviceMetricsOverride',{width:390,height:600,deviceScaleFactor:1,mobile:true});
+  await cdp.send('Page.navigate',{url:base+launch});await ready(cdp);
+  await click(cdp,'[data-page="2"]');
+  assert.equal(await H.evaluate(cdp,"document.querySelectorAll('.force-meter').length"),1);
+  assert.equal(await H.evaluate(cdp,"document.querySelectorAll('.counterweight').length"),1);
+  assert.equal(await H.evaluate(cdp,"document.querySelector('.radius-handle[data-side=B]').hidden"),true);
+  assert.equal(await H.evaluate(cdp,"getComputedStyle(document.querySelector('.setting-row.side-b')).display"),'none');
+  await touchTo(cdp,'.mass-token.tray','.mass-token.placed.a');
+  await click(cdp,'[data-step="0:1"]');
+  assert.deepEqual(await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[2].work'),[3,3,3,3],'B follows A mass and radius');
+  fs.writeFileSync(path.join(root,'output/playwright',`centripetal-${label}-single-sensor-390x600.png`),Buffer.from((await cdp.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
+  await click(cdp,'#startButton');
+  assert.equal(await H.evaluate(cdp,"getComputedStyle(document.querySelector('.readouts .force-b')).display"),'none','B has no force readout');
+  for(const [width,height] of [[320,500],[1280,800],[390,600]]) {
+    await cdp.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:width<900});await pause(70);
+    const roles=await rect(cdp,'#measurementRoles'),readouts=await rect(cdp,'.readouts');
+    assert.ok(roles.y>=readouts.y+readouts.height,'measurement roles do not overlap force readings: '+JSON.stringify({width,height,roles,readouts}));
+    const brakeBounds=await rect(cdp,'#brakeButton');
+    assert.ok(roles.y+roles.height<=brakeBounds.y,'measurement roles leave the brake control clear');
+    fs.writeFileSync(path.join(root,'output/playwright',`centripetal-${label}-sensor-roles-${width}x${height}.png`),Buffer.from((await cdp.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
+  }
+  await push(cdp,1);await click(cdp,'#measureButton');await click(cdp,'.spin-segment');
+  for(let i=1;i<48;i++){await key(cdp,'ArrowRight');await pause(80);}
+  const first=await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[2].runs[0].q');
+  assert.equal(first.length,48);assert.ok(first.every(q=>q>0));
+  assert.equal(await H.evaluate(cdp,"document.getElementById('measurementHint').dataset.status"),'direction-full');
+  assert.equal(await H.evaluate(cdp,'window.__centripetalApp.getMotion().measuring'),true);
+  await reSpin(cdp,-1);await pause(100);
+  assert.ok(await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[2].runs[0].q.some(q=>q<0)'),'hand reversal adds negative points after positive quota fills');
+  await push(cdp,48);await brake(cdp,8500);
+  const both=await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[2].runs[0].q');
+  assert.equal(both.length,96);assert.equal(both.filter(q=>q<0).length,48);assert.deepEqual(both.slice(0,48),first);
+  assert.equal(await H.evaluate(cdp,"document.getElementById('measurementHint').dataset.status"),'full');
+  assert.match(await H.evaluate(cdp,"document.getElementById('collectStatus').textContent"),/正轉 48 點 · 反轉 48 點/);
+  await click(cdp,'#analyseView');await click(cdp,'#fitButton');
+  assert.equal(await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[2].runs[0].fit'),true);
+  fs.writeFileSync(path.join(root,'output/playwright',`centripetal-${label}-96-points-390x600.png`),Buffer.from((await cdp.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
+  await click(cdp,'#checkButton');await click(cdp,'#submitButton');
+  const submitted=await H.evaluate(cdp,"({score:document.getElementById('scorePanel').textContent,notice:document.getElementById('notice').textContent,view:window.__centripetalApp.getState().view,disabled:document.getElementById('submitButton').disabled})");
+  assert.ok(submitted.score.includes('/ 100'),'96-point submission is verified: '+JSON.stringify(submitted));
+  assert.equal(await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[2].runs[0].q.length'),96,'submission preserves all 96 readings');
 }
 async function signedMeasurements(cdp, base, launch, label) {
   await cdp.send('Emulation.setDeviceMetricsOverride', {width:1280,height:800,deviceScaleFactor:1,mobile:false});
@@ -579,6 +622,7 @@ async function main() {
     await scenario(cdp, sourceBase, `/sim/${slug}/index.html`, "source", 390, 600);
     await buttonOnly(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
     await equalRadiusComparison(cdp,sourceBase,`/sim/${slug}/index.html`);
+    await directionalCapacity(cdp,sourceBase,`/sim/${slug}/index.html`,"source");
     await signedMeasurements(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
     await lowSpeedFeedback(cdp, sourceBase, `/sim/${slug}/index.html`);
     for (const [width, height] of [[320,500],[390,500],[390,844],[480,320],[320,225]]) await layoutOnly(cdp, sourceBase, `/sim/${slug}/index.html`, width, height);
@@ -589,6 +633,7 @@ async function main() {
     await scenario(cdp, `http://127.0.0.1:${server.address().port}`, extracted.activityPath, "package", 390, 600);
     await buttonOnly(cdp, `http://127.0.0.1:${server.address().port}`, extracted.activityPath, "package");
     await equalRadiusComparison(cdp,`http://127.0.0.1:${server.address().port}`,extracted.activityPath);
+    await directionalCapacity(cdp,`http://127.0.0.1:${server.address().port}`,extracted.activityPath,"package");
     await signedMeasurements(cdp, `http://127.0.0.1:${server.address().port}`, extracted.activityPath, "package");
     await lowSpeedFeedback(cdp, `http://127.0.0.1:${server.address().port}`, extracted.activityPath);
     await responsiveSpin(cdp, `http://127.0.0.1:${server.address().port}`, extracted.activityPath);

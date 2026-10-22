@@ -30,6 +30,6 @@ for(const saveFail of [false,true]) {
   assert.equal(renders,0,"sampling does not rebuild the activity");
   assert.equal(sample.events.saves,before+1,"partial rendering still checkpoints data");
   assert.equal(sample.c.unsaved,saveFail,"save failures remain visible to the caller");
-  assert.deepEqual(sample.scorm.provider().answer.tasks[0].runs[0].q,[2000],"lifecycle provider includes the latest point");
+  assert.deepEqual(P.decode(sample.scorm.provider(),"draft").tasks[0].runs[0].q,[2000],"lifecycle provider includes the latest point");
   sample.c.check();assert.ok(renders>0,"normal navigation still renders fully");
 }

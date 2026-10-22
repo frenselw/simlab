@@ -19,7 +19,7 @@
   function validate(state, kind = "draft") {
     if (!["draft", "review"].includes(kind)) throw new Error("Invalid kind");
     keys(state, fields);
-    if (state.v !== 1 || ![1, 2, 3].includes(state.mv) || ![1, 2, 3].includes(state.rv) || !integer(state.seed, 0, 0xffffffff) ||
+    if (state.v !== 1 || ![1, 2, 3, 4].includes(state.mv) || ![1, 2, 3].includes(state.rv) || !integer(state.seed, 0, 0xffffffff) ||
       !integer(state.page, 0, 2) || typeof state.fromReview !== "boolean" ||
       !["setup", "collect", "analyse", "check", "review"].includes(state.view)) throw new Error("Invalid state version or navigation");
     if (kind === "review" ? state.view !== "review" || state.returnTo !== null || state.fromReview || state.tasks?.some(task => task.current !== null) : state.view === "review") throw new Error("Invalid review phase");
@@ -39,8 +39,9 @@
       if (task.law !== null && !M.LAWS.includes(task.law)) throw new Error("Invalid law");
       task.runs.forEach(run => {
         keys(run, ["cfg", "q", "fit", "a"]); cfg(run.cfg);
-        if (!Array.isArray(run.q) || run.q.length > (state.mv === 1 ? 24 : M.MAX_SAMPLES) ||
+        if (!Array.isArray(run.q) || run.q.length > (state.mv === 1 ? 24 : state.mv >= 4 ? M.sampleLimit(M.KINDS[i]) : M.MAX_SAMPLES) ||
           run.q.some(q => !Number.isInteger(q) || Math.abs(q) < 250 || Math.abs(q) > (state.mv < 3 ? 6000 : M.MAX_OMEGA * 1000) || state.mv === 1 && q < 0) ||
+          (state.mv >= 4 && i === 2 && [1, -1].some(sign => run.q.filter(q => Math.sign(q) === sign).length > M.MAX_SAMPLES)) ||
           new Set(state.mv === 1 ? run.q.map(M.slot) : run.q).size !== run.q.length || typeof run.fit !== "boolean" ||
           (run.fit && !M.fit(M.KINDS[i], run).ok) || !Array.isArray(run.a) || run.a.length !== 3 ||
           (run.a[0] !== null && (typeof run.a[0] !== "string" || run.a[0].length > 12 || !/^\d*(?:\.\d*)?$/.test(run.a[0]))) ||
@@ -51,8 +52,16 @@
     if (["collect", "analyse"].includes(state.view) && state.tasks[state.page].current === null) throw new Error("Missing current run");
     if (state.returnTo && ["collect", "analyse"].includes(state.returnTo[1]) && state.tasks[state.returnTo[0]].current === null) throw new Error("Broken return route");
     if (state.sync !== null && !M.SYNC.includes(state.sync) || state.massParts !== null && !M.MASS_PARTS.includes(state.massParts)) throw new Error("Invalid conclusion");
-    if (bytes(state) > MAX_BYTES) throw new Error("Snapshot too large");
+    if (bytes(encode(state)) > MAX_BYTES) throw new Error("Snapshot too large");
     return M.clone(state);
+  }
+  function encode(state) {
+    const answer = M.clone(state);
+    // Fixed-width samples retain 0.001 rad/s precision within SCORM's byte budget.
+    if (answer.mv >= 4) answer.tasks.forEach(task => task.runs.forEach(run => {
+      run.q = run.q.map(q => (q + 24000).toString(36).padStart(4, "0")).join("");
+    }));
+    return answer;
   }
   function review(state) {
     const answer = M.clone(state); answer.view = "review"; answer.returnTo = null; answer.fromReview = false;
@@ -62,7 +71,12 @@
   function decode(snapshot, kind) {
     if (!snapshot || snapshot.version !== 1 || snapshot.activity !== ACTIVITY || snapshot.kind !== kind || bytes(snapshot) > MAX_BYTES) throw new Error("Invalid envelope");
     if (kind === "review" && (!Number.isFinite(snapshot.score) || snapshot.score < 0 || snapshot.score > 100 || typeof snapshot.passed !== "boolean")) throw new Error("Invalid result");
-    return validate(snapshot.answer, kind);
+    const answer = M.clone(snapshot.answer);
+    if (answer?.mv === 4) answer.tasks.forEach((task, i) => task.runs.forEach(run => {
+      if (typeof run.q !== "string" || run.q.length > M.sampleLimit(M.KINDS[i]) * 4 || !/^(?:[0-9a-z]{4})*$/.test(run.q)) throw new Error("Invalid sample encoding");
+      run.q = (run.q.match(/.{4}/g) || []).map(value => parseInt(value, 36) - 24000);
+    }));
+    return validate(answer, kind);
   }
-  return Object.freeze({ ACTIVITY, MAX_BYTES, bytes, validate, review, decode, fresh: M.fresh });
+  return Object.freeze({ ACTIVITY, MAX_BYTES, bytes, validate, encode, review, decode, fresh: M.fresh });
 });

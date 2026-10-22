@@ -18,7 +18,7 @@ function environment(options = {}) {
       (outcome.ok ? callbacks.onSuccess : callbacks.onFailure)(outcome);
       return outcome;
     },
-    retryPending() { const inner = JSON.parse(durable.snapshot.payload.reviewJson), result = S.score(inner.answer);
+    retryPending() { const inner = JSON.parse(durable.snapshot.payload.reviewJson), result = S.score(P.decode(inner, "review"));
       Object.assign(durable, { state: "finished", snapshot: inner, score: String(result.score), status: result.passed ? "passed" : "failed" });
       return { activityState: "success", ok: true, review: inner, score: result.score, status: durable.status }; },
     retryFinish() { return { activityState: "success", ok: true, review: durable.snapshot, score: Number(durable.score), status: durable.status }; },

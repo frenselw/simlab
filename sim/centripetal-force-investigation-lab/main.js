@@ -3,7 +3,7 @@
   const M = CentripetalModel, P = CentripetalPersistence, S = CentripetalScoring;
   const $ = id => document.getElementById(id), stage = $("stageContent"), device = $("deviceSvg"), graph = $("graphSvg");
   const titles = ["半徑如何影響徑向力？", "質量如何影響徑向力？", "轉速如何影響徑向力？"];
-  const prompts = ["保持同質量，比較力比與半徑比。半徑可相同（1:1），亦可試其他比例。", "同半徑、異質量：改變轉速，力比與總質量比有甚麼關係？", "固定 A 側質量與半徑，改變角速度大小及正負方向。推轉、開始測量，再按住減速，觀察圖線。"];
+  const prompts = ["保持同質量，比較力比與半徑比。半徑可相同（1:1），亦可試其他比例。", "同半徑、異質量：改變轉速，力比與總質量比有甚麼關係？", "只量測 A，B 作平衡配重。固定 A 的質量及半徑，推轉、測量、減速，再試反向。"];
   const compareOptions = [["supports", "斜率與設定比值相符，支持本題比例關係"], ["confounded", "兩個量同時改變，不能隔離"], ["no-contrast", "被研究量沒有差異"], ["insufficient", "資料不足"]];
   const reasonOptions = [["coefficient", "斜率對應兩側物理量比值／二次項對應質量與半徑的乘積"], ["constant", "只有常數項代表關係"], ["other", "係數與配置無關"], ["uncertain", "配置混雜或資料不足，不能隔離解釋"]];
   const lawOptions = [["linear", "徑向力與研究量成正比（其餘量固定）"], ["square", "徑向力與研究量的平方成正比（其餘量固定）"], ["inverse", "徑向力與研究量成反比"], ["none", "沒有可描述的關係"]];
@@ -41,6 +41,7 @@
   const displayedConfig = () => {
     const cfg = view() === "setup" ? task().work.slice() : shownRun()?.cfg || task().work;
     if (view() === "setup" && drag?.type === "radius") cfg[drag.side === "A" ? 0 : 1] = drag.preview;
+    if (page() === 2 && view() === "setup") { cfg[1] = cfg[0]; cfg[3] = cfg[2]; }
     return cfg;
   };
   function positionHit(button, x, y) {
@@ -83,26 +84,28 @@
     new ResizeObserver(() => { if (state()) drawGraph(); }).observe(graph);
   }
   function drawDevice() {
-    const cfg = displayedConfig(), setup = view() === "setup";
+    const cfg = displayedConfig(), setup = view() === "setup", single = page() === 2;
+    device.setAttribute("aria-label", single ? "A 測力計與 B 平衡配重；只量測 A 側徑向力" : "兩側測力計與旋轉平台");
     device.setAttribute("viewBox", setup ? "80 45 440 370" : "0 0 600 550");
     const scale = mapPoint(0, 0).scale, labelFont = Math.max(14, 16 / scale), countFont = Math.max(10, 14 / scale);
     const assemblies = ["A", "B"].map((side, i) => {
       const x = componentX(side, cfg[i]), direction = side === "A" ? 1 : -1, count = cfg[i + 2];
-      const colour = side === "A" ? "#087c95" : "#a9662a", light = side === "A" ? "#e5f3f5" : "#fbf0df";
+      const balance = single && side === "B";
+      const colour = balance ? "#7c8c95" : side === "A" ? "#087c95" : "#a9662a", light = side === "A" ? "#e5f3f5" : "#fbf0df";
       const meterWidth = Math.min(40, Math.abs(x - 300) - 23), meterX = x - direction * (17 + meterWidth / 2);
       return `<g class="assembly" data-assembly="${side}" data-count="${count}" data-radius="${M.radius(cfg[i])}">
         <path class="apparatus-line" d="M300 230H${x}" stroke="${colour}" stroke-width="1.5"/>
-        <g class="force-meter" aria-label="${side} 測力計">
-          <rect class="apparatus-line" x="${meterX - meterWidth / 2}" y="218" width="${meterWidth}" height="24" rx="3" fill="#fff" stroke="#728994" stroke-width="1.3"/>
+        ${balance ? '' : `<g class="force-meter" aria-label="${side} 測力計">
+          <rect class="apparatus-line" x="${meterX - meterWidth / 2}" y="218" width="${meterWidth}" height="24" rx="3" fill="${single ? '#e0f4f7' : '#fff'}" stroke="${single ? colour : '#728994'}" stroke-width="${single ? 2 : 1.3}"/>
           <rect x="${meterX - meterWidth * .32}" y="222" width="${meterWidth * .64}" height="10" rx="1.5" fill="#e4edef"/>
           <path class="apparatus-line" d="M${meterX - meterWidth * .24} 237h${meterWidth * .48}M${meterX - meterWidth * .12} 235v4M${meterX} 235v4M${meterX + meterWidth * .12} 235v4" fill="none" stroke="#91a4ad" stroke-width=".8"/>
-        </g>
-        <circle class="weight-holder apparatus-line" cx="${x}" cy="230" r="14" fill="${light}" stroke="${colour}" stroke-width="1.5"/>
-        ${count ? `<circle class="weight-plate apparatus-line" cx="${x}" cy="230" r="10" fill="#c4d0d6" stroke="#8196a0" stroke-width="1"/><circle cx="${x}" cy="230" r="3.5" fill="${light}"/>` : ''}
-        <g class="assembly-label" data-x="${setup ? meterX : x}" data-y="${setup ? 227 : 200}"><text x="${setup ? meterX : x}" y="${setup ? 230 : 205}" text-anchor="middle" fill="${colour}" font-size="${setup ? 9 : labelFont}" font-weight="600">${side}</text></g>
+        </g>`}
+        ${balance ? `<rect class="counterweight apparatus-line" x="${x - 13}" y="216" width="26" height="28" rx="4" fill="#cbd5da" stroke="#8196a0" stroke-width="1"/><path class="apparatus-line" d="M${x-8} 223h16m-16 7h16m-16 7h16" stroke="#9baeb8" stroke-width="1"/>` : `<circle class="weight-holder apparatus-line" cx="${x}" cy="230" r="14" fill="${light}" stroke="${colour}" stroke-width="1.5"/>
+        ${count ? `<circle class="weight-plate apparatus-line" cx="${x}" cy="230" r="10" fill="#c4d0d6" stroke="#8196a0" stroke-width="1"/><circle cx="${x}" cy="230" r="3.5" fill="${light}"/>` : ''}`}
+        <g class="assembly-label" data-x="${setup && !balance ? meterX : x}" data-y="${setup ? 227 : 200}"><text x="${setup && !balance ? meterX : x}" y="${setup ? 230 : 205}" text-anchor="middle" fill="${colour}" font-size="${setup ? 9 : labelFont}" font-weight="600">${side}</text></g>
       </g>`;
     }).join("");
-    const rulers = setup ? ["A", "B"].map((side, i) => {
+    const rulers = setup ? (single ? ["A"] : ["A", "B"]).map((side, i) => {
       const direction = side === "A" ? 1 : -1, y = radiusY(side), x = componentX(side, cfg[i]);
       return `<g class="radius-ruler" fill="none" stroke="#95aab4" stroke-width="1"><path class="apparatus-line" d="M300 ${y}H${300 + direction * 172}"/>
         <path class="apparatus-line" d="M${x} ${side === "A" ? 303 : 214}V${y}" stroke-dasharray="3 5"/>
@@ -112,10 +115,10 @@
       const x = componentX(side,cfg[i]), anchor = i ? 190 : 410;
       return `<g class="weight-count-label" data-count-label="${side}">
         <path class="apparatus-line" d="M${x} 246v10L${anchor} 273" fill="none" stroke="#acbcc3" stroke-width=".8"/>
-        <text x="${anchor}" y="292" text-anchor="middle" font-size="${countFont}" fill="#365563"><tspan font-weight="700">${side}</tspan>：砝碼 × ${cfg[i+2]}</text>
+        <text x="${anchor}" y="292" text-anchor="middle" font-size="${countFont}" fill="#365563"><tspan font-weight="700">${side}</tspan>：${single && i ? "平衡配重" : `砝碼 × ${cfg[i+2]}`}</text>
       </g>`;
     }).join("") : "";
-    const radiusLabels = ["A", "B"].map((side, i) => {
+    const radiusLabels = (single ? ["A"] : ["A", "B"]).map((side, i) => {
       const index = setup && drag?.type === "radius" && drag.side === side ? drag.proposed : cfg[i];
       const spec = { tex: `r_${side}=${M.radius(index).toFixed(2)}\\,\\mathrm{m}`, text: `${side} 側半徑 ${M.radius(index).toFixed(2)} m` };
       const x = setup ? (i ? 190 : 410) : (i ? 530 : 70), y = setup ? (i ? 83 : 390) : 520, colour = i ? "#a45b24" : "#087c95";
@@ -128,7 +131,7 @@
         <path class="apparatus-line" d="M116 230H484" stroke="#a4b6bf" stroke-width=".8" stroke-dasharray="1 11"/>
         ${assemblies}<circle class="apparatus-line" cx="300" cy="230" r="5" fill="#f8fbfc" stroke="#607c8a" stroke-width="1.5"/>
         <circle cx="300" cy="230" r="1.7" fill="#607c8a"/>
-      </g>${rulers}${counts}${radiusLabels}`;
+      </g>${rulers}${counts}${radiusLabels}${single && setup ? `<text class="measurement-roles" x="300" y="110" text-anchor="middle" font-size="${Math.max(12,14/scale)}" fill="#607580"><tspan fill="#087c95" font-weight="700">A 測力計</tspan>　｜　B 平衡配重</text>` : ""}`;
   }
   function graphPoints(kind, run) {
     return M.points(kind, run).map(([x, y]) => [kind === "omega" && squaredGraph ? x * x : x, y]);
@@ -186,7 +189,7 @@
     device.querySelectorAll(".assembly-label").forEach(label => label.setAttribute("transform", `rotate(${-angle} ${label.dataset.x} ${label.dataset.y})`));
   }
   function renderControls() {
-    const full = activeRun()?.q.length >= M.MAX_SAMPLES;
+    const full = activeRun()?.q.length >= M.sampleLimit(M.KINDS[page()]);
     $("measureButton").disabled = !controller.editable || view() !== "collect" || !running || !!drag || !measuring && (Math.abs(motion.omega) < .25 || full);
     updateText("measureButton", measuring ? "暫停測量" : "開始測量");
     $("measureButton").setAttribute("aria-pressed", String(measuring));
@@ -213,15 +216,16 @@
     updateText("compactOmega", motion.omega.toFixed(3));
     updateText("compactForceA", fmt(reading.a)); updateText("compactForceB", fmt(reading.b));
 
-    const full = activeRun()?.q.length >= M.MAX_SAMPLES;
+    const full = activeRun()?.q.length >= M.sampleLimit(M.KINDS[page()]);
     renderControls();
     let hint, status;
     if (full) { status = "full"; hint = "已達儲存上限；可往「3 圖像」分析。"; }
     else if (drag) { status = "dragging"; hint = "推轉中，暫不取點；放手後繼續。"; }
     else if (Math.abs(motion.omega) < .25) { status = "slow"; hint = measuring ? "轉速太低，暫停取點；可直接再推快。" : "拖外圈推轉、放手，再開始測量。"; }
     else if (!measuring) { status = "paused"; hint = "按「開始測量」，再按住舞台的減速掣。"; }
+    else if (!M.hasSampleRoom(activeRun(), motion.omega, M.KINDS[page()])) { status = "direction-full"; hint = "這個轉向已存滿；直接反向推轉，可繼續量測另一邊。"; }
     else if (performance.now() - lastSampleAt < 750) { status = "added"; hint = `已新增第 ${activeRun().q.length} 點 · 新點以橙圈標示。`; }
-    else if (!M.sampleReady(activeRun(), motion.omega)) { status = "repeated"; hint = S.coverage(M.KINDS[page()], activeRun()).dataScore === 4 ? "這段轉速已記錄；取點已足夠，可分析。" : brakeHold ? "這段轉速已記錄，不重複加點。" : "這段轉速已記錄；按住減速試其他轉速。"; }
+    else if (!M.sampleReady(activeRun(), motion.omega, M.KINDS[page()])) { status = "repeated"; hint = S.coverage(M.KINDS[page()], activeRun()).dataScore === 4 ? "這段轉速已記錄；取點已足夠，可分析。" : brakeHold ? "這段轉速已記錄，不重複加點。" : "這段轉速已記錄；按住減速試其他轉速。"; }
     else { status = "ready"; hint = "測量中 · 按住減速收集不同轉速。"; }
     if ($("measurementHint").textContent !== hint) $("measurementHint").textContent = hint;
     $("measurementHint").dataset.status = status;
@@ -234,15 +238,16 @@
   function renderRuns() {
     const t = task(), locked = !controller.editable || state().view === "check";
     $("runList").innerHTML = t.runs.length ? t.runs.map((run, i) => `<div class="run-card ${t.current === i || locked && reviewRun[page()] === i ? "current" : ""}"><strong>資料組 ${i + 1}</strong><p><span data-run-count="${i}">${run.q.length}</span> 個量測點 · ${math(`m_A=${fmt(M.mass(run.cfg[2]))}\\,\\mathrm{kg},\\ r_A=${fmt(M.radius(run.cfg[0]))}\\,\\mathrm{m}`, 'A 側質量與半徑')} · ${math(`m_B=${fmt(M.mass(run.cfg[3]))}\\,\\mathrm{kg},\\ r_B=${fmt(M.radius(run.cfg[1]))}\\,\\mathrm{m}`, 'B 側質量與半徑')}</p><div class="run-actions"><button data-run="view:${i}" ${controller.mode === "technical" || controller.mode === "mismatch" || state().view === "check" && controller.editable ? "disabled" : ""}>查看</button><button data-run="select:${i}" aria-pressed="${t.selected === i}" ${locked ? "disabled" : ""}>${t.selected === i ? "評分組 ✓" : "選為評分組"}</button>${locked ? "" : `<button data-run="delete:${i}">刪除本組</button>`}</div></div>`).join("") : "<p>尚未收集資料。你仍可回答概念題或檢查作答。</p>";
-    $("runHint").textContent = t.runs.length >= 2 ? "最多保留兩組；如要再收集，先明確刪除其中一組。" : "可返回設定，換另一個半徑比或質量比，再建立第二組比較斜率；舊組數據保留。";
+    $("runHint").textContent = t.runs.length >= 2 ? "最多保留兩組；如要再收集，先明確刪除其中一組。" : page() === 2 ? "同一資料組可連續量測正轉與反轉；直接反向推轉即可，毋須另開組。" : "可返回設定，換另一個半徑比或質量比，再建立第二組比較斜率；舊組數據保留。";
   }
   function renderSampling() {
     const run = shownRun(), p = page(), cfg = task().work, editing = controller.editable && view() !== "check";
     $("collectStatus").textContent = `已記錄 ${run?.q.length || 0} 點 · A ${run?.cfg[2] ?? cfg[2]}塊 · B ${run?.cfg[3] ?? cfg[3]}塊`;
+    if (p === 2) $("collectStatus").textContent = `只量測 A · 正轉 ${run?.q.filter(q=>q>0).length || 0} 點 · 反轉 ${run?.q.filter(q=>q<0).length || 0} 點`;
     const coverage = S.coverage(M.KINDS[p], run), enough = coverage.dataScore === 4;
     $("samplingGuide").dataset.sufficient = String(enough);
     $("samplingGuide").innerHTML = enough ? `取點要求已達標${editing ? "，可往「3 圖像」" : ""}；更多點不另加取點分。` :
-      `取點要求：至少 3 個轉速區間、跨度 ${math("1\\,\\mathrm{rad}/\\mathrm{s}", "1 rad/s")}。目前 ${coverage.slots} 個、${coverage.span.toFixed(3)} ${math("\\mathrm{rad}/\\mathrm{s}", "rad/s")}；毋須收集48點。`;
+      `取點要求：至少 3 個轉速區間、跨度 ${math("1\\,\\mathrm{rad}/\\mathrm{s}", "1 rad/s")}。目前 ${coverage.slots} 個、${coverage.span.toFixed(3)} ${math("\\mathrm{rad}/\\mathrm{s}", "rad/s")}；毋須收滿儲存位置。`;
     $("notice").hidden = !controller.notice && !localMessage;
     $("notice").textContent = localMessage || controller.notice;
     $("saveRetryButton").hidden = !controller.editable || !controller.unsaved;
@@ -267,6 +272,13 @@
     for (const button of document.querySelectorAll("[data-page]")) { button.disabled = !s; button.setAttribute("aria-current", Number(button.dataset.page) === p ? "page" : "false"); }
     if (!s) { $("stageHint").textContent = "作答資料尚未能安全讀取。"; return; }
     const t = task(), cfg = t.work, run = shownRun(), editing = !locked && v !== "check";
+    $("app").dataset.experiment = M.KINDS[p];
+    $("measurementRoles").hidden = p !== 2 || v === "setup";
+    document.querySelector(".setting-row.side-b").hidden = p === 2;
+    $("setupHelp").textContent = p === 2 ? "拖動 A 調半徑，砝碼放入 A 托座或拖回盤取下，亦可用 ＋／−。B 是平衡配重，新設定的質量與半徑自動跟隨 A，不作測力。" : "左右拖 A／B 調半徑；砝碼拖入托座，拖回「砝碼盤」取下，亦可用 ＋／−。圖中「砝碼 × 數量」顯示各側放入的塊數。";
+    $("capacityHelp").textContent = p === 2 ? "正、反轉各保留48點，合共96點；一邊滿額不會佔用另一邊的位置。毋須收滿，也不要求兩個方向都有數據才取得取點分。" : "48點只是儲存上限，不是目標；達到取點要求後，不因少於48點扣除此項分數。";
+    document.querySelector(".mass-token.tray").setAttribute("aria-label", p === 2 ? "從砝碼盤拖一塊圓片到 A 托座；拖回此盤可取下砝碼" : "從砝碼盤拖一塊圓片到 A 或 B 托座；拖回此盤可取下砝碼");
+    $("graphTitle").textContent = p === 2 ? "A 側徑向力與角速度" : "同步量測圖";
     $("taskNumber").textContent = `實驗 ${p + 1} / 3`; $("taskTitle").textContent = titles[p]; $("taskPrompt").textContent = prompts[p];
     $("setupPanel").hidden = v !== "setup"; $("collectPanel").hidden = v !== "collect"; $("analysePanel").hidden = v !== "analyse";
     $("taskIntro").hidden = v !== "setup";
@@ -302,7 +314,7 @@
     $("restartRunButton").disabled = !editing;
     $("collectView").textContent = t.current === null || v === "collect" ? "2 收集" : "2 繼續本組";
     $("brakeButton").hidden = !editing || v !== "collect";
-    renderSampling();
+    renderRuns(); renderSampling();
     $("fitButton").disabled = !editing || !activeRun(); $("resumeFromGraph").disabled = !editing || !activeRun();
     $("axisLabel").innerHTML = p === 2 && squaredGraph ? `橫軸 ${math("\\omega^2", "角速度平方")}；縱軸 ${math("F_A", "A 側徑向力")}。檢查直線斜率及截距；原角速度圖與答案保留。` : p === 2 ? `橫軸 ${math('\\omega\\,(\\mathrm{rad}/\\mathrm{s})', '角速度（rad/s）')}；縱軸 ${math('F_A\\,(\\mathrm{N})', 'A 側徑向力（N）')}。二次擬合含一次項及常數項。` : `橫軸 ${math('F_B\\,(\\mathrm{N})', 'B 側徑向力（N）')}；縱軸 ${math('F_A\\,(\\mathrm{N})', 'A 側徑向力（N）')}。兩軸都是同步量測的力；比較斜率與設定比值，並檢查截距。`;
     const fit = run?.fit ? graphFit(M.KINDS[p], run) : null;
@@ -320,10 +332,9 @@
     $("syncAnswer").value = s.sync || ""; $("massPartsAnswer").value = s.massParts || "";
     $("syncAnswer").disabled = !editing; $("massPartsAnswer").disabled = !editing;
     $("clearTaskButton").disabled = !editing;
-    renderRuns();
     const canOperate = editing && v === "collect";
     $("spinTargets").hidden = !canOperate;
-    for (const button of document.querySelectorAll(".radius-handle,.mass-token")) button.hidden = !editing || v !== "setup";
+    for (const button of document.querySelectorAll(".radius-handle,.mass-token")) button.hidden = !editing || v !== "setup" || p === 2 && (button.dataset.side === "B" || button.dataset.mass === "B");
     $("weightTray").hidden = !editing || v !== "setup";
     $("stageHint").textContent = matchMedia("(max-height:260px) and (max-width:479px)").matches ?
       v === "collect" ? "拖金色環推動；讀數在下方。" : "短視窗可用下方按鈕設定；全螢幕可直接拖動。" :
@@ -353,6 +364,7 @@
     layoutTargets();
   }
   function massHit(event, side, pointerType) {
+    if (page() === 2 && side === "B") return false;
     const center = mapPoint(componentX(side, task().work[side === "A" ? 0 : 1]), 230);
     return Math.hypot(event.clientX - center.x, event.clientY - center.y) <= Math.max(24, 15 * center.scale) + (pointerType === "touch" ? 18 : 10);
   }
@@ -383,7 +395,7 @@
       $("app").dataset.drag = "mass";
       document.querySelectorAll(".mass-token.placed").forEach(button => button.classList.add("drop-ready"));
       if (drag.side !== "tray") { $("weightTray").classList.add("drop-ready"); $("trayHint").textContent = "拖回取下"; }
-      $("stageHint").textContent = "把圓片放到 A／B 托座；移除砝碼可拖回砝碼盤。";
+      $("stageHint").textContent = (page() === 2 ? "把圓片放到 A 托座；B 配重會自動跟隨。" : "把圓片放到 A／B 托座；移除砝碼可拖回砝碼盤。");
     }
     if (type === "radius") {
       $("app").dataset.drag = "radius";
@@ -422,7 +434,7 @@
       drag.target.classList.add("dragging");
       const back = drag.side !== "tray" && trayHit(event);
       $("weightTray").classList.toggle("drop-active", back);
-      $("trayHint").textContent = back ? "放手取下" : drag.side === "tray" ? "拖到 A／B" : "拖回取下";
+      $("trayHint").textContent = back ? "放手取下" : drag.side === "tray" ? (page() === 2 ? "拖到 A" : "拖到 A／B") : "拖回取下";
       document.querySelectorAll(".mass-token.placed").forEach(button => {
         const hit = massHit(event, button.dataset.mass, drag.pointerType);
         const full = task().work[button.dataset.mass === "A" ? 2 : 3] >= 8;
@@ -464,9 +476,9 @@
     }
   }
   function recordCurrent() {
-    if (!measuring || !running || drag || !controller.editable || state().view !== "collect" || !M.sampleReady(activeRun(), motion.omega)) return;
+    if (!measuring || !running || drag || !controller.editable || state().view !== "collect" || !M.sampleReady(activeRun(), motion.omega, M.KINDS[page()])) return;
     lastSampleAt = performance.now();
-    if (controller.update(next => M.record(next.tasks[next.page], motion.omega), false)) {
+    if (controller.update(next => M.record(next.tasks[next.page], motion.omega, M.KINDS[next.page]), false)) {
       renderSampling(); drawGraph(); renderMotion(true);
     }
   }
@@ -495,7 +507,7 @@
     if (running && controller.editable && view() === "collect") {
       renderMotion();
       // Keep saving and graph layout out of the frame that hands off the gesture.
-      if (!drag && measuring && sampleTimer === null && M.sampleReady(activeRun(), motion.omega)) {
+      if (!drag && measuring && sampleTimer === null && M.sampleReady(activeRun(), motion.omega, M.KINDS[page()])) {
         sampleTimer = setTimeout(() => { sampleTimer = null; recordCurrent(); }, 0);
       }
     }

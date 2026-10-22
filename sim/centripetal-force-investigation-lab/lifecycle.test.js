@@ -17,7 +17,7 @@ for (const mutate of [d => d.score = "99", d => d.status = "completed", d => d.s
   const wrong = M.clone(done.durable); mutate(wrong); const resumed = environment({ durable: wrong });
   assert.equal(resumed.c.mode, "mismatch"); assert.equal(resumed.c.editable, false);
 }
-const review = P.review(M.fresh(1)), result = S.score(review), inner = { version: 1, activity: P.ACTIVITY, kind: "review", answer: review, score: result.score, passed: result.passed };
+const review = P.review(M.fresh(1)), result = S.score(review), inner = { version: 1, activity: P.ACTIVITY, kind: "review", answer: P.encode(review), score: result.score, passed: result.passed };
 const pending = { state: "pending-final", snapshot: { version: 1, activity: P.ACTIVITY, kind: "pending-final", payload: { reviewJson: JSON.stringify(inner), score: result.score, maxScore: 100, passed: result.passed } } };
 const resumedPending = environment({ durable: M.clone(pending) }); assert.equal(resumedPending.c.mode, "frozen"); resumedPending.c.retryFinal(); assert.equal(resumedPending.c.mode, "review");
 const damaged = M.clone(pending); damaged.snapshot.payload.reviewJson = JSON.stringify({ ...inner, answer: { ...review, sync: "invalid" } });
@@ -45,8 +45,8 @@ oldPending.retryFinal(); assert.equal(oldPending.mode,"review");
 assert.equal(oldPending.result.score,100); assert.deepEqual(oldPending.state,oldAnswer,"pending retry preserves the original version and answers");
 legacy.page=2; legacy.view="collect";
 const oldDraft = environment({durable:{state:"draft",snapshot:{version:1,activity:P.ACTIVITY,kind:"draft",answer:legacy}}}).c;
-assert.equal(oldDraft.state.mv,1); assert.equal(oldDraft.state.rv,3); assert.deepEqual(oldDraft.state.tasks[0].inquiry,[null,null]); assert.deepEqual(oldDraft.state.tasks[0].roles,legacy.tasks[0].roles); assert.ok(oldDraft.update(s=>M.record(s.tasks[2],-1)));
-assert.equal(oldDraft.state.mv,3); assert.deepEqual(oldDraft.state.tasks[2].runs[0].q,[500,1500,3000,-1000]);
+assert.equal(oldDraft.state.mv,4); assert.equal(oldDraft.state.rv,3); assert.deepEqual(oldDraft.state.tasks[0].inquiry,[null,null]); assert.deepEqual(oldDraft.state.tasks[0].roles,legacy.tasks[0].roles); assert.ok(oldDraft.update(s=>M.record(s.tasks[2],-1)));
+assert.equal(oldDraft.state.mv,4); assert.deepEqual(oldDraft.state.tasks[2].runs[0].q,[500,1500,3000,-1000]);
 console.log("centripetal lifecycle ok");
 
 const latestLegacy=M.clone(oldAnswer);latestLegacy.mv=2;
@@ -59,7 +59,7 @@ assert.equal(S.score(upgraded).score,100,"fully answered new rubric still totals
 
 const mv2Draft=M.clone(upgraded);mv2Draft.page=2;mv2Draft.view="collect";
 const resumedMv2=environment({durable:{state:"draft",snapshot:{version:1,activity:P.ACTIVITY,kind:"draft",answer:mv2Draft}}}).c;
-assert.equal(resumedMv2.state.mv,2);assert.ok(resumedMv2.update(s=>M.record(s.tasks[2],-24)));assert.equal(resumedMv2.state.mv,3);
+assert.equal(resumedMv2.state.mv,4);assert.ok(resumedMv2.update(s=>M.record(s.tasks[2],-24)));assert.equal(resumedMv2.state.mv,4);
 assert.deepEqual(resumedMv2.state.tasks[2].runs[0].q,[500,1500,3000,-24000],"old draft retains data while accepting faster measurements");
 const mv2Review=P.review(upgraded),mv2Result=S.score(mv2Review);
 const mv2Snapshot={version:1,activity:P.ACTIVITY,kind:"review",answer:mv2Review,score:mv2Result.score,passed:mv2Result.passed};
@@ -67,7 +67,7 @@ const mv2Pending=environment({durable:{state:"pending-final",snapshot:{version:1
 assert.equal(mv2Pending.mode,"frozen");assert.equal(mv2Pending.update(s=>s.mv=3),false);
 mv2Pending.retryFinal();assert.equal(mv2Pending.mode,"review");assert.equal(mv2Pending.result.score,100);assert.deepEqual(mv2Pending.state,mv2Review);
 
-const equalOld=M.fresh(22);equalOld.rv=2;
+const equalOld=M.fresh(22);equalOld.rv=2;equalOld.mv=3;
 const eq=equalOld.tasks[0];eq.inquiry=["equal-mass","ratio-steady"];eq.law="linear";
 M.begin(eq);for(const w of [.5,1.5,3])M.record(eq,w);M.fitCurrent("radius",eq);
 eq.runs[0].a=["1","no-contrast","uncertain"];equalOld.view="collect";
@@ -87,3 +87,17 @@ for(const view of ["setup","collect","analyse","check"]) {
  assert.ok(env.c.update(s=>{s.tasks[0].runs[0].a=["1","supports","coefficient"];}));
  env.c.check();env.c.submit();assert.equal(env.c.result.score,30,"equal-radius draft can continue to full page credit");
 }
+
+const max=environment({submitMode:"frozen"});
+max.c.update(s=>{for(const [i,t] of s.tasks.entries())for(let n=0;n<2;n++){
+ M.begin(t);for(let j=0;j<48;j++){M.record(t,24-j*.3,M.KINDS[i]);if(i===2)M.record(t,-24+j*.3,"omega");}
+}});
+assert.equal(max.c.state.tasks[2].runs[0].q.length,96);
+assert.ok(P.bytes(max.durable.snapshot)<=4000);
+const maxResume=environment({durable:M.clone(max.durable)});assert.deepEqual(maxResume.c.state,max.c.state);
+maxResume.c.navigate(2,"analyse");assert.ok(maxResume.c.update(s=>M.fitCurrent("omega",s.tasks[2])));
+max.c.check();max.c.submit();assert.equal(max.c.mode,"frozen");assert.ok(P.bytes(max.durable.snapshot)<=4000);
+const maxPending=environment({durable:M.clone(max.durable)});assert.equal(maxPending.c.mode,"frozen");maxPending.c.retryFinal();assert.equal(maxPending.c.mode,"review");
+assert.equal(maxPending.c.state.tasks[2].runs[0].q.length,96);assert.equal(maxPending.c.update(s=>M.record(s.tasks[2],1,"omega")),false);
+const balanced=environment();balanced.c.update(s=>{M.setWork(s.tasks[2],0,5);M.setWork(s.tasks[2],2,7);});
+assert.deepEqual(balanced.c.state.tasks[2].work,[5,5,7,7]);

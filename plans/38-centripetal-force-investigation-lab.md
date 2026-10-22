@@ -834,3 +834,21 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 - 原Site分頁已重新載入並保留於第一頁設定；實際畫面確認新測力計／小托座／A與B各砝碼×2，以及「半徑可相同（1:1），亦可試其他比例」。截圖centripetal-apparatus-v14.png存於當前visualizations目錄，交付連結仍為原網址。
 - 網址：https://centripetal-force-investigation-lab.ieyp.chatgpt.site/centripetal-force-investigation-lab/
 
+
+## 第三部分雙向容量與單側量測（2026-10-23，動工前決策）
+
+- 使用者要求第三部分避免同一轉向先耗盡48點，並明確只量測A；B改為平衡配重。採用每方向48點、合共96點，首兩題維持48點；不覆蓋舊點、不要求收滿或雙向才給分。單向滿額時提示直接手動反轉，測量狀態保持，另一向繼續取點。
+- 第三頁新設定的B質量／半徑跟隨A；只顯示A可操作托座與測力計，B灰色配重沒有感應器或力讀數，舞台常駐「A測力／B配重（不量測）」標示，圖及資料仍只有F_A與帶符號角速度。舊run配置及所有答案保留，不聲稱歷史任意配置平衡。
+- mv4保存版本：內存仍用整數q陣列，保存時每q以(q+24000)的四位base36編碼串接，無捨入；解碼檢查字元、長度、數值、方向容量及原有驗證。rv3與配分不變；mv1–3歷史review/pending不升級；草稿升mv4，保持舊run資料並同步下一組working配重。
+- 範圍：model取點／sampleReady／容量、persistence encode/decode與runtime所有snapshot出口及final核對、main畫面／命中區／文案、既有五純測試與browser、計劃／SCORM／原私人Site。無新依賴、入口或額外審核代理。
+- 驗證：先單向48再反向48（兩個先後方向），超額不刪除、單向滿額仍可反向、舊48點草稿續收；最大六組draft/review/pending完整往返及續作／重試，非法編碼另驗；source與實際解壓package、可信操作、第三頁單測力計／配重與A設定同步、桌面／窄屏、原連續轉動、check／check:tests／committed selection。真手機與真Moodle仍待驗。
+
+### 雙向容量及單側量測驗證
+
+- 五純測試、check與check:tests（263 entries）通過。mv4最大六組snapshot為2705／2742／3110 bytes（draft／review／pending），兩組角速度各96點；無損encode/decode、合法擬合續作、凍結重試及非法編碼／超額拒絕均驗證。mv1–3舊review／pending保持原版本與成績，舊48點單向草稿可升級並加反向點。
+- model測試正先／負先各48+48，滿方向不能侵佔另一方向，不丟棄原點；取點評分規則不變。B下一組working配置隨A更新，舊run配置與數據保持；第三頁只有A測力計、B灰色配重、B不可拖動且無力讀數。
+- 聚焦source及實際解壓package測試以可信觸控放砝碼、按鈕調半徑，驗證B同步；以實際鍵盤轉速收滿正向48，再以真手勢反向續測至96，原48點逐項相同，擬合及明確提交成功，提交後仍保存全部96點。
+- 這個流程揭示既有「只做第三題，前兩題無資料」提交bug：切入review預設頁時renderSampling讀取上一頁DOM的run索引。調整全量render次序，先更新run列表再更新計數，沒有忽略錯誤或製造確認成績。
+- 實際檢視桌面與320／390等窄屏；第三頁量測角色改成固定文字列，避開LaTeX讀數、SVG裁切與減速掣；測試檢查讀數／角色列／減速掣互不遮擋。
+- ZIP SHA-256：7a073af4aac72bc19e456f5321784bb16ca5b4cfc655e396433534418880edc5；16個runtime與canonical sim及Site dist逐位元組相同。沒有新依賴或測試入口；新測試沿用既有browser／純測試／helper登記。未開sub-agents；真手機、真Moodle及全T0–T3矩陣未重驗，維持planned。
+- 最終完整 source 及實際解壓 package browser regression 通過：雙向96點、明確提交、角色版面、前兩題與等半徑評分、fullscreen、取消／只讀，以及v12/v13連續時鐘與減速／反向等既有操作；每入口8種延後900ms放手情境仍通過。

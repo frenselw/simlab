@@ -14,7 +14,7 @@
     }
     get editable() { return this.mode === "editable"; }
     emit(render = true) { this.scorm.setDraftProvider(this.editable ? () => this.draftSnapshot() : null); if (render) this.render(this); }
-    draftSnapshot() { return this.scorm.makeSnapshot(P.ACTIVITY, "draft", P.validate(this.state)); }
+    draftSnapshot() { return this.scorm.makeSnapshot(P.ACTIVITY, "draft", P.encode(P.validate(this.state))); }
     save() {
       try { this.unsaved = !this.scorm.saveDraft(this.draftSnapshot()); }
       catch (_) { this.unsaved = true; }
@@ -30,7 +30,7 @@
       const mode = this.flow.startup(attempt);
       if (mode === "editable") {
         try { this.state = attempt.state === "draft" ? P.decode(attempt.snapshot, "draft") : M.fresh(); this.mode = "editable";
-          const legacy = this.state.rv < 3; M.upgradeDraft(this.state);
+          const legacy = this.state.rv < 3 || this.state.mv < 4; M.upgradeDraft(this.state);
           if (attempt.state === "new" || legacy) this.save(); }
         catch (_) { this.technical("草稿未能安全還原；原有資料保持不變。"); return; }
       } else if (mode === "review") this.restoreReview(attempt);
@@ -52,7 +52,7 @@
       const answer = P.decode(snapshot, "review"), result = S.score(answer);
       if (snapshot.score !== result.score || snapshot.passed !== result.passed ||
         payload && (payload.score !== result.score || payload.maxScore !== 100 || payload.passed !== result.passed) ||
-        this.final && JSON.stringify(this.final.answer) !== JSON.stringify(answer)) throw new Error("Final answer mismatch");
+        this.final && JSON.stringify(P.decode(this.final, "review")) !== JSON.stringify(answer)) throw new Error("Final answer mismatch");
       return { answer, result };
     }
     restorePending(snapshot) {
@@ -67,7 +67,7 @@
     update(change, render = true) {
       if (!this.editable || this.state.view === "check") return false;
       try {
-        const next = M.upgradeDraft(M.clone(this.state)); next.mv = 3; change(next);
+        const next = M.upgradeDraft(M.clone(this.state)); change(next); M.upgradeDraft(next);
         P.validate(next);
         if (JSON.stringify(next) === JSON.stringify(this.state)) return false;
         this.state = next; this.save(); this.emit(render); return true;
@@ -105,7 +105,7 @@
       try {
         this.before = P.validate(this.state);
         const answer = P.review(this.before), result = S.score(answer);
-        this.final = this.scorm.makeSnapshot(P.ACTIVITY, "review", answer, result);
+        this.final = this.scorm.makeSnapshot(P.ACTIVITY, "review", P.encode(answer), result);
         this.mode = "submitting"; this.emit();
         const handle = outcome => this.handleOutcome(outcome);
         this.scorm.submitWithCallbacks(result, this.final, { onSuccess: handle, onFailure: handle });
