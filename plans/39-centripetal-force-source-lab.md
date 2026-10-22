@@ -533,4 +533,9 @@ pending／technical不顯示「提交後正解」以免技術錯誤冒充完成�
 - 參考圖移除編輯箭尖圓點，最短力提高至32單位，結果頁明示不表示大小比例；不改真實方向、權威模型或評分，也不拿示意箭長做合成。上方比例契約同步修訂。
 - 接通本活動既有9個standalone profiles（initial、case-0至5、check、submitted）；不把它們誤稱hosted的26個profiles。
 - 沿用已登記的專屬browser和mobile runner，新增可信觸控兩種放手次序／兩個落點、輕點／抖動／右鍵、連續radio與button焦點、最小張力／摩擦雙鏡像可讀性回歸。未新增依賴、答案版本或測試入口。
-- Root首次修正回歸：7個Node測試、check、check:tests通過；完整source/package browser completed=true、errors=0，assetHash `4beb5fb114e4fbcc2084bbca8d79f03b7ed552554cda5ceef8c2c22581a1ff5f`。其後再完善實際pointerId capture斷言、390px短箭及圖形置中截圖，交兩位作相同基準的獨立覆核。最終覆核、T0及發佈證據待下方補記。
+- Root首次修正回歸：7個Node測試、check、check:tests通過；完整source/package browser completed=true、errors=0，assetHash `4beb5fb114e4fbcc2084bbca8d79f03b7ed552554cda5ceef8c2c22581a1ff5f`。其後再完善實際pointerId capture斷言、390px短箭及圖形置中截圖，交兩位作相同基準的獨立覆核。
+- 最終基準`7d246166630da7ce6b2c62a44bc42f7a6dd4be41`（runtime commit `8350a5d`）：A、B各自完整source/package正式suite均14+14個報告entries、completed=true、errors=[]，相同assetHash；兩位另跑獨立診斷。第三位逐項核對後S1–S5全部關閉，沒有未解決的已證實問題。詳見[第三位結案及交付記錄](../docs/centripetal-force-source-audit-2026-10-22.md)。
+- 中途新增capture斷言曾錯把secondary原生implicit capture當成原拖動未釋放；第三位裁決後，改為即時驗primary釋放、全放手後驗全部清除，兩位重跑正式完整suite通過。未改runtime，也未放寬答案不變要求；失敗過程保留在結案報告。
+- Root最終mobile：T0 standalone 9 profiles×320×500／390×844=18 cases；T3 source320×500及T2 package390×844各case-0-partial／direct-drawing=2 cases，全部completed=true、status=passed、errors/issues=0。15檔digest `3dd4afc3469542e6ba53ed18ffd2f6a4d04cd853758e828fba304c4abd8ad343`；A、B各自核對T0測試啟動時舊HEAD欄位與現行runtime指紋的差別，確認實際測了修正版。未宣稱全T0–T3矩陣、真手機或真Moodle通過。
+- 15檔SCORM ZIP SHA-256 `1B19C591AE2C5466DF5AFC0CF0CE64D51D7B3036204270931E93CF1541DE5D3E`。Site source `f57dc3f54acd01e1274a47857152a540434323cb`，v12 deployment `appgdep_6ad9fd4ba80c8191b6f41c47f7fd1c62` succeeded；十個自有runtime逐檔一致，原owner-only網址不變。
+- 以`93244e8`為base、`7d24616`為head的committed selection：full／packages all／265 entries，僅選擇預覽。修正已推送；未等待GitHub CI。
