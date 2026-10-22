@@ -646,3 +646,23 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 - 已重新載入並顯示原本的瀏覽器分頁，確認新版「同步比較：設定與預測」位於器材設定之前。
 - 網址：https://centripetal-force-investigation-lab.ieyp.chatgpt.site/centripetal-force-investigation-lab/
 - 本次只同步並發佈已測試的相同 runtime，未修改程式，沿用上述測試與兩位審核員結果。
+
+
+## 取點上限與停加點提示修正（2026-10-22，動工前決策）
+
+- 問題：48是儲存上限，分母呈現卻像必須完成的進度；0.25 rad/s間距會略過重複範圍，但提示仍承諾持續新增。
+- 本輪範圍：本活動main／HTML／CSS、scoring資料覆蓋計算共用化、既有scoring與model及browser測試、此計劃、SCORM及私人Site。無新增依賴、無新測試入口。
+- 保持rv2／mv2／持久化及評分規則。取點項滿分仍是至少3個轉速區間且跨度至少1 rad/s；前兩頁用角速度大小，第三頁用帶符號角速度。從scorer抽出同一個coverage函式供UI使用，避免提示與實際評分兩套規則。
+- 計數改為「已記錄n點」，明示48點不是目標；圖下顯示取點要求與是否已達標，不承諾整題滿分。分開新增、相近轉速重複、低速、滿額、拖動／暫停的提示；新點短暫加外圈標示。不增加假點，不刪舊點，反向及再次推轉沿用原流程。
+- 驗證：3點寬跨度與48點的資料分相同、48點窄跨度不冒充充分資料；反向覆蓋按題型處理；同向完整掃描後再次掃描不增重複點；browser核對提示、已達標、低速及新點標示，source與解壓package、320／390版面。保持舊快照兼容。
+
+
+### 本輪驗證與審核
+
+- 五項純測試（model／scoring／persistence／lifecycle／interaction）通過。涵蓋3點與48點的取點分一致、窄跨度48點不達標、0.999/1.000邊界、帶符號／大小覆蓋、重複完整掃描不加點。rv1／rv2計分邏輯未改，快照格式及容量未改。
+- 維護中的browser regression在source及真正解壓package通過：新增點橙圈、reduced-motion下750ms清除、沒有/48分母、未達標與已達標提示、穩速已記錄提示、低速不解除測量；既有觸控／正負／重新推轉／擬合／返回／只讀／fullscreen繼續通過。修正一項角度剛好跨零的測試斷言，改驗角度確實持續改變。
+- check及check:tests通過（263 entries）；沿用原登記。JS語法通過。
+- T2 source：320×500／390×600各collect-0、collect-2、collect-collapsed；報告output/playwright/centripetal-sampling-T2-source.json。
+- 兩位獨立審核：data_flow_audit確認20組rv1／rv2新舊計分一致；發現跨度0.999被四捨五入與reduced-motion橙圈不清除，已分別保留3位小數及獨立移除過期標記。ux_audit覆核最新修正，320／390無剩餘重疊，390完整圖軸首屏可見；320完整圖仍須面板捲動。
+- SCORM 16個runtime與來源及Site dist逐位元組核對一致。ZIP SHA-256：`a1aa3639aca90179788ac0bfc0aa0567a4f2039c36e23eb9fab0811d8bbf308e`。
+- 限制：真手機／Safari、真Moodle及全T0–T3矩陣未驗；維持planned，不宣稱Moodle-ready。

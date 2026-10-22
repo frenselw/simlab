@@ -41,6 +41,13 @@ for (const sign of [-1,1]) {
     assert.ok(sign*state.omega>=0,"braking never reverses direction");
   }
   assert.equal(state.omega,0); assert.ok(task.runs[0].q.length>=22);
+  const sweep=task.runs[0].q.slice();state={...M.motion(),omega:sign*6};
+  for(let i=0;i<1500;i++) {
+    if(M.sampleReady(task.runs[0],state.omega)) M.record(task,state.omega);
+    state=M.coast(state,.01,true);
+  }
+  assert.deepEqual(task.runs[0].q,sweep,"repeating an already measured sweep adds no duplicate samples");
+
   assert.equal(M.sampleReady(task.runs[0],0),false);
   const middle={...state,omega:sign*2};assert.equal(M.coast(middle,.1).omega,middle.omega,"release holds current speed");
   assert.equal(M.sampleReady(task.runs[0],sign*6),false,"steady or repeated speed does not refill run");

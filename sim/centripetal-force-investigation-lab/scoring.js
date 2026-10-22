@@ -25,6 +25,13 @@
     if (kind === "radius") return rA === rB ? "no-contrast" : nA !== nB ? "confounded" : "supports";
     return nA === nB ? "no-contrast" : rA !== rB ? "confounded" : "supports";
   }
+  function coverage(kind, run) {
+    const samples = run ? run.q.map(q => kind === "omega" ? q : Math.abs(q)) : [];
+    const span = samples.length ? (Math.max(...samples) - Math.min(...samples)) / 1000 : 0;
+    const slots = new Set(samples.map(M.slot)).size;
+    const dataScore = slots >= 3 && span >= 1 ? 4 : slots >= 2 && span >= 0.5 ? 2 : 0;
+    return { span, slots, dataScore };
+  }
   function page(state, i) {
     const task = state.tasks[i], kind = M.KINDS[i], run = task.selected === null ? null : task.runs[task.selected];
     const [independent, controls] = task.roles, expected = roles[i];
@@ -33,10 +40,7 @@
       (task.inquiry[1] === "ratio-steady" ? 3 : 0) : (independent === expected.independent ? 2 : 0) +
       expected.controls.filter(key => controls?.includes(key)).length * 2;
     const fairScore = fair(kind, run) ? 4 : 0;
-    const samples = run ? run.q.map(q => kind === "omega" ? q : Math.abs(q)) : [];
-    const span = samples.length ? (Math.max(...samples) - Math.min(...samples)) / 1000 : 0;
-    const slots = new Set(samples.map(M.slot)).size;
-    const dataScore = slots >= 3 && span >= 1 ? 4 : slots >= 2 && span >= 0.5 ? 2 : 0;
+    const { span, slots, dataScore } = coverage(kind, run);
     const ratio = run ? kind === "radius" ? M.radius(run.cfg[0]) / M.radius(run.cfg[1]) :
       kind === "mass" ? M.mass(run.cfg[2]) / M.mass(run.cfg[3]) : 4 : null;
     const numericScore = ratio !== null && near(run.a[0], ratio) ? 4 : 0;
@@ -58,5 +62,5 @@
     return { score: total, maxScore: 100, passed: total >= 60, completed: true,
       detail: { pages, syncScore, massPartsScore } };
   }
-  return Object.freeze({ near, fair, comparison, page, score });
+  return Object.freeze({ near, fair, comparison, coverage, page, score });
 });

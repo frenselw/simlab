@@ -27,3 +27,20 @@ inquiry.tasks[0].inquiry=["equal-radius","ratio-steady"];
 assert.equal(S.page(inquiry,0).roleScore,3);
 inquiry.tasks[1].inquiry=["equal-radius","ratio-steady"];
 assert.equal(S.page(inquiry,1).roleScore,6);
+
+
+// Storage capacity is not a scoring target.
+for (const kind of M.KINDS) {
+  const run=M.freshRun(M.CFG);
+  run.q=[500,1000,1500];
+  assert.deepEqual(S.coverage(kind,run),{slots:3,span:1,dataScore:4});
+  run.q=Array.from({length:48},(_,i)=>250+i*120);
+  assert.equal(S.coverage(kind,run).dataScore,4,"48 points earn no more data credit than three well-spaced points");
+  run.q=Array.from({length:48},(_,i)=>1000+i);
+  assert.equal(S.coverage(kind,run).dataScore,0,"many tightly clustered points do not meet the coverage requirement");
+  run.q=[500,750,999];assert.equal(S.coverage(kind,run).dataScore,0);
+  run.q=[500,750,1000];assert.equal(S.coverage(kind,run).dataScore,2);
+  run.q=[500,1000,1499];assert.equal(S.coverage(kind,run).dataScore,2);
+  run.q=[-1000,-500,500];
+  assert.equal(S.coverage(kind,run).dataScore,kind==="omega"?4:2,"radius/mass count magnitude; omega retains sign");
+}

@@ -8,7 +8,7 @@
   const reasonOptions = [["coefficient", "斜率對應兩側物理量比值／二次項對應質量與半徑的乘積"], ["constant", "只有常數項代表關係"], ["other", "係數與配置無關"], ["uncertain", "配置混雜或資料不足，不能隔離解釋"]];
   const lawOptions = [["linear", "徑向力與研究量成正比（其餘量固定）"], ["square", "徑向力與研究量的平方成正比（其餘量固定）"], ["inverse", "徑向力與研究量成反比"], ["none", "沒有可描述的關係"]];
   const controller = new CentripetalRuntime.Controller(SimScorm, SimActivityFlow, render);
-  let motion = M.motion(), running = false, drag = null, lastFrame = 0, localMessage = "", reviewRun = [null, null, null], mathReady = false, lastLocation = "", graphOpen = true, measuring = false, brakeHold = null, squaredGraph = false;
+  let motion = M.motion(), running = false, drag = null, lastFrame = 0, localMessage = "", reviewRun = [null, null, null], mathReady = false, lastLocation = "", graphOpen = true, measuring = false, lastSampleAt = -Infinity, brakeHold = null, squaredGraph = false;
   const state = () => controller.state, page = () => controller.editable ? state().page : controller.reviewPage;
   const view = () => controller.editable ? state().view : controller.reviewView;
   const task = () => state()?.tasks[page()];
@@ -26,7 +26,7 @@
       return value; };
     return options.slice().sort((a, b) => hash(a[0]) - hash(b[0]));
   }
-  function pause() { measuring = false; releaseBrake(); running = false; motion = { ...motion, omega: 0, pointerAngle: null, time: null }; if (drag) cancelDrag(); }
+  function pause() { measuring = false; lastSampleAt = -Infinity; releaseBrake(); running = false; motion = { ...motion, omega: 0, pointerAngle: null, time: null }; if (drag) cancelDrag(); }
   function mapPoint(x, y) {
     const matrix = device.getScreenCTM();
     return { x: matrix.a * x + matrix.e, y: matrix.d * y + matrix.f, scale: matrix.a };
@@ -155,13 +155,14 @@
       <g fill="#56717d" font-size="${tickFont}"><text x="66" y="${bottom + 20}">${fmt(minX)}</text>${minX < 0 ? `<text x="${px(0)}" y="${bottom + 20}" text-anchor="middle">0</text>` : ''}<text x="331" y="${bottom + 20}" text-anchor="end">${fmt(maxX)}</text><text x="59" y="32" text-anchor="end">${fmt(maxY)}</text></g>
       ${other.map(([x,y]) => `<circle cx="${px(x)}" cy="${py(y)}" r="4" fill="#b07932" opacity=".65"/>`).join("")}
       ${curve ? `<path class="fit-curve" d="${curve}" fill="none" stroke="#bd5a25" stroke-width="2"/>` : ""}
-      ${points.map(([x,y]) => `<circle class="measured-point" cx="${px(x)}" cy="${py(y)}" r="4" fill="#087c95" stroke="white" stroke-width="1"/>`).join("")}
+      ${points.map(([x,y], i) => `<circle class="measured-point" cx="${px(x)}" cy="${py(y)}" r="4" fill="#087c95" stroke="white" stroke-width="1"/>${view() === "collect" && i === points.length - 1 && performance.now() - lastSampleAt < 750 ? `<circle class="new-point-ring" cx="${px(x)}" cy="${py(y)}" r="8" fill="none" stroke="#b56317" stroke-width="2" aria-hidden="true"/>` : ""}`).join("")}
       ${!points.length ? `<text x="205" y="${(bottom + 25) / 2}" text-anchor="middle" fill="#6d8590" font-size="${tickFont}">${view() === 'collect' && controller.editable ? '推轉後開始測量，再按住減速' : '本組尚未記錄數據'}</text>` : ''}`;
     $("graphLegend").hidden = !other.length;
     $("graphLegend").textContent = `藍色：本組 ${points.length} 點 · 棕色：另一組 ${other.length} 點`;
   }
   function renderMotion() {
     if (!state()) return;
+    if (performance.now() - lastSampleAt >= 750) graph.querySelector(".new-point-ring")?.remove();
     const reading = M.readings(displayedConfig(), motion.omega);
     $("omegaRead").textContent = motion.omega.toFixed(3);
     $("forceARead").textContent = fmt(reading.a);
@@ -177,8 +178,16 @@
     $("measureButton").setAttribute("aria-pressed", String(measuring));
     $("brakeButton").disabled = !controller.editable || view() !== "collect" || !running || !!drag || !motion.omega;
     $("brakeButton").setAttribute("aria-pressed", String(!!brakeHold));
-    const hint = full ? "本組48點已滿；可保留並另開一組。" : drag ? "推轉中，暫不取點；放手後繼續。" : Math.abs(motion.omega) < .25 ? measuring ? "轉速太低，暫停取點；直接再推快，放手即繼續。" : "拖外圈推轉、放手，再開始測量。" : !measuring ? "按「開始測量」，再按住舞台的減速掣。" : brakeHold ? "減速測量中 · 新點持續加入圖像。" : "測量中 · 按住減速取新點，也可直接再推轉。";
+    let hint, status;
+    if (full) { status = "full"; hint = "已達儲存上限；可往「3 圖像」分析。"; }
+    else if (drag) { status = "dragging"; hint = "推轉中，暫不取點；放手後繼續。"; }
+    else if (Math.abs(motion.omega) < .25) { status = "slow"; hint = measuring ? "轉速太低，暫停取點；可直接再推快。" : "拖外圈推轉、放手，再開始測量。"; }
+    else if (!measuring) { status = "paused"; hint = "按「開始測量」，再按住舞台的減速掣。"; }
+    else if (performance.now() - lastSampleAt < 750) { status = "added"; hint = `已新增第 ${activeRun().q.length} 點 · 新點以橙圈標示。`; }
+    else if (!M.sampleReady(activeRun(), motion.omega)) { status = "repeated"; hint = S.coverage(M.KINDS[page()], activeRun()).dataScore === 4 ? "這段轉速已記錄；取點已足夠，可分析。" : brakeHold ? "這段轉速已記錄，不重複加點。" : "這段轉速已記錄；按住減速試其他轉速。"; }
+    else { status = "ready"; hint = "測量中 · 按住減速收集不同轉速。"; }
     if ($("measurementHint").textContent !== hint) $("measurementHint").textContent = hint;
+    $("measurementHint").dataset.status = status;
   }
   function setSelect(id, options, value, disabled) {
     const select = $(id), selected = value ?? "";
@@ -213,6 +222,7 @@
     $("setupPanel").hidden = v !== "setup"; $("collectPanel").hidden = v !== "collect"; $("analysePanel").hidden = v !== "analyse";
     $("taskIntro").hidden = v !== "setup";
     $("collectHelp").hidden = v !== "collect";
+    $("samplingGuide").hidden = !["collect", "analyse"].includes(v);
     $("graphCard").hidden = !["collect", "analyse"].includes(v);
     $("graphBody").hidden = !graphOpen;
     $("toggleGraph").setAttribute("aria-expanded", String(graphOpen));
@@ -245,7 +255,11 @@
     $("brakeButton").hidden = !editing || v !== "collect";
     $("reverseButton").disabled = !editing || v !== "collect";
     $("resumeButton").hidden = running; $("resumeButton").disabled = !editing;
-    $("collectStatus").textContent = `${run?.q.length || 0} / ${M.MAX_SAMPLES} 點 · A ${run?.cfg[2] ?? cfg[2]}塊 · B ${run?.cfg[3] ?? cfg[3]}塊`;
+    $("collectStatus").textContent = `已記錄 ${run?.q.length || 0} 點 · A ${run?.cfg[2] ?? cfg[2]}塊 · B ${run?.cfg[3] ?? cfg[3]}塊`;
+    const coverage = S.coverage(M.KINDS[p], run), enough = coverage.dataScore === 4;
+    $("samplingGuide").dataset.sufficient = String(enough);
+    $("samplingGuide").innerHTML = enough ? `取點要求已達標${editing ? "，可往「3 圖像」" : ""}；更多點不另加取點分。` :
+      `取點要求：至少 3 個轉速區間、跨度 ${math("1\\,\\mathrm{rad}/\\mathrm{s}", "1 rad/s")}。目前 ${coverage.slots} 個、${math(coverage.span.toFixed(3) + "\\,\\mathrm{rad}/\\mathrm{s}", coverage.span.toFixed(3) + " rad/s")}；毋須收集48點。`;
     $("fitButton").disabled = !editing || !activeRun(); $("resumeFromGraph").disabled = !editing || !activeRun();
     $("axisLabel").innerHTML = p === 2 && squaredGraph ? `橫軸 ${math("\\omega^2", "角速度平方")}；縱軸 ${math("F_A", "A 側徑向力")}。檢查直線斜率及截距；原角速度圖與答案保留。` : p === 2 ? `橫軸 ${math('\\omega\\,(\\mathrm{rad}/\\mathrm{s})', '角速度（rad/s）')}；縱軸 ${math('F_A\\,(\\mathrm{N})', 'A 側徑向力（N）')}。二次擬合含一次項及常數項。` : `橫軸 ${math('F_B\\,(\\mathrm{N})', 'B 側徑向力（N）')}；縱軸 ${math('F_A\\,(\\mathrm{N})', 'A 側徑向力（N）')}。兩軸都是同步量測的力；比較斜率與設定比值，並檢查截距。`;
     const fit = run?.fit ? graphFit(M.KINDS[p], run) : null;
@@ -389,6 +403,7 @@
   }
   function recordCurrent() {
     if (!measuring || !running || drag || !controller.editable || state().view !== "collect" || !M.sampleReady(activeRun(), motion.omega)) return;
+    lastSampleAt = performance.now();
     controller.update(next => M.record(next.tasks[next.page], motion.omega));
   }
 

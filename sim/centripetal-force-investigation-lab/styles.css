@@ -79,6 +79,11 @@ h3 { font-size: 1.05rem; margin-bottom: 8px; }
 .graph-heading button { border: 0; background: transparent; font-size: .88rem; color: #426a78; padding: 5px; white-space: nowrap; }
 #graphSvg { display: block; width: 100%; height: 225px; pointer-events: none; }
 .graph-legend { font-size: .85rem; color: #087c95; margin: 0; padding: 4px 12px 10px; }
+.sampling-guide { margin: 6px 0 10px; padding: 8px 10px; background: #edf6f7; border-left: 3px solid #338898; font-size: .9rem; line-height: 1.4; }
+.sampling-guide[data-sufficient="true"] { background: #edf8ef; border-color: #368053; color: #215537; }
+.new-point-ring { animation: new-sample .75s ease-out both; }
+@keyframes new-sample { from { opacity: 1; stroke-width: 4; } to { opacity: 0; stroke-width: 1; } }
+@media (prefers-reduced-motion: reduce) { .new-point-ring { animation: none; } }
 .collect-help { font-size: 1rem; color: #52707b; }
 .collect-help p { margin-bottom: 8px; }
 .panel-nav { position: sticky; top: 0; z-index: 8; background: #fff; padding: 9px 0; margin: 0 0 10px; border-bottom: 1px solid #d5e0e7; flex-wrap: nowrap; }
