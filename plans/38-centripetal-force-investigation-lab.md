@@ -423,7 +423,7 @@ Site `dist` 檔案及SHA-256（其中13個為SCORM runtime，根頁為Site入口
 | T2 package host | `tools/mobile-scroll-browser-regression.js --slugs=centripetal-force-investigation-lab --mode=package --host=T2 --phases=all --viewports=390x600` 完成，全部 case 無 issue；包含設定、採樣、擬合、檢查、提交及 pending／committed。報告 `output/playwright/centripetal-fix-T2-package-all.json` |
 | 視覺 | 已檢視 390×600 設定／收集、320×500 設定及 package 圖像截圖；公式 SVG 不被舞台 SVG 樣式放大 |
 
-本節是回饋修正後的版本證據；上面的 14 檔與第一次 Site 部署記錄是歷史快照。新 Site 仍須以本節更新版本及核對私人部署。T4 真 Moodle／真手機及先前已知的全套測試失敗尚未驗收，活動維持 planned。
+本節是回饋修正後的版本證據；上面的 14 檔與第一次 Site 部署記錄是歷史快照。T4 真 Moodle／真手機及先前已知的全套測試失敗尚未驗收，活動維持 planned。
 
 本輪 Site runtime 變更檔案 SHA-256（其他 10 個 runtime 檔案沿用上表 hash；另有 Site 根頁轉址）：
 
@@ -435,3 +435,10 @@ Site `dist` 檔案及SHA-256（其中13個為SCORM runtime，根頁為Site入口
 | `circuit-workbench/circuit-math.js` | `2c35e09e31eb2b205b4aa72c3801832a5c7f4a2cb7e1b4f4fa6ea531f2e196b4` |
 | `circuit-workbench/mathjax-license.txt` | `cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30` |
 | `circuit-workbench/mathjax-tex-svg.js` | `d4295dc33744836935c1399feece5159577b34c5c8ffb9f1c6324cd82e03a882` |
+
+| 更新版 Site 項目 | 已核對資料 |
+|---|---|
+| branch | `codex/centripetal-force-investigation-lab`，功能 commit `dcce06198d1d7059a28a40d2ac7492cec74d349a` 已推到 origin；此表的部署證據隨下一個文件 commit 推送 |
+| source | `4cdfd3757577b16106c0e959052996fcd5636f14`，Site `dist` 的 16 個 runtime 檔案與 ZIP 對應項逐位元組一致，來源樹乾淨 |
+| private deploy | version 2，`appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_b3ce401c8430819193fb3d79451e808c`；deployment `appgdep_6ad9c572383c81919f9525b685d3ce0d` 回報 `succeeded` |
+| audience／URL | owner-only，無外部訪客；https://centripetal-force-investigation-lab.ieyp.chatgpt.site |
