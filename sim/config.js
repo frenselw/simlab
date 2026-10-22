@@ -1,4 +1,5 @@
 const simulationList = [
+  {title:'誰提供向心力：受力分析與圓心方向',folder:'centripetal-force-source-lab',categories:['Mechanics'],description:'在六個圓周運動情境中畫出實際作用力，辨認圓心方向並建立向心力關係。',tags:['physics','mechanics','centripetal-force','free-body-diagram','circular-motion','scorm'],status:'active'},
   {title:'圓周運動：由位移到速度與加速度方向',folder:'circular-motion-vector-lab',categories:['Mechanics'],description:'縮短兩個時刻的間隔，觀察位移方向、建構速度變化量，判斷瞬時速度與向心加速度方向。',tags:['physics','mechanics','circular-motion','displacement','velocity-change','centripetal-acceleration','vectors','scorm'],status:'active'},
   {title:'平拋運動：軌跡量度與擬合',folder:'horizontal-projectile-lab',categories:['Mechanics'],description:'調槽留印並讀尺，自動描點後擬合；選公式計出各點初速度，再求平均初速度。',tags:['physics','mechanics','projectile-motion','measurement','curve-fitting','scorm'],status:'active'},
   {title:'家庭電路工作台',folder:'circuit-household-workbench',categories:['Electricity'],description:'用小型電路探索火線、零線、地線、人體接觸與保護裝置。',tags:['physics','electricity','household','workbench'],status:'active'},

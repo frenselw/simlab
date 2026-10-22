@@ -1,6 +1,6 @@
 # 誰提供向心力：受力分析與圓心方向
 
-狀態：**P0 計劃草案，待使用者審查；尚未開始實作。** 日期：2026-10-22（澳門）。由 [新活動模板](NEW-SIMULATION-PLAN-TEMPLATE.md) 複製後填寫，遵循 [共同風格](00-shared-platform-and-style.md) 及 [製作及驗證契約](../docs/simulation-scorm-production-guide.md)。配分、情境參數及版面是具體待審方案，不代表已驗收。
+狀態：**依使用者 2026-10-22 指示實作中；本地與部署證據見文末。** 由 [新活動模板](NEW-SIMULATION-PLAN-TEMPLATE.md) 複製後填寫，遵循 [共同風格](00-shared-platform-and-style.md) 及 [製作及驗證契約](../docs/simulation-scorm-production-guide.md)。P0 草案是歷史記錄，不能代替實際驗收。
 
 ## 已確認需求與審查邊界
 
@@ -10,13 +10,13 @@
 - 標題不標章號；數學符號採 LaTeX 樣式；圖例清楚、手機 panel 可用、沒有空白提交／重設彈窗。
 - 已有圓周活動處理切線速度及加速度方向，本活動以它們作前置概念，不再重做完整 Δv 推導。
 - 參考教材：使用者提供的 `C:/Users/frens/Work/OneDrive - 時尚屋/澳門坊眾/Textbooks/S1-3/【人教版】高中必修 第二册物理电子课本.pdf`，印刷頁27–32、35–38。教材不放網站或package。
-- **本輪只寫計劃及建立 worktree；使用者審查批准後才開始程式、測試、manifest、catalogue 及網站部署。**
+- 使用者其後明確指示在獨立 worktree 按本計劃製作全部內容；此指示授權 P1–P4 的程式、測試、打包與獨立 Sites 部署。P5 仍需真 Moodle／真手機環境。
 
 ## Worktree 與交付節奏
 
 | 項目 | 決定 |
 |---|---|
-| Worktree | `C:/Users/frens/.codex/worktrees/centripetal-force-source-lab/simlab` |
+| Worktree | `C:/Users/frens/.codex/worktrees/centripetal-force-source-lab-1447/simlab` |
 | Branch | `codex/centripetal-force-source-lab` |
 | Base | main：`4aa4d50680f9c757b932e7db08be118f80142950`，與另一新活動同起點 |
 | Remote | origin，`https://github.com/frenselw/simlab.git` |
@@ -24,7 +24,7 @@
 | 共同編輯點 | catalogue、test-registry、mobile-scroll活動登記及完成時README；只增本活動條目，整合時保留其他worktree內容 |
 | 開發資源 | 建議埠4382、browser session `centripetal-source`；佔用時選空閒埠，不終止其他服務 |
 | 每輪完成 | 相應驗證→commit→push本分支→可試用runtime部署本活動獨立Sites。按使用者要求不等CI才回報；CI待跑／失敗須如實標示 |
-| 本輪交付 | 獨立計劃草案，不改main、不部署空網站、不宣稱package-ready |
+| 本輪交付 | 六情境獨立 SCORM、專屬測試及獨立 Sites；依實測結果判斷 package-ready，不改 main |
 
 ## Scope
 
@@ -47,9 +47,10 @@
 | main.js | 場景、箭頭編輯、指針／鍵盤、preview、shared生命周期，無直接LMS API |
 | scoring.js | 一對一配對、缺漏／額外力、方向容差、關係式及整合題分數 |
 | persistence.js | v1定義、深層驗證、還原、受力圖與canonical答案 |
+| ui-runtime.js | shared startup／submission 的活動控制器、鎖定與retry |
 | tests | model.test.js、scoring.test.js、persistence.test.js、interaction.test.js、lifecycle.test.js |
 | browser | tools/centripetal-force-source-browser-regression.js；同driver跑source及解壓package |
-| manifest | sim/manifests/centripetal-force-source-lab.xml；六自有runtime檔＋四shared依賴 |
+| manifest | sim/manifests/centripetal-force-source-lab.xml；七自有runtime檔＋四shared依賴 |
 
 閱讀參考：[既有受力圖](21-force-equilibrium-diagram-lab.md)、[圓周方向活動](37-circular-motion-vector-lab.md)。前者的圖長不評分與手機預覽適用；後者的方向表達可沿用。不能把平衡題的「合力為零」或先前活動的歷史尺寸直接搬入本模型；本活動不依賴它們的runtime／測試資料。
 
@@ -325,7 +326,7 @@ pending／technical不顯示「提交後正解」以免技術錯誤冒充完成�
 
 | Item | Decision / evidence |
 |---|---|
-| Runtime declaration | 本slug manifest：六自有runtime＋shared styles/scorm/activity-flow/fullscreen；若後續加shared touch helper必須同列 |
+| Runtime declaration | 本slug manifest：七自有runtime＋shared styles/scorm/activity-flow/fullscreen；若後續加shared touch helper必須同列 |
 | Logical entries | 上述五個本slug *.test.js；kind node、scope資料夾slug |
 | Browser owner | file `tools/centripetal-force-source-browser-regression.js`，kind browser，scope本slug；source/package同entry執行 |
 | Helpers | 首版N/A，不為預期未用需求拆helper；有新增時照命名／literal import/consumers規則登記 |
@@ -338,7 +339,7 @@ pending／technical不顯示「提交後正解」以免技術錯誤冒充完成�
 
 | Phase | 工作與退出條件 |
 |---|---|
-| P0 本輪 | 建worktree、填計劃、文件檢查／提交草案；等使用者批准才可實作 |
+| P0 歷史 | 已建計劃草案並提交；使用者其後明確要求實作 |
 | P1 | 六題definition／方向／rubric／schema及純測試，先證明錯答可保存且部分分正確 |
 | P2 | 三區、兩視圖、箭頭編輯與手勢／preview；六題先可操作，手機可讀再接完整shared flow |
 | P3 | manifest/catalogue/registry、source及package全流程、完整T0–T3、fullscreen、初次全套回歸 |
@@ -364,7 +365,7 @@ pending／technical不顯示「提交後正解」以免技術錯誤冒充完成�
 
 ## P0 文件驗證記錄
 
-本節只記本輪計劃文件檢查。runtime、browser、package、Sites、Moodle均未執行，待批准後逐項記錄真實證據。
+本節保留 P0 草案當時的文件檢查記錄；當時尚未執行 runtime、browser、package、Sites 或 Moodle。其後驗證另記於下節。
 
 | P0 項目 | 2026-10-22 證據 |
 |---|---|
@@ -373,3 +374,19 @@ pending／technical不顯示「提交後正解」以免技術錯誤冒充完成�
 | 文件連結 | `node tools/check-docs.js plans/39-centripetal-force-source-lab.md` 通過，無略過連結 |
 | Diff | `git diff --cached --check` 通過，staged範圍只有本計劃；不當作runtime驗收 |
 | 待審重點 | 六題各16分＋概念4分、先選力再拖方向、橋頂／橋底正式成對、地球題只辨引力來源、手機方向預覽 |
+
+## 2026-10-22 實作與驗證記錄
+
+| 項目 | 實際證據／狀態 |
+|---|---|
+| 工作分支 | `codex/centripetal-force-source-lab`；獨立 managed worktree，未改 main 或另一新活動 worktree |
+| 核心實作 | 六情境模型及合法 definition、96+4 分 rubric、v1 draft/review schema、同 attempt 固定選項、實際力箭頭與獨立參考圖、SCORM shared lifecycle |
+| 邏輯測試 | 五個本活動 Node 測試通過：model、scoring、persistence、interaction、lifecycle；涵蓋空白／部分／重複力、方向容差、pending 位元組上限、合法恢復、四種提交結果及技術鎖定 |
+| 註冊與靜態檢查 | `npm run check:tests`：263 entries（227 Node、36 browser）；`npm run check`：JavaScript 與全部 SCORM manifest profile 通過 |
+| 打包 | `npm run package:all` 通過；本活動 ZIP 12 entries（manifest＋七自有 runtime＋四 shared），專屬 browser driver 比較 manifest 引用、source 與解壓 ZIP 各檔位元組 |
+| 專屬瀏覽器 | source／解壓 package 都跑六題可信觸控作圖、13次拖動取得滿分、320×500 至 1280×800 七種 viewport、空白／部分提交、Moodle fake draft/pending/committed 續作、standalone 刷新、cancel、fullscreen；見 `output/playwright/centripetal-force-source-lab/report.json`（ignored artifact） |
+| 共用手勢矩陣 | T2 source `--phases=all --viewports=320x500,390x844`：48/48 profile／viewport，全部零 issues；其他宿主／package 待驗 |
+| 全專案 Node | 首輪 `npm run test:fast` 226/227；既有 `force-composition-construction-lab/persistence.test.js` 在共用 120 秒上限逾時，隔離重跑通過；完整重跑中，尚不列通過 |
+| Sites | 獨立 project `appgprj_6ad9ab2ffe008191bea6e486a6000e05`、version 1 `appgprj_6ad9ab2ffe008191bea6e486a6000e05~appgver_bf9786d7b1ac8191b544cd5f90c04310`、deployment `appgdep_6ad9b79f5104819181101525fcbbdb4c` 成功；source commit `6fdf09bca7505139d9c12b317b6fd650dcb19e84`；`https://centripetal-force-source-lab.ieyp.chatgpt.site`；custom allowlist 僅擁有人、零 external visitor；七自有及四 shared runtime 與工作樹逐檔 SHA-256 一致 |
+| SCORM 資產 | ZIP SHA-256 `D25B428C62CD5371EE1F25BB281355DBE53B6592FF94A0FE81D88E89B2F0AB9F` |
+| Moodle／實機 | 未驗證；本地 fake LMS 與 Chrome 觸控不能代替真 Moodle 或手機 |
