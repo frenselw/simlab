@@ -852,3 +852,11 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 - 實際檢視桌面與320／390等窄屏；第三頁量測角色改成固定文字列，避開LaTeX讀數、SVG裁切與減速掣；測試檢查讀數／角色列／減速掣互不遮擋。
 - ZIP SHA-256：7a073af4aac72bc19e456f5321784bb16ca5b4cfc655e396433534418880edc5；16個runtime與canonical sim及Site dist逐位元組相同。沒有新依賴或測試入口；新測試沿用既有browser／純測試／helper登記。未開sub-agents；真手機、真Moodle及全T0–T3矩陣未重驗，維持planned。
 - 最終完整 source 及實際解壓 package browser regression 通過：雙向96點、明確提交、角色版面、前兩題與等半徑評分、fullscreen、取消／只讀，以及v12/v13連續時鐘與減速／反向等既有操作；每入口8種延後900ms放手情境仍通過。
+
+### 雙向容量 Site v15 交付
+
+- 功能commit 6f1e1b2a1b78d5625efbafad4016bf174d3bbf19已推到origin；committed selection preview由f4d2d575cd0634bb262899e18426dde21d0cd7ca起算，output/centripetal-direction-capacity-selection.json。選取器因既有test-support.js沒有asset consumer而保守列出mode=full／packages=all；本輪實際執行本活動五純測試、完整source/package browser及check/check:tests，沒有宣稱跑完全repo清單。
+- 官方helper推送Site source 36f6a4ddedaad4109f37bd6603feb8191fdc4014；原owner-private audience保持。v15 appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_65acdcd630808191a792d0f28b1bf8a1，deployment appgdep_6ada431981308191bd64dd72c1c7adc5，Sites回報succeeded（2026-10-22T17:08:49.245592+00:00）。
+- 原Site分頁重新載入後，已開第三題的收集頁供使用者試；實際確認只有A力讀數、B配重（不量測）、正反轉分開計數與96點容量說明。截圖centripetal-directions-v15.png保留於當前visualizations目錄。上線畫面確認不替代真手機或Moodle測試。
+- 網址：https://centripetal-force-investigation-lab.ieyp.chatgpt.site/centripetal-force-investigation-lab/
+
