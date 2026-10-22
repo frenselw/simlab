@@ -476,3 +476,13 @@ pending／technical不顯示「提交後正解」以免技術錯誤冒充完成�
 - 拱橋／凹路延伸同一條平滑拋物線至畫面左右邊緣，地面填滿邊緣；汽車保持原行駛範圍及中央停車相位，不改橋頂等待。
 - 修正結果卡的全域svg尺寸規則誤套行內LaTeX的問題；檢查／參考受力圖採一致的viewBox及比例，圖中文字保持可讀。原圓心方向選項、力拖畫及無鍵盤說明要求持續適用。
 - 僅更改呈現；answer v2／model v2／rubric v1、評分、保存、依賴均不變。驗證加入遠近尺寸與軌道對位、道路邊緣及車輛路線、提交前後所有六圖與行內公式的瀏覽器尺寸斷言及手機／桌面截圖；沿用scene、notation與既有browser登記。
+
+### 本輪驗證與部署
+
+- 修正前新檢查重現摘要圖過小；結果卡原`.feedback-card svg`亦將行內LaTeX強制設成150px高。改為只設定直接子層的受力圖，行內公式保留自己的em尺寸；摘要／參考圖統一320×230 viewBox及等比例自動高度。
+- 七個活動Node測試、check、check:tests（265 entries）及diff check通過。幾何測試確認近側球徑比遠側大逾1.5倍、球位置在同一投影橢圓上，兩條道路到左右邊緣且汽車位置／切線一致。
+- 最終source與解壓package專屬browser均completed=true、errors=0。新增320×500、390×844、1280×800六張提交前／後圖與行內公式尺寸檢查；有近／遠擺球、兩種路面及各參考圖截圖。既有六題13次可信畫力取得100分、橋題跨圈等待等流程仍通過。
+- 首輪完整browser在箭尖放大鏡取樣出現一次偏差，當時沒有保留偏差座標；診斷重跑通過，不能據此宣稱原測試穩定。已把原本固定25ms後取樣改為確認最後原生pointermove到達，再等待兩個畫面幀；最終按此同步方式完整source/package通過。此證據只涵蓋本機已執行條件。
+- Runtime assetHash `66c4994799a5b1c18eedd6b37a5ec1f464f2f203268cc81bfa6caf2600c5bc2e`；SCORM ZIP SHA-256 `BBF66457FA21CD5E9EB29A52A2E4725CF4B6DD7D6BD75B12E94310CFEB9DDBC4`；十個runtime與Site來源逐檔一致。
+- 同一owner-only Site source `1c126a54d9ab51903a97ab7b248386db65c9d626`；v7 `appgprj_6ad9ab2ffe008191bea6e486a6000e05~appgver_f7515df727dc81918d28543373dc9385`；deployment `appgdep_6ad9e5ac2bac81918caa2f5d78df0906` succeeded。
+- Runtime commit `a6456097659a649e7a6c1d5852c806e4405c94ef` 已推送；以 `a125577` 為base的committed selection：affected／本活動package／230 entries（僅選擇預覽，非全數執行）。未重跑全部T0–T3矩陣、真手機或真Moodle；未等待GitHub CI。
