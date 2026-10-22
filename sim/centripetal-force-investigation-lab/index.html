@@ -23,14 +23,16 @@
     <div class="scroll-strip left" aria-hidden="true"></div><div class="scroll-strip right" aria-hidden="true"></div>
     <div id="stageContent" class="stage-content">
       <div class="readouts" aria-live="off"><span><span data-tex="\omega" data-math-label="角速率">ω</span> <strong id="omegaRead">0.000</strong> <small data-tex="\mathrm{rad}/\mathrm{s}" data-math-label="弧度每秒">rad/s</small></span><span><span data-tex="F_A" data-math-label="A 側徑向力">Fₐ</span> <strong id="forceARead">0.000</strong> <small data-tex="\mathrm{N}" data-math-label="牛頓">N</small></span><span><span data-tex="F_B" data-math-label="B 側徑向力">Fᵦ</span> <strong id="forceBRead">0.000</strong> <small data-tex="\mathrm{N}" data-math-label="牛頓">N</small></span></div>
-      <svg id="deviceSvg" viewBox="0 0 600 360" preserveAspectRatio="xMidYMid meet" aria-label="兩側測力計與旋轉平台"></svg>
+      <div id="apparatusCaption" class="apparatus-caption">俯視裝置 · 砝碼鎖在 A／B 托座上</div>
+      <svg id="deviceSvg" viewBox="0 0 600 460" preserveAspectRatio="xMidYMid meet" aria-label="兩側測力計與旋轉平台"></svg>
       <svg id="graphSvg" viewBox="0 0 600 360" preserveAspectRatio="xMidYMid meet" role="img" aria-label="量測散點圖" hidden></svg>
       <div id="spinTargets" aria-label="拖動操作環推動平台"></div>
-      <button class="radius-handle" data-side="A" aria-label="拖動 A 側測力計調整半徑">A</button>
-      <button class="radius-handle" data-side="B" aria-label="拖動 B 側測力計調整半徑">B</button>
-      <button class="mass-token tray" data-mass="tray" aria-label="拖動砝碼至 A 或 B；鍵盤可用下方加減按鈕">＋<span class="weight-word">砝碼</span></button>
-      <button class="mass-token placed a" data-mass="A" aria-label="拖回 A 側砝碼">A 砝碼</button>
-      <button class="mass-token placed b" data-mass="B" aria-label="拖回 B 側砝碼">B 砝碼</button>
+      <button class="radius-handle" data-side="A" aria-label="拖動 A 側測力計調整半徑">↔ A</button>
+      <button class="radius-handle" data-side="B" aria-label="拖動 B 側測力計調整半徑">↔ B</button>
+      <div id="weightTray" class="weight-tray" aria-hidden="true"><span>砝碼盤</span></div>
+      <button class="mass-token tray" data-mass="tray" aria-label="從砝碼盤拖一塊圓片到 A 或 B 托座"><span class="washer" aria-hidden="true"></span><span>拖一塊</span></button>
+      <button class="mass-token placed a" data-mass="A" aria-label="拖走 A 托座的一塊砝碼"></button>
+      <button class="mass-token placed b" data-mass="B" aria-label="拖走 B 托座的一塊砝碼"></button>
       <div id="radiusPreview" class="radius-preview" hidden aria-hidden="true"></div>
       <p id="stageHint" class="stage-hint" role="status">先在面板加砝碼、調半徑，再按「開始收集」。</p>
     </div>
@@ -41,14 +43,21 @@
     <button id="saveRetryButton" hidden>重試保存</button>
     <section id="resultPanel" hidden><h2 id="reviewTitle">只讀檢討</h2><p id="scorePanel"></p><button id="retryFinalButton" hidden>重試同一份提交</button></section>
     <section id="taskPanel">
-      <section id="setupPanel"><h3>第 1 步：設定器材</h3><p class="small">按「＋砝碼」加重、按半徑「＋／−」調整；亦可把舞台砝碼拖到 A/B 方框。</p>
-        <div class="setting-row"><strong>A 側</strong><div class="quantity-step"><span>半徑</span><button data-step="0:-1" aria-label="A 半徑減少一格">−</button><output id="rAValue"></output><button data-step="0:1" aria-label="A 半徑增加一格">＋</button></div><div class="quantity-step"><span>砝碼</span><button data-step="2:-1" aria-label="A 移除一塊砝碼">−</button><output id="mAValue"></output><button data-step="2:1" aria-label="A 增加一塊砝碼">＋<span class="weight-word">砝碼</span></button></div></div>
-        <div class="setting-row"><strong>B 側</strong><div class="quantity-step"><span>半徑</span><button data-step="1:-1" aria-label="B 半徑減少一格">−</button><output id="rBValue"></output><button data-step="1:1" aria-label="B 半徑增加一格">＋</button></div><div class="quantity-step"><span>砝碼</span><button data-step="3:-1" aria-label="B 移除一塊砝碼">−</button><output id="mBValue"></output><button data-step="3:1" aria-label="B 增加一塊砝碼">＋<span class="weight-word">砝碼</span></button></div></div>
-        <p class="small">半徑由軸心量至組件質心，每格 <span data-tex="0.05\,\mathrm{m}">0.05 m</span>；每塊砝碼 <span data-tex="0.020\,\mathrm{kg}">0.020 kg</span>。總質量包括樽蓋、螺絲及砝碼。</p><button id="startButton" class="primary">第 2 步：開始收集</button>
+      <nav class="panel-nav" aria-label="實驗步驟"><button id="setupView">1 設定</button><button id="collectView">2 收集</button><button id="analyseView">3 圖像</button></nav>
+      <section id="setupPanel"><h3>第 1 步：設定器材</h3><p class="small">圓片砝碼放在同色托座上。按「＋」加一塊，或由砝碼盤拖入托座。</p>
+        <div class="setting-row side-a"><strong><span class="side-letter">A</span> A 托座</strong>
+          <div class="quantity-step"><span>砝碼</span><button data-step="2:-1" aria-label="A 移除一塊砝碼">−</button><output id="mAValue"></output><button data-step="2:1" aria-label="A 增加一塊砝碼">＋</button></div>
+          <div class="quantity-step"><span>半徑</span><button data-step="0:-1" aria-label="A 半徑減少一格">−</button><output id="rAValue"></output><button data-step="0:1" aria-label="A 半徑增加一格">＋</button></div>
+        </div>
+        <div class="setting-row side-b"><strong><span class="side-letter">B</span> B 托座</strong>
+          <div class="quantity-step"><span>砝碼</span><button data-step="3:-1" aria-label="B 移除一塊砝碼">−</button><output id="mBValue"></output><button data-step="3:1" aria-label="B 增加一塊砝碼">＋</button></div>
+          <div class="quantity-step"><span>半徑</span><button data-step="1:-1" aria-label="B 半徑減少一格">−</button><output id="rBValue"></output><button data-step="1:1" aria-label="B 半徑增加一格">＋</button></div>
+        </div>
+        <p class="small">半徑由軸心量至組件質心，每格 <span data-tex="0.05\,\mathrm{m}">0.05 m</span>；每塊砝碼 <span data-tex="0.020\,\mathrm{kg}">0.020 kg</span>。總質量包括樽蓋、螺絲及砝碼。</p><p id="setupRunNote" class="setup-run-note"></p><div class="setup-actions"><button id="startButton" class="primary">開始收集 →</button><button id="restartRunButton" hidden>清除本組並重做</button></div><p id="restartRunNote" class="small" hidden>重做會清除本組數據、擬合與圖像答案；其他資料組及概念答案保留。</p>
       </section>
-      <section id="collectPanel" hidden><h3>第 2 步：推動轉盤</h3><p>手指按住舞台金色環，沿圓周拖動；或按「推快一格」。放手後會續轉，改變轉速可收集不同讀數。</p>
-        <div class="button-row"><button id="pushButton" class="primary">推快一格 ↻</button><button id="slowButton">減慢一格</button><button id="resumeButton">繼續收集</button><button id="stopButton">第 3 步：停止並看圖</button></div>
-        <p id="collectStatus" role="status"></p><p class="small">鍵盤：聚焦操作環，←／→ 改變轉速，空白鍵暫停。</p>
+      <section id="collectPanel" hidden><h3>第 2 步：推動轉盤</h3><p class="small">拖動金色環，或按「推快一格」。放手後會續轉；改變轉速可取得不同讀數。</p>
+        <div class="button-row"><button id="pushButton" class="primary">推快一格 ↻</button><button id="slowButton">減慢一格</button><button id="resumeButton">繼續收集</button><button id="stopButton">停止並看圖 →</button></div>
+        <p id="collectStatus" role="status"></p><p class="small">要改器材或重做，按上方「← 返回設定」。本組數據會先保留。</p><p class="small">鍵盤：聚焦操作環，←／→ 改變轉速，空白鍵暫停。</p>
       </section>
       <section id="analysePanel" hidden><h3>圖像與擬合</h3><p id="axisLabel"></p><div class="button-row"><button id="fitButton" class="primary">擬合本組圖點</button><button id="resumeFromGraph">繼續採樣</button></div><p id="fitResult" aria-live="polite"></p>
         <label>定量比較 <span id="numericPrompt"></span><input id="numericAnswer" type="text" inputmode="decimal" maxlength="12" placeholder="填數值"></label>
@@ -56,7 +65,6 @@
         <label>怎樣解讀擬合？<select id="reason"></select></label>
       </section>
       <p class="eyebrow" id="taskNumber">實驗 1 / 3</p><h2 id="taskTitle"></h2><p id="taskPrompt"></p>
-      <div class="panel-nav"><button id="setupView">裝置設定</button><button id="collectView">收集數據</button><button id="analyseView">圖像與推論</button></div>
       <fieldset id="rolesField"><legend>公平比較：我要改變甚麼？保持甚麼不變？</legend>
         <label>自變量 <select id="independent"><option value="">未選</option><option value="r">半徑</option><option value="m">質量</option><option value="omega">角速率</option><option value="force">徑向力</option></select></label>
         <div class="controls-choice"><span>控制量（最多兩項）</span><label><input type="checkbox" data-control="r">半徑</label><label><input type="checkbox" data-control="m">質量</label><label><input type="checkbox" data-control="omega">共同角速率</label><label><input type="checkbox" data-control="force">徑向力</label></div>

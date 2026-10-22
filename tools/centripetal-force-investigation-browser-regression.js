@@ -83,16 +83,23 @@ async function scenario(cdp, base, launch, label, width, height) {
   assert.equal(await H.evaluate(cdp, "document.querySelector('.mass-token.tray').classList.contains('dragging')"), true, `${label}: weight follows the finger`);
   await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
   assert.equal(await H.evaluate(cdp, "document.querySelector('.mass-token.tray').classList.contains('dragging')"), false, `${label}: released weight returns to tray`);
-  const content = await rect(cdp, "#stageContent"), scale = Math.min(content.width / 600, content.height / 360);
-  await touchDrag(cdp, '.radius-handle[data-side="A"]', 36 * scale, 0);
+  const scale = await H.evaluate(cdp, 'document.getElementById("deviceSvg").getScreenCTM().a');
+  await touchDrag(cdp, '.radius-handle[data-side="A"]', 43 * scale, 0);
   data = await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].work[0]");
   assert.equal(data, 4, `${label}: trusted radius drag changes one side`);
-  await touchTo(cdp, ".mass-token.tray", '.radius-handle[data-side="A"]');
+  await touchTo(cdp, ".mass-token.tray", '.mass-token.placed.a');
   assert.equal(await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].work[2]"), 3, `${label}: trusted mass placement`);
+  assert.equal(await H.evaluate(cdp, "document.querySelectorAll('[data-assembly=\"A\"] .weight-plate').length"), 3, `${label}: added weight is drawn on A holder`);
+  for (let i = 0; i < 6; i++) await click(cdp, '[data-step="3:1"]');
+  await touchTo(cdp, '.mass-token.placed.a', '.mass-token.placed.b');
+  assert.deepEqual(await H.evaluate(cdp, 'window.__centripetalApp.getState().tasks[0].work.slice(2)'), [3, 8], `${label}: full holder rejects transfer without losing a weight`);
+  const weightsScreenshot = await cdp.send('Page.captureScreenshot', {format:'png',captureBeyondViewport:false});
+  fs.writeFileSync(path.join(folder, `centripetal-${label}-weights-${width}x${height}.png`), Buffer.from(weightsScreenshot.data, 'base64'));
+  for (let i = 0; i < 6; i++) await click(cdp, '[data-step="3:-1"]');
   await touchTo(cdp, ".mass-token.placed.a", ".mass-token.tray");
   assert.equal(await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].work[2]"), 2, `${label}: trusted mass removal; ${JSON.stringify(await H.evaluate(cdp, 'window.__touchEvidence'))}`);
   await click(cdp, "#startButton");
-  const ringPoint = await H.evaluate(cdp, `(()=>{const r=document.getElementById('stageContent').getBoundingClientRect(),s=Math.min(r.width/600,r.height/360);return{x:r.left+(r.width-600*s)/2+300*s,y:r.top+(r.height-360*s)/2+46*s,scale:s};})()`);
+  const ringPoint = await H.evaluate(cdp, `(()=>{const r=document.getElementById('stageContent').getBoundingClientRect(),s=Math.min(r.width/600,r.height/460);return{x:r.left+(r.width-600*s)/2+300*s,y:r.top+(r.height-460*s)/2+17*s,scale:s};})()`);
   assert.equal(await H.evaluate(cdp, "document.querySelectorAll('.spin-segment').length"), 24, `${label}: continuous local ring targets`);
   const collectScreenshot = await cdp.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
   fs.writeFileSync(path.join(folder, `centripetal-${label}-collect-${width}x${height}.png`), Buffer.from(collectScreenshot.data, "base64"));
@@ -142,6 +149,9 @@ async function layoutOnly(cdp, base, launch, width, height) {
     const screenshot = await cdp.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
     const folder = path.join(root, "output", "playwright"); fs.mkdirSync(folder, { recursive: true });
     fs.writeFileSync(path.join(folder, "centripetal-layout-320x500.png"), Buffer.from(screenshot.data, "base64"));
+    for (let i = 0; i < 2; i++) { await click(cdp, '[data-step="0:-1"]'); await click(cdp, '[data-step="1:-1"]'); }
+    const a = await rect(cdp, '.mass-token.placed.a'), b = await rect(cdp, '.mass-token.placed.b');
+    assert.ok(b.x + b.width <= a.x + .5, 'Closest A/B holders have separate touch targets on a narrow phone');
   }
   if (width === 320 && height === 225) {
     const screenshot = await cdp.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
@@ -165,6 +175,34 @@ async function buttonOnly(cdp, base, launch, label) {
   assert.ok(await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].runs[0].q.length") >= 3, `${label}: push button alone records three speeds`);
   await click(cdp, "#stopButton"); await click(cdp, "#fitButton");
   assert.equal(await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].runs[0].fit"), true, `${label}: button-only measurements fit`);
+  const saved = await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].runs[0]");
+  await H.evaluate(cdp, "document.getElementById('controlPanel').scrollTop=10000");
+  const back = await rect(cdp, '#setupView'), panel = await rect(cdp, '#controlPanel');
+  assert.ok(back.y >= panel.y && back.y + back.height <= panel.y + panel.height, `${label}: return-to-setup stays visible while scrolling`);
+  await click(cdp, '#setupView');
+  assert.deepEqual(await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].runs[0]"), saved, `${label}: returning preserves measurements and answers`);
+  assert.equal(await H.evaluate(cdp, "document.querySelector('#rotatingAssembly').getAttribute('transform')"), 'rotate(0 300 230)', `${label}: setup restores the aligned apparatus pose`);
+  await click(cdp, '[data-step="2:1"]');
+  assert.equal(await H.evaluate(cdp, "document.querySelectorAll('[data-assembly=\"A\"] .weight-plate').length"), 4, `${label}: setup shows working masses`);
+  await click(cdp, '#collectView');
+  assert.equal(await H.evaluate(cdp, "document.querySelectorAll('[data-assembly=\"A\"] .weight-plate').length"), 3, `${label}: old run shows its frozen masses`);
+  await click(cdp, '#pushButton');
+  const live = await H.evaluate(cdp, "({force:Number(document.getElementById('forceARead').textContent),omega:Math.abs(window.__centripetalApp.getMotion().omega)})");
+  assert.ok(Math.abs(live.force - .1 * .2 * live.omega ** 2) < .0001, `${label}: old run readout uses frozen configuration`);
+  await click(cdp, '#setupView'); await click(cdp, '#startButton');
+  for (let i = 0; i < 3; i++) await click(cdp, '#pushButton');
+  await click(cdp, '#stopButton'); await click(cdp, '#fitButton');
+  await click(cdp, '#setupView'); await click(cdp, '[data-step="0:1"]');
+  await click(cdp, '#restartRunButton');
+  const redo = await H.evaluate(cdp, 'window.__centripetalApp.getState()');
+  assert.equal(redo.view, 'collect'); assert.equal(redo.tasks[0].runs.length, 2);
+  assert.deepEqual(redo.tasks[0].runs[0], saved, `${label}: redo preserves the other group`);
+  assert.deepEqual(redo.tasks[0].runs[1], {cfg:[3,2,4,2],q:[],fit:false,a:[null,null,null]}, `${label}: redo clears only current data and uses new settings`);
+  for (let i = 0; i < 3; i++) await click(cdp, '#pushButton');
+  await click(cdp, '#stopButton'); await click(cdp, '#fitButton');
+  assert.equal(await H.evaluate(cdp, 'window.__centripetalApp.getState().tasks[0].runs[1].fit'), true, `${label}: legal continuation after redo`);
+  await click(cdp, '#checkButton'); await click(cdp, '#submitButton');
+  assert.equal(await H.evaluate(cdp, 'document.getElementById("restartRunButton").hidden'), true, `${label}: submitted work has no redo action`);
 }
 async function main() {
   const browser = H.findBrowser(); if (!browser) throw Error("Chrome/Chromium not found");

@@ -84,6 +84,7 @@ function activityProfiles(slug) {
     const fitted=page=>({id:`fitted-${page}`,prepare:`const M=window.CentripetalModel,P=window.CentripetalPersistence,s=M.fresh(12),t=s.tasks[${page}];s.page=${page};M.begin(t);for(const q of [500,1500,3000])M.record(t,q/1000);s.view='analyse';if(!M.fitCurrent(M.KINDS[${page}],t).ok)throw Error('Fixture cannot fit');return restore('${slug}',P.validate(s));`,
       continue:['#resumeFromGraph','#stopButton'],expect:`window.__centripetalApp.getState().tasks[${page}].runs[0].fit===true`});
     return [initial,...[1,2].map(page=>click(`setup-${page}`,[`[data-page="${page}"]`])),
+      {id:'returned-setup',prepare:"click('#startButton');click('#pushButton');click('#setupView');",expect:"window.__centripetalApp.getState().view==='setup'&&window.__centripetalApp.getState().tasks[0].runs[0].q.length===1"},
       ...[0,1,2].flatMap(page=>[experiment(page,'collect'),experiment(page,'analyse'),fitted(page)]),
       click('check',['#checkButton']),click('submitted',['#checkButton','#submitButton']),
       {id:'pending',prepare:"auditHost.__failFinal=true;click('#checkButton');click('#submitButton');"},

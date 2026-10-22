@@ -28,15 +28,17 @@
   }
   function pause() { running = false; motion = { ...motion, omega: 0, pointerAngle: null, time: null }; if (drag) cancelDrag(); }
   function mapPoint(x, y) {
-    const rect = stage.getBoundingClientRect(), scale = Math.min(rect.width / 600, rect.height / 360);
-    return { x: rect.left + (rect.width - 600 * scale) / 2 + x * scale,
-      y: rect.top + (rect.height - 360 * scale) / 2 + y * scale, scale };
+    const rect = stage.getBoundingClientRect(), box = device.viewBox.baseVal, scale = Math.min(rect.width / box.width, rect.height / box.height);
+    return { x: rect.left + (rect.width - box.width * scale) / 2 + (x - box.x) * scale,
+      y: rect.top + (rect.height - box.height * scale) / 2 + (y - box.y) * scale, scale };
   }
   function svgPoint(event) {
     const origin = mapPoint(0, 0), scale = origin.scale;
     return { x: (event.clientX - origin.x) / scale, y: (event.clientY - origin.y) / scale };
   }
-  const componentX = (side, index) => 300 + (side === "A" ? 1 : -1) * (64 + index * 18);
+  const componentX = (side, index) => 300 + (side === "A" ? 1 : -1) * M.radius(index) * 430;
+  const radiusY = side => side === "A" ? 318 : 142;
+  const displayedConfig = () => view() === "setup" ? task().work : shownRun()?.cfg || task().work;
   function positionHit(button, x, y) {
     const p = mapPoint(x, y), r = stage.getBoundingClientRect();
     button.style.left = `${p.x - r.left - button.offsetWidth / 2}px`;
@@ -45,18 +47,22 @@
   function layoutTargets() {
     if (!state()) return;
     const cfg = task().work;
-    for (const [side, i] of [["A", 0], ["B", 1]]) positionHit(document.querySelector(`.radius-handle[data-side="${side}"]`), componentX(side, cfg[i]), 185);
-    for (const side of ["A", "B"]) {
+    for (const [side, i] of [["A", 0], ["B", 1]]) {
+      const x = componentX(side, cfg[i]);
+      positionHit(document.querySelector(`.radius-handle[data-side="${side}"]`), x, radiusY(side));
       const button = document.querySelector(`.mass-token.placed.${side.toLowerCase()}`);
-      positionHit(button, componentX(side, cfg[side === "A" ? 0 : 1]), 235);
-      button.textContent = `${side}：${cfg[side === "A" ? 2 : 3]} 塊`;
+      const stackHeight = Math.max(0, cfg[i + 2] - 1) * 4, scale = mapPoint(0, 0).scale;
+      button.style.width = `${Math.max(44, 58 * scale)}px`;
+      button.style.height = `${Math.max(44, (58 + stackHeight) * scale)}px`;
+      positionHit(button, x, 230 - stackHeight / 2);
+      button.setAttribute("aria-label", `${side} 托座：${cfg[i + 2]} 塊砝碼；可拖一塊回砝碼盤`);
     }
-    const radius = 139 * mapPoint(0, 0).scale;
+    const radius = 213 * mapPoint(0, 0).scale;
     document.querySelectorAll(".spin-segment").forEach((button, i) => {
       const size = Math.max(44, Math.min(64, 2 * Math.PI * radius / 24 + 8));
       button.style.width = `${i ? size : Math.max(64, size)}px`; button.style.height = `${size}px`;
       const angle = i / 24 * Math.PI * 2;
-      positionHit(button, 300 + 139 * Math.cos(angle), 185 + 139 * Math.sin(angle));
+      positionHit(button, 300 + 213 * Math.cos(angle), 230 + 213 * Math.sin(angle));
     });
   }
   function makeTargets() {
@@ -71,18 +77,36 @@
     new ResizeObserver(layoutTargets).observe(stage);
   }
   function drawDevice() {
-    const cfg = task()?.work || M.CFG, rA = componentX("A", cfg[0]), rB = componentX("B", cfg[1]);
-    const angle = motion.angle * 180 / Math.PI;
-    const selected = shownRun(), q = selected?.q || [];
-    const mini = q.length ? `<g transform="translate(450 245)"><rect width="115" height="76" rx="6" fill="#fffef8" stroke="#a6bdc9"/><path d="M14 9V62H105" fill="none" stroke="#667e8b"/>${q.map(v => { const p = M.readings(selected.cfg, v / 1000); return `<circle cx="${14 + v / 6000 * 88}" cy="${62 - Math.min(1, p.a / 1.6) * 49}" r="2.8" fill="#146c88"/>`; }).join("")}<text x="17" y="73" font-size="9" fill="#476579">即時圖點 ${q.length}</text></g>` : "";
-    device.innerHTML = `<defs><radialGradient id="disk"><stop stop-color="#fcfeff"/><stop offset="1" stop-color="#a8c6d4"/></radialGradient></defs>
-      <rect x="0" y="0" width="600" height="360" fill="#e6f2f7"/><g stroke="#c2d8e2" stroke-width="1"><path d="M20 185H580"/><path d="M300 45V330"/></g>
-      <circle cx="300" cy="185" r="144" fill="none" stroke="#bf8c32" stroke-width="19" stroke-dasharray="52 23"/><circle cx="300" cy="185" r="124" fill="url(#disk)" stroke="#6b95aa" stroke-width="5"/>
-      <g transform="rotate(${angle} 300 185)"><path d="M${rB} 185H${rA}" stroke="#637e8d" stroke-width="14" stroke-linecap="round"/><circle cx="300" cy="185" r="21" fill="#315776" stroke="#15384f" stroke-width="4"/>
-      <rect x="${rA - 24}" y="169" width="48" height="32" rx="7" fill="#8fd7e0" stroke="#076f89" stroke-width="3"/><rect x="${rB - 24}" y="169" width="48" height="32" rx="7" fill="#f6c68d" stroke="#ab641b" stroke-width="3"/>
-      <circle cx="${rA}" cy="185" r="7" fill="#173f54"/><circle cx="${rB}" cy="185" r="7" fill="#173f54"/></g>
-      <text x="${rA}" y="150" text-anchor="middle" font-size="22" font-weight="bold" fill="#075b75">A</text><text x="${rB}" y="150" text-anchor="middle" font-size="22" font-weight="bold" fill="#a3580e">B</text>
-      ${mini}`;
+    const cfg = displayedConfig(), setup = view() === "setup";
+    device.setAttribute("viewBox", setup ? "80 75 440 330" : "0 0 600 460");
+    const assemblies = ["A", "B"].map((side, i) => {
+      const x = componentX(side, cfg[i]), direction = side === "A" ? 1 : -1, count = cfg[i + 2];
+      const colour = side === "A" ? "#087c95" : "#b56317", light = side === "A" ? "#d2f0f3" : "#ffdfad";
+      const plates = Array.from({ length: count }, (_, j) => `<ellipse class="weight-plate" cx="${x}" cy="${230 - j * 4}" rx="23" ry="13" fill="url(#metal)" stroke="#667783" stroke-width="2"/>`).join("");
+      return `<g class="assembly" data-assembly="${side}" data-count="${count}" data-radius="${M.radius(cfg[i])}">
+        <path d="M300 230H${x}" stroke="${colour}" stroke-width="4"/>
+        <rect x="${x - direction * 34 - 8}" y="214" width="16" height="32" rx="4" fill="${light}" stroke="${colour}" stroke-width="3"/>
+        <path d="M${x - direction * 34} 219v22" stroke="${colour}" stroke-width="2" stroke-dasharray="3 2"/>
+        <circle cx="${x}" cy="230" r="29" fill="${light}" stroke="${colour}" stroke-width="4"/>
+        ${plates}<circle cx="${x}" cy="${230 - Math.max(0, count - 1) * 4}" r="5" fill="#344957" stroke="#eaf2f5" stroke-width="2"/>
+        <g class="assembly-label" data-x="${x}" data-y="230"><rect x="${x - 39}" y="250" width="78" height="29" rx="9" fill="${colour}"/><text x="${x}" y="271" text-anchor="middle" fill="white" font-size="20" font-weight="700">${side} ${count}塊</text></g>
+      </g>`;
+    }).join("");
+    const rulers = setup ? ["A", "B"].map((side, i) => {
+      const direction = side === "A" ? 1 : -1, y = radiusY(side), x = componentX(side, cfg[i]);
+      return `<g class="radius-ruler" stroke="#758d9b" stroke-width="2"><path d="M300 ${y}H${300 + direction * 172}M${x} ${side === "A" ? 279 : 196}V${y}" stroke-dasharray="4 4"/>
+        ${Array.from({ length: 7 }, (_, n) => `<path d="M${componentX(side, n)} ${y - 9}v18"/>`).join("")}</g>`;
+    }).join("") : "";
+    device.innerHTML = `<defs><linearGradient id="metal" x2="0.8" y2="1"><stop stop-color="#f8fbfc"/><stop offset=".42" stop-color="#c1ccd3"/><stop offset="1" stop-color="#80939f"/></linearGradient></defs>
+      ${setup ? '<rect x="95" y="193" width="410" height="88" rx="18" fill="#f9fcfd" stroke="#b9cbd5" stroke-width="2"/>' : `<circle cx="300" cy="234" r="201" fill="#afc0c9" opacity=".28"/>
+      <circle cx="300" cy="230" r="213" fill="none" stroke="#b98429" stroke-width="13"/>
+      <circle cx="300" cy="230" r="196" fill="#f9fcfd" stroke="#87a2b1" stroke-width="3"/>`}
+      <g id="rotatingAssembly"><path d="M116 230H484" stroke="#d8e3e9" stroke-width="22" stroke-linecap="round"/>
+        <path d="M116 230H484" stroke="#7994a5" stroke-width="2" stroke-dasharray="2 9"/>
+        ${assemblies}<circle cx="300" cy="230" r="12" fill="#355469" stroke="#f1f7fa" stroke-width="4"/>
+        <path d="M293 230h14M300 223v14" stroke="#d2e1e9" stroke-width="2"/>
+      </g>${rulers}
+      ${setup ? '<text class="apparatus-key" x="300" y="205" text-anchor="middle" fill="#4b6677" font-size="22">測力計</text><text class="apparatus-key" x="300" y="270" text-anchor="middle" fill="#4b6677" font-size="20">軸心</text>' : ''}`;
   }
   function graphAxes(kind) {
     const forceA = { tex: 'F_A\\,(\\mathrm{N})', text: 'A 側徑向力（N）' };
@@ -114,13 +138,15 @@
   }
   function renderMotion() {
     if (!state()) return;
-    const reading = M.readings(task().work, Math.abs(motion.omega));
+    const reading = M.readings(displayedConfig(), Math.abs(motion.omega));
     $("omegaRead").textContent = Math.abs(motion.omega).toFixed(3);
     $("forceARead").textContent = fmt(reading.a);
     $("forceBRead").textContent = fmt(reading.b);
     $("compactOmega").textContent = Math.abs(motion.omega).toFixed(3);
     $("compactForceA").textContent = fmt(reading.a); $("compactForceB").textContent = fmt(reading.b);
-    if (view() === "analyse") drawGraph(); else drawDevice();
+    const angle = view() === "setup" ? 0 : motion.angle * 180 / Math.PI;
+    device.querySelector("#rotatingAssembly")?.setAttribute("transform", `rotate(${angle} 300 230)`);
+    device.querySelectorAll(".assembly-label").forEach(label => label.setAttribute("transform", `rotate(${-angle} ${label.dataset.x} ${label.dataset.y})`));
   }
   function setSelect(id, options, value, disabled) {
     const select = $(id), selected = value ?? "";
@@ -153,6 +179,7 @@
     const t = task(), cfg = t.work, run = shownRun(), editing = !locked && v !== "check";
     $("taskNumber").textContent = `實驗 ${p + 1} / 3`; $("taskTitle").textContent = titles[p]; $("taskPrompt").textContent = prompts[p];
     $("setupPanel").hidden = v !== "setup"; $("collectPanel").hidden = v !== "collect"; $("analysePanel").hidden = v !== "analyse";
+    $("setupView").textContent = v === "setup" ? "1 設定" : "← 返回設定";
     $("setupView").disabled = !editing; $("collectView").disabled = !editing || t.current === null; $("analyseView").disabled = !editing || t.current === null;
     for (const [id, target] of [["setupView", "setup"], ["collectView", "collect"], ["analyseView", "analyse"]]) $(id).setAttribute("aria-current", v === target ? "page" : "false");
     $("independent").value = t.roles[0] || ""; $("independent").disabled = !editing;
@@ -161,8 +188,16 @@
     ["mAValue", "mBValue"].forEach((id, i) => { $(id).innerHTML = `${cfg[i + 2]} 塊 · ${math(`m_${i ? 'B' : 'A'}=${M.mass(cfg[i + 2]).toFixed(3)}\\,\\mathrm{kg}`, `${M.mass(cfg[i + 2]).toFixed(3)} kg`)}`; });
     for (const button of document.querySelectorAll("[data-step]")) { const [field, delta] = button.dataset.step.split(":").map(Number); button.disabled = !editing || v !== "setup" || cfg[field] + delta < 0 || cfg[field] + delta > (field < 2 ? 6 : 8); }
     $("startButton").disabled = !editing || t.runs.length >= 2;
+    $("startButton").textContent = t.runs.length ? `保留舊組，開始第 ${t.runs.length + 1} 組 →` : "開始收集 →";
+    if (t.runs.length >= 2) $("startButton").textContent = "已保留兩組";
+    $("setupRunNote").hidden = !t.runs.length;
+    $("setupRunNote").textContent = t.runs.length >= 2 ? "已保留兩組。可繼續原組，或清除目前組並按新設定重做。" : "本組數據已保留。可繼續收集、保留並另開一組，或清除本組重做。";
+    $("restartRunButton").hidden = !editing || t.current === null;
+    $("restartRunNote").hidden = $("restartRunButton").hidden;
+    $("restartRunButton").disabled = !editing;
+    $("collectView").textContent = t.current === null || v === "collect" ? "2 收集" : "2 繼續本組";
     $("pushButton").disabled = !editing || v !== "collect"; $("slowButton").disabled = !editing || v !== "collect";
-    $("resumeButton").disabled = !editing || running; $("stopButton").disabled = !editing;
+    $("resumeButton").hidden = running; $("resumeButton").disabled = !editing; $("stopButton").disabled = !editing;
     $("collectStatus").textContent = running ? `正在收集 · ${activeRun()?.q.length || 0} 點` : `已暫停 · ${activeRun()?.q.length || 0} 點；可繼續收集`;
     $("fitButton").disabled = !editing || !activeRun(); $("resumeFromGraph").disabled = !editing || !activeRun();
     $("axisLabel").innerHTML = p === 2 ? `橫軸 ${math('\\omega\\,(\\mathrm{rad}/\\mathrm{s})', '角速率（rad/s）')}；縱軸 ${math('F_A\\,(\\mathrm{N})', 'A 側徑向力（N）')}。二次擬合含一次項及常數項。` : `橫軸 ${math('F_B\\,(\\mathrm{N})', 'B 側徑向力（N）')}；縱軸 ${math('F_A\\,(\\mathrm{N})', 'A 側徑向力（N）')}。線性擬合含截距。`;
@@ -181,7 +216,9 @@
     renderRuns();
     const canOperate = editing && v === "collect" && running;
     $("spinTargets").hidden = !canOperate;
-    for (const button of document.querySelectorAll(".radius-handle,.mass-token")) button.hidden = !editing || v !== "setup" || button.classList.contains("placed") && cfg[button.dataset.mass === "A" ? 2 : 3] === 0;
+    for (const button of document.querySelectorAll(".radius-handle,.mass-token")) button.hidden = !editing || v !== "setup";
+    $("weightTray").hidden = !editing || v !== "setup";
+    $("apparatusCaption").hidden = v !== "setup";
     $("deviceSvg").hidden = v === "analyse";
     $("graphSvg").hidden = !$("deviceSvg").hidden;
     $("stageHint").textContent = matchMedia("(max-height:260px) and (max-width:479px)").matches ?
@@ -195,15 +232,25 @@
       const result = controller.result;
       $("feedback").innerHTML = result?.detail?.pages ? result.detail.pages.map((part, i) => `<p>實驗 ${i + 1}：${part.score} / 30。${i === 2 ? `理想關係 ${math('F_A=m_A r_A\\omega^2', 'A 側徑向力公式')}；二次係數是 ${math('m_A r_A', '質量與半徑的乘積')}。` : i === 0 ? `同時刻兩側 ${math('\\omega', '角速率')} 相同；公平比較時 ${math('F_A/F_B=r_A/r_B', '兩側徑向力與半徑比相等')}。` : `同時刻兩側 ${math('\\omega', '角速率')} 相同；公平比較時 ${math('F_A/F_B=m_A/m_B', '兩側徑向力與質量比相等')}。`}</p>`).join("") : "";
     }
+    if (v === "analyse") drawGraph(); else drawDevice();
     renderMotion(); layoutTargets();
+  }
+  function clearDropPreview() {
+    delete $("app").dataset.drag;
+    document.querySelectorAll(".drop-ready,.drop-active").forEach(button => button.classList.remove("drop-ready", "drop-active"));
   }
   function cancelDrag() {
     if (!drag) return;
+    clearDropPreview();
     if (drag.type === "mass") { drag.target.style.left = ""; drag.target.style.top = ""; drag.target.style.bottom = ""; drag.target.classList.remove("dragging"); }
     try { drag.target.releasePointerCapture(drag.id); } catch (_) {}
     drag = null; $("radiusPreview").hidden = true; layoutTargets();
   }
-  function angleOf(event) { const p = svgPoint(event); return Math.atan2(p.y - 185, p.x - 300); }
+  function angleOf(event) { const p = svgPoint(event); return Math.atan2(p.y - 230, p.x - 300); }
+  function massHit(event, side, pointerType) {
+    const center = mapPoint(componentX(side, task().work[side === "A" ? 0 : 1]), 230);
+    return Math.hypot(event.clientX - center.x, event.clientY - center.y) <= Math.max(24, 29 * center.scale) + (pointerType === "touch" ? 18 : 10);
+  }
   function down(event) {
     if (drag || event.pointerType === "touch" && !event.isPrimary) { if (drag) { pause(); render(); } return; }
     if (!controller.editable || state().view === "check") return;
@@ -211,9 +258,15 @@
     if (!target || target.hidden) return;
     const type = target.classList.contains("spin-segment") ? "spin" : target.classList.contains("radius-handle") ? "radius" : "mass";
     if (type === "spin" && !(view() === "collect" && running) || type !== "spin" && view() !== "setup") return;
+    if (type === "mass" && target.dataset.mass !== "tray" && task().work[target.dataset.mass === "A" ? 2 : 3] === 0) return;
     event.preventDefault(); target.setPointerCapture(event.pointerId);
     drag = { target, id: event.pointerId, type, side: target.dataset.side || target.dataset.mass, proposed: null, pointerType: event.pointerType };
     if (type === "spin") motion = M.dragMotion({ ...motion, pointerAngle: null }, angleOf(event), event.timeStamp);
+    if (type === "mass") {
+      $("app").dataset.drag = "mass";
+      document.querySelectorAll(".mass-token.placed").forEach(button => button.classList.add("drop-ready"));
+      $("stageHint").textContent = "把圓片放到 A／B 托座；移除砝碼可拖回砝碼盤。";
+    }
     if (type === "radius") showRadiusPreview(target.dataset.side, task().work[target.dataset.side === "A" ? 0 : 1]);
   }
   function showRadiusPreview(side, index) {
@@ -225,17 +278,17 @@
     event.preventDefault();
     if (drag.type === "spin") {
       const p = svgPoint(event);
-      if (Math.hypot(p.x - 300, p.y - 185) < 30) return;
+      if (Math.hypot(p.x - 300, p.y - 230) < 30) return;
       motion = M.dragMotion(motion, angleOf(event), event.timeStamp);
       if (motion.warning) { localMessage = "手勢跳幅過大；請慢一點重新推動。"; $("notice").hidden = false; $("notice").textContent = localMessage; }
       else localMessage = "";
       recordCurrent(); renderMotion();
     } else if (drag.type === "radius") {
       const p = svgPoint(event), side = drag.side, distance = Math.abs(p.x - 300);
-      const index = Math.max(0, Math.min(6, Math.round((distance - 64) / 18)));
-      const snap = mapPoint(componentX(side, index), 185), threshold = drag.pointerType === "touch" ? 12 : 8;
+      const index = Math.max(0, Math.min(6, Math.round((distance - 43) / 21.5)));
+      const snap = mapPoint(componentX(side, index), radiusY(side)), threshold = drag.pointerType === "touch" ? 12 : 8;
       drag.proposed = Math.hypot(event.clientX - snap.x, event.clientY - snap.y) <= threshold ? index : null;
-      if (drag.proposed !== null) positionHit(drag.target, componentX(side, index), 185);
+      if (drag.proposed !== null) positionHit(drag.target, componentX(side, index), radiusY(side));
       showRadiusPreview(side, index);
     } else if (drag.type === "mass") {
       const rect = stage.getBoundingClientRect();
@@ -243,11 +296,18 @@
       drag.target.style.top = `${event.clientY - rect.top - drag.target.offsetHeight / 2}px`;
       drag.target.style.bottom = "auto";
       drag.target.classList.add("dragging");
+      document.querySelectorAll(".mass-token.placed").forEach(button => {
+        const hit = massHit(event, button.dataset.mass, drag.pointerType);
+        const full = task().work[button.dataset.mass === "A" ? 2 : 3] >= 8;
+        button.classList.toggle("drop-active", hit && !full);
+        if (hit) $("stageHint").textContent = full ? `${button.dataset.mass} 托座已放滿 8 塊砝碼` : `放手：放入 ${button.dataset.mass} 托座`;
+      });
     }
   }
   function up(event) {
     if (!drag || drag.id !== event.pointerId) return;
     event.preventDefault(); const operation = drag; drag = null; $("radiusPreview").hidden = true;
+    clearDropPreview();
     if (operation.type === "mass") { operation.target.style.left = ""; operation.target.style.top = ""; operation.target.style.bottom = ""; operation.target.classList.remove("dragging"); }
     layoutTargets();
     if (operation.type === "spin") { motion = { ...motion, pointerAngle: null, time: null }; renderMotion(); return; }
@@ -257,14 +317,13 @@
       return;
     }
     if (operation.type === "mass") {
-      const hit = (side, index) => { const center = mapPoint(componentX(side, task().work[index]), 185);
-        return Math.hypot(event.clientX - center.x, event.clientY - center.y) <= 22 + (operation.pointerType === "touch" ? 18 : 10); };
-      const destination = hit("A", 0) ? "A" : hit("B", 1) ? "B" : null;
+      const destination = massHit(event, "A", operation.pointerType) ? "A" : massHit(event, "B", operation.pointerType) ? "B" : null;
       const tray = document.querySelector(".mass-token.tray").getBoundingClientRect();
       const back = event.clientX >= tray.left - 18 && event.clientX <= tray.right + 18 && event.clientY >= tray.top - 18 && event.clientY <= tray.bottom + 18;
       if (operation.side === "tray" && destination) controller.update(next => { const t = next.tasks[next.page], field = destination === "A" ? 2 : 3; M.setWork(t, field, t.work[field] + 1); });
       else if (operation.side !== "tray" && (back || destination && destination !== operation.side)) controller.update(next => {
         const t = next.tasks[next.page], from = operation.side === "A" ? 2 : 3;
+        if (destination && !back && t.work[destination === "A" ? 2 : 3] >= 8) return;
         if (t.work[from] > 0) { t.work[from]--; if (destination && !back) { const to = destination === "A" ? 2 : 3; M.setWork(t, to, t.work[to] + 1); } }
       });
     }
@@ -297,9 +356,16 @@
     $("submitButton").addEventListener("click", () => { pause(); controller.submit(); });
     $("retryFinalButton").addEventListener("click", () => controller.retryFinal());
     $("saveRetryButton").addEventListener("click", () => controller.retrySave());
-    [["setupView", "setup"], ["collectView", "collect"], ["analyseView", "analyse"]].forEach(([id, target]) => $(id).addEventListener("click", () => { pause(); controller.navigate(page(), target); }));
+    [["setupView", "setup"], ["collectView", "collect"], ["analyseView", "analyse"]].forEach(([id, target]) => $(id).addEventListener("click", () => {
+      pause(); if (controller.navigate(page(), target) && target === "collect" && controller.editable) { running = true; render(); }
+    }));
     document.querySelectorAll("[data-step]").forEach(button => button.addEventListener("click", () => { const [field, delta] = button.dataset.step.split(":").map(Number); controller.update(next => { const t = next.tasks[next.page]; M.setWork(t, field, t.work[field] + delta); }); }));
-    $("startButton").addEventListener("click", () => { pause(); if (controller.update(next => { const t = next.tasks[next.page]; if (!M.begin(t)) return; next.view = "collect"; })) { running = true; render(); } });
+    $("startButton").addEventListener("click", () => { pause(); motion = M.motion(); localMessage = ""; if (controller.update(next => { const t = next.tasks[next.page]; if (!M.begin(t)) return; next.view = "collect"; })) { running = true; render(); } });
+    $("restartRunButton").addEventListener("click", () => {
+      if (!controller.editable || view() !== "setup" || task().current === null) return;
+      pause(); motion = M.motion(); localMessage = "";
+      if (controller.update(next => { const t = next.tasks[next.page]; t.runs[t.current] = M.freshRun(t.work); next.view = "collect"; })) { running = true; render(); }
+    });
     $("pushButton").addEventListener("click", () => setSpeed((Math.sign(motion.omega) || 1) * Math.min(6, Math.abs(motion.omega) + 0.5)));
     $("slowButton").addEventListener("click", () => setSpeed(Math.sign(motion.omega) * Math.max(0, Math.abs(motion.omega) - 0.5)));
     $("resumeButton").addEventListener("click", () => { running = true; render(); });
