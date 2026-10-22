@@ -95,7 +95,6 @@
       const focus=drag.angle===null?[layout.cx,layout.cy]:point(layout.cx,layout.cy,drag.angle,drag.length*layout.scale);
       d.previewSvg.setAttribute('viewBox',`${focus[0]-35} ${focus[1]-30} 70 60`);
       d.previewSvg.innerHTML=analysisDrawing(s,page,layout,false,drag);
-      d.previewOverview.setAttribute('viewBox',`0 0 ${layout.w} ${layout.h}`);d.previewOverview.innerHTML=d.previewSvg.innerHTML;
     }else d.preview.hidden=true;
   }
   function render(c){

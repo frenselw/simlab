@@ -39,7 +39,7 @@ async function dragForce(angle,selector='#forceHandle'){
   await wait(()=>call(`const p=w.__sourceLastMove;return p&&Math.hypot(p.x-${end.x},p.y-${end.y})<1;`),'final trusted drag movement');
   await call('d.removeEventListener("pointermove",w.__sourceMoveObserver);return new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));');
   assert(await call('return !d.getElementById("preview").hidden;'),'touch preview missing');
-  const focus=await call(`const box=d.getElementById("previewSvg").viewBox.baseVal,r=d.getElementById("diagram").getBoundingClientRect();return {x:r.left+box.x+box.width/2,y:r.top+box.y+box.height/2,overview:!!d.getElementById("previewOverview").querySelector(".force-vector")};`);assert(Math.hypot(focus.x-end.x,focus.y-end.y)<8&&focus.overview,'magnifier must follow the arrow tip with a context overview: '+JSON.stringify({focus,end,start,angle,selector}));
+  const focus=await call(`const box=d.getElementById("previewSvg").viewBox.baseVal,r=d.getElementById("diagram").getBoundingClientRect();return {x:r.left+box.x+box.width/2,y:r.top+box.y+box.height/2,single:d.querySelectorAll("#preview > svg").length===1&&!d.getElementById("previewOverview")};`);assert(Math.hypot(focus.x-end.x,focus.y-end.y)<8&&focus.single,'single magnifier must follow the arrow tip without an overview inset: '+JSON.stringify({focus,end,start,angle,selector}));
   await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await H.delay(35);
 }
 async function screenshot(label){fs.mkdirSync(out,{recursive:true});const r=await cdp.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});fs.writeFileSync(path.join(out,label+'.png'),Buffer.from(r.data,'base64'));}
