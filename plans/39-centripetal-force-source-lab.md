@@ -439,4 +439,5 @@ pending／technical不顯示「提交後正解」以免技術錯誤冒充完成�
 | 測試 | 七個活動Node測試通過；新增測試比對TeX重新編譯產物、無遠端glyph引用、離線browser路徑、實心箭頭末端、六情景標籤無重疊。最終source/package完整互動回歸通過，含視覺方向、LaTeX、分色箭頭、六題作圖截圖、箭尖放大鏡對位與全幅小圖斷言。 |
 | 手機 | T3 focused source／package：direct-drawing、complete × 320×500／390×844，各4/4零issues；其餘拓撲未重跑，不冒稱全矩陣。 |
 | 檢查／套件 | check、check:tests（265 entries）、check-docs、diff check通過；本活動ZIP 15 entries，SHA-256 `B2786BD6961B18DFEEAC7758C149D0C7343999ADDD8432C452377A36188ADF55`；十自有runtime與Sites逐檔相同。 |
-| 部署 | 同一owner-only Site；source commit `89d6e55581223bc9ed3742a915d5ce6c2493c8d1` 已推送，版本部署回覆待記錄。不等待GitHub CI終態。 |
+| 部署 | 同一owner-only Site；source commit `89d6e55581223bc9ed3742a915d5ce6c2493c8d1`；v4 `appgprj_6ad9ab2ffe008191bea6e486a6000e05~appgver_f4a9a47dbfec819193c8e22e2f8d4bd0`；deployment `appgdep_6ad9d4c570a08191b7116ab39568af61` succeeded；[同一私人預覽網址](https://centripetal-force-source-lab.ieyp.chatgpt.site)。不等待GitHub CI終態。 |
+| 最終證據 | runtime commit `f9c5266177c74f47f0eae67a75720aa8f61740ad` 已推送；從 `a2460194c8b4d91c6741970b5564bbea19843575` 的 committed selection 為 full／packages all／265 entries。browser report completed=true、errors=0、assetHash `47cdeae0543a169a43d0e8b041e3abe7b773b5cb861ebd93deafa0f536f46a0c`。真Moodle、真手機及全套拓撲矩陣未驗完。 |
