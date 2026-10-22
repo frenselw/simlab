@@ -1,5 +1,13 @@
 # 電路共用架構與 DC／SCORM 實作計劃
 
+## 2026-10-22：評量 browser runner 的捲動完成同步
+
+- Quality [39715041759](https://github.com/frenselw/simlab/actions/runs/39715041759)，SHA `7209d00d0630566708bca20e68add9256eee002a`：AC 完整 source／ZIP entry 及運動合成 entry 通過；DC assessed entry 在 ZIP D4 滑片後點檢查時仍為 edit，原始失敗及 artifacts 保留於 `output/ci-tests/ac-observation-remote/failed-browser-3/`。
+- 原 point helper 以 scrollIntoView 自動捲頁後只等兩幀。定向重現錄得可信 pointer/touch down/up 均命中 check，沒有 native click；額外等 500ms 後仍為 edit，延長按住時間亦無效。較晚開始點按、或等待實際 scrollend 的對照均在 source／ZIP 各連續 25 次通過；原失敗及對照保留於 `output/ci-tests/assessed-click-before.log`、`assessed-click-hold.log`、`assessed-click-scrollend.log`。
+- 僅在既有 point helper 發生 document 垂直捲動時等待該 document 的 scrollend，設 6 秒失敗上限並清理 listener／timer，再沿用兩幀與可點選性檢查。每次仍只有一次可信 touch 點按，沒有自動重點或 DOM click，階段／評分／保存斷言保持。Runtime、rubric、權威 schema、依賴及 manifest 均無變更；assessment／persistence 變更風險為 N/A，沿用既有 browser owner。
+- 驗證決定：定向 source／ZIP 重複案例、無捲動及 scrollend 缺失的拒絕檢查、完整 assessed source／ZIP（D3／D4、viewport、T0–T3、提交／恢復／frozen、fullscreen），check／check:tests／文件／diff、committed selection preview，以及新提交完整 GitHub CI。未完成項目不宣稱通過；真手機／Moodle 另計。
+- 本機結果：最終有上限及清理邏輯的 helper，定向 source／ZIP 各連續 25 次通過（100 個 check／submit 斷言），`output/ci-tests/assessed-scrollend-repeat-final.log`；完整兩活動 source／ZIP 維持原 842 checks 全部通過，`assessed-scrollend-full.log`。無捲動、document scrollend、只收到其他 target 事件時逾時拒絕，以及 listener／timer 清理的 assert 自檢通過，`assessed-scrollend-self-check.log`。以上均在 `output/ci-tests/`。check、check:tests（257 entries）、語法、文件連結與 diff 通過；新 GitHub 完整驗證另行核對，不以定向重複代替。
+
 ## 現況補註（2026-10-18）
 
 下列歷史範圍中的「本輪」及第 1–14 節保留 2026-10-07 DC 階段的設計範圍與待辦，D1–D5 實作證據見第 17–18 節；其中「只有 DC」「未來三個方向」及三包重建均是當時狀態，不是目前的功能缺口。

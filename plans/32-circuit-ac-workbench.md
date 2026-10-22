@@ -8,6 +8,7 @@
 - 驗證決定：執行 observation／scope、獨立解析基準、量測啟動／未知／保存續作、保護與顯示回歸及全部 Node；AC source／ZIP 原 80／100ms gate、相關 scope／量測矩陣；check／check:tests／打包／diff、committed selection preview，以及新提交的完整 GitHub CI。未執行項目保持待驗證，真機／Moodle／Sites 另計。
 - 執行結果：全部 222 個 Node 入口通過，`output/ci-tests/ac-observation-fixed-node.json`；涵蓋既有 scope、獨立解析式、未知／啟動估值、保護與保存續作。check、check:tests（257 entries）、文件／diff 及五個電路包重建通過。AC source／ZIP 原效能與控制重畫 gate 兩輪均通過 134 checks；並行 Node 輪與其後獨立輪分別保存於 `ac-observation-fixed-budget.log`／`ac-observation-fixed-budget-isolated.log`，均位於 `output/ci-tests/`，沒有放寬 80／100ms 門檻。
 - 額外的本機 Windows Chrome 155 scope-smoke 在 50Hz 即時速度斷言未過：獨立執行新碼 0.909／1.293s，原碼同機對照 0.827／1.298s（要求比率 >0.85）；並行 Node 時亦失敗，不能單獨歸因於並行負載。原始與新碼證據保留於 `output/ci-tests/ac-observation-baseline-scope.log`／`ac-observation-fixed-scope-isolated.log`，不宣稱本機完整 scope gate 通過；固定 Chrome 154 的新 GitHub 完整驗證仍待執行。
+- 後續遠端驗證：修正 `7209d00d0630566708bca20e68add9256eee002a` 的 Quality [39715041759](https://github.com/frenselw/simlab/actions/runs/39715041759)，固定 Chrome 154 的 AC source／ZIP 完整套件通過 8852 observations，包含 scope／實際播放及全部既有功能；12 個保護效能窗口最大 advance 46.3ms、可信輸入延遲 40.1ms、long task 78ms，原門檻不變。已核對 13 份報告的 SHA／plan／精確入口及 clean checkout；262 項中只有 DC assessed browser 的另一觸控同步問題失敗，故整輪仍為 failure。證據 `output/ci-tests/ac-observation-remote/verified-reports.json`／`budget-summary.json`；後續測試修正見[DC 平台記錄](29-circuit-platform-dc-scorm.md#2026-10-22評量-browser-runner-的捲動完成同步)。
 
 ## 第二輪審核：電容顯示依賴（2026-10-17）
 
