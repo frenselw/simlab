@@ -18,10 +18,11 @@ function sourceParity(){
 const call = (cdp, code, embedded = false) => evaluate(cdp, `((w,d)=>{${code}})(${embedded ? 'document.getElementById("activity").contentWindow,document.getElementById("activity").contentDocument' : "window,document"})`);
 async function ready(cdp, embedded = false) {
   for (let i = 0; i < 150; i++) {
-    try { if (await call(cdp, "return d.readyState==='complete' && Boolean(w.__motionComposition);", embedded)) return; } catch (_) {}
+    // Header setup can resize the stage before ResizeObserver updates its geometry.
+    try { if (await call(cdp, "const a=w.__motionComposition;if(d.readyState!=='complete'||!a)return false;const l=a.getGeometry(),r=d.getElementById('stage').getBoundingClientRect();return l.width===r.width&&l.height===r.height;", embedded)) return; } catch (_) {}
     await delay(40);
   }
-  throw new Error("Activity did not initialize");
+  throw new Error("Activity did not initialize with matching stage geometry");
 }
 async function viewport(cdp, width, height, touch = true, scale = 1) {
   await cdp.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: width < 600, scale });
