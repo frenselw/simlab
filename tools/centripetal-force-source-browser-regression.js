@@ -43,6 +43,68 @@ async function dragForce(angle,selector='#forceHandle'){
   await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await H.delay(35);
 }
 async function screenshot(label){fs.mkdirSync(out,{recursive:true});const r=await cdp.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});fs.writeFileSync(path.join(out,label+'.png'),Buffer.from(r.data,'base64'));}
+async function inputAudit(base,label){
+  await viewport(390,844);
+  const state=M.fresh(()=>.2);state.view='analysis';Object.assign(state.items[0],{palette:0,selected:0,arrows:[[0,2700,60]]});
+  const unchanged=async(before,message)=>{assert.equal(await call('return JSON.stringify(app.getState());'),before,message);assert(await call('return d.getElementById("preview").hidden;'),message+' preview');};
+  for(const jitter of [0,2]){
+    await open(base,state);const before=await call('return JSON.stringify(app.getState());'),p=await rect('#forceHandle'),id=touchId++,t={x:p.x+18,y:p.y,id};
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[t]});
+    if(jitter)await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{...t,x:t.x+jitter}]});
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await unchanged(before,'tip halo tap/jitter must preserve answer');
+  }
+  const beforeMouse=await call('return JSON.stringify(app.getState());'),p=await rect('#forceHandle');
+  await cdp.send('Input.dispatchMouseEvent',{type:'mousePressed',x:p.x+18,y:p.y,button:'right',clickCount:1});
+  await cdp.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:p.x+18,y:p.y,button:'right',clickCount:1});await unchanged(beforeMouse,'right click must not edit');
+  for(const target of ['#originHandle','#forceHandle'])for(const firstLift of ['primary','secondary']){
+    await open(base,state);const before=await call('return JSON.stringify(app.getState());'),start=await rect('#forceHandle'),id=touchId++,other=touchId++;
+    await call('w.__auditPointerIds=[];d.addEventListener("pointerdown",e=>{if(e.isTrusted)w.__auditPointerIds.push(e.pointerId);},true);');
+    const a={x:start.x,y:start.y,id},moved={...a,x:a.x+24,y:a.y-20};
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[a]});
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[moved]});await H.delay(40);
+    const at=await rect(target),b={x:at.x,y:at.y,id:other};
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[moved,b]});
+    assert(await call('return d.getElementById("preview").hidden;'),'secondary touch must cancel immediately');
+    assert(await call('return w.__auditPointerIds.length===2&&w.__auditPointerIds.every(id=>!d.getElementById("forceHandle").hasPointerCapture(id)&&!d.getElementById("originHandle").hasPointerCapture(id));'),'cancelled pointers must release capture');
+    const next={...b,x:b.x+42,y:b.y-28};await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[moved,next]});
+    const remaining=firstLift==='primary'?next:moved;
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[remaining]});
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{...remaining,x:remaining.x+20}]});
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    await unchanged(before,`${target}, ${firstLift} first: neither finger may restart cancelled drag`);
+  }
+  await dragForce(1800);assert.equal(await call('return app.getState().items[0].arrows[0][1];'),1800,'new primary drag after cancellation must work');
+  const key=async(key,code)=>{await cdp.send('Input.dispatchKeyEvent',{type:'rawKeyDown',key,code:key,windowsVirtualKeyCode:code});await cdp.send('Input.dispatchKeyEvent',{type:'keyUp',key,code:key,windowsVirtualKeyCode:code});};
+  for(const name of ['relation','concept']){
+    if(name==='concept'){await choose('#compactNav',5);await analyse();}
+    const values=await call(`const inputs=[...d.querySelectorAll('input[name="${name}"]')];inputs[0].focus();return inputs.map(e=>e.value);`);
+    for(let i=1;i<=2;i++){await key('ArrowDown',40);assert.deepEqual(await call(`return [d.activeElement.name,d.activeElement.value,d.querySelector('input[name="${name}"]:checked')?.value];`),[name,values[i],values[i]],'consecutive radio keys must retain focus');}
+    await key('Tab',9);assert(await call('return d.activeElement.tagName!=="BODY";'),'Tab must continue from selected radio');
+  }
+  await open(base,state);
+  for(const selector of ['[data-inward="N"]','[data-palette="0"]','[data-select="0"]']){
+    await call(`d.querySelector(${JSON.stringify(selector)}).focus();`);await key('Enter',13);
+    assert(await call(`return d.activeElement.matches(${JSON.stringify(selector)});`),'rebuilt control must retain focus '+selector);
+    await key('Tab',9);assert(await call('return d.activeElement.tagName!=="BODY";'));
+  }
+  report[label].push({flow:'tip halo tap/jitter/right-click invariance; secondary origin/tip with both release orders; subsequent drag; consecutive native radio keys and button focus',passed:true});
+}
+async function shortReferences(base,label){
+  for(const [width,height]of [[320,500],[390,844],[1280,800]])for(const mirror of [0,1]){
+    const state=M.fresh(()=>.2);state.def[0]=[mirror,0,1,0];state.def[1]=[mirror,0,1,0];
+    await viewport(width,height);await open(base,state);await tap('#checkButton');await tap('#submitButton');
+    assert(await call('return d.getElementById("feedback").textContent.includes("不表示力的大小比例");'));
+    for(const [page,kind]of [[0,2],[1,4]]){
+      await call(`d.querySelectorAll('.feedback-card > svg')[${page}].scrollIntoView({block:'center'});`);
+      const shape=await call(`const svg=d.querySelectorAll('.feedback-card > svg')[${page}],p=svg.querySelector('[data-kind="${kind}"]'),points=p.getAttribute('d').split(/[MLZ]/).filter(x=>x.trim()).map(x=>x.trim().split(',').map(Number)),r=p.getBoundingClientRect();return{tip:points[3],base:points[2],width:r.width,height:r.height,circles:svg.querySelectorAll('.student-arrows circle').length};`);
+      assert(shape.width>=25&&shape.height>=9&&shape.circles===0,'short reference force must have a readable unoccluded arrowhead '+JSON.stringify(shape));
+      assert.equal(shape.tip[0],160+(mirror?32:-32));assert.equal(shape.tip[1],115);
+      assert(Math.abs(shape.tip[0]-shape.base[0])>12,'short force arrowhead must extend beyond the object');
+      await screenshot(`${label}-short-reference-${page}-${mirror}-${width}`);
+    }
+  }
+  report[label].push({flow:'minimum legal tension/static friction reference arrows, both mirrors, 320/390/1280 widths; adjusted lengths disclosed',passed:true});
+}
 async function reviewPresentation(base,label){
   const state=M.fresh(()=>.2);state.view='analysis';
   state.items.forEach((item,page)=>{const p=M.physics(state.def,page);item.inward=p.inward;item.arrows=p.forces.map(([kind,angle])=>[kind,angle,60]);item.relation=M.CASES[page].relation;});state.concept='radial-effect';
@@ -231,7 +293,7 @@ async function main(){
     cdp.on('Runtime.exceptionThrown',e=>report.errors.push(e.exceptionDetails?.exception?.description||e.exceptionDetails?.text));
     for(const [label,directory]of [['source',path.join(root,'sim')],['package',extracted.packageDirectory]]){
       server=H.createServer(directory);await H.listenServer(server);const base=`http://127.0.0.1:${server.address().port}`;
-      await reviewPresentation(base,label);await panelDirections(base,label);await revisedScenes(base,label);await layoutChecks(base,label);await fill(base,label);await edgeFlows(base,label);await H.closeServer(server);server=null;
+      await inputAudit(base,label);await shortReferences(base,label);await reviewPresentation(base,label);await panelDirections(base,label);await revisedScenes(base,label);await layoutChecks(base,label);await fill(base,label);await edgeFlows(base,label);await H.closeServer(server);server=null;
     }
     assert.deepEqual(report.errors,[]);report.completed=true;console.log('Centripetal source source/package browser regression passed.');
   }finally{

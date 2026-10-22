@@ -39,12 +39,12 @@
     svg+=Scene.backdrop(page,state.def,geo,item.pose);
     const size=Math.max(16,Math.min(25,21*scale)),normalise=reference?76/Math.max(...forces.map(f=>f[2])):1;
     const entries=forces.map(([kind,angle,len],i)=>{
-      const a=previewArrow?.index===i?previewArrow.angle:angle,length=(previewArrow?.index===i?previewArrow.length:len)*normalise*scale;
+      const a=previewArrow?.index===i?previewArrow.angle:angle,rawLength=(previewArrow?.index===i?previewArrow.length:len)*normalise,length=(reference?Math.max(32,rawLength):rawLength)*scale;
       const force=N.forces[kind],measure=N.measure(force.tex,size);return {i,kind,angle:a,length,force,width:measure.width+4,height:measure.height+4};
     }).filter(e=>e.angle!==null);
     const labels=Scene.labelPositions(entries,geo);
     svg+='<g class="student-arrows">';
-    for(const e of labels)svg+=`<path class="force-vector" data-arrow="${e.i}" data-kind="${e.kind}" d="${Scene.arrowPath(geo,e.angle,e.length)}" fill="${e.force.color}" opacity="${reference||item.selected===null||item.selected===e.i?1:.8}"/><circle cx="${e.end.x}" cy="${e.end.y}" r="2.8" fill="#fff" stroke="${e.force.color}" stroke-width="1.5"/>`;
+    for(const e of labels)svg+=`<path class="force-vector" data-arrow="${e.i}" data-kind="${e.kind}" d="${Scene.arrowPath(geo,e.angle,e.length)}" fill="${e.force.color}" opacity="${reference||item.selected===null||item.selected===e.i?1:.8}"/>`+(reference?'':`<circle cx="${e.end.x}" cy="${e.end.y}" r="2.8" fill="#fff" stroke="${e.force.color}" stroke-width="1.5"/>`);
     svg+='</g><g class="force-labels">';
     for(const e of labels)svg+=N.svg(e.force.tex,e.force.name,e.box,size,e.force.color);
     return svg+'</g>'+circle(cx,cy,3.5,'#334155');
@@ -98,6 +98,7 @@
     }else d.preview.hidden=true;
   }
   function render(c){
+    const focused=document.activeElement;
     syncMotion(c);
     d.notice.hidden=!c.notice;d.notice.textContent=c.notice;d.saveRetry.hidden=!c.unsaved;
     d.status.textContent={edit:'選擇圓心方向、畫實際受力並判斷關係',check:'檢查後明確提交',review:'已記錄・唯讀回看',committed:'已記錄・完成程序待重試',frozen:'提交待確認・答案凍結',mismatch:'紀錄未能核對',technical:'載入技術問題',submitting:'正在提交'}[c.mode]||'';
@@ -139,29 +140,34 @@
     }else{d.diagramSvg.innerHTML='';d.forceHandle.hidden=true;d.originHandle.hidden=true;d.preview.hidden=true;}
     d.resultTitle.textContent=c.mode==='frozen'?'提交結果未確認':c.mode==='mismatch'?'記錄需要核對':c.mode==='committed'?'成績已記錄':'提交結果';
     d.scoreText.textContent=c.mode==='frozen'?'-- / 100（尚未確認）':c.mode==='mismatch'?`${c.result?.score??'--'} / 100；${SimActivityFlow.completionLabel(c.result?.passed??null)}`:c.result?`${c.result.score.toFixed(2)} / 100；${SimActivityFlow.completionLabel(c.result.passed)}`:'';
+    if(focused&&!focused.isConnected){
+      const selector=['data-inward','data-palette','data-select'].find(attr=>focused.hasAttribute(attr));
+      const replacement=selector?document.querySelector(`[${selector}="${focused.getAttribute(selector)}"]`):['relation','concept'].includes(focused.name)?document.querySelector(`input[name="${focused.name}"][value="${focused.value}"]`):null;
+      if(replacement&&!replacement.disabled&&replacement.getClientRects().length)replacement.focus({preventScroll:true});
+    }
   }
-  function cancelDrag(){if(!drag)return;diagnostics.cancel++;drag=null;d.preview.hidden=true;drawStage();}
+  function cancelDrag(){if(!drag)return;const id=drag.pointerId;diagnostics.cancel++;drag=null;for(const handle of [d.originHandle,d.forceHandle])if(handle.hasPointerCapture(id))handle.releasePointerCapture(id);d.preview.hidden=true;drawStage();}
   function locate(e){
     const r=d.diagram.getBoundingClientRect(),x=e.clientX-r.left-layout.cx,y=layout.cy-(e.clientY-r.top),radius=Math.hypot(x,y),raw=M.angle(Math.atan2(y,x)*180/Math.PI),touch=e.pointerType==='touch';
     const inward=M.directionAngle(M.inward(controller.state.def,controller.page,controller.state.items[controller.page].pose));
     const candidate=[0,900,1800,2700,inward,M.angle(inward/10+180),...M.physics(controller.state.def,controller.page,controller.state.items[controller.page].pose).forces.flatMap(f=>[f[1],M.angle(f[1]/10+180)])];
     let a=raw,best=Infinity;for(const snap of candidate){const diff=M.difference(raw,snap);if(diff<best&&diff<=(touch?80:50)&&Math.sin(diff*Math.PI/1800)*radius<=(touch?14:10)){best=diff;a=snap;}}
-    return {angle:a,length:Math.max(40,Math.min(100,Math.round(radius/layout.scale))),moved:radius>=12};
+    return {angle:a,length:Math.max(40,Math.min(100,Math.round(radius/layout.scale))),awayFromOrigin:radius>=12};
   }
   for(const handle of [d.originHandle,d.forceHandle]){
     handle.addEventListener('pointerdown',e=>{
-      if(controller.mode!=='edit'||controller.state.view!=='analysis'||drag)return;
+      if(controller.mode!=='edit'||controller.state.view!=='analysis'||drag||!e.isPrimary||e.button!==0)return;
       const item=controller.state.items[controller.page],creating=handle===d.originHandle,index=creating?item.arrows.length:item.selected;
       if(creating?(item.palette===null||item.arrows.length>=6):index===null)return;
       e.preventDefault();handle.setPointerCapture(e.pointerId);
-      drag={creating,index,angle:creating?null:item.arrows[index][1],length:creating?60:item.arrows[index][2],moved:false,pointerId:e.pointerId,touch:e.pointerType==='touch',clientX:e.clientX};
+      drag={creating,index,angle:creating?null:item.arrows[index][1],length:creating?60:item.arrows[index][2],moved:false,pointerId:e.pointerId,touch:e.pointerType==='touch',startX:e.clientX,startY:e.clientY,clientX:e.clientX};
       diagnostics.down++;if(e.isTrusted&&e.pointerType==='touch')diagnostics.trustedTouch++;
       drawStage();
     });
-    handle.addEventListener('pointermove',e=>{if(!drag||e.pointerId!==drag.pointerId)return;Object.assign(drag,locate(e));drag.clientX=e.clientX;diagnostics.move++;drawStage();});
+    handle.addEventListener('pointermove',e=>{if(!drag||e.pointerId!==drag.pointerId)return;if(!drag.moved&&Math.hypot(e.clientX-drag.startX,e.clientY-drag.startY)<4)return;Object.assign(drag,locate(e));drag.moved=true;drag.clientX=e.clientX;diagnostics.move++;drawStage();});
     handle.addEventListener('pointerup',e=>{
       if(!drag||e.pointerId!==drag.pointerId)return;
-      const end=locate(e),commit=!drag.creating||(drag.moved&&end.moved),command={type:drag.creating?'draw':'arrow',angle:end.angle,length:end.length};drag=null;diagnostics.up++;d.preview.hidden=true;
+      const end=locate(e),commit=drag.moved&&(!drag.creating||end.awayFromOrigin),command={type:drag.creating?'draw':'arrow',angle:end.angle,length:end.length};drag=null;diagnostics.up++;d.preview.hidden=true;
       if(commit)controller.command(command);else drawStage();
     });
     handle.addEventListener('pointercancel',cancelDrag);

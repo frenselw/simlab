@@ -36,7 +36,7 @@ if(args.nested)report.host='same-origin scrollable outer page; bounded non-scrol
 report.topology=topology;
 if (!catalogue.length || (selected && [...selected].some(slug => !catalogue.some(s => s.folder === slug)))) throw new Error('Missing activity coverage');
 function selectedProfiles(slug) {
-  if(mode==='standalone'&&args.phases==='all'&&slug==='circular-motion-vector-lab')return A.standaloneProfiles(slug);
+  if(mode==='standalone'&&args.phases==='all'&&['circular-motion-vector-lab','centripetal-force-source-lab'].includes(slug))return A.standaloneProfiles(slug);
   if(slug==='circuit-household-workbench'){const profiles=A.profiles(slug);return args.phases==='all'?profiles:profiles.filter(p=>p.id==='initial');}
   return args.phases==='all' ? A.profiles(slug) : slug==='centre-of-mass-investigation-lab' ? String(args.parts||'1,2,3').split(',').map(part=>({id:'part-'+part,part:Number(part)})) : [{id:'initial'}];
 }
