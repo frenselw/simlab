@@ -45,8 +45,8 @@ oldPending.retryFinal(); assert.equal(oldPending.mode,"review");
 assert.equal(oldPending.result.score,100); assert.deepEqual(oldPending.state,oldAnswer,"pending retry preserves the original version and answers");
 legacy.page=2; legacy.view="collect";
 const oldDraft = environment({durable:{state:"draft",snapshot:{version:1,activity:P.ACTIVITY,kind:"draft",answer:legacy}}}).c;
-assert.equal(oldDraft.state.mv,4); assert.equal(oldDraft.state.rv,3); assert.deepEqual(oldDraft.state.tasks[0].inquiry,[null,null]); assert.deepEqual(oldDraft.state.tasks[0].roles,legacy.tasks[0].roles); assert.ok(oldDraft.update(s=>M.record(s.tasks[2],-1)));
-assert.equal(oldDraft.state.mv,4); assert.deepEqual(oldDraft.state.tasks[2].runs[0].q,[500,1500,3000,-1000]);
+assert.equal(oldDraft.state.mv,5); assert.equal(oldDraft.state.rv,3); assert.deepEqual(oldDraft.state.tasks[0].inquiry,[null,null]); assert.deepEqual(oldDraft.state.tasks[0].roles,legacy.tasks[0].roles); assert.ok(oldDraft.update(s=>M.record(s.tasks[2],-1)));
+assert.equal(oldDraft.state.mv,5); assert.deepEqual(oldDraft.state.tasks[2].runs[0].q,[-1000,500,1500,3000]);
 console.log("centripetal lifecycle ok");
 
 const latestLegacy=M.clone(oldAnswer);latestLegacy.mv=2;
@@ -59,8 +59,8 @@ assert.equal(S.score(upgraded).score,100,"fully answered new rubric still totals
 
 const mv2Draft=M.clone(upgraded);mv2Draft.page=2;mv2Draft.view="collect";
 const resumedMv2=environment({durable:{state:"draft",snapshot:{version:1,activity:P.ACTIVITY,kind:"draft",answer:mv2Draft}}}).c;
-assert.equal(resumedMv2.state.mv,4);assert.ok(resumedMv2.update(s=>M.record(s.tasks[2],-24)));assert.equal(resumedMv2.state.mv,4);
-assert.deepEqual(resumedMv2.state.tasks[2].runs[0].q,[500,1500,3000,-24000],"old draft retains data while accepting faster measurements");
+assert.equal(resumedMv2.state.mv,5);assert.ok(resumedMv2.update(s=>M.record(s.tasks[2],-24)));assert.equal(resumedMv2.state.mv,5);
+assert.deepEqual(resumedMv2.state.tasks[2].runs[0].q,[-24000,500,1500,3000],"old draft retains data while accepting faster measurements");
 const mv2Review=P.review(upgraded),mv2Result=S.score(mv2Review);
 const mv2Snapshot={version:1,activity:P.ACTIVITY,kind:"review",answer:mv2Review,score:mv2Result.score,passed:mv2Result.passed};
 const mv2Pending=environment({durable:{state:"pending-final",snapshot:{version:1,activity:P.ACTIVITY,kind:"pending-final",payload:{reviewJson:JSON.stringify(mv2Snapshot),score:mv2Result.score,maxScore:100,passed:mv2Result.passed}}}}).c;

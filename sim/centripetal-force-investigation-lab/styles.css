@@ -213,3 +213,48 @@ h3 { font-size: 1.05rem; margin-bottom: 8px; }
 @media (max-width: 899px) and (min-height: 261px) {
   #app[data-experiment="omega"] .brake-button { top: calc(50% + 28px); }
 }
+
+.mobile-experiment, .mobile-check { display: none; }
+.collect-help { border-top: 1px solid #d9e4e8; padding: 6px 0; }
+.collect-help summary { cursor: pointer; font-size: .9rem; min-height: 32px; padding: 5px 0; }
+.sampling-guide { display: inline-block; margin: 0; padding: 1px 5px; border: 0; border-radius: 5px; font-size: .75rem; line-height: 1.4; }
+#measureButton { flex: 0 0 auto; font-size: .9rem; padding: 4px 8px; }
+#toggleGraph { width: 44px; font-size: 1.2rem; }
+.graph-heading { padding: 0 7px; min-height: 48px; }
+#app[data-view="collect"] #rolesField, #app[data-view="collect"] #runsPanel, #app[data-view="collect"] .law-field, #app[data-view="collect"] .synthesis, #app[data-view="collect"] #clearTaskButton { display: none; }
+.spin-segment:first-child svg { width: 12px; height: 18px; padding: 3px; }
+@media (max-width: 899px) and (min-height: 401px) {
+  .sim-header { display: flex; align-items: center; gap: 5px; height: 50px; padding: 3px 47px 3px 8px; }
+  .title { flex: 0 1 auto; }
+  .title h1 { font-size: 18px; margin: 0; white-space: nowrap; }
+  .title span, .experiments { display: none; }
+  .mobile-experiment { display: block; flex: 1; min-width: 0; max-width: 170px; min-height: 44px; padding: 3px; border: 0; border-radius: 6px; background: #eef5f7; color: #234758; font-size: 14px; }
+  .mobile-check { display: block; min-width: 44px; padding: 3px; font-size: 14px; background: #faedcb; }
+  .centripetal-app, #app[data-view="collect"] { grid-template-rows: 50px minmax(190px, 41dvh) minmax(96px, 1fr); }
+  #app[data-view="setup"] { grid-template-rows: 50px minmax(190px, 34dvh) minmax(96px, 1fr); }
+  .control-panel { padding: 0 8px; scroll-padding-top: 48px; }
+  .panel-nav { padding: 3px 0; margin: 0; gap: 3px; min-height: 50px; }
+  .panel-nav button { padding: 3px; font-size: 14px; }
+  .control-panel #collectPanel { margin: 0; }
+  .measurement-hint { font-size: 12px; }
+  #measurementHint[data-status="added"], #measurementHint[data-status="repeated"], #measurementHint[data-status="ready"] { display: none; }
+  .control-panel section.graph-card { margin-bottom: 3px; }
+  .graph-heading h3 { font-size: 13px; }
+  .graph-heading p { display: inline; margin-right: 4px; font-size: 12px; }
+  #app[data-view="collect"] #graphSvg { height: max(120px, calc(59dvh - 180px)); }
+  #app[data-view="analyse"] #graphSvg { height: max(180px, calc(59dvh - 150px)); }
+  .readouts { top: 3px; flex-wrap: nowrap; gap: 3px; }
+  .readouts > span:first-child { flex-basis: auto; background: #fffef9ee; border: 1px solid #b6d0da; padding: 2px 3px; }
+  .readouts > span { line-height: 1.1; }
+  .readouts strong { font-size: 16px; }
+  .readouts [data-tex] { font-size: 14px; }
+  .readouts small[data-tex] { font-size: 11px; }
+  #app:not([data-view="setup"]) #deviceSvg { top: 34px; height: calc(100% - 34px); }
+  #app[data-experiment="omega"]:not([data-view="setup"]) #deviceSvg { top: 55px; height: calc(100% - 55px); }
+  .measurement-roles-banner { top: 34px; font-size: 12px; line-height: 16px; }
+  .stage-hint { display: none; }
+  .brake-button { width: 64px; min-height: 44px; border-width: 1px; padding: 3px 2px; }
+  .brake-button strong { font-size: 13px; }
+  .brake-button small { display: none; }
+  #app[data-experiment="omega"] .brake-button { top: calc(50% + 12px); }
+}

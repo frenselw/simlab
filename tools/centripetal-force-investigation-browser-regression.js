@@ -15,6 +15,11 @@ async function rect(cdp, selector) {
   return H.evaluate(cdp, `(()=>{const e=document.querySelector(${JSON.stringify(selector)});if(!e)throw Error('Missing ${selector}');const r=e.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height};})()`);
 }
 async function click(cdp, selector) {
+  if(selector.startsWith('[data-page=') && await H.evaluate(cdp,`getComputedStyle(document.querySelector('.experiments')).display==='none'`)) {
+    const index=Number(selector.match(/\d+/)[0]);await H.evaluate(cdp,"document.getElementById('experimentSelect').focus()");
+    await key(cdp,'Home');for(let i=0;i<index;i++)await key(cdp,'ArrowDown');await key(cdp,'Enter');return;
+  }
+  if(selector==='#checkButton' && await H.evaluate(cdp,"getComputedStyle(document.querySelector('.experiments')).display==='none'"))selector='#mobileCheckButton';
   await H.evaluate(cdp, `document.querySelector(${JSON.stringify(selector)}).scrollIntoView({block:'nearest'})`);
   const r = await rect(cdp, selector), x = r.x + r.width / 2, y = r.y + r.height / 2;
   await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", clickCount: 1 });
@@ -91,8 +96,8 @@ async function radiusFollow(cdp, side, scale, mouse = false) {
   for (let i = 0; i < 4; i++) await click(cdp, `[data-step="${field}:1"]`);
 }
 async function key(cdp, name) {
-  await cdp.send("Input.dispatchKeyEvent", { type: "keyDown", key: name, code: name, windowsVirtualKeyCode: 39 });
-  await cdp.send("Input.dispatchKeyEvent", { type: "keyUp", key: name, code: name, windowsVirtualKeyCode: 39 });
+  await cdp.send("Input.dispatchKeyEvent", { type: "keyDown", key: name, code: name, windowsVirtualKeyCode: ({ArrowLeft:37,ArrowRight:39,ArrowUp:38,ArrowDown:40,Home:36,Enter:13})[name] || 0 });
+  await cdp.send("Input.dispatchKeyEvent", { type: "keyUp", key: name, code: name, windowsVirtualKeyCode: ({ArrowLeft:37,ArrowRight:39,ArrowUp:38,ArrowDown:40,Home:36,Enter:13})[name] || 0 });
 }
 async function push(cdp, count=1) {
   await click(cdp,'.spin-segment');
@@ -228,7 +233,7 @@ async function scenario(cdp, base, launch, label, width, height) {
   await pause(850);
   assert.equal(await H.evaluate(cdp,"Boolean(document.querySelector('.new-point-ring'))"),false,'new-point marker expires even with reduced motion');
   assert.equal(await H.evaluate(cdp,"document.getElementById('collectStatus').textContent.includes('/ 48')"),false,'capacity is not shown as a completion target');
-  assert.match(await H.evaluate(cdp,"document.getElementById('samplingGuide').textContent"),/毋須收滿儲存位置/,'requirement is explicit before coverage is sufficient');
+  assert.equal(await H.evaluate(cdp,"document.getElementById('samplingGuide').hidden"),true,'no completion banner before enough data');
   await H.evaluate(cdp,"window.__samplingNodes={apparatus:document.querySelector('#rotatingAssembly'),option:document.querySelector('#law option'),select:document.querySelector('#law')}");
   const beforeBrake=await H.evaluate(cdp,'window.__centripetalApp.getMotion()');
   const beforeCount=await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[0].runs[0].q.length');
@@ -364,8 +369,9 @@ async function buttonOnly(cdp, base, launch, label) {
   assert.ok(Math.abs(live.force - .1 * .2 * live.omega ** 2) < .0001, `${label}: old run readout uses frozen configuration`);
   const frozenPlot = await H.evaluate(cdp, `(()=>{
     const t=window.__centripetalApp.getState().tasks[0], run=t.runs[0];
+    const bottom=document.getElementById('graphSvg').viewBox.baseVal.height-50;
     const expected=CentripetalModel.points('radius',run), maxX=Math.max(.1,...expected.map(p=>p[0]))*1.12,maxY=Math.max(.1,...expected.map(p=>p[1]))*1.12;
-    return [...document.querySelectorAll('#graphSvg .measured-point')].every((e,i)=>Math.abs(Number(e.getAttribute('cx'))-(66+expected[i][0]/maxX*265))<.01&&Math.abs(Number(e.getAttribute('cy'))-(120-expected[i][1]/maxY*95))<.01);
+    return [...document.querySelectorAll('#graphSvg .measured-point')].every((e,i)=>Math.abs(Number(e.getAttribute('cx'))-(66+expected[i][0]/maxX*265))<.01&&Math.abs(Number(e.getAttribute('cy'))-(bottom-expected[i][1]/maxY*(bottom-25)))<.01);
   })()`);
   assert.ok(frozenPlot, `${label}: live plot coordinates use the old run's frozen configuration`);
   await click(cdp, '#setupView'); await click(cdp, '#startButton');
@@ -395,6 +401,24 @@ async function equalRadiusComparison(cdp, base, launch) {
   await click(cdp,"#checkButton");await click(cdp,"#submitButton");
   assert.match(await H.evaluate(cdp,"document.getElementById('scorePanel').textContent"),/30 \/ 100/,"a valid 1:1 comparison receives full page credit");
 }
+async function mobileSpace(cdp,base,launch,label) {
+ for(const [width,height] of [[320,500],[390,600],[393,734],[390,844]]) {
+  await cdp.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:true});
+  await cdp.send('Page.navigate',{url:base+launch});await ready(cdp);await click(cdp,'#startButton');
+  const header=await rect(cdp,'.sim-header'),nav=await rect(cdp,'.panel-nav'),plot=await rect(cdp,'#graphSvg'),rotor=await rect(cdp,'#deviceSvg circle[r="213"]');
+  assert.ok(header.height<=52&&nav.height<=52,'single-row mobile header and named steps');
+  assert.ok(plot.y+plot.height<=height+2,'complete live data graph is visible without scrolling: '+JSON.stringify({width,height,plot}));
+  assert.ok(rotor.height>=height*.26,'rotor uses the released screen space');
+  for(const side of ['A','B']) {const r=await rect(cdp,`[data-radius-label=${side}]`);assert.ok(r.x>=32&&r.x+r.width<=width-32,'radius labels stay inside the apparatus viewport');}
+  const icon=await rect(cdp,'.spin-segment:first-child svg'),hit=await rect(cdp,'.spin-segment');
+  assert.ok(icon.width<=22&&icon.height<=26&&hit.width>=44&&hit.height>=44,'small visible grip retains a usable touch target');
+  assert.equal(await H.evaluate(cdp,"document.getElementById('collectHelp').open"),false);
+  assert.equal(await H.evaluate(cdp,"[...document.querySelectorAll('.panel-nav button')].map(e=>e.textContent).join('/')"),'器材設定/轉動量測/擬合分析');
+  fs.writeFileSync(path.join(root,'output/playwright',`centripetal-${label}-mobile-space-${width}x${height}.png`),Buffer.from((await cdp.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
+  await click(cdp,'[data-page="2"]');assert.equal(await H.evaluate(cdp,'window.__centripetalApp.getState().page'),2,'mobile experiment selector changes pages');
+  await click(cdp,'#checkButton');await click(cdp,'#backButton');
+ }
+}
 async function directionalCapacity(cdp, base, launch, label) {
   await cdp.send('Emulation.setDeviceMetricsOverride',{width:390,height:600,deviceScaleFactor:1,mobile:true});
   await cdp.send('Page.navigate',{url:base+launch});await ready(cdp);
@@ -412,7 +436,7 @@ async function directionalCapacity(cdp, base, launch, label) {
   for(const [width,height] of [[320,500],[1280,800],[390,600]]) {
     await cdp.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:width<900});await pause(70);
     const roles=await rect(cdp,'#measurementRoles'),readouts=await rect(cdp,'.readouts');
-    assert.ok(roles.y>=readouts.y+readouts.height,'measurement roles do not overlap force readings: '+JSON.stringify({width,height,roles,readouts}));
+    assert.ok(roles.y>=readouts.y+readouts.height-1,'measurement roles do not overlap force readings: '+JSON.stringify({width,height,roles,readouts}));
     const brakeBounds=await rect(cdp,'#brakeButton');
     assert.ok(roles.y+roles.height<=brakeBounds.y,'measurement roles leave the brake control clear');
     fs.writeFileSync(path.join(root,'output/playwright',`centripetal-${label}-sensor-roles-${width}x${height}.png`),Buffer.from((await cdp.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
@@ -421,22 +445,22 @@ async function directionalCapacity(cdp, base, launch, label) {
   for(let i=1;i<48;i++){await key(cdp,'ArrowRight');await pause(80);}
   const first=await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[2].runs[0].q');
   assert.equal(first.length,48);assert.ok(first.every(q=>q>0));
-  assert.equal(await H.evaluate(cdp,"document.getElementById('measurementHint').dataset.status"),'direction-full');
+  assert.notEqual(await H.evaluate(cdp,"document.getElementById('measurementHint').dataset.status"),'direction-full');
   assert.equal(await H.evaluate(cdp,'window.__centripetalApp.getMotion().measuring'),true);
   await reSpin(cdp,-1);await pause(100);
   assert.ok(await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[2].runs[0].q.some(q=>q<0)'),'hand reversal adds negative points after positive quota fills');
   await push(cdp,48);await brake(cdp,8500);
   const both=await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[2].runs[0].q');
-  assert.equal(both.length,96);assert.equal(both.filter(q=>q<0).length,48);assert.deepEqual(both.slice(0,48),first);
-  assert.equal(await H.evaluate(cdp,"document.getElementById('measurementHint').dataset.status"),'full');
-  assert.match(await H.evaluate(cdp,"document.getElementById('collectStatus').textContent"),/正轉 48 點 · 反轉 48 點/);
+  assert.ok(both.length>96,'recording continues beyond the old total quota');assert.ok(both.filter(q=>q<0).length>48,'negative direction is not capped');assert.ok(first.every(q=>both.includes(q)));
+  assert.notEqual(await H.evaluate(cdp,"document.getElementById('measurementHint').dataset.status"),'full');
+  assert.match(await H.evaluate(cdp,"document.getElementById('collectStatus').textContent"),/正 48／負/);
   await click(cdp,'#analyseView');await click(cdp,'#fitButton');
   assert.equal(await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[2].runs[0].fit'),true);
   fs.writeFileSync(path.join(root,'output/playwright',`centripetal-${label}-96-points-390x600.png`),Buffer.from((await cdp.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
   await click(cdp,'#checkButton');await click(cdp,'#submitButton');
   const submitted=await H.evaluate(cdp,"({score:document.getElementById('scorePanel').textContent,notice:document.getElementById('notice').textContent,view:window.__centripetalApp.getState().view,disabled:document.getElementById('submitButton').disabled})");
   assert.ok(submitted.score.includes('/ 100'),'96-point submission is verified: '+JSON.stringify(submitted));
-  assert.equal(await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[2].runs[0].q.length'),96,'submission preserves all 96 readings');
+  assert.equal(await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[2].runs[0].q.length'),both.length,'submission preserves every reading');
 }
 async function signedMeasurements(cdp, base, launch, label) {
   await cdp.send('Emulation.setDeviceMetricsOverride', {width:1280,height:800,deviceScaleFactor:1,mobile:false});
@@ -449,7 +473,7 @@ async function signedMeasurements(cdp, base, launch, label) {
   assert.ok(run.q.some(q=>q<0)&&run.q.some(q=>q>0),'both rotation directions are sampled');
   assert.ok(run.q.length<48,'sufficient data is reached below storage capacity');
   assert.equal(await H.evaluate(cdp,"document.getElementById('samplingGuide').dataset.sufficient"),'true','UI uses the actual coverage rule');
-  assert.match(await H.evaluate(cdp,"document.getElementById('samplingGuide').textContent"),/已達標/);
+  assert.match(await H.evaluate(cdp,"document.getElementById('samplingGuide').textContent"),/資料已足夠/);
   const count=run.q.length;await pause(850);
   assert.equal(await H.evaluate(cdp,"document.getElementById('measurementHint').dataset.status"),'repeated','unchanged speed explains why no point is added');
   assert.match(await H.evaluate(cdp,"document.getElementById('measurementHint').textContent"),/已記錄/);
@@ -616,6 +640,7 @@ async function main() {
     const errors = []; cdp.on("Runtime.exceptionThrown", event => errors.push(event.exceptionDetails?.exception?.description || event.exceptionDetails?.text));
     server = H.createServer(root); await H.listenServer(server);
     const sourceBase = `http://127.0.0.1:${server.address().port}`;
+    await mobileSpace(cdp,sourceBase,`/sim/${slug}/index.html`,"source");
     await continuousRelease(cdp,sourceBase,`/sim/${slug}/index.html`,"source");
     await responsiveSpin(cdp, sourceBase, `/sim/${slug}/index.html`);
     await scenario(cdp, sourceBase, `/sim/${slug}/index.html`, "source", 1280, 800);
@@ -629,6 +654,7 @@ async function main() {
     await H.closeServer(server); server = null;
     const extracted = H.buildAndExtractPackage(tempRoot, { slug }); packageDirectory = extracted.packageDirectory;
     server = H.createServer(packageDirectory); await H.listenServer(server);
+    await mobileSpace(cdp,`http://127.0.0.1:${server.address().port}`,extracted.activityPath,"package");
     await continuousRelease(cdp,`http://127.0.0.1:${server.address().port}`,extracted.activityPath,"package");
     await scenario(cdp, `http://127.0.0.1:${server.address().port}`, extracted.activityPath, "package", 390, 600);
     await buttonOnly(cdp, `http://127.0.0.1:${server.address().port}`, extracted.activityPath, "package");

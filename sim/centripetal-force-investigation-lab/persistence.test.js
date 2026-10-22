@@ -20,7 +20,10 @@ for (const page of [0, 1, 2]) for (const variant of ["empty", "partial", "fit", 
 }
 const full = M.fresh(0xffffffff); full.sync = "same-omega"; full.massParts = "sensor-and-weights";
 for (const [i, t] of full.tasks.entries()) for (let run = 0; run < 2; run++) {
-  M.begin(t); for (let q = 23953; q <= 24000; q++) { M.record(t, -q / 1000, M.KINDS[i]); if(i===2) M.record(t, q / 1000, "omega"); }
+  M.begin(t);const points=t.runs[run].q;
+  for(let j=0;j<(i===2?96:48);j++)points.push(-24000+j);
+  for(let q=-24000;q<=24000;q+=250)if(Math.abs(q)>=250&&points.every(old=>Math.abs(old-q)>=250))points.push(q);
+  points.sort((a,b)=>a-b);
   t.runs[run].a = ["123456789012", i === 2 ? "square" : "supports", "coefficient"];
   t.inquiry = i < 2 ? ["different-both", "forces-steady"] : [null,null]; t.roles = ["force",["omega","force"]]; t.law = "inverse";
 }
@@ -35,7 +38,7 @@ const legacyReview = P.review(legacy); assert.deepEqual(P.decode(snapshot(legacy
 const signed = M.fresh(8); signed.page = 2; signed.view = 'collect'; M.begin(signed.tasks[2]);
 for (const value of [-3, -1, 1, 3]) M.record(signed.tasks[2], value);
 roundtrip(signed, s => { assert.ok(M.fitCurrent('omega', s.tasks[2]).ok); assert.ok(P.validate(s)); });
-for (const change of [s => s.v = 2, s => s.rv = 4, s => s.tasks[0].work[0] = NaN, s => s.tasks[0].runs[0].q.push(250),
+for (const change of [s => s.v = 2, s => s.rv = 4, s => s.tasks[0].work[0] = NaN, s => s.tasks[0].runs[0].q.push(s.tasks[0].runs[0].q[0]),
   s => { s.tasks[0].runs[0].q = [250]; s.tasks[0].runs[0].fit = true; }, s => s.tasks[0].selected = 9, s => s.tasks[0].roles[1] = ["m", "m"], s => s.tasks[0].inquiry[0] = "bogus", s => s.tasks[2].inquiry[1] = "ratio-steady"]) {
   const bad = M.clone(full); change(bad); assert.throws(() => P.validate(bad));
 }
@@ -58,9 +61,9 @@ roundtrip(rv2,s=>{M.upgradeDraft(s);assert.equal(s.rv,3);assert.ok(M.record(s.ta
 const rv2Review=P.review(rv2);
 assert.deepEqual(P.decode(snapshot(rv2Review,"review"),"review"),rv2Review,"old review roundtrip does not upgrade its rubric");
 
-assert.equal(full.tasks[2].runs[0].q.length,96);
+assert.equal(full.tasks[2].runs[0].q.length,286);
 roundtrip(full,s=>{assert.ok(M.fitCurrent("omega",s.tasks[2]).ok);assert.ok(P.validate(s));});
-for(const value of ["x", "ZZZZ", "zzzz", "0000".repeat(49), [], "0000".repeat(97)]) {
+for(const value of ["", "A", "*", "AAAAA", [], "_".repeat(4001)]) {
  const bad=snapshot(full);bad.answer.tasks[2].runs[0].q=value;
  assert.throws(()=>P.decode(bad,"draft"),"malformed and excessive encoded samples are rejected");
 }
@@ -69,3 +72,11 @@ for(let i=0;i<48;i++) M.record(oldFull.tasks[2],1+i*.25);
 roundtrip(oldFull,s=>{M.upgradeDraft(s);assert.ok(M.record(s.tasks[2],-1,"omega"));assert.ok(P.validate(s));});
 const legacyFullReview=P.review(oldFull);
 assert.deepEqual(P.decode(snapshot(legacyFullReview,"review"),"review"),legacyFullReview);
+
+for(const mv of [3,4]) {
+ const old=M.fresh(41);old.mv=mv;M.begin(old.tasks[2]);old.tasks[2].runs[0].q=Array.from({length:48},(_,i)=>24000-i);
+ const before=old.tasks[2].runs[0].q.slice();
+ const saved=snapshot(old);const decoded=P.decode(saved,"draft");assert.deepEqual(decoded,old);
+ M.upgradeDraft(decoded);assert.ok(M.record(decoded.tasks[2],-24));assert.ok(before.every(q=>decoded.tasks[2].runs[0].q.includes(q)));
+ assert.deepEqual(P.decode(snapshot(decoded),"draft"),decoded);
+}
