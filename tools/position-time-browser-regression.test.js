@@ -2,10 +2,13 @@
 
 const assert = require("node:assert/strict");
 const { EventEmitter } = require("node:events");
+const vm = require('node:vm');
 const path = require("node:path");
 const fs = require('node:fs'), os = require('node:os');
 const {
   CdpClient,
+  clickControl,
+  controlPoint,
   devToolsPort,
   childHasExited,
   cleanupResources,
@@ -117,6 +120,56 @@ conditionCalls=0;
 await assert.rejects(waitForCondition(async()=>{conditionCalls++;await new Promise(r=>setTimeout(r,15));return false;},'slow evaluation',40,1),/slow evaluation timed out/);
 assert(conditionCalls<=3,'evaluation time counts towards the deadline');
 await assert.rejects(waitForCondition(async()=>{throw navigationError;},'navigation never finished',20,1),error=>/navigation never finished timed out/.test(error.message)&&error.cause===navigationError,'the last navigation error is preserved at the deadline');
+
+function controlFixture(options = {}) {
+  const listeners = new Map(), inputs = []; let frames = 0, clock = 0, scrolls = 0;
+  const target = {isConnected:true,disabled:!!options.disabled,clientLeft:0,clientTop:0,
+    contains(node){return node===this;}, scrollIntoView(){scrolls++;},
+    getBoundingClientRect(){const x=options.moving?frames:20;return {x,y:30,left:x,top:30,width:options.hidden?0:40,height:40};}};
+  const document = {fonts:{ready:options.fontsPending?new Promise(()=>{}):Promise.resolve()},querySelector:()=>options.missing?null:target,
+    elementFromPoint:()=>options.obscured?{}:target,
+    addEventListener(type,fn){listeners.set(type,fn);},removeEventListener(type){listeners.delete(type);}};
+  const window = {document,scrollX:0,scrollY:0,innerWidth:390,innerHeight:700,
+    getComputedStyle:()=>({visibility:'visible'}),requestAnimationFrame(fn){frames++;clock+=16;queueMicrotask(fn);}};
+  window.top=window;window.parent=window;
+  window.window=window;window.performance={now:()=>clock};const scope=vm.createContext(window);
+  window.eval=code=>vm.runInContext(code,scope);
+  if(options.frame){const frame={...target,getBoundingClientRect:()=>({left:100,top:frames<3?frames*10:60}),clientLeft:2,clientTop:3};
+    const parent={document:{elementFromPoint:()=>options.coveredFrame?{}:frame},scrollX:0,scrollY:0,innerWidth:900,innerHeight:1200};parent.top=parent;
+    window.frameElement=frame;window.parent=parent;window.top=parent;}
+  const fire=(type,pointer)=>listeners.get(type)?.({type,pointerType:pointer,isTrusted:!options.untrusted,composedPath:()=>options.wrongTarget?[]:[target]});
+  const cdp={async send(method,params){
+    if(method==='Runtime.evaluate'){const value=await vm.runInContext(params.expression,scope);return {result:{value:value===undefined?undefined:JSON.parse(JSON.stringify(value))}};}
+    inputs.push({method,...params});if(options.transportError)throw options.transportError;
+    const pointer=method==='Input.dispatchTouchEvent'?'touch':'mouse';
+    if(['touchStart','mousePressed'].includes(params.type))fire('pointerdown',pointer);
+    else {fire('pointerup',pointer);if(!options.noClick)fire('click',pointer);}
+    return {};
+  }};
+  return {cdp,inputs,listeners,window,get frames(){return frames;},get scrolls(){return scrolls;}};
+}
+for(const touch of [false,true]){
+  const fixture=controlFixture();await clickControl(fixture.cdp,'#control','window',touch);
+  assert.equal(fixture.inputs.length,2,'one press and release, never a retry');
+  assert.equal(fixture.scrolls,1);assert(fixture.frames>=5);assert.equal(fixture.listeners.size,0);
+  assert(fixture.window.__simlabControlInput.events.every(e=>e.trusted&&e.matched));
+}
+const movingFrame=controlFixture({frame:true});assert.deepEqual(await controlPoint(movingFrame.cdp,'#control'),{x:142,y:113});
+assert(movingFrame.frames>=5,'ancestor frame movement settles before coordinates are returned');
+for(const options of [{missing:true},{hidden:true},{disabled:true},{obscured:true},{frame:true,coveredFrame:true}]){
+  const fixture=controlFixture(options);await assert.rejects(clickControl(fixture.cdp,'#control'),/Missing|Unavailable|Obscured/);
+  assert.equal(fixture.inputs.length,0,'unavailable targets never receive input');
+}
+for(const options of [{moving:true},{fontsPending:true}]){
+  const fixture=controlFixture(options);await assert.rejects(clickControl(fixture.cdp,'#control'),/did not settle|timed out/);
+  assert.equal(fixture.inputs.length,0,'unstable geometry or pending fonts cannot hang or receive input');
+}
+for(const options of [{untrusted:true},{wrongTarget:true},{noClick:true}]){
+  const fixture=controlFixture(options);await assert.rejects(clickControl(fixture.cdp,'#control'),/Missing trusted|Native click/);
+  assert.equal(fixture.inputs.length,2,'missing or wrong native events must not trigger another tap');assert.equal(fixture.listeners.size,0);
+}
+const inputError=new Error('input transport closed'),brokenInput=controlFixture({transportError:inputError});
+await assert.rejects(clickControl(brokenInput.cdp,'#control'),error=>error===inputError);assert.equal(brokenInput.inputs.length,1);assert.equal(brokenInput.listeners.size,0);
 
 const failureDirectory=fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),'simlab-failure-test-'));
 try {

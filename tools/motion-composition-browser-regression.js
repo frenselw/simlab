@@ -3,7 +3,7 @@
 const assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path"),os=require("node:os");
 const {spawn}=require("node:child_process");
 const {XMLParser}=require("fast-xml-parser");
-const {CdpClient,buildAndExtractPackage,createServer,listenServer,devToolsPort,fetchJson,evaluate,delay,findBrowser,stopChrome,closeServer,validateOwnedDirectory,waitForCondition}=require("./position-time-browser-regression.js");
+const {CdpClient,buildAndExtractPackage,createServer,listenServer,devToolsPort,fetchJson,evaluate,delay,findBrowser,stopChrome,closeServer,validateOwnedDirectory,waitForCondition,clickControl}=require("./position-time-browser-regression.js");
 const M=require("../sim/motion-composition-stroboscopic-lab/model.js"),P=require("../sim/motion-composition-stroboscopic-lab/persistence.js"),S=require("../sim/motion-composition-stroboscopic-lab/scoring.js");
 const {filled,durableDraft,finishedData}=require("../sim/motion-composition-stroboscopic-lab/test-support.js");
 const root=path.resolve(__dirname,".."),slug=P.ACTIVITY,suffix=process.env.MOTION_ARTIFACT_SUFFIX||"";
@@ -61,9 +61,7 @@ async function rect(cdp, selector, embedded = false, scroll = false) {
   return r;
 }
 async function click(cdp, selector, embedded = false) {
-  const p = await rect(cdp, selector, embedded, true);
-  await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", x: p.x, y: p.y, button: "left", clickCount: 1 });
-  await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: p.x, y: p.y, button: "left", clickCount: 1 }); await delay(40);
+  return clickControl(cdp, selector, embedded ? 'document.getElementById("activity").contentWindow' : 'window');
 }
 const traySelector=slot=>`#trayHandle${slot+1}`;
 async function capture(cdp,embedded=false){

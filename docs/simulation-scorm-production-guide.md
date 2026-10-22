@@ -847,6 +847,16 @@ On Windows, use Git Bash explicitly if plain `bash` invokes unconfigured WSL,
 and use `npm.cmd` if the shell cannot run `npm`. Do not copy another machine's
 user paths. Treat `### Error` in Playwright CLI output as failure even with exit 0.
 
+For ordinary enabled controls, reuse `clickControl(cdp, selector, context, touch)`
+from `tools/position-time-browser-regression.js`. It waits for fonts and stable
+target/frame geometry, checks hit targets through the frame chain, sends one
+native press/release, and requires matching trusted pointerdown, pointerup and
+click. Keep activity-specific ready/state assertions. Missing native events must
+fail; do not retry the tap or substitute a DOM `click()`. Drag, flick, sampled and
+cancelled gestures retain their calibrated paths: a stopped drag pauses before
+release, while a flick intentionally retains velocity. DOM `scrollend` alone does
+not prove that the browser's emulated gesture/fling sequence has ended.
+
 The maintained trusted-touch runner is `tools/mobile-scroll-browser-regression.js`:
 
 ```sh
