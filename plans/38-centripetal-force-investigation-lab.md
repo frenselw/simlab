@@ -876,3 +876,11 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 - 單向48點後直接手動反轉，在另一方向繼續超48點、總數超96；所有原點按數值保留，擬合及明確提交成功。取消full／direction-full狀態與量測停用；只在既定0.25rad/s分辨條件下不重複取點，物理轉速範圍保持，並不宣稱能產生無限多不同速度。
 - 實際檢視393×734手機及預覽畫面：頁首50px、裝置與數據圖同時放大，數據圖viewBox配合實際高度，不再留大片等比縮放空白；修正放大後半徑數式靠邊。測試舊plot固定120px座標改為驗證實際viewBox與凍結run的資料座標。
 - 最後僅將手機「交卷」文案改為準確的「檢查」及補充codec邊界註解後重建ZIP；沒有互動邏輯改動。ZIP SHA-256：ae384c75871222e2a23568b004ee91e28d6c58ab7c0a756f8351d812b89162f1；16個runtime與canonical sim及Site dist逐位元組相同。無新依賴／入口或sub-agent；真手機Safari、真Moodle及全T0–T3矩陣未重驗，維持planned。
+
+### 手機空間 Site v16 交付
+
+- 功能commit fe5e28b01f0a11655a17b720f499c19136c9c361已推到origin；committed selection preview由5922db10be76272f257c960ebd94e64f899235a2起算，mode=affected、packages僅本活動；output/centripetal-mobile-space-selection.json。實際測試範圍見上節，沒有宣稱整個選取清單全跑。
+- 官方helper推送Site source 7a0b494dc271f4034bf2737dbea360b69dc8844f，保留原owner-private audience；v16 appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_8e5f9d167ee88191a21fe692969df998，deployment appgdep_6ada9e6fd1c08191a132dac5763162c0，Sites回報succeeded（2026-10-22T23:38:30.444348+00:00）。
+- 已開回原Site並明確reload；393×734實際交付檢查確認單行頁首、清楚步驟、大轉盤與完整數據圖。使用鍵盤替代操作推至3rad/s開始量測，再推至4rad/s，3個實際圖點便出現「✓ 資料已足夠」，測量維持，沒有full狀態或另佔空間的達標段落。截圖C:/Users/frens/Documents/Projects/simlab/output/centripetal-mobile-v16.png；之後已解除臨時viewport override，原分頁保留供使用者試。
+- 網址：https://centripetal-force-investigation-lab.ieyp.chatgpt.site/centripetal-force-investigation-lab/
+
