@@ -96,13 +96,13 @@
 
 ### 推動、續轉與中斷
 
-- 使用可見操作環的分段 HTML 命中區（12 段、局部 44px 觸控厚度）；環內空白不接管。接觸時記錄相對角，不跳到手指絕對方位；跨 ±π 連續解包。
+- 使用可見操作環的分段 HTML 命中區（24 段、局部至少 44px 觸控範圍）；環內空白不接管。接觸時記錄相對角，不跳到手指絕對方位；跨 ±π 連續解包。
 - 每個有效事件以不大於 120ms 的最近角度窗口估算 Ω；不足兩個有效時間樣本不製造速度。零時間、非有限值、超過 120ms 的事件空檔不反算極大速度。上限是虛擬裝置上限，須以限速後角位移驅動畫面與讀數，不能畫面很快而數值被單獨截斷。
 - 手勢角增量大於可連續辨認界限時停止該段估算，保留前一合法速度，頁內提示慢一點重推；不得把跨圈別名誤判反轉。拖到中心附近時保留角度，避免 atan2 奇點。
 - 有效放手沿最後實際 Ω 慣性續轉；只點一下無角位移不加速。重新觸碰、減速、反轉均連續；不按手指壓力猜物理扭矩。
 - 「停止／設定」令模擬時間暫停；畫面可回到水平設定姿態，明示設定狀態，並非聲稱小球實際受巨大制動。m、r 只在設定狀態可改。
 - 切頁、檢查、失焦、隱藏、pointercancel、失去 capture 或第二指介入均安全暫停；不在背景補採樣、不突然續轉。操作環的已接受歷史樣本保留；未放下的砝碼／半徑拖動回滾。
-- 鍵盤替代：聚焦操作環，左右鍵按時間改 Ω、Space 暫停；走相同模型與採樣。不給任何數字滑桿作主流程，也不按手勢熟練度給分。
+- 鍵盤替代：聚焦操作環，左右鍵按時間改 Ω、Space 暫停；另設「推快一格／減慢一格」按鈕，走相同模型與採樣。不給任何數字滑桿作主流程，也不按手勢熟練度給分。
 
 ### 採樣、資料組與擬合
 
@@ -122,7 +122,7 @@
 | Fullscreen | 外層 main 標記 data-sim-fullscreen-target，header 標記 data-sim-fullscreen；重用 shared/fullscreen.js，預留右上 44px，不手寫第二個按鈕 |
 | Desktop / tablet | ≥900px，舞台 1fr、面板 340px（最多可用寬的 34%）；裝置與 live 圖並列。桌面圖例至少 20px，讀數 22px |
 | Classification | bounded split-panel；看裝置／圖時仍需操作面板，面板獨立捲動 |
-| Phone | 依 production guide 的 44dvh 舞台起點調整，正常直向舞台 44dvh、面板取剩餘。320×500 目標面板可見 ≥144px，硬下限 ≥96 CSS px；若頁首變高，先改緊湊任務選單、縮減非必要圖內文字，不縮按鈕 |
+| Phone | 收集時舞台約 44dvh；設定時縮至 35dvh，≤359px 寬縮至 27dvh，先展示 A 側砝碼增減控制。320×500 目標面板可見 ≥144px，硬下限 ≥96 CSS px；按鈕保持至少 44px |
 | Short viewport | 高≤400 且寬≥480 用左右欄；更窄保留 ≥96px 面板，裝置／圖像只顯一主視圖。200% zoom 重新排列，不靠整頁橫捲 |
 | Phone text | 控制／正文 18px，必要圖標 16px 實際縮放後，讀數 20px；44px 操作目標，公式真上下標，數字固定等寬欄 |
 | Viewports | 320×500、390×500、390×600、390×844、480×320、320×225、1280×800；工具列／鍵盤／200% zoom 均待驗 |
@@ -151,11 +151,11 @@
 
 | Decision | Activity specification and reason |
 |---|---|
-| Notation | m、r、ω、F 均表示大小；運動方向另以圖示標記。F_A/F_B 下標固定，ω 是角速率非帶符號 Ω。單位直立，數學字體依 baseline；不向學生顯示 raw LaTeX |
+| Notation | m、r、ω、F 均表示大小；運動方向另以圖示標記。F_A/F_B 下標固定，ω 是角速率非帶符號 Ω。物理量、公式、圖軸與單位以本地 MathJax 的 LaTeX 排版；不向學生顯示 raw LaTeX |
 | Arrows | 如顯示感應器量測方向，用單一實心箭頭及明確「徑向讀數」，不加第三個物體／額外合力；固定 A/B 圖例，不跟轉動 |
 | Radius snap | 沿尺投影到合法格，連續預覽後放手保持；可見格的最近點、touch 12px／mouse 8px 門檻；相鄰格不足 24px 時提供放大讀尺與 ± 按鈕，不暗吸到本題正解 |
 | Mass snap | 砝碼 drop 到可見樽蓋目標，touch 18px／mouse 10px 局部距離；未命中回工具盤，n 到上限不多加；增減按鈕等效 |
-| Touch preview | 半徑拖動需要，顯示軸心方向、尺格、被測質心及當前 snap，2× 放大、固定無遮擋角；砝碼與大操作環不需精密預覽，因為只判目標／轉動，不考手指微小角度 |
+| Touch preview | 半徑拖動顯示軸心方向、尺格、被測質心及當前 snap，2× 放大、固定無遮擋角；砝碼拖動時預覽砝碼跟隨手指，放錯位置回工具盤；操作環不需精密預覽 |
 | Graph | A/B 散點以共同資料生成；固定 x=F_B、y=F_A，顯示 N；ω圖顯示 rad/s 與 N。刻度選正常數，不把不同組各自變形後疊成同一線 |
 
 ## Touch gesture ownership contract
@@ -164,7 +164,7 @@
 
 | Target / modes | Visible footprint / hit region | Capture / touch-action | Keyboard |
 |---|---|---|---|
-| 操作環／collect | `.spin-segment` 12 個環形分段，44px 局部厚度，環內空白無 overlay | 穩定 HTML 節點，none 在 down 前已設；旋轉不重建捕捉元素 | 左右鍵改速度、Space 暫停 |
+| 操作環／collect | `.spin-segment` 24 個環形分段，至少 44px 局部範圍，環內空白無 overlay | 穩定 HTML 節點，none 在 down 前已設；旋轉不重建捕捉元素 | 左右鍵改速度、Space 暫停；面板有推快／減慢按鈕 |
 | A/B 半徑把手／setup | `.radius-handle[data-side]` 可見手柄＋44px 局部範圍，不覆蓋全尺 | 穩定 HTML，none | 左右鍵移一格 |
 | 砝碼／setup | `.mass-token` 44×44；已放砝碼同樣可取回 | 穩定 HTML，none；拖曳副本不接事件 | 選 A/B，± 加減 |
 | 資料組／圖像控制 | 原生 button/select；圖像本身唯讀 | auto；不把整圖設 none | 原生鍵盤 |
@@ -410,3 +410,28 @@ Site `dist` 檔案及SHA-256（其中13個為SCORM runtime，根頁為Site入口
 | `shared/fullscreen.js` | `055324bc99add2c0d5c7bfa5d5947363d3fbe5d1f3f72e8320aefcd4b1f2be5a` |
 | `shared/scorm.js` | `7fd3bdf36249c942ebb94003fcc5b3dff07c3cfed5b494a887dffdc334e05ca8` |
 | `shared/styles.css` | `e750bf358e83cf738a9fb1df8f63056148e80cd89c35ea4d72b3dc51fcb7cbc2` |
+
+## 使用者回饋修正與再驗證（2026-10-22）
+
+使用者要求所有顯示的物理量改為 LaTeX 排版，並指出不知道如何加砝碼及轉環。介面改用既有本地 MathJax 渲染物理符號、單位、圖軸及擬合式；設定控制移到面板開首，明示 A/B 的「＋砝碼」、開始收集、金色環拖動步驟。手機設定畫面縮小舞台，320×500 無捲動時已能見到 A 側增加砝碼按鈕。金色環由 12 個小命中區增至 24 個至少 44px 命中區；另設推快／減慢按鈕，與拖動共用同一運動及採樣模型。拖砝碼期間會跟隨手指預覽。
+
+| 項目 | 已執行證據 |
+|---|---|
+| 純測試及登記 | 本活動五個 node 測試全通過；`npm run check`、`npm run check:tests` 通過，登記仍為 263 entries（227 node、36 browser） |
+| SCORM | `npm run package:all` 通過，本活動 ZIP 17 檔、16 個 runtime 資產；SHA-256 `5dd807ef7fab8e23ad00a208720596fd07424f980549071463e38fa2ce2bd7da` |
+| source／package browser | `node tools/centripetal-force-investigation-browser-regression.js` 通過兩種入口；驗證 MathJax SVG、設定面板順序、A/B 增減砝碼、砝碼拖動預覽、金環可信觸控採樣、只用「推快一格」三次採樣後擬合，以及 320×500 A 側加砝碼按鈕可見 |
+| T2 package host | `tools/mobile-scroll-browser-regression.js --slugs=centripetal-force-investigation-lab --mode=package --host=T2 --phases=all --viewports=390x600` 完成，全部 case 無 issue；包含設定、採樣、擬合、檢查、提交及 pending／committed。報告 `output/playwright/centripetal-fix-T2-package-all.json` |
+| 視覺 | 已檢視 390×600 設定／收集、320×500 設定及 package 圖像截圖；公式 SVG 不被舞台 SVG 樣式放大 |
+
+本節是回饋修正後的版本證據；上面的 14 檔與第一次 Site 部署記錄是歷史快照。新 Site 仍須以本節更新版本及核對私人部署。T4 真 Moodle／真手機及先前已知的全套測試失敗尚未驗收，活動維持 planned。
+
+本輪 Site runtime 變更檔案 SHA-256（其他 10 個 runtime 檔案沿用上表 hash；另有 Site 根頁轉址）：
+
+| 路徑 | SHA-256 |
+|---|---|
+| `centripetal-force-investigation-lab/index.html` | `cf4c679d9ddc5a58700f0c80f1eabb1cc156dbd0dc36bc5301f6834eaf76bef2` |
+| `centripetal-force-investigation-lab/main.js` | `bd90263ccbcb0213151ee014859cbe595674c86dd222f484b6a69a5a7d3e7d3d` |
+| `centripetal-force-investigation-lab/styles.css` | `1dda7ff1aedc172b77b5aaa543524141195a34df57d7b638188235bdc26775d9` |
+| `circuit-workbench/circuit-math.js` | `2c35e09e31eb2b205b4aa72c3801832a5c7f4a2cb7e1b4f4fa6ea531f2e196b4` |
+| `circuit-workbench/mathjax-license.txt` | `cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30` |
+| `circuit-workbench/mathjax-tex-svg.js` | `d4295dc33744836935c1399feece5159577b34c5c8ffb9f1c6324cd82e03a882` |

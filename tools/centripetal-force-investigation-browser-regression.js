@@ -22,6 +22,9 @@ async function click(cdp, selector) {
 }
 async function touchDrag(cdp, selector, dx, dy) {
   const r = await rect(cdp, selector), x = r.x + r.width / 2, y = r.y + r.height / 2;
+  await touchAt(cdp, x, y, dx, dy);
+}
+async function touchAt(cdp, x, y, dx, dy) {
   const point = (tx, ty) => ({ x: tx, y: ty, id: 101, radiusX: 1, radiusY: 1, force: 1 });
   await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [point(x, y)] });
   for (let i = 1; i <= 5; i++) {
@@ -49,6 +52,12 @@ async function fullscreen(cdp, expected, label) {
 async function scenario(cdp, base, launch, label, width, height) {
   await cdp.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false });
   await cdp.send("Page.navigate", { url: base + launch }); await ready(cdp);
+  const folder = path.join(root, "output", "playwright"); fs.mkdirSync(folder, { recursive: true });
+  for (let i = 0; i < 100 && !await H.evaluate(cdp, "Boolean(document.querySelector('[data-tex] svg'))"); i++) await pause(50);
+  assert.ok(await H.evaluate(cdp, "Boolean(document.querySelector('[data-tex] svg'))"), `${label}: LaTeX quantities rendered`);
+  assert.ok(await H.evaluate(cdp, "document.querySelector('#setupPanel').compareDocumentPosition(document.querySelector('#rolesField')) & Node.DOCUMENT_POSITION_FOLLOWING"), `${label}: apparatus controls precede assessment questions`);
+  const firstScreenshot = await cdp.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
+  fs.writeFileSync(path.join(folder, `centripetal-${label}-setup-${width}x${height}.png`), Buffer.from(firstScreenshot.data, "base64"));
   const layout = await H.evaluate(cdp, `(()=>({root:document.documentElement.scrollHeight-document.documentElement.clientHeight,panel:document.getElementById('controlPanel').clientHeight,fullscreen:!!document.getElementById('fullscreenButton'),stage:getComputedStyle(document.getElementById('stage')).touchAction}))()`);
   assert.ok(layout.root < 3 && layout.panel >= 96 && layout.fullscreen && layout.stage === "pan-y", `${label} layout: ${JSON.stringify(layout)}`);
   await click(cdp, "#fullscreenButton");
@@ -63,6 +72,17 @@ async function scenario(cdp, base, launch, label, width, height) {
   assert.deepEqual(data, { view: "setup", runs: 0 }, "standalone refresh starts fresh");
   await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 2 });
   await H.evaluate(cdp, `(()=>{window.__touchEvidence=[];document.addEventListener('pointerdown',event=>window.__touchEvidence.push({trusted:event.isTrusted,type:event.pointerType,target:event.target.className}),true);return true;})()`);
+  await click(cdp, '[data-step="2:1"]');
+  assert.equal(await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].work[2]"), 3, `${label}: visible add-weight button`);
+  await click(cdp, '[data-step="2:-1"]');
+  assert.equal(await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].work[2]"), 2, `${label}: visible remove-weight button`);
+  const tray = await rect(cdp, ".mass-token.tray"), tx = tray.x + tray.width / 2, ty = tray.y + tray.height / 2;
+  const finger = (x, y) => ({ x, y, id: 119, radiusX: 1, radiusY: 1, force: 1 });
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [finger(tx, ty)] });
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [finger(tx + 28, ty - 28)] });
+  assert.equal(await H.evaluate(cdp, "document.querySelector('.mass-token.tray').classList.contains('dragging')"), true, `${label}: weight follows the finger`);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  assert.equal(await H.evaluate(cdp, "document.querySelector('.mass-token.tray').classList.contains('dragging')"), false, `${label}: released weight returns to tray`);
   const content = await rect(cdp, "#stageContent"), scale = Math.min(content.width / 600, content.height / 360);
   await touchDrag(cdp, '.radius-handle[data-side="A"]', 36 * scale, 0);
   data = await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].work[0]");
@@ -72,16 +92,23 @@ async function scenario(cdp, base, launch, label, width, height) {
   await touchTo(cdp, ".mass-token.placed.a", ".mass-token.tray");
   assert.equal(await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].work[2]"), 2, `${label}: trusted mass removal; ${JSON.stringify(await H.evaluate(cdp, 'window.__touchEvidence'))}`);
   await click(cdp, "#startButton");
-  await touchDrag(cdp, ".spin-segment", -20 * scale, 55 * scale);
+  const ringPoint = await H.evaluate(cdp, `(()=>{const r=document.getElementById('stageContent').getBoundingClientRect(),s=Math.min(r.width/600,r.height/360);return{x:r.left+(r.width-600*s)/2+300*s,y:r.top+(r.height-360*s)/2+46*s,scale:s};})()`);
+  assert.equal(await H.evaluate(cdp, "document.querySelectorAll('.spin-segment').length"), 24, `${label}: continuous local ring targets`);
+  const collectScreenshot = await cdp.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
+  fs.writeFileSync(path.join(folder, `centripetal-${label}-collect-${width}x${height}.png`), Buffer.from(collectScreenshot.data, "base64"));
+  await touchAt(cdp, ringPoint.x, ringPoint.y, 55 * ringPoint.scale, 13 * ringPoint.scale);
   data = await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].runs[0].q.length");
-  assert.ok(data >= 1, `${label}: trusted ring drag records a real speed`);
+  assert.ok(data >= 1, `${label}: trusted touch on visible gold ring records a real speed; ${JSON.stringify(await H.evaluate(cdp, `({target:document.elementFromPoint(${ringPoint.x},${ringPoint.y})?.outerHTML?.slice(0,180),events:window.__touchEvidence,motion:window.__centripetalApp.getMotion()})`))}`);
+  const beforePush = await H.evaluate(cdp, "Math.abs(window.__centripetalApp.getMotion().omega)");
+  await click(cdp, "#pushButton");
+  assert.ok(await H.evaluate(cdp, "Math.abs(window.__centripetalApp.getMotion().omega)") > beforePush, `${label}: visible push button accelerates`);
   const touchEvidence = await H.evaluate(cdp, "window.__touchEvidence");
   assert.ok(touchEvidence.filter(event => event.trusted && event.type === "touch").length >= 4, `${label}: drag targets received trusted touch pointer events`);
   const ring = await rect(cdp, ".spin-segment"), x = ring.x + ring.width / 2, y = ring.y + ring.height / 2;
-  const finger = (id, fx, fy) => ({ id, x: fx, y: fy, radiusX: 1, radiusY: 1, force: 1 });
-  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [finger(201, x, y)] });
-  await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [finger(201, x - 5, y + 8)] });
-  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [finger(201, x - 5, y + 8), finger(202, x - 28, y)] });
+  const fingerTwo = (id, fx, fy) => ({ id, x: fx, y: fy, radiusX: 1, radiusY: 1, force: 1 });
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [fingerTwo(201, x, y)] });
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [fingerTwo(201, x - 5, y + 8)] });
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [fingerTwo(201, x - 5, y + 8), fingerTwo(202, x - 28, y)] });
   assert.equal(await H.evaluate(cdp, "window.__centripetalApp.getMotion().running"), false, `${label}: second finger safely pauses collection`);
   await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
   await click(cdp, "#resumeButton");
@@ -100,7 +127,6 @@ async function scenario(cdp, base, launch, label, width, height) {
   await click(cdp, "#fullscreenButton");
   await fullscreen(cdp, false, `${label} review exit`);
   const screenshot = await cdp.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
-  const folder = path.join(root, "output", "playwright"); fs.mkdirSync(folder, { recursive: true });
   fs.writeFileSync(path.join(folder, `centripetal-${label}-${width}x${height}.png`), Buffer.from(screenshot.data, "base64"));
   return { label, width, height, samples: data, layout };
 }
@@ -110,6 +136,13 @@ async function layoutOnly(cdp, base, launch, width, height) {
   const layout = await H.evaluate(cdp, `(()=>{const panel=document.getElementById('controlPanel').getBoundingClientRect(),stage=document.getElementById('stage').getBoundingClientRect();return {root:document.documentElement.scrollHeight-document.documentElement.clientHeight,panelHeight:panel.height,panelBottom:panel.bottom,stageHeight:stage.height,stageBottom:stage.bottom,viewport:innerHeight,button:getComputedStyle(document.getElementById('startButton')).fontSize};})()`);
   assert.ok(layout.root < 3 && layout.panelHeight >= 96 && layout.panelBottom <= height + 2 && layout.stageHeight >= 35,
     `${width}x${height} bounded layout: ${JSON.stringify(layout)}`);
+  if (width === 320 && height === 500) {
+    const addWeight = await rect(cdp, '[data-step="2:1"]');
+    assert.ok(addWeight.y >= 0 && addWeight.y + addWeight.height <= height + 2, `Narrow phone exposes A add-weight button: ${JSON.stringify(addWeight)}`);
+    const screenshot = await cdp.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
+    const folder = path.join(root, "output", "playwright"); fs.mkdirSync(folder, { recursive: true });
+    fs.writeFileSync(path.join(folder, "centripetal-layout-320x500.png"), Buffer.from(screenshot.data, "base64"));
+  }
   if (width === 320 && height === 225) {
     const screenshot = await cdp.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
     const folder = path.join(root, "output", "playwright"); fs.mkdirSync(folder, { recursive: true });
@@ -121,6 +154,17 @@ async function layoutOnly(cdp, base, launch, width, height) {
     await touchDrag(cdp, ".spin-segment", -5, 12);
     assert.ok(await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].runs[0].q.length") >= 1, "Short-view ring still produces data");
   }
+}
+async function buttonOnly(cdp, base, launch, label) {
+  await cdp.send("Emulation.setDeviceMetricsOverride", { width: 390, height: 600, deviceScaleFactor: 1, mobile: false });
+  await cdp.send("Page.navigate", { url: base + launch }); await ready(cdp);
+  await click(cdp, '[data-step="2:1"]');
+  assert.equal(await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].work[2]"), 3, `${label}: add-weight button`);
+  await click(cdp, "#startButton");
+  for (let i = 0; i < 3; i++) await click(cdp, "#pushButton");
+  assert.ok(await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].runs[0].q.length") >= 3, `${label}: push button alone records three speeds`);
+  await click(cdp, "#stopButton"); await click(cdp, "#fitButton");
+  assert.equal(await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].runs[0].fit"), true, `${label}: button-only measurements fit`);
 }
 async function main() {
   const browser = H.findBrowser(); if (!browser) throw Error("Chrome/Chromium not found");
@@ -136,11 +180,13 @@ async function main() {
     const sourceBase = `http://127.0.0.1:${server.address().port}`;
     await scenario(cdp, sourceBase, `/sim/${slug}/index.html`, "source", 1280, 800);
     await scenario(cdp, sourceBase, `/sim/${slug}/index.html`, "source", 390, 600);
+    await buttonOnly(cdp, sourceBase, `/sim/${slug}/index.html`, "source");
     for (const [width, height] of [[320,500],[390,500],[390,844],[480,320],[320,225]]) await layoutOnly(cdp, sourceBase, `/sim/${slug}/index.html`, width, height);
     await H.closeServer(server); server = null;
     const extracted = H.buildAndExtractPackage(tempRoot, { slug }); packageDirectory = extracted.packageDirectory;
     server = H.createServer(packageDirectory); await H.listenServer(server);
     await scenario(cdp, `http://127.0.0.1:${server.address().port}`, extracted.activityPath, "package", 390, 600);
+    await buttonOnly(cdp, `http://127.0.0.1:${server.address().port}`, extracted.activityPath, "package");
     await layoutOnly(cdp, `http://127.0.0.1:${server.address().port}`, extracted.activityPath, 320, 225);
     assert.deepEqual(errors, [], `Browser exceptions: ${errors.join("\n")}`);
     console.log("Centripetal source and extracted-package browser regression passed");

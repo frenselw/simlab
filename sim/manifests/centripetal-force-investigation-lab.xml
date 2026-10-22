@@ -22,6 +22,9 @@
       <file href="centripetal-force-investigation-lab/ui-runtime.js"/>
       <file href="centripetal-force-investigation-lab/main.js"/>
       <file href="newtons-second-law-investigation-lab/fitting.js"/>
+      <file href="circuit-workbench/circuit-math.js"/>
+      <file href="circuit-workbench/mathjax-tex-svg.js"/>
+      <file href="circuit-workbench/mathjax-license.txt"/>
       <file href="shared/styles.css"/>
       <file href="shared/scorm.js"/>
       <file href="shared/activity-flow.js"/>
