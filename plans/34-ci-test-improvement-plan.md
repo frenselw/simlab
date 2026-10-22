@@ -16,7 +16,9 @@
 - 權重只取已核實完整成功的 main run `39719145504`（`4aa4d50680f9c757b932e7db08be118f80142950`）之入口耗時。保留全部入口、八個 browser 分片及既有 gate；回算改善不當作新 CI 實測。
 - 驗證：補入現有工具自測，涵蓋等待成功／導航／致命錯誤／掛起、診斷部分失敗與超時、權重覆蓋完整清單；執行全部 Node、check／check:tests、committed selection preview，以及分支完整 CI。首次失敗照實保留，不以重跑綠燈取代修復證據。
 
-狀態：實作中，尚未取得本分支完整 CI 結果。
+提交前證據：共用工具自測、CI 分片自測、check／check:tests（222 Node＋35 browser）、文件及 diff 檢查通過。真實 Chrome 在電路評量及 AC 首次原生滑鼠操作後注入指定錯誤，兩個入口均拒絕並保留同一錯誤物件，保存 source／案例、最後操作座標、可信事件、實際狀態與截圖後清理完成；診斷本身掛起／部分失敗／無法寫檔亦有自測。證據為 `output/ci-tests/ci-stability-injected-assessed/`、`ci-stability-injected-ac/` 及對應 log。
+
+分片回算：以該成功 run 的實測入口耗時，更新後八片估算為 1255／1238／1233／1237／1228／1240／1230／1235 秒；舊分配最慢約 1537 秒。這是相同資料的編排估計，沒有宣稱已取得約 4.7 分鐘的遠端提速。全部 Node 與電路評量 source／ZIP 本機完整驗證另存 `output/ci-tests/ci-stability-node/`、`ci-stability-assessed-full.log`；分支實際完整驗收與耗時以最後提交的 Actions 結果為準。
 
 ## 2026-10-20：活動測試變更的基線判定修正
 
