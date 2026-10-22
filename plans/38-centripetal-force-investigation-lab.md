@@ -721,3 +721,10 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 - 最後只移除測試診斷事件記錄，未再改runtime。沒有新增入口／依賴；無sub-agent審核。
 - SCORM 16個runtime與sim及Site dist逐位元組一致。ZIP SHA-256：a3b8e7728ab0aa1346f7970b9d2223453e24540c36fd246616db0a7d457d0f20。
 - 真手機／Safari、真Moodle T4及全T0–T3矩陣未驗，維持planned。
+
+### 放手續轉 Site v10 交付
+
+- 功能commit b804e0ef12b31e75d06bf546d7cf189e0596ce3d 已推到origin。Committed selection preview：aa2b330fac5d39e74614bffe9180dd3667668f9b → b804e0e，mode=affected，packages僅本活動；輸出output/centripetal-release-selection.json。實際執行證據以上節為準。
+- Site source c0db3a7b8d25955d2fe750b1dded96b997cacdde；v10：appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_f2e9349762248191bf49d58d14aedbdc；deployment appgdep_6ada1e3133f08191af7d8eb8b64a2dac，Sites回報succeeded。沿用原owner-only權限及使用者已授權的官方工具憑證stdin流程。
+- 已重新載入並顯示原Site分頁；以實際瀏覽器拖動操作環再放手，讀數11.439 rad/s並持續旋轉；開始測量後按住減速2.5秒，降至10.315 rad/s，正常保存5點並顯示取點要求已達標。分頁保留供使用者試手感。
+- 網址：https://centripetal-force-investigation-lab.ieyp.chatgpt.site/centripetal-force-investigation-lab/
