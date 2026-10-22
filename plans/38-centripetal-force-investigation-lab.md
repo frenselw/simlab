@@ -666,3 +666,13 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 - 兩位獨立審核：data_flow_audit確認20組rv1／rv2新舊計分一致；發現跨度0.999被四捨五入與reduced-motion橙圈不清除，已分別保留3位小數及獨立移除過期標記。ux_audit覆核最新修正，320／390無剩餘重疊，390完整圖軸首屏可見；320完整圖仍須面板捲動。
 - SCORM 16個runtime與來源及Site dist逐位元組核對一致。ZIP SHA-256：`a1aa3639aca90179788ac0bfc0aa0567a4f2039c36e23eb9fab0811d8bbf308e`。
 - 限制：真手機／Safari、真Moodle及全T0–T3矩陣未驗；維持planned，不宣稱Moodle-ready。
+
+
+### 私人 Site v8 交付
+
+- 功能commit fa2405fa683a8cbcd8fcfb75fc4a8c013e15d52f 已推到origin。Committed selection preview：5edb3272e96630fb0b012a89fde38cc885049686 → fa2405fa683a8cbcd8fcfb75fc4a8c013e15d52f；mode=affected，選取本活動五項純測試及browser、只打包本活動。輸出output/centripetal-sampling-selection.json。
+- T2 source六項（320×500及390×600，各collect-0／collect-2／collect-collapsed）均完成，issues 0。
+- 自動審批曾把Site開啟時的舊SHA視為回退風險。核對官方helper會先提交目前工作樹再打包，並逐檔證實4個runtime修改與已測試fa2405f一致後，重試獲准；更新過期的同站臨時憑證後成功。沒有改寫來源編號或繞過審批。
+- Site source a30264c43f283fe455fb89e6de1615949281cf67；v8：appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_bcd5c8b1138c819181205c4d3f16026b；deployment appgdep_6ada021c0fa8819186bde97908ffa6b5，succeeded，保留私人存取。
+- 已在原本Site分頁實際以鍵盤推至3 rad/s，開始測量後按住減速3秒，收集6點（低於48）；顯示「取點要求已達標」及「這段轉速已記錄；取點已足夠，可分析」。分頁保留供使用者試用。
+- 網址：https://centripetal-force-investigation-lab.ieyp.chatgpt.site/centripetal-force-investigation-lab/
