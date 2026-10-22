@@ -15,6 +15,7 @@
 - 僅修改既有 browser runner 的 ready：等待 model layout 與實際 stage 寬高相同，沿用有上限的輪詢及原有全部裁切／觸控斷言。Runtime、物理、評分、權威 snapshot、manifest 及 registry 不變；評分／保存 schema 變更風險為 N/A。沿用既有 browser owner，沒有新增入口或相依。
 - 針對性來源／實際 ZIP 各連續 30 次載入與裁切檢查通過，證據 `output/playwright/diagnose-motion-fixed.log`；活動全部七套 Node tests（含 512 個保存往返及合法續作）、`npm run check:tests`（257 entries）及 `npm run check` 通過。
 - `$env:MOTION_ARTIFACT_SUFFIX='ci-readiness-fixed'; node tools/motion-composition-browser-regression.js` 完整來源／實際 ZIP 回歸 exit 0，含版面、曝光／播放、短視窗參考／部分答案、作答流程、reflow、短屏及 390／320px 可信觸控、回饋及外層 host topology，執行期錯誤為零；報告 `output/playwright/motion-composition-stroboscopic-lab/ci-readiness-fixed/report.json`。原碼的完整對照輪亦通過（`ci-failure-before/report.json`），與針對性原碼第二次載入失敗共同顯示其偶發性，沒有撤銷原 GitHub failure。文件連結、工作區 diff 及語法檢查通過。以上為提交前本機證據；後續 GitHub CI 的實際 SHA／run／結果另外核對，真機及真 Moodle 未重驗。
+- 修正提交 `a666c6f525bc23ddf7f4a7397e341917ceb9901f` 已推送 main；Quality [39710751394](https://github.com/frenselw/simlab/actions/runs/39710751394) 的本活動完整 browser entry、所在 browser-4 及全部 Node／checks 通過。整輪因另一 AC 效能 entry 失敗而維持 failure，不能冒稱全綠；已核對 13 份報告的 SHA／plan hash／job key／精確入口集合及 clean checkout，共 262 項中 261 項通過。證據 `output/ci-tests/motion-readiness-remote/verified-reports.json`，後續 AC 修正見[交流工作台計劃](32-circuit-ac-workbench.md#2026-10-22ci-量測統計熱路徑)。
 
 ### 2026-10-13：CI 短畫面覆核
 

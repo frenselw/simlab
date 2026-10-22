@@ -1,5 +1,14 @@
 # 交流電路工作台
 
+## 2026-10-22：CI 量測統計熱路徑
+
+- Quality run [39710751394](https://github.com/frenselw/simlab/actions/runs/39710751394)，SHA `a666c6f525bc23ddf7f4a7397e341917ceb9901f`：AC ZIP 的 1280px／L=1H 播放窗口出現 120ms long task，超過原 100ms 上限；首次失敗及 artifacts 保留於 `output/ci-tests/motion-readiness-remote/failed-browser-1/`。同輪運動合成 browser-4 已成功，AC failure 為另一項問題。
+- CPU 採樣的主要熱點包括 Tracker.measure；每個時間格都重新列舉相同六個積分欄位。只把六項累加展開，保留每項加總次序、窗口裁切、未知／collecting／ready、峰值、估值與快取語義；不改求解步進、物理參數或效能門檻。448 個含未知通道、次級、導線、多支路功率的舊／新版量測完全一致；514 格基準的中位耗時約為原版 9.1%，只代表此熱路徑，非整體 browser 加速。證據 `output/ci-tests/ac-observation-benchmark.json`。
+- 非評分教師工具，assessment risk／rubric／attempt 為 N/A；無新增依賴、權威欄位或 snapshot／manifest 結構。影響邊界是既有 observation／transient／scope consumers，沿用其正式 Node／AC browser owner，重建五個電路包。
+- 驗證決定：執行 observation／scope、獨立解析基準、量測啟動／未知／保存續作、保護與顯示回歸及全部 Node；AC source／ZIP 原 80／100ms gate、相關 scope／量測矩陣；check／check:tests／打包／diff、committed selection preview，以及新提交的完整 GitHub CI。未執行項目保持待驗證，真機／Moodle／Sites 另計。
+- 執行結果：全部 222 個 Node 入口通過，`output/ci-tests/ac-observation-fixed-node.json`；涵蓋既有 scope、獨立解析式、未知／啟動估值、保護與保存續作。check、check:tests（257 entries）、文件／diff 及五個電路包重建通過。AC source／ZIP 原效能與控制重畫 gate 兩輪均通過 134 checks；並行 Node 輪與其後獨立輪分別保存於 `ac-observation-fixed-budget.log`／`ac-observation-fixed-budget-isolated.log`，均位於 `output/ci-tests/`，沒有放寬 80／100ms 門檻。
+- 額外的本機 Windows Chrome 155 scope-smoke 在 50Hz 即時速度斷言未過：獨立執行新碼 0.909／1.293s，原碼同機對照 0.827／1.298s（要求比率 >0.85）；並行 Node 時亦失敗，不能單獨歸因於並行負載。原始與新碼證據保留於 `output/ci-tests/ac-observation-baseline-scope.log`／`ac-observation-fixed-scope-isolated.log`，不宣稱本機完整 scope gate 通過；固定 Chrome 154 的新 GitHub 完整驗證仍待執行。
+
 ## 第二輪審核：電容顯示依賴（2026-10-17）
 
 按使用者確認，只補顯示依賴，不修改 LC 積分器。使用已編譯的 voltage

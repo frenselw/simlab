@@ -39,7 +39,10 @@
       const threshold=next.time-this.window-this.width;while(this.bins[0]?.end<threshold)this.bins.shift();this.previous=next;
     }
     measure(id){if(this.measurements.has(id))return {...this.measurements.get(id)};const end=this.previous?.time??0,start=end-this.window,origin=this.starts[id]??this.start,collecting=origin===null||start<origin-1e-10;
-      const sum={uDuration:0,iDuration:0,pDuration:0,u2:0,i2:0,p:0};let currentPeak=0,voltagePeak=0;for(const bin of this.bins){const overlap=Math.max(0,Math.min(end,bin.end)-Math.max(start,bin.start)),q=bin.values[id];if(!q||!overlap)continue;currentPeak=Math.max(currentPeak,q.currentPeak);voltagePeak=Math.max(voltagePeak,q.voltagePeak);const factor=overlap/(bin.end-bin.start);for(const k of Object.keys(sum))sum[k]+=q[k]*factor;}
+      const sum={uDuration:0,iDuration:0,pDuration:0,u2:0,i2:0,p:0};let currentPeak=0,voltagePeak=0;for(const bin of this.bins){const overlap=Math.max(0,Math.min(end,bin.end)-Math.max(start,bin.start)),q=bin.values[id];if(!q||!overlap)continue;currentPeak=Math.max(currentPeak,q.currentPeak);voltagePeak=Math.max(voltagePeak,q.voltagePeak);const factor=overlap/(bin.end-bin.start);
+        sum.uDuration+=q.uDuration*factor;sum.iDuration+=q.iDuration*factor;sum.pDuration+=q.pDuration*factor;
+        sum.u2+=q.u2*factor;sum.i2+=q.i2*factor;sum.p+=q.p*factor;
+      }
       const latest=this.previous?.values[id],status=(duration,known)=>!known?'unknown':collecting?'collecting':duration>=this.window*(1-1e-6)?'ready':'collecting',voltageStatus=status(sum.uDuration,Number.isFinite(latest?.u)),currentStatus=status(sum.iDuration,Number.isFinite(latest?.i)),powerStatus=status(sum.pDuration,latest?.p?latest.p.every(b=>Number.isFinite(b.u)&&(b.u===0||Number.isFinite(b.i))):Number.isFinite(latest?.u)&&Number.isFinite(latest?.i)),states=[voltageStatus,currentStatus,powerStatus];
       // Startup estimates use only complete coverage of the elapsed window; a gap or
       // unknown channel must not masquerade as a measured zero or a complete cycle.
