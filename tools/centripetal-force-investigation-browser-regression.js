@@ -59,10 +59,12 @@ async function radiusFollow(cdp, side, scale, mouse = false) {
     assert.ok(await H.evaluate(cdp, `window.__heldRadius===document.querySelector(${JSON.stringify(selector)})`), `${side}: captured handle stays mounted`);
   }
   assert.match(await H.evaluate(cdp, `document.getElementById('r${side}Value').innerHTML`), /0\.30/, `${side}: radius readout updates while held`);
-  const preview = await rect(cdp, '#radiusPreview');
+  assert.equal(await H.evaluate(cdp, "document.getElementById('radiusPreview')"), null, 'No floating radius preview');
+  assert.match(await H.evaluate(cdp, `document.querySelector('[data-radius-label="${side}"] [data-tex]').getAttribute('data-tex')`), /0\.30/, `${side}: radius is labelled directly in the apparatus`);
+  const preview = await rect(cdp, `[data-radius-label="${side}"]`);
   for (const target of ['[data-assembly="A"] .weight-holder', '[data-assembly="B"] .weight-holder', selector]) {
     const r = await rect(cdp, target);
-    assert.ok(preview.x + preview.width <= r.x || r.x + r.width <= preview.x || preview.y + preview.height <= r.y || r.y + r.height <= preview.y, `${side}: preview leaves apparatus and active handle visible`);
+    assert.ok(preview.x + preview.width <= r.x || r.x + r.width <= preview.x || preview.y + preview.height <= r.y || r.y + r.height <= preview.y, `${side}: inline radius leaves apparatus and active handle visible`);
   }
   fs.writeFileSync(path.join(root, 'output/playwright', `centripetal-held-${side}-${mouse ? 'mouse' : 'touch'}.png`), Buffer.from((await cdp.send('Page.captureScreenshot', {format:'png',captureBeyondViewport:false})).data, 'base64'));
   await input('end', x + direction * 43 * scale, y + 28);
@@ -106,7 +108,7 @@ async function scenario(cdp, base, launch, label, width, height) {
   const folder = path.join(root, "output", "playwright"); fs.mkdirSync(folder, { recursive: true });
   for (let i = 0; i < 100 && !await H.evaluate(cdp, "Boolean(document.querySelector('[data-tex] svg'))"); i++) await pause(50);
   assert.ok(await H.evaluate(cdp, "Boolean(document.querySelector('[data-tex] svg'))"), `${label}: LaTeX quantities rendered`);
-  assert.ok(await H.evaluate(cdp, "document.querySelector('#setupPanel').compareDocumentPosition(document.querySelector('#rolesField')) & Node.DOCUMENT_POSITION_FOLLOWING"), `${label}: apparatus controls precede assessment questions`);
+  assert.ok(await H.evaluate(cdp, "document.querySelector('#taskIntro').compareDocumentPosition(document.querySelector('#setupPanel')) & Node.DOCUMENT_POSITION_FOLLOWING"), `${label}: learning objective precedes apparatus settings`);
   const firstScreenshot = await cdp.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
   fs.writeFileSync(path.join(folder, `centripetal-${label}-setup-${width}x${height}.png`), Buffer.from(firstScreenshot.data, "base64"));
   const layout = await H.evaluate(cdp, `(()=>({root:document.documentElement.scrollHeight-document.documentElement.clientHeight,panel:document.getElementById('controlPanel').clientHeight,fullscreen:!!document.getElementById('fullscreenButton'),stage:getComputedStyle(document.getElementById('stage')).touchAction}))()`);
@@ -118,6 +120,8 @@ async function scenario(cdp, base, launch, label, width, height) {
   await click(cdp, "#checkButton"); await click(cdp, "#submitButton");
   let data = await H.evaluate(cdp, `({score:document.getElementById('scorePanel').textContent,locked:document.getElementById('taskPanel').hidden})`);
   assert.match(data.score, /0 \/ 100/); assert.equal(data.locked, false, "review keeps read-only tasks visible");
+  await click(cdp, '#analyseView');
+  assert.match(await H.evaluate(cdp, 'document.getElementById("graphSvg").textContent'), /本組尚未記錄數據/, `${label}: empty review does not ask for new measurements`);
   await cdp.send("Page.reload", { ignoreCache: true }); await ready(cdp);
   data = await H.evaluate(cdp, `({view:window.__centripetalApp.getState().view,runs:window.__centripetalApp.getState().tasks[0].runs.length})`);
   assert.deepEqual(data, { view: "setup", runs: 0 }, "standalone refresh starts fresh");
@@ -145,7 +149,7 @@ async function scenario(cdp, base, launch, label, width, height) {
   assert.equal(data, 4, `${label}: trusted radius drag changes one side`);
   await touchTo(cdp, ".mass-token.tray", '.mass-token.placed.a');
   assert.equal(await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].work[2]"), 3, `${label}: trusted mass placement`);
-  assert.equal(await H.evaluate(cdp, "document.querySelector('[data-assembly=\"A\"] .assembly-label').textContent"), 'A 3塊', `${label}: label shows all stacked weights`);
+  assert.equal(await H.evaluate(cdp, "document.querySelector('[data-assembly=\"A\"] .assembly-label').textContent"), 'A·3', `${label}: label shows all stacked weights`);
   assert.equal(await H.evaluate(cdp, "document.querySelectorAll('[data-assembly=\"A\"] circle.weight-plate').length"), 1, `${label}: top view shows only the top disc`);
   for (let i = 0; i < 6; i++) await click(cdp, '[data-step="3:1"]');
   await touchTo(cdp, '.mass-token.placed.a', '.mass-token.placed.b');
@@ -156,7 +160,7 @@ async function scenario(cdp, base, launch, label, width, height) {
   await touchTo(cdp, ".mass-token.placed.a", ".mass-token.tray");
   assert.equal(await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].work[2]"), 2, `${label}: trusted mass removal; ${JSON.stringify(await H.evaluate(cdp, 'window.__touchEvidence'))}`);
   await click(cdp, "#startButton");
-  const ringPoint = await H.evaluate(cdp, `(()=>{const r=document.getElementById('stageContent').getBoundingClientRect(),s=Math.min(r.width/600,r.height/460);return{x:r.left+(r.width-600*s)/2+300*s,y:r.top+(r.height-460*s)/2+17*s,scale:s};})()`);
+  const ringPoint = await H.evaluate(cdp, `(()=>{const m=document.getElementById('deviceSvg').getScreenCTM();return{x:300*m.a+m.e,y:17*m.d+m.f,scale:m.a};})()`);
   assert.equal(await H.evaluate(cdp, "document.querySelectorAll('.spin-segment').length"), 24, `${label}: continuous local ring targets`);
   const collectScreenshot = await cdp.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
   fs.writeFileSync(path.join(folder, `centripetal-${label}-collect-${width}x${height}.png`), Buffer.from(collectScreenshot.data, "base64"));
@@ -166,6 +170,17 @@ async function scenario(cdp, base, launch, label, width, height) {
   const beforePush = await H.evaluate(cdp, "Math.abs(window.__centripetalApp.getMotion().omega)");
   await click(cdp, "#pushButton");
   assert.ok(await H.evaluate(cdp, "Math.abs(window.__centripetalApp.getMotion().omega)") > beforePush, `${label}: visible push button accelerates`);
+  assert.equal(await H.evaluate(cdp, "document.querySelectorAll('#graphSvg .measured-point').length === window.__centripetalApp.getState().tasks[0].runs[0].q.length"), true, `${label}: collection shows real samples immediately`);
+  const apparatus = await rect(cdp, '#deviceSvg'), chart = await rect(cdp, '#graphSvg');
+  assert.ok(apparatus.x + apparatus.width <= chart.x || apparatus.y + apparatus.height <= chart.y, `${label}: chart and apparatus occupy separate regions`);
+  const sampleCount = await H.evaluate(cdp, 'window.__centripetalApp.getState().tasks[0].runs[0].q.length');
+  await click(cdp, '#toggleGraph');
+  assert.equal(await H.evaluate(cdp, 'document.getElementById("graphBody").hidden'), true, `${label}: graph can collapse while collecting`);
+  await click(cdp, '#pushButton');
+  assert.ok(await H.evaluate(cdp, 'window.__centripetalApp.getState().tasks[0].runs[0].q.length') > sampleCount, `${label}: collapsed graph keeps recording`);
+  await click(cdp, '#toggleGraph');
+  assert.equal(await H.evaluate(cdp, "document.querySelectorAll('#graphSvg .measured-point').length === window.__centripetalApp.getState().tasks[0].runs[0].q.length"), true, `${label}: expanded graph shows all collected points`);
+  await H.evaluate(cdp, "document.getElementById('controlPanel').scrollTop=0");
   await pause(300);
   assert.ok(Math.abs(await H.evaluate(cdp, 'window.__centripetalApp.getMotion().angle')) > .1, `${label}: inspect a rotated apparatus`);
   assert.equal(await H.evaluate(cdp, "document.querySelectorAll('#deviceSvg ellipse,#deviceSvg linearGradient').length"), 0, `${label}: rotating view has no side-view weights or directional shading`);
@@ -186,6 +201,10 @@ async function scenario(cdp, base, launch, label, width, height) {
   data = await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].runs[0].q.length");
   assert.ok(data >= 2, `${label}: trusted operation and keyboard create distinct measured points (${data})`);
   await click(cdp, "#stopButton"); await click(cdp, "#fitButton");
+  assert.equal(await H.evaluate(cdp, "document.getElementById('deviceSvg').getBoundingClientRect().height > 0 && !document.getElementById('graphBody').hidden && Boolean(document.querySelector('.fit-curve'))"), true, `${label}: fitting keeps the apparatus visible`);
+  await click(cdp, '#toggleGraph');
+  assert.equal(await H.evaluate(cdp, 'document.getElementById("graphBody").hidden'), true, `${label}: analysis graph can collapse`);
+  await click(cdp, '#toggleGraph');
   data = await H.evaluate(cdp, "window.__centripetalApp.getState().tasks[0].runs[0].fit");
   assert.equal(data, true, `${label}: fit uses real points`);
   await click(cdp, "#checkButton"); await click(cdp, "#submitButton");
@@ -206,14 +225,30 @@ async function layoutOnly(cdp, base, launch, width, height) {
   assert.ok(layout.root < 3 && layout.panelHeight >= 96 && layout.panelBottom <= height + 2 && layout.stageHeight >= 35,
     `${width}x${height} bounded layout: ${JSON.stringify(layout)}`);
   if (width === 320 && height === 500) {
-    const addWeight = await rect(cdp, '[data-step="2:1"]');
-    assert.ok(addWeight.y >= 0 && addWeight.y + addWeight.height <= height + 2, `Narrow phone exposes A add-weight button: ${JSON.stringify(addWeight)}`);
+    const goal = await rect(cdp, '#taskIntro');
+    assert.ok(goal.y >= 0 && goal.y + goal.height <= height + 2, `Narrow phone first shows the learning goal: ${JSON.stringify(goal)}`);
     const screenshot = await cdp.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
     const folder = path.join(root, "output", "playwright"); fs.mkdirSync(folder, { recursive: true });
     fs.writeFileSync(path.join(folder, "centripetal-layout-320x500.png"), Buffer.from(screenshot.data, "base64"));
     for (let i = 0; i < 2; i++) { await click(cdp, '[data-step="0:-1"]'); await click(cdp, '[data-step="1:-1"]'); }
     const a = await rect(cdp, '.mass-token.placed.a'), b = await rect(cdp, '.mass-token.placed.b');
     assert.ok(b.x + b.width <= a.x + .5, 'Closest A/B holders have separate touch targets on a narrow phone');
+    await click(cdp, '#startButton');
+    const ring = await rect(cdp, '.spin-segment'), x = ring.x + ring.width / 2, y = ring.y + ring.height / 2;
+    await cdp.send('Input.dispatchMouseEvent', {type:'mousePressed', x, y, button:'left', buttons:1, clickCount:1});
+    await pause(60);
+    await cdp.send('Input.dispatchMouseEvent', {type:'mouseMoved', x, y:y+.5, button:'left', buttons:1});
+    const slow = await H.evaluate(cdp, `({omega:Math.abs(window.__centripetalApp.getMotion().omega),bounds:[...document.querySelectorAll('.readouts > span')].map(e=>{const r=e.getBoundingClientRect();return [r.left,r.right]})})`);
+    assert.ok(slow.omega > 0 && slow.omega < .5, 'A tiny trusted ring movement produces slow rotation');
+    assert.ok(slow.bounds.every(([left,right])=>left>=0 && right<=width), `Slow-rotation readouts stay inside the narrow viewport: ${JSON.stringify(slow)}`);
+    await cdp.send('Input.dispatchMouseEvent', {type:'mouseReleased', x, y:y+.5, button:'left', clickCount:1});
+    const radiusA = await rect(cdp, '[data-radius-label="A"]'), radiusB = await rect(cdp, '[data-radius-label="B"]');
+    assert.ok(radiusA.x + radiusA.width < radiusB.x && radiusA.x >= 32 && radiusB.x + radiusB.width <= width - 32, 'Narrow rotating radius labels are separate and unclipped');
+    await H.evaluate(cdp, 'document.getElementById("graphSvg").scrollIntoView({block:"nearest"})');
+    const chart = await rect(cdp, '#graphSvg'), device = await rect(cdp, '#deviceSvg');
+    assert.ok(chart.y + chart.height <= height + 1 && device.height > 0, 'Narrow panel scroll exposes the complete live graph and keeps the apparatus');
+    await click(cdp, '#toggleGraph');
+    assert.equal(await H.evaluate(cdp, 'document.getElementById("graphBody").hidden'), true, 'Narrow graph can collapse after scrolling');
   }
   if (width === 320 && height === 225) {
     const screenshot = await cdp.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
@@ -251,6 +286,12 @@ async function buttonOnly(cdp, base, launch, label) {
   await click(cdp, '#pushButton');
   const live = await H.evaluate(cdp, "({force:Number(document.getElementById('forceARead').textContent),omega:Math.abs(window.__centripetalApp.getMotion().omega)})");
   assert.ok(Math.abs(live.force - .1 * .2 * live.omega ** 2) < .0001, `${label}: old run readout uses frozen configuration`);
+  const frozenPlot = await H.evaluate(cdp, `(()=>{
+    const t=window.__centripetalApp.getState().tasks[0], run=t.runs[0];
+    const expected=CentripetalModel.points('radius',run), maxX=Math.max(.1,...expected.map(p=>p[0]))*1.12,maxY=Math.max(.1,...expected.map(p=>p[1]))*1.12;
+    return [...document.querySelectorAll('#graphSvg .measured-point')].every((e,i)=>Math.abs(Number(e.getAttribute('cx'))-(66+expected[i][0]/maxX*265))<.01&&Math.abs(Number(e.getAttribute('cy'))-(120-expected[i][1]/maxY*95))<.01);
+  })()`);
+  assert.ok(frozenPlot, `${label}: live plot coordinates use the old run's frozen configuration`);
   await click(cdp, '#setupView'); await click(cdp, '#startButton');
   for (let i = 0; i < 3; i++) await click(cdp, '#pushButton');
   await click(cdp, '#stopButton'); await click(cdp, '#fitButton');
@@ -287,6 +328,7 @@ async function main() {
     server = H.createServer(packageDirectory); await H.listenServer(server);
     await scenario(cdp, `http://127.0.0.1:${server.address().port}`, extracted.activityPath, "package", 390, 600);
     await buttonOnly(cdp, `http://127.0.0.1:${server.address().port}`, extracted.activityPath, "package");
+    await layoutOnly(cdp, `http://127.0.0.1:${server.address().port}`, extracted.activityPath, 320, 500);
     await layoutOnly(cdp, `http://127.0.0.1:${server.address().port}`, extracted.activityPath, 320, 225);
     assert.deepEqual(errors, [], `Browser exceptions: ${errors.join("\n")}`);
     console.log("Centripetal source and extracted-package browser regression passed");

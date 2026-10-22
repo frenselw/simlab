@@ -85,6 +85,8 @@ function activityProfiles(slug) {
       continue:['#resumeFromGraph','#stopButton'],expect:`window.__centripetalApp.getState().tasks[${page}].runs[0].fit===true`});
     return [initial,...[1,2].map(page=>click(`setup-${page}`,[`[data-page="${page}"]`])),
       {id:'returned-setup',prepare:"click('#startButton');click('#pushButton');click('#setupView');",expect:"window.__centripetalApp.getState().view==='setup'&&window.__centripetalApp.getState().tasks[0].runs[0].q.length===1"},
+      {id:'collect-collapsed',prepare:"click('#startButton');click('#pushButton');click('#toggleGraph');",expect:"window.__centripetalApp.getState().view==='collect'&&document.getElementById('graphBody').hidden"},
+      {id:'analyse-collapsed',prepare:"click('#startButton');click('#pushButton');click('#stopButton');click('#toggleGraph');",expect:"window.__centripetalApp.getState().view==='analyse'&&document.getElementById('graphBody').hidden"},
       ...[0,1,2].flatMap(page=>[experiment(page,'collect'),experiment(page,'analyse'),fitted(page)]),
       click('check',['#checkButton']),click('submitted',['#checkButton','#submitButton']),
       {id:'pending',prepare:"auditHost.__failFinal=true;click('#checkButton');click('#submitButton');"},

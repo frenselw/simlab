@@ -2,13 +2,13 @@
   "use strict";
   const M = CentripetalModel, P = CentripetalPersistence, S = CentripetalScoring;
   const $ = id => document.getElementById(id), stage = $("stageContent"), device = $("deviceSvg"), graph = $("graphSvg");
-  const titles = ["改變半徑", "改變總質量", "改變角速率"];
-  const prompts = ["把兩側質量設成相同，再改變半徑；同步讀取兩側的徑向力。", "把兩側半徑設成相同，再改變質量；同步讀取兩側的徑向力。", "保持 A 側質量與半徑不變，改變平台角速率，觀察 A 側徑向力。"];
+  const titles = ["半徑如何影響徑向力？", "質量如何影響徑向力？", "轉速如何影響徑向力？"];
+  const prompts = ["同質量、不同半徑：推動轉盤，同步比較 A、B 徑向力。", "同半徑、不同質量：推動轉盤，同步比較 A、B 徑向力。", "固定 A 側質量與半徑，改變轉速，比較徑向力的變化。"];
   const compareOptions = [["supports", "單變量結論有支持"], ["confounded", "兩個量同時改變，不能隔離"], ["no-contrast", "被研究量沒有差異"], ["insufficient", "資料不足"]];
   const reasonOptions = [["coefficient", "斜率對應兩側物理量比值／二次項對應質量與半徑的乘積"], ["constant", "只有常數項代表關係"], ["other", "係數與配置無關"], ["uncertain", "配置混雜或資料不足，不能隔離解釋"]];
   const lawOptions = [["linear", "徑向力與研究量成正比（其餘量固定）"], ["square", "徑向力與研究量的平方成正比（其餘量固定）"], ["inverse", "徑向力與研究量成反比"], ["none", "沒有可描述的關係"]];
   const controller = new CentripetalRuntime.Controller(SimScorm, SimActivityFlow, render);
-  let motion = M.motion(), running = false, drag = null, lastFrame = 0, localMessage = "", reviewRun = [null, null, null], mathReady = false, lastLocation = "";
+  let motion = M.motion(), running = false, drag = null, lastFrame = 0, localMessage = "", reviewRun = [null, null, null], mathReady = false, lastLocation = "", graphOpen = true;
   const state = () => controller.state, page = () => controller.editable ? state().page : controller.reviewPage;
   const view = () => controller.editable ? state().view : controller.reviewView;
   const task = () => state()?.tasks[page()];
@@ -28,16 +28,15 @@
   }
   function pause() { running = false; motion = { ...motion, omega: 0, pointerAngle: null, time: null }; if (drag) cancelDrag(); }
   function mapPoint(x, y) {
-    const rect = stage.getBoundingClientRect(), box = device.viewBox.baseVal, scale = Math.min(rect.width / box.width, rect.height / box.height);
-    return { x: rect.left + (rect.width - box.width * scale) / 2 + (x - box.x) * scale,
-      y: rect.top + (rect.height - box.height * scale) / 2 + (y - box.y) * scale, scale };
+    const matrix = device.getScreenCTM();
+    return { x: matrix.a * x + matrix.e, y: matrix.d * y + matrix.f, scale: matrix.a };
   }
   function svgPoint(event) {
     const origin = mapPoint(0, 0), scale = origin.scale;
     return { x: (event.clientX - origin.x) / scale, y: (event.clientY - origin.y) / scale };
   }
   const componentX = (side, index) => 300 + (side === "A" ? 1 : -1) * M.radius(index) * 430;
-  const radiusY = side => side === "A" ? 318 : 142;
+  const radiusY = side => side === "A" ? 330 : 142;
   const displayedConfig = () => {
     const cfg = view() === "setup" ? task().work.slice() : shownRun()?.cfg || task().work;
     if (view() === "setup" && drag?.type === "radius") cfg[drag.side === "A" ? 0 : 1] = drag.preview;
@@ -65,7 +64,7 @@
     const radius = 213 * mapPoint(0, 0).scale;
     document.querySelectorAll(".spin-segment").forEach((button, i) => {
       const size = Math.max(44, Math.min(64, 2 * Math.PI * radius / 24 + 8));
-      button.style.width = `${i ? size : Math.max(64, size)}px`; button.style.height = `${size}px`;
+      button.style.width = `${size}px`; button.style.height = `${size}px`;
       const angle = i / 24 * Math.PI * 2;
       positionHit(button, 300 + 213 * Math.cos(angle), 230 + 213 * Math.sin(angle));
     });
@@ -74,16 +73,18 @@
     const host = $("spinTargets");
     for (let i = 0; i < 24; i++) {
       const button = document.createElement("button"); button.type = "button"; button.className = "spin-segment";
-      button.textContent = i ? "" : "↻ 拖動"; button.tabIndex = i ? -1 : 0;
+      button.innerHTML = i ? "" : '<svg viewBox="0 0 24 28" width="24" height="28" aria-hidden="true"><path d="M7 7v14M12 4v20M17 7v14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>'; button.tabIndex = i ? -1 : 0;
       if (i) button.setAttribute("aria-hidden", "true");
       else button.setAttribute("aria-label", "按住沿金色操作環拖動；左右方向鍵調速，空白鍵暫停");
       host.append(button);
     }
-    new ResizeObserver(layoutTargets).observe(stage);
+    new ResizeObserver(() => { if (state()) { drawDevice(); renderMotion(); layoutTargets(); drawGraph(); } }).observe(stage);
+    new ResizeObserver(() => { if (state()) drawGraph(); }).observe(graph);
   }
   function drawDevice() {
     const cfg = displayedConfig(), setup = view() === "setup";
-    device.setAttribute("viewBox", setup ? "80 75 440 330" : "0 0 600 460");
+    device.setAttribute("viewBox", setup ? "80 45 440 370" : "0 0 600 550");
+    const scale = mapPoint(0, 0).scale, labelFont = Math.max(20, 16 / scale), countFont = Math.max(20, 14 / scale);
     const assemblies = ["A", "B"].map((side, i) => {
       const x = componentX(side, cfg[i]), direction = side === "A" ? 1 : -1, count = cfg[i + 2];
       const colour = side === "A" ? "#087c95" : "#b56317", light = side === "A" ? "#d2f0f3" : "#ffdfad";
@@ -94,7 +95,7 @@
         <circle class="weight-holder" cx="${x}" cy="230" r="29" fill="${light}" stroke="${colour}" stroke-width="4"/>
         ${count ? `<circle class="weight-plate" cx="${x}" cy="230" r="23" fill="#cbd6dd" stroke="#667e8d" stroke-width="2"/><circle cx="${x}" cy="230" r="8" fill="${light}" stroke="#667e8d" stroke-width="2"/>` : ''}
         <circle cx="${x}" cy="230" r="3" fill="${colour}"/>
-        <g class="assembly-label" data-x="${x}" data-y="230"><rect x="${x - 39}" y="250" width="78" height="29" rx="9" fill="${colour}"/><text x="${x}" y="271" text-anchor="middle" fill="white" font-size="20" font-weight="700">${side} ${count}塊</text></g>
+        <g class="assembly-label" data-x="${x}" data-y="230">${setup ? `<rect x="${x - countFont * 1.3}" y="250" width="${countFont * 2.6}" height="${countFont * 1.3}" rx="6" fill="${colour}"/><text x="${x}" y="${250 + countFont}" text-anchor="middle" fill="white" font-size="${countFont}" font-weight="700">${side}·${count}</text>` : `<text x="${x}" y="${230 + labelFont * .3}" text-anchor="middle" fill="${colour}" stroke="white" stroke-width="1.5" paint-order="stroke" font-size="${labelFont * .85}" font-weight="700">${side}</text>`}</g>
       </g>`;
     }).join("");
     const rulers = setup ? ["A", "B"].map((side, i) => {
@@ -102,15 +103,20 @@
       return `<g class="radius-ruler" stroke="#758d9b" stroke-width="2"><path d="M300 ${y}H${300 + direction * 172}M${x} ${side === "A" ? 279 : 196}V${y}" stroke-dasharray="4 4"/>
         ${Array.from({ length: 7 }, (_, n) => `<path d="M${componentX(side, n)} ${y - 9}v18"/>`).join("")}</g>`;
     }).join("") : "";
-    device.innerHTML = `${setup ? '<rect x="95" y="193" width="410" height="88" rx="18" fill="#f9fcfd" stroke="#b9cbd5" stroke-width="2"/>' : `
-      <circle cx="300" cy="230" r="213" fill="none" stroke="#b98429" stroke-width="13"/>
-      <circle cx="300" cy="230" r="196" fill="#f9fcfd" stroke="#87a2b1" stroke-width="3"/>`}
+    const radiusLabels = ["A", "B"].map((side, i) => {
+      const index = setup && drag?.type === "radius" && drag.side === side ? drag.proposed : cfg[i];
+      const spec = { tex: `r_${side}=${M.radius(index).toFixed(2)}\\,\\mathrm{m}`, text: `${side} 側半徑 ${M.radius(index).toFixed(2)} m` };
+      const x = setup ? (i ? 190 : 410) : (i ? 500 : 100), y = setup ? (i ? 83 : 407) : 520, colour = i ? "#a45b24" : "#087c95";
+      return `<g class="radius-annotation" data-radius-label="${side}">${!setup ? `<text x="${x}" y="480" text-anchor="middle" fill="${colour}" font-size="${labelFont}" font-weight="600">${side} · ${cfg[i + 2]} 塊</text>` : ''}${mathReady ? CircuitMath.svg(x, y, spec, labelFont, `fill="${colour}"`) : `<text x="${x}" y="${y}" text-anchor="middle" font-size="${labelFont}">${spec.text}</text>`}</g>`;
+    }).join("");
+    device.innerHTML = `${setup ? '<rect x="95" y="190" width="410" height="92" rx="16" fill="#fff" stroke="#d3e0e4" stroke-width="2"/>' : `
+      <circle cx="300" cy="230" r="213" fill="none" stroke="#c49b52" stroke-width="9"/>
+      <circle cx="300" cy="230" r="196" fill="#fff" stroke="#d3e0e4" stroke-width="2"/>`}
       <g id="rotatingAssembly"><path d="M116 230H484" stroke="#d8e3e9" stroke-width="22" stroke-linecap="round"/>
         <path d="M116 230H484" stroke="#7994a5" stroke-width="2" stroke-dasharray="2 9"/>
         ${assemblies}<circle cx="300" cy="230" r="12" fill="#355469" stroke="#f1f7fa" stroke-width="4"/>
         <path d="M293 230h14M300 223v14" stroke="#d2e1e9" stroke-width="2"/>
-      </g>${rulers}
-      ${setup ? '<text class="apparatus-key" x="300" y="205" text-anchor="middle" fill="#4b6677" font-size="22">測力計</text><text class="apparatus-key" x="300" y="270" text-anchor="middle" fill="#4b6677" font-size="20">軸心</text>' : ''}`;
+      </g>${rulers}${radiusLabels}`;
   }
   function graphAxes(kind) {
     const forceA = { tex: 'F_A\\,(\\mathrm{N})', text: 'A 側徑向力（N）' };
@@ -118,27 +124,34 @@
       { x: { tex: 'F_B\\,(\\mathrm{N})', text: 'B 側徑向力（N）' }, y: forceA };
   }
   function drawGraph() {
+    if ($("graphCard").hidden || !graphOpen) return;
+    const compact = view() === "collect" && matchMedia("(max-width:899px)").matches;
+    const bottom = compact ? 120 : 160, height = compact ? 170 : 210;
+    graph.setAttribute("viewBox", `0 0 360 ${height}`);
     const run = shownRun(), kind = M.KINDS[page()], axes = graphAxes(kind);
     const points = run ? M.points(kind, run) : [], alternate = task()?.runs.find(item => item !== run);
     const other = alternate ? M.points(kind, alternate) : [];
     const all = points.concat(other), maxX = Math.max(0.1, ...all.map(p => p[0])) * 1.12, maxY = Math.max(0.1, ...all.map(p => p[1])) * 1.12;
-    const px = x => 63 + x / maxX * 480, py = y => 291 - y / maxY * 225;
-    const box = stage.getBoundingClientRect(), scale = Math.min(box.width / 600, box.height / 360);
-    const axisFont = Math.max(20, 18 / scale), tickFont = Math.max(14, 15 / scale);
+    const px = x => 66 + x / maxX * 265, py = y => bottom - y / maxY * (bottom - 25);
+    const box = graph.getBoundingClientRect(), scale = Math.min(box.width / 360, box.height / height);
+    if (!scale) return;
+    const axisFont = Math.max(18, 16 / scale), tickFont = Math.max(13, 13 / scale);
     const result = run?.fit ? M.fit(kind, run) : null;
     const curve = result?.ok ? Array.from({ length: 51 }, (_, i) => {
       const x = i / 50 * result.maxX;
       return `${i ? "L" : "M"}${px(x).toFixed(2)} ${py(NewtonFitting.predict(result.model, result.coefficients, x)).toFixed(2)}`;
     }).join(" ") : "";
-    graph.innerHTML = `<rect width="600" height="360" fill="#f9fcfd"/><path d="M63 53V291H555" fill="none" stroke="#35596d" stroke-width="2"/>
-      <g stroke="#d4e1e7" stroke-width="1">${[1,2,3,4].map(i => `<path d="M63 ${291 - i * 45}H555M${63 + i * 96} 53V291"/>`).join("")}</g>
-      ${mathReady ? CircuitMath.svg(300, 337, axes.x, axisFont, 'fill="#284a5f"') : `<text x="300" y="337" text-anchor="middle" font-size="${axisFont}">${axes.x.text}</text>`}
-      ${mathReady ? `<g transform="translate(24 185) rotate(-90)">${CircuitMath.svg(0, 0, axes.y, axisFont, 'fill="#284a5f"')}</g>` : `<text x="24" y="185" transform="rotate(-90 24 185)" text-anchor="middle" font-size="${axisFont}">${axes.y.text}</text>`}
-      <text x="63" y="312" font-size="${tickFont}">0</text><text x="508" y="312" font-size="${tickFont}">${fmt(maxX)}</text><text x="11" y="64" font-size="${tickFont}">${fmt(maxY)}</text>
+    graph.innerHTML = `<path d="M66 25V${bottom}H331" fill="none" stroke="#64818d" stroke-width="1.5"/>
+      <g stroke="#e2ebee" stroke-width="1">${[.5,1].map(f => `<path d="M66 ${py(maxY * f)}H331M${px(maxX * f)} 25V${bottom}"/>`).join("")}</g>
+      ${mathReady ? CircuitMath.svg(210, height - 9, axes.x, axisFont, 'fill="#284a5f"') : `<text x="210" y="${height - 9}" text-anchor="middle" font-size="${axisFont}">${axes.x.text}</text>`}
+      <g transform="translate(16 ${(bottom + 25) / 2}) rotate(-90)">${mathReady ? CircuitMath.svg(0, 0, axes.y, axisFont, 'fill="#284a5f"') : `<text text-anchor="middle" font-size="${axisFont}">${axes.y.text}</text>`}</g>
+      <g fill="#56717d" font-size="${tickFont}"><text x="63" y="${bottom + 20}">0</text><text x="331" y="${bottom + 20}" text-anchor="end">${fmt(maxX)}</text><text x="59" y="32" text-anchor="end">${fmt(maxY)}</text></g>
       ${other.map(([x,y]) => `<circle cx="${px(x)}" cy="${py(y)}" r="4" fill="#b07932" opacity=".65"/>`).join("")}
-      ${curve ? `<path d="${curve}" fill="none" stroke="#bd5a25" stroke-width="3"/>` : ""}
-      ${points.map(([x,y]) => `<circle cx="${px(x)}" cy="${py(y)}" r="5" fill="#096b88" stroke="white" stroke-width="1.5"/>`).join("")}
-      <text x="78" y="39" font-size="${tickFont}" fill="#315b71">本組 ${points.length} 點${other.length ? ` · 另一組 ${other.length} 點` : ""}</text>`;
+      ${curve ? `<path class="fit-curve" d="${curve}" fill="none" stroke="#bd5a25" stroke-width="2"/>` : ""}
+      ${points.map(([x,y]) => `<circle class="measured-point" cx="${px(x)}" cy="${py(y)}" r="4" fill="#087c95" stroke="white" stroke-width="1"/>`).join("")}
+      ${!points.length ? `<text x="205" y="${(bottom + 25) / 2}" text-anchor="middle" fill="#6d8590" font-size="${tickFont}">${view() === 'collect' && controller.editable ? '推動轉盤，開始量測' : '本組尚未記錄數據'}</text>` : ''}`;
+    $("graphLegend").hidden = !other.length;
+    $("graphLegend").textContent = `藍色：本組 ${points.length} 點 · 棕色：另一組 ${other.length} 點`;
   }
   function renderMotion() {
     if (!state()) return;
@@ -166,7 +179,7 @@
     const s = state(), locked = !controller.editable, p = page(), v = view();
     $("app").dataset.view = v;
     const location = `${p}:${v}`;
-    if (location !== lastLocation) { $("controlPanel").scrollTop = 0; lastLocation = location; }
+    if (location !== lastLocation) { $("controlPanel").scrollTop = 0; if (v === "analyse") graphOpen = true; lastLocation = location; }
     $("attemptStatus").textContent = controller.mode === "review" ? "已提交 · 只讀" : controller.mode === "committed" ? "成績已記錄 · 待完成程序" : controller.mode === "frozen" ? "提交待確認" : controller.mode === "technical" || controller.mode === "mismatch" ? "狀態需核對" : "操作轉盤與同步量測";
     $("notice").hidden = !controller.notice && !localMessage; $("notice").textContent = localMessage || controller.notice;
     $("saveRetryButton").hidden = locked || !controller.unsaved;
@@ -183,6 +196,12 @@
     const t = task(), cfg = t.work, run = shownRun(), editing = !locked && v !== "check";
     $("taskNumber").textContent = `實驗 ${p + 1} / 3`; $("taskTitle").textContent = titles[p]; $("taskPrompt").textContent = prompts[p];
     $("setupPanel").hidden = v !== "setup"; $("collectPanel").hidden = v !== "collect"; $("analysePanel").hidden = v !== "analyse";
+    $("taskIntro").hidden = v !== "setup";
+    $("collectHelp").hidden = v !== "collect";
+    $("graphCard").hidden = !["collect", "analyse"].includes(v);
+    $("graphBody").hidden = !graphOpen;
+    $("toggleGraph").setAttribute("aria-expanded", String(graphOpen));
+    $("toggleGraph").textContent = graphOpen ? "收合圖像 −" : "展開圖像 ＋";
     $("setupView").textContent = v === "setup" ? "1 設定" : "← 返回設定";
     $("setupView").disabled = !editing; $("collectView").disabled = !editing || t.current === null; $("analyseView").disabled = !editing || t.current === null;
     for (const [id, target] of [["setupView", "setup"], ["collectView", "collect"], ["analyseView", "analyse"]]) $(id).setAttribute("aria-current", v === target ? "page" : "false");
@@ -202,7 +221,7 @@
     $("collectView").textContent = t.current === null || v === "collect" ? "2 收集" : "2 繼續本組";
     $("pushButton").disabled = !editing || v !== "collect"; $("slowButton").disabled = !editing || v !== "collect";
     $("resumeButton").hidden = running; $("resumeButton").disabled = !editing; $("stopButton").disabled = !editing;
-    $("collectStatus").textContent = running ? `正在收集 · ${activeRun()?.q.length || 0} 點` : `已暫停 · ${activeRun()?.q.length || 0} 點；可繼續收集`;
+    $("collectStatus").textContent = `${v === "collect" && running ? '收集中' : '已記錄'} · ${run?.q.length || 0} 點`;
     $("fitButton").disabled = !editing || !activeRun(); $("resumeFromGraph").disabled = !editing || !activeRun();
     $("axisLabel").innerHTML = p === 2 ? `橫軸 ${math('\\omega\\,(\\mathrm{rad}/\\mathrm{s})', '角速率（rad/s）')}；縱軸 ${math('F_A\\,(\\mathrm{N})', 'A 側徑向力（N）')}。二次擬合含一次項及常數項。` : `橫軸 ${math('F_B\\,(\\mathrm{N})', 'B 側徑向力（N）')}；縱軸 ${math('F_A\\,(\\mathrm{N})', 'A 側徑向力（N）')}。線性擬合含截距。`;
     const fit = run?.fit ? M.fit(M.KINDS[p], run) : null;
@@ -222,12 +241,9 @@
     $("spinTargets").hidden = !canOperate;
     for (const button of document.querySelectorAll(".radius-handle,.mass-token")) button.hidden = !editing || v !== "setup";
     $("weightTray").hidden = !editing || v !== "setup";
-    $("apparatusCaption").hidden = v !== "setup";
-    $("deviceSvg").hidden = v === "analyse";
-    $("graphSvg").hidden = !$("deviceSvg").hidden;
     $("stageHint").textContent = matchMedia("(max-height:260px) and (max-width:479px)").matches ?
       v === "collect" ? "拖金色環推動；讀數在下方。" : "短視窗可用下方按鈕設定；全螢幕可直接拖動。" :
-      v === "analyse" ? "圖點來自實際操作的同步讀數；另一組以棕色表示。" : v === "collect" ? running ? "按住金色環沿圓周拖動，或用面板「推快一格」。" : "已暫停；按「繼續收集」後再推動。" : v === "check" ? "檢查及提交在右側／下方操作面板。" : "先在面板加砝碼、調半徑，再按「開始收集」。";
+      v === "analyse" ? "轉盤已暫停；數據圖可收合，裝置保留顯示。" : v === "collect" ? running ? "沿金色外圈拖動轉盤" : "已暫停；按「繼續收集」後再推動。" : v === "check" ? "檢查及提交在操作面板。" : "左右拖 A／B 調整半徑";
     if (v === "check") {
       $("checkSummary").innerHTML = s.tasks.map((item, i) => `<div class="check-row"><strong>實驗 ${i + 1} · ${titles[i]}</strong><small>資料組 ${item.runs.length}；評分組 ${item.selected === null ? "未選" : item.selected + 1}；結論 ${item.law === null ? "未答" : "已答"}</small></div>`).join("") + `<div class="check-row">綜合問題：${[s.sync, s.massParts].filter(Boolean).length} / 2 已答</div>`;
       $("submitButton").disabled = !controller.editable || controller.unsaved;
@@ -236,7 +252,7 @@
       const result = controller.result;
       $("feedback").innerHTML = result?.detail?.pages ? result.detail.pages.map((part, i) => `<p>實驗 ${i + 1}：${part.score} / 30。${i === 2 ? `理想關係 ${math('F_A=m_A r_A\\omega^2', 'A 側徑向力公式')}；二次係數是 ${math('m_A r_A', '質量與半徑的乘積')}。` : i === 0 ? `同時刻兩側 ${math('\\omega', '角速率')} 相同；公平比較時 ${math('F_A/F_B=r_A/r_B', '兩側徑向力與半徑比相等')}。` : `同時刻兩側 ${math('\\omega', '角速率')} 相同；公平比較時 ${math('F_A/F_B=m_A/m_B', '兩側徑向力與質量比相等')}。`}</p>`).join("") : "";
     }
-    if (v === "analyse") drawGraph(); else drawDevice();
+    drawDevice(); drawGraph();
     renderMotion(); layoutTargets();
   }
   function clearDropPreview() {
@@ -249,7 +265,7 @@
     clearDropPreview();
     if (operation.type === "mass") { operation.target.style.left = ""; operation.target.style.top = ""; operation.target.style.bottom = ""; operation.target.classList.remove("dragging"); }
     try { operation.target.releasePointerCapture(operation.id); } catch (_) {}
-    $("radiusPreview").hidden = true; layoutTargets();
+    layoutTargets();
   }
   function angleOf(event) { const p = svgPoint(event); return Math.atan2(p.y - 230, p.x - 300); }
   function massHit(event, side, pointerType) {
@@ -277,15 +293,7 @@
       drag.startX = svgPoint(event).x;
       drag.startIndex = task().work[drag.side === "A" ? 0 : 1];
       drag.preview = drag.startIndex; drag.proposed = drag.startIndex;
-      showRadiusPreview(drag.side, drag.proposed);
     }
-  }
-  function showRadiusPreview(side, index) {
-    const preview = $("radiusPreview"); preview.hidden = false;
-    const value = math(`r_${side}=${M.radius(index).toFixed(2)}\\,\\mathrm{m}`, `${side} 側半徑 ${M.radius(index).toFixed(2)} m`);
-    const first = Math.max(0, Math.min(4, index - 1));
-    preview.innerHTML = `<strong>放手定位</strong><svg viewBox="0 0 120 32" width="120" height="24" aria-hidden="true"><path d="M20 16H100M20 8v16M60 8v16M100 8v16" fill="none" stroke="#7994a5" stroke-width="2"/><circle cx="${20 + (index - first) * 40}" cy="16" r="7" fill="${side === 'A' ? '#087c95' : '#b56317'}"/></svg>${value}`;
-    $(side === "A" ? "rAValue" : "rBValue").innerHTML = value;
   }
   function move(event) {
     if (!drag || drag.id !== event.pointerId) return;
@@ -301,7 +309,10 @@
       const direction = drag.side === "A" ? 1 : -1;
       drag.preview = Math.max(0, Math.min(6, drag.startIndex + direction * (svgPoint(event).x - drag.startX) / 21.5));
       const index = Math.round(drag.preview);
-      if (index !== drag.proposed) { drag.proposed = index; showRadiusPreview(drag.side, index); }
+      if (index !== drag.proposed) {
+        drag.proposed = index;
+        $(drag.side === "A" ? "rAValue" : "rBValue").innerHTML = math(`r_${drag.side}=${M.radius(index).toFixed(2)}\\,\\mathrm{m}`);
+      }
       drawDevice(); layoutTargets();
     } else if (drag.type === "mass") {
       const rect = stage.getBoundingClientRect();
@@ -319,7 +330,7 @@
   }
   function up(event) {
     if (!drag || drag.id !== event.pointerId) return;
-    event.preventDefault(); const operation = drag; drag = null; $("radiusPreview").hidden = true;
+    event.preventDefault(); const operation = drag; drag = null;
     clearDropPreview();
     if (operation.type === "mass") { operation.target.style.left = ""; operation.target.style.top = ""; operation.target.style.bottom = ""; operation.target.classList.remove("dragging"); }
     layoutTargets();
@@ -357,6 +368,7 @@
     requestAnimationFrame(frame);
   }
   function setupEvents() {
+    $("toggleGraph").addEventListener("click", () => { graphOpen = !graphOpen; render(); });
     document.addEventListener("pointerdown", event => { if (drag && event.pointerType === "touch" && event.pointerId !== drag.id) { pause(); render(); } }, true);
     stage.addEventListener("pointerdown", down); stage.addEventListener("pointermove", move); stage.addEventListener("pointerup", up);
     stage.addEventListener("pointercancel", () => { pause(); render(); });

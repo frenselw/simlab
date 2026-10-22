@@ -42,7 +42,7 @@
 
 | 檔案 | 責任 |
 |---|---|
-| `index.html`、`styles.css` | 三區、fullscreen markers、可存取控制、舞台與圖像切換、手機版面 |
+| `index.html`、`styles.css` | 三區、fullscreen markers、可存取控制、裝置舞台及面板獨立即時圖、手機版面 |
 | `model.js` | 裝置設定、質量／半徑、轉動積分、徑向讀數、採樣槽、資料組與擬合輸入 |
 | `main.js` | 真實 pointer／keyboard 操作、畫面、動畫、共享生命周期接合；不含權威評分公式 |
 | `scoring.js` | 問題字典、組內資料與設定的獨立分項、容差、回饋 |
@@ -118,17 +118,17 @@
 
 | Decision | Activity specification and reason |
 |---|---|
-| Three regions | 頁首：無章號標題、三實驗導航、檢查及 fullscreen；舞台：裝置／大圖；面板：記錄、組別、擬合與作答 |
+| Three regions | 頁首：無章號標題、三實驗導航、檢查及 fullscreen；舞台：裝置與直接標值；面板：探究目標、設定、收集、可收合即時圖、組別、擬合與作答 |
 | Fullscreen | 外層 main 標記 data-sim-fullscreen-target，header 標記 data-sim-fullscreen；重用 shared/fullscreen.js，預留右上 44px，不手寫第二個按鈕 |
 | Desktop / tablet | ≥900px，舞台 1fr、面板 340px（最多可用寬的 34%）；裝置與 live 圖並列。桌面圖例至少 20px，讀數 22px |
 | Classification | bounded split-panel；看裝置／圖時仍需操作面板，面板獨立捲動 |
-| Phone | 收集時舞台約 40dvh；設定時 38dvh，≤359px 寬為 34dvh，放大器材並先展示 A 側砝碼控制。320×500 目標面板可見 ≥144px，硬下限 ≥96 CSS px；按鈕至少 44px |
-| Short viewport | 高≤400 且寬≥480 用左右欄；更窄保留 ≥96px 面板，裝置／圖像只顯一主視圖。200% zoom 重新排列，不靠整頁橫捲 |
+| Phone | 收集時舞台 37dvh；設定時 38dvh，≤359px 且高>400px 時舞台至少190px，先顯示探究目標再列器材控制。320×500 面板硬下限 ≥96 CSS px；≤359px 即時讀數分兩行，長小數不裁切；按鈕至少44px |
+| Short viewport | 高≤400 且寬≥480 用左右欄；更窄保留 ≥96px 面板，圖像以面板原生捲動查看，裝置仍保留。200% zoom 重新排列，不靠整頁橫捲 |
 | Phone text | 控制／正文 18px，必要圖標 16px 實際縮放後，讀數 20px；44px 操作目標，公式真上下標，數字固定等寬欄 |
 | Viewports | 320×500、390×500、390×600、390×844、480×320、320×225、1280×800；工具列／鍵盤／200% zoom 均待驗 |
 | Scroll topology | 活動根文件 bounded 無可用垂直 range；panel 原生 contained scroll；舞台空白原生 pan-y 傳到真正宿主 owner。不得修改 parent overflow 或鎖宿主 |
 
-手機收集時以裝置為主，小圖不要求讀細刻度；停止後大圖可切回原裝置，資料不變。正常頁首與面板高度須實測，44dvh 是指引起點不是已驗收比例。
+圖像獨立於裝置，收集時同步更新真實樣本，分析時顯示同一圖及擬合；可隨時收合，仍持續採樣，進入分析則預設展開。390×600 可同時看見操作列、完整圖軸與裝置；320×500 須捲動面板看完整圖，裝置保持固定。
 
 ## Navigation, submission and reset
 
@@ -154,9 +154,9 @@
 |---|---|
 | Notation | m、r、ω、F 均表示大小；運動方向另以圖示標記。F_A/F_B 下標固定，ω 是角速率非帶符號 Ω。物理量、公式、圖軸與單位以本地 MathJax 的 LaTeX 排版；不向學生顯示 raw LaTeX |
 | Arrows | 如顯示感應器量測方向，用單一實心箭頭及明確「徑向讀數」，不加第三個物體／額外合力；A/B 標記跟托座移動、文字正向，讀數欄固定 |
-| Radius snap | 保留按下位置與拖柄的偏移，按水平位移連續預覽器材及拖柄；限制於本側合法範圍，放手取最近尺格，不要求手指貼近尺線；取消則回滾。相鄰格不足 24px 時提供放大讀尺與 ± 按鈕，不暗吸到本題正解 |
+| Radius snap | 保留按下位置與拖柄的偏移，按水平位移連續預覽器材及拖柄；限制於本側合法範圍，放手取最近尺格，不要求手指貼近尺線；取消則回滾。相鄰格不足24px時直接標示最近合法半徑並提供 ± 按鈕，不另開預覽窗，不暗吸到本題正解 |
 | Mass snap | 砝碼 drop 到可見樽蓋目標，touch 18px／mouse 10px 局部距離；未命中回工具盤，n 到上限不多加；增減按鈕等效 |
-| Touch preview | 半徑拖動時器材質心即時跟隨，角落顯示最近三格的讀尺及放手定位值，設定讀數同步更新；砝碼拖動時俯視圓片跟隨手指，放錯位置回工具盤；操作環不需精密預覽 |
+| Touch preview | 按本輪使用者明確要求，半徑直接在裝置尺旁用 LaTeX 標值，拖動時同步更新；取消獨立放大預覽窗，保留連續跟手及放手定位。砝碼拖動時俯視圓片跟隨手指，放錯位置回工具盤 |
 | Graph | A/B 散點以共同資料生成；固定 x=F_B、y=F_A，顯示 N；ω圖顯示 rad/s 與 N。刻度選正常數，不把不同組各自變形後疊成同一線 |
 
 ## Touch gesture ownership contract
@@ -270,7 +270,7 @@
 | State category | Treatment |
 |---|---|
 | Authoritative | cfg、真實接受的q、角色／各組答案／結論、selected/current、view/returnTo/fromReview、seed及版本 |
-| Transient | 連續φ/Ω、rAF時間、指針窗口、drag preview、capture、hover、fullscreen；草稿還原一律暫停，不補背景時間 |
+| Transient | 連續φ/Ω、rAF時間、指針窗口、drag preview、capture、hover、fullscreen、圖像展開狀態；草稿還原一律暫停，不補背景時間 |
 | Derived | F讀數、fit係數、圖點座標、DOM ids、score、選項排列、按鈕狀態；由已驗權威資料重建 |
 | Size | 6組×24整數為上界；以最長合法輸入及shared envelope/result實測draft/review/有效pending均≤4000 UTF-8 bytes。超標先縮DTO重複key，不刪學生資料、不降低精度 |
 | Versions | v1前無歷史格式；未知版本拒絕，不猜測遷移。模型或rubric變更須版本決定與測試 |
@@ -412,7 +412,7 @@ Site `dist` 檔案及SHA-256（其中13個為SCORM runtime，根頁為Site入口
 | `shared/scorm.js` | `7fd3bdf36249c942ebb94003fcc5b3dff07c3cfed5b494a887dffdc334e05ca8` |
 | `shared/styles.css` | `e750bf358e83cf738a9fb1df8f63056148e80cd89c35ea4d72b3dc51fcb7cbc2` |
 
-## 使用者回饋修正與再驗證（2026-10-22）
+## 使用者回饋修正與再驗證（2026-10-22，歷史版本）
 
 使用者要求所有顯示的物理量改為 LaTeX 排版，並指出不知道如何加砝碼及轉環。介面改用既有本地 MathJax 渲染物理符號、單位、圖軸及擬合式；設定控制移到面板開首，明示 A/B 的「＋砝碼」、開始收集、金色環拖動步驟。手機設定畫面縮小舞台，320×500 無捲動時已能見到 A 側增加砝碼按鈕。金色環由 12 個小命中區增至 24 個至少 44px 命中區；另設推快／減慢按鈕，與拖動共用同一運動及採樣模型。拖砝碼期間會跟隨手指預覽。
 
@@ -480,7 +480,7 @@ Site `dist` 檔案及SHA-256（其中13個為SCORM runtime，根頁為Site入口
 | private deploy | version `appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_2d8bf9d2a0d4819195b6b62d9ee6b439`，deployment `appgdep_6ad9cc1de09c8191ae0e459eb5f42ae6` 回報 `succeeded`；owner-only 存取範圍維持不變 |
 | URL | https://centripetal-force-investigation-lab.ieyp.chatgpt.site |
 
-## 統一俯視及即時拖動修正（2026-10-22）
+## 統一俯視及即時拖動修正（2026-10-22，歷史版本）
 
 使用者指出側視堆疊圓片在俯視轉盤旋轉時形狀不合理，A/B 拖柄亦未即時帶動器材。本輪範圍為裝置繪圖、砝碼預覽、半徑手勢與既有 browser driver；物理模型、rubric、snapshot、依賴及提交流程沿用。
 
@@ -512,3 +512,38 @@ Site `dist` 檔案及SHA-256（其中13個為SCORM runtime，根頁為Site入口
 | Site source | `19a46d88effb21c0cef1e369923e98e163140f69`，16 個 runtime 與最後 SCORM 逐位元組相同 |
 | private deploy | version 4，`appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_abc1e42ed0608191ae4ea2fe421dd075`；deployment `appgdep_6ad9d41b03f88191a7607d7c1dcaf293` 回報 `succeeded`，owner-only 範圍維持不變 |
 | URL | https://centripetal-force-investigation-lab.ieyp.chatgpt.site |
+
+## 教學流程、裝置標示與即時圖像重整（2026-10-22）
+
+使用者要求移除半徑預覽窗、直接在裝置標值；改善標字遮擋及拖柄；先交代任務才設定器材；收集期間顯示即時圖像，圖像可收合且不可蓋住儀器；完成後由兩位 sub agents 獨立審核並跟進。
+
+本輪實施決策（動工前）：
+
+- 先呈現本頁探究問題與操作目標，再進入器材設定；不增加必答門檻，空白／部分仍可提交。沿用 rubric、權威 cfg／q 資料、snapshot 及 SCORM 流程。
+- 設定尺直接標示兩側半徑，拖動時更新最近合法格值；半徑預覽窗刪除。移除舞台中間重疊的「測力計／軸心」文字，改以清楚的圖形與分區標示；托座、砝碼與操作環統一平面風格，拖柄保留至少 44px 目標。
+- 裝置 SVG 始終留在舞台；數據圖移至面板獨立區域，收集時同步顯示真實樣本，分析時使用同一圖像與擬合資料。明示展開／收合，只改顯示偏好，不修改數據或停止採樣；進入分析預設展開。新偏好是暫態 UI，不改保存 schema。
+- 保留兩側 32px 宿主捲動帶，圖像面板維持原生捲動；三頁、舊組凍結配置、返回重做、只讀／pending 均沿用既有規則。
+- 驗證：原始頁與解壓包執行持續拖半徑、直接標值、任務先於控制、即時採樣點、圖像收合／再展開、裝置不遮擋、擬合／繼續採樣／返回設定及提交；T2 package 覆蓋三頁與收合新變體。初版完成後開兩位 agents，分別檢查操作／視覺與狀態／數據，修正問題後覆驗。
+
+### 兩位獨立審核與跟進
+
+- `ux_audit`：指出手機操作列被圖推到下方、窄屏讀數裁切、A/B 說明重疊與數量徽章太小。已將操作列放在圖前、縮緊收集圖、讀數改在全寬舞台且≤359px分兩行、數量與半徑固定於轉盤下方、徽章至少14px並簡化為 A·2。覆核可信0.5px慢速拖動產生 ω=0.133、F=0.000141，320px讀數範圍 x34.55–285.45，無裁切；最小半徑標示分開。390×600完整圖軸位於 y493–593，操作列與裝置同屏。320×500原生捲動後可看全圖、收合及繼續拖動。
+- `data_flow_audit`：確認圖點使用所選組凍結 cfg／q、收合不停止採樣、唯讀／pending不開放修改。指出只讀空圖提示與 MathJax 尚未就緒時的 Y 軸 fallback；已改中立空圖提示並保留共同旋轉容器。另補上返回舊組後圖點座標仍依凍結配置的 browser assertion。
+- 兩位在修正後覆核，均回報無剩餘具體阻擋問題。審核為程式及桌面 Chromium 模擬尺寸，不代替真手機或 Moodle 驗收。
+
+| 本輪驗證 | 已執行證據 |
+|---|---|
+| 最終 source／SCORM browser | `node tools/centripetal-force-investigation-browser-regression.js` 通過；直接半徑標值與連續拖動、任務先於設定、收集點即時更新、收合後仍採樣與再展開、擬合保留裝置、舊組凍結配置圖點、空白只讀提示、320×500極慢讀數及完整圖的捲動／收合 |
+| T2 package | 390×600全部19 profiles通過，包含 collect-collapsed／analyse-collapsed、三頁與submitted／pending／committed；報告 `output/playwright/centripetal-layout-T2-package-all.json`。最後窄屏修正後另跑320×500 initial／collect-0／collect-collapsed／analyse-0／analyse-collapsed共5項，全部無issue；報告 `output/playwright/centripetal-layout-T2-package-320.json` |
+| 純測試／登記／靜態 | 活動5個node測試通過；`npm run check:tests`為263 entries（227 node、36 browser）；最終`npm run check`通過。沿用本活動browser登記，收合變體加入既有mobile-scroll-cases |
+| 視覺 | 已檢視1280×800及390×600設定／旋轉、320×500設定與極慢轉速截圖；公式、數量及半徑無重疊；320×500不宣稱第一屏可見完整圖 |
+| 最終打包 | `npm run package:all`通過；本活動17檔、16個runtime。ZIP SHA-256：`01a713a3c21316e6206466c7a16f133a47263669def3c4ea78a4ea152ee4b91a`；Site runtime與ZIP逐位元組相同 |
+| 未驗範圍 | 未重跑先前已知失敗的全套測試；真手機／Safari、真Moodle T4、完整T0–T3矩陣未驗。維持planned，不宣稱package-ready／Moodle-ready |
+
+本輪3個runtime變更檔案的SHA-256；其餘13個沿用上輪：
+
+| 路徑 | SHA-256 |
+|---|---|
+| `centripetal-force-investigation-lab/index.html` | `eba3ed9b2ff1661e2258ee83234a9d9c39271c77aa0eabbde683a99e56392b59` |
+| `centripetal-force-investigation-lab/main.js` | `1eda5699685f68dccc88b8123144e9080d23987b3f24e650f4ec3091bd03fb5e` |
+| `centripetal-force-investigation-lab/styles.css` | `0cb7beff5d0cc87a16633481645cdde73679258216b463ea78663b23a21d5f5c` |
