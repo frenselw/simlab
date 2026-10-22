@@ -522,3 +522,6 @@ pending／technical不顯示「提交後正解」以免技術錯誤冒充完成�
 
 - 按使用者要求移除放大視窗右下角的全局小縮圖，包括其SVG、更新程式及樣式。保留箭尖放大預覽，沒有預覽說明文字。
 - 修改既有browser拖動斷言：預覽跟隨箭尖，且只有一個直接子層SVG、沒有全局小縮圖；評分、保存與其他操作不變。
+- main語法、diff check及完整source/package專屬browser通過（completed=true、errors=0）；包含可信觸控拖動時的單一預覽斷言。未重跑Node邏輯測試、完整容器矩陣、實機手機或真Moodle。
+- Browser assetHash `3cd570ef617a6e01b0490e9ce94db8936a2fe9dfc97e966810649620f38a414b`；15檔SCORM ZIP SHA-256 `E050889591750187705B30AB8E60962753E103593E76DB9061334906F28BC953`；十個自有runtime與Site來源一致。
+- Runtime commit `718f9ac432c41addd40d144a5aa807668d0d831b` 已推送；以`f6e16ae`為base的committed selection為affected／本活動package／230 entries，僅選擇預覽。Site source `069a064e10ab1d5add8346b04628c8ca08e191be`；v11 deployment `appgdep_6ad9f3f5e68c819194b0f990c6de2de5` succeeded，維持原owner-only網址；未等待GitHub CI。
