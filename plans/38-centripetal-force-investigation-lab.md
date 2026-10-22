@@ -801,3 +801,11 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 - v12的mouse／touch、測量開關、CPU1／4及延後900ms放手逐幀測試仍通過；source／package各8種情況均持續前進。另含既有手機尺寸、fullscreen、提交／只讀、圖像收合與保存流程。
 - 16個runtime與canonical sim及Site dist逐位元組一致；ZIP SHA-256：cafd46c6355ee120b4dbb59ae209f82db82271e86e029a79861facc9e2d436b9。
 - 沒有新依賴／測試入口或sub-agent。真手機／真Moodle及全T0–T3矩陣未重驗，維持planned。
+
+### 簡化操作 Site v13 交付
+
+- 功能commit 7541b063412a5270a39353d4b31b504efd3d530c已推到origin；committed selection preview：2a4034c0f34cc2ab163512308cb07ad8db94c68e → 7541b06，affected且packages僅本活動；output/centripetal-simple-controls-selection.json。
+- 官方helper推送Site source 169a75f0abbcb30f475540862ecaccf8f23b3038；原owner-private audience保持。v13 appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_1521efd58ec88191bd6f24b6de3cd00d，deployment appgdep_6ada353f4d488191820bc0249a49a5e6，Sites回報succeeded（2026-10-22T16:09:47Z）。
+- 原Site分頁重新載入，收集面板僅有測量按鈕。實際手勢正轉+11.147rad/s，按住減速約1.2秒後+8.948rad/s並存9點；直接反向手勢得-10.950rad/s，再減速至-8.748rad/s，18個同樣式藍點，圖例沒有方向區分。分頁保留供使用者試。
+- 本機預覽首次沿用快取HTML，明確reload後確認兩按鈕已移除；發布交付同樣重新載入並檢查實際畫面。
+- 網址：https://centripetal-force-investigation-lab.ieyp.chatgpt.site/centripetal-force-investigation-lab/
