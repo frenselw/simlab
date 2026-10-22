@@ -4,6 +4,7 @@
   const d=Object.fromEntries([...document.querySelectorAll('[id]')].map(e=>[e.id,e]));
   const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const kindText=i=>N.forces[i]?`${N.forces[i].source}的${N.forces[i].name}`:'';
+  const directionCells=[[3,2],[3,1],[2,1],[1,1],[1,2],[1,3],[2,3],[3,3]];
   const feedback=[
     '水平拉力提供徑向合力；重力與支持力在豎直方向平衡。不要另外畫一個向心力。',
     '靜摩擦指向圓心，不一定沿運動反方向；這裏沒有相對滑動。',
@@ -123,6 +124,7 @@
       d.motionPosition.disabled=motion.pending!==null;
       d.motionMessage.textContent=motion.pending!==null?(page===3?'等待汽車到達橋頂；若已駛過，會在下一圈到頂時停下。':'等待汽車到達最低點；若已駛過，會在下一圈到達時停下。'):page===3||page===4?'先觀察汽車運動，再按分析按鈕；汽車會到指定位置才停下。':'可暫停或拖動位置，再開始畫力。';
       d.directionHint.textContent=page<3?'依受力圖的徑向豎直剖面判斷。':'';
+      d.directionChoices.innerHTML=M.DIRECTIONS.map((key,i)=>`<button type="button" data-inward="${key}" style="grid-column:${directionCells[i][0]};grid-row:${directionCells[i][1]}" aria-label="${M.DIRECTION_LABELS[i]}" aria-pressed="${item.inward===key}" ${editable?'':'disabled'}>${N.directionIcon(i*450)}</button>`).join('')+'<span class="direction-origin" aria-hidden="true"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="10" fill="#dbeafe" stroke="#476b96" stroke-width="2"/><circle cx="24" cy="24" r="3" fill="#334155"/></svg></span>';
       d.drawInward.disabled=!editable;d.drawInward.setAttribute('aria-pressed',String(drawingInward));
       d.drawInward.textContent=item.inward?'修改圓心方向':'標示圓心方向';
       d.forcePalette.innerHTML=N.forces.map((f,i)=>`<button type="button" class="force-card" data-palette="${i}" style="--force-color:${f.color}" aria-label="選擇${esc(kindText(i))}" aria-pressed="${!drawingInward&&item.palette===i}" ${editable?'':'disabled'}><span class="force-symbol">${N.forceHtml(i)}</span><span><b>${esc(f.name)}</b><small>${esc(f.source)}</small></span></button>`).join('');
@@ -212,6 +214,7 @@
   d.motionPosition.addEventListener('input',()=>{if(controller.mode!=='edit'||motion.pending!==null)return;motion.travel=Number(d.motionPosition.value)/10000;motion.playing=false;render(controller);});
   reduced.addEventListener('change',()=>{if(reduced.matches){if(motion.pending!==null){motion.travel=motion.pending;finishAnalysis();}else{motion.playing=false;render(controller);}}});
   d.drawInward.addEventListener('click',()=>{cancelDrag();drawingInward=true;render(controller);});
+  d.directionChoices.addEventListener('click',e=>{const b=e.target.closest('[data-inward]');if(b){cancelDrag();drawingInward=true;controller.command({type:'inward',value:b.dataset.inward});}});
   d.forcePalette.addEventListener('click',e=>{const b=e.target.closest('[data-palette]');if(b){cancelDrag();drawingInward=false;controller.command({type:'palette',value:Number(b.dataset.palette)});}});
   d.forceList.addEventListener('click',e=>{const b=e.target.closest('[data-select]');if(b){cancelDrag();drawingInward=false;controller.command({type:'select',index:Number(b.dataset.select)});}});
   d.kindSelect.addEventListener('change',()=>controller.command({type:'kind',value:Number(d.kindSelect.value)}));

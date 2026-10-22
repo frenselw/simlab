@@ -45,7 +45,8 @@ async function canvasDirections(base,label){
   await tap('#originHandle');assert.equal(await call('return app.getState().items[0].inward;'),null,'a tap must not invent a direction');
   await call('d.getElementById("originHandle").focus();');await cdp.send('Input.dispatchKeyEvent',{type:'rawKeyDown',key:'ArrowUp',code:'ArrowUp',windowsVirtualKeyCode:38});await cdp.send('Input.dispatchKeyEvent',{type:'keyUp',key:'ArrowUp',code:'ArrowUp',windowsVirtualKeyCode:38});assert.equal(await call('return app.getState().items[0].inward;'),'N');
   await dragForce(0,'#originHandle',true);
-  for(const key of M.DIRECTIONS){await dragForce(M.directionAngle(key),'#forceHandle',true);assert.equal(await call('return app.getState().items[0].inward;'),key);}
+  for(const key of M.DIRECTIONS){await dragForce(M.directionAngle(key),'#forceHandle',true);assert.equal(await call('return app.getState().items[0].inward;'),key);assert.equal(await call('return d.querySelector("#directionChoices [aria-pressed=true]").dataset.inward;'),key);}
+  for(const key of M.DIRECTIONS){await tap(`[data-inward="${key}"]`);assert.equal(await call('return app.getState().items[0].inward;'),key);assert.equal(await call('return d.querySelector("#diagramSvg [data-inward-indicator]").dataset.inwardIndicator;'),key);}
   for(const selector of ['#originHandle','#forceHandle']){
     const before=await call('return JSON.stringify(app.getState());'),r=await rect(selector),id=touchId++,t=(x,y)=>({x,y,id,radiusX:1,radiusY:1,force:1});
     await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[t(r.x,r.y)]});
@@ -61,11 +62,11 @@ async function canvasDirections(base,label){
   }
   assert.equal(await call('return app.getState().items[0].arrows.length;'),0,'direction indicators are not force arrows');
   await choose('#forcePalette',2);await dragForce(1800,'#originHandle');
-  await tap('#drawInward');await dragForce(900,'#forceHandle',true);
+  await tap('[data-inward="N"]');
   assert.deepEqual(await call('const i=app.getState().items[0];return [i.inward,i.arrows];'),['N',[[2,1800,60]]],'switching drawing tools must preserve the other answer');
   await tap('[data-select="0"]');await dragForce(0);assert.equal(await call('return app.getState().items[0].inward;'),'N');
-  await tap('#drawInward');await screenshot(label+'-canvas-direction');
-  report[label].push({flow:'canvas direction creation, eight tip directions, no-op tap, cancel, second touch and independent force editing',passed:true});
+  await tap('#drawInward');await call('d.getElementById("directionChoices").closest("fieldset").scrollIntoView({block:"start"});');await screenshot(label+'-canvas-direction');
+  report[label].push({flow:'eight circle-direction options synced with canvas, force editing without direction options, no-op tap, cancel, second touch and independent answers',passed:true});
 }
 async function layoutChecks(base,label){
   for(const [width,height] of [[320,500],[390,500],[390,600],[390,844],[480,320],[320,225],[1280,800]]){
@@ -88,9 +89,9 @@ async function fill(base,label){
   for(let page=0;page<6;page++){
     await choose('#compactNav',page);await analyse();
     const s=await call('return app.getState();'),p=M.physics(s.def,page,s.items[page].pose),item=M.CASES[page];
-    await tap('#drawInward');await dragForce(M.directionAngle(p.inward),'#originHandle',true);
+    await tap(`[data-inward="${p.inward}"]`);
     for(const [kind,angle] of p.forces){await choose('#forcePalette',kind);await dragForce(angle,'#originHandle');const after=await call('return app.getState();');assert(M.difference(after.items[page].arrows.at(-1)[1],angle)<=100,JSON.stringify({page,angle,actual:after.items[page].arrows.at(-1)}));}
-    assert(await call(`return !d.querySelector('.direction-pad,#arrowDirections,#directionChoices,#addForce')&&!/方向鍵|鍵盤|Shift/.test(d.body.textContent+[...d.querySelectorAll('[aria-label],[title]')].map(e=>e.getAttribute('aria-label')+e.title).join(''))&&d.querySelector('[data-inward-indicator="${p.inward}"]')&&d.querySelectorAll('#diagramSvg .force-math[data-tex]').length===${p.forces.length};`),'canvas-only directions / LaTeX force labels missing');
+    assert(await call(`const options=[...d.querySelectorAll('#directionChoices [data-inward]')];return options.length===8&&options.every(b=>b.querySelector('svg')&&!b.textContent.trim())&&d.querySelectorAll('.direction-pad').length===1&&!d.querySelector('#arrowDirections,#addForce,#forceControls .direction-pad')&&!/方向鍵|鍵盤|Shift/.test(d.body.textContent+[...d.querySelectorAll('[aria-label],[title]')].map(e=>e.getAttribute('aria-label')+e.title).join(''))&&d.querySelector('[data-inward-indicator="${p.inward}"]')&&d.querySelectorAll('#diagramSvg .force-math[data-tex]').length===${p.forces.length};`),'circle-direction options / canvas force editing / LaTeX labels missing');
     const shapes=await call('return [...d.querySelectorAll("#diagramSvg .force-vector")].map(e=>({d:e.getAttribute("d"),fill:e.getAttribute("fill")}));');assert(shapes.every(e=>e.d.endsWith(' Z')));assert(new Set(shapes.map(e=>e.fill)).size===p.forces.length);
     await call('d.getElementById("forceControls").scrollIntoView({block:"start"});');await screenshot(`${label}-drawn-${page}`);
     await tap(`input[name="relation"][value="${item.relation}"]`);
@@ -100,6 +101,7 @@ async function fill(base,label){
   await tap('#checkButton');assert.equal(await call('return app.controller.mode;'),'check');assert(await call('return !d.getElementById("checkSummary").textContent.includes("/16");'));
   await tap('#returnEdit');assert.equal(await call('return app.controller.mode;'),'edit');await tap('#checkButton');await tap('#submitButton');
   assert.equal(await call('return app.controller.mode;'),'review');assert.equal(await call('return app.controller.result.score;'),100);
+  assert(await call('return [...d.querySelectorAll("#directionChoices button")].every(b=>b.disabled);'),'recorded direction choices must be read-only');
   assert(await call('return d.getElementById("feedbackList").textContent.includes("一般變速圓周運動")&&d.getElementById("feedbackList").textContent.includes("離心力");'));
   assert.equal(await call('return app.controller.command({type:"clear-page"});'),false);
   await screenshot(label+'-submitted');report[label].push({flow:'six-case trusted touch full score',score:100,trustedDrags:await call('return app.diagnostics.trustedTouch;')});

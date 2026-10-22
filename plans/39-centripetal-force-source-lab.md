@@ -458,3 +458,11 @@ pending／technical不顯示「提交後正解」以免技術錯誤冒充完成�
 - T3 focused：inward-drawing／direct-drawing／complete × 320×500／390×844，source及package各6/6零issues。source在最後可及性與選取樣式微調前執行；package及完整source/package互動回歸使用最終runtime。其餘容器矩陣及真手機／真Moodle未重測。
 - 十個自有runtime與同一owner-only Site逐檔一致。Site source commit `ac125a18a63a20f38bde886d1aaaffe421e66f72`；v5 `appgprj_6ad9ab2ffe008191bea6e486a6000e05~appgver_ad0a366489948191884d42bd15a9cd8d`；deployment `appgdep_6ad9d9ad74ac8191ac9752060c372660` succeeded。[更新版](https://centripetal-force-source-lab.ieyp.chatgpt.site/centripetal-force-source-lab/)。
 - Runtime commit `71fdfa1ef1ed1336bf476930b0f2b5d809b7340e` 已推送 `codex/centripetal-force-source-lab`；以 `07842cb` 為base的committed selection為full／packages all（265 entries）。只記錄selection，不代表已執行整個專案全部測試；不等待GitHub CI終態。
+
+## 2026-10-22 第四次審閱：只移除力方向控制
+
+使用者澄清：保留control panel「在畫布標示圓心方向」內的八個箭號選項；刪除要求只適用於調整力方向的選項。前節刪除圓心選項是誤解，本節修正該範圍。
+
+- 恢復原3×3圓心箭號選擇及選中狀態，與畫布中的藍色方向箭頭同步。選圓心方向不改動已畫的力。
+- 力方向繼續在畫布直接拖動箭尖，沒有力方向按鈕或任何鍵盤操作說明。其餘模型、評分、保存格式及依賴不變。
+- 更新既有瀏覽器回歸：逐一點選八個圓心箭號、雙向同步、力圖獨立、唯讀鎖定、六題使用圓心選項與畫布力箭頭取得滿分，並確認力控制區沒有方向選項。沿用已登記的測試入口。
