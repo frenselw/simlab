@@ -547,3 +547,4 @@ pending／technical不顯示「提交後正解」以免技術錯誤冒充完成�
 - 完整source/package回歸completed=true、errors=[]；橋頂／凹底指定位置與跨圈等待、地球吸附、可信作圖／評分／提交及先前審核修正全部通過。main及browser語法、check、check:tests（265 entries）、diff check通過。未重跑獨立Node模型測試、全部T0–T3矩陣、真手機或真Moodle。
 - Browser assetHash `235a744744ce0dbfb200216d994b6d8ad8e8eabf3044d1376a51edd9294c99a3`；15檔SCORM ZIP SHA-256 `F85FB751CBDA649CBF1064D5B345187516BE86D430DF21AE2A83374DA0AB7658`。
 - 同一owner-only Site已更新：source `49bfb7a4f930a8e22cebd177acad51402ce52837`，v13 deployment `appgdep_6ada00771dcc8191a6bffa4b00d41fb8` succeeded，更新的main.js與工作樹逐檔一致；其餘runtime未變。
+- Runtime commit `07b87a7cacfbb3ee22e27a2155e10bf6afbf502d`；以`04b3ec4`為base的committed selection為affected／本活動package／230 entries，僅記錄選擇預覽。已推送分支，未等待GitHub CI。
