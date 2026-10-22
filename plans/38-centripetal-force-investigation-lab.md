@@ -695,3 +695,11 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 - npm run check、check:tests（263 entries）通過；沿用測試登記。390×600最終旋轉截圖可見即時十字、空心／實心點，圖軸首屏完整。
 - SCORM 16個runtime與sim來源及Site dist逐位元組核對，ZIP SHA-256：`a3c9a5959abd2ba0f4463e659c423ae7ce76e43b138776419b75f3f0942a571f`。
 - 按使用者指示沒有sub-agent審核。未驗真手機／Safari、真Moodle及全T0–T3矩陣，維持planned。
+
+
+### 跟手修正 Site v9 交付
+
+- 功能commit b64aad75d5666fe7a1d84eb15ed7b966c84c0bd7 已推到origin。Committed selection preview（1f5d981 → b64aad7）為affected，僅本活動五項純測試及browser／本活動套件；輸出output/centripetal-drag-selection.json。
+- Site source c5fcb01f84f73849c129257412095603183357b3；v9：appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_8523885425bc8191bec16b722c9bf7fa；deployment appgdep_6ada0e3da6e88191a1f97ee2e935bb28，回報succeeded，私人設定保持。
+- 原本Site分頁已重新載入並保留；上線後以鍵盤推轉／按住減速／反向確認7點、空心反轉點與即時十字均出現。可信touch快推／放手的驗證在上述source與package執行，沒有將鍵盤檢查當成真機手勢驗證。
+- 網址：https://centripetal-force-investigation-lab.ieyp.chatgpt.site/centripetal-force-investigation-lab/
