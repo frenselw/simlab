@@ -70,6 +70,8 @@ async function fill(base,label){
 }
 async function edgeFlows(base,label){
   await viewport(390,844);await open(base);await tap('#checkButton');await tap('#submitButton');assert.equal(await call('return app.controller.result.score;'),0);
+  await open(base);await choose('#forcePalette',6);await tap('#addForce');await dragForce(0);await tap('#checkButton');await tap('#submitButton');assert.equal(await call('return app.controller.result.score;'),0);
+  await open(base);await choose('#forcePalette',2);await tap('#addForce');await call('d.getElementById("forceHandle").focus();');await cdp.send('Input.dispatchKeyEvent',{type:'rawKeyDown',key:'ArrowLeft',code:'ArrowLeft',windowsVirtualKeyCode:37});await cdp.send('Input.dispatchKeyEvent',{type:'keyUp',key:'ArrowLeft',code:'ArrowLeft',windowsVirtualKeyCode:37});assert.equal(await call('return app.getState().items[0].arrows[0][1];'),10);
   await open(base);await choose('#forcePalette',0);await tap('#addForce');await tap('#checkButton');await tap('#submitButton');assert.equal(await call('return app.controller.result.score;'),2);
   await open(base,null,{retain:label+'-resume'});await choose('#forcePalette',0);await tap('#addForce');await cdp.send('Page.reload');await wait(()=>call('return app?.getState()?.items[0].arrows.length===1;'),'Moodle draft resume');
   await open(base,null,{standalone:true,deny:true});await choose('#forcePalette',0);await tap('#addForce');await cdp.send('Page.reload');await wait(()=>call('return app?.getState()?.items[0].arrows.length===0;'),'standalone fresh refresh');
@@ -99,7 +101,7 @@ async function edgeFlows(base,label){
   await viewport(320,500);await open(base);await cdp.send('Emulation.setPageScaleFactor',{pageScaleFactor:2});await H.delay(40);
   assert(await call('return visualViewport.scale>=1.9&&d.scrollingElement.scrollWidth<=innerWidth+1&&d.getElementById("controlPanel").getBoundingClientRect().height>=96;'));
   await cdp.send('Emulation.setPageScaleFactor',{pageScaleFactor:1});
-  report[label].push({flow:'blank,partial,resume,standalone refresh,pending,committed,cancel,secondary touch,fullscreen,diagonal reverse snap,renderer failure,paused scene restore,reduced motion,200% zoom',passed:true});
+  report[label].push({flow:'blank,extra force,keyboard arrow,partial,resume,standalone refresh,pending,committed,cancel,secondary touch,fullscreen,diagonal reverse snap,renderer failure,paused scene restore,reduced motion,200% zoom',passed:true});
 }
 async function main(){
   const temp=fs.realpathSync(os.tmpdir());fs.mkdirSync(out,{recursive:true});

@@ -153,7 +153,7 @@
   d.forceHandle.addEventListener('keydown',e=>{
     if(controller.mode!=='edit'||drag)return;const item=controller.state.items[controller.page],a=item.arrows[item.selected];if(!a)return;
     const step=e.shiftKey?50:10;let next=a[1],len=a[2];
-    if(e.key==='ArrowLeft')next=M.angle((next??0)+step);else if(e.key==='ArrowRight')next=M.angle((next??0)-step);else if(e.key==='ArrowUp')len=Math.min(100,len+5);else if(e.key==='ArrowDown')len=Math.max(40,len-5);else return;
+    if(e.key==='ArrowLeft')next=((next??0)+step)%3600;else if(e.key==='ArrowRight')next=((next??0)-step+3600)%3600;else if(e.key==='ArrowUp')len=Math.min(100,len+5);else if(e.key==='ArrowDown')len=Math.max(40,len-5);else return;
     e.preventDefault();if(next!==null)controller.command({type:'arrow',angle:next,length:len});
   });
   document.addEventListener('pointerdown',e=>{if(drag&&e.pointerId!==drag.pointerId)cancelDrag();},true);
