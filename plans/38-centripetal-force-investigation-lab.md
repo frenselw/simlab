@@ -504,3 +504,11 @@ Site `dist` 檔案及SHA-256（其中13個為SCORM runtime，根頁為Site入口
 | `centripetal-force-investigation-lab/index.html` | `994240353d528f7e1b0017e1a5aa95643fc8f0455d642c64fd8cfed51c9fe6ce` |
 | `centripetal-force-investigation-lab/main.js` | `293caf00677fb40513680a58b53aa1d49057280da0bfcae30f920bb841a92ea8` |
 | `centripetal-force-investigation-lab/styles.css` | `05275175f04212411e2db528af9f0580c093f02d749e88f78618468a1acf2f99` |
+
+| 本輪交付 | 已核對資料 |
+|---|---|
+| branch | `codex/centripetal-force-investigation-lab`，功能 commit `4a89664e4dd624d0f80eb13b8b6a4a9d3c6ff607` 已推到 origin |
+| committed selection | `run-tests.js --base=2c9e6cd46e3029a04dad5c0bf2dcf247ced1fbbd --head=4a89664e4dd624d0f80eb13b8b6a4a9d3c6ff607 --plan` 成功；affected 模式共 228 expected（含既有 canary），對應本活動 package／browser scope。這是選取預覽，非 228 項全通過；本輪實際執行見上表。輸出 `output/centripetal-flat-drag-selection.json` |
+| Site source | `19a46d88effb21c0cef1e369923e98e163140f69`，16 個 runtime 與最後 SCORM 逐位元組相同 |
+| private deploy | version 4，`appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_abc1e42ed0608191ae4ea2fe421dd075`；deployment `appgdep_6ad9d41b03f88191a7607d7c1dcaf293` 回報 `succeeded`，owner-only 範圍維持不變 |
+| URL | https://centripetal-force-investigation-lab.ieyp.chatgpt.site |
