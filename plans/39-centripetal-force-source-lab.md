@@ -508,3 +508,9 @@ pending／technical不顯示「提交後正解」以免技術錯誤冒充完成�
 - 按使用者要求刪除放大預覽的「箭尖放大 ×2」文字及兩條專屬文字樣式；保留預覽圖、全圖縮圖及操作行為。
 - 靜態核對文字已刪除、兩個預覽SVG仍存在，diff check通過；重建15檔SCORM包。此輪只刪除文字／樣式，未重跑完整互動、手機或Moodle測試。
 - Runtime commit `be67515` 已推送；以`7e2999d`為base的committed selection：affected／本活動package／230 entries，僅選擇預覽。Site source `f1aa9cf21cf4d3fe46996ae0a863dbf73f5aa08f`，v9 deployment `appgdep_6ad9f0a243d08191a4271cf0bb2082de` succeeded，原owner-only網址不變。
+
+## 2026-10-22 第八次審閱：地球分析位置對齊八方向
+
+- 地球開始新的受力分析時，將觀察相位吸附至最近的1/8圈，讓太陽方向與八個圓心箭號選項之一完全一致；運動可順／逆轉，末段相位可就近跨回零點。一般播放與拖動觀察仍連續。
+- 吸附只定義新作答的位置，不自動選答案。已有答案的原相位及力保持不變；舊任意相位的保存／參考圖／評分照常解碼，不改answer v2／model v2／rubric v1或權威快照欄位。
+- 沿用model、scene和專屬browser測試入口；覆蓋八個初始角度、雙轉向、半格邊界、跨圈、最短角距、畫面太陽方向與按鈕一致、保存還原續作及已作答位置固定。

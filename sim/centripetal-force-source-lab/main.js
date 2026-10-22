@@ -60,6 +60,7 @@
   function finishAnalysis(){
     const pose=Math.min(9999,Math.round(Scene.phase(motion.travel)*10000));
     motion.playing=false;motion.pending=null;controller.command({type:'analyse',pose});
+    if(controller.page===5)motion.travel=controller.state.items[5].pose/10000;
   }
   function animate(now){
     const elapsed=motion.last?Math.min(.1,(now-motion.last)/1000):0;motion.last=now;

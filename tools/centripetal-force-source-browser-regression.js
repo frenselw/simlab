@@ -196,7 +196,14 @@ async function revisedScenes(base,label){
     assert.equal(await call('return app.getMotion().travel;'),target);
     await screenshot(`${label}-analysis-${page}-${value}`);
   }
-  await choose('#compactNav',5);await seek(1376);await analyse();assert.equal(await call('return app.getState().items[5].pose;'),1376);
+  for(const sense of [0,1])for(const [pose,expected]of [[136,0],[2636,2500],[3886,3750],[5136,5000],[6386,6250],[7636,7500],[8886,8750],[9999,0],[1376,1250]]){
+    const state=M.navigate(M.fresh(()=>.2),5);state.def[5][1]=sense;await open(base,state);await seek(pose);await analyse();
+    assert.equal(await call('return app.getState().items[5].pose;'),expected);assert.equal(await call('return app.getMotion().travel;'),expected/10000);
+    const alignment=await call('const s=app.getState(),i=s.items[5],p=CentripetalSourceModel.physics(s.def,5,i.pose),g=app.getLayout(),center=d.querySelector("#diagramSvg .circle-center circle"),dx=Number(center.getAttribute("cx"))-g.cx,dy=g.cy-Number(center.getAttribute("cy"));return {inward:p.inward,answer:i.inward,force:p.forces[0][1],direction:CentripetalSourceModel.directionAngle(p.inward),visible:CentripetalSourceModel.angle(Math.atan2(dy,dx)*180/Math.PI)};');
+    assert.equal(alignment.answer,null,'snapping the scene must not answer the question');assert.equal(alignment.force,alignment.direction);assert.equal(alignment.visible,alignment.direction,'visible Sun position must match an available arrow');
+    await tap(`[data-inward="${alignment.inward}"]`);assert.equal(await call('return app.getState().items[5].inward;'),alignment.inward);
+  }
+  await screenshot(label+'-earth-aligned');
   const p=await call('const s=app.getState();return CentripetalSourceModel.physics(s.def,5,s.items[5].pose);');
   await choose('#forcePalette',1);await dragForce(p.forces[0][1],'#originHandle');
   assert.equal(await call('return app.getState().items[5].arrows.length;'),1);
@@ -206,7 +213,7 @@ async function revisedScenes(base,label){
   await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:r.x,y:r.y+45,id}]});
   await cdp.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});
   assert.equal(await call('return JSON.stringify(app.getState());'),before);
-  report[label].push({flow:'six visible scenes; direct drawing and cancel; arbitrary observation; both bridges before/after target and wrap',passed:true});
+  report[label].push({flow:'six visible scenes; direct drawing and cancel; Earth nearest eight directions in both senses and wrap; both bridges before/after target and wrap',passed:true});
 }
 async function main(){
   const temp=fs.realpathSync(os.tmpdir());fs.mkdirSync(out,{recursive:true});

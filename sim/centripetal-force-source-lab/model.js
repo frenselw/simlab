@@ -85,7 +85,7 @@
     const n=clone(state),item=n.items[n.page];
     switch(action.type) {
       case 'analyse':
-        if(action.pose!==undefined){if(!integer(action.pose,0,9999)||((n.page===3||n.page===4)&&action.pose!==5000))throw Error('Invalid observation');if(!hasAnswers(item))item.pose=action.pose;}
+        if(action.pose!==undefined){if(!integer(action.pose,0,9999)||((n.page===3||n.page===4)&&action.pose!==5000))throw Error('Invalid observation');if(!hasAnswers(item))item.pose=n.page===5?(Math.round(action.pose/1250)*1250)%10000:action.pose;}
         n.view='analysis'; break;
       case 'scene': n.view='scene'; break;
       case 'inward': if(action.value!==null&&!DIRECTIONS.includes(action.value))throw Error('Invalid direction');item.inward=action.value;n.view='analysis';break;
