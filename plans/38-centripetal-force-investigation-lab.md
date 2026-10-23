@@ -1104,3 +1104,11 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 - 五項node測試、check與check:tests（263 entries）通過。新增／重做／刪除再建立均拒絕與另一組完全相同的設定，拒絕時兩組內容不變；每一欄改變均可建立。rv6刪除係數題，a[2]任何舊值不影響得分；兩組滿分／部分／空白及未擬合判斷均通過。rv5 finished/pending保留缺答係數的7.5分，draft升rv6保存全部原數據後可合法提交9分。舊rv1–4相容測試及三頁×四階段×三variant round-trip與續作通過，最滿draft/review/pending仍3403/3440/3808 bytes。
 - focused來源及解壓SCORM於320×500、393×734、1280×800三頁通過：重複第二組設定禁用並有說明；改半徑後可建第二組；收集頁明示「分析第二組數據」且按後進analyse，數據保留。第二組analyse不再提示第三組；係數題實際display:none、作答/2；切換兩組各自答案還原；重做若會複製另一組亦禁用且不改原數據。1280與390px兩組1:1採不同實際半徑，仍取得30分且提交後唯讀。瀏覽器無例外。
 - SCORM17檔，16runtime與canonical sim及Site dist逐位元組一致；ZIP SHA-256：f704eed2d31e51b1998e5d38637f3fd826bb653de4c586ea2542835f045c465e。未改動轉動手勢，未重跑完整手勢效能；真手機及真Moodle未驗證。
+
+
+### 第二組接續 Site v27 交付
+
+- 功能commit a764e4a2f577256f7ce2b04ecf5cefbcec9a3c47已推origin；committed selection由14e7356起算，mode=affected、packages僅本活動，output/centripetal-second-analysis-selection.json。
+- 官方helper推送Site source 000a8c595353ade22ee3e616159fd1c3f0480859；v27 appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_79a4012e153081919e81e3668e9efd91，deployment appgdep_6adb10246ce081919168883141074275，Sites回報succeeded（2026-10-23T07:43:39.568734+00:00），原owner-private audience保持。
+- 原站實際量測第一組，轉到第二組設定確認「請先改變第二組設定」禁用及說明可見。增加A半徑後可量測第二組；收集3點後新提示「下一步：分析第二組數據」可見，按後正確顯示第二組分析標題，係數問題isVisible=false。實際Network response確認scoring載入rv6判準，不再要求已刪題目。兩組均未代填答案或提交。
+- 截圖C:/Users/frens/Documents/Projects/simlab/output/centripetal-second-analysis-v27.png；已開回第二組收集頁並捲至新分析按鈕供試用。暫時快取設定恢復、未改viewport，分頁標記保留；測試server已關閉、臨時憑證已清除。真手機與真Moodle未驗證。
