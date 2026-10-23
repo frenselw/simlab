@@ -205,7 +205,7 @@ async function scenario(cdp, base, launch, label, width, height) {
   assert.equal(await H.evaluate(cdp, "document.querySelectorAll('[data-assembly=\"A\"] circle.weight-plate').length"), 1, `${label}: top view shows only the top disc`);
   assert.equal(await H.evaluate(cdp, "document.querySelectorAll('.weight-count-mark').length"),0,"no decorative count rings");
   assert.equal(await H.evaluate(cdp, "document.querySelectorAll('.force-meter').length"),2,"both force meters are visible");
-  assert.ok(await H.evaluate(cdp, "[...document.querySelectorAll('.weight-holder')].every(e=>Number(e.getAttribute('r'))<=15)"),"compact holders expose the meters");
+  assert.ok(await H.evaluate(cdp, `[...document.querySelectorAll('.weight-holder')].every(e=>{const h=e.getBoundingClientRect(),m=e.closest('.assembly').querySelector('.force-meter').getBoundingClientRect();return h.right<m.left||m.right<h.left;})`),"holders leave the actual meters exposed at every scale");
   for (let i = 0; i < 6; i++) await click(cdp, '[data-step="3:1"]');
   assert.match(await H.evaluate(cdp,"document.querySelector('[data-count-label=B]').textContent"),/砝碼 × 8/);
   await touchTo(cdp, '.mass-token.placed.a', '.mass-token.placed.b');
@@ -468,6 +468,41 @@ async function graphPresentation(cdp,base,launch,label) {
   }
  }
 }
+async function mobileSetup(cdp,base,launch,label) {
+ for(const [width,height] of [[320,500],[390,600],[393,734],[390,844]]) {
+  await cdp.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:true});
+  await cdp.send('Page.navigate',{url:base+launch});await ready(cdp);
+  for(let i=0;i<4;i++)await click(cdp,'[data-step="0:1"]');
+  const meter=await rect(cdp,'.force-meter rect'),holder=await rect(cdp,'.weight-holder'),tray=await rect(cdp,'#weightTray'),token=await rect(cdp,'.mass-token.tray'),icon=await rect(cdp,'.mass-token.tray .washer');
+  assert.ok(meter.height>=20&&holder.height>=20,'instrument remains readable in a short phone viewport');
+  assert.ok(tray.width<=112&&tray.height===44&&icon.width===22,'tray has a quieter compact appearance');
+  assert.ok(token.width>=44&&token.height>=44,'tray retains its usable touch target');
+  for(const side of ['A','B']) {
+   const r=await rect(cdp,`.radius-handle[data-side="${side}"]`);
+   const visual=await H.evaluate(cdp,`(()=>{const s=getComputedStyle(document.querySelector('.radius-handle[data-side="${side}"]'),'::before');return [parseFloat(s.width),parseFloat(s.height)];})()`);
+   assert.ok(r.width>=44&&r.height>=44&&visual[0]<=36&&visual[1]<=28,'small slider appearance preserves 44px touch target');
+  }
+  const stage=await rect(cdp,'#stageContent');
+  for(const selector of ['.force-meter','[data-radius-label=A]','[data-radius-label=B]','.weight-count-label','.radius-handle']) {
+   const bounds=await H.evaluate(cdp,`[...document.querySelectorAll('${selector}')].map(e=>{const r=e.getBoundingClientRect();return {x:r.x,y:r.y,right:r.right,bottom:r.bottom}})`);
+   assert.ok(bounds.every(r=>r.x>=32&&r.right<=width-32&&r.y>=stage.y&&r.bottom<=stage.y+stage.height),'setup labels and controls stay inside stage: '+JSON.stringify({width,height,selector,bounds,stage}));
+  }
+  const hint=await rect(cdp,'#trayHint');
+  assert.ok(hint.y+hint.height<tray.y+tray.height-2,'tray text does not overlap its border');
+  fs.writeFileSync(path.join(root,'output/playwright',`centripetal-${label}-setup-proportions-${width}x${height}.png`),Buffer.from((await cdp.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
+  await click(cdp,'[data-page="2"]');
+  assert.equal(await H.evaluate(cdp,"document.querySelectorAll('.force-meter').length"),1);
+  assert.ok((await rect(cdp,'.force-meter rect')).height>=20,'A sensor remains prominent in the single-sensor experiment');
+  assert.ok((await rect(cdp,'.counterweight')).width>0,'balance weight remains visible');
+
+ }
+ for(const [width,height] of [[1280,800],[320,225]]) {
+  await cdp.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
+  await cdp.send('Page.navigate',{url:base+launch});await ready(cdp);
+  assert.equal(await H.evaluate(cdp,"document.getElementById('deviceSvg').getAttribute('viewBox')"),"80 45 440 370",'desktop and short viewport retain the original setup geometry');
+  if(width===1280)assert.equal((await rect(cdp,'#weightTray')).width,128,'phone tray styles do not affect desktop');
+ }
+}
 async function mobileSpace(cdp,base,launch,label) {
  for(const [width,height] of [[320,500],[390,600],[393,734],[390,844]]) {
   await cdp.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:true});
@@ -708,6 +743,7 @@ async function main() {
     const errors = []; cdp.on("Runtime.exceptionThrown", event => errors.push(event.exceptionDetails?.exception?.description || event.exceptionDetails?.text));
     server = H.createServer(root); await H.listenServer(server);
     const sourceBase = `http://127.0.0.1:${server.address().port}`;
+    await mobileSetup(cdp,sourceBase,`/sim/${slug}/index.html`,"source");
     await graphPresentation(cdp,sourceBase,`/sim/${slug}/index.html`,"source");
     await mobileSpace(cdp,sourceBase,`/sim/${slug}/index.html`,"source");
     await continuousRelease(cdp,sourceBase,`/sim/${slug}/index.html`,"source");
@@ -723,6 +759,7 @@ async function main() {
     await H.closeServer(server); server = null;
     const extracted = H.buildAndExtractPackage(tempRoot, { slug }); packageDirectory = extracted.packageDirectory;
     server = H.createServer(packageDirectory); await H.listenServer(server);
+    await mobileSetup(cdp,`http://127.0.0.1:${server.address().port}`,extracted.activityPath,"package");
     await graphPresentation(cdp,`http://127.0.0.1:${server.address().port}`,extracted.activityPath,"package");
     await mobileSpace(cdp,`http://127.0.0.1:${server.address().port}`,extracted.activityPath,"package");
     await continuousRelease(cdp,`http://127.0.0.1:${server.address().port}`,extracted.activityPath,"package");

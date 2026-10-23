@@ -262,3 +262,16 @@ h3 { font-size: 1.05rem; margin-bottom: 8px; }
   .brake-button small { display: none; }
   #app[data-experiment="omega"] .brake-button { top: calc(50% + 12px); }
 }
+
+@media (max-width: 599px) and (min-height: 401px) {
+  .radius-handle { width: 44px; height: 44px; gap: 2px; background: transparent; border: 0; font-size: 13px; }
+  .radius-handle::before { content: ""; position: absolute; z-index: -1; width: 36px; height: 28px; background: #fff; border: 1px solid #4796a5; border-radius: 14px; }
+  .radius-handle[data-side="B"]::before { border-color: #c18c54; }
+  .radius-handle span:last-child { font-size: 12px; }
+  .radius-handle:focus-visible { outline: 0; }
+  .radius-handle:focus-visible::before { outline: 2px solid #e9a83f; outline-offset: 2px; }
+  .weight-tray { width: 112px; height: 44px; padding: 4px 4px 4px 44px; gap: 1px; border-width: 1px; border-radius: 8px; background: #edf3f5; }
+  .weight-tray strong, .weight-tray span { font-size: 12px; line-height: 1.15; }
+  .mass-token.tray { left: 8px; bottom: 8px; }
+  .mass-token.tray .washer { width: 22px; height: 22px; border-width: 7px; }
+}

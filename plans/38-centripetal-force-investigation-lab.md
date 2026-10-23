@@ -983,3 +983,16 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 - 官方helper推送Site source 02583dcc98fe362d473f83d6b882cdf615d95172；v21 appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_6ae20bf476b08191a0609a19df685c13，deployment appgdep_6adadafb29c88191b6b9c953b7c33764，Sites回報succeeded（2026-10-23T03:56:50.034749+00:00）；原owner-private audience保持。
 - 原分頁已不存在，在同一IAB開原站新分頁；實際完成第一組rA=rB=0.20m與第二組rA=0.25m/rB=0.20m，各13點並擬合。清單「第一組數據／第二組數據」，只有查看及作答與刪除，明示兩組均計分；第二組分析標題及1.25倍擬合對應正確。沒有代填答案或提交，留作可編輯示範。
 - 交付截圖C:/Users/frens/Documents/Projects/simlab/output/centripetal-two-groups-v21.png，原私人URL可繼續試用；本次未改分頁快取或viewport，沒有留下測試server，臨時憑證已清除。真手機及真Moodle尚未驗證。
+
+## 手機設定頁器材比例（2026-10-23，動工前決策）
+
+- 使用者手機圖指出儀器過細，A/B滑柄及砝碼盤過於突出。只在max599px且高度>400px的手機設定頁縮短SVG上下留白，放大測力計／托座圖形，調整尺、半徑及砝碼數量標示位置；收集／旋轉裝置與桌面不改。
+- A/B滑柄保留44×44px觸控範圍，改用36×28px膠囊外觀及較細文字，鍵盤focus仍清楚；砝碼盤外觀縮至112×44px、圓片22px，取用目標仍44×44px。維持兩側32px原生捲動帶。
+- 範圍main繪圖幾何、手機CSS及既有browser driver；物理量、rv4評分、mv5數據／儲存、manifest依賴不變。測320×500、390×600、393×734及390×844，含最小／最大半徑、A/B可信拖動跟手、砝碼加入／取回、第三頁配重；來源與解壓SCORM都驗證，桌面及短視窗不退步。
+
+### 手機器材比例驗證
+
+- source及解壓SCORM於320×500、390×600、393×734、390×844通過：儀器標示／控制在舞台邊界及32px捲動帶內；44px滑柄hit有36×28px外觀，砝碼盤112×44、取用hit44×44、圓片22px，盤文字不碰框。第三頁A測力計及B配重可見；1280×800及320×225沿用原SVG幾何，桌面砝碼盤128px未變。
+- focused來源及套件各以新Chrome程序執行既有scenario通過：可信A/B連續拖動、偏心按下不跳、最小／最大半徑、取消回滾、放取砝碼／滿托座拒絕、旋轉續轉／收集、圖軸、提交唯讀與fullscreen。沒有重跑所有CPU放手／評分／保存純回歸，這些模型未改；真手機／Moodle仍待驗證。
+- 最初同一CDP程序串接兩次scenario時，第二次觸控沒有pointerdown（只有mouse證據）；獨立新程序的套件完整scenario通過，沒有更動產品手勢程式或以等待掩蓋。舊holder半徑≤15的外觀斷言改成實際meter與holder不重疊的幾何檢查。main／browser driver語法及check:tests（263 entries）通過；新增情境使用既有browser入口。
+- 截圖output/playwright/centripetal-{source,package}-setup-proportions-*.png確認中央器材較大、輔助控件較小。SCORM17檔，16runtime與canonical sim及Site dist逐位元組相同；ZIP SHA-256：85ba56d286d24edde25e4c4a964bbf8b1fcd2f3544a2f63365819933975fbd7a。
