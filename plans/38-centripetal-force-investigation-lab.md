@@ -1178,3 +1178,11 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 - 官方helper推送Site source 08a348c4383eb66581c5483794855bd82e359514；v30 appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_bc1622729a1481919b85e53623d0b7c6，deployment appgdep_6adb36efd0f08191852887ec67bba8c9，Sites回報succeeded（2026-10-23T10:29:11.286075+00:00），owner-private audience保持。
 - 原分頁第一次reload混載舊HTML與新JS，導致找不到新按鈕；強制再次reload遭自動審核拒絕（可能清除進行中實驗），未重試或繞過。恢復暫時快取設定後另開同一原網站URL，新分頁正常載入rv7介面。實際可見預測「不計分」、第四「綜合與提交」入口，綜合題只在最後全寬頁出現；選兩個測試答案顯示已答2/2、返回修改再進入仍保留，未提交。
 - 截圖C:/Users/frens/Documents/Projects/simlab/output/centripetal-prediction-synthesis-v30.png；新版分頁已開回並標記保留，原分頁未再操作。沒有改viewport；本機browser測試server已關閉，臨時憑證已清除。真手機及真Moodle未驗證。
+
+### v30 三代理獨立審核（2026-10-23）
+
+- 使用者要求兩位reviewers及第三位彙總者；範圍5f1a2d9..5ef51be（功能3bd8a21）。三者唯讀審核，本輪沒有修改runtime。
+- Reviewer A（prediction_scoring_reviewer）：五項Node測試通過，另以3000個production P.validate接受的混合作答對比基線；rv1–6原分不變，rv7只轉移預測／結論權重，反饋加總一致。核對兩個綜合題UI callers、專用controller入口、非法值、保存失敗阻止提交、retry／restore／完成與pending鎖定。最終無新問題，可交付。
+- Reviewer B（synthesis_flow_reviewer）：獨立Chrome檢查來源及重建解壓SCORM，320×500、393×800、1280×800通過綜合題唯一、0/1/2作答狀態、往返保答、草稿續作、第三實驗入口、部分提交10分、預測不計分反饋、31分失分、pending/mismatch及舊版review；實看320px截圖，無溢出／重疊／瀏覽器例外。最終無新問題，可交付。
+- 第三位review_synthesizer核對及彙總：R1-A cleared、R1-B cleared，必修／應修清單均空。兩位明確無新問題，停止條件成立；沒有未處理的已確認問題，不為審核而另改程式或重複部署，原Site維持v30。
+- 審核不構成真手機／真Moodle驗證；先前原分頁舊HTML與新JS混載尚未在獨立環境重現，本輪未檢查線上CDN快取，不升格為已證實普遍缺陷。
