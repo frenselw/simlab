@@ -469,12 +469,15 @@ async function graphPresentation(cdp,base,launch,label) {
  }
 }
 async function mobileSetup(cdp,base,launch,label) {
+ let apparatus;
  for(const [width,height] of [[320,500],[390,600],[393,734],[390,844]]) {
   await cdp.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:true});
   await cdp.send('Page.navigate',{url:base+launch});await ready(cdp);
+  const geometry=await H.evaluate(cdp,"document.getElementById('rotatingAssembly').innerHTML");
+  if(apparatus===undefined)apparatus=geometry;else assert.equal(geometry,apparatus,'all phone sizes share exactly the same apparatus SVG');
   for(let i=0;i<4;i++)await click(cdp,'[data-step="0:1"]');
   const meter=await rect(cdp,'.force-meter rect'),holder=await rect(cdp,'.weight-holder'),tray=await rect(cdp,'#weightTray'),token=await rect(cdp,'.mass-token.tray'),icon=await rect(cdp,'.mass-token.tray .washer');
-  assert.ok(meter.height>=20&&holder.height>=20,'instrument remains readable in a short phone viewport');
+  assert.ok(Math.abs(meter.width/meter.height-40/24)<.001&&holder.height>=16,'phone meters retain desktop proportions');
   assert.ok(tray.width<=112&&tray.height===44&&icon.width===22,'tray has a quieter compact appearance');
   assert.ok(token.width>=44&&token.height>=44,'tray retains its usable touch target');
   for(const side of ['A','B']) {
@@ -492,7 +495,7 @@ async function mobileSetup(cdp,base,launch,label) {
   fs.writeFileSync(path.join(root,'output/playwright',`centripetal-${label}-setup-proportions-${width}x${height}.png`),Buffer.from((await cdp.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
   await click(cdp,'[data-page="2"]');
   assert.equal(await H.evaluate(cdp,"document.querySelectorAll('.force-meter').length"),1);
-  assert.ok((await rect(cdp,'.force-meter rect')).height>=20,'A sensor remains prominent in the single-sensor experiment');
+  assert.equal(await H.evaluate(cdp,"document.querySelector('.force-meter rect').getAttribute('height')"),'24','single sensor uses the same slender body');
   assert.ok((await rect(cdp,'.counterweight')).width>0,'balance weight remains visible');
 
  }
@@ -500,6 +503,7 @@ async function mobileSetup(cdp,base,launch,label) {
   await cdp.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
   await cdp.send('Page.navigate',{url:base+launch});await ready(cdp);
   assert.equal(await H.evaluate(cdp,"document.getElementById('deviceSvg').getAttribute('viewBox')"),"80 45 440 370",'desktop and short viewport retain the original setup geometry');
+  assert.equal(await H.evaluate(cdp,"document.getElementById('rotatingAssembly').innerHTML"),apparatus,'phone and desktop apparatus drawings are identical at the same setting');
   if(width===1280)assert.equal((await rect(cdp,'#weightTray')).width,128,'phone tray styles do not affect desktop');
  }
 }

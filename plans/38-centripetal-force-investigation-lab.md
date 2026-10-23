@@ -1003,3 +1003,14 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 - 官方helper推送Site source b1982af70571343270e61a41ac23e75d28dee704；v22 appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_785c384730fc8191b6413e64ed2017ad，deployment appgdep_6adae69831a08191b80fd573d2f6a8d0，Sites回報succeeded（2026-10-23T04:46:23.028311+00:00），原owner-private audience保持。
 - 當前瀏覽器提供者變為Chrome，原IAB分頁不存在。原私人站先顯示登入閘，使用現有同一owner帳戶的正常登入後成功進入；沒有改公開權限。第一次等待頁面時工具timeout重置，重取同一分頁後程式正常載入。實際393×734核對新viewBox 80/90/440/292、較大中央儀器、細膠囊滑柄、較小砝碼盤；截圖C:/Users/frens/Documents/Projects/simlab/output/centripetal-phone-setup-v22.png。
 - 已恢復臨時viewport並保留設定頁供試用；未改分頁快取，臨時憑證已清除，測試server已結束。這是瀏覽器手機尺寸核對，非真手機或Moodle驗證。
+
+## 手機測力計恢復桌面比例（2026-10-23，取代v22器材變形）
+
+- 使用者指出手機測力計過肥且與桌面不同。中央器材統一使用桌面原有SVG幾何：測力計40×24上限、相同距離／內部刻度、14半徑托座及10半徑圓片，不再針對手機單獨加厚。保留手機縮短留白的viewBox、細滑柄及小砝碼盤。
+- 範圍main器材繪圖及既有mobileSetup外觀斷言；rv4／mv5、評分／手勢、依賴不變。四種手機、桌面及極短視窗比較同設定的整個rotatingAssembly SVG完全相同，並核對手機測力計寬高比、控件／標示邊界。來源及解壓SCORM均驗證；不重跑物理／儲存或全手勢。
+
+### 修長測力計驗證
+
+- focused來源及解壓SCORM檢查通過：320×500、390×600、393×734、390×844及1280×800／320×225。相同預設cfg的整個rotatingAssembly.innerHTML逐字一致；手機測力計寬高比與桌面40:24一致，單感應器頁亦用24高；仍核對細滑柄hit44、砝碼盤文字及標示不出舞台。螢幕尺寸比例斷言使用0.001容差處理DOM浮點精度。
+- main／browser driver語法通過，使用既有mobileSetup測試入口。僅器材外觀修正，不重跑物理、評分、保存與完整手勢回歸；真手機／Moodle未驗證。
+- SCORM17檔，16runtime與canonical sim及Site dist逐位元組相同；ZIP SHA-256：56d2d89eadac3c47b25d7e2e2bf55cb5ea4ccc70d62215a5547d39ba5cdab25f。

@@ -94,17 +94,17 @@
       const x = componentX(side, cfg[i]), direction = side === "A" ? 1 : -1, count = cfg[i + 2];
       const balance = single && side === "B";
       const colour = balance ? "#7c8c95" : side === "A" ? "#087c95" : "#a9662a", light = side === "A" ? "#e5f3f5" : "#fbf0df";
-      const meterWidth = Math.min(compact ? 48 : 40, Math.abs(x - 300) - (compact ? 28 : 23)), meterX = x - direction * ((compact ? 23 : 17) + meterWidth / 2);
+      const meterWidth = Math.min(40, Math.abs(x - 300) - 23), meterX = x - direction * (17 + meterWidth / 2);
       return `<g class="assembly" data-assembly="${side}" data-count="${count}" data-radius="${M.radius(cfg[i])}">
         <path class="apparatus-line" d="M300 230H${x}" stroke="${colour}" stroke-width="1.5"/>
         ${balance ? '' : `<g class="force-meter" aria-label="${side} 測力計">
-          <rect class="apparatus-line" x="${meterX - meterWidth / 2}" y="${compact ? 208 : 218}" width="${meterWidth}" height="${compact ? 44 : 24}" rx="3" fill="${single ? '#e0f4f7' : '#fff'}" stroke="${single ? colour : '#728994'}" stroke-width="${single ? 2 : 1.3}"/>
-          <rect x="${meterX - meterWidth * .32}" y="${compact ? 213 : 222}" width="${meterWidth * .64}" height="${compact ? 19 : 10}" rx="1.5" fill="#e4edef"/>
+          <rect class="apparatus-line" x="${meterX - meterWidth / 2}" y="218" width="${meterWidth}" height="24" rx="3" fill="${single ? '#e0f4f7' : '#fff'}" stroke="${single ? colour : '#728994'}" stroke-width="${single ? 2 : 1.3}"/>
+          <rect x="${meterX - meterWidth * .32}" y="222" width="${meterWidth * .64}" height="10" rx="1.5" fill="#e4edef"/>
           <path class="apparatus-line" d="M${meterX - meterWidth * .24} 237h${meterWidth * .48}M${meterX - meterWidth * .12} 235v4M${meterX} 235v4M${meterX + meterWidth * .12} 235v4" fill="none" stroke="#91a4ad" stroke-width=".8"/>
         </g>`}
-        ${balance ? `<rect class="counterweight apparatus-line" x="${x - 13}" y="216" width="26" height="28" rx="4" fill="#cbd5da" stroke="#8196a0" stroke-width="1"/><path class="apparatus-line" d="M${x-8} 223h16m-16 7h16m-16 7h16" stroke="#9baeb8" stroke-width="1"/>` : `<circle class="weight-holder apparatus-line" cx="${x}" cy="230" r="${compact ? 20 : 14}" fill="${light}" stroke="${colour}" stroke-width="1.5"/>
-        ${count ? `<circle class="weight-plate apparatus-line" cx="${x}" cy="230" r="${compact ? 15 : 10}" fill="#c4d0d6" stroke="#8196a0" stroke-width="1"/><circle cx="${x}" cy="230" r="3.5" fill="${light}"/>` : ''}`}
-        <g class="assembly-label" data-x="${setup && !balance ? meterX : x}" data-y="${setup ? 227 : 200}"><text x="${setup && !balance ? meterX : x}" y="${setup ? 230 : 205}" text-anchor="middle" fill="${colour}" font-size="${setup ? compact ? 12 / scale : 9 : labelFont}" font-weight="600">${side}</text></g>
+        ${balance ? `<rect class="counterweight apparatus-line" x="${x - 13}" y="216" width="26" height="28" rx="4" fill="#cbd5da" stroke="#8196a0" stroke-width="1"/><path class="apparatus-line" d="M${x-8} 223h16m-16 7h16m-16 7h16" stroke="#9baeb8" stroke-width="1"/>` : `<circle class="weight-holder apparatus-line" cx="${x}" cy="230" r="14" fill="${light}" stroke="${colour}" stroke-width="1.5"/>
+        ${count ? `<circle class="weight-plate apparatus-line" cx="${x}" cy="230" r="10" fill="#c4d0d6" stroke="#8196a0" stroke-width="1"/><circle cx="${x}" cy="230" r="3.5" fill="${light}"/>` : ''}`}
+        <g class="assembly-label" data-x="${setup && !balance ? meterX : x}" data-y="${setup ? 227 : 200}"><text x="${setup && !balance ? meterX : x}" y="${setup ? 230 : 205}" text-anchor="middle" fill="${colour}" font-size="${setup ? 9 : labelFont}" font-weight="600">${side}</text></g>
       </g>`;
     }).join("");
     const rulers = setup ? (single ? ["A"] : ["A", "B"]).map((side, i) => {
@@ -126,7 +126,7 @@
       const x = setup ? (i ? 190 : 410) : (i ? 455 : 145), y = setup ? compact ? (i ? 110 : 368) : (i ? 83 : 390) : 463, colour = i ? "#a45b24" : "#087c95";
       return `<g class="radius-annotation" data-radius-label="${side}">${mathReady ? CircuitMath.svg(x, y, spec, labelFont, `fill="${colour}"`) : `<text x="${x}" y="${y}" text-anchor="middle" font-size="${labelFont}">${spec.text}</text>`}</g>`;
     }).join("");
-    device.innerHTML = `${setup ? `<rect class="apparatus-line" x="98" y="${compact ? 198 : 202}" width="404" height="${compact ? 62 : 56}" rx="9" fill="#fff" stroke="#d7e3e7" stroke-width="1"/>` : `
+    device.innerHTML = `${setup ? '<rect class="apparatus-line" x="98" y="202" width="404" height="56" rx="9" fill="#fff" stroke="#d7e3e7" stroke-width="1"/>' : `
       <circle cx="300" cy="230" r="213" fill="none" stroke="#c49b52" stroke-width="9"/>
       <circle class="apparatus-line" cx="300" cy="230" r="196" fill="#fff" stroke="#d3e0e4" stroke-width="1"/>`}
       <g id="rotatingAssembly"><rect x="116" y="227" width="368" height="6" rx="3" fill="#dfe8ec"/>
