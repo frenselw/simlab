@@ -252,16 +252,36 @@
     $("saveRetryButton").hidden = !controller.editable || !controller.unsaved;
     document.querySelectorAll("[data-run-count]").forEach(node => { node.textContent = task().runs[Number(node.dataset.runCount)].q.length; });
   }
+  function renderFeedback() {
+    const report = S.feedback(state());
+    const rich = value => String(value).split(/\\\((.*?)\\\)/gs).map((part, i) => i % 2 ? math(part) : safe(part)).join("");
+    const items = entries => [...entries].sort((a, b) => Number(a.earned === a.max) - Number(b.earned === b.max)).map(entry => {
+      const correct = entry.earned === entry.max;
+      return `<details class="feedback-item ${correct ? 'correct' : 'needs-work'}" data-feedback-item="${entry.id}" ${correct ? '' : 'open'}>
+        <summary><span class="feedback-status">${safe(entry.status)} · ${entry.earned} / ${entry.max} 分</span><span>${rich(entry.title)}</span></summary>
+        <p><strong>${['configuration','coverage'].includes(entry.id) ? '你的紀錄' : '你的答案'}：</strong>${rich(entry.answer)}</p>
+        ${correct ? '' : `<p><strong>${['configuration','coverage','comparison','coefficient'].includes(entry.id) && ['未量測','未完成擬合','未達條件','轉速範圍不足','部分得分'].includes(entry.status) ? '得分條件' : '正確答案'}：</strong>${rich(entry.expected)}</p><p class="feedback-explanation">${rich(entry.explanation)}</p>`}
+      </details>`;
+    }).join("");
+    const synthesisScore = report.synthesis.reduce((sum, entry) => sum + entry.earned, 0);
+    $("feedback").innerHTML = `<p class="feedback-total">三個實驗各佔30分，綜合問題佔10分。<br>${report.pages.map(part => part.earned).join(' + ')} + ${synthesisScore} = <strong>${report.score} 分</strong></p>` +
+      report.pages.map((part, i) => `<details class="feedback-section" data-feedback-page="${i}" ${i === page() ? 'open' : ''}>
+        <summary><strong>${part.title}</strong><span>${part.earned} / 30${part.untouched ? ' · 未作答' : ''}</span></summary>
+        ${part.untouched ? '<p>本實驗尚未量測或作答，未取得這部分的分數。</p>' : part.earned < 30 ? `<p>本實驗有 ${30 - part.earned} 分未取得；失分項目已展開。</p>` : '<p>本實驗全部答對。</p>'}
+        ${items(part.items)}
+        ${part.runs.map((run, j) => `<details class="feedback-run" data-feedback-run="${j}" ${run.measured && run.earned < run.max ? 'open' : ''}><summary>${run.title}<span>${run.earned} / ${run.max}${run.measured ? '' : ' · 未量測'}</span></summary>${items(run.items)}</details>`).join('')}
+      </details>`).join('') + `<details class="feedback-section" data-feedback-synthesis ${synthesisScore < 10 ? 'open' : ''}><summary><strong>綜合問題</strong><span>${synthesisScore} / 10</span></summary>${items(report.synthesis)}</details>`;
+  }
   function render() {
     const s = state(), locked = !controller.editable, p = page(), v = view();
     $("app").dataset.view = v;
     const location = `${p}:${v}`;
     if (location !== lastLocation) { if (v === "collect") squaredGraph = false; $("controlPanel").scrollTop = 0; if (v === "analyse") graphOpen = true; lastLocation = location; }
-    $("attemptStatus").textContent = controller.mode === "review" ? "已提交 · 只讀" : controller.mode === "committed" ? "成績已記錄 · 待完成程序" : controller.mode === "frozen" ? "提交待確認" : controller.mode === "technical" || controller.mode === "mismatch" ? "狀態需核對" : "操作轉盤與同步量測";
+    $("attemptStatus").textContent = controller.mode === "review" ? "已提交 · 作答反饋" : controller.mode === "committed" ? "成績已記錄 · 待完成程序" : controller.mode === "frozen" ? "提交待確認" : controller.mode === "technical" || controller.mode === "mismatch" ? "狀態需核對" : "操作轉盤與同步量測";
     $("notice").hidden = !controller.notice && !localMessage; $("notice").textContent = localMessage || controller.notice;
     $("saveRetryButton").hidden = locked || !controller.unsaved;
     $("resultPanel").hidden = controller.editable || controller.mode === "technical" || controller.mode === "submitting";
-    $("reviewTitle").textContent = controller.mode === "frozen" ? "提交尚未確認" : controller.mode === "committed" ? "成績已記錄" : controller.mode === "mismatch" ? "已完成紀錄未能核對" : "只讀檢討";
+    $("reviewTitle").textContent = controller.mode === "frozen" ? "提交尚未確認" : controller.mode === "committed" ? "成績已記錄" : controller.mode === "mismatch" ? "已完成紀錄未能核對" : "作答反饋";
     $("scorePanel").textContent = controller.result?.score === null || controller.result?.score === undefined ? "— · 成績尚未確認" : `${controller.result.score} / 100 · ${SimActivityFlow.completionLabel(controller.result.passed)}`;
     $("retryFinalButton").hidden = !["frozen", "committed"].includes(controller.mode);
     $("retryFinalButton").textContent = controller.mode === "committed" ? "重試完成程序" : "重試同一份提交";
@@ -356,7 +376,7 @@
     setSelect("law", p < 2 ? [["linear", "兩個比值相等"], ["square", "前者等於後者的平方"], ["inverse", "前者等於後者的倒數"], ["none", "沒有固定關係"]] : lawOptions, t.law, !editing);
     $("syncAnswer").value = s.sync || ""; $("massPartsAnswer").value = s.massParts || "";
     $("syncAnswer").disabled = !editing; $("massPartsAnswer").disabled = !editing;
-    $("clearTaskButton").disabled = !editing;
+    $("clearTaskButton").disabled = !editing; $("clearTaskButton").hidden = locked;
     const canOperate = editing && v === "collect";
     $("spinTargets").hidden = !canOperate;
     for (const button of document.querySelectorAll(".radius-handle,.mass-token")) button.hidden = !editing || v !== "setup" || p === 2 && (button.dataset.side === "B" || button.dataset.mass === "B");
@@ -368,10 +388,7 @@
       $("checkSummary").innerHTML = s.tasks.map((item, i) => `<div class="check-row"><strong>實驗 ${i + 1} · ${titles[i]}</strong>${[0,1].map(index => { const r = item.runs[index]; return `<small>${runNames[index]}：${r?.q.length ? r.q.length + " 個量測點" : "未量測"} · ${r?.fit ? "已擬合" : "未擬合"} · 作答 ${r?.a.slice(0, s.rv >= 6 ? 2 : 3).filter(a => a !== null && a !== "").length || 0}/${s.rv >= 6 ? 2 : 3}</small>`; }).join("")}<small>結論 ${item.law === null ? "未答" : "已答"}</small></div>`).join("") + `<div class="check-row">綜合問題：${[s.sync, s.massParts].filter(Boolean).length} / 2 已答</div>`;
       $("submitButton").disabled = !controller.editable || controller.unsaved;
     }
-    if (!$("feedbackPanel").hidden) {
-      const result = controller.result;
-      $("feedback").innerHTML = result?.detail?.pages ? result.detail.pages.map((part, i) => `<p>實驗 ${i + 1}：${part.score} / 30。${part.runs ? part.runs.map((r, j) => `${runNames[j]}：${r.score / 2} / 9。`).join(" ") : ""}${i === 2 ? `理想關係 ${math('F_A=m_A r_A\\omega^2', 'A 側徑向力公式')}；二次係數是 ${math('m_A r_A', '質量與半徑的乘積')}。` : i === 0 ? `同時刻兩側 ${math('\\omega', '角速度')} 相同；公平比較時 ${math('F_A/F_B=r_A/r_B', '兩側徑向力與半徑比相等')}。` : `同時刻兩側 ${math('\\omega', '角速度')} 相同；公平比較時 ${math('F_A/F_B=m_A/m_B', '兩側徑向力與質量比相等')}。`}</p>`).join("") : "";
-    }
+    if (!$("feedbackPanel").hidden) renderFeedback();
     drawDevice(); drawGraph();
     renderMotion(true); layoutTargets();
   }

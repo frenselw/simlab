@@ -1112,3 +1112,18 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 - 官方helper推送Site source 000a8c595353ade22ee3e616159fd1c3f0480859；v27 appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_79a4012e153081919e81e3668e9efd91，deployment appgdep_6adb10246ce081919168883141074275，Sites回報succeeded（2026-10-23T07:43:39.568734+00:00），原owner-private audience保持。
 - 原站實際量測第一組，轉到第二組設定確認「請先改變第二組設定」禁用及說明可見。增加A半徑後可量測第二組；收集3點後新提示「下一步：分析第二組數據」可見，按後正確顯示第二組分析標題，係數問題isVisible=false。實際Network response確認scoring載入rv6判準，不再要求已刪題目。兩組均未代填答案或提交。
 - 截圖C:/Users/frens/Documents/Projects/simlab/output/centripetal-second-analysis-v27.png；已開回第二組收集頁並捲至新分析按鈕供試用。暫時快取設定恢復、未改viewport，分頁標記保留；測試server已關閉、臨時憑證已清除。真手機與真Moodle未驗證。
+
+
+## 逐項作答反饋（2026-10-23，動工前決策）
+
+- 把「只讀檢討」改為「作答反饋」，置於提交結果之後、原作答表單之前。顯示三項實驗各30分及綜合問題10分的組成；實驗及兩組數據可展開，逐項列出實得分、作答／操作紀錄、正確答案或達標條件、失分原因。未作答和未量測分開標示，不能把未做部分稱為答錯。已完成時隱藏清除按鈕。
+- 由scoring內現行同一評分條件產生診斷，包含設定、預測、量測配置、轉速範圍、計算、圖像判斷、一般關係及綜合題；rv1–5保留當時的題目／計分，rv6不再出現係數意義題。不改rv6/mv5、權重、快照或SCORM提交生命週期；反饋不保存至快照，只在可信review/committed顯示。
+- 驗證34分兩種不同失分位置、錯答與未答、部分分、未擬合、各歷史版本反饋加總等於評分、空白與滿分。沿用既有node與browser入口，來源與解壓SCORM測320/393/1280px，確認提交前及未確認提交不透露答案、正式提交後反饋可讀及仍鎖定。check/check:tests、committed selection、套件與Site runtime一致後更新原私人網站。
+
+
+### 作答反饋驗證
+
+- 五項node測試通過。兩種同為34分的作答分別指出一般關係0/6，或設定及預測各0/3；兩組數據均9/9，三部分24+0+0及綜合10合計34。錯答／未答、範圍部分分、未擬合、角速度保持量部分分、rv1–6空白與100分及逐項加總一致通過；rv6不出現已刪除的係數題，舊版保留原評分。保存容量3403/3440/3808 bytes不變。
+- 來源及解壓SCORM於320×500、393×800、1280×800通過真實shared SCORM草稿還原、檢查、提交34分、反饋置頂、錯誤項目自動展開、LaTeX、各組9/9、未作答區分、收合／展開、切換實驗與答案鎖定；pending及分數不符紀錄不顯示答案，rv5完成紀錄顯示原題且原分不變。畫面無橫向溢出或瀏覽器例外。另修正手機hidden被display覆蓋，提交後檢查按鈕正確隱藏。
+- check及check:tests（263 entries）通過。第一次check欠NODE_PATH未找到既有fast-xml-parser，設定既有依賴路徑後成功；無新增依賴。browser初版fixture小數長度超過保存格式已修正，加入P.validate先驗資料，不改產品驗證。
+- SCORM17檔、16runtime與canonical sim及Site dist逐位元組一致；ZIP SHA-256 ae124e75e1346a40cdcd418e29ebbf614b2d2e409828d53fc95f820c881b5b5a。沿用既有測試入口；未重跑未改動的完整轉動效能測試，真手機及真Moodle未驗證。

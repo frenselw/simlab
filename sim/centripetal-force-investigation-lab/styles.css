@@ -215,6 +215,7 @@ h3 { font-size: 1.05rem; margin-bottom: 8px; }
 }
 
 .mobile-experiment, .mobile-check { display: none; }
+#mobileCheckButton[hidden] { display: none; }
 .collect-help { border-top: 1px solid #d9e4e8; padding: 6px 0; }
 .collect-help summary { cursor: pointer; font-size: .9rem; min-height: 32px; padding: 5px 0; }
 .sampling-guide { display: inline-block; margin: 0; padding: 1px 5px; border: 0; border-radius: 5px; font-size: .75rem; line-height: 1.4; }
@@ -282,3 +283,20 @@ h3 { font-size: 1.05rem; margin-bottom: 8px; }
 #setupTitle { scroll-margin-top: 76px; }
 
 #setupPanel > #setupTitle.second-run { display: block; }
+
+/* The result explains each earned mark; successful items stay compact. */
+#scorePanel { font-size: 1.3rem; font-weight: 700; margin-bottom: 8px; }
+.feedback-total { color: #465a69; line-height: 1.65; }
+.feedback-section { border: 1px solid #c5d7df; border-radius: 10px; margin-bottom: 12px; padding: 0 10px 8px; }
+.feedback-section > summary, .feedback-run > summary { cursor: pointer; min-height: 44px; padding: 10px 0; }
+.feedback-section > summary > span, .feedback-run > summary > span { display: block; margin-left: 18px; color: #465a69; font-variant-numeric: tabular-nums; }
+.feedback-section > p { font-size: .92rem; line-height: 1.55; }
+.feedback-item { border-top: 1px solid #e0e9ee; padding: 6px 0; }
+.feedback-item summary { cursor: pointer; padding: 6px 0; min-height: 44px; line-height: 1.5; }
+.feedback-item summary > span:last-child { display: block; font-weight: 600; }
+.feedback-status { font-size: .88rem; color: #476577; }
+.needs-work .feedback-status { color: #99521c; }
+.feedback-item p { margin: 8px 0; line-height: 1.65; overflow-wrap: anywhere; }
+.feedback-explanation { border-left: 3px solid #cf9b5b; padding-left: 9px; color: #465a69; }
+.feedback-run { border-top: 1px solid #c5d7df; }
+#feedback summary:focus-visible { outline: 3px solid #e9a83f; outline-offset: 2px; }

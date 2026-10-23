@@ -789,6 +789,61 @@ async function lowSpeedFeedback(cdp, base, launch) {
   assert.match(await H.evaluate(cdp,"document.getElementById('measurementHint').textContent"),/轉速太低/);
   assert.equal(await H.evaluate(cdp,'window.__centripetalApp.getMotion().measuring'),true,'low speed does not disarm measurement');
 }
+async function feedbackPresentation(cdp, base, launch, label) {
+ const M=require('../sim/centripetal-force-investigation-lab/model.js'),P=require('../sim/centripetal-force-investigation-lab/persistence.js'),S=require('../sim/centripetal-force-investigation-lab/scoring.js');
+ const fixture=M.fresh(628),task=fixture.tasks[0];fixture.view='analyse';
+ task.inquiry=['equal-mass','ratio-steady'];task.law='inverse';
+ for(const cfg of [[2,2,2,2],[4,2,2,2]]) {task.work=cfg;M.begin(task);for(const w of [1,2,3])M.record(task,w);M.fitCurrent('radius',task);task.runs[task.current].a=[String(Number((M.radius(cfg[0])/M.radius(cfg[1])).toFixed(4))),'supports',null];}
+ fixture.sync='same-omega';fixture.massParts='cap-screw-weights';assert.equal(S.score(fixture).score,34);
+ async function load(answer,kind,status,score) {
+  P.validate(answer,kind==='draft'?'draft':'review');
+  const snapshot={version:1,activity:P.ACTIVITY,kind,answer:P.encode(answer),...(kind==='review'?{score,passed:false}:{})};
+  if(kind==='pending-final'){snapshot.payload={reviewJson:JSON.stringify({...snapshot,kind:'review',score,passed:false}),score,maxScore:100,passed:false};delete snapshot.answer;}
+  const values={'cmi.core.lesson_status':status,'cmi.core.score.raw':String(score??''),'cmi.suspend_data':JSON.stringify(snapshot)};
+  const preload=await cdp.send('Page.addScriptToEvaluateOnNewDocument',{source:`(()=>{const values=${JSON.stringify(values)};window.API={LMSInitialize:()=>'true',LMSFinish:()=>'true',LMSCommit:()=>'true',LMSGetValue:k=>values[k]||'',LMSSetValue:(k,v)=>(values[k]=String(v),'true'),LMSGetLastError:()=>'0',LMSGetErrorString:()=>'',LMSGetDiagnostic:()=>''};})();`});
+  try {await cdp.send('Page.navigate',{url:base+launch});for(let n=0;n<100;n++){if(await H.evaluate(cdp,'Boolean(window.__centripetalApp)'))break;if(n===99)throw Error('Feedback fixture did not load');await pause(50);}} finally {await cdp.send('Page.removeScriptToEvaluateOnNewDocument',{identifier:preload.identifier});}
+ }
+ for(const width of [320,393,1280]) {
+  await cdp.send('Emulation.setDeviceMetricsOverride',{width,height:width===320?500:800,deviceScaleFactor:1,mobile:width<900});
+  const answer=M.clone(fixture);if(width===393)answer.tasks[0].law=null;
+  await load(answer,'draft','incomplete');
+  assert.equal(await H.evaluate(cdp,"document.getElementById('feedbackPanel').hidden"),true,'draft does not show correct answers');
+  await click(cdp,'#checkButton');
+  assert.equal(await H.evaluate(cdp,"document.getElementById('feedbackPanel').hidden"),true,'check is not answer feedback');
+  await click(cdp,'#submitButton');
+  const info=await H.evaluate(cdp,`(()=>{const p=document.querySelector('[data-feedback-page="0"]'),item=p.querySelector('[data-feedback-item="law"]');return {title:document.getElementById('reviewTitle').textContent,score:document.getElementById('scorePanel').textContent,total:document.querySelector('.feedback-total').textContent,law:item.textContent,open:item.open,hidden:document.getElementById('feedbackPanel').hidden,clear:document.getElementById('clearTaskButton').hidden,overflow:document.getElementById('controlPanel').scrollWidth-document.getElementById('controlPanel').clientWidth,top:document.getElementById('controlPanel').scrollTop,formula:item.querySelectorAll('.math-inline').length,runs:[...p.querySelectorAll('.feedback-run>summary')].map(e=>e.textContent),legacy:document.querySelectorAll('[data-feedback-item="coefficient"]').length};})()`);
+  assert.equal(await H.evaluate(cdp,"getComputedStyle(document.getElementById('mobileCheckButton')).display"),'none','recorded attempt has no inert check button');
+  assert.equal(info.title,'作答反饋');assert.match(info.score,/34 \/ 100/);assert.match(info.total,/24 \+ 0 \+ 0 \+ 10 = 34/);
+  assert.match(info.law,width===393?/未作答/:/需修正/);assert.match(info.law,/正確答案：兩個比值相等/);assert.ok(info.open&&!info.hidden&&info.clear);
+  assert.ok(info.formula>0,'feedback physics uses rendered LaTeX');assert.equal(info.legacy,0);assert.ok(info.overflow<=1,JSON.stringify(info));assert.ok(info.top<=1,'feedback is at the top immediately after submission');
+  assert.ok(info.runs.every(t=>t.includes('9 / 9')));
+  assert.match(await H.evaluate(cdp,'document.querySelector(\'[data-feedback-page="1"]>summary\').textContent'),/0 \/ 30 · 未作答/);
+  await click(cdp,'[data-feedback-page="0"] [data-feedback-item="law"]>summary');
+  assert.equal(await H.evaluate(cdp,'document.querySelector(\'[data-feedback-page="0"] [data-feedback-item="law"]\').open'),false);
+  await click(cdp,'[data-feedback-page="0"] [data-feedback-item="law"]>summary');
+  await H.evaluate(cdp,"document.querySelector('[data-feedback-page=\"0\"] [data-feedback-item=\"law\"]').scrollIntoView({block:'start'})");
+  fs.mkdirSync(path.join(root,'output/playwright'),{recursive:true});
+  fs.writeFileSync(path.join(root,'output/playwright',`centripetal-feedback-${label}-${width}.png`),Buffer.from((await cdp.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
+  await click(cdp,'[data-page="1"]');
+  assert.equal(await H.evaluate(cdp,'document.querySelector(\'[data-feedback-page="1"]\').open'),true);
+  assert.equal(await H.evaluate(cdp,"document.getElementById('numericAnswer').disabled"),true);
+  assert.deepEqual(await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[0].runs'),answer.tasks[0].runs,'feedback navigation preserves all measurements and answers');
+ }
+ // Shared SCORM resume: only confirmed, reconciled records may reveal feedback.
+ const review=P.review(fixture);
+ await load(review,'pending-final','incomplete',34);
+ assert.equal(await H.evaluate(cdp,"document.getElementById('feedbackPanel').hidden"),true);
+ assert.match(await H.evaluate(cdp,"document.getElementById('reviewTitle').textContent"),/提交尚未確認/);
+ await load(review,'review','failed',35);
+ assert.equal(await H.evaluate(cdp,"document.getElementById('feedbackPanel').hidden"),true);
+ assert.match(await H.evaluate(cdp,"document.getElementById('reviewTitle').textContent"),/未能核對/);
+ review.rv=5;const oldScore=S.score(review).score;
+ await load(review,'review','failed',oldScore);
+ assert.equal(await H.evaluate(cdp,"document.getElementById('feedbackPanel').hidden"),false);
+ assert.ok(await H.evaluate(cdp,"document.querySelectorAll('[data-feedback-item=coefficient]').length>0"),'old completed attempt keeps its old question feedback');
+ assert.match(await H.evaluate(cdp,"document.getElementById('scorePanel').textContent"),new RegExp(`${oldScore} / 100`));
+ console.log(`${label}: feedback 34-point, blank/wrong, mobile/desktop, frozen/mismatch and legacy review passed`);
+}
 async function main() {
   const browser = H.findBrowser(); if (!browser) throw Error("Chrome/Chromium not found");
   const profile = fs.mkdtempSync(path.join(tempRoot, "simlab-position-time-chrome-"));
@@ -801,6 +856,7 @@ async function main() {
     const errors = []; cdp.on("Runtime.exceptionThrown", event => errors.push(event.exceptionDetails?.exception?.description || event.exceptionDetails?.text));
     server = H.createServer(root); await H.listenServer(server);
     const sourceBase = `http://127.0.0.1:${server.address().port}`;
+    await feedbackPresentation(cdp,sourceBase,`/sim/${slug}/index.html`,"source");
     await mobileSetup(cdp,sourceBase,`/sim/${slug}/index.html`,"source");
     await graphPresentation(cdp,sourceBase,`/sim/${slug}/index.html`,"source");
     await mobileSpace(cdp,sourceBase,`/sim/${slug}/index.html`,"source");
@@ -817,6 +873,7 @@ async function main() {
     await H.closeServer(server); server = null;
     const extracted = H.buildAndExtractPackage(tempRoot, { slug }); packageDirectory = extracted.packageDirectory;
     server = H.createServer(packageDirectory); await H.listenServer(server);
+    await feedbackPresentation(cdp,`http://127.0.0.1:${server.address().port}`,extracted.activityPath,"package");
     await mobileSetup(cdp,`http://127.0.0.1:${server.address().port}`,extracted.activityPath,"package");
     await graphPresentation(cdp,`http://127.0.0.1:${server.address().port}`,extracted.activityPath,"package");
     await mobileSpace(cdp,`http://127.0.0.1:${server.address().port}`,extracted.activityPath,"package");

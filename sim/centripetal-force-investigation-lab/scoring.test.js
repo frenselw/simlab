@@ -119,3 +119,69 @@ for(const page of [0,1,2]) {
  r.a[1]=null;assert.equal(S.page(state,page).runs[0].fitScore,0);
  r.a[1]=page===2?"square":"supports";r.fit=false;assert.equal(S.page(state,page).runs[0].fitScore,0);
 }
+
+
+// Feedback must explain the authoritative marks, including historical attempts.
+function feedbackTotal(state) {
+ const report=S.feedback(state);let sum=0;
+ for(const page of report.pages) {
+  let pageSum=page.items.reduce((n,item)=>n+item.earned,0);
+  for(const run of page.runs) {
+   assert.equal(run.items.reduce((n,item)=>n+item.earned,0),run.earned);
+   assert.equal(run.items.reduce((n,item)=>n+item.max,0),run.max);
+   pageSum+=run.earned;
+  }
+  assert.equal(pageSum,page.earned);sum+=pageSum;
+ }
+ sum+=report.synthesis.reduce((n,item)=>n+item.earned,0);
+ assert.equal(sum,S.score(state).score);assert.equal(report.score,sum);
+ return report;
+}
+const marked=M.fresh(628),mt=marked.tasks[0];
+mt.inquiry=["equal-mass","ratio-steady"];mt.law="inverse";
+for(const cfg of [[2,2,2,2],[4,2,2,2]]) {
+ mt.work=cfg;assert.equal(M.begin(mt),true);
+ for(const w of [1,2,3])M.record(mt,w);M.fitCurrent("radius",mt);
+ mt.runs[mt.current].a=[String(M.radius(cfg[0])/M.radius(cfg[1])),"supports",null];
+}
+marked.sync="same-omega";marked.massParts="cap-screw-weights";
+let report=feedbackTotal(marked);
+assert.equal(report.score,34);assert.deepEqual(report.pages.map(p=>p.earned),[24,0,0]);
+assert.deepEqual(report.pages[0].runs.map(r=>r.earned),[9,9]);
+assert.deepEqual(report.pages[0].items.filter(x=>x.earned<x.max).map(x=>x.id),["law"]);
+assert.equal(report.pages[0].items[2].answer,"前者等於後者的倒數");
+assert.equal(report.pages[0].items[2].expected,"兩個比值相等");
+assert.equal(report.pages[0].items[2].status,"需修正");
+assert.match(report.pages[0].items[2].explanation,/\\\(F_A\/F_B=r_A\/r_B\\\)/);
+assert.equal(report.pages[1].untouched,true);
+assert.equal(report.pages[0].runs[0].items.some(x=>x.id==="coefficient"),false);
+mt.law=null;assert.equal(feedbackTotal(marked).pages[0].items[2].status,"未作答");
+mt.law="linear";mt.inquiry=["equal-force","forces-steady"];
+report=feedbackTotal(marked);assert.equal(report.score,34);
+assert.deepEqual(report.pages[0].items.filter(x=>x.earned<x.max).map(x=>x.id),["setup","prediction"]);
+mt.runs[0].q=[500,1000];mt.runs[0].fit=false;
+report=feedbackTotal(marked);
+assert.equal(report.pages[0].runs[0].items[1].earned,1);
+assert.equal(report.pages[0].runs[0].items[1].status,"部分得分");
+assert.equal(report.pages[0].runs[0].items[3].status,"未完成擬合");
+assert.match(report.pages[0].runs[0].items[3].explanation,/尚未進行擬合/);
+marked.tasks[2].roles=["omega",["m"]];
+assert.equal(feedbackTotal(marked).pages[2].items[1].status,"部分得分");
+for(const rv of [1,2,3,4,5,6]) {
+ const version=M.clone(marked);version.rv=rv;
+ feedbackTotal(version);const empty=M.fresh(629);empty.rv=rv;
+ assert.equal(feedbackTotal(empty).score,0);
+ for(let i=0;i<3;i++) {
+  const t=version.tasks[i];t.runs=[];t.current=null;t.selected=null;
+  t.roles=[["r","m","omega"][i],[["m","omega"],["r","omega"],["m","r"]][i]];
+  t.inquiry=[i===0?"equal-mass":"equal-radius","ratio-steady"];t.law=i===2?"square":"linear";
+  for(let j=0;j<2;j++) {
+   t.work=i===0?[4+j,2,2,2]:i===1?[2,2,4+j,2]:[2+j,2,2,2];
+   assert.ok(M.begin(t));for(const w of [1,2,3])M.record(t,w);M.fitCurrent(M.KINDS[i],t);
+   const run=t.runs[j];run.a=[String(i===0?M.radius(run.cfg[0])/M.radius(run.cfg[1]):i===1?M.mass(run.cfg[2])/M.mass(run.cfg[3]):4),i===2?"square":"supports","coefficient"];
+  }
+ }
+ assert.equal(feedbackTotal(version).score,100);
+ if(rv<6)assert.ok(S.feedback(version).pages[0].runs[0].items.some(x=>x.id==="coefficient"));
+}
+console.log("centripetal item feedback totals and 34-point diagnoses ok");
