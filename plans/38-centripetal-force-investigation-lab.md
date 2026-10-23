@@ -948,3 +948,9 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 - focused來源及解壓SCORM瀏覽器檢查通過：320×500、393×734、1280×800，線性、二次及角速度平方擬合path有效，畫在所有圖點之後，固定3px螢幕線寬；結果公式沒有RMSE／均方根誤差。來源與包均實際量得超過96點，密集點擬合仍通過；數據提交保留所有量測。無瀏覽器例外。
 - 瀏覽器截圖確認橙線清楚穿過藍點，output/playwright/centripetal-{source,package}-visible-fit-*.png及96-points-390x600.png。main及driver語法、check:tests（263 entries）通過；新斷言納入既有driver，無新入口。沒有重跑完整拖動／保存與真手機／Moodle。
 - SCORM17檔，16個runtime與canonical sim及Site dist逐位元組相同；ZIP SHA-256：bc809f5ab007902afd45f3fb6b4ddaa426b3408362240670d096410706896bcf。數據、擬合計算、mv5及rv3未改。
+
+### 擬合線 Site v20 交付
+
+- 功能commit 61ca8d523384b91f38969591f0572d69afa3f5e3已推至origin；committed selection由2e4820c起算，mode=affected、packages僅本活動，output/centripetal-fit-visibility-selection.json。
+- 官方helper推送Site source f0f737306ebc19c149fabe46768220b3b6d88a91；v20 appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_4cfc3825098c8191a0104fbc56afee8c，deployment appgdep_6adacb8a57408191ab50fe956754f2f7，Sites回報succeeded（2026-10-23T02:50:56.643605+00:00）；原owner-private audience保持。
+- 原站reload後實際推轉、量測26點及擬合；橙線清楚在藍點上方，公式為F_A=1F_B+0N，沒有RMSE。已開回擬合圖並保留可操作分頁，截圖C:/Users/frens/Documents/Projects/simlab/output/centripetal-fit-v20.png。暫時分頁快取設定已恢復，未改viewport，臨時憑證已清除。未重跑完整旋轉手勢／保存或真手機／Moodle。
