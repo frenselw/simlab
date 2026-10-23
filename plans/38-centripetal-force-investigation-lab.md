@@ -931,3 +931,9 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 - focused browser source及解壓SCORM檢查通過（320×500、393×734、1280×800）：開始／暫停按鈕切換及啟用／停用文字對比≥4.5；點數與足夠提示同一列並不碰按鈕；簡短說明預設收起。力–力、正負角速度及角速度平方圖的SVG端點與marker皆核對為向右／向上。無瀏覽器例外。截圖output/playwright/centripetal-{source,package}-graph-*.png。
 - main／browser driver語法及check:tests通過（263 entries）。變更已連同既有browser driver登記，不新增測試入口；沒有重跑完整旋轉／保存與真機Moodle。
 - 重建SCORM17檔，16個runtime與canonical sim及Site dist逐位元組相同；ZIP SHA-256：004ebba470e2439cdb4b6f7da5665112f36610e5f08374b166d42bf740ff8439。rv3／mv5及運動實現未改。
+
+### 圖表工具列 Site v19 交付
+
+- 功能commit 76906fdfadafb84f449998be33f3a82dbe5e0cfa已推至origin；committed selection由6e5fdcb起算，mode=affected、packages僅本活動，output/centripetal-graph-controls-selection.json。第一次selection漏設NODE_PATH，改用現有workspace依賴後成功，沒有新增依賴。
+- 官方helper推送Site source 3dd6d11753cf05ec49db69b635be04b885e71276；v19 appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_f0fe46a96e008191b835314f5fef448c，deployment appgdep_6adac6730a848191932c8199274b5613，Sites回報succeeded（2026-10-23T02:29:14.480574+00:00）；原owner-private audience保持。
+- 原站reload確認新簡短說明，實際以鍵盤推轉、按開始測量及按住減速新增13點；「13點 ✓足夠」同列，開始／暫停測量是清楚實色按鈕，右／上箭頭可見。截圖C:/Users/frens/Documents/Projects/simlab/output/centripetal-graph-v19.png；保留量測頁可繼續操作。暫時分頁快取設定已恢復，本次沒有改viewport，臨時憑證已清除。未重跑全手勢回歸及真手機／Moodle。
