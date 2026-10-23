@@ -1056,3 +1056,11 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 - 原手機CSS隱藏所有setupPanel標題，初次焦點測試抓到此問題；第二組標題加明確可見樣式後，鍵盤焦點及sticky導覽下方定位均通過。另執行既有equalRadiusComparison於1280及390px來源／套件：兩組1:1仍合法並取得30分、第一組答案可返回、提交後唯讀且無下一組入口。
 - lifecycle、check:tests（263 entries）、語法及diff檢查通過；既有圖像／擬合／答案保留檢查亦通過，瀏覽器無例外。沒有新增snapshot狀態或評分規則；未重跑全手勢與真手機／Moodle。
 - SCORM17檔，16runtime與canonical sim及Site dist逐位元組相同；ZIP SHA-256：93fd4df5e8ea60a1d2db79d12e0ea60a773d5fbf75d454c8aef21463207f0a70。
+
+
+### 第二種情況引導 Site v25 交付
+
+- 功能commit 1da71d3cec9fbba35450ddfc8f295a173a5f1278已推至origin；committed selection由6a30d64起算，mode=affected、packages僅本活動，output/centripetal-next-run-selection.json。
+- 官方helper推送Site source e64b7b273a7643b550cec5bc2f8c3ca4a7f9d947；v25 appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_133e146cfecc81918e42330a5635a9b3，deployment appgdep_6adaffe457bc8191b6d8b1406636baac，Sites回報succeeded（2026-10-23T06:34:19.182421+00:00），原owner-private audience保持。
+- 原站重新載入，實際推轉／減速量測13點，按新接續按鈕進分析及擬合；畫面明示「下一步：量測第二種情況」及「改設定，量測第二組」，再按後直接定位「第二組：設定另一種情況」與半徑比例指引，第一組13點仍保留。未代填答案或提交，開在第二組設定供試用。
+- 截圖C:/Users/frens/Documents/Projects/simlab/output/centripetal-next-run-v25.png及centripetal-second-setup-v25.png。臨時快取設定已恢復，本輪未改viewport；分頁保留、憑證已清除、測試server已關閉。真手機及真Moodle未驗證。
