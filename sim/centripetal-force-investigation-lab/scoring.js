@@ -44,7 +44,7 @@
       kind === "mass" ? M.mass(run.cfg[2]) / M.mass(run.cfg[3]) : 4 : null;
     const numericScore = ratio !== null && near(run.a[0], ratio) ? 4 : 0;
     const actualFit = run?.fit ? M.fit(kind, run) : null;
-    const fitScore = !actualFit?.ok ? 0 : kind === "omega" ?
+    const fitScore = !actualFit?.ok ? 0 : rv >= 6 ? (run.a[1] === comparison(kind, run, rv) ? 6 : 0) : kind === "omega" ?
       (run.a[1] === "square" ? 3 : 0) + (run.a[2] === "coefficient" ? 3 : 0) :
       (run.a[1] === comparison(kind, run, rv) ? 3 : 0) +
       (run.a[2] === ((rv >= 5 ? matchingRatio(kind, run) : fair(kind, run, rv)) ? "coefficient" : "uncertain") ? 3 : 0);

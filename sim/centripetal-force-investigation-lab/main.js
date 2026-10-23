@@ -280,10 +280,10 @@
     $("setupTitle").classList.toggle("second-run", needsSecondRun);
     $("setupTitle").textContent = needsSecondRun ? "第二組：設定另一種情況" : "設定器材";
     if (needsSecondRun) $("setupHelp").textContent = secondRunHints[p];
-    $("nextRunPanel").hidden = !editing || !needsSecondRun || !["collect", "analyse"].includes(v);
-    $("nextRunTitle").textContent = v === "collect" ? "本實驗要量測兩種情況" : "下一步：量測第二種情況";
-    $("nextRunHint").textContent = v === "collect" ? "先擬合及回答第一組，再改設定測第二組。" : secondRunHints[p] + " 第一組數據及答案會保留。";
-    $("nextRunButton").textContent = v === "collect" ? "分析第一組，再測第二組 →" : "改設定，量測第二組 →";
+    $("nextRunPanel").hidden = !editing || !(v === "collect" && run || v === "analyse" && needsSecondRun);
+    $("nextRunTitle").textContent = v === "collect" ? needsSecondRun ? "本實驗要量測兩種情況" : `下一步：分析${runNames[t.current]}` : "下一步：量測第二種情況";
+    $("nextRunHint").textContent = v === "collect" ? needsSecondRun ? "先擬合及回答第一組，再改設定測第二組。" : "量測完成後，請擬合本組圖點並回答分析問題。" : secondRunHints[p] + " 第一組數據及答案會保留。";
+    $("nextRunButton").textContent = v === "collect" ? needsSecondRun ? "分析第一組，再測第二組 →" : `分析${runNames[t.current]} →` : "改設定，量測第二組 →";
     $("graphTitle").textContent = s.rv >= 4 && run ? `${runNames[t.current ?? reviewRun[p] ?? t.selected ?? 0]}／共兩組` : p === 2 ? "A 側徑向力與角速度" : "同步量測圖";
     $("taskNumber").textContent = `實驗 ${p + 1} / 3`; $("taskTitle").textContent = titles[p]; $("taskPrompt").textContent = prompts[p] + (s.rv >= 4 ? " 請量測兩組數據，分別擬合及作答；兩組均計分。" : "");
     $("setupPanel").hidden = v !== "setup"; $("collectPanel").hidden = v !== "collect"; $("analysePanel").hidden = v !== "analyse";
@@ -319,14 +319,16 @@
     ["rAValue", "rBValue"].forEach((id, i) => { $(id).innerHTML = math(`r_${i ? 'B' : 'A'}=${M.radius(cfg[i]).toFixed(2)}\\,\\mathrm{m}`, `${M.radius(cfg[i]).toFixed(2)} m`); });
     ["mAValue", "mBValue"].forEach((id, i) => { $(id).innerHTML = `${cfg[i + 2] ? cfg[i + 2] + ' 塊' : '空托座'}<small>${math(`m_${i ? 'B' : 'A'}=${M.mass(cfg[i + 2]).toFixed(3)}\\,\\mathrm{kg}`, `${M.mass(cfg[i + 2]).toFixed(3)} kg`)}</small>`; });
     for (const button of document.querySelectorAll("[data-step]")) { const [field, delta] = button.dataset.step.split(":").map(Number); button.disabled = !editing || v !== "setup" || cfg[field] + delta < 0 || cfg[field] + delta > (field < 2 ? 6 : 8); }
-    $("startButton").disabled = !editing || t.runs.length >= 2;
+    const duplicateSetup = t.runs.length === 1 && !M.distinctSetup(t), duplicateRedo = t.current !== null && !M.distinctSetup(t, t.current);
+    $("startButton").disabled = !editing || t.runs.length >= 2 || duplicateSetup;
     $("startButton").textContent = t.runs.length ? `準備${runNames[1]} →` : `準備${runNames[0]} →`;
     if (t.runs.length >= 2) $("startButton").textContent = "已建立兩組數據";
+    else if (duplicateSetup) $("startButton").textContent = "請先改變第二組設定";
     $("setupRunNote").hidden = !t.runs.length;
-    $("setupRunNote").textContent = t.runs.length >= 2 ? "已保留兩組。可繼續原組，或清除目前組並按新設定重做。" : "第一組數據及答案會保留，第二組會另外記錄。";
+    $("setupRunNote").textContent = duplicateSetup || duplicateRedo ? "設定與另一組完全相同；請先改變半徑或砝碼數量。" : t.runs.length >= 2 ? "已保留兩組。可繼續原組，或清除目前組並按新設定重做。" : "第一組數據及答案會保留，第二組會另外記錄。";
     $("restartRunButton").hidden = !editing || t.current === null;
     $("restartRunNote").hidden = $("restartRunButton").hidden;
-    $("restartRunButton").disabled = !editing;
+    $("restartRunButton").disabled = !editing || duplicateRedo;
     $("collectView").textContent = "轉動量測";
     $("brakeButton").hidden = !editing || v !== "collect";
     renderRuns(); renderSampling();
@@ -342,11 +344,12 @@
     const quantity = p === 0 ? "半徑" : "總質量", fixed = p === 0 ? "總質量" : "半徑";
     const ratioTex = p === 0 ? "r_A/r_B" : "m_A/m_B";
     $("comparisonPrompt").innerHTML = p === 2 ? "固定 A 側的質量及半徑，本組圖像顯示徑向力與角速度有甚麼關係？" : `${s.rv >= 5 ? "根據本組設定及擬合結果，以下關係是否符合本組數據：" : "結合本組器材設定及擬合結果，能否支持 "}${math(`F_A/F_B=${ratioTex}`, `兩側徑向力的比值等於${quantity}的比值`)}？`;
+    $("reasonQuestion").hidden = s.rv >= 6;
     $("reasonPrompt").innerHTML = `本組擬合式 ${math(p === 2 ? squaredGraph ? "F_A=k\\omega^2+b" : "F_A=k\\omega^2+c\\omega+b" : "F_A=kF_B+b", p === 2 ? "A側徑向力的二次擬合式" : "兩側徑向力的直線擬合式")} 中，${math("k", "係數k")} 的物理意義是甚麼？`;
     const compareOptions = s.rv >= 5 ? [["supports", `符合：擬合斜率等於兩側${quantity}的比值`], ["confounded", `不符合：兩側${fixed}不同，斜率還受${fixed}的比值影響`], ["no-contrast", `不符合：兩側${quantity}相同時，不能使用這個比值關係`], ["insufficient", "尚未成功擬合，未能判斷"]] : [["supports", `支持：兩側${fixed}相同，斜率與${quantity}的比值相符`], ["confounded", `不能只判斷${quantity}的影響：兩側${fixed}也不同`], ["no-contrast", `不能比較：兩側${quantity}相同`], ["insufficient", "尚未成功擬合，未能作出判斷"]];
     const reasonOptions = p === 2 ? [["coefficient", "A 側總質量與半徑的乘積"], ["constant", "角速度為零時的徑向力"], ["other", "A 側的總質量，與半徑無關"], ["uncertain", "係數沒有物理意義，只用來畫曲線"]] : s.rv >= 5 ? [["coefficient", `兩側${fixed}相同，可化簡為${quantity}的比值（A／B）`], ["constant", "B 側徑向力為零時，A 側的徑向力"], ["other", "兩側共同的角速度"], ["uncertain", `兩側${fixed}不同，等於${quantity}的比值乘以${fixed}的比值（均為 A／B）`]] : [["coefficient", `A 側${quantity}除以 B 側${quantity}所得的比值`], ["constant", "B 側徑向力為零時，A 側的徑向力"], ["other", "兩側共同的角速度"], ["uncertain", `本組未符合比較條件，不能單憑此係數判斷${quantity}的影響`]];
     setSelect("comparison", p === 2 ? lawOptions : compareOptions, run?.a[1], !editing || !activeRun());
-    setSelect("reason", reasonOptions, run?.a[2], !editing || !activeRun());
+    setSelect("reason", reasonOptions, run?.a[2], s.rv >= 6 || !editing || !activeRun());
     $("lawPrompt").innerHTML = p === 2 ? `${math('F_A', 'A 側徑向力')} 與 ${math('\\omega', '角速度')} 的關係` : p === 0 ? `${math('F', '徑向力')} 與 ${math('r', '半徑')} 的關係` : `${math('F', '徑向力')} 與 ${math('m', '質量')} 的關係`;
     if (p < 2) $("lawPrompt").innerHTML = `兩側${p === 0 ? "質量" : "半徑"}相同、同時角速度相同時，兩側徑向力的比值 ${math("F_A/F_B", "兩側徑向力的比值")} 與${p === 0 ? "半徑" : "總質量"}的比值 ${math(p === 0 ? "r_A/r_B" : "m_A/m_B", "A側除以B側的比值")} 應有甚麼關係？請選出不論所選比值是多少，都成立的一般關係。`;
     else $("lawPrompt").innerHTML = `固定質量及半徑，${math("F_A", "徑向力")} 與 ${math("\\omega", "角速度")} 的關係`;
@@ -362,7 +365,7 @@
       v === "collect" ? "拖金色環推動；讀數在下方。" : "短視窗可用下方按鈕設定；全螢幕可直接拖動。" :
       v === "analyse" ? "轉盤已暫停；數據圖可收合，裝置保留顯示。" : v === "collect" ? running ? "沿金色外圈拖動轉盤" : "已暫停；直接拖動金色外圈繼續。" : v === "check" ? "檢查及提交在操作面板。" : "左右拖 A／B 調整半徑";
     if (v === "check") {
-      $("checkSummary").innerHTML = s.tasks.map((item, i) => `<div class="check-row"><strong>實驗 ${i + 1} · ${titles[i]}</strong>${[0,1].map(index => { const r = item.runs[index]; return `<small>${runNames[index]}：${r?.q.length ? r.q.length + " 個量測點" : "未量測"} · ${r?.fit ? "已擬合" : "未擬合"} · 作答 ${r?.a.filter(a => a !== null && a !== "").length || 0}/3</small>`; }).join("")}<small>結論 ${item.law === null ? "未答" : "已答"}</small></div>`).join("") + `<div class="check-row">綜合問題：${[s.sync, s.massParts].filter(Boolean).length} / 2 已答</div>`;
+      $("checkSummary").innerHTML = s.tasks.map((item, i) => `<div class="check-row"><strong>實驗 ${i + 1} · ${titles[i]}</strong>${[0,1].map(index => { const r = item.runs[index]; return `<small>${runNames[index]}：${r?.q.length ? r.q.length + " 個量測點" : "未量測"} · ${r?.fit ? "已擬合" : "未擬合"} · 作答 ${r?.a.slice(0, s.rv >= 6 ? 2 : 3).filter(a => a !== null && a !== "").length || 0}/${s.rv >= 6 ? 2 : 3}</small>`; }).join("")}<small>結論 ${item.law === null ? "未答" : "已答"}</small></div>`).join("") + `<div class="check-row">綜合問題：${[s.sync, s.massParts].filter(Boolean).length} / 2 已答</div>`;
       $("submitButton").disabled = !controller.editable || controller.unsaved;
     }
     if (!$("feedbackPanel").hidden) {
@@ -573,10 +576,10 @@
     $("restartRunButton").addEventListener("click", () => {
       if (!controller.editable || view() !== "setup" || task().current === null) return;
       pause(); motion = M.motion(); localMessage = "";
-      if (controller.update(next => { const t = next.tasks[next.page]; t.runs[t.current] = M.freshRun(t.work); next.view = "collect"; })) { running = true; render(); }
+      if (controller.update(next => { const t = next.tasks[next.page]; if (!M.restart(t)) return; next.view = "collect"; })) { running = true; render(); }
     });
     $("nextRunButton").addEventListener("click", () => {
-      if (!controller.editable || task().runs.length !== 1 || !["collect", "analyse"].includes(view())) return;
+      if (!controller.editable || !(view() === "collect" && activeRun() || view() === "analyse" && task().runs.length === 1)) return;
       const target = view() === "collect" ? "analyse" : "setup";
       pause();
       if (controller.navigate(page(), target) && target === "setup") {

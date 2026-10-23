@@ -32,11 +32,19 @@
   const freshRun = cfg => ({ cfg: cfg.slice(), q: [], fit: false, a: [null, null, null] });
   const freshTask = () => ({ work: CFG.slice(), current: null, selected: null, roles: [null, null], inquiry: [null, null], runs: [], law: null });
   const fresh = (seed = Math.floor(Math.random() * 0x100000000)) => ({
-    v: 1, mv: 5, rv: 5, seed: seed >>> 0, page: 0, view: "setup", fromReview: false,
+    v: 1, mv: 5, rv: 6, seed: seed >>> 0, page: 0, view: "setup", fromReview: false,
     returnTo: null, tasks: KINDS.map(freshTask), sync: null, massParts: null
   });
+  function distinctSetup(task, replacing = null) {
+    return !task.runs.some((run, index) => index !== replacing && run.cfg.every((value, field) => value === task.work[field]));
+  }
+  function restart(task) {
+    if (task.current === null || !distinctSetup(task, task.current)) return false;
+    task.runs[task.current] = freshRun(task.work);
+    return true;
+  }
   function begin(task) {
-    if (task.runs.length >= 2) return false;
+    if (task.runs.length >= 2 || !distinctSetup(task)) return false;
     task.runs.push(freshRun(task.work));
     task.current = task.runs.length - 1;
     if (task.selected === null) task.selected = task.current;
@@ -95,7 +103,7 @@
     if (state.rv === 1) {
       state.tasks.forEach(task => { task.inquiry = [null, null]; });
     }
-    state.rv = 5; state.mv = 5;
+    state.rv = 6; state.mv = 5;
     state.tasks.forEach(task => task.runs.forEach(run => run.q.sort((a,b)=>a-b)));
     const work = state.tasks[2].work;
     work[1] = work[0]; work[3] = work[2];
@@ -113,6 +121,6 @@
     return { ...state, omega, angle: state.angle + (state.omega + omega) * elapsed / 2 };
   }
   return Object.freeze({ KINDS, SETUP_REASONS, SPEED_RELATIONS, VARIABLES, COMPARE, REASONS, LAWS, SYNC, MASS_PARTS, clone, CFG, radius, mass,
-    quantities, readings, slot, MAX_SAMPLES, MAX_OMEGA, points, fit, freshRun, freshTask, fresh, begin, record, fitCurrent, removeRun, setWork,
+    quantities, readings, slot, MAX_SAMPLES, MAX_OMEGA, points, fit, freshRun, freshTask, fresh, distinctSetup, restart, begin, record, fitCurrent, removeRun, setWork,
     motion, dragMotion, releaseMotion, coast, sampleReady, upgradeDraft });
 });

@@ -58,7 +58,7 @@ assert.equal(S.page(equalRadius,0).fairScore,0,"unequal masses still confound th
 assert.equal(S.page(equalRadius,0).fitScore,6,"recognising unequal masses still earns interpretation credit");
 
 // rv4 and rv5 grade both runs equally; missing work receives only its own zero credit.
-for(const rv of [4,5]) for(const [i,configs] of [[[2,2,2,2],[4,2,2,2]],[[2,2,4,2],[2,2,2,4]],[[2,2,2,2],[3,3,3,3]]].entries()) {
+for(const rv of [4,5,6]) for(const [i,configs] of [[[2,2,2,2],[4,2,2,2]],[[2,2,4,2],[2,2,2,4]],[[2,2,2,2],[3,3,3,3]]].entries()) {
  const state=M.fresh(42),t=state.tasks[i],kind=M.KINDS[i];state.rv=rv;
  t.inquiry=i<2?[i===0?"equal-mass":"equal-radius","ratio-steady"]:[null,null];
  t.roles=["omega",["m","r"]];t.law=i===2?"square":"linear";
@@ -81,7 +81,7 @@ for(const rv of [4,5]) for(const [i,configs] of [[[2,2,2,2],[4,2,2,2]],[[2,2,4,2
 
 // Interpret the actual fitted coefficient independently of configuration/coverage credit.
 for (const page of [0, 1]) for (const radiiEqual of [true, false]) for (const massesEqual of [true, false]) {
-  const state=M.fresh(501), task=state.tasks[page], kind=M.KINDS[page];
+  const state=M.fresh(501), task=state.tasks[page], kind=M.KINDS[page];state.rv=5;
   task.work=[radiiEqual?2:4,2,massesEqual?2:4,2];
   M.begin(task);for(const w of [1,2,3])M.record(task,w);
   assert.ok(M.fitCurrent(kind,task).ok);
@@ -97,7 +97,7 @@ for (const page of [0, 1]) for (const radiiEqual of [true, false]) for (const ma
   assert.equal(S.page(state,page).runs[0].fitScore,0,"analysis credit still requires a successful fit");
 }
 for(const page of [0,1]) {
-  const state=M.fresh(502),t=state.tasks[page];M.begin(t);
+  const state=M.fresh(502),t=state.tasks[page];state.rv=5;M.begin(t);
   const r=t.runs[0];r.q=[1000,1100,1200];r.fit=true;r.a=["1","supports","coefficient"];
   assert.ok(M.fit(M.KINDS[page],r).ok);
   assert.equal(S.page(state,page).runs[0].dataScore,0);
@@ -110,3 +110,12 @@ assert.equal(S.page(massLegacy,1).runs[0].fitScore,6);
 massLegacy.rv=5;assert.equal(S.page(massLegacy,1).runs[0].fitScore,0);
 mr.a=["1","supports","coefficient"];assert.equal(S.page(massLegacy,1).runs[0].fitScore,6);
 console.log("centripetal rv5 question/scoring consistency ok");
+
+for(const page of [0,1,2]) {
+ const state=M.fresh(606),task=state.tasks[page];M.begin(task);
+ for(const w of [1,2,3])M.record(task,w);M.fitCurrent(M.KINDS[page],task);
+ const r=task.runs[0];r.a=[null,page===2?"square":"supports",null];
+ for(const obsolete of [null,...M.REASONS]) {r.a[2]=obsolete;assert.equal(S.page(state,page).runs[0].fitScore,6,"rv6 ignores removed coefficient answer");}
+ r.a[1]=null;assert.equal(S.page(state,page).runs[0].fitScore,0);
+ r.a[1]=page===2?"square":"supports";r.fit=false;assert.equal(S.page(state,page).runs[0].fitScore,0);
+}

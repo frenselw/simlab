@@ -119,3 +119,14 @@ for (const sign of [1, -1]) {
   assert.ok(first.every(q=>task.runs[0].q.includes(q)),"original readings are retained");
   assert.equal(M.record(task,-sign*24,"omega"),true);
 }
+
+for(const field of [0,1,2,3]) {
+ const task=M.freshTask();assert.ok(M.begin(task));M.record(task,1);task.runs[0].a[0]="1";
+ const saved=M.clone(task);assert.equal(M.begin(task),false);assert.deepEqual(task,saved);
+ task.work[field]++;assert.ok(M.begin(task));const first=M.clone(task.runs[0]);
+ task.work=first.cfg.slice();const blocked=M.clone(task);assert.equal(M.restart(task),false);assert.deepEqual(task,blocked);
+ task.work[field]++;assert.ok(M.restart(task));assert.deepEqual(task.runs[0],first);assert.equal(task.runs.length,2);
+ M.removeRun(task,0);task.work=task.runs[0].cfg.slice();assert.equal(M.begin(task),false,"delete/recreate cannot bypass distinct settings");
+ task.work[field]++;assert.ok(M.begin(task));
+}
+console.log("distinct setup and redo guards ok");

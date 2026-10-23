@@ -1089,3 +1089,18 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 - 官方helper推送Site source 2b8a006b3229a0bd0801b3c9246884d6091c988f；v26 appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_ee19cc63985481919c198e93bae6d4ae，deployment appgdep_6adb09ac6e148191bc1c4afb31b9c535，Sites回報succeeded（2026-10-23T07:16:08.973813+00:00），原owner-private audience保持。
 - 剛部署後原分頁一度混載新題幹與舊模型，沒有直接交付；再載入並檢查實際Network response body，確認model fresh/upgrade皆rv5、scoring含rv5判準、persistence接受rv5，原站新分析選項亦正確顯示。當時response非browser或service worker快取；重新載入後一致，未另改產品程式。
 - 原站以操作環方向鍵推轉、開始測量、按住減速取得13點及擬合；停在質量實驗1:1新分析題，未代填答案或提交。截圖C:/Users/frens/Documents/Projects/simlab/output/centripetal-question-consistency-v26.png。暫時快取設定恢復、viewport未改，分頁已保留及開回供試用；測試server已關閉，臨時憑證清除。真手機及真Moodle未驗證。
+
+
+## 第二組接續及刪除斜率意義題（2026-10-23，動工前決策）
+
+- 第二組collect保留明確「下一步：分析第二組數據」提示及主按鈕，按後進analyse、保留量測；不再因已有兩組而隱藏分析入口。回看第一組收集時按鈕依當前組命名，不誤導建立第三組。
+- 新增第二組或重做任一組時，四項質量／半徑設定不得與另一組完全相同。共用model判斷供begin、redo及按鈕狀態使用；設定相同時說明必須改變甚麼，保留44px操作及部分作答check/submit。只要求設定不完全相同，仍容許兩次各為1:1但實際半徑不同。舊作答既有重複組不刪除、不拒絕讀取；新建／重做遵守新限制。
+- 刪除新作答的係數／斜率物理意義題，僅保留比值計算與本組圖像關係判斷；每組分析分6改由成功擬合及正確圖像判斷取得，不再讀第三格舊答案。總分100、兩組等權不變；check顯示每組作答/2。新rv6、mv5與三格答案結構保持；舊第三格答案保留但新評分忽略，舊rv1–5已提交／pending仍原題原分。草稿升rv6且提示核對修訂題目。
+- 範圍model/scoring/persistence/ui-runtime/main/index及既有測試；依賴、manifest、物理運動保持。測新建及重做相同設定拒絕且無數據損失、每一欄差異合法、兩組流程及第二組分析提示、無斜率題及/2、三頁評分滿分／部分／空白、舊rv5保分和升級；各phase快照續作、來源與解壓套件320/393/1280px，check及check:tests、committed selection後更新原私人Site。
+
+
+### 第二組接續及刪題驗證
+
+- 五項node測試、check與check:tests（263 entries）通過。新增／重做／刪除再建立均拒絕與另一組完全相同的設定，拒絕時兩組內容不變；每一欄改變均可建立。rv6刪除係數題，a[2]任何舊值不影響得分；兩組滿分／部分／空白及未擬合判斷均通過。rv5 finished/pending保留缺答係數的7.5分，draft升rv6保存全部原數據後可合法提交9分。舊rv1–4相容測試及三頁×四階段×三variant round-trip與續作通過，最滿draft/review/pending仍3403/3440/3808 bytes。
+- focused來源及解壓SCORM於320×500、393×734、1280×800三頁通過：重複第二組設定禁用並有說明；改半徑後可建第二組；收集頁明示「分析第二組數據」且按後進analyse，數據保留。第二組analyse不再提示第三組；係數題實際display:none、作答/2；切換兩組各自答案還原；重做若會複製另一組亦禁用且不改原數據。1280與390px兩組1:1採不同實際半徑，仍取得30分且提交後唯讀。瀏覽器無例外。
+- SCORM17檔，16runtime與canonical sim及Site dist逐位元組一致；ZIP SHA-256：f704eed2d31e51b1998e5d38637f3fd826bb653de4c586ea2542835f045c465e。未改動轉動手勢，未重跑完整手勢效能；真手機及真Moodle未驗證。
