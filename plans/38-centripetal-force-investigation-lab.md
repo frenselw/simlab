@@ -894,3 +894,9 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 
 - 實際瀏覽器1280×800及393×734核對兩行文字：提示距盤底約10.21px、右邊8px；44×44px取用按鈕與盤的垂直中心相同（offset=0）。根據此低影響CSS範圍沒有新增測試或重跑物理／保存／全手勢回歸；測試登記check:tests仍263 entries通過。
 - 重建SCORM17檔案；16 runtime與canonical sim及Site dist逐位元組相同。ZIP SHA-256：b394306ba7bd2e8a80993c957cce1bd7bb7764732b52495623ec971352790ced。無新依賴／測試入口，mv5／rv3與評分不變。
+
+### 砝碼盤 Site v17 交付
+
+- 功能commit 796d10b131a09d38d0c053e008a2fcddf140502e已推到origin；committed selection preview由724a27d起算，mode=affected、packages僅本活動；output/centripetal-tray-selection.json。實際驗證依上節樣式範圍。
+- 官方helper推送Site source 524220e729d6d9318f965035152df402ef597360；v17 appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_5c5e303f71d88191846b237031a961ed，deployment appgdep_6adabc48d22c8191b63d08f59d766167，Sites回報succeeded（2026-10-23T01:45:50.742022+00:00），原owner-private audience保持。
+- 原網站明確reload、實際桌面砝碼盤裁圖確認兩行字不碰虛線，C:/Users/frens/Documents/Projects/simlab/output/centripetal-tray-v17.png；原設定頁保留，臨時viewport已reset。沒有重跑物理／保存功能與真Moodle。
