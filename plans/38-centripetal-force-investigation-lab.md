@@ -1147,3 +1147,10 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 
 - 來源及解壓SCORM的graphPresentation於320×500、393×734、1280×800，三個實驗、兩組數據、收集／分析及角速度／角速度平方切換通過。visibleFit逐一檢查擬合路徑從圖框x=66到331、兩端均超出採樣範圍、clipPath範圍精確等於圖框；線仍繪於數據點之上並保持3px，不顯示RMSE。兩組答案及評分不變，無瀏覽器例外。
 - check/check:tests（263 entries）通過，未新增依賴或測試入口。SCORM17檔、16runtime與canonical sim及Site dist一致；ZIP SHA-256 97d734a3564ecd8ff4a141cd63cc3f3b0dd71e81200a0dbfe3075b23118e2699。未重跑未修改的手勢效能及SCORM生命週期；真手機及真Moodle未驗證。
+
+
+### 完整擬合線 Site v29 交付
+
+- 功能commit 3c3c498已推origin；committed selection由f93ad75起算，output/centripetal-full-fit-selection.json，僅本活動。官方helper推送Site source 8675107b185b8666ba57852767d5b87e119dab8b；v29 appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_3b239318932c8191901e3625ce7cc4ad，deployment appgdep_6adb2b3678d88191b2701b458905dcfd，succeeded（2026-10-23T09:39:08.612668+00:00），原owner-private audience保持。
+- 原網站暫時停用快取重載，實際Network main.js body確認全軸範圍及clipPath；以兩組不同半徑及不同轉速量測、擬合，收集頁的第二組擬合線從原點完整延伸至圖框右上角，跨過其很短的低速數據區。DOM路徑M66.00 100.00 L331.00 25.00，實際圖像已確認。答案保持未填、未提交。
+- 截圖C:/Users/frens/Documents/Projects/simlab/output/centripetal-full-fit-v29.png；原分頁已開回並保留供試用，快取設定恢復、未改viewport。測試server已關閉、臨時憑證清除。真手機及真Moodle未驗證。
