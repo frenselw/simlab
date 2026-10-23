@@ -311,6 +311,9 @@
     $("squareGraph").hidden = p !== 2 || v !== "analyse";
     $("squareGraph").textContent = squaredGraph ? "返回帶正負角速度圖" : "改看角速度平方圖";
     $("squareGraph").setAttribute("aria-pressed", String(squaredGraph));
+    $("rolesTitle").textContent = p === 2 ? "每組量測的設定" : "公平比較的設定";
+    $("independentPrompt").textContent = p === 2 ? "在每一組量測期間，你要改變哪個量，來研究 A 側徑向力的變化？" : "自變量";
+    $("controlsPrompt").textContent = p === 2 ? "同一組量測期間，A 側哪兩個量應保持不變？（選兩項）" : "控制量（最多兩項）";
     $("independent").value = t.roles[0] || ""; $("independent").disabled = !editing;
     for (const input of document.querySelectorAll("[data-control]")) { input.checked = (t.roles[1] || []).includes(input.dataset.control); input.disabled = !editing; }
     ["rAValue", "rBValue"].forEach((id, i) => { $(id).innerHTML = math(`r_${i ? 'B' : 'A'}=${M.radius(cfg[i]).toFixed(2)}\\,\\mathrm{m}`, `${M.radius(cfg[i]).toFixed(2)} m`); });
@@ -338,14 +341,14 @@
     $("numericAnswer").value = run?.a[0] || ""; $("numericAnswer").disabled = !editing || !activeRun();
     const quantity = p === 0 ? "半徑" : "總質量", fixed = p === 0 ? "總質量" : "半徑";
     const ratioTex = p === 0 ? "r_A/r_B" : "m_A/m_B";
-    $("comparisonPrompt").innerHTML = p === 2 ? "固定 A 側的質量及半徑，本組圖像顯示徑向力與角速度有甚麼關係？" : `結合本組器材設定及擬合結果，能否支持 ${math(`F_A/F_B=${ratioTex}`, `兩側徑向力的比值等於${quantity}的比值`)}？`;
+    $("comparisonPrompt").innerHTML = p === 2 ? "固定 A 側的質量及半徑，本組圖像顯示徑向力與角速度有甚麼關係？" : `${s.rv >= 5 ? "根據本組設定及擬合結果，以下關係是否符合本組數據：" : "結合本組器材設定及擬合結果，能否支持 "}${math(`F_A/F_B=${ratioTex}`, `兩側徑向力的比值等於${quantity}的比值`)}？`;
     $("reasonPrompt").innerHTML = `本組擬合式 ${math(p === 2 ? squaredGraph ? "F_A=k\\omega^2+b" : "F_A=k\\omega^2+c\\omega+b" : "F_A=kF_B+b", p === 2 ? "A側徑向力的二次擬合式" : "兩側徑向力的直線擬合式")} 中，${math("k", "係數k")} 的物理意義是甚麼？`;
-    const compareOptions = [["supports", `支持：兩側${fixed}相同，斜率與${quantity}的比值相符`], ["confounded", `不能只判斷${quantity}的影響：兩側${fixed}也不同`], ["no-contrast", `不能比較：兩側${quantity}相同`], ["insufficient", "尚未成功擬合，未能作出判斷"]];
-    const reasonOptions = p === 2 ? [["coefficient", "A 側總質量與半徑的乘積"], ["constant", "角速度為零時的徑向力"], ["other", "A 側的總質量，與半徑無關"], ["uncertain", "係數沒有物理意義，只用來畫曲線"]] : [["coefficient", `A 側${quantity}除以 B 側${quantity}所得的比值`], ["constant", "B 側徑向力為零時，A 側的徑向力"], ["other", "兩側共同的角速度"], ["uncertain", `本組未符合比較條件，不能單憑此係數判斷${quantity}的影響`]];
+    const compareOptions = s.rv >= 5 ? [["supports", `符合：擬合斜率等於兩側${quantity}的比值`], ["confounded", `不符合：兩側${fixed}不同，斜率還受${fixed}的比值影響`], ["no-contrast", `不符合：兩側${quantity}相同時，不能使用這個比值關係`], ["insufficient", "尚未成功擬合，未能判斷"]] : [["supports", `支持：兩側${fixed}相同，斜率與${quantity}的比值相符`], ["confounded", `不能只判斷${quantity}的影響：兩側${fixed}也不同`], ["no-contrast", `不能比較：兩側${quantity}相同`], ["insufficient", "尚未成功擬合，未能作出判斷"]];
+    const reasonOptions = p === 2 ? [["coefficient", "A 側總質量與半徑的乘積"], ["constant", "角速度為零時的徑向力"], ["other", "A 側的總質量，與半徑無關"], ["uncertain", "係數沒有物理意義，只用來畫曲線"]] : s.rv >= 5 ? [["coefficient", `兩側${fixed}相同，可化簡為${quantity}的比值（A／B）`], ["constant", "B 側徑向力為零時，A 側的徑向力"], ["other", "兩側共同的角速度"], ["uncertain", `兩側${fixed}不同，等於${quantity}的比值乘以${fixed}的比值（均為 A／B）`]] : [["coefficient", `A 側${quantity}除以 B 側${quantity}所得的比值`], ["constant", "B 側徑向力為零時，A 側的徑向力"], ["other", "兩側共同的角速度"], ["uncertain", `本組未符合比較條件，不能單憑此係數判斷${quantity}的影響`]];
     setSelect("comparison", p === 2 ? lawOptions : compareOptions, run?.a[1], !editing || !activeRun());
     setSelect("reason", reasonOptions, run?.a[2], !editing || !activeRun());
     $("lawPrompt").innerHTML = p === 2 ? `${math('F_A', 'A 側徑向力')} 與 ${math('\\omega', '角速度')} 的關係` : p === 0 ? `${math('F', '徑向力')} 與 ${math('r', '半徑')} 的關係` : `${math('F', '徑向力')} 與 ${math('m', '質量')} 的關係`;
-    if (p < 2) $("lawPrompt").innerHTML = `兩側${p === 0 ? "質量" : "半徑"}相同、同時角速度相同時，兩側徑向力的比值 ${math("F_A/F_B", "兩側徑向力的比值")} 與${p === 0 ? "半徑" : "總質量"}的比值 ${math(p === 0 ? "r_A/r_B" : "m_A/m_B", "A側除以B側的比值")} 有甚麼關係？`;
+    if (p < 2) $("lawPrompt").innerHTML = `兩側${p === 0 ? "質量" : "半徑"}相同、同時角速度相同時，兩側徑向力的比值 ${math("F_A/F_B", "兩側徑向力的比值")} 與${p === 0 ? "半徑" : "總質量"}的比值 ${math(p === 0 ? "r_A/r_B" : "m_A/m_B", "A側除以B側的比值")} 應有甚麼關係？請選出不論所選比值是多少，都成立的一般關係。`;
     else $("lawPrompt").innerHTML = `固定質量及半徑，${math("F_A", "徑向力")} 與 ${math("\\omega", "角速度")} 的關係`;
     setSelect("law", p < 2 ? [["linear", "兩個比值相等"], ["square", "前者等於後者的平方"], ["inverse", "前者等於後者的倒數"], ["none", "沒有固定關係"]] : lawOptions, t.law, !editing);
     $("syncAnswer").value = s.sync || ""; $("massPartsAnswer").value = s.massParts || "";

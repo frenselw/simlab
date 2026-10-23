@@ -71,13 +71,13 @@
         <label><span id="reasonPrompt"></span><select id="reason"></select></label>
       </section>
       <section id="nextRunPanel" class="next-run" aria-labelledby="nextRunTitle" hidden><strong id="nextRunTitle"></strong><p id="nextRunHint"></p><button id="nextRunButton" class="primary" aria-describedby="nextRunHint"></button></section>
-      <fieldset id="rolesField"><legend>公平比較：我要改變甚麼？保持甚麼不變？</legend>
-        <label>自變量 <select id="independent"><option value="">未選</option><option value="r">半徑</option><option value="m">質量</option><option value="omega">角速度</option><option value="force">徑向力</option></select></label>
-        <div class="controls-choice"><span>控制量（最多兩項）</span><label><input type="checkbox" data-control="r">半徑</label><label><input type="checkbox" data-control="m">質量</label><label><input type="checkbox" data-control="omega">共同角速度</label><label><input type="checkbox" data-control="force">徑向力</label></div>
+      <fieldset id="rolesField"><legend id="rolesTitle">每組量測的設定</legend>
+        <label><span id="independentPrompt"></span><select id="independent"><option value="">未選</option><option value="r">半徑</option><option value="m">質量</option><option value="omega">角速度</option><option value="force">徑向力</option></select></label>
+        <div class="controls-choice"><span id="controlsPrompt"></span><label><input type="checkbox" data-control="r">半徑</label><label><input type="checkbox" data-control="m">質量</label><label><input type="checkbox" data-control="omega">共同角速度</label><label><input type="checkbox" data-control="force">徑向力</label></div>
       </fieldset>
       <section id="runsPanel"><h3>兩組數據</h3><div id="runList"></div><p id="runHint" class="small"></p></section>
       <label class="law-field"><span id="lawPrompt"></span><select id="law"></select></label>
-      <section class="synthesis"><h3>綜合問題</h3><label>為甚麼前兩組要同時讀取兩個測力計？<select id="syncAnswer"><option value="">未答</option><option value="same-omega">同一平台兩側同時具有相同角速度，可比較兩側徑向力的比值</option><option value="same-force">同時量測會令兩側徑向力相同</option><option value="same-mass">同時量測會令兩側質量相同</option><option value="unknown">不能判斷</option></select></label><label>被測總質量包括甚麼？<select id="massPartsAnswer"><option value="">未答</option><option value="cap-screw-weights">樽蓋、螺絲及砝碼</option><option value="weights-only">只有砝碼</option><option value="sensor-and-weights">測力計及砝碼</option><option value="cap-only">只有樽蓋</option></select></label></section>
+      <section class="synthesis"><h3>綜合問題</h3><label>實驗 1（半徑）和實驗 2（質量）為甚麼要同時讀取 A、B 兩個測力計？<select id="syncAnswer"><option value="">未答</option><option value="same-omega">同一平台兩側同時具有相同角速度，可比較兩側徑向力的比值</option><option value="same-force">同時量測會令兩側徑向力相同</option><option value="same-mass">同時量測會令兩側質量相同</option><option value="unknown">不能判斷</option></select></label><label>A 側被測物的總質量包括甚麼？<select id="massPartsAnswer"><option value="">未答</option><option value="cap-screw-weights">托座、螺絲及放上的砝碼</option><option value="weights-only">只有砝碼</option><option value="sensor-and-weights">測力計及砝碼</option><option value="cap-only">只有托座</option></select></label></section>
       <button id="clearTaskButton">清除此題設定、數據與答案</button>
     </section>
     <section id="checkPanel" hidden><h2>提交前檢查</h2><p>未答項目得 0 分；已完成部分保留分數。提交後只可重看，不可清除或重做。</p><div id="checkSummary"></div><div class="button-row"><button id="backButton">返回修改</button><button id="submitButton" class="primary">提交目前答案</button></div></section>

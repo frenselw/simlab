@@ -57,9 +57,9 @@ equalRadius.rv=3;equalTask.runs[0].cfg[2]=4;equalTask.runs[0].a=["1","confounded
 assert.equal(S.page(equalRadius,0).fairScore,0,"unequal masses still confound the radius comparison");
 assert.equal(S.page(equalRadius,0).fitScore,6,"recognising unequal masses still earns interpretation credit");
 
-// rv4 grades both runs equally; missing work receives only its own zero credit.
-for(const [i,configs] of [[[2,2,2,2],[4,2,2,2]],[[2,2,4,2],[2,2,2,4]],[[2,2,2,2],[3,3,3,3]]].entries()) {
- const state=M.fresh(42),t=state.tasks[i],kind=M.KINDS[i];
+// rv4 and rv5 grade both runs equally; missing work receives only its own zero credit.
+for(const rv of [4,5]) for(const [i,configs] of [[[2,2,2,2],[4,2,2,2]],[[2,2,4,2],[2,2,2,4]],[[2,2,2,2],[3,3,3,3]]].entries()) {
+ const state=M.fresh(42),t=state.tasks[i],kind=M.KINDS[i];state.rv=rv;
  t.inquiry=i<2?[i===0?"equal-mass":"equal-radius","ratio-steady"]:[null,null];
  t.roles=["omega",["m","r"]];t.law=i===2?"square":"linear";
  assert.equal(S.page(state,i).score,12);
@@ -78,3 +78,35 @@ for(const [i,configs] of [[[2,2,2,2],[4,2,2,2]],[[2,2,4,2],[2,2,2,4]],[[2,2,2,2]
  state.rv=3;t.selected=0;assert.equal(S.page(state,i).score,30,"old single-run rubric is preserved");
  t.selected=1;assert.equal(S.page(state,i).score,12);
 }
+
+// Interpret the actual fitted coefficient independently of configuration/coverage credit.
+for (const page of [0, 1]) for (const radiiEqual of [true, false]) for (const massesEqual of [true, false]) {
+  const state=M.fresh(501), task=state.tasks[page], kind=M.KINDS[page];
+  task.work=[radiiEqual?2:4,2,massesEqual?2:4,2];
+  M.begin(task);for(const w of [1,2,3])M.record(task,w);
+  assert.ok(M.fitCurrent(kind,task).ok);
+  const run=task.runs[0], matches=page===0?massesEqual:radiiEqual;
+  const radiusRatio=M.radius(run.cfg[0])/M.radius(run.cfg[1]);
+  const massRatio=M.mass(run.cfg[2])/M.mass(run.cfg[3]);
+  assert.ok(Math.abs(M.fit(kind,run).coefficients[0]-radiusRatio*massRatio)<1e-10);
+  run.a=[null,matches?"supports":"confounded",matches?"coefficient":"uncertain"];
+  assert.equal(S.page(state,page).runs[0].fitScore,6,`rv5 page ${page}: radiiEqual=${radiiEqual}, massesEqual=${massesEqual}`);
+  run.a[1]="no-contrast";
+  assert.equal(S.page(state,page).runs[0].fitScore,3,"equal target quantities alone never invalidate the ratio equation");
+  run.fit=false;
+  assert.equal(S.page(state,page).runs[0].fitScore,0,"analysis credit still requires a successful fit");
+}
+for(const page of [0,1]) {
+  const state=M.fresh(502),t=state.tasks[page];M.begin(t);
+  const r=t.runs[0];r.q=[1000,1100,1200];r.fit=true;r.a=["1","supports","coefficient"];
+  assert.ok(M.fit(M.KINDS[page],r).ok);
+  assert.equal(S.page(state,page).runs[0].dataScore,0);
+  assert.equal(S.page(state,page).runs[0].fairScore,0);
+  assert.equal(S.page(state,page).runs[0].fitScore,6,"a narrow speed range does not change k's physical meaning");
+}
+const massLegacy=M.fresh(504);massLegacy.rv=4;M.begin(massLegacy.tasks[1]);
+const mr=massLegacy.tasks[1].runs[0];mr.q=[1000,2000,3000];mr.fit=true;mr.a=["1","no-contrast","uncertain"];
+assert.equal(S.page(massLegacy,1).runs[0].fitScore,6);
+massLegacy.rv=5;assert.equal(S.page(massLegacy,1).runs[0].fitScore,0);
+mr.a=["1","supports","coefficient"];assert.equal(S.page(massLegacy,1).runs[0].fitScore,6);
+console.log("centripetal rv5 question/scoring consistency ok");

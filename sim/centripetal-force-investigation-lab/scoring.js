@@ -18,9 +18,14 @@
     if (kind === "mass") return rA === rB && nA !== nB;
     return true;
   }
+  function matchingRatio(kind, run) {
+    const fixed = kind === "radius" ? 2 : 0;
+    return run.cfg[fixed] === run.cfg[fixed + 1];
+  }
   function comparison(kind, run, rv = 3) {
     if (!run || !run.fit || !M.fit(kind, run).ok) return "insufficient";
     if (kind === "omega") return "square";
+    if (rv >= 5) return matchingRatio(kind, run) ? "supports" : "confounded";
     const [rA, rB, nA, nB] = run.cfg;
     if (kind === "radius") return rv < 3 && rA === rB ? "no-contrast" : nA !== nB ? "confounded" : "supports";
     return nA === nB ? "no-contrast" : rA !== rB ? "confounded" : "supports";
@@ -42,7 +47,7 @@
     const fitScore = !actualFit?.ok ? 0 : kind === "omega" ?
       (run.a[1] === "square" ? 3 : 0) + (run.a[2] === "coefficient" ? 3 : 0) :
       (run.a[1] === comparison(kind, run, rv) ? 3 : 0) +
-      (run.a[2] === (fair(kind, run, rv) ? "coefficient" : "uncertain") ? 3 : 0);
+      (run.a[2] === ((rv >= 5 ? matchingRatio(kind, run) : fair(kind, run, rv)) ? "coefficient" : "uncertain") ? 3 : 0);
     return { fairScore, dataScore, numericScore, fitScore, score: fairScore + dataScore + numericScore + fitScore,
       fit: actualFit, ratio, span, slots, fair: fair(kind, run, rv) };
   }

@@ -32,7 +32,7 @@
   const freshRun = cfg => ({ cfg: cfg.slice(), q: [], fit: false, a: [null, null, null] });
   const freshTask = () => ({ work: CFG.slice(), current: null, selected: null, roles: [null, null], inquiry: [null, null], runs: [], law: null });
   const fresh = (seed = Math.floor(Math.random() * 0x100000000)) => ({
-    v: 1, mv: 5, rv: 4, seed: seed >>> 0, page: 0, view: "setup", fromReview: false,
+    v: 1, mv: 5, rv: 5, seed: seed >>> 0, page: 0, view: "setup", fromReview: false,
     returnTo: null, tasks: KINDS.map(freshTask), sync: null, massParts: null
   });
   function begin(task) {
@@ -95,7 +95,7 @@
     if (state.rv === 1) {
       state.tasks.forEach(task => { task.inquiry = [null, null]; });
     }
-    state.rv = 4; state.mv = 5;
+    state.rv = 5; state.mv = 5;
     state.tasks.forEach(task => task.runs.forEach(run => run.q.sort((a,b)=>a-b)));
     const work = state.tasks[2].work;
     work[1] = work[0]; work[3] = work[2];

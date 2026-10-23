@@ -469,7 +469,13 @@ async function graphPresentation(cdp,base,launch,label) {
    assert.match(questions.comparison,page===2?/角速度/:page===0?/r_A\/r_B/:/m_A\/m_B/,'question follows the selected experiment');
    assert.match(questions.reason,/data-tex/, 'coefficient question renders LaTeX');
    assert.match(questions.option,page===2?/乘積/:page===0?/半徑/:/總質量/,'coefficient has one experiment-specific meaning');
+   const wording=await H.evaluate(cdp,"({law:document.getElementById('lawPrompt').textContent,independent:document.getElementById('independentPrompt').textContent,controls:document.getElementById('controlsPrompt').textContent,synthesis:document.querySelector('.synthesis').textContent})");
+   if(page<2)assert.match(wording.law,/不論所選比值是多少.*一般關係/);
+   else {assert.match(wording.independent,/每一組量測期間/);assert.match(wording.controls,/同一組量測期間.*A 側.*選兩項/);}
+   assert.match(wording.synthesis,/實驗 1（半徑）和實驗 2（質量）/);assert.match(wording.synthesis,/托座、螺絲及放上的砝碼/);assert.doesNotMatch(wording.synthesis,/前兩組|樽蓋/);
+   await H.evaluate(cdp,`(()=>{const e=document.getElementById('numericAnswer');e.value='${page===2?'4':'1'}';e.dispatchEvent(new Event('input',{bubbles:true}));})()`);
    await H.evaluate(cdp,`(()=>{for(const [id,value] of [['comparison','${page===2?'square':'supports'}'],['reason','coefficient']]){const e=document.getElementById(id);e.value=value;e.dispatchEvent(new Event('change',{bubbles:true}));}})()`);
+   assert.equal(await H.evaluate(cdp,`CentripetalScoring.page(window.__centripetalApp.getState(),${page}).runs[0].fitScore`),6,'displayed correct interpretations receive credit, including equal masses and radii');
    if(page===2){await click(cdp,'#squareGraph');await visibleFit(cdp);assert.match(await H.evaluate(cdp,"document.getElementById('reasonPrompt').innerHTML"),/c.*omega/, 'coefficient question follows the quadratic graph after switching back');}
    await click(cdp,'#collectView');await click(cdp,'#analyseView');
    assert.deepEqual(await H.evaluate(cdp,"['comparison','reason'].map(id=>document.getElementById(id).value)"),[page===2?'square':'supports','coefficient'],'question updates preserve saved answers');
@@ -481,13 +487,26 @@ async function graphPresentation(cdp,base,launch,label) {
    const setupTitle=await rect(cdp,'#setupTitle'),nav=await rect(cdp,'.panel-nav');
    assert.ok(setupTitle.y>=nav.y+nav.height-1,'second setup heading is visible below sticky navigation');
    assert.match(await H.evaluate(cdp,"document.getElementById('setupHelp').textContent"),page===0?/半徑比例/:page===1?/總質量比例/:/量測期間保持設定不變/);
-   await click(cdp,page===1?'[data-step="2:1"]':'[data-step="0:1"]');
+   await click(cdp,'[data-step="0:1"]');
    await click(cdp,'#startButton');
    const runs=await H.evaluate(cdp,`window.__centripetalApp.getState().tasks[${page}].runs`);
    assert.equal(runs.length,2);assert.deepEqual(runs[0],firstRun,'second setup and begin preserve first measurements, fit and answers');
    assert.notDeepEqual(runs[1].cfg,runs[0].cfg,'second group uses the newly chosen condition');
    assert.equal(await H.evaluate(cdp,"document.getElementById('nextRunPanel').hidden"),true,'no extra-group prompt after two groups');
    assert.equal(await H.evaluate(cdp,"document.getElementById('graphTitle').textContent"),'第二組數據／共兩組');
+   await threePoints(cdp);await click(cdp,'#analyseView');await click(cdp,'#fitButton');
+   await H.evaluate(cdp,`(()=>{for(const [id,value] of [['numericAnswer','${page===0?'1.25':page===1?'1':'4'}'],['comparison','${page===2?'square':page===1?'confounded':'supports'}'],['reason','${page===1?'uncertain':'coefficient'}']]){const e=document.getElementById(id);e.value=value;e.dispatchEvent(new Event(id==='numericAnswer'?'input':'change',{bubbles:true}));}})()`);
+   assert.equal(await H.evaluate(cdp,`CentripetalScoring.page(window.__centripetalApp.getState(),${page}).runs[1].fitScore`),6,'equal masses with unequal radii correctly use the product of both ratios');
+   if(page===1) {
+    assert.match(await H.evaluate(cdp,"document.querySelector('#comparison option:checked').textContent"),/兩側半徑不同/);
+    assert.match(await H.evaluate(cdp,"document.querySelector('#reason option:checked').textContent"),/總質量的比值乘以半徑的比值/);
+   }
+   const secondRun=await H.evaluate(cdp,`window.__centripetalApp.getState().tasks[${page}].runs[1]`);
+   await click(cdp,'[data-run="view:0"]');
+   assert.deepEqual(await H.evaluate(cdp,`window.__centripetalApp.getState().tasks[${page}].runs[0]`),firstRun);
+   assert.deepEqual(await H.evaluate(cdp,"['numericAnswer','comparison','reason'].map(id=>document.getElementById(id).value)"),firstRun.a,'first group restores its own answers');
+   await click(cdp,'[data-run="view:1"]');
+   assert.deepEqual(await H.evaluate(cdp,"['numericAnswer','comparison','reason'].map(id=>document.getElementById(id).value)"),secondRun.a,'second group restores its own different answers');
   }
  }
 }
