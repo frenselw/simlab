@@ -110,7 +110,7 @@
 - 記錄解析度為 0.001 rad/s：接受真實操作得到的 ω 後轉為整數 q=round(1000ω)，q∈[-6000,-250]∪[250,6000]，以 q/1000 作該次權威量測值。F_A、F_B 由同一 q 與凍結 cfg 推得。
 - 移除採樣槽排除；每次按量測保留實際整數q，只有完全相同q視為重複並提示調速。0.25rad/s區間只用於評分的覆蓋度，不再阻止記點；半徑／質量以角速度大小評覆蓋，第三頁以帶符號角速度評覆蓋。
 - 每頁最多兩個run，每組最多48點（共288整數）；介面顯示已量／48，滿額停用量測並提示另開組，不默刪舊點。開始另一組前停止現組；已有兩組時須由學生明確刪除一組，不能自動丟棄舊組。
-- 修改 m／r 只改下一組 working cfg，不覆寫任何舊 run；當前作答及擬合都綁定 run。使用者選定的評分資料組另以 selected 索引保存，切換看圖不暗換評分組。
+- 修改 m／r 只改下一組 working cfg，不覆寫任何舊 run；當前作答及擬合都綁定 run。rv4兩組數據均計分；selected只保留供rv1–3歷史成績核對，查看組別不影響評分。
 - 擬合可在數學上可識別時執行：線性至少 2 個不同 x，二次至少 3 個不同 x；充分採樣得分另見 rubric。繼續採樣後舊擬合標記清除，已填結論保留並頁內提醒重新比較，不彈窗。
 - 原始圖點由量測資料生成，不可拖動到理論線上。曲線沒有資料時不預畫；錯誤配置仍畫其真實結果。半徑與質量頁即使同時變兩量也可能有直線，須透過設定評分與 k 的解釋辨認混雜。
 
@@ -201,6 +201,11 @@
 
 ## Scoring and tolerance
 
+現行rv4：每實驗30分＝共同設定／預測（第三頁為變量角色）6分＋規律6分＋第一組數據9分＋第二組數據9分。每組配置2、轉速跨度2、定量比較2、擬合解讀3分（兩個解讀答案各1.5）；缺組得該組0分，所有已完成分項保留。三頁90分加綜合問題10分；兩組均計分，沒有評分組選擇。數據跨度、容差及公式判斷沿用以下規則，組內舊分項權重除以二。
+
+### 歷史rv1–3配分（只供已提交／凍結作答核對）
+
+
 總分 100、達標 60、最低 0。每實驗 30 分，共 90；同步量測理由 5、被測總質量組成 5。評 submitted 最終選定組及明確答案，不以推動次數、旋轉方向、遊玩時間或預設位置給分。
 
 | 每頁分項 | 分數 | 判分 |
@@ -229,7 +234,7 @@
 | collect/empty | current 指向合法 run，samples=[] | fitted=false | 推動／停止／check |
 | collect/partial/full | current run 含1…48唯一q樣本 | 角色與概念答案可有可無 | 還原後暫停，繼續推動／停止／check |
 | analyse/unfitted | current run 可空、少點或夠點 | fitted=false；所有概念答案可獨立保留 | 收集、合法fit、check |
-| analyse/fitted | current run fitted=true 且資料可識別 | fit係數派生不存 | 輸入、選selected、續採樣使fitted=false、check |
+| analyse/fitted | current run fitted=true 且資料可識別 | fit係數派生不存 | 輸入、切換組別作答、續採樣使fitted=false、check |
 | check/blank-partial-complete | 三頁答案與所選組，returnPage/returnView有效 | 不要求所有頁已訪問／fit | submit 或回有效頁 |
 | edit-after-check | fromReview=true＋原合法setup/collect/analyse | 完整保留獨立工作 | 一個合法操作後再check |
 | review/finished | 權威review答案；shared確認已記錄 | 無編輯current指針 | 唯讀切頁／fullscreen |
@@ -257,7 +262,7 @@
 | `returnTo` | null 或 [page,setup/collect/analyse]，collect/analyse須有合法current |
 | `tasks` | 固定3個 T，依 radius/mass/omega；不得缺頁或多頁 |
 | `T.work` | [rAIndex,rBIndex,nA,nB]，前二0…6，後二0…8整數 |
-| `T.current,T.selected` | null 或本T.runs的有效索引；刪組後重映；資料有但未選評分組合法 |
+| `T.current,T.selected` | null 或本T.runs的有效索引；刪組後重映；rv4不使用selected計分；欄位僅供歷史成績核對 |
 | `T.roles` | [自變量key或null,控制量key陣列或null]；控制量最多2且不同；錯誤角色合法 |
 | `T.runs` | 0…2個 R |
 | `R.cfg` | 同T.work型別，run成立後不可變 |
@@ -954,3 +959,20 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 - 功能commit 61ca8d523384b91f38969591f0572d69afa3f5e3已推至origin；committed selection由2e4820c起算，mode=affected、packages僅本活動，output/centripetal-fit-visibility-selection.json。
 - 官方helper推送Site source f0f737306ebc19c149fabe46768220b3b6d88a91；v20 appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_4cfc3825098c8191a0104fbc56afee8c，deployment appgdep_6adacb8a57408191ab50fe956754f2f7，Sites回報succeeded（2026-10-23T02:50:56.643605+00:00）；原owner-private audience保持。
 - 原站reload後實際推轉、量測26點及擬合；橙線清楚在藍點上方，公式為F_A=1F_B+0N，沒有RMSE。已開回擬合圖並保留可操作分頁，截圖C:/Users/frens/Documents/Projects/simlab/output/centripetal-fit-v20.png。暫時分頁快取設定已恢復，未改viewport，臨時憑證已清除。未重跑完整旋轉手勢／保存或真手機／Moodle。
+
+## 兩組數據共同評分（2026-10-23，現行決策，取代單組selected評分）
+
+- 每個實驗量測兩組數據，各自擬合及作答；新rv4移除選評分組操作，第一／第二組數據一律各佔一半實作分。兩組可採不同設定，但不新增設定必須不同的評分限制；半徑1:1仍合法，第三實驗每組均可正反轉。
+- rubric仍100分：每頁30分＝共同設定／預測或變量6＋規律6＋每組9×2；每組配置2、轉速跨度2、定量比較2、擬合解讀3。缺組及未答只失該組分，零／一／兩組及部分作答均可檢查及提交，空白0分。
+- rv4沿用mv5相同snapshot結構及壓縮；selected僅留作rv1–3舊成績相容欄位，新評分忽略其值。舊draft升rv4保留所有數據／答案與導航；已提交、committed及pending維持原rv規則與成績，不升版。驗證器接受rv1–4並繼續嚴格拒絕其他版本。
+- 流程／phase：setup先明示兩組要求→第一組量測及擬合→返回器材設定建立第二組→各組查看及作答→check逐組列量測／擬合／答案狀態；review兩組可唯讀切換，無選組／刪除／清空；pending凍結同一份重試。
+- 範圍：model、scoring、persistence、ui-runtime、main/index用字與run操作、既有五項node測試及browser driver。所有learner-facing「資料」改「數據」，組名用「第一組數據／第二組數據」。不更改運動／圖點演算法、manifest依賴或共用SCORM核心。
+- 測試：三頁兩組滿分、缺組／部分分、錯配、selected值不影響rv4、rv1–3原分；新rv4各phase/variant兩組encode→decode→restore→合法續作、最滿4000bytes、舊草稿升級及舊finished／pending保分。實際source及解壓包兩組流程、切換答案、刪除重做、blank提交、唯讀檢討；check:tests及committed selection。低風險browser formative評分，真手機／Moodle仍須分開驗證。
+
+### 兩組數據驗證
+
+- 五項node測試、check、check:tests（263 entries）及main／browser driver語法通過。三頁rv4均驗證無組12概念分、只做一組21、兩組30、缺答案／未擬合部分分及selected=null/0/1不改分；rv1–3已提交／pending保留原分，rv3草稿完整保留數據升rv4後合法完成第二組提交及還原。
+- rv4兩組的3頁×4phase×3variant（空／部分／擬合）encode→decode→合法續作通過；最滿draft/review/pending為3403/3440/3808bytes，無壓縮或數據捨入改動；非法rv5仍拒絕。新增兩組情境於既有測試入口，無新registry條目。
+- 完整source及解壓SCORM瀏覽器回歸通過：1280與390px兩組量測／作答／逐組check、單組可提交部分分、兩組1:1取得30分、兩組review唯讀；仍驗證刪除重做、空白提交、正負與超過96點、320px／短視窗、fullscreen及可信觸控。原連續放手16個mouse/touch、量測／非量測、CPU1/4案例通過，最大frame約24.3ms，無瀏覽器例外。
+- learner-facing已無「資料」／「評分組」；列表為「第一組數據／第二組數據」，每組作答標題跟隨當前組。截圖output/playwright/centripetal-two-groups-{1280,390}.png；真手機／Moodle未驗證。
+- SCORM17檔；16個runtime與canonical sim及Site dist逐位元組相同。ZIP SHA-256：41703b633036647e2a6b855fa660fe45214dcfc19e7a747f41e4dbe608c2bc1a。

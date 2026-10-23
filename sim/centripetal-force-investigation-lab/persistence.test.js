@@ -38,7 +38,7 @@ const legacyReview = P.review(legacy); assert.deepEqual(P.decode(snapshot(legacy
 const signed = M.fresh(8); signed.page = 2; signed.view = 'collect'; M.begin(signed.tasks[2]);
 for (const value of [-3, -1, 1, 3]) M.record(signed.tasks[2], value);
 roundtrip(signed, s => { assert.ok(M.fitCurrent('omega', s.tasks[2]).ok); assert.ok(P.validate(s)); });
-for (const change of [s => s.v = 2, s => s.rv = 4, s => s.tasks[0].work[0] = NaN, s => s.tasks[0].runs[0].q.push(s.tasks[0].runs[0].q[0]),
+for (const change of [s => s.v = 2, s => s.rv = 5, s => s.tasks[0].work[0] = NaN, s => s.tasks[0].runs[0].q.push(s.tasks[0].runs[0].q[0]),
   s => { s.tasks[0].runs[0].q = [250]; s.tasks[0].runs[0].fit = true; }, s => s.tasks[0].selected = 9, s => s.tasks[0].roles[1] = ["m", "m"], s => s.tasks[0].inquiry[0] = "bogus", s => s.tasks[2].inquiry[1] = "ratio-steady"]) {
   const bad = M.clone(full); change(bad); assert.throws(() => P.validate(bad));
 }
@@ -57,7 +57,7 @@ assert.equal(S.coverage("omega",high.tasks[2].runs[0]).dataScore,4);
 assert.equal(S.coverage("radius",{q:[22000,23000,24000]}).dataScore,4,"high-speed bins remain distinct");
 
 const rv2=M.fresh(31);rv2.rv=2;M.begin(rv2.tasks[0]);M.record(rv2.tasks[0],1);rv2.view="collect";
-roundtrip(rv2,s=>{M.upgradeDraft(s);assert.equal(s.rv,3);assert.ok(M.record(s.tasks[0],2));assert.ok(P.validate(s));});
+roundtrip(rv2,s=>{M.upgradeDraft(s);assert.equal(s.rv,4);assert.ok(M.record(s.tasks[0],2));assert.ok(P.validate(s));});
 const rv2Review=P.review(rv2);
 assert.deepEqual(P.decode(snapshot(rv2Review,"review"),"review"),rv2Review,"old review roundtrip does not upgrade its rubric");
 
@@ -79,4 +79,17 @@ for(const mv of [3,4]) {
  const saved=snapshot(old);const decoded=P.decode(saved,"draft");assert.deepEqual(decoded,old);
  M.upgradeDraft(decoded);assert.ok(M.record(decoded.tasks[2],-24));assert.ok(before.every(q=>decoded.tasks[2].runs[0].q.includes(q)));
  assert.deepEqual(P.decode(snapshot(decoded),"draft"),decoded);
+}
+
+for(const page of [0,1,2])for(const view of ["setup","collect","analyse","check"])for(const variant of ["empty","partial","fit"]) {
+ const s=M.fresh(88);s.page=page;const t=s.tasks[page];
+ for(let j=0;j<2;j++) {
+  M.begin(t);if(variant!=="empty")for(const w of [.5,1.5,3])M.record(t,w);
+  if(variant==="fit"){M.fitCurrent(M.KINDS[page],t);t.runs[j].a=["1",null,"coefficient"];}
+ }
+ s.view=view;if(view==="check")s.returnTo=[page,"analyse"];
+ roundtrip(s,next=>{
+  if(next.view==="check"){next.view="analyse";next.returnTo=null;}
+  next.tasks[page].current=0;assert.ok(M.record(next.tasks[page],4));assert.ok(P.validate(next));
+ });
 }

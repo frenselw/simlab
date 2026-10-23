@@ -30,9 +30,9 @@
       const mode = this.flow.startup(attempt);
       if (mode === "editable") {
         try { this.state = attempt.state === "draft" ? P.decode(attempt.snapshot, "draft") : M.fresh(); this.mode = "editable";
-          const legacy = this.state.rv < 3 || this.state.mv < 5; M.upgradeDraft(this.state);
+          const legacy = this.state.rv < 4 || this.state.mv < 5; M.upgradeDraft(this.state);
           if (attempt.state === "new" || legacy) this.save(); }
-        catch (_) { this.technical("草稿未能安全還原；原有資料保持不變。"); return; }
+        catch (_) { this.technical("草稿未能安全還原；原有數據保持不變。"); return; }
       } else if (mode === "review") this.restoreReview(attempt);
       else if (mode === "frozen") this.restorePending(attempt.snapshot);
       else { this.technical("未能安全讀取作答狀態；請檢查連線。"); return; }
@@ -62,7 +62,7 @@
         const inner = JSON.parse(snapshot.payload.reviewJson), checked = this.validateFinal(inner, snapshot.payload);
         this.final = inner; this.state = checked.answer; this.mode = "frozen"; this.result = null;
         this.notice = "提交尚未確認；答案已凍結，可重試同一份提交。";
-      } catch (_) { this.scorm.quarantinePending(); this.technical("凍結資料未能通過驗證；已停止重試，需要技術檢查。"); }
+      } catch (_) { this.scorm.quarantinePending(); this.technical("凍結數據未能通過驗證；已停止重試，需要技術檢查。"); }
     }
     update(change, render = true) {
       if (!this.editable || this.state.view === "check") return false;
@@ -110,7 +110,7 @@
         const handle = outcome => this.handleOutcome(outcome);
         this.scorm.submitWithCallbacks(result, this.final, { onSuccess: handle, onFailure: handle });
         return true;
-      } catch (_) { this.technical("未能建立提交資料；成績尚未確認。"); return false; }
+      } catch (_) { this.technical("未能建立提交數據；成績尚未確認。"); return false; }
     }
     handleOutcome(outcome) {
       const raw = outcome?.activityState ? outcome : { ...outcome, activityState: outcome?.ok ? "success" : outcome?.committed ? "committed" : outcome?.frozen ? "frozen" : "retry" };
@@ -129,7 +129,7 @@
         retry: failure => {
           if (failure.retryable) { this.state = this.before; this.mode = "editable"; this.final = null;
             this.notice = "提交未完成；可返回修改或重試。"; }
-          else this.technical("未能安全建立提交資料；需要技術檢查。");
+          else this.technical("未能安全建立提交數據；需要技術檢查。");
         }
       });
       this.emit();
@@ -137,7 +137,7 @@
     retryFinal() {
       if (!["frozen", "committed"].includes(this.mode)) return;
       try { this.validateFinal(this.final); this.handleOutcome(this.mode === "committed" ? this.scorm.retryFinish() : this.scorm.retryPending()); }
-      catch (_) { this.scorm.quarantinePending(); this.technical("凍結資料未能核對；已停止重試。"); }
+      catch (_) { this.scorm.quarantinePending(); this.technical("凍結數據未能核對；已停止重試。"); }
     }
   }
   return Object.freeze({ Controller });

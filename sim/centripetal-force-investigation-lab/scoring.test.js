@@ -1,6 +1,6 @@
 "use strict";
 const assert = require("node:assert/strict"), M = require("./model.js"), S = require("./scoring.js");
-const s = M.fresh(1); assert.equal(S.score(s).score, 0);
+const s = M.fresh(1); s.rv=3; assert.equal(S.score(s).score, 0);
 s.tasks[0].inquiry = ["equal-mass", "ratio-steady"]; s.tasks[0].law = "linear";
 assert.equal(S.score(s).detail.pages[0].score, 12, "concept credit is independent of data");
 assert.equal(M.begin(s.tasks[0]), true); const run = s.tasks[0].runs[0]; run.cfg = [4, 2, 2, 2];
@@ -45,7 +45,7 @@ for (const kind of M.KINDS) {
   assert.equal(S.coverage(kind,run).dataScore,kind==="omega"?4:2,"radius/mass count magnitude; omega retains sign");
 }
 
-const equalRadius=M.fresh(21), equalTask=equalRadius.tasks[0];
+const equalRadius=M.fresh(21), equalTask=equalRadius.tasks[0]; equalRadius.rv=3;
 equalTask.inquiry=["equal-mass","ratio-steady"];equalTask.law="linear";
 M.begin(equalTask);for(const w of [.5,1.5,3])M.record(equalTask,w);
 M.fitCurrent("radius",equalTask);equalTask.runs[0].a=["1","supports","coefficient"];
@@ -56,3 +56,25 @@ assert.equal(S.page(equalRadius,0).score,26,"rv2 retains its historical equal-ra
 equalRadius.rv=3;equalTask.runs[0].cfg[2]=4;equalTask.runs[0].a=["1","confounded","uncertain"];
 assert.equal(S.page(equalRadius,0).fairScore,0,"unequal masses still confound the radius comparison");
 assert.equal(S.page(equalRadius,0).fitScore,6,"recognising unequal masses still earns interpretation credit");
+
+// rv4 grades both runs equally; missing work receives only its own zero credit.
+for(const [i,configs] of [[[2,2,2,2],[4,2,2,2]],[[2,2,4,2],[2,2,2,4]],[[2,2,2,2],[3,3,3,3]]].entries()) {
+ const state=M.fresh(42),t=state.tasks[i],kind=M.KINDS[i];
+ t.inquiry=i<2?[i===0?"equal-mass":"equal-radius","ratio-steady"]:[null,null];
+ t.roles=["omega",["m","r"]];t.law=i===2?"square":"linear";
+ assert.equal(S.page(state,i).score,12);
+ for(const [j,cfg] of configs.entries()) {
+  t.work=cfg.slice();M.begin(t);for(const w of [.5,1.5,3])M.record(t,w);
+  M.fitCurrent(kind,t);const r=t.runs[j];
+  const value=i===0?M.radius(cfg[0])/M.radius(cfg[1]):i===1?M.mass(cfg[2])/M.mass(cfg[3]):4;
+  r.a=[value.toFixed(3),i===2?"square":"supports","coefficient"];
+  assert.equal(S.page(state,i).score,j===0?21:30);
+ }
+ for(const selected of [null,0,1]) {t.selected=selected;assert.equal(S.page(state,i).score,30,"no selected run controls rv4 credit");}
+ t.runs[1].a[0]=null;assert.equal(S.page(state,i).score,28,"the other run retains its earned credit");
+ t.runs[1].a=[null,null,null];t.runs[1].fit=false;
+ assert.equal(S.page(state,i).score,25,"an unfinished second run keeps configuration and data credit");
+ t.runs[1].q=[];assert.equal(S.page(state,i).score,21);
+ state.rv=3;t.selected=0;assert.equal(S.page(state,i).score,30,"old single-run rubric is preserved");
+ t.selected=1;assert.equal(S.page(state,i).score,12);
+}

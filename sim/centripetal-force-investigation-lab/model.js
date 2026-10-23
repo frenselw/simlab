@@ -32,7 +32,7 @@
   const freshRun = cfg => ({ cfg: cfg.slice(), q: [], fit: false, a: [null, null, null] });
   const freshTask = () => ({ work: CFG.slice(), current: null, selected: null, roles: [null, null], inquiry: [null, null], runs: [], law: null });
   const fresh = (seed = Math.floor(Math.random() * 0x100000000)) => ({
-    v: 1, mv: 5, rv: 3, seed: seed >>> 0, page: 0, view: "setup", fromReview: false,
+    v: 1, mv: 5, rv: 4, seed: seed >>> 0, page: 0, view: "setup", fromReview: false,
     returnTo: null, tasks: KINDS.map(freshTask), sync: null, massParts: null
   });
   function begin(task) {
@@ -53,7 +53,7 @@
     return true;
   }
   function fitCurrent(kind, task) {
-    if (task.current === null) return { ok: false, message: "請先收集資料。" };
+    if (task.current === null) return { ok: false, message: "請先收集數據。" };
     const result = fit(kind, task.runs[task.current]);
     task.runs[task.current].fit = result.ok;
     return result;
@@ -95,7 +95,7 @@
     if (state.rv === 1) {
       state.tasks.forEach(task => { task.inquiry = [null, null]; });
     }
-    state.rv = 3; state.mv = 5;
+    state.rv = 4; state.mv = 5;
     state.tasks.forEach(task => task.runs.forEach(run => run.q.sort((a,b)=>a-b)));
     const work = state.tasks[2].work;
     work[1] = work[0]; work[3] = work[2];

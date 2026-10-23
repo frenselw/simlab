@@ -390,16 +390,38 @@ async function buttonOnly(cdp, base, launch, label) {
   assert.equal(await H.evaluate(cdp, 'document.getElementById("restartRunButton").hidden'), true, `${label}: submitted work has no redo action`);
 }
 async function equalRadiusComparison(cdp, base, launch) {
+ for(const width of [1280,390]) {
+  await cdp.send("Emulation.setDeviceMetricsOverride",{width,height:800,deviceScaleFactor:1,mobile:width<900});
   await cdp.send("Page.navigate",{url:base+launch});await ready(cdp);
   const answer=async(id,value)=>H.evaluate(cdp,`(()=>{const e=document.getElementById(${JSON.stringify(id)});e.value=${JSON.stringify(value)};e.dispatchEvent(new Event(e.id==="numericAnswer"?"input":"change",{bubbles:true}));})()`);
+  assert.match(await H.evaluate(cdp,"document.getElementById('taskPrompt').textContent"),/兩組均計分/);
   await answer("setupReason","equal-mass");await answer("speedRelation","ratio-steady");await answer("law","linear");
-  await click(cdp,"#startButton");await threePoints(cdp);await click(cdp,"#analyseView");await click(cdp,"#fitButton");
-  await answer("numericAnswer","1");await answer("comparison","supports");await answer("reason","coefficient");
-  const run=await H.evaluate(cdp,"window.__centripetalApp.getState().tasks[0].runs[0]");
-  assert.deepEqual(run.cfg,[2,2,2,2],"the default equal-radius setup is kept");
-  assert.deepEqual(run.a,["1","supports","coefficient"]);
+  for(let j=0;j<2;j++) {
+   if(j)await click(cdp,"#setupView");
+   await click(cdp,"#startButton");await threePoints(cdp);await click(cdp,"#analyseView");await click(cdp,"#fitButton");
+   await answer("numericAnswer","1");await answer("comparison","supports");await answer("reason","coefficient");
+   const run=await H.evaluate(cdp,`window.__centripetalApp.getState().tasks[0].runs[${j}]`);
+   assert.deepEqual(run.cfg,[2,2,2,2],"equal radii remain a valid 1:1 comparison");
+   assert.deepEqual(run.a,["1","supports","coefficient"]);
+   assert.equal(await H.evaluate(cdp,"CentripetalScoring.score(window.__centripetalApp.getState()).score"),j?30:21,"both groups contribute equally");
+   assert.equal(await H.evaluate(cdp,"document.querySelectorAll('[data-run^=select]').length"),0,"no scoring-group chooser");
+   assert.equal(await H.evaluate(cdp,"document.getElementById('analyseTitle').textContent"),(j?"第二":"第一")+"組數據：比較與解釋");
+   await click(cdp,"#checkButton");
+   assert.match(await H.evaluate(cdp,"document.getElementById('checkSummary').textContent"),j?/第二組數據：\d+ 個量測點/:/第二組數據：未量測/);
+   if(!j){assert.equal(await H.evaluate(cdp,"document.getElementById('submitButton').disabled"),false,"one group may be submitted for partial credit");await click(cdp,"#backButton");}
+  }
+  const saved=await H.evaluate(cdp,"window.__centripetalApp.getState().tasks[0].runs");
+  await click(cdp,"#backButton");await click(cdp,'[data-run="view:0"]');
+  assert.equal(await H.evaluate(cdp,"document.getElementById('numericAnswer').value"),"1","switching runs restores its own answers");
+  assert.deepEqual(await H.evaluate(cdp,"[...document.querySelectorAll('.run-card strong')].map(e=>e.textContent)"),["第一組數據","第二組數據"]);
+  fs.writeFileSync(path.join(root,'output/playwright',`centripetal-two-groups-${width}.png`),Buffer.from((await cdp.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
   await click(cdp,"#checkButton");await click(cdp,"#submitButton");
-  assert.match(await H.evaluate(cdp,"document.getElementById('scorePanel').textContent"),/30 \/ 100/,"a valid 1:1 comparison receives full page credit");
+  assert.match(await H.evaluate(cdp,"document.getElementById('scorePanel').textContent"),/30 \/ 100/,"both valid groups receive full page credit");
+  assert.equal(await H.evaluate(cdp,"document.querySelectorAll('[data-run^=delete]').length"),0,"recorded work has no delete controls");
+  await click(cdp,'[data-run="view:1"]');
+  assert.equal(await H.evaluate(cdp,"document.getElementById('numericAnswer').disabled"),true,"both groups are review-only after submission");
+  assert.deepEqual(await H.evaluate(cdp,"window.__centripetalApp.getState().tasks[0].runs"),saved);
+ }
 }
 async function visibleFit(cdp) {
  const line=await H.evaluate(cdp,`(()=>{

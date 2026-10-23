@@ -4,8 +4,8 @@
   const $ = id => document.getElementById(id), stage = $("stageContent"), device = $("deviceSvg"), graph = $("graphSvg");
   const titles = ["半徑如何影響徑向力？", "質量如何影響徑向力？", "轉速如何影響徑向力？"];
   const prompts = ["保持兩側質量相同，研究徑向力與半徑的關係。半徑可相同（1:1），亦可試其他比例。", "保持兩側半徑相同、總質量不同，觀察改變轉速時兩側徑向力的比值。", "只量測 A，B 作平衡配重。固定 A 的質量及半徑，推轉、測量、減速，再試反向。"];
-  const compareOptions = [["supports", "斜率與設定比值相符，支持本題比例關係"], ["confounded", "兩個量同時改變，不能隔離"], ["no-contrast", "被研究量沒有差異"], ["insufficient", "資料不足"]];
-  const reasonOptions = [["coefficient", "斜率對應兩側物理量比值／二次項對應質量與半徑的乘積"], ["constant", "只有常數項代表關係"], ["other", "係數與配置無關"], ["uncertain", "配置混雜或資料不足，不能隔離解釋"]];
+  const compareOptions = [["supports", "斜率與設定比值相符，支持本題比例關係"], ["confounded", "兩個量同時改變，不能隔離"], ["no-contrast", "被研究量沒有差異"], ["insufficient", "數據不足"]];
+  const reasonOptions = [["coefficient", "斜率對應兩側物理量比值／二次項對應質量與半徑的乘積"], ["constant", "只有常數項代表關係"], ["other", "係數與配置無關"], ["uncertain", "配置混雜或數據不足，不能隔離解釋"]];
   const lawOptions = [["linear", "徑向力與研究量成正比（其餘量固定）"], ["square", "徑向力與研究量的平方成正比（其餘量固定）"], ["inverse", "徑向力與研究量成反比"], ["none", "沒有可描述的關係"]];
   const controller = new CentripetalRuntime.Controller(SimScorm, SimActivityFlow, render);
   let motion = M.motion(), running = false, drag = null, lastFrame = 0, localMessage = "", reviewRun = [null, null, null], mathReady = false, lastLocation = "", graphOpen = true, measuring = false, lastSampleAt = -Infinity, lastSampleQ = null, brakeHold = null, squaredGraph = false, graphProjection = null, lastReadoutAt = -Infinity, sampleTimer = null;
@@ -13,6 +13,7 @@
   const view = () => controller.editable ? state().view : controller.reviewView;
   const task = () => state()?.tasks[page()];
   const activeRun = () => task()?.current === null ? null : task().runs[task().current];
+  const runNames = ["第一組數據", "第二組數據"];
   const shownRun = () => controller.editable ? activeRun() : task()?.runs[reviewRun[page()] ?? task().selected ?? 0] || null;
   const fmt = value => Number(value.toPrecision(3)).toString();
   function updateText(id, value) { const node = $(id); if (node.textContent !== value) node.textContent = value; }
@@ -234,8 +235,8 @@
   }
   function renderRuns() {
     const t = task(), locked = !controller.editable || state().view === "check";
-    $("runList").innerHTML = t.runs.length ? t.runs.map((run, i) => `<div class="run-card ${t.current === i || locked && reviewRun[page()] === i ? "current" : ""}"><strong>資料組 ${i + 1}</strong><p><span data-run-count="${i}">${run.q.length}</span> 個量測點 · ${math(`m_A=${fmt(M.mass(run.cfg[2]))}\\,\\mathrm{kg},\\ r_A=${fmt(M.radius(run.cfg[0]))}\\,\\mathrm{m}`, 'A 側質量與半徑')} · ${math(`m_B=${fmt(M.mass(run.cfg[3]))}\\,\\mathrm{kg},\\ r_B=${fmt(M.radius(run.cfg[1]))}\\,\\mathrm{m}`, 'B 側質量與半徑')}</p><div class="run-actions"><button data-run="view:${i}" ${controller.mode === "technical" || controller.mode === "mismatch" || state().view === "check" && controller.editable ? "disabled" : ""}>查看</button><button data-run="select:${i}" aria-pressed="${t.selected === i}" ${locked ? "disabled" : ""}>${t.selected === i ? "評分組 ✓" : "選為評分組"}</button>${locked ? "" : `<button data-run="delete:${i}">刪除本組</button>`}</div></div>`).join("") : "<p>尚未收集資料。你仍可回答概念題或檢查作答。</p>";
-    $("runHint").textContent = t.runs.length >= 2 ? "最多保留兩組；如要再收集，先明確刪除其中一組。" : page() === 2 ? "同一資料組可連續量測正轉與反轉；直接反向推轉即可，毋須另開組。" : "可返回設定，換另一個半徑比或質量比，再建立第二組比較斜率；舊組數據保留。";
+    $("runList").innerHTML = t.runs.length ? t.runs.map((run, i) => `<div class="run-card ${t.current === i || locked && reviewRun[page()] === i ? "current" : ""}"><strong>${runNames[i]}</strong><p><span data-run-count="${i}">${run.q.length}</span> 個量測點 · ${math(`m_A=${fmt(M.mass(run.cfg[2]))}\\,\\mathrm{kg},\\ r_A=${fmt(M.radius(run.cfg[0]))}\\,\\mathrm{m}`, 'A 側質量與半徑')} · ${math(`m_B=${fmt(M.mass(run.cfg[3]))}\\,\\mathrm{kg},\\ r_B=${fmt(M.radius(run.cfg[1]))}\\,\\mathrm{m}`, 'B 側質量與半徑')}</p><div class="run-actions"><button data-run="view:${i}" ${controller.mode === "technical" || controller.mode === "mismatch" || state().view === "check" && controller.editable ? "disabled" : ""}>${locked ? "查看" : "查看及作答"}</button>${locked ? "" : `<button data-run="delete:${i}">刪除本組</button>`}</div></div>`).join("") : "<p>尚未收集數據。你仍可回答概念題或檢查作答。</p>";
+    $("runHint").textContent = state().rv < 4 ? "舊版已提交作答保留原有評分規則。" : t.runs.length >= 2 ? "兩組均計分。請分別擬合及作答；重做時只清除指定的一組。" : "請完成兩組數據，兩組均計分。返回「器材設定」可準備下一組。";
   }
   function renderSampling() {
     const run = shownRun(), p = page(), cfg = task().work, editing = controller.editable && view() !== "check";
@@ -268,7 +269,7 @@
     $("feedbackPanel").hidden = controller.mode !== "review" && controller.mode !== "committed";
     $("checkButton").hidden = locked; $("checkButton").disabled = !s;
     for (const button of document.querySelectorAll("[data-page]")) { button.disabled = !s; button.setAttribute("aria-current", Number(button.dataset.page) === p ? "page" : "false"); }
-    if (!s) { $("stageHint").textContent = "作答資料尚未能安全讀取。"; return; }
+    if (!s) { $("stageHint").textContent = "作答數據尚未能安全讀取。"; return; }
     const t = task(), cfg = t.work, run = shownRun(), editing = !locked && v !== "check";
     $("app").dataset.experiment = M.KINDS[p];
     $("measurementRoles").hidden = p !== 2 || v === "setup";
@@ -276,7 +277,7 @@
     $("setupHelp").textContent = p === 2 ? "拖動 A 調半徑，砝碼放入 A 托座或拖回盤取下，亦可用 ＋／−。B 是平衡配重，新設定的質量與半徑自動跟隨 A，不作測力。" : "左右拖 A／B 調半徑；砝碼拖入托座，拖回「砝碼盤」取下，亦可用 ＋／−。圖中「砝碼 × 數量」顯示各側放入的塊數。";
     document.querySelector(".mass-token.tray").setAttribute("aria-label", p === 2 ? "從砝碼盤拖一塊圓片到 A 托座；拖回此盤可取下砝碼" : "從砝碼盤拖一塊圓片到 A 或 B 托座；拖回此盤可取下砝碼");
     $("graphTitle").textContent = p === 2 ? "A 側徑向力與角速度" : "同步量測圖";
-    $("taskNumber").textContent = `實驗 ${p + 1} / 3`; $("taskTitle").textContent = titles[p]; $("taskPrompt").textContent = prompts[p];
+    $("taskNumber").textContent = `實驗 ${p + 1} / 3`; $("taskTitle").textContent = titles[p]; $("taskPrompt").textContent = prompts[p] + (s.rv >= 4 ? " 請量測兩組數據，分別擬合及作答；兩組均計分。" : "");
     $("setupPanel").hidden = v !== "setup"; $("collectPanel").hidden = v !== "collect"; $("analysePanel").hidden = v !== "analyse";
     $("taskIntro").hidden = v !== "setup";
     $("collectHelp").hidden = v !== "collect";
@@ -308,22 +309,23 @@
     ["mAValue", "mBValue"].forEach((id, i) => { $(id).innerHTML = `${cfg[i + 2] ? cfg[i + 2] + ' 塊' : '空托座'}<small>${math(`m_${i ? 'B' : 'A'}=${M.mass(cfg[i + 2]).toFixed(3)}\\,\\mathrm{kg}`, `${M.mass(cfg[i + 2]).toFixed(3)} kg`)}</small>`; });
     for (const button of document.querySelectorAll("[data-step]")) { const [field, delta] = button.dataset.step.split(":").map(Number); button.disabled = !editing || v !== "setup" || cfg[field] + delta < 0 || cfg[field] + delta > (field < 2 ? 6 : 8); }
     $("startButton").disabled = !editing || t.runs.length >= 2;
-    $("startButton").textContent = t.runs.length ? `保留舊組，準備第 ${t.runs.length + 1} 組 →` : "準備轉盤 →";
-    if (t.runs.length >= 2) $("startButton").textContent = "已保留兩組";
+    $("startButton").textContent = t.runs.length ? `準備${runNames[1]} →` : `準備${runNames[0]} →`;
+    if (t.runs.length >= 2) $("startButton").textContent = "已建立兩組數據";
     $("setupRunNote").hidden = !t.runs.length;
-    $("setupRunNote").textContent = t.runs.length >= 2 ? "已保留兩組。可繼續原組，或清除目前組並按新設定重做。" : "本組數據已保留。可繼續收集、保留並另開一組，或清除本組重做。";
+    $("setupRunNote").textContent = t.runs.length >= 2 ? "已保留兩組。可繼續原組，或清除目前組並按新設定重做。" : "第一組數據已保留。調整器材後可準備第二組數據。";
     $("restartRunButton").hidden = !editing || t.current === null;
     $("restartRunNote").hidden = $("restartRunButton").hidden;
     $("restartRunButton").disabled = !editing;
     $("collectView").textContent = "轉動量測";
     $("brakeButton").hidden = !editing || v !== "collect";
     renderRuns(); renderSampling();
+    $("analyseTitle").textContent = run ? `${runNames[t.current ?? reviewRun[p] ?? t.selected ?? 0]}：比較與解釋` : "比較與解釋";
     $("fitButton").disabled = !editing || !activeRun(); $("resumeFromGraph").disabled = !editing || !activeRun();
     $("axisLabel").innerHTML = p === 2 && squaredGraph ? `橫軸 ${math("\\omega^2", "角速度平方")}；縱軸 ${math("F_A", "A 側徑向力")}。檢查直線斜率及截距；原角速度圖與答案保留。` : p === 2 ? `橫軸 ${math('\\omega\\,(\\mathrm{rad}/\\mathrm{s})', '角速度（rad/s）')}；縱軸 ${math('F_A\\,(\\mathrm{N})', 'A 側徑向力（N）')}。二次擬合含一次項及常數項。` : `橫軸 ${math('F_B\\,(\\mathrm{N})', 'B 側徑向力（N）')}；縱軸 ${math('F_A\\,(\\mathrm{N})', 'A 側徑向力（N）')}。兩軸都是同步量測的力；比較斜率與設定比值，並檢查截距。`;
     const fit = run?.fit ? graphFit(M.KINDS[p], run) : null;
     const fitNumber = value => fmt(Math.abs(value) < 1e-12 ? 0 : value).replace(/e([+-]?\d+)/, '\\times10^{$1}');
     $("fitResult").innerHTML = fit?.ok ? p === 2 && !squaredGraph ? `${math(`F_A=${fitNumber(fit.coefficients[0])}\\omega^2+${fitNumber(fit.coefficients[1])}\\omega+${fitNumber(fit.coefficients[2])}\\,\\mathrm{N}`, 'A 側徑向力二次擬合')}` : `${math(`F_A=${fitNumber(fit.coefficients[0])}${p === 2 ? "\\omega^2" : "F_B"}+${fitNumber(fit.coefficients[1])}\\,\\mathrm{N}`, '兩側徑向力線性擬合')}` :
-      run?.a.some(Boolean) && run.q.length >= 2 ? "資料已更新或尚未擬合；原有結論保留，請重新擬合比較。" : "尚未擬合；請先收集足夠的不同轉速。";
+      run?.a.some(Boolean) && run.q.length >= 2 ? "數據已更新或尚未擬合；原有結論保留，請重新擬合比較。" : "尚未擬合；請先收集足夠的不同轉速。";
     $("numericPrompt").innerHTML = p === 2 ? "角速度加倍時，力變成多少倍？" : p === 0 ? `${math('r_A/r_B', '兩側半徑的比值')} = ?` : `${math('m_A/m_B', '兩側質量的比值')} = ?`;
     $("numericAnswer").value = run?.a[0] || ""; $("numericAnswer").disabled = !editing || !activeRun();
     setSelect("comparison", p === 2 ? lawOptions : compareOptions, run?.a[1], !editing || !activeRun());
@@ -343,12 +345,12 @@
       v === "collect" ? "拖金色環推動；讀數在下方。" : "短視窗可用下方按鈕設定；全螢幕可直接拖動。" :
       v === "analyse" ? "轉盤已暫停；數據圖可收合，裝置保留顯示。" : v === "collect" ? running ? "沿金色外圈拖動轉盤" : "已暫停；直接拖動金色外圈繼續。" : v === "check" ? "檢查及提交在操作面板。" : "左右拖 A／B 調整半徑";
     if (v === "check") {
-      $("checkSummary").innerHTML = s.tasks.map((item, i) => `<div class="check-row"><strong>實驗 ${i + 1} · ${titles[i]}</strong><small>資料組 ${item.runs.length}；評分組 ${item.selected === null ? "未選" : item.selected + 1}；結論 ${item.law === null ? "未答" : "已答"}</small></div>`).join("") + `<div class="check-row">綜合問題：${[s.sync, s.massParts].filter(Boolean).length} / 2 已答</div>`;
+      $("checkSummary").innerHTML = s.tasks.map((item, i) => `<div class="check-row"><strong>實驗 ${i + 1} · ${titles[i]}</strong>${[0,1].map(index => { const r = item.runs[index]; return `<small>${runNames[index]}：${r?.q.length ? r.q.length + " 個量測點" : "未量測"} · ${r?.fit ? "已擬合" : "未擬合"} · 作答 ${r?.a.filter(a => a !== null && a !== "").length || 0}/3</small>`; }).join("")}<small>結論 ${item.law === null ? "未答" : "已答"}</small></div>`).join("") + `<div class="check-row">綜合問題：${[s.sync, s.massParts].filter(Boolean).length} / 2 已答</div>`;
       $("submitButton").disabled = !controller.editable || controller.unsaved;
     }
     if (!$("feedbackPanel").hidden) {
       const result = controller.result;
-      $("feedback").innerHTML = result?.detail?.pages ? result.detail.pages.map((part, i) => `<p>實驗 ${i + 1}：${part.score} / 30。${i === 2 ? `理想關係 ${math('F_A=m_A r_A\\omega^2', 'A 側徑向力公式')}；二次係數是 ${math('m_A r_A', '質量與半徑的乘積')}。` : i === 0 ? `同時刻兩側 ${math('\\omega', '角速度')} 相同；公平比較時 ${math('F_A/F_B=r_A/r_B', '兩側徑向力與半徑比相等')}。` : `同時刻兩側 ${math('\\omega', '角速度')} 相同；公平比較時 ${math('F_A/F_B=m_A/m_B', '兩側徑向力與質量比相等')}。`}</p>`).join("") : "";
+      $("feedback").innerHTML = result?.detail?.pages ? result.detail.pages.map((part, i) => `<p>實驗 ${i + 1}：${part.score} / 30。${part.runs ? part.runs.map((r, j) => `${runNames[j]}：${r.score / 2} / 9。`).join(" ") : ""}${i === 2 ? `理想關係 ${math('F_A=m_A r_A\\omega^2', 'A 側徑向力公式')}；二次係數是 ${math('m_A r_A', '質量與半徑的乘積')}。` : i === 0 ? `同時刻兩側 ${math('\\omega', '角速度')} 相同；公平比較時 ${math('F_A/F_B=r_A/r_B', '兩側徑向力與半徑比相等')}。` : `同時刻兩側 ${math('\\omega', '角速度')} 相同；公平比較時 ${math('F_A/F_B=m_A/m_B', '兩側徑向力與質量比相等')}。`}</p>`).join("") : "";
     }
     drawDevice(); drawGraph();
     renderMotion(true); layoutTargets();
@@ -580,7 +582,6 @@
       const [action, raw] = button.dataset.run.split(":"), index = Number(raw);
       if (action === "view") { pause(); if (controller.editable) controller.update(next => { next.tasks[next.page].current = index; next.view = "analyse"; });
         else if (["review", "committed", "frozen"].includes(controller.mode)) { reviewRun[page()] = index; controller.navigate(page(), "analyse"); } }
-      if (action === "select") controller.update(next => { next.tasks[next.page].selected = index; });
       if (action === "delete") { pause(); controller.update(next => { const t = next.tasks[next.page]; M.removeRun(t, index); if (t.current === null && ["collect", "analyse"].includes(next.view)) next.view = "setup"; }); }
     });
     $("spinTargets").addEventListener("keydown", event => {
