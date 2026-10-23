@@ -30,10 +30,10 @@
       const mode = this.flow.startup(attempt);
       if (mode === "editable") {
         try { this.state = attempt.state === "draft" ? P.decode(attempt.snapshot, "draft") : M.fresh(); this.mode = "editable";
-          const revisedQuestions = this.state.rv < 6, legacy = revisedQuestions || this.state.mv < 5;
+          const revisedQuestions = this.state.rv < 7, legacy = revisedQuestions || this.state.mv < 5;
           M.upgradeDraft(this.state);
           if (attempt.state === "new" || legacy) this.save();
-          if (revisedQuestions && !this.unsaved) this.notice = "分析題已修訂；已保留原有數據和答案，請核對後再提交。"; }
+          if (revisedQuestions && !this.unsaved) this.notice = "預測已改為不計分，綜合問題移至最後；原有數據和答案已保留，請核對後再提交。"; }
         catch (_) { this.technical("草稿未能安全還原；原有數據保持不變。"); return; }
       } else if (mode === "review") this.restoreReview(attempt);
       else if (mode === "frozen") this.restorePending(attempt.snapshot);
@@ -73,6 +73,14 @@
         P.validate(next);
         if (JSON.stringify(next) === JSON.stringify(this.state)) return false;
         this.state = next; this.save(); this.emit(render); return true;
+      } catch (_) { return false; }
+    }
+    answerSynthesis(field, value) {
+      if (!this.editable || this.state.view !== "check" || !["sync", "massParts"].includes(field)) return false;
+      try {
+        const next = M.clone(this.state); next[field] = value; P.validate(next);
+        if (JSON.stringify(next) === JSON.stringify(this.state)) return false;
+        this.state = next; this.save(); this.emit(); return true;
       } catch (_) { return false; }
     }
     navigate(page, view = "setup") {

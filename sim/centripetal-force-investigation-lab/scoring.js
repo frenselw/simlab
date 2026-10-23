@@ -55,20 +55,21 @@
   function roleCredits(state, i) {
     const task = state.tasks[i], [independent, controls] = task.roles, expected = roles[i];
     return state.rv >= 2 && i < 2 ?
-      [task.inquiry[0] === (i === 0 ? "equal-mass" : "equal-radius") ? 3 : 0, task.inquiry[1] === "ratio-steady" ? 3 : 0] :
+      [task.inquiry[0] === (i === 0 ? "equal-mass" : "equal-radius") ? 3 : 0, state.rv < 7 && task.inquiry[1] === "ratio-steady" ? 3 : 0] :
       [independent === expected.independent ? 2 : 0, expected.controls.filter(key => controls?.includes(key)).length * 2];
   }
   function page(state, i) {
     const task = state.tasks[i], kind = M.KINDS[i];
     const roleScores = roleCredits(state, i), roleScore = roleScores[0] + roleScores[1];
-    const lawScore = task.law === (kind === "omega" ? "square" : "linear") ? 6 : 0;
+    const lawMax = state.rv >= 7 && i < 2 ? 9 : 6;
+    const lawScore = task.law === (kind === "omega" ? "square" : "linear") ? lawMax : 0;
     if (state.rv < 4) {
       const result = runResult(kind, task.selected === null ? null : task.runs[task.selected], state.rv);
-      return { ...result, roleScores, roleScore, lawScore, score: roleScore + lawScore + result.score };
+      return { ...result, roleScores, roleScore, lawScore, lawMax, score: roleScore + lawScore + result.score };
     }
     const runs = [0, 1].map(index => runResult(kind, task.runs[index], state.rv));
     const credit = key => runs.reduce((sum, run) => sum + run[key] / 2, 0);
-    return { roleScores, roleScore, lawScore, fairScore: credit("fairScore"), dataScore: credit("dataScore"),
+    return { roleScores, roleScore, lawScore, lawMax, fairScore: credit("fairScore"), dataScore: credit("dataScore"),
       numericScore: credit("numericScore"), fitScore: credit("fitScore"), runs,
       score: roleScore + lawScore + credit("score") };
   }
@@ -90,7 +91,7 @@
     const law = { linear: "徑向力與角速度成正比", square: "徑向力與角速度的平方成正比", inverse: "徑向力與角速度成反比", none: "徑向力不隨角速度改變" };
     const ratioLaw = { linear: "兩個比值相等", square: "前者等於後者的平方", inverse: "前者等於後者的倒數", none: "沒有固定關係" };
     const item = (id, title, earned, max, answer, expected, explanation, status) => ({ id, title, earned, max, answer, expected, explanation,
-      status: earned === max ? "正確" : status || (answer === "未作答" ? "未作答" : earned ? "部分得分" : "需修正") });
+      status: max === 0 ? "不計分" : earned === max ? "正確" : status || (answer === "未作答" ? "未作答" : earned ? "部分得分" : "需修正") });
     const pages = state.tasks.map((task, i) => {
       const graded = result.detail.pages[i], quantity = i === 0 ? "半徑" : "總質量", fixed = i === 0 ? "總質量" : "半徑";
       const ratio = i === 0 ? "r_A/r_B" : "m_A/m_B";
@@ -98,12 +99,12 @@
       const general = i === 2 ? `質量及半徑固定時，${formula}，力與角速度的平方成正比。` : `兩側${fixed}相同且同時轉動，所以${formula}。這是一般關係；比值恰好為1，並不表示平方或倒數也是一般規律。`;
       const items = rv >= 2 && i < 2 ? [
         item("setup", `研究${quantity}與徑向力：兩側${fixed}應怎樣設定？`, graded.roleScores[0], 3, text(setup, task.inquiry[0]), setup[i === 0 ? "equal-mass" : "equal-radius"], `兩側${fixed}須相同，才能把徑向力的比值直接與${quantity}的比值比較。`),
-        item("prediction", "轉速改變時，兩側徑向力及其比值會怎樣改變？", graded.roleScores[1], 3, text(prediction, task.inquiry[1]), prediction["ratio-steady"], "兩側同時具有相同角速度；改變轉速會同時改變兩個力，比值保持不變。")
+        item("prediction", "實驗前預測：轉速改變時，兩側徑向力及其比值會怎樣改變？", graded.roleScores[1], rv >= 7 ? 0 : 3, text(prediction, task.inquiry[1]), prediction["ratio-steady"], (rv >= 7 ? "預測不計分，可用實驗數據修正原先想法。" : "") + "兩側同時具有相同角速度；改變轉速會同時改變兩個力，比值保持不變。")
       ] : [
         item("variable", "量測時要改變哪個量？", graded.roleScores[0], 2, text(variable, task.roles[0]), variable[roles[i].independent], `本實驗研究${variable[roles[i].independent]}改變時，徑向力如何改變。`),
         item("controls", "同一組量測期間，哪兩個量應保持不變？", graded.roleScores[1], 4, task.roles[1]?.length ? task.roles[1].map(k => variable[k]).join("、") : "未作答", roles[i].controls.map(k => variable[k]).join("、"), "每選對一個應保持不變的量得2分；兩項都選對得4分。")
       ];
-      items.push(item("law", i === 2 ? "固定質量及半徑，徑向力與角速度有甚麼關係？" : `兩側${fixed}相同、角速度相同時，徑向力的比值與${quantity}的比值有甚麼一般關係？`, graded.lawScore, 6, text(i === 2 ? law : ratioLaw, task.law), i === 2 ? law.square : ratioLaw.linear, general));
+      items.push(item("law", i === 2 ? "固定質量及半徑，徑向力與角速度有甚麼關係？" : `兩側${fixed}相同、角速度相同時，徑向力的比值與${quantity}的比值有甚麼一般關係？`, graded.lawScore, graded.lawMax, text(i === 2 ? law : ratioLaw, task.law), i === 2 ? law.square : ratioLaw.linear, general));
       const indexes = rv >= 4 ? [0, 1] : [task.selected];
       const runs = indexes.map((index, j) => {
         const run = index == null ? null : task.runs[index], grade = rv >= 4 ? graded.runs[j] : graded, divisor = rv >= 4 ? 2 : 1;

@@ -1154,3 +1154,20 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 - 功能commit 3c3c498已推origin；committed selection由f93ad75起算，output/centripetal-full-fit-selection.json，僅本活動。官方helper推送Site source 8675107b185b8666ba57852767d5b87e119dab8b；v29 appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_3b239318932c8191901e3625ce7cc4ad，deployment appgdep_6adb2b3678d88191b2701b458905dcfd，succeeded（2026-10-23T09:39:08.612668+00:00），原owner-private audience保持。
 - 原網站暫時停用快取重載，實際Network main.js body確認全軸範圍及clipPath；以兩組不同半徑及不同轉速量測、擬合，收集頁的第二組擬合線從原點完整延伸至圖框右上角，跨過其很短的低速數據區。DOM路徑M66.00 100.00 L331.00 25.00，實際圖像已確認。答案保持未填、未提交。
 - 截圖C:/Users/frens/Documents/Projects/simlab/output/centripetal-full-fit-v29.png；原分頁已開回並保留供試用，快取設定恢復、未改viewport。測試server已關閉、臨時憑證清除。真手機及真Moodle未驗證。
+
+
+## 預測不計分及綜合題集中最後（2026-10-23，動工前決策）
+
+- 新rv7：半徑、質量的實驗前預測不按對錯／是否作答計分，僅供實驗後對照；設定3分、兩組數據各9分、量測後一般關係9分，每部分仍30分。角速度30分及綜合10分不變，未作答全卷仍0分。反饋預測顯示「不計分」，不列0/0或稱答對／失分；可查看自己的預測及實驗關係。
+- 綜合題從每個實驗底部移到共用的最後「綜合與提交」頁（沿用check階段），只顯示一份。明示全卷共用、只需回答一次及已答n/2；桌面第四入口與手機總結入口／選單均可到達，第三實驗兩組分析後有前往綜合問題按鈕。最後頁可直接作答、返回修改、檢查及明確提交；空白／部分答案均可提交。
+- 綜合題更新用限定sync/massParts且只允許editable/check的controller入口；仍經現有validate/save，失敗阻止提交且可重試。review/committed/pending均不准改；維持原SCORM四種結果及check的returnTo，無新快照欄位或新階段。新草稿升rv7且保留既有數據與所有答案，rv1–6已提交／pending保持原規則及分數。
+- 修改model/scoring/persistence/ui-runtime/main/index及必要樣式、現有測試。驗證所有預測選項／未答同分、100與0、反饋加總、舊rv6完成及待確認保分、draft升級；最後頁作答往返／保存續作／空白提交／frozen鎖定；來源與SCORM解壓手機320/393及桌面1280px、check/check:tests、committed selection後更新原私人網站。
+
+- 最後check頁暫隱儀器，操作面板使用整個內容區，題目最大寬度800px；返回實驗即恢復原三區配置。手機不再被靜止儀器佔去作答空間，驗證往返時儀器及操作還原。
+
+### 預測與最後綜合題驗證
+
+- model/scoring/persistence/lifecycle/interaction五項Node測試通過。rv7所有預測選項及未答均不影響空白、部分、完整作答分數，最高100／全空白0；半徑及質量設定3、結論9、兩組各9。反饋逐項加總吻合且預測不顯示0/0或判錯。rv1–6原規則保留，新增rv6完成／pending原分9保持；舊draft保存答案與數據升rv7並可續作提交。
+- 綜合題限editable/check更新，非法欄位／選項拒絕；往返實驗、最終頁保存與還原、保存失敗阻止提交及重試、partial submit、success/committed/frozen/retry均測試。完整容量draft3403/review3440/pending3808 bytes。
+- 既有browser入口feedbackPresentation擴充；來源與解壓SCORM320×500、393×800、1280×800通過原生選單輸入、最後頁入口、每實驗不重複綜合題、已答0/1/2狀態、草稿還原及往返保答、第三實驗分析後進入、部分作答提交10分、錯誤預測不計分反饋。最後頁全寬且返回恢復儀器，沒有橫向溢出或瀏覽器例外；另31分失分反饋／未答／frozen／mismatch／舊版review仍通過。
+- check及check:tests（263 entries）通過，沿用現有測試登記。SCORM17檔、16 runtime與canonical sim及Site dist逐位元組一致；ZIP SHA-256 f6f65fa1cefe1820e9cb692817f1411bf9664ea345e93547a79b6f6a50768df3。未重跑未改動的完整轉動效能測試；真手機及真Moodle未驗證。

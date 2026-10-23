@@ -45,7 +45,7 @@ oldPending.retryFinal(); assert.equal(oldPending.mode,"review");
 assert.equal(oldPending.result.score,100); assert.deepEqual(oldPending.state,oldAnswer,"pending retry preserves the original version and answers");
 legacy.page=2; legacy.view="collect";
 const oldDraft = environment({durable:{state:"draft",snapshot:{version:1,activity:P.ACTIVITY,kind:"draft",answer:legacy}}}).c;
-assert.equal(oldDraft.state.mv,5); assert.equal(oldDraft.state.rv,6); assert.deepEqual(oldDraft.state.tasks[0].inquiry,[null,null]); assert.deepEqual(oldDraft.state.tasks[0].roles,legacy.tasks[0].roles); assert.ok(oldDraft.update(s=>M.record(s.tasks[2],-1)));
+assert.equal(oldDraft.state.mv,5); assert.equal(oldDraft.state.rv,7); assert.deepEqual(oldDraft.state.tasks[0].inquiry,[null,null]); assert.deepEqual(oldDraft.state.tasks[0].roles,legacy.tasks[0].roles); assert.ok(oldDraft.update(s=>M.record(s.tasks[2],-1)));
 assert.equal(oldDraft.state.mv,5); assert.deepEqual(oldDraft.state.tasks[2].runs[0].q,[-1000,500,1500,3000]);
 console.log("centripetal lifecycle ok");
 
@@ -82,7 +82,7 @@ assert.equal(equalPending.result.score,26);assert.equal(equalPending.state.rv,2)
 for(const view of ["setup","collect","analyse","check"]) {
  const old=M.clone(equalOld);old.view=view;if(view==="check")old.returnTo=[0,"collect"];
  const env=environment({durable:{state:"draft",snapshot:{version:1,activity:P.ACTIVITY,kind:"draft",answer:old}}});
- assert.equal(env.c.state.rv,6);assert.equal(env.durable.snapshot.answer.rv,6,"upgraded draft is saved");
+ assert.equal(env.c.state.rv,7);assert.equal(env.durable.snapshot.answer.rv,7,"upgraded draft is saved");
  assert.deepEqual(env.c.state.tasks,old.tasks,"upgrade preserves learner answers and measurements");
  if(view==="check")env.c.back();
  assert.ok(env.c.update(s=>{s.tasks[0].runs[0].a=["1","supports","coefficient"];}));
@@ -111,7 +111,7 @@ assert.equal(environment({durable:{state:"finished",snapshot:rv3Snapshot,score:"
 const rv3Pending=environment({durable:{state:"pending-final",snapshot:{version:1,activity:P.ACTIVITY,kind:"pending-final",payload:{reviewJson:JSON.stringify(rv3Snapshot),score:30,maxScore:100,passed:false}}}}).c;
 assert.equal(rv3Pending.mode,"frozen");rv3Pending.retryFinal();assert.equal(rv3Pending.result.score,30);assert.equal(rv3Pending.state.rv,3);
 const rv3Draft=environment({durable:{state:"draft",snapshot:{version:1,activity:P.ACTIVITY,kind:"draft",answer:P.encode(rv3)}}});
-assert.equal(rv3Draft.c.state.rv,6);assert.deepEqual(rv3Draft.c.state.tasks,rv3.tasks);
+assert.equal(rv3Draft.c.state.rv,7);assert.deepEqual(rv3Draft.c.state.tasks,rv3.tasks);
 assert.equal(S.score(rv3Draft.c.state).score,21);
 assert.ok(rv3Draft.c.update(s=>{const t=s.tasks[0];t.work[0]++;t.work[1]++;M.begin(t);for(const w of [.5,1.5,3])M.record(t,w);M.fitCurrent("radius",t);t.runs[1].a=["1","supports","coefficient"];}));
 rv3Draft.c.check();rv3Draft.c.submit();assert.equal(rv3Draft.c.result.score,30);
@@ -131,14 +131,14 @@ const v4pending=environment({durable:{state:"pending-final",snapshot:{version:1,
 assert.equal(v4pending.mode,"frozen");v4pending.retryFinal();assert.equal(v4pending.state.rv,4);assert.equal(v4pending.result.score,26);
 for(const saveFail of [false,true]) {
  const v4draft=environment({saveFail,durable:{state:"draft",snapshot:{version:1,activity:P.ACTIVITY,kind:"draft",answer:P.encode(v4)}}});
- assert.equal(v4draft.c.state.rv,6);assert.deepEqual(v4draft.c.state.tasks,v4.tasks);
+ assert.equal(v4draft.c.state.rv,7);assert.deepEqual(v4draft.c.state.tasks,v4.tasks);
  assert.equal(v4draft.c.state.view,"analyse");assert.equal(v4draft.c.state.page,1);
- assert.match(v4draft.c.notice,saveFail?/尚未保存/:/分析題已修訂/);
+ assert.match(v4draft.c.notice,saveFail?/尚未保存/:/預測已改為不計分/);
  if(saveFail)continue;
  for(const index of [0,1])assert.ok(v4draft.c.update(s=>{s.tasks[1].current=index;s.tasks[1].runs[index].a=["1","supports","coefficient"];}));
  v4draft.c.check();v4draft.c.submit();assert.equal(v4draft.c.result.score,26);
  const restored=environment({durable:v4draft.durable}).c;
- assert.equal(restored.mode,"review");assert.equal(restored.state.rv,6);assert.equal(restored.result.score,26);
+ assert.equal(restored.mode,"review");assert.equal(restored.state.rv,7);assert.equal(restored.result.score,26);
  assert.ok(restored.state.tasks[1].runs.every(r=>r.a[1]==="supports"&&r.a[2]==="coefficient"));
 }
 console.log("centripetal rv4 compatibility and rv5 continuation ok");
@@ -153,5 +153,42 @@ assert.equal(v5done.state.rv,5);assert.equal(v5done.result.score,v5score);
 const v5pending=environment({durable:{state:"pending-final",snapshot:{version:1,activity:P.ACTIVITY,kind:"pending-final",payload:{reviewJson:JSON.stringify(v5snap),score:v5score,maxScore:100,passed:false}}}}).c;
 assert.equal(v5pending.mode,"frozen");v5pending.retryFinal();assert.equal(v5pending.state.rv,5);assert.equal(v5pending.result.score,v5score);
 const v5draft=environment({durable:{state:"draft",snapshot:{version:1,activity:P.ACTIVITY,kind:"draft",answer:P.encode(v5)}}}).c;
-assert.equal(v5draft.state.rv,6);assert.deepEqual(v5draft.state.tasks,v5.tasks);
+assert.equal(v5draft.state.rv,7);assert.deepEqual(v5draft.state.tasks,v5.tasks);
 v5draft.check();v5draft.submit();assert.equal(v5draft.result.score,9,"removed question is not required for full run credit");
+
+// The final page edits only its two answers; experiment mutation stays frozen there.
+const finalPage=environment();
+assert.equal(finalPage.c.answerSynthesis("sync","same-omega"),false);
+assert.ok(finalPage.c.check());
+assert.equal(finalPage.c.update(s=>s.tasks[0].law="linear"),false);
+assert.equal(finalPage.c.answerSynthesis("page",2),false);
+assert.equal(finalPage.c.answerSynthesis("sync","invalid"),false);
+assert.ok(finalPage.c.answerSynthesis("sync","same-omega"));
+const resumedFinal=environment({durable:finalPage.durable});
+assert.equal(resumedFinal.c.state.view,"check");assert.equal(resumedFinal.c.state.sync,"same-omega");
+assert.ok(resumedFinal.c.back());assert.ok(resumedFinal.c.navigate(2));assert.ok(resumedFinal.c.check());
+assert.ok(resumedFinal.c.answerSynthesis("massParts","cap-screw-weights"));
+assert.ok(resumedFinal.c.submit());assert.equal(resumedFinal.c.result.score,10);
+assert.equal(resumedFinal.c.answerSynthesis("sync",null),false);
+for(const mode of ["committed","frozen","retry"]) {
+ const e=environment({submitMode:mode});e.c.check();e.c.answerSynthesis("sync","same-omega");e.c.submit();
+ assert.equal(e.c.answerSynthesis("sync",null),mode==="retry");
+}
+const failOptions={};const unsavedFinal=environment(failOptions);unsavedFinal.c.check();failOptions.saveFail=true;
+assert.ok(unsavedFinal.c.answerSynthesis("sync","same-omega"));assert.ok(unsavedFinal.c.unsaved);
+assert.equal(unsavedFinal.c.submit(),false);failOptions.saveFail=false;unsavedFinal.c.retrySave();
+assert.ok(unsavedFinal.c.submit());assert.equal(unsavedFinal.c.result.score,5);
+// Finished/pending rv6 records keep their original prediction marks; drafts move to rv7.
+const v6=M.fresh(706);v6.rv=6;v6.tasks[0].inquiry=["equal-mass","forces-steady"];v6.tasks[0].law="linear";
+const v6review=P.review(v6),v6snapshot={version:1,activity:P.ACTIVITY,kind:"review",answer:P.encode(v6review),score:9,passed:false};
+const v6done=environment({durable:{state:"finished",snapshot:v6snapshot,score:"9",status:"failed"}}).c;
+assert.equal(v6done.mode,"review");assert.equal(v6done.state.rv,6);assert.equal(v6done.result.score,9);
+assert.equal(S.feedback(v6done.state).pages[0].items[1].max,3);
+const v6pending=environment({durable:{state:"pending-final",snapshot:{version:1,activity:P.ACTIVITY,kind:"pending-final",payload:{reviewJson:JSON.stringify(v6snapshot),score:9,maxScore:100,passed:false}}}}).c;
+v6pending.retryFinal();assert.equal(v6pending.result.score,9);assert.equal(v6pending.state.rv,6);
+v6.view="check";v6.returnTo=[0,"setup"];v6.sync="same-omega";
+const v6draft=environment({durable:{state:"draft",snapshot:{version:1,activity:P.ACTIVITY,kind:"draft",answer:P.encode(v6)}}}).c;
+assert.equal(v6draft.state.rv,7);assert.deepEqual(v6draft.state.tasks,v6.tasks);
+assert.ok(v6draft.answerSynthesis("massParts","cap-screw-weights"));assert.ok(v6draft.submit());
+assert.equal(v6draft.result.score,22);
+console.log("centripetal synthesis edits, save/retry, submission and rv6 compatibility passed");

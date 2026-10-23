@@ -51,7 +51,7 @@
     button.style.top = `${p.y - r.top - button.offsetHeight / 2}px`;
   }
   function layoutTargets() {
-    if (!state()) return;
+    if (!state() || view() === "check") return;
     const cfg = displayedConfig();
     for (const [side, i] of [["A", 0], ["B", 1]]) {
       const x = componentX(side, cfg[i]);
@@ -257,11 +257,11 @@
     const report = S.feedback(state());
     const rich = value => String(value).split(/\\\((.*?)\\\)/gs).map((part, i) => i % 2 ? math(part) : safe(part)).join("");
     const items = entries => [...entries].sort((a, b) => Number(a.earned === a.max) - Number(b.earned === b.max)).map(entry => {
-      const correct = entry.earned === entry.max;
-      return `<details class="feedback-item ${correct ? 'correct' : 'needs-work'}" data-feedback-item="${entry.id}" ${correct ? '' : 'open'}>
-        <summary><span class="feedback-status">${safe(entry.status)} · ${entry.earned} / ${entry.max} 分</span><span>${rich(entry.title)}</span></summary>
-        <p><strong>${['configuration','coverage'].includes(entry.id) ? '你的紀錄' : '你的答案'}：</strong>${rich(entry.answer)}</p>
-        ${correct ? '' : `<p><strong>${['configuration','coverage','comparison','coefficient'].includes(entry.id) && ['未量測','未完成擬合','未達條件','轉速範圍不足','部分得分'].includes(entry.status) ? '得分條件' : '正確答案'}：</strong>${rich(entry.expected)}</p><p class="feedback-explanation">${rich(entry.explanation)}</p>`}
+      const ungraded = entry.max === 0, correct = entry.earned === entry.max;
+      return `<details class="feedback-item ${ungraded ? 'ungraded' : correct ? 'correct' : 'needs-work'}" data-feedback-item="${entry.id}" ${correct ? '' : 'open'}>
+        <summary><span class="feedback-status">${safe(entry.status)}${ungraded ? "" : ` · ${entry.earned} / ${entry.max} 分`}</span><span>${rich(entry.title)}</span></summary>
+        <p><strong>${ungraded ? '你的預測' : ['configuration','coverage'].includes(entry.id) ? '你的紀錄' : '你的答案'}：</strong>${rich(entry.answer)}</p>
+        ${correct && !ungraded ? '' : `<p><strong>${ungraded ? '實驗關係' : ['configuration','coverage','comparison','coefficient'].includes(entry.id) && ['未量測','未完成擬合','未達條件','轉速範圍不足','部分得分'].includes(entry.status) ? '得分條件' : '正確答案'}：</strong>${rich(entry.expected)}</p><p class="feedback-explanation">${rich(entry.explanation)}</p>`}
       </details>`;
     }).join("");
     const synthesisScore = report.synthesis.reduce((sum, entry) => sum + entry.earned, 0);
@@ -288,8 +288,8 @@
     $("retryFinalButton").textContent = controller.mode === "committed" ? "重試完成程序" : "重試同一份提交";
     $("taskPanel").hidden = !s || v === "check"; $("checkPanel").hidden = !s || v !== "check";
     $("feedbackPanel").hidden = controller.mode !== "review" && controller.mode !== "committed";
-    $("checkButton").hidden = locked; $("checkButton").disabled = !s;
-    for (const button of document.querySelectorAll("[data-page]")) { button.disabled = !s; button.setAttribute("aria-current", Number(button.dataset.page) === p ? "page" : "false"); }
+    $("checkButton").hidden = locked; $("checkButton").disabled = !s; $("checkButton").setAttribute("aria-current", v === "check" ? "page" : "false");
+    for (const button of document.querySelectorAll("[data-page]")) { button.disabled = !s; button.setAttribute("aria-current", v !== "check" && Number(button.dataset.page) === p ? "page" : "false"); }
     if (!s) { $("stageHint").textContent = "作答數據尚未能安全讀取。"; return; }
     const t = task(), cfg = t.work, run = shownRun(), editing = !locked && v !== "check";
     $("app").dataset.experiment = M.KINDS[p];
@@ -318,7 +318,8 @@
     $("toggleGraph").setAttribute("aria-label", graphOpen ? "收合數據圖" : "展開數據圖");
     $("setupView").textContent = "器材設定";
     $("analyseView").textContent = "擬合分析";
-    $("experimentSelect").value = String(p);
+    $("experimentSelect").value = v === "check" ? "check" : String(p);
+    document.querySelector('#experimentSelect option[value="check"]').disabled = locked;
     $("experimentSelect").disabled = !s;
     $("mobileCheckButton").hidden = locked;
     $("measureButton").hidden = !editing || v !== "collect";
@@ -326,6 +327,7 @@
     for (const [id, target] of [["setupView", "setup"], ["collectView", "collect"], ["analyseView", "analyse"]]) $(id).setAttribute("aria-current", v === target ? "page" : "false");
     const inquiry = s.rv >= 2 && p < 2;
     $("inquiryField").hidden = !inquiry || v !== "setup"; $("rolesField").hidden = inquiry;
+    $("predictionPrompt").textContent = "維持本組器材設定，改變共同轉速時，你預測會怎樣？" + (s.rv >= 7 ? "（不計分）" : "");
     $("setupReasonPrompt").textContent = p === 0 ? "要研究徑向力與半徑的關係，兩側質量應怎樣設定？為甚麼？" : "要研究徑向力與總質量的關係，兩側半徑應怎樣設定？為甚麼？";
     setSelect("setupReason", [["equal-mass", "兩側質量相同，避免質量差異影響比較結果"], ["equal-radius", "兩側半徑相同，避免半徑差異影響比較結果"], ["equal-force", "先把兩側的徑向力調成相同"], ["different-both", "兩側的質量和半徑都要不同"]], t.inquiry?.[0], !editing);
     setSelect("speedRelation", [["ratio-steady", "兩側徑向力隨轉速改變，但兩者的比值保持不變"], ["forces-steady", "兩側徑向力都保持不變"], ["ratio-speed", "兩側徑向力的比值隨轉速增大"], ["unrelated", "兩側徑向力沒有固定比例"]], t.inquiry?.[1], !editing);
@@ -376,7 +378,10 @@
     else $("lawPrompt").innerHTML = `固定質量及半徑，${math("F_A", "徑向力")} 與 ${math("\\omega", "角速度")} 的關係`;
     setSelect("law", p < 2 ? [["linear", "兩個比值相等"], ["square", "前者等於後者的平方"], ["inverse", "前者等於後者的倒數"], ["none", "沒有固定關係"]] : lawOptions, t.law, !editing);
     $("syncAnswer").value = s.sync || ""; $("massPartsAnswer").value = s.massParts || "";
-    $("syncAnswer").disabled = !editing; $("massPartsAnswer").disabled = !editing;
+    $("syncAnswer").disabled = locked; $("massPartsAnswer").disabled = locked;
+    const answeredSynthesis = [s.sync, s.massParts].filter(Boolean).length;
+    $("synthesisStatus").textContent = `已答 ${answeredSynthesis} / 2${answeredSynthesis === 2 ? " · 已完成" : ""}`;
+    $("synthesisButton").hidden = !editing || p !== 2 || v !== "analyse" || t.runs.length !== 2;
     $("clearTaskButton").disabled = !editing; $("clearTaskButton").hidden = locked;
     const canOperate = editing && v === "collect";
     $("spinTargets").hidden = !canOperate;
@@ -384,9 +389,9 @@
     $("weightTray").hidden = !editing || v !== "setup";
     $("stageHint").textContent = matchMedia("(max-height:260px) and (max-width:479px)").matches ?
       v === "collect" ? "拖金色環推動；讀數在下方。" : "短視窗可用下方按鈕設定；全螢幕可直接拖動。" :
-      v === "analyse" ? "轉盤已暫停；數據圖可收合，裝置保留顯示。" : v === "collect" ? running ? "沿金色外圈拖動轉盤" : "已暫停；直接拖動金色外圈繼續。" : v === "check" ? "檢查及提交在操作面板。" : "左右拖 A／B 調整半徑";
+      v === "analyse" ? "轉盤已暫停；數據圖可收合，裝置保留顯示。" : v === "collect" ? running ? "沿金色外圈拖動轉盤" : "已暫停；直接拖動金色外圈繼續。" : v === "check" ? "在操作面板完成綜合問題，再檢查及提交。" : "左右拖 A／B 調整半徑";
     if (v === "check") {
-      $("checkSummary").innerHTML = s.tasks.map((item, i) => `<div class="check-row"><strong>實驗 ${i + 1} · ${titles[i]}</strong>${[0,1].map(index => { const r = item.runs[index]; return `<small>${runNames[index]}：${r?.q.length ? r.q.length + " 個量測點" : "未量測"} · ${r?.fit ? "已擬合" : "未擬合"} · 作答 ${r?.a.slice(0, s.rv >= 6 ? 2 : 3).filter(a => a !== null && a !== "").length || 0}/${s.rv >= 6 ? 2 : 3}</small>`; }).join("")}<small>結論 ${item.law === null ? "未答" : "已答"}</small></div>`).join("") + `<div class="check-row">綜合問題：${[s.sync, s.massParts].filter(Boolean).length} / 2 已答</div>`;
+      $("checkSummary").innerHTML = s.tasks.map((item, i) => `<div class="check-row"><strong>實驗 ${i + 1} · ${titles[i]}</strong>${[0,1].map(index => { const r = item.runs[index]; return `<small>${runNames[index]}：${r?.q.length ? r.q.length + " 個量測點" : "未量測"} · ${r?.fit ? "已擬合" : "未擬合"} · 作答 ${r?.a.slice(0, s.rv >= 6 ? 2 : 3).filter(a => a !== null && a !== "").length || 0}/${s.rv >= 6 ? 2 : 3}</small>`; }).join("")}<small>結論 ${item.law === null ? "未答" : "已答"}</small></div>`).join("");
       $("submitButton").disabled = !controller.editable || controller.unsaved;
     }
     if (!$("feedbackPanel").hidden) renderFeedback();
@@ -557,8 +562,9 @@
     requestAnimationFrame(frame);
   }
   function setupEvents() {
-    $("experimentSelect").addEventListener("change", event => document.querySelector(`[data-page="${event.target.value}"]`)?.click());
+    $("experimentSelect").addEventListener("change", event => event.target.value === "check" ? $("checkButton").click() : document.querySelector(`[data-page="${event.target.value}"]`)?.click());
     $("mobileCheckButton").addEventListener("click", () => $("checkButton").click());
+    $("synthesisButton").addEventListener("click", () => $("checkButton").click());
     $("measureButton").addEventListener("click", () => { measuring = !measuring; recordCurrent(); renderMotion(true); });
     $("squareGraph").addEventListener("click", () => { squaredGraph = !squaredGraph; render(); });
     const brake = $("brakeButton");
@@ -621,8 +627,8 @@
     });
     [["comparison", 1], ["reason", 2]].forEach(([id, index]) => $(id).addEventListener("change", event => controller.update(next => { next.tasks[next.page].runs[next.tasks[next.page].current].a[index] = event.target.value || null; })));
     $("law").addEventListener("change", event => controller.update(next => { next.tasks[next.page].law = event.target.value || null; }));
-    $("syncAnswer").addEventListener("change", event => controller.update(next => { next.sync = event.target.value || null; }));
-    $("massPartsAnswer").addEventListener("change", event => controller.update(next => { next.massParts = event.target.value || null; }));
+    $("syncAnswer").addEventListener("change", event => controller.answerSynthesis("sync", event.target.value || null));
+    $("massPartsAnswer").addEventListener("change", event => controller.answerSynthesis("massParts", event.target.value || null));
     $("clearTaskButton").addEventListener("click", () => { pause(); controller.update(next => { next.tasks[next.page] = M.freshTask(); next.view = "setup"; }); });
     $("runList").addEventListener("click", event => { const button = event.target.closest("[data-run]"); if (!button) return;
       const [action, raw] = button.dataset.run.split(":"), index = Number(raw);

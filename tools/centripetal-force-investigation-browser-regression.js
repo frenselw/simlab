@@ -798,7 +798,7 @@ async function feedbackPresentation(cdp, base, launch, label) {
  const fixture=M.fresh(628),task=fixture.tasks[0];fixture.view='analyse';
  task.inquiry=['equal-mass','ratio-steady'];task.law='inverse';
  for(const cfg of [[2,2,2,2],[4,2,2,2]]) {task.work=cfg;M.begin(task);for(const w of [1,2,3])M.record(task,w);M.fitCurrent('radius',task);task.runs[task.current].a=[String(Number((M.radius(cfg[0])/M.radius(cfg[1])).toFixed(4))),'supports',null];}
- fixture.sync='same-omega';fixture.massParts='cap-screw-weights';assert.equal(S.score(fixture).score,34);
+ fixture.sync='same-omega';fixture.massParts='cap-screw-weights';assert.equal(S.score(fixture).score,31);
  async function load(answer,kind,status,score) {
   P.validate(answer,kind==='draft'?'draft':'review');
   const snapshot={version:1,activity:P.ACTIVITY,kind,answer:P.encode(answer),...(kind==='review'?{score,passed:false}:{})};
@@ -807,6 +807,51 @@ async function feedbackPresentation(cdp, base, launch, label) {
   const preload=await cdp.send('Page.addScriptToEvaluateOnNewDocument',{source:`(()=>{const values=${JSON.stringify(values)};window.API={LMSInitialize:()=>'true',LMSFinish:()=>'true',LMSCommit:()=>'true',LMSGetValue:k=>values[k]||'',LMSSetValue:(k,v)=>(values[k]=String(v),'true'),LMSGetLastError:()=>'0',LMSGetErrorString:()=>'',LMSGetDiagnostic:()=>''};})();`});
   try {await cdp.send('Page.navigate',{url:base+launch});for(let n=0;n<100;n++){if(await H.evaluate(cdp,'Boolean(window.__centripetalApp)'))break;if(n===99)throw Error('Feedback fixture did not load');await pause(50);}} finally {await cdp.send('Page.removeScriptToEvaluateOnNewDocument',{identifier:preload.identifier});}
  }
+ // Use the actual selects and navigation: global answers appear only on the final page.
+ async function choose(id,value) {
+  const index=await H.evaluate(cdp,`(()=>{const e=document.getElementById(${JSON.stringify(id)});e.scrollIntoView({block:'nearest'});e.focus();return [...e.options].findIndex(o=>o.value===${JSON.stringify(value)});})()`);
+  assert.ok(index>=0);await key(cdp,'Home');for(let n=0;n<index;n++)await key(cdp,'ArrowDown');await key(cdp,'Enter');
+ }
+ for(const width of [320,393,1280]) {
+  await cdp.send('Emulation.setDeviceMetricsOverride',{width,height:width===320?500:800,deviceScaleFactor:1,mobile:width<900});
+  await load(M.fresh(707),'draft','incomplete');
+  for(const page of [0,1,2]) {
+   await click(cdp,`[data-page="${page}"]`);
+   assert.equal(await H.evaluate(cdp,"document.querySelector('.synthesis').getClientRects().length"),0,'no repeated global questions in experiments');
+   if(page<2) {assert.match(await H.evaluate(cdp,"document.getElementById('predictionPrompt').textContent"),/不計分/);await choose('speedRelation','forces-steady');}
+  }
+  if(width<900)await choose('experimentSelect','check');else await click(cdp,'#checkButton');
+  assert.equal(await H.evaluate(cdp,"document.getElementById('experimentSelect').value"),'check');
+  assert.equal(await H.evaluate(cdp,"getComputedStyle(document.getElementById('stage')).display"),'none','final questions use the whole content area');
+  assert.equal(await H.evaluate(cdp,"document.querySelectorAll('#checkPanel .synthesis').length"),1);
+  assert.equal(await H.evaluate(cdp,"document.getElementById('synthesisStatus').textContent"),'已答 0 / 2');
+  await choose('syncAnswer','same-omega');
+  assert.equal(await H.evaluate(cdp,"document.getElementById('synthesisStatus').textContent"),'已答 1 / 2');
+  await click(cdp,'#backButton');
+  assert.notEqual(await H.evaluate(cdp,"getComputedStyle(document.getElementById('stage')).display"),'none','returning restores apparatus');
+  await click(cdp,'[data-page="0"]');await click(cdp,'#checkButton');
+  assert.equal(await H.evaluate(cdp,"document.getElementById('syncAnswer').value"),'same-omega','answer survives returning to any experiment');
+  await choose('massPartsAnswer','cap-screw-weights');
+  assert.equal(await H.evaluate(cdp,"document.getElementById('synthesisStatus').textContent"),'已答 2 / 2 · 已完成');
+  const saved=await H.evaluate(cdp,'window.__centripetalApp.getState()');
+  await load(saved,'draft','incomplete');
+  assert.equal(await H.evaluate(cdp,"document.getElementById('synthesisStatus').textContent"),'已答 2 / 2 · 已完成','final-page draft resumes');
+  assert.ok(await H.evaluate(cdp,"document.getElementById('controlPanel').scrollWidth<=document.getElementById('controlPanel').clientWidth+1"),'final questions fit phone panel');
+  await H.evaluate(cdp,"document.getElementById('controlPanel').scrollTop=0");
+  fs.mkdirSync(path.join(root,'output/playwright'),{recursive:true});
+  fs.writeFileSync(path.join(root,'output/playwright',`centripetal-synthesis-${label}-${width}.png`),Buffer.from((await cdp.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
+  await click(cdp,'#submitButton');
+  assert.match(await H.evaluate(cdp,"document.getElementById('scorePanel').textContent"),/10 \/ 100/,'only synthesis earns credit; wrong predictions neither add nor remove points');
+  const guess=await H.evaluate(cdp,`(()=>{const e=document.querySelector('[data-feedback-item="prediction"]');return {text:e.textContent,open:e.open,wrong:e.classList.contains('needs-work')};})()`);
+  assert.match(guess.text,/不計分/);assert.doesNotMatch(guess.text,/0 \/ 0/);assert.ok(!guess.open&&!guess.wrong);
+  assert.equal(await H.evaluate(cdp,"document.querySelectorAll('[data-feedback-synthesis]').length"),1);
+ }
+ const last=M.fresh(708);last.page=2;last.view='analyse';
+ for(const n of [2,3]) {last.tasks[2].work=[n,n,2,2];M.begin(last.tasks[2]);for(const w of [1,2,3])M.record(last.tasks[2],w);}
+ await load(last,'draft','incomplete');
+ assert.equal(await H.evaluate(cdp,"document.getElementById('synthesisButton').hidden"),false);
+ await click(cdp,'#synthesisButton');assert.equal(await H.evaluate(cdp,'window.__centripetalApp.getState().view'),'check');
+ console.log(`${label}: ungraded prediction, final synthesis, answer status, resume and submission passed at 320/393/1280px`);
  for(const width of [320,393,1280]) {
   await cdp.send('Emulation.setDeviceMetricsOverride',{width,height:width===320?500:800,deviceScaleFactor:1,mobile:width<900});
   const answer=M.clone(fixture);if(width===393)answer.tasks[0].law=null;
@@ -817,7 +862,7 @@ async function feedbackPresentation(cdp, base, launch, label) {
   await click(cdp,'#submitButton');
   const info=await H.evaluate(cdp,`(()=>{const p=document.querySelector('[data-feedback-page="0"]'),item=p.querySelector('[data-feedback-item="law"]');return {title:document.getElementById('reviewTitle').textContent,score:document.getElementById('scorePanel').textContent,total:document.querySelector('.feedback-total').textContent,law:item.textContent,open:item.open,hidden:document.getElementById('feedbackPanel').hidden,clear:document.getElementById('clearTaskButton').hidden,overflow:document.getElementById('controlPanel').scrollWidth-document.getElementById('controlPanel').clientWidth,top:document.getElementById('controlPanel').scrollTop,formula:item.querySelectorAll('.math-inline').length,runs:[...p.querySelectorAll('.feedback-run>summary')].map(e=>e.textContent),legacy:document.querySelectorAll('[data-feedback-item="coefficient"]').length};})()`);
   assert.equal(await H.evaluate(cdp,"getComputedStyle(document.getElementById('mobileCheckButton')).display"),'none','recorded attempt has no inert check button');
-  assert.equal(info.title,'作答反饋');assert.match(info.score,/34 \/ 100/);assert.match(info.total,/24 \+ 0 \+ 0 \+ 10 = 34/);
+  assert.equal(info.title,'作答反饋');assert.match(info.score,/31 \/ 100/);assert.match(info.total,/21 \+ 0 \+ 0 \+ 10 = 31/);
   assert.match(info.law,width===393?/未作答/:/需修正/);assert.match(info.law,/正確答案：兩個比值相等/);assert.ok(info.open&&!info.hidden&&info.clear);
   assert.ok(info.formula>0,'feedback physics uses rendered LaTeX');assert.equal(info.legacy,0);assert.ok(info.overflow<=1,JSON.stringify(info));assert.ok(info.top<=1,'feedback is at the top immediately after submission');
   assert.ok(info.runs.every(t=>t.includes('9 / 9')));
@@ -835,7 +880,7 @@ async function feedbackPresentation(cdp, base, launch, label) {
  }
  // Shared SCORM resume: only confirmed, reconciled records may reveal feedback.
  const review=P.review(fixture);
- await load(review,'pending-final','incomplete',34);
+ await load(review,'pending-final','incomplete',31);
  assert.equal(await H.evaluate(cdp,"document.getElementById('feedbackPanel').hidden"),true);
  assert.match(await H.evaluate(cdp,"document.getElementById('reviewTitle').textContent"),/提交尚未確認/);
  await load(review,'review','failed',35);
@@ -846,7 +891,7 @@ async function feedbackPresentation(cdp, base, launch, label) {
  assert.equal(await H.evaluate(cdp,"document.getElementById('feedbackPanel').hidden"),false);
  assert.ok(await H.evaluate(cdp,"document.querySelectorAll('[data-feedback-item=coefficient]').length>0"),'old completed attempt keeps its old question feedback');
  assert.match(await H.evaluate(cdp,"document.getElementById('scorePanel').textContent"),new RegExp(`${oldScore} / 100`));
- console.log(`${label}: feedback 34-point, blank/wrong, mobile/desktop, frozen/mismatch and legacy review passed`);
+ console.log(`${label}: feedback 31-point, blank/wrong, mobile/desktop, frozen/mismatch and legacy review passed`);
 }
 async function main() {
   const browser = H.findBrowser(); if (!browser) throw Error("Chrome/Chromium not found");

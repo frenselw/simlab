@@ -106,7 +106,9 @@ h3 { font-size: 1.05rem; margin-bottom: 8px; }
 #restartRunButton { border-color: #ab6835; color: #85471a; background: #fff8ed; }
 .setup-run-note { border-left: 3px solid #3d8097; padding: 8px; background: #edf6f8; font-size: 1rem; }
 .control-panel .law-field, .synthesis { display: block; border-top: 1px solid #cfdae0; padding-top: 11px; }
-.synthesis { margin-top: 16px; }
+.synthesis { margin: 16px 0 24px; }
+.synthesis-status { color: #146875; font-weight: 700; }
+.feedback-item.ungraded .feedback-status { color: #526d7b; }
 .notice { background: #fff1ce; border-left: 4px solid #b47112; padding: 9px; }
 .panel-end { height: 28px; }
 .run-card { border: 1px solid #ccd9e1; background: #f6fafc; border-radius: 9px; padding: 8px; margin: 8px 0; }
@@ -300,3 +302,8 @@ h3 { font-size: 1.05rem; margin-bottom: 8px; }
 .feedback-explanation { border-left: 3px solid #cf9b5b; padding-left: 9px; color: #465a69; }
 .feedback-run { border-top: 1px solid #c5d7df; }
 #feedback summary:focus-visible { outline: 3px solid #e9a83f; outline-offset: 2px; }
+
+#app[data-view="check"] { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+#app[data-view="check"] .stage, #app[data-view="check"] .compact-readouts { display: none; }
+#app[data-view="check"] .control-panel { grid-column: 1; grid-row: 2; border-left: 0; }
+#checkPanel { max-width: 800px; margin: 16px auto; }

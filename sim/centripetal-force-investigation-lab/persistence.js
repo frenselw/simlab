@@ -19,7 +19,7 @@
   function validate(state, kind = "draft") {
     if (!["draft", "review"].includes(kind)) throw new Error("Invalid kind");
     keys(state, fields);
-    if (state.v !== 1 || ![1, 2, 3, 4, 5].includes(state.mv) || ![1, 2, 3, 4, 5, 6].includes(state.rv) || !integer(state.seed, 0, 0xffffffff) ||
+    if (state.v !== 1 || ![1, 2, 3, 4, 5].includes(state.mv) || ![1, 2, 3, 4, 5, 6, 7].includes(state.rv) || !integer(state.seed, 0, 0xffffffff) ||
       !integer(state.page, 0, 2) || typeof state.fromReview !== "boolean" ||
       !["setup", "collect", "analyse", "check", "review"].includes(state.view)) throw new Error("Invalid state version or navigation");
     if (kind === "review" ? state.view !== "review" || state.returnTo !== null || state.fromReview || state.tasks?.some(task => task.current !== null) : state.view === "review") throw new Error("Invalid review phase");

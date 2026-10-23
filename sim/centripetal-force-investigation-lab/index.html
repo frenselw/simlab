@@ -14,10 +14,10 @@
 <main id="app" class="centripetal-app" data-sim-fullscreen-target>
   <header class="sim-header" data-sim-fullscreen>
     <div class="title"><h1>向心力探究</h1><span id="attemptStatus">操作轉盤與同步量測</span></div>
-    <select id="experimentSelect" class="mobile-experiment" aria-label="切換實驗"><option value="0">實驗1：半徑</option><option value="1">實驗2：質量</option><option value="2">實驗3：角速度</option></select><button id="mobileCheckButton" class="mobile-check" aria-label="檢查作答">檢查</button>
+    <select id="experimentSelect" class="mobile-experiment" aria-label="切換實驗"><option value="0">實驗1：半徑</option><option value="1">實驗2：質量</option><option value="2">實驗3：角速度</option><option value="check">最後：綜合與提交</option></select><button id="mobileCheckButton" class="mobile-check" aria-label="綜合問題與提交">總結</button>
     <nav class="experiments" aria-label="實驗切換">
       <button data-page="0">1 半徑</button><button data-page="1">2 質量</button><button data-page="2">3 角速度</button>
-      <button id="checkButton" class="check-button">檢查作答</button>
+      <button id="checkButton" class="check-button">4 綜合與提交</button>
     </nav>
   </header>
   <section id="stage" class="stage" aria-label="旋轉平台與數據圖像">
@@ -46,7 +46,7 @@
     <section id="taskPanel">
       <nav class="panel-nav" aria-label="實驗步驟"><button id="setupView">器材設定</button><button id="collectView">轉動量測</button><button id="analyseView">擬合分析</button></nav>
       <section id="taskIntro" class="task-intro"><p class="eyebrow" id="taskNumber">實驗 1 / 3</p><h2 id="taskTitle"></h2><p id="taskPrompt"></p></section>
-      <fieldset id="inquiryField" hidden><legend>同步比較：設定與預測</legend><p class="small">兩側徑向力的比值 <span data-tex="F_A/F_B" data-math-label="A側徑向力除以B側徑向力">F_A/F_B</span>，即 A 側徑向力除以 B 側徑向力。</p><label><span id="setupReasonPrompt"></span><select id="setupReason"></select></label><label>維持本組器材設定，改變共同轉速時，你預測會怎樣？<select id="speedRelation"></select></label></fieldset>
+      <fieldset id="inquiryField" hidden><legend>同步比較：設定與預測</legend><p class="small">兩側徑向力的比值 <span data-tex="F_A/F_B" data-math-label="A側徑向力除以B側徑向力">F_A/F_B</span>，即 A 側徑向力除以 B 側徑向力。</p><label><span id="setupReasonPrompt"></span><select id="setupReason"></select></label><label><span id="predictionPrompt">維持本組器材設定，改變共同轉速時，你預測會怎樣？（不計分）</span><select id="speedRelation"></select></label></fieldset>
       <section id="setupPanel"><h3 id="setupTitle" tabindex="-1">設定器材</h3><p id="setupHelp" class="small">左右拖 A／B 調半徑；砝碼拖入托座，拖回「砝碼盤」取下，亦可用 ＋／−。圖中「砝碼 × 數量」顯示各側放入的塊數。</p>
         <div class="setting-row side-a"><strong><span class="side-letter">A</span> A 托座</strong>
           <div class="quantity-step"><span>砝碼</span><button data-step="2:-1" aria-label="A 移除一塊砝碼">−</button><output id="mAValue"></output><button data-step="2:1" aria-label="A 增加一塊砝碼">＋</button></div>
@@ -78,10 +78,10 @@
       </fieldset>
       <section id="runsPanel"><h3>兩組數據</h3><div id="runList"></div><p id="runHint" class="small"></p></section>
       <label class="law-field"><span id="lawPrompt"></span><select id="law"></select></label>
-      <section class="synthesis"><h3>綜合問題</h3><label>實驗 1（半徑）和實驗 2（質量）為甚麼要同時讀取 A、B 兩個測力計？<select id="syncAnswer"><option value="">未答</option><option value="same-omega">同一平台兩側同時具有相同角速度，可比較兩側徑向力的比值</option><option value="same-force">同時量測會令兩側徑向力相同</option><option value="same-mass">同時量測會令兩側質量相同</option><option value="unknown">不能判斷</option></select></label><label>A 側被測物的總質量包括甚麼？<select id="massPartsAnswer"><option value="">未答</option><option value="cap-screw-weights">托座、螺絲及放上的砝碼</option><option value="weights-only">只有砝碼</option><option value="sensor-and-weights">測力計及砝碼</option><option value="cap-only">只有托座</option></select></label></section>
+      <button id="synthesisButton" class="primary" hidden>前往綜合問題 →</button>
       <button id="clearTaskButton">清除此題設定、數據與答案</button>
     </section>
-    <section id="checkPanel" hidden><h2>提交前檢查</h2><p>未答項目得 0 分；已完成部分保留分數。提交後只可重看，不可清除或重做。</p><div id="checkSummary"></div><div class="button-row"><button id="backButton">返回修改</button><button id="submitButton" class="primary">提交目前答案</button></div></section>
+    <section id="checkPanel" hidden><h2>綜合問題與提交</h2><section class="synthesis"><h3>最後：綜合問題</h3><p class="small">三個實驗共用，只需回答一次。</p><p id="synthesisStatus" class="synthesis-status" role="status">已答 0 / 2</p><label>實驗 1（半徑）和實驗 2（質量）為甚麼要同時讀取 A、B 兩個測力計？<select id="syncAnswer"><option value="">未答</option><option value="same-omega">同一平台兩側同時具有相同角速度，可比較兩側徑向力的比值</option><option value="same-force">同時量測會令兩側徑向力相同</option><option value="same-mass">同時量測會令兩側質量相同</option><option value="unknown">不能判斷</option></select></label><label>A 側被測物的總質量包括甚麼？<select id="massPartsAnswer"><option value="">未答</option><option value="cap-screw-weights">托座、螺絲及放上的砝碼</option><option value="weights-only">只有砝碼</option><option value="sensor-and-weights">測力計及砝碼</option><option value="cap-only">只有托座</option></select></label></section><h3>提交前檢查</h3><p>未答的計分項目得 0 分；已完成部分保留分數。提交後只可重看，不可清除或重做。</p><div id="checkSummary"></div><div class="button-row"><button id="backButton">返回修改</button><button id="submitButton" class="primary">提交目前答案</button></div></section>
     <div class="panel-end" aria-hidden="true"></div>
   </aside>
 </main>

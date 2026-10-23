@@ -21,7 +21,7 @@ s.sync = "same-omega"; s.massParts = "cap-screw-weights";
 assert.equal(S.score(s).detail.syncScore + S.score(s).detail.massPartsScore, 10);
 console.log("centripetal scoring ok");
 
-const inquiry=M.fresh(99);inquiry.tasks[0].inquiry=["equal-mass",null];
+const inquiry=M.fresh(99);inquiry.rv=6;inquiry.tasks[0].inquiry=["equal-mass",null];
 assert.equal(S.page(inquiry,0).roleScore,3);
 inquiry.tasks[0].inquiry=["equal-radius","ratio-steady"];
 assert.equal(S.page(inquiry,0).roleScore,3);
@@ -58,7 +58,7 @@ assert.equal(S.page(equalRadius,0).fairScore,0,"unequal masses still confound th
 assert.equal(S.page(equalRadius,0).fitScore,6,"recognising unequal masses still earns interpretation credit");
 
 // rv4 and rv5 grade both runs equally; missing work receives only its own zero credit.
-for(const rv of [4,5,6]) for(const [i,configs] of [[[2,2,2,2],[4,2,2,2]],[[2,2,4,2],[2,2,2,4]],[[2,2,2,2],[3,3,3,3]]].entries()) {
+for(const rv of [4,5,6,7]) for(const [i,configs] of [[[2,2,2,2],[4,2,2,2]],[[2,2,4,2],[2,2,2,4]],[[2,2,2,2],[3,3,3,3]]].entries()) {
  const state=M.fresh(42),t=state.tasks[i],kind=M.KINDS[i];state.rv=rv;
  t.inquiry=i<2?[i===0?"equal-mass":"equal-radius","ratio-steady"]:[null,null];
  t.roles=["omega",["m","r"]];t.law=i===2?"square":"linear";
@@ -137,7 +137,7 @@ function feedbackTotal(state) {
  assert.equal(sum,S.score(state).score);assert.equal(report.score,sum);
  return report;
 }
-const marked=M.fresh(628),mt=marked.tasks[0];
+const marked=M.fresh(628),mt=marked.tasks[0];marked.rv=6;
 mt.inquiry=["equal-mass","ratio-steady"];mt.law="inverse";
 for(const cfg of [[2,2,2,2],[4,2,2,2]]) {
  mt.work=cfg;assert.equal(M.begin(mt),true);
@@ -167,7 +167,7 @@ assert.equal(report.pages[0].runs[0].items[3].status,"未完成擬合");
 assert.match(report.pages[0].runs[0].items[3].explanation,/尚未進行擬合/);
 marked.tasks[2].roles=["omega",["m"]];
 assert.equal(feedbackTotal(marked).pages[2].items[1].status,"部分得分");
-for(const rv of [1,2,3,4,5,6]) {
+for(const rv of [1,2,3,4,5,6,7]) {
  const version=M.clone(marked);version.rv=rv;
  feedbackTotal(version);const empty=M.fresh(629);empty.rv=rv;
  assert.equal(feedbackTotal(empty).score,0);
@@ -185,3 +185,29 @@ for(const rv of [1,2,3,4,5,6]) {
  if(rv<6)assert.ok(S.feedback(version).pages[0].runs[0].items.some(x=>x.id==="coefficient"));
 }
 console.log("centripetal item feedback totals and 34-point diagnoses ok");
+
+for (const prediction of [null, ...M.SPEED_RELATIONS]) {
+ const state=M.fresh(707);
+ for (const [i,t] of state.tasks.entries()) {
+  if(i<2) {
+   t.inquiry=[null,prediction];assert.equal(S.page(state,i).score,0,"prediction alone never earns marks");
+   t.inquiry[0]=i===0?"equal-mass":"equal-radius";
+  } else t.roles=["omega",["m","r"]];
+  t.law=i===2?"square":"linear";
+  assert.equal(S.page(state,i).score,12,"same concept credit regardless of prediction");
+  for(let j=0;j<2;j++) {
+   t.work=i===0?[4+j,2,2,2]:i===1?[2,2,4+j,2]:[2+j,2+j,2,2];
+   assert.ok(M.begin(t));for(const w of [1,2,3])M.record(t,w);M.fitCurrent(M.KINDS[i],t);
+   const run=t.runs[j];run.a=[String(Number((i===0?M.radius(run.cfg[0])/M.radius(run.cfg[1]):i===1?M.mass(run.cfg[2])/M.mass(run.cfg[3]):4).toFixed(4))),i===2?"square":"supports",null];
+   assert.equal(S.page(state,i).score,21+9*j,"partial and complete measurement credit survives every prediction");
+  }
+ }
+ state.sync="same-omega";state.massParts="cap-screw-weights";
+ const report=feedbackTotal(state);assert.equal(report.score,100);
+ for(const page of report.pages.slice(0,2)) {
+  const guess=page.items.find(x=>x.id==="prediction");
+  assert.deepEqual([guess.earned,guess.max,guess.status],[0,0,"不計分"]);
+  assert.equal(page.items.find(x=>x.id==="law").max,9);
+ }
+}
+console.log("centripetal rv7 predictions ungraded at every completion level; total remains 100");
