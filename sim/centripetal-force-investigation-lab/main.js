@@ -171,8 +171,9 @@
 `;
       notation.dataset.key = notationKey;
     }
-    $("graphMarks").innerHTML = `<path d="M${px(0)} 25V${bottom}M66 ${bottom}H331" fill="none" stroke="#64818d" stroke-width="1.5"/>
+    $("graphMarks").innerHTML = `<defs><marker id="graphAxisArrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#64818d"/></marker></defs>
       <g stroke="#e2ebee" stroke-width="1">${[.5,1].map(f => `<path d="M66 ${py(maxY * f)}H331M${px(maxX * f)} 25V${bottom}"/>`).join("")}</g>
+      <g fill="none" stroke="#64818d" stroke-width="1.5" marker-end="url(#graphAxisArrow)"><path class="axis-x" d="M66 ${bottom}H339"/><path class="axis-y" d="M${px(0)} ${bottom}V17"/></g>
       <g fill="#56717d" font-size="${tickFont}"><text x="66" y="${bottom + 20}">${fmt(minX)}</text>${minX < 0 ? `<text x="${px(0)}" y="${bottom + 20}" text-anchor="middle">0</text>` : ''}<text x="331" y="${bottom + 20}" text-anchor="end">${fmt(maxX)}</text><text x="59" y="32" text-anchor="end">${fmt(maxY)}</text></g>
       ${other.map(([x,y]) => `<circle cx="${px(x)}" cy="${py(y)}" r="4" fill="#b07932" opacity=".65"/>`).join("")}
       ${curve ? `<path class="fit-curve" d="${curve}" fill="none" stroke="#bd5a25" stroke-width="2"/>` : ""}
@@ -238,10 +239,12 @@
   }
   function renderSampling() {
     const run = shownRun(), p = page(), cfg = task().work, editing = controller.editable && view() !== "check";
-    $("collectStatus").textContent = `${run?.q.length || 0} 點${p === 2 ? ` · 正 ${run?.q.filter(q=>q>0).length || 0}／負 ${run?.q.filter(q=>q<0).length || 0}` : ""}`;
+    $("collectStatus").textContent = `${run?.q.length || 0} 點`;
+    $("collectStatus").title = p === 2 ? `正 ${run?.q.filter(q=>q>0).length || 0}／負 ${run?.q.filter(q=>q<0).length || 0}` : "";
+    $("collectStatus").setAttribute("aria-label", [$("collectStatus").textContent, $("collectStatus").title].filter(Boolean).join("，"));
     const enough = S.coverage(M.KINDS[p], run).dataScore === 4;
     $("samplingGuide").dataset.sufficient = String(enough);
-    $("samplingGuide").textContent = "✓ 資料已足夠";
+    $("samplingGuide").textContent = "✓ 足夠";
     $("samplingGuide").hidden = !enough || !["collect","analyse"].includes(view());
     $("notice").hidden = !controller.notice && !localMessage;
     $("notice").textContent = localMessage || controller.notice;
@@ -271,7 +274,6 @@
     $("measurementRoles").hidden = p !== 2 || v === "setup";
     document.querySelector(".setting-row.side-b").hidden = p === 2;
     $("setupHelp").textContent = p === 2 ? "拖動 A 調半徑，砝碼放入 A 托座或拖回盤取下，亦可用 ＋／−。B 是平衡配重，新設定的質量與半徑自動跟隨 A，不作測力。" : "左右拖 A／B 調半徑；砝碼拖入托座，拖回「砝碼盤」取下，亦可用 ＋／−。圖中「砝碼 × 數量」顯示各側放入的塊數。";
-    $("capacityHelp").textContent = "可持續收集，沒有指定點數目標。資料足夠時會顯示小提示；繼續量測或反轉毋須另開組。";
     document.querySelector(".mass-token.tray").setAttribute("aria-label", p === 2 ? "從砝碼盤拖一塊圓片到 A 托座；拖回此盤可取下砝碼" : "從砝碼盤拖一塊圓片到 A 或 B 托座；拖回此盤可取下砝碼");
     $("graphTitle").textContent = p === 2 ? "A 側徑向力與角速度" : "同步量測圖";
     $("taskNumber").textContent = `實驗 ${p + 1} / 3`; $("taskTitle").textContent = titles[p]; $("taskPrompt").textContent = prompts[p];

@@ -401,6 +401,38 @@ async function equalRadiusComparison(cdp, base, launch) {
   await click(cdp,"#checkButton");await click(cdp,"#submitButton");
   assert.match(await H.evaluate(cdp,"document.getElementById('scorePanel').textContent"),/30 \/ 100/,"a valid 1:1 comparison receives full page credit");
 }
+async function graphPresentation(cdp,base,launch,label) {
+ for(const [width,height] of [[320,500],[393,734],[1280,800]]) {
+  await cdp.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:width<900});
+  await cdp.send('Page.navigate',{url:base+launch});await ready(cdp);
+  for(const page of [0,2]) {
+   await click(cdp,`[data-page="${page}"]`);await click(cdp,'#startButton');
+   assert.equal(await H.evaluate(cdp,"document.getElementById('measureButton').disabled"),true);
+   const buttonContrast=()=>H.evaluate(cdp,`(()=>{
+    const s=getComputedStyle(document.getElementById('measureButton'));
+    const lum=c=>{const rgb=c.match(/[\\d.]+/g).slice(0,3).map(Number).map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4;});return rgb[0]*.2126+rgb[1]*.7152+rgb[2]*.0722;};
+    const a=lum(s.color),b=lum(s.backgroundColor);return(Math.max(a,b)+.05)/(Math.min(a,b)+.05);
+   })()`);
+   assert.ok(await buttonContrast()>=4.5,'disabled button retains readable text and a visible background');
+   await push(cdp,6);
+   assert.equal(await H.evaluate(cdp,"document.getElementById('measureButton').disabled"),false);
+   assert.ok(await buttonContrast()>=4.5,'enabled measurement button has readable contrast');
+   await click(cdp,'#measureButton');await brake(cdp,1500);
+   assert.equal(await H.evaluate(cdp,"document.getElementById('measureButton').textContent"),'暫停測量');
+   assert.equal(await H.evaluate(cdp,"document.getElementById('samplingGuide').hidden"),false);
+   const count=await rect(cdp,'#collectStatus'),badge=await rect(cdp,'#samplingGuide'),button=await rect(cdp,'#measureButton');
+   assert.ok(Math.abs(count.y+count.height/2-badge.y-badge.height/2)<1&&badge.x>=count.x+count.width&&badge.x+badge.width<button.x,'count and adequacy fit in one row without covering the button');
+   assert.equal(await H.evaluate(cdp,"document.getElementById('collectHelp').open"),false);
+   assert.ok(await H.evaluate(cdp,"document.getElementById('collectHelp').textContent.length")<110,'optional help stays short');
+   for(const square of page===2?[false,true]:[false]) {
+    if(square)await click(cdp,'#squareGraph');
+    assert.ok(await H.evaluate(cdp,`['x','y'].every(axis=>{const p=document.querySelector('.axis-'+axis),a=p.getPointAtLength(0),b=p.getPointAtLength(p.getTotalLength());return getComputedStyle(p).markerEnd.includes('graphAxisArrow')&&(axis==='x'?b.x>a.x&&b.y===a.y:b.y<a.y&&b.x===a.x);})`),'axis arrowheads point right and up, including signed and squared omega graphs');
+   }
+   fs.writeFileSync(path.join(root,'output/playwright',`centripetal-${label}-graph-${page}-${width}x${height}.png`),Buffer.from((await cdp.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
+   await click(cdp,'#measureButton');assert.equal(await H.evaluate(cdp,"document.getElementById('measureButton').textContent"),'開始測量');
+  }
+ }
+}
 async function mobileSpace(cdp,base,launch,label) {
  for(const [width,height] of [[320,500],[390,600],[393,734],[390,844]]) {
   await cdp.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:true});
@@ -453,7 +485,7 @@ async function directionalCapacity(cdp, base, launch, label) {
   const both=await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[2].runs[0].q');
   assert.ok(both.length>96,'recording continues beyond the old total quota');assert.ok(both.filter(q=>q<0).length>48,'negative direction is not capped');assert.ok(first.every(q=>both.includes(q)));
   assert.notEqual(await H.evaluate(cdp,"document.getElementById('measurementHint').dataset.status"),'full');
-  assert.match(await H.evaluate(cdp,"document.getElementById('collectStatus').textContent"),/正 48／負/);
+  assert.match(await H.evaluate(cdp,"document.getElementById('collectStatus').title"),/正 48／負/);
   await click(cdp,'#analyseView');await click(cdp,'#fitButton');
   assert.equal(await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[2].runs[0].fit'),true);
   fs.writeFileSync(path.join(root,'output/playwright',`centripetal-${label}-96-points-390x600.png`),Buffer.from((await cdp.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
@@ -473,7 +505,7 @@ async function signedMeasurements(cdp, base, launch, label) {
   assert.ok(run.q.some(q=>q<0)&&run.q.some(q=>q>0),'both rotation directions are sampled');
   assert.ok(run.q.length<48,'sufficient data is reached below storage capacity');
   assert.equal(await H.evaluate(cdp,"document.getElementById('samplingGuide').dataset.sufficient"),'true','UI uses the actual coverage rule');
-  assert.match(await H.evaluate(cdp,"document.getElementById('samplingGuide').textContent"),/資料已足夠/);
+  assert.match(await H.evaluate(cdp,"document.getElementById('samplingGuide').textContent"),/足夠/);
   const count=run.q.length;await pause(850);
   assert.equal(await H.evaluate(cdp,"document.getElementById('measurementHint').dataset.status"),'repeated','unchanged speed explains why no point is added');
   assert.match(await H.evaluate(cdp,"document.getElementById('measurementHint').textContent"),/已記錄/);
@@ -640,6 +672,7 @@ async function main() {
     const errors = []; cdp.on("Runtime.exceptionThrown", event => errors.push(event.exceptionDetails?.exception?.description || event.exceptionDetails?.text));
     server = H.createServer(root); await H.listenServer(server);
     const sourceBase = `http://127.0.0.1:${server.address().port}`;
+    await graphPresentation(cdp,sourceBase,`/sim/${slug}/index.html`,"source");
     await mobileSpace(cdp,sourceBase,`/sim/${slug}/index.html`,"source");
     await continuousRelease(cdp,sourceBase,`/sim/${slug}/index.html`,"source");
     await responsiveSpin(cdp, sourceBase, `/sim/${slug}/index.html`);
@@ -654,6 +687,7 @@ async function main() {
     await H.closeServer(server); server = null;
     const extracted = H.buildAndExtractPackage(tempRoot, { slug }); packageDirectory = extracted.packageDirectory;
     server = H.createServer(packageDirectory); await H.listenServer(server);
+    await graphPresentation(cdp,`http://127.0.0.1:${server.address().port}`,extracted.activityPath,"package");
     await mobileSpace(cdp,`http://127.0.0.1:${server.address().port}`,extracted.activityPath,"package");
     await continuousRelease(cdp,`http://127.0.0.1:${server.address().port}`,extracted.activityPath,"package");
     await scenario(cdp, `http://127.0.0.1:${server.address().port}`, extracted.activityPath, "package", 390, 600);

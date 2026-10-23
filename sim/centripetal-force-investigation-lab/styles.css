@@ -218,7 +218,11 @@ h3 { font-size: 1.05rem; margin-bottom: 8px; }
 .collect-help { border-top: 1px solid #d9e4e8; padding: 6px 0; }
 .collect-help summary { cursor: pointer; font-size: .9rem; min-height: 32px; padding: 5px 0; }
 .sampling-guide { display: inline-block; margin: 0; padding: 1px 5px; border: 0; border-radius: 5px; font-size: .75rem; line-height: 1.4; }
-#measureButton { flex: 0 0 auto; font-size: .9rem; padding: 4px 8px; }
+#measureButton { flex: 0 0 auto; min-height: 44px; font-size: .9rem; padding: 4px 8px; background: #126b7c; color: #fff; border: 1px solid #126b7c; font-weight: 700; }
+#measureButton:disabled { opacity: 1; background: #e5edf0; color: #536a74; border-color: #c5d4da; }
+.graph-heading > div { min-width: 0; flex: 1; }
+.graph-status { display: flex; align-items: center; gap: 4px; white-space: nowrap; font-size: .8rem; color: #557782; }
+.collect-help p { margin: 5px 0; font-size: .85rem; }
 #toggleGraph { width: 44px; font-size: 1.2rem; }
 .graph-heading { padding: 0 7px; min-height: 48px; }
 #app[data-view="collect"] #rolesField, #app[data-view="collect"] #runsPanel, #app[data-view="collect"] .law-field, #app[data-view="collect"] .synthesis, #app[data-view="collect"] #clearTaskButton { display: none; }
@@ -240,7 +244,7 @@ h3 { font-size: 1.05rem; margin-bottom: 8px; }
   #measurementHint[data-status="added"], #measurementHint[data-status="repeated"], #measurementHint[data-status="ready"] { display: none; }
   .control-panel section.graph-card { margin-bottom: 3px; }
   .graph-heading h3 { font-size: 13px; }
-  .graph-heading p { display: inline; margin-right: 4px; font-size: 12px; }
+  .graph-status { font-size: 12px; }
   #app[data-view="collect"] #graphSvg { height: max(120px, calc(59dvh - 180px)); }
   #app[data-view="analyse"] #graphSvg { height: max(180px, calc(59dvh - 150px)); }
   .readouts { top: 3px; flex-wrap: nowrap; gap: 3px; }

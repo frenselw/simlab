@@ -919,3 +919,15 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 - 官方helper推送Site source 801163d1f668c32c4429ae6893891d2cd245c775；v18 appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_abd729dcc8a48191920a3b80aed85a86，deployment appgdep_6adac4095e0881919b6041c73d623b12，Sites回報succeeded（2026-10-23T02:18:55.907331+00:00）；原owner-private audience保持。
 - 已開回原站並確認新問句、選項與A除以B定義；截圖C:/Users/frens/Documents/Projects/simlab/output/centripetal-wording-v18.png，設定頁保留。已恢復開發分頁快取並解除臨時viewport，沒有留下瀏覽器設定改動；未重跑整套實驗操作及Moodle。
 
+
+## 圖表工具列與正方向（2026-10-23，動工前決策）
+
+- 按使用者截圖，精簡量測頁下方說明為預設收起的一段操作提示；點數與足夠提示同一行，正負數量移到點數的補充標籤。修正標題列覆蓋primary按鈕底色，使開始／暫停測量及未可量測狀態清楚。
+- 力–力、正負角速度及角速度平方圖的坐標軸皆加右／上正方向箭頭；投影座標、數據、配分rv3、保存mv5及旋轉手勢不變。範圍為index/styles/main、既有瀏覽器回歸及交付；無新入口／依賴。
+- 執行focused source及解壓SCORM瀏覽器檢查：320–393px手機及桌面、點數與足夠提示同列、按鈕外觀／啟用切換、三種圖的箭頭方向。重建包並同步原私人Site；不重跑與此修改無關的完整旋轉／保存／Moodle驗證。
+
+### 圖表工具列驗證
+
+- focused browser source及解壓SCORM檢查通過（320×500、393×734、1280×800）：開始／暫停按鈕切換及啟用／停用文字對比≥4.5；點數與足夠提示同一列並不碰按鈕；簡短說明預設收起。力–力、正負角速度及角速度平方圖的SVG端點與marker皆核對為向右／向上。無瀏覽器例外。截圖output/playwright/centripetal-{source,package}-graph-*.png。
+- main／browser driver語法及check:tests通過（263 entries）。變更已連同既有browser driver登記，不新增測試入口；沒有重跑完整旋轉／保存與真機Moodle。
+- 重建SCORM17檔，16個runtime與canonical sim及Site dist逐位元組相同；ZIP SHA-256：004ebba470e2439cdb4b6f7da5665112f36610e5f08374b166d42bf740ff8439。rv3／mv5及運動實現未改。
