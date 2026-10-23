@@ -160,8 +160,9 @@
     if (!scale) return;
     const axisFont = Math.max(18, 16 / scale), tickFont = Math.max(13, 13 / scale);
     const result = run?.fit ? graphFit(kind, run) : null;
-    const curve = result?.ok ? Array.from({ length: 51 }, (_, i) => {
-      const x = result.minX + i / 50 * (result.maxX - result.minX);
+    const steps = result?.model === "linear" ? 1 : 50;
+    const curve = result?.ok ? Array.from({ length: steps + 1 }, (_, i) => {
+      const x = minX + i / steps * (maxX - minX);
       return `${i ? "L" : "M"}${px(x).toFixed(2)} ${py(NewtonFitting.predict(result.model, result.coefficients, x)).toFixed(2)}`;
     }).join(" ") : "";
     if (!$("graphNotation")) graph.innerHTML = '<g id="graphNotation"></g><g id="graphMarks"></g>';
@@ -172,13 +173,13 @@
 `;
       notation.dataset.key = notationKey;
     }
-    $("graphMarks").innerHTML = `<defs><marker id="graphAxisArrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#64818d"/></marker></defs>
+    $("graphMarks").innerHTML = `<defs><clipPath id="graphPlotClip"><rect x="66" y="25" width="265" height="${bottom - 25}"/></clipPath><marker id="graphAxisArrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#64818d"/></marker></defs>
       <g stroke="#e2ebee" stroke-width="1">${[.5,1].map(f => `<path d="M66 ${py(maxY * f)}H331M${px(maxX * f)} 25V${bottom}"/>`).join("")}</g>
       <g fill="none" stroke="#64818d" stroke-width="1.5" marker-end="url(#graphAxisArrow)"><path class="axis-x" d="M66 ${bottom}H339"/><path class="axis-y" d="M${px(0)} ${bottom}V17"/></g>
       <g fill="#56717d" font-size="${tickFont}"><text x="66" y="${bottom + 20}">${fmt(minX)}</text>${minX < 0 ? `<text x="${px(0)}" y="${bottom + 20}" text-anchor="middle">0</text>` : ''}<text x="331" y="${bottom + 20}" text-anchor="end">${fmt(maxX)}</text><text x="59" y="32" text-anchor="end">${fmt(maxY)}</text></g>
       ${other.map(([x,y]) => `<circle cx="${px(x)}" cy="${py(y)}" r="4" fill="#b07932" opacity=".65"/>`).join("")}
       ${points.map(([x,y], i) => `<circle class="measured-point" cx="${px(x)}" cy="${py(y)}" r="4" fill="#087c95" stroke="white" stroke-width="1"/>${view() === "collect" && run.q[i] === lastSampleQ && performance.now() - lastSampleAt < 750 ? `<circle class="new-point-ring" cx="${px(x)}" cy="${py(y)}" r="8" fill="none" stroke="#b56317" stroke-width="2" aria-hidden="true"/>` : ""}`).join("")}
-      ${curve ? `<path class="fit-curve" d="${curve}" fill="none" stroke="#bd5a25" stroke-width="3" vector-effect="non-scaling-stroke" stroke-linecap="round"/>` : ""}
+      ${curve ? `<path class="fit-curve" clip-path="url(#graphPlotClip)" d="${curve}" fill="none" stroke="#bd5a25" stroke-width="3" vector-effect="non-scaling-stroke" stroke-linecap="round"/>` : ""}
       <path id="livePoint" d="M-8 0H8M0-8V8" fill="none" stroke="#bc5c17" stroke-width="2.5" visibility="hidden"/>
       ${!points.length ? `<text x="205" y="${(bottom + 25) / 2}" text-anchor="middle" fill="#6d8590" font-size="${tickFont}">${view() === 'collect' && controller.editable ? '推轉後開始測量，再按住減速' : '本組尚未記錄數據'}</text>` : ''}`;
     $("graphLegend").hidden = !points.length && !other.length;

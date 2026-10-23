@@ -427,9 +427,13 @@ async function equalRadiusComparison(cdp, base, launch) {
 async function visibleFit(cdp) {
  const line=await H.evaluate(cdp,`(()=>{
   const p=document.querySelector('.fit-curve'),points=[...document.querySelectorAll('.measured-point')];
-  return p&&{d:p.getAttribute('d'),length:p.getTotalLength(),above:points.every(point=>Boolean(point.compareDocumentPosition(p)&Node.DOCUMENT_POSITION_FOLLOWING)),width:getComputedStyle(p).strokeWidth,vector:getComputedStyle(p).vectorEffect};
+  const clip=document.querySelector('#graphPlotClip rect');
+  return p&&{start:p.getPointAtLength(0).x,end:p.getPointAtLength(p.getTotalLength()).x,first:Math.min(...points.map(n=>Number(n.getAttribute('cx')))),last:Math.max(...points.map(n=>Number(n.getAttribute('cx')))),clip:p.getAttribute('clip-path'),clipBox:clip&&[...['x','y','width','height']].map(k=>Number(clip.getAttribute(k))),bottom:document.getElementById('graphSvg').viewBox.baseVal.height-50,d:p.getAttribute('d'),length:p.getTotalLength(),above:points.every(point=>Boolean(point.compareDocumentPosition(p)&Node.DOCUMENT_POSITION_FOLLOWING)),width:getComputedStyle(p).strokeWidth,vector:getComputedStyle(p).vectorEffect};
  })()`);
  assert.ok(line&&!/NaN|Infinity/.test(line.d)&&line.length>0,'fit has a valid drawable path');
+ assert.ok(Math.abs(line.start-66)<.01&&Math.abs(line.end-331)<.01,'fit extends across the full visible x axis');
+ assert.ok(line.start<line.first&&line.end>line.last,'fit extends beyond the measured points at both ends');
+ assert.equal(line.clip,'url(#graphPlotClip)');assert.deepEqual(line.clipBox,[66,25,265,line.bottom-25],'extrapolated fit is clipped inside the plotting area');
  assert.equal(line.above,true,'fit is painted after every data point so dense dots cannot hide it');
  assert.ok(parseFloat(line.width)>=3&&line.vector==='non-scaling-stroke','fit remains clearly visible at phone and desktop scales');
  assert.doesNotMatch(await H.evaluate(cdp,"document.getElementById('fitResult').innerHTML"),/RMSE|均方根誤差/,'fit result shows the formula without RMSE');
@@ -507,7 +511,7 @@ async function graphPresentation(cdp,base,launch,label) {
     assert.match(await H.evaluate(cdp,"document.querySelector('#comparison option:checked').textContent"),/兩側半徑不同/);
    }
    const secondRun=await H.evaluate(cdp,`window.__centripetalApp.getState().tasks[${page}].runs[1]`);
-   await click(cdp,'[data-run="view:0"]');
+   await click(cdp,'[data-run="view:0"]');await visibleFit(cdp);
    assert.deepEqual(await H.evaluate(cdp,`window.__centripetalApp.getState().tasks[${page}].runs[0]`),firstRun);
    assert.deepEqual(await H.evaluate(cdp,"['numericAnswer','comparison'].map(id=>document.getElementById(id).value)"),firstRun.a.slice(0,2),'first group restores its own answers');
    await click(cdp,'[data-run="view:1"]');

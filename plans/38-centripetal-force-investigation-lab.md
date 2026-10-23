@@ -1135,3 +1135,15 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 - 官方helper推送Site source f1725c2276b6f64d736e39bae979ac46544fb751；v28 appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_d4183d857cc88191b81041dce10fdc82，deployment appgdep_6adb1ec3fda881919b79494446999f2f，Sites回報succeeded（2026-10-23T08:46:03.810378+00:00），原owner-private audience保持。
 - 首次部署後原分頁仍載舊介面，未直接交付；暫時停用瀏覽器快取重新載入，確認DOM「作答反饋」及實際Network scoring.js body含feedback函式與rv6計分；新載入回應非disk/service-worker cache。之後以網站真實操作收集兩組各13點、擬合、作答並提交34分；反饋顯示24+0+0+10、失分一般關係0/6，所選倒數與正確相等及LaTeX解釋；兩組各9/9，另兩實驗未作答，手機檢查及清除按鈕均隱藏。這是測試示範，不能據此推定使用者原作答的具體錯題。
 - 截圖C:/Users/frens/Documents/Projects/simlab/output/centripetal-feedback-v28.png；原分頁已停在失分解釋並開回、標記保留。瀏覽器暫時快取設定已恢復、未改viewport；測試server已關閉，臨時憑證清除。真手機及真Moodle未驗證。
+
+
+## 擬合線延伸至圖表邊界（2026-10-23，動工前決策）
+
+- 原繪圖只用擬合數據的minX/maxX，改用目前坐標軸的完整範圍；線性擬合以兩端點畫完整直線，角速度二次擬合亦延伸至圖窗兩端。使用SVG原生clipPath裁在繪圖框內，避免外插部分覆蓋坐標數字及標籤。兩組共同軸範圍、資料點、係數、評分、保存及運動不變。
+- 範圍只及main.js繪圖及既有browser入口visibleFit/graphPresentation；無新依賴或manifest改動。驗證半徑／質量／帶正負角速度與平方圖、兩組數據範圍不同、收集／分析切換、線段跨過採樣範圍且裁切正確；來源與SCORM解壓320/393/1280px，check/check:tests及committed selection後更新原私人網站。
+
+
+### 完整擬合線驗證
+
+- 來源及解壓SCORM的graphPresentation於320×500、393×734、1280×800，三個實驗、兩組數據、收集／分析及角速度／角速度平方切換通過。visibleFit逐一檢查擬合路徑從圖框x=66到331、兩端均超出採樣範圍、clipPath範圍精確等於圖框；線仍繪於數據點之上並保持3px，不顯示RMSE。兩組答案及評分不變，無瀏覽器例外。
+- check/check:tests（263 entries）通過，未新增依賴或測試入口。SCORM17檔、16runtime與canonical sim及Site dist一致；ZIP SHA-256 97d734a3564ecd8ff4a141cd63cc3f3b0dd71e81200a0dbfe3075b23118e2699。未重跑未修改的手勢效能及SCORM生命週期；真手機及真Moodle未驗證。
