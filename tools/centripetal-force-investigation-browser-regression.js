@@ -437,7 +437,7 @@ async function graphPresentation(cdp,base,launch,label) {
  for(const [width,height] of [[320,500],[393,734],[1280,800]]) {
   await cdp.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:width<900});
   await cdp.send('Page.navigate',{url:base+launch});await ready(cdp);
-  for(const page of [0,2]) {
+  for(const page of [0,1,2]) {
    await click(cdp,`[data-page="${page}"]`);await click(cdp,'#startButton');
    assert.equal(await H.evaluate(cdp,"document.getElementById('measureButton').disabled"),true);
    const buttonContrast=()=>H.evaluate(cdp,`(()=>{
@@ -463,7 +463,14 @@ async function graphPresentation(cdp,base,launch,label) {
    fs.writeFileSync(path.join(root,'output/playwright',`centripetal-${label}-graph-${page}-${width}x${height}.png`),Buffer.from((await cdp.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
    await click(cdp,'#measureButton');assert.equal(await H.evaluate(cdp,"document.getElementById('measureButton').textContent"),'開始測量');
    await click(cdp,'#analyseView');await click(cdp,'#fitButton');await visibleFit(cdp);
-   if(page===2){await click(cdp,'#squareGraph');await visibleFit(cdp);}
+   const questions=await H.evaluate(cdp,"({comparison:document.getElementById('comparisonPrompt').innerHTML,reason:document.getElementById('reasonPrompt').innerHTML,option:document.querySelector('#reason option[value=coefficient]').textContent})");
+   assert.match(questions.comparison,page===2?/角速度/:page===0?/r_A\/r_B/:/m_A\/m_B/,'question follows the selected experiment');
+   assert.match(questions.reason,/data-tex/, 'coefficient question renders LaTeX');
+   assert.match(questions.option,page===2?/乘積/:page===0?/半徑/:/總質量/,'coefficient has one experiment-specific meaning');
+   await H.evaluate(cdp,`(()=>{for(const [id,value] of [['comparison','${page===2?'square':'supports'}'],['reason','coefficient']]){const e=document.getElementById(id);e.value=value;e.dispatchEvent(new Event('change',{bubbles:true}));}})()`);
+   if(page===2){await click(cdp,'#squareGraph');await visibleFit(cdp);assert.match(await H.evaluate(cdp,"document.getElementById('reasonPrompt').innerHTML"),/c.*omega/, 'coefficient question follows the quadratic graph after switching back');}
+   await click(cdp,'#collectView');await click(cdp,'#analyseView');
+   assert.deepEqual(await H.evaluate(cdp,"['comparison','reason'].map(id=>document.getElementById(id).value)"),[page===2?'square':'supports','coefficient'],'question updates preserve saved answers');
    fs.writeFileSync(path.join(root,'output/playwright',`centripetal-${label}-visible-fit-${page}-${width}x${height}.png`),Buffer.from((await cdp.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
   }
  }

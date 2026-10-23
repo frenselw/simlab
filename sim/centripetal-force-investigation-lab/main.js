@@ -4,9 +4,7 @@
   const $ = id => document.getElementById(id), stage = $("stageContent"), device = $("deviceSvg"), graph = $("graphSvg");
   const titles = ["半徑如何影響徑向力？", "質量如何影響徑向力？", "轉速如何影響徑向力？"];
   const prompts = ["保持兩側質量相同，研究徑向力與半徑的關係。半徑可相同（1:1），亦可試其他比例。", "保持兩側半徑相同、總質量不同，觀察改變轉速時兩側徑向力的比值。", "只量測 A，B 作平衡配重。固定 A 的質量及半徑，推轉、測量、減速，再試反向。"];
-  const compareOptions = [["supports", "斜率與設定比值相符，支持本題比例關係"], ["confounded", "兩個量同時改變，不能隔離"], ["no-contrast", "被研究量沒有差異"], ["insufficient", "數據不足"]];
-  const reasonOptions = [["coefficient", "斜率對應兩側物理量比值／二次項對應質量與半徑的乘積"], ["constant", "只有常數項代表關係"], ["other", "係數與配置無關"], ["uncertain", "配置混雜或數據不足，不能隔離解釋"]];
-  const lawOptions = [["linear", "徑向力與研究量成正比（其餘量固定）"], ["square", "徑向力與研究量的平方成正比（其餘量固定）"], ["inverse", "徑向力與研究量成反比"], ["none", "沒有可描述的關係"]];
+  const lawOptions = [["linear", "徑向力與角速度成正比"], ["square", "徑向力與角速度的平方成正比"], ["inverse", "徑向力與角速度成反比"], ["none", "徑向力不隨角速度改變"]];
   const controller = new CentripetalRuntime.Controller(SimScorm, SimActivityFlow, render);
   let motion = M.motion(), running = false, drag = null, lastFrame = 0, localMessage = "", reviewRun = [null, null, null], mathReady = false, lastLocation = "", graphOpen = true, measuring = false, lastSampleAt = -Infinity, lastSampleQ = null, brakeHold = null, squaredGraph = false, graphProjection = null, lastReadoutAt = -Infinity, sampleTimer = null;
   const state = () => controller.state, page = () => controller.editable ? state().page : controller.reviewPage;
@@ -329,6 +327,12 @@
       run?.a.some(Boolean) && run.q.length >= 2 ? "數據已更新或尚未擬合；原有結論保留，請重新擬合比較。" : "尚未擬合；請先收集足夠的不同轉速。";
     $("numericPrompt").innerHTML = p === 2 ? "角速度加倍時，力變成多少倍？" : p === 0 ? `${math('r_A/r_B', '兩側半徑的比值')} = ?` : `${math('m_A/m_B', '兩側質量的比值')} = ?`;
     $("numericAnswer").value = run?.a[0] || ""; $("numericAnswer").disabled = !editing || !activeRun();
+    const quantity = p === 0 ? "半徑" : "總質量", fixed = p === 0 ? "總質量" : "半徑";
+    const ratioTex = p === 0 ? "r_A/r_B" : "m_A/m_B";
+    $("comparisonPrompt").innerHTML = p === 2 ? "固定 A 側的質量及半徑，本組圖像顯示徑向力與角速度有甚麼關係？" : `結合本組器材設定及擬合結果，能否支持 ${math(`F_A/F_B=${ratioTex}`, `兩側徑向力的比值等於${quantity}的比值`)}？`;
+    $("reasonPrompt").innerHTML = `本組擬合式 ${math(p === 2 ? squaredGraph ? "F_A=k\\omega^2+b" : "F_A=k\\omega^2+c\\omega+b" : "F_A=kF_B+b", p === 2 ? "A側徑向力的二次擬合式" : "兩側徑向力的直線擬合式")} 中，${math("k", "係數k")} 的物理意義是甚麼？`;
+    const compareOptions = [["supports", `支持：兩側${fixed}相同，斜率與${quantity}的比值相符`], ["confounded", `不能只判斷${quantity}的影響：兩側${fixed}也不同`], ["no-contrast", `不能比較：兩側${quantity}相同`], ["insufficient", "尚未成功擬合，未能作出判斷"]];
+    const reasonOptions = p === 2 ? [["coefficient", "A 側總質量與半徑的乘積"], ["constant", "角速度為零時的徑向力"], ["other", "A 側的總質量，與半徑無關"], ["uncertain", "係數沒有物理意義，只用來畫曲線"]] : [["coefficient", `A 側${quantity}除以 B 側${quantity}所得的比值`], ["constant", "B 側徑向力為零時，A 側的徑向力"], ["other", "兩側共同的角速度"], ["uncertain", `本組未符合比較條件，不能單憑此係數判斷${quantity}的影響`]];
     setSelect("comparison", p === 2 ? lawOptions : compareOptions, run?.a[1], !editing || !activeRun());
     setSelect("reason", reasonOptions, run?.a[2], !editing || !activeRun());
     $("lawPrompt").innerHTML = p === 2 ? `${math('F_A', 'A 側徑向力')} 與 ${math('\\omega', '角速度')} 的關係` : p === 0 ? `${math('F', '徑向力')} 與 ${math('r', '半徑')} 的關係` : `${math('F', '徑向力')} 與 ${math('m', '質量')} 的關係`;

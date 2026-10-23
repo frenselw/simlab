@@ -1014,3 +1014,21 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 - focused來源及解壓SCORM檢查通過：320×500、390×600、393×734、390×844及1280×800／320×225。相同預設cfg的整個rotatingAssembly.innerHTML逐字一致；手機測力計寬高比與桌面40:24一致，單感應器頁亦用24高；仍核對細滑柄hit44、砝碼盤文字及標示不出舞台。螢幕尺寸比例斷言使用0.001容差處理DOM浮點精度。
 - main／browser driver語法通過，使用既有mobileSetup測試入口。僅器材外觀修正，不重跑物理、評分、保存與完整手勢回歸；真手機／Moodle未驗證。
 - SCORM17檔，16runtime與canonical sim及Site dist逐位元組相同；ZIP SHA-256：56d2d89eadac3c47b25d7e2e2bf55cb5ea4ccc70d62215a5547d39ba5cdab25f。
+
+
+### 修長測力計 Site v23 交付
+
+- 功能commit a7983a8已推至origin；committed selection由ea4ef24起算，僅本活動。官方helper source f9220b6ad1a01d642dd73c954c73b7ff7de1d79c，Site v23，deployment appgdep_6adaf9c0088481919ca3614a9881c740 回報succeeded（2026-10-23T06:08:06.685718+00:00），原owner-private audience不變。
+- 原站393×734實際核對兩個測力計40×24，截圖C:/Users/frens/Documents/Projects/simlab/output/centripetal-slender-v23.png；已恢復viewport及快取設定，保留原站分頁。此為瀏覽器手機尺寸核對，非真手機／Moodle。
+
+## 分析題改寫（2026-10-23，動工前決策）
+
+- 將抽象的「圖像支持甚麼判斷／怎樣解讀擬合」改成兩個具體任務：先根據器材設定及圖像判斷指定比例關係，再指出擬合式中係數k的物理意義。半徑／質量分別顯示對應比值；角速度問徑向力與角速度的關係及二次項係數，平方圖仍問同一係數。
+- 所有符號使用既有CircuitMath。下拉選項用完整文字，分實驗明示質量或半徑，移除「隔離」「配置混雜」「研究量」等抽象用語。保留既有答案key、rv4／mv5及評分語義，兩組答案及舊版已記錄成績不變；半徑1:1仍是有效比較。
+- 範圍index題幹節點、main題幹／選項及既有browser graphPresentation；不用新增依賴或XML。驗證三頁、320／393／1280px、兩種角速度圖的題幹／係數、答案維持、來源及解壓SCORM；執行既有scoring測試、check:tests及committed selection。
+
+### 分析題改寫驗證
+
+- scoring既有測試、check:tests（263 entries）、main／browser driver語法及diff檢查通過。focused graphPresentation來源及解壓SCORM的320×500、393×734、1280×800，三個實驗皆通過；按實驗顯示相應比值／係數，LaTeX已渲染，角速度平方圖題幹跟隨圖像，切換圖像及收集／分析後保存原答案。瀏覽器無例外。
+- 初次題幹斷言以textContent查「半徑」不適用已渲染的公式，改成檢查實際data-tex中的r_A/r_B及m_A/m_B；產品未因此更改。既有圖軸、按鈕對比、點數單行、擬合線可見檢查亦通過。
+- SCORM17檔，16runtime與canonical sim及Site dist逐位元組相同；ZIP SHA-256：7c50031177193793ad6584059ec90e04eb55062d95eca2f5b7df4993c58a097c。未重跑完整手勢、保存回歸或真手機／Moodle；本次未更改這些模型。
