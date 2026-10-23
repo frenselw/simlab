@@ -912,3 +912,10 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 - main語法、既有scoring純測試與check:tests（263 entries）通過。第一、二題選項value及正確答案代碼不變，無分數／保存schema變更；文案範圍沒有重跑全手勢與物理回歸。
 - 預覽最初沿用舊main.js快取，重新載入HTML仍有舊腳本；暫時停用開發分頁快取後確認新問句、定義、選項，交付前須恢復。這是開發核對，沒有更改學生資料。
 - 重建SCORM17檔；16個runtime與canonical sim及Site dist逐位元組相同。ZIP SHA-256：3f99af10ecc1a1df2d98a9ca2717630764471ab08b115401324709f8ed165b06。
+
+### 比值文字 Site v18 交付
+
+- 功能commit 9263bccd0485fec4f16cc80e261901ea7d70e716已推到origin；committed selection由abd72d2起算，mode=affected、packages僅本活動，output/centripetal-ratio-wording-selection.json。實際核對第一／二題問句及選項，定義公式成功排版。
+- 官方helper推送Site source 801163d1f668c32c4429ae6893891d2cd245c775；v18 appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_abd729dcc8a48191920a3b80aed85a86，deployment appgdep_6adac4095e0881919b6041c73d623b12，Sites回報succeeded（2026-10-23T02:18:55.907331+00:00）；原owner-private audience保持。
+- 已開回原站並確認新問句、選項與A除以B定義；截圖C:/Users/frens/Documents/Projects/simlab/output/centripetal-wording-v18.png，設定頁保留。已恢復開發分頁快取並解除臨時viewport，沒有留下瀏覽器設定改動；未重跑整套實驗操作及Moodle。
+
