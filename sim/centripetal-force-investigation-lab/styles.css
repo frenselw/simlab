@@ -44,12 +44,12 @@ h3 { font-size: 1.05rem; margin-bottom: 8px; }
 .radius-handle { width: 54px; height: 44px; display: flex; justify-content: center; gap: 5px; border-radius: 22px; background: #fff; border: 1.5px solid #4796a5; color: #087c95; font-weight: 700; }
 .radius-handle span:last-child { font-size: .8rem; font-weight: 400; }
 .radius-handle[data-side="B"] { border-color: #c18c54; color: #a45b24; }
-.weight-tray { position: absolute; left: 8px; bottom: 8px; width: 128px; height: 50px; padding: 5px 6px 4px 52px; border: 2px dashed #9eb7c3; border-radius: 12px; background: #e8f0f3; pointer-events: none; }
-.weight-tray strong { font-size: .9rem; }
-.weight-tray span { display: block; margin-top: 4px; font-size: .75rem; line-height: 1.3; }
+.weight-tray { position: absolute; left: 8px; bottom: 8px; width: 128px; height: 56px; padding: 6px 6px 6px 52px; display: flex; flex-direction: column; justify-content: center; gap: 2px; border: 2px dashed #9eb7c3; border-radius: 12px; background: #e8f0f3; pointer-events: none; }
+.weight-tray strong { font-size: .9rem; line-height: 1.25; }
+.weight-tray span { display: block; margin-top: 0; font-size: .75rem; line-height: 1.3; white-space: nowrap; }
 .weight-tray.drop-ready { border-color: #087c95; background: #dff1f4; }
 .weight-tray.drop-active { border-style: solid; border-color: #098f65; background: #d9f5e7; }
-.mass-token.tray { left: 13px; bottom: 11px; width: 44px; height: 44px; border: 0; border-radius: 7px; background: transparent; }
+.mass-token.tray { left: 13px; bottom: 14px; width: 44px; height: 44px; border: 0; border-radius: 7px; background: transparent; }
 .washer, .mass-token.placed.dragging::after { display: block; width: 32px; height: 32px; border: 10px solid #b4c3cd; border-radius: 50%; outline: 1px solid #667e8d; }
 .mass-token.placed { width: 48px; height: 48px; border: 2px solid transparent; border-radius: 50%; background: transparent; }
 .mass-token.placed.drop-ready { border-color: #7294a6; border-style: dashed; }

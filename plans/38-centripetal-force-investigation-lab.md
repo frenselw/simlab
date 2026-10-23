@@ -884,3 +884,13 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 - 已開回原Site並明確reload；393×734實際交付檢查確認單行頁首、清楚步驟、大轉盤與完整數據圖。使用鍵盤替代操作推至3rad/s開始量測，再推至4rad/s，3個實際圖點便出現「✓ 資料已足夠」，測量維持，沒有full狀態或另佔空間的達標段落。截圖C:/Users/frens/Documents/Projects/simlab/output/centripetal-mobile-v16.png；之後已解除臨時viewport override，原分頁保留供使用者試。
 - 網址：https://centripetal-force-investigation-lab.ieyp.chatgpt.site/centripetal-force-investigation-lab/
 
+
+## 砝碼盤文字邊界修正（2026-10-23，動工前決策）
+
+- 使用者桌面截圖指出「取用／放回」與砝碼盤虛線下框重疊。範圍僅本活動tray樣式與交付紀錄：固定兩行line-height及間距、盤高50改56px、以flex垂直置中，取用砝碼的44px按鈕同步置中。
+- 配分、schema、數據、動畫、入口及依賴不變。以桌面及手機實際文字邊界／截圖檢查內距；此低影響樣式修改不新增純測試或重跑整套手勢回歸，重建SCORM及原私人Site並核對相同CSS。
+
+### 砝碼盤邊界驗證
+
+- 實際瀏覽器1280×800及393×734核對兩行文字：提示距盤底約10.21px、右邊8px；44×44px取用按鈕與盤的垂直中心相同（offset=0）。根據此低影響CSS範圍沒有新增測試或重跑物理／保存／全手勢回歸；測試登記check:tests仍263 entries通過。
+- 重建SCORM17檔案；16 runtime與canonical sim及Site dist逐位元組相同。ZIP SHA-256：b394306ba7bd2e8a80993c957cce1bd7bb7764732b52495623ec971352790ced。無新依賴／測試入口，mv5／rv3與評分不變。
