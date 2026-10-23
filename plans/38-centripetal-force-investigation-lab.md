@@ -1171,3 +1171,10 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 - 綜合題限editable/check更新，非法欄位／選項拒絕；往返實驗、最終頁保存與還原、保存失敗阻止提交及重試、partial submit、success/committed/frozen/retry均測試。完整容量draft3403/review3440/pending3808 bytes。
 - 既有browser入口feedbackPresentation擴充；來源與解壓SCORM320×500、393×800、1280×800通過原生選單輸入、最後頁入口、每實驗不重複綜合題、已答0/1/2狀態、草稿還原及往返保答、第三實驗分析後進入、部分作答提交10分、錯誤預測不計分反饋。最後頁全寬且返回恢復儀器，沒有橫向溢出或瀏覽器例外；另31分失分反饋／未答／frozen／mismatch／舊版review仍通過。
 - check及check:tests（263 entries）通過，沿用現有測試登記。SCORM17檔、16 runtime與canonical sim及Site dist逐位元組一致；ZIP SHA-256 f6f65fa1cefe1820e9cb692817f1411bf9664ea345e93547a79b6f6a50768df3。未重跑未改動的完整轉動效能測試；真手機及真Moodle未驗證。
+
+### 預測與綜合題 Site v30 交付
+
+- 功能commit 3bd8a21已推origin；committed selection由5f1a2d9起算，mode=affected，packages僅本活動，output/centripetal-prediction-synthesis-selection.json。
+- 官方helper推送Site source 08a348c4383eb66581c5483794855bd82e359514；v30 appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_bc1622729a1481919b85e53623d0b7c6，deployment appgdep_6adb36efd0f08191852887ec67bba8c9，Sites回報succeeded（2026-10-23T10:29:11.286075+00:00），owner-private audience保持。
+- 原分頁第一次reload混載舊HTML與新JS，導致找不到新按鈕；強制再次reload遭自動審核拒絕（可能清除進行中實驗），未重試或繞過。恢復暫時快取設定後另開同一原網站URL，新分頁正常載入rv7介面。實際可見預測「不計分」、第四「綜合與提交」入口，綜合題只在最後全寬頁出現；選兩個測試答案顯示已答2/2、返回修改再進入仍保留，未提交。
+- 截圖C:/Users/frens/Documents/Projects/simlab/output/centripetal-prediction-synthesis-v30.png；新版分頁已開回並標記保留，原分頁未再操作。沒有改viewport；本機browser測試server已關閉，臨時憑證已清除。真手機及真Moodle未驗證。
