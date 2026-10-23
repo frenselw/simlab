@@ -533,7 +533,8 @@ async function mobileSetup(cdp,base,launch,label) {
   await cdp.send('Page.navigate',{url:base+launch});await ready(cdp);
   const geometry=await H.evaluate(cdp,"document.getElementById('rotatingAssembly').innerHTML");
   if(apparatus===undefined)apparatus=geometry;else assert.equal(geometry,apparatus,'all phone sizes share exactly the same apparatus SVG');
-  for(let i=0;i<4;i++)await click(cdp,'[data-step="0:1"]');
+  for(const field of [0,1])for(let i=0;i<4;i++)await click(cdp,`[data-step="${field}:1"]`);
+  assert.equal(await H.evaluate(cdp,"parseFloat(getComputedStyle(document.getElementById('app')).gridTemplateColumns)"),width,'phone grid stays within viewport at maximum radii');
   const meter=await rect(cdp,'.force-meter rect'),holder=await rect(cdp,'.weight-holder'),tray=await rect(cdp,'#weightTray'),token=await rect(cdp,'.mass-token.tray'),icon=await rect(cdp,'.mass-token.tray .washer');
   assert.ok(Math.abs(meter.width/meter.height-40/24)<.001&&holder.height>=16,'phone meters retain desktop proportions');
   assert.ok(tray.width<=112&&tray.height===44&&icon.width===22,'tray has a quieter compact appearance');

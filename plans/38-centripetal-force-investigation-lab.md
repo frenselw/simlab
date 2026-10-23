@@ -1186,3 +1186,9 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 - Reviewer B（synthesis_flow_reviewer）：獨立Chrome檢查來源及重建解壓SCORM，320×500、393×800、1280×800通過綜合題唯一、0/1/2作答狀態、往返保答、草稿續作、第三實驗入口、部分提交10分、預測不計分反饋、31分失分、pending/mismatch及舊版review；實看320px截圖，無溢出／重疊／瀏覽器例外。最終無新問題，可交付。
 - 第三位review_synthesizer核對及彙總：R1-A cleared、R1-B cleared，必修／應修清單均空。兩位明確無新問題，停止條件成立；沒有未處理的已確認問題，不為審核而另改程式或重複部署，原Site維持v30。
 - 審核不構成真手機／真Moodle驗證；先前原分頁舊HTML與新JS混載尚未在獨立環境重現，本輪未檢查線上CDN快取，不升格為已證實普遍缺陷。
+
+## CI 手機欄寬修正及合併 main（2026-10-23，動工前決策）
+
+- 使用者要求修好CI後合併main並push。CI run39941992990的mobileSetup失敗已本機原樣重現：320px viewport中app的1fr欄被header內在尺寸撐成346px，聚焦後橫移，A半徑最大時觸控區right294.23超過保留32px側邊的上限288。
+- 修正手機單欄grid為minmax(0,1fr)，讓header/select在真正視窗寬度內排版；不縮小44px觸控區、不放寬原有越界斷言。既有mobileSetup增加A/B兩側最大半徑及欄寬檢查，跑來源及解壓SCORM全活動browser回歸，Node/check/registry及GitHub CI。
+- 保留所有評分、資料schema和手勢演算法。先整合最新origin/main並處理必要衝突；分支CI通過後才合併本機main及push，再核對main CI。主工作目錄未追蹤同名plan先另存可追溯備份，不刪除或覆蓋；附件資料保留。

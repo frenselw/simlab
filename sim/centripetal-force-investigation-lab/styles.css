@@ -127,7 +127,7 @@ h3 { font-size: 1.05rem; margin-bottom: 8px; }
 #app[data-view="setup"] .readouts, #app[data-view="setup"] .stage-hint { display: none; }
 #app[data-drag="mass"] .stage-hint { display: none; }
 @media (max-width: 899px) {
-  .centripetal-app { grid-template-columns: 1fr; grid-template-rows: auto minmax(95px, 40dvh) minmax(96px, 1fr); }
+  .centripetal-app { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(95px, 40dvh) minmax(96px, 1fr); }
   #app[data-view="setup"] { grid-template-rows: auto minmax(95px, 38dvh) minmax(96px, 1fr); }
   .sim-header { padding: 6px 54px 6px 10px; display: block; min-height: 0; }
   .title { display: flex; align-items: baseline; gap: 8px; }
