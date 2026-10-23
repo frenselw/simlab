@@ -1081,3 +1081,11 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 - 新rv5三頁×四階段×空／部分／擬合兩組快照round-trip及合法續作通過；最滿draft/review/pending仍為3403/3440/3808 bytes。現有測試入口加入情境，無新增registry項目或依賴。
 - focused來源及解壓SCORM瀏覽器通過320×500、393×734、1280×800三頁：新題幹與LaTeX、選項及分析實得分一致，第一組1:1、第二組改條件，特別質量相同但半徑不同時confounded／uncertain（畫面顯示兩比值乘積）獲完整分析分。切換兩組還原各自不同答案，第一組數據／擬合完全保留，第二組接續提示仍可用。1280與390px兩組1:1、檢查、部分提交及唯讀亦通過；無瀏覽器例外。
 - SCORM17檔，16個runtime與canonical sim及Site dist逐位元組相同。ZIP SHA-256：be86cf31dd7a197d292bc0a950ff4b0f304c21013cc7fc84567d9df9470696fe。未重跑未改動的完整手勢效能測試；真手機及真Moodle未驗證。
+
+
+### 題目一致性 Site v26 交付
+
+- 功能commit c917cbb322c1efced35b2e987f7c0f897b10f70a已推至origin；committed selection由5af3d8a起算，mode=affected、packages僅本活動，output/centripetal-question-consistency-selection.json。
+- 官方helper推送Site source 2b8a006b3229a0bd0801b3c9246884d6091c988f；v26 appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_ee19cc63985481919c198e93bae6d4ae，deployment appgdep_6adb09ac6e148191bc1c4afb31b9c535，Sites回報succeeded（2026-10-23T07:16:08.973813+00:00），原owner-private audience保持。
+- 剛部署後原分頁一度混載新題幹與舊模型，沒有直接交付；再載入並檢查實際Network response body，確認model fresh/upgrade皆rv5、scoring含rv5判準、persistence接受rv5，原站新分析選項亦正確顯示。當時response非browser或service worker快取；重新載入後一致，未另改產品程式。
+- 原站以操作環方向鍵推轉、開始測量、按住減速取得13點及擬合；停在質量實驗1:1新分析題，未代填答案或提交。截圖C:/Users/frens/Documents/Projects/simlab/output/centripetal-question-consistency-v26.png。暫時快取設定恢復、viewport未改，分頁已保留及開回供試用；測試server已關閉，臨時憑證清除。真手機及真Moodle未驗證。
