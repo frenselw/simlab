@@ -1192,3 +1192,13 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 - 使用者要求修好CI後合併main並push。CI run39941992990的mobileSetup失敗已本機原樣重現：320px viewport中app的1fr欄被header內在尺寸撐成346px，聚焦後橫移，A半徑最大時觸控區right294.23超過保留32px側邊的上限288。
 - 修正手機單欄grid為minmax(0,1fr)，讓header/select在真正視窗寬度內排版；不縮小44px觸控區、不放寬原有越界斷言。既有mobileSetup增加A/B兩側最大半徑及欄寬檢查，跑來源及解壓SCORM全活動browser回歸，Node/check/registry及GitHub CI。
 - 保留所有評分、資料schema和手勢演算法。先整合最新origin/main並處理必要衝突；分支CI通過後才合併本機main及push，再核對main CI。主工作目錄未追蹤同名plan先另存可追溯備份，不刪除或覆蓋；附件資料保留。
+
+### CI 修正驗證及合併結果
+
+- 修正commit ad5bb34：手機單欄改為minmax(0,1fr)。mobileSetup同時把A/B調到最大半徑，檢查真正欄寬及原有32px側邊範圍；來源與SCORM解壓均通過。合併最新main dcb244c後形成9fb2d87d650e07f56f964561052879b2ef719a63；config及test-registry保留雙方活動／測試登記。
+- 本機全活動browser driver完整通過來源及解壓SCORM，包括手機設定、圖像、帶正負角速度、無點數上限、兩組數據、答案／反饋／綜合題、滑鼠及可信觸控、1x/4x CPU的放手連續轉動。全234項Node測試、check及check:tests（271 entries：234 Node、37 browser）通過。沿用原有測試入口。
+- GitHub工作分支run39970620368的16個jobs全部success，包含4組Node、8組browser、checks及aggregate/check。以該次不可變plan核對，本活動在browser-7；日誌明確記錄來源與解壓SCORM完整回歸通過，並非只憑job編號推定。選擇計劃及browser-7日誌保存在worktree的output/ci-integration-plan及output/centripetal-ci-browser7.log。
+- 整輪CI成功後，2026-10-23將本機main由dcb244c fast-forward至同一已測試SHA 9fb2d87，並push origin/main。main CI run39977185024於本地時間2026-10-24完成，16個jobs全部success；工作分支與主分支均對同一完整SHA通過全專案驗證。完整CI連結：https://github.com/frenselw/simlab/actions/runs/39977185024 。
+- 主工作目錄原未追蹤計劃檔已移至output/backups/centripetal-untracked-plan-before-main-20261023.md；移動前後SHA-256均為56ef4035bccfbaf65319222c3fb5a49c7ec09f62ef71b345c2981933b53e00e8。使用者附件保留。
+- SCORM ZIP SHA-256 baf76d6f1c95cb736aeffdc5e1dddfc3d3d2a6fa682d5dca3d53e081df403c46；17檔中16個runtime與canonical sim及Site dist逐位元組一致。官方Sites helper推送source 9b7918628149cd908fc7fce78f8a3a891295f6cf，原私人Site v31（version appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_ebef3fc2fe6081919aa3e999fbfe2e4f，deployment appgdep_6adb728a6bdc8191a67cf274a44ec18a）於2026-10-23T14:43:30Z succeeded，audience不變；臨時憑證已清除。
+- 本輪未作真手機及真Moodle驗證；CI與本機瀏覽器證據不代表這兩項已驗證。
