@@ -937,3 +937,14 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 - 功能commit 76906fdfadafb84f449998be33f3a82dbe5e0cfa已推至origin；committed selection由6e5fdcb起算，mode=affected、packages僅本活動，output/centripetal-graph-controls-selection.json。第一次selection漏設NODE_PATH，改用現有workspace依賴後成功，沒有新增依賴。
 - 官方helper推送Site source 3dd6d11753cf05ec49db69b635be04b885e71276；v19 appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_f0fe46a96e008191b835314f5fef448c，deployment appgdep_6adac6730a848191932c8199274b5613，Sites回報succeeded（2026-10-23T02:29:14.480574+00:00）；原owner-private audience保持。
 - 原站reload確認新簡短說明，實際以鍵盤推轉、按開始測量及按住減速新增13點；「13點 ✓足夠」同列，開始／暫停測量是清楚實色按鈕，右／上箭頭可見。截圖C:/Users/frens/Documents/Projects/simlab/output/centripetal-graph-v19.png；保留量測頁可繼續操作。暫時分頁快取設定已恢復，本次沒有改viewport，臨時憑證已清除。未重跑全手勢回歸及真手機／Moodle。
+
+## 擬合線可見性與結果精簡（2026-10-23，動工前決策）
+
+- 使用者截圖顯示擬合後只有密集點，並要求不顯示RMSE。根因是擬合線先繪製，再被實心點覆蓋；改為點後繪製橙色線、固定3px螢幕線寬。線性、正負角速度二次及平方圖共用此修正；公式刪除RMSE顯示。
+- 範圍僅main繪圖／結果、既有browser回歸及交付；數學擬合、原始數據、保存mv5、評分rv3不變。檢查來源及解壓SCORM的手機／桌面與密集點案例，斷言曲線有效且層級在所有點之上，公式沒有RMSE；不重跑全手勢及真Moodle。
+
+### 擬合線驗證
+
+- focused來源及解壓SCORM瀏覽器檢查通過：320×500、393×734、1280×800，線性、二次及角速度平方擬合path有效，畫在所有圖點之後，固定3px螢幕線寬；結果公式沒有RMSE／均方根誤差。來源與包均實際量得超過96點，密集點擬合仍通過；數據提交保留所有量測。無瀏覽器例外。
+- 瀏覽器截圖確認橙線清楚穿過藍點，output/playwright/centripetal-{source,package}-visible-fit-*.png及96-points-390x600.png。main及driver語法、check:tests（263 entries）通過；新斷言納入既有driver，無新入口。沒有重跑完整拖動／保存與真手機／Moodle。
+- SCORM17檔，16個runtime與canonical sim及Site dist逐位元組相同；ZIP SHA-256：bc809f5ab007902afd45f3fb6b4ddaa426b3408362240670d096410706896bcf。數據、擬合計算、mv5及rv3未改。

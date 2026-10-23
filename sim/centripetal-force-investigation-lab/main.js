@@ -176,8 +176,8 @@
       <g fill="none" stroke="#64818d" stroke-width="1.5" marker-end="url(#graphAxisArrow)"><path class="axis-x" d="M66 ${bottom}H339"/><path class="axis-y" d="M${px(0)} ${bottom}V17"/></g>
       <g fill="#56717d" font-size="${tickFont}"><text x="66" y="${bottom + 20}">${fmt(minX)}</text>${minX < 0 ? `<text x="${px(0)}" y="${bottom + 20}" text-anchor="middle">0</text>` : ''}<text x="331" y="${bottom + 20}" text-anchor="end">${fmt(maxX)}</text><text x="59" y="32" text-anchor="end">${fmt(maxY)}</text></g>
       ${other.map(([x,y]) => `<circle cx="${px(x)}" cy="${py(y)}" r="4" fill="#b07932" opacity=".65"/>`).join("")}
-      ${curve ? `<path class="fit-curve" d="${curve}" fill="none" stroke="#bd5a25" stroke-width="2"/>` : ""}
       ${points.map(([x,y], i) => `<circle class="measured-point" cx="${px(x)}" cy="${py(y)}" r="4" fill="#087c95" stroke="white" stroke-width="1"/>${view() === "collect" && run.q[i] === lastSampleQ && performance.now() - lastSampleAt < 750 ? `<circle class="new-point-ring" cx="${px(x)}" cy="${py(y)}" r="8" fill="none" stroke="#b56317" stroke-width="2" aria-hidden="true"/>` : ""}`).join("")}
+      ${curve ? `<path class="fit-curve" d="${curve}" fill="none" stroke="#bd5a25" stroke-width="3" vector-effect="non-scaling-stroke" stroke-linecap="round"/>` : ""}
       <path id="livePoint" d="M-8 0H8M0-8V8" fill="none" stroke="#bc5c17" stroke-width="2.5" visibility="hidden"/>
       ${!points.length ? `<text x="205" y="${(bottom + 25) / 2}" text-anchor="middle" fill="#6d8590" font-size="${tickFont}">${view() === 'collect' && controller.editable ? '推轉後開始測量，再按住減速' : '本組尚未記錄數據'}</text>` : ''}`;
     $("graphLegend").hidden = !points.length && !other.length;
@@ -322,7 +322,7 @@
     $("axisLabel").innerHTML = p === 2 && squaredGraph ? `橫軸 ${math("\\omega^2", "角速度平方")}；縱軸 ${math("F_A", "A 側徑向力")}。檢查直線斜率及截距；原角速度圖與答案保留。` : p === 2 ? `橫軸 ${math('\\omega\\,(\\mathrm{rad}/\\mathrm{s})', '角速度（rad/s）')}；縱軸 ${math('F_A\\,(\\mathrm{N})', 'A 側徑向力（N）')}。二次擬合含一次項及常數項。` : `橫軸 ${math('F_B\\,(\\mathrm{N})', 'B 側徑向力（N）')}；縱軸 ${math('F_A\\,(\\mathrm{N})', 'A 側徑向力（N）')}。兩軸都是同步量測的力；比較斜率與設定比值，並檢查截距。`;
     const fit = run?.fit ? graphFit(M.KINDS[p], run) : null;
     const fitNumber = value => fmt(Math.abs(value) < 1e-12 ? 0 : value).replace(/e([+-]?\d+)/, '\\times10^{$1}');
-    $("fitResult").innerHTML = fit?.ok ? p === 2 && !squaredGraph ? `${math(`F_A=${fitNumber(fit.coefficients[0])}\\omega^2+${fitNumber(fit.coefficients[1])}\\omega+${fitNumber(fit.coefficients[2])}\\,\\mathrm{N}`, 'A 側徑向力二次擬合')}；${math(`\\mathrm{RMSE}=${fitNumber(fit.rmse)}\\,\\mathrm{N}`, '均方根誤差')}` : `${math(`F_A=${fitNumber(fit.coefficients[0])}${p === 2 ? "\\omega^2" : "F_B"}+${fitNumber(fit.coefficients[1])}\\,\\mathrm{N}`, '兩側徑向力線性擬合')}；${math(`\\mathrm{RMSE}=${fitNumber(fit.rmse)}\\,\\mathrm{N}`, '均方根誤差')}` :
+    $("fitResult").innerHTML = fit?.ok ? p === 2 && !squaredGraph ? `${math(`F_A=${fitNumber(fit.coefficients[0])}\\omega^2+${fitNumber(fit.coefficients[1])}\\omega+${fitNumber(fit.coefficients[2])}\\,\\mathrm{N}`, 'A 側徑向力二次擬合')}` : `${math(`F_A=${fitNumber(fit.coefficients[0])}${p === 2 ? "\\omega^2" : "F_B"}+${fitNumber(fit.coefficients[1])}\\,\\mathrm{N}`, '兩側徑向力線性擬合')}` :
       run?.a.some(Boolean) && run.q.length >= 2 ? "資料已更新或尚未擬合；原有結論保留，請重新擬合比較。" : "尚未擬合；請先收集足夠的不同轉速。";
     $("numericPrompt").innerHTML = p === 2 ? "角速度加倍時，力變成多少倍？" : p === 0 ? `${math('r_A/r_B', '兩側半徑的比值')} = ?` : `${math('m_A/m_B', '兩側質量的比值')} = ?`;
     $("numericAnswer").value = run?.a[0] || ""; $("numericAnswer").disabled = !editing || !activeRun();

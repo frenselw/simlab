@@ -401,6 +401,16 @@ async function equalRadiusComparison(cdp, base, launch) {
   await click(cdp,"#checkButton");await click(cdp,"#submitButton");
   assert.match(await H.evaluate(cdp,"document.getElementById('scorePanel').textContent"),/30 \/ 100/,"a valid 1:1 comparison receives full page credit");
 }
+async function visibleFit(cdp) {
+ const line=await H.evaluate(cdp,`(()=>{
+  const p=document.querySelector('.fit-curve'),points=[...document.querySelectorAll('.measured-point')];
+  return p&&{d:p.getAttribute('d'),length:p.getTotalLength(),above:points.every(point=>Boolean(point.compareDocumentPosition(p)&Node.DOCUMENT_POSITION_FOLLOWING)),width:getComputedStyle(p).strokeWidth,vector:getComputedStyle(p).vectorEffect};
+ })()`);
+ assert.ok(line&&!/NaN|Infinity/.test(line.d)&&line.length>0,'fit has a valid drawable path');
+ assert.equal(line.above,true,'fit is painted after every data point so dense dots cannot hide it');
+ assert.ok(parseFloat(line.width)>=3&&line.vector==='non-scaling-stroke','fit remains clearly visible at phone and desktop scales');
+ assert.doesNotMatch(await H.evaluate(cdp,"document.getElementById('fitResult').innerHTML"),/RMSE|均方根誤差/,'fit result shows the formula without RMSE');
+}
 async function graphPresentation(cdp,base,launch,label) {
  for(const [width,height] of [[320,500],[393,734],[1280,800]]) {
   await cdp.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:width<900});
@@ -430,6 +440,9 @@ async function graphPresentation(cdp,base,launch,label) {
    }
    fs.writeFileSync(path.join(root,'output/playwright',`centripetal-${label}-graph-${page}-${width}x${height}.png`),Buffer.from((await cdp.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
    await click(cdp,'#measureButton');assert.equal(await H.evaluate(cdp,"document.getElementById('measureButton').textContent"),'開始測量');
+   await click(cdp,'#analyseView');await click(cdp,'#fitButton');await visibleFit(cdp);
+   if(page===2){await click(cdp,'#squareGraph');await visibleFit(cdp);}
+   fs.writeFileSync(path.join(root,'output/playwright',`centripetal-${label}-visible-fit-${page}-${width}x${height}.png`),Buffer.from((await cdp.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
   }
  }
 }
@@ -488,6 +501,7 @@ async function directionalCapacity(cdp, base, launch, label) {
   assert.match(await H.evaluate(cdp,"document.getElementById('collectStatus').title"),/正 48／負/);
   await click(cdp,'#analyseView');await click(cdp,'#fitButton');
   assert.equal(await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[2].runs[0].fit'),true);
+  await visibleFit(cdp);
   fs.writeFileSync(path.join(root,'output/playwright',`centripetal-${label}-96-points-390x600.png`),Buffer.from((await cdp.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
   await click(cdp,'#checkButton');await click(cdp,'#submitButton');
   const submitted=await H.evaluate(cdp,"({score:document.getElementById('scorePanel').textContent,notice:document.getElementById('notice').textContent,view:window.__centripetalApp.getState().view,disabled:document.getElementById('submitButton').disabled})");
