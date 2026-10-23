@@ -1127,3 +1127,11 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 - 來源及解壓SCORM於320×500、393×800、1280×800通過真實shared SCORM草稿還原、檢查、提交34分、反饋置頂、錯誤項目自動展開、LaTeX、各組9/9、未作答區分、收合／展開、切換實驗與答案鎖定；pending及分數不符紀錄不顯示答案，rv5完成紀錄顯示原題且原分不變。畫面無橫向溢出或瀏覽器例外。另修正手機hidden被display覆蓋，提交後檢查按鈕正確隱藏。
 - check及check:tests（263 entries）通過。第一次check欠NODE_PATH未找到既有fast-xml-parser，設定既有依賴路徑後成功；無新增依賴。browser初版fixture小數長度超過保存格式已修正，加入P.validate先驗資料，不改產品驗證。
 - SCORM17檔、16runtime與canonical sim及Site dist逐位元組一致；ZIP SHA-256 ae124e75e1346a40cdcd418e29ebbf614b2d2e409828d53fc95f820c881b5b5a。沿用既有測試入口；未重跑未改動的完整轉動效能測試，真手機及真Moodle未驗證。
+
+
+### 作答反饋 Site v28 交付
+
+- 功能commit c1e365ef69d55410434f0eb18dd1d5bd95265371已推origin；committed selection由74beb14起算，mode=affected，packages僅本活動，output/centripetal-feedback-selection.json。
+- 官方helper推送Site source f1725c2276b6f64d736e39bae979ac46544fb751；v28 appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_d4183d857cc88191b81041dce10fdc82，deployment appgdep_6adb1ec3fda881919b79494446999f2f，Sites回報succeeded（2026-10-23T08:46:03.810378+00:00），原owner-private audience保持。
+- 首次部署後原分頁仍載舊介面，未直接交付；暫時停用瀏覽器快取重新載入，確認DOM「作答反饋」及實際Network scoring.js body含feedback函式與rv6計分；新載入回應非disk/service-worker cache。之後以網站真實操作收集兩組各13點、擬合、作答並提交34分；反饋顯示24+0+0+10、失分一般關係0/6，所選倒數與正確相等及LaTeX解釋；兩組各9/9，另兩實驗未作答，手機檢查及清除按鈕均隱藏。這是測試示範，不能據此推定使用者原作答的具體錯題。
+- 截圖C:/Users/frens/Documents/Projects/simlab/output/centripetal-feedback-v28.png；原分頁已停在失分解釋並開回、標記保留。瀏覽器暫時快取設定已恢復、未改viewport；測試server已關閉，臨時憑證清除。真手機及真Moodle未驗證。
