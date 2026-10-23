@@ -976,3 +976,10 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 - 完整source及解壓SCORM瀏覽器回歸通過：1280與390px兩組量測／作答／逐組check、單組可提交部分分、兩組1:1取得30分、兩組review唯讀；仍驗證刪除重做、空白提交、正負與超過96點、320px／短視窗、fullscreen及可信觸控。原連續放手16個mouse/touch、量測／非量測、CPU1/4案例通過，最大frame約24.3ms，無瀏覽器例外。
 - learner-facing已無「資料」／「評分組」；列表為「第一組數據／第二組數據」，每組作答標題跟隨當前組。截圖output/playwright/centripetal-two-groups-{1280,390}.png；真手機／Moodle未驗證。
 - SCORM17檔；16個runtime與canonical sim及Site dist逐位元組相同。ZIP SHA-256：41703b633036647e2a6b855fa660fe45214dcfc19e7a747f41e4dbe608c2bc1a。
+
+### 兩組數據 Site v21 交付
+
+- 功能commit c04eaa0f4f1bd480d152e31db913292256844b97已推至origin；committed selection由94ee0ce起算，mode=affected、packages僅本活動，output/centripetal-two-runs-selection.json。
+- 官方helper推送Site source 02583dcc98fe362d473f83d6b882cdf615d95172；v21 appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_6ae20bf476b08191a0609a19df685c13，deployment appgdep_6adadafb29c88191b6b9c953b7c33764，Sites回報succeeded（2026-10-23T03:56:50.034749+00:00）；原owner-private audience保持。
+- 原分頁已不存在，在同一IAB開原站新分頁；實際完成第一組rA=rB=0.20m與第二組rA=0.25m/rB=0.20m，各13點並擬合。清單「第一組數據／第二組數據」，只有查看及作答與刪除，明示兩組均計分；第二組分析標題及1.25倍擬合對應正確。沒有代填答案或提交，留作可編輯示範。
+- 交付截圖C:/Users/frens/Documents/Projects/simlab/output/centripetal-two-groups-v21.png，原私人URL可繼續試用；本次未改分頁快取或viewport，沒有留下測試server，臨時憑證已清除。真手機及真Moodle尚未驗證。
