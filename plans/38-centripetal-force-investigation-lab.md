@@ -1032,3 +1032,11 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 - scoring既有測試、check:tests（263 entries）、main／browser driver語法及diff檢查通過。focused graphPresentation來源及解壓SCORM的320×500、393×734、1280×800，三個實驗皆通過；按實驗顯示相應比值／係數，LaTeX已渲染，角速度平方圖題幹跟隨圖像，切換圖像及收集／分析後保存原答案。瀏覽器無例外。
 - 初次題幹斷言以textContent查「半徑」不適用已渲染的公式，改成檢查實際data-tex中的r_A/r_B及m_A/m_B；產品未因此更改。既有圖軸、按鈕對比、點數單行、擬合線可見檢查亦通過。
 - SCORM17檔，16runtime與canonical sim及Site dist逐位元組相同；ZIP SHA-256：7c50031177193793ad6584059ec90e04eb55062d95eca2f5b7df4993c58a097c。未重跑完整手勢、保存回歸或真手機／Moodle；本次未更改這些模型。
+
+
+### 分析題 Site v24 交付
+
+- 功能commit 13572fd9798d1a4001f803f23adb384d582ab742已推至origin；committed selection由a7983a8起算，mode=affected、packages僅本活動，output/centripetal-questions-selection.json。首輪selection缺NODE_PATH，補用現有專案node_modules後成功，沒有安裝依賴。
+- 官方helper推送Site source 3fe495a7813db941550fed5747721c6b20a30b6b；v24 appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_753ce8bc28ac81918cd52528c84ef03f，deployment appgdep_6adafd37842c81919d6fefd1ebadd512，Sites回報succeeded（2026-10-23T06:22:57.455155+00:00）；原owner-private audience保持。
+- 原站重新載入後，以操作環方向鍵推轉、開始測量、按住減速收集13點，再擬合。確認第一題顯示F_A/F_B=r_A/r_B，第二題顯示F_A=kF_B+b並問k；未代填答案或提交，留在可操作分析頁。截圖C:/Users/frens/Documents/Projects/simlab/output/centripetal-questions-v24.png。
+- 同一IAB分頁因提供者編號更新而重新綁定；暫時快取設定及viewport已恢復，分頁已開回並標記保留，憑證已清除，沒有遺留測試server。測試範圍為本次題幹與相關圖像流程，並非真手機／Moodle或完整手勢重測。
