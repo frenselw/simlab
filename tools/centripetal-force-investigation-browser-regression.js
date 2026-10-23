@@ -397,7 +397,7 @@ async function equalRadiusComparison(cdp, base, launch) {
   assert.match(await H.evaluate(cdp,"document.getElementById('taskPrompt').textContent"),/兩組均計分/);
   await answer("setupReason","equal-mass");await answer("speedRelation","ratio-steady");await answer("law","linear");
   for(let j=0;j<2;j++) {
-   if(j)await click(cdp,"#setupView");
+   if(j)await click(cdp,"#nextRunButton");
    await click(cdp,"#startButton");await threePoints(cdp);await click(cdp,"#analyseView");await click(cdp,"#fitButton");
    await answer("numericAnswer","1");await answer("comparison","supports");await answer("reason","coefficient");
    const run=await H.evaluate(cdp,`window.__centripetalApp.getState().tasks[0].runs[${j}]`);
@@ -418,6 +418,7 @@ async function equalRadiusComparison(cdp, base, launch) {
   await click(cdp,"#checkButton");await click(cdp,"#submitButton");
   assert.match(await H.evaluate(cdp,"document.getElementById('scorePanel').textContent"),/30 \/ 100/,"both valid groups receive full page credit");
   assert.equal(await H.evaluate(cdp,"document.querySelectorAll('[data-run^=delete]').length"),0,"recorded work has no delete controls");
+  assert.equal(await H.evaluate(cdp,"document.getElementById('nextRunPanel').hidden"),true,"review has no next-group action");
   await click(cdp,'[data-run="view:1"]');
   assert.equal(await H.evaluate(cdp,"document.getElementById('numericAnswer').disabled"),true,"both groups are review-only after submission");
   assert.deepEqual(await H.evaluate(cdp,"window.__centripetalApp.getState().tasks[0].runs"),saved);
@@ -462,7 +463,8 @@ async function graphPresentation(cdp,base,launch,label) {
    }
    fs.writeFileSync(path.join(root,'output/playwright',`centripetal-${label}-graph-${page}-${width}x${height}.png`),Buffer.from((await cdp.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
    await click(cdp,'#measureButton');assert.equal(await H.evaluate(cdp,"document.getElementById('measureButton').textContent"),'開始測量');
-   await click(cdp,'#analyseView');await click(cdp,'#fitButton');await visibleFit(cdp);
+   assert.equal(await H.evaluate(cdp,"document.getElementById('graphTitle').textContent"),'第一組數據／共兩組');
+   await click(cdp,'#nextRunButton');await click(cdp,'#fitButton');await visibleFit(cdp);
    const questions=await H.evaluate(cdp,"({comparison:document.getElementById('comparisonPrompt').innerHTML,reason:document.getElementById('reasonPrompt').innerHTML,option:document.querySelector('#reason option[value=coefficient]').textContent})");
    assert.match(questions.comparison,page===2?/角速度/:page===0?/r_A\/r_B/:/m_A\/m_B/,'question follows the selected experiment');
    assert.match(questions.reason,/data-tex/, 'coefficient question renders LaTeX');
@@ -472,6 +474,20 @@ async function graphPresentation(cdp,base,launch,label) {
    await click(cdp,'#collectView');await click(cdp,'#analyseView');
    assert.deepEqual(await H.evaluate(cdp,"['comparison','reason'].map(id=>document.getElementById(id).value)"),[page===2?'square':'supports','coefficient'],'question updates preserve saved answers');
    fs.writeFileSync(path.join(root,'output/playwright',`centripetal-${label}-visible-fit-${page}-${width}x${height}.png`),Buffer.from((await cdp.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
+   const firstRun=await H.evaluate(cdp,`window.__centripetalApp.getState().tasks[${page}].runs[0]`);
+   await click(cdp,'#nextRunButton');
+   assert.equal(await H.evaluate(cdp,"window.__centripetalApp.getState().view"),'setup');
+   assert.equal(await H.evaluate(cdp,"document.activeElement.id"),'setupTitle','next action focuses the second setup heading');
+   const setupTitle=await rect(cdp,'#setupTitle'),nav=await rect(cdp,'.panel-nav');
+   assert.ok(setupTitle.y>=nav.y+nav.height-1,'second setup heading is visible below sticky navigation');
+   assert.match(await H.evaluate(cdp,"document.getElementById('setupHelp').textContent"),page===0?/半徑比例/:page===1?/總質量比例/:/量測期間保持設定不變/);
+   await click(cdp,page===1?'[data-step="2:1"]':'[data-step="0:1"]');
+   await click(cdp,'#startButton');
+   const runs=await H.evaluate(cdp,`window.__centripetalApp.getState().tasks[${page}].runs`);
+   assert.equal(runs.length,2);assert.deepEqual(runs[0],firstRun,'second setup and begin preserve first measurements, fit and answers');
+   assert.notDeepEqual(runs[1].cfg,runs[0].cfg,'second group uses the newly chosen condition');
+   assert.equal(await H.evaluate(cdp,"document.getElementById('nextRunPanel').hidden"),true,'no extra-group prompt after two groups');
+   assert.equal(await H.evaluate(cdp,"document.getElementById('graphTitle').textContent"),'第二組數據／共兩組');
   }
  }
 }

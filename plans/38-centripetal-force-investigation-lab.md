@@ -1040,3 +1040,19 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 - 官方helper推送Site source 3fe495a7813db941550fed5747721c6b20a30b6b；v24 appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_753ce8bc28ac81918cd52528c84ef03f，deployment appgdep_6adafd37842c81919d6fefd1ebadd512，Sites回報succeeded（2026-10-23T06:22:57.455155+00:00）；原owner-private audience保持。
 - 原站重新載入後，以操作環方向鍵推轉、開始測量、按住減速收集13點，再擬合。確認第一題顯示F_A/F_B=r_A/r_B，第二題顯示F_A=kF_B+b並問k；未代填答案或提交，留在可操作分析頁。截圖C:/Users/frens/Documents/Projects/simlab/output/centripetal-questions-v24.png。
 - 同一IAB分頁因提供者編號更新而重新綁定；暫時快取設定及viewport已恢復，分頁已開回並標記保留，憑證已清除，沒有遺留測試server。測試範圍為本次題幹與相關圖像流程，並非真手機／Moodle或完整手勢重測。
+
+
+## 第一組接續第二種情況（2026-10-23，動工前決策）
+
+- 使用者指出第一次量測後缺乏第二次的明確引導。圖卡標示「第一組數據／共兩組」，量測頁末端明示還要測另一種情況，提供「分析第一組，再測第二組」；分析作答後提供主按鈕「改設定，量測第二組」。按鈕只切換既有階段，第一組數據、擬合與答案不改。
+- 第二組設定標題及操作提示直接指出下一種情況：半徑頁維持兩側總質量相同並改半徑比例；質量頁維持兩側半徑相同並改砝碼配置；角速度頁改A總質量或半徑，量測期間固定設定。這是操作引導，不新增兩組設定必須不同的評分或導航限制。
+- 接續設定按鈕直接定位至器材設定區，保留查看第一組及部分／空白提交。已有兩組、唯讀或pending均不顯示新增第二組操作。沿用既有state與navigate／begin，rv4／mv5及manifest不變。
+- 範圍index、main、styles及既有browser回歸。驗證三頁及320／393／1280px，從第一組量測→分析→第二組設定→改條件→建立第二組，確認第一組完全保留、沒有第三組入口；兩組答案切換／提交唯讀亦驗證，來源及解壓SCORM皆執行。
+
+
+### 兩種情況接續驗證
+
+- focused來源及解壓SCORM通過320×500、393×734、1280×800、三個實驗的第一組量測→接續分析→第二組設定→改條件→建立第二組。逐項確認第一組cfg/q/fit/a不變、第二組採新cfg、標題顯示組次，建立兩組後不再提示新增。
+- 原手機CSS隱藏所有setupPanel標題，初次焦點測試抓到此問題；第二組標題加明確可見樣式後，鍵盤焦點及sticky導覽下方定位均通過。另執行既有equalRadiusComparison於1280及390px來源／套件：兩組1:1仍合法並取得30分、第一組答案可返回、提交後唯讀且無下一組入口。
+- lifecycle、check:tests（263 entries）、語法及diff檢查通過；既有圖像／擬合／答案保留檢查亦通過，瀏覽器無例外。沒有新增snapshot狀態或評分規則；未重跑全手勢與真手機／Moodle。
+- SCORM17檔，16runtime與canonical sim及Site dist逐位元組相同；ZIP SHA-256：93fd4df5e8ea60a1d2db79d12e0ea60a773d5fbf75d454c8aef21463207f0a70。

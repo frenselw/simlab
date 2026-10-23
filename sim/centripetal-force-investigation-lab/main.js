@@ -4,6 +4,7 @@
   const $ = id => document.getElementById(id), stage = $("stageContent"), device = $("deviceSvg"), graph = $("graphSvg");
   const titles = ["半徑如何影響徑向力？", "質量如何影響徑向力？", "轉速如何影響徑向力？"];
   const prompts = ["保持兩側質量相同，研究徑向力與半徑的關係。半徑可相同（1:1），亦可試其他比例。", "保持兩側半徑相同、總質量不同，觀察改變轉速時兩側徑向力的比值。", "只量測 A，B 作平衡配重。固定 A 的質量及半徑，推轉、測量、減速，再試反向。"];
+  const secondRunHints = ["保持兩側總質量相同，調整 A 或 B 的半徑，試另一個半徑比例。", "保持兩側半徑相同，增減 A 或 B 的砝碼，試另一個總質量比例。", "改變 A 的總質量或半徑，再量測不同轉速；每組量測期間保持設定不變。"];
   const lawOptions = [["linear", "徑向力與角速度成正比"], ["square", "徑向力與角速度的平方成正比"], ["inverse", "徑向力與角速度成反比"], ["none", "徑向力不隨角速度改變"]];
   const controller = new CentripetalRuntime.Controller(SimScorm, SimActivityFlow, render);
   let motion = M.motion(), running = false, drag = null, lastFrame = 0, localMessage = "", reviewRun = [null, null, null], mathReady = false, lastLocation = "", graphOpen = true, measuring = false, lastSampleAt = -Infinity, lastSampleQ = null, brakeHold = null, squaredGraph = false, graphProjection = null, lastReadoutAt = -Infinity, sampleTimer = null;
@@ -275,7 +276,15 @@
     document.querySelector(".setting-row.side-b").hidden = p === 2;
     $("setupHelp").textContent = p === 2 ? "拖動 A 調半徑，砝碼放入 A 托座或拖回盤取下，亦可用 ＋／−。B 是平衡配重，新設定的質量與半徑自動跟隨 A，不作測力。" : "左右拖 A／B 調半徑；砝碼拖入托座，拖回「砝碼盤」取下，亦可用 ＋／−。圖中「砝碼 × 數量」顯示各側放入的塊數。";
     document.querySelector(".mass-token.tray").setAttribute("aria-label", p === 2 ? "從砝碼盤拖一塊圓片到 A 托座；拖回此盤可取下砝碼" : "從砝碼盤拖一塊圓片到 A 或 B 托座；拖回此盤可取下砝碼");
-    $("graphTitle").textContent = p === 2 ? "A 側徑向力與角速度" : "同步量測圖";
+    const needsSecondRun = s.rv >= 4 && t.runs.length === 1;
+    $("setupTitle").classList.toggle("second-run", needsSecondRun);
+    $("setupTitle").textContent = needsSecondRun ? "第二組：設定另一種情況" : "設定器材";
+    if (needsSecondRun) $("setupHelp").textContent = secondRunHints[p];
+    $("nextRunPanel").hidden = !editing || !needsSecondRun || !["collect", "analyse"].includes(v);
+    $("nextRunTitle").textContent = v === "collect" ? "本實驗要量測兩種情況" : "下一步：量測第二種情況";
+    $("nextRunHint").textContent = v === "collect" ? "先擬合及回答第一組，再改設定測第二組。" : secondRunHints[p] + " 第一組數據及答案會保留。";
+    $("nextRunButton").textContent = v === "collect" ? "分析第一組，再測第二組 →" : "改設定，量測第二組 →";
+    $("graphTitle").textContent = s.rv >= 4 && run ? `${runNames[t.current ?? reviewRun[p] ?? t.selected ?? 0]}／共兩組` : p === 2 ? "A 側徑向力與角速度" : "同步量測圖";
     $("taskNumber").textContent = `實驗 ${p + 1} / 3`; $("taskTitle").textContent = titles[p]; $("taskPrompt").textContent = prompts[p] + (s.rv >= 4 ? " 請量測兩組數據，分別擬合及作答；兩組均計分。" : "");
     $("setupPanel").hidden = v !== "setup"; $("collectPanel").hidden = v !== "collect"; $("analysePanel").hidden = v !== "analyse";
     $("taskIntro").hidden = v !== "setup";
@@ -311,7 +320,7 @@
     $("startButton").textContent = t.runs.length ? `準備${runNames[1]} →` : `準備${runNames[0]} →`;
     if (t.runs.length >= 2) $("startButton").textContent = "已建立兩組數據";
     $("setupRunNote").hidden = !t.runs.length;
-    $("setupRunNote").textContent = t.runs.length >= 2 ? "已保留兩組。可繼續原組，或清除目前組並按新設定重做。" : "第一組數據已保留。調整器材後可準備第二組數據。";
+    $("setupRunNote").textContent = t.runs.length >= 2 ? "已保留兩組。可繼續原組，或清除目前組並按新設定重做。" : "第一組數據及答案會保留，第二組會另外記錄。";
     $("restartRunButton").hidden = !editing || t.current === null;
     $("restartRunNote").hidden = $("restartRunButton").hidden;
     $("restartRunButton").disabled = !editing;
@@ -562,6 +571,14 @@
       if (!controller.editable || view() !== "setup" || task().current === null) return;
       pause(); motion = M.motion(); localMessage = "";
       if (controller.update(next => { const t = next.tasks[next.page]; t.runs[t.current] = M.freshRun(t.work); next.view = "collect"; })) { running = true; render(); }
+    });
+    $("nextRunButton").addEventListener("click", () => {
+      if (!controller.editable || task().runs.length !== 1 || !["collect", "analyse"].includes(view())) return;
+      const target = view() === "collect" ? "analyse" : "setup";
+      pause();
+      if (controller.navigate(page(), target) && target === "setup") {
+        $("setupTitle").focus({ preventScroll: true }); $("setupTitle").scrollIntoView({ block: "start" });
+      }
     });
     $("resumeFromGraph").addEventListener("click", () => { if (controller.navigate(page(), "collect")) { running = true; render(); } });
     $("fitButton").addEventListener("click", () => { const kind = M.KINDS[page()], result = M.fit(kind, activeRun());

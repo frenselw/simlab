@@ -275,3 +275,10 @@ h3 { font-size: 1.05rem; margin-bottom: 8px; }
   .mass-token.tray { left: 8px; bottom: 8px; }
   .mass-token.tray .washer { width: 22px; height: 22px; border-width: 7px; }
 }
+
+.next-run { margin: 12px 0; padding: 12px; border: 1px solid #9fc7ce; border-radius: 10px; background: #edf6f8; }
+.next-run p { margin: 5px 0 10px; font-size: .9rem; }
+.next-run button { width: 100%; }
+#setupTitle { scroll-margin-top: 76px; }
+
+#setupPanel > #setupTitle.second-run { display: block; }
