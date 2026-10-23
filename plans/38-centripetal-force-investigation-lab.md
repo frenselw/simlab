@@ -900,3 +900,15 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 - 功能commit 796d10b131a09d38d0c053e008a2fcddf140502e已推到origin；committed selection preview由724a27d起算，mode=affected、packages僅本活動；output/centripetal-tray-selection.json。實際驗證依上節樣式範圍。
 - 官方helper推送Site source 524220e729d6d9318f965035152df402ef597360；v17 appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_5c5e303f71d88191846b237031a961ed，deployment appgdep_6adabc48d22c8191b63d08f59d766167，Sites回報succeeded（2026-10-23T01:45:50.742022+00:00），原owner-private audience保持。
 - 原網站明確reload、實際桌面砝碼盤裁圖確認兩行字不碰虛線，C:/Users/frens/Documents/Projects/simlab/output/centripetal-tray-v17.png；原設定頁保留，臨時viewport已reset。沒有重跑物理／保存功能與真Moodle。
+
+## 比值用語澄清（2026-10-23，動工前決策）
+
+- 使用者指出題目及選項的「力比」縮寫不明。將設定題改問研究徑向力與半徑／質量的關係時，另一個量應怎樣設定；選項使用完整句子與「比較結果」。其餘提示改用「兩側徑向力的比值」，在同步比較區先以LaTeX F_A/F_B及A除以B的文字定義，再預測轉速改變時的結果。
+- 範圍：本活動main/index文案及計劃／SCORM／原私人Site；所有選項value、rv3評分與mv5保存不變，無新依賴／入口／測試。以瀏覽器核對第一／二題完整問句、選項、定義公式及手機排版；文字修正不重跑整套物理／手勢回歸。
+
+### 比值文字驗證
+
+- 實際瀏覽器確認設定題「要研究徑向力與半徑的關係，兩側質量應怎樣設定？為甚麼？」與完整選項。同步比較區顯示LaTeX F_A/F_B，以及A側除以B側的文字說明；預測、關係選項及綜合題亦不用「力比」縮寫。
+- main語法、既有scoring純測試與check:tests（263 entries）通過。第一、二題選項value及正確答案代碼不變，無分數／保存schema變更；文案範圍沒有重跑全手勢與物理回歸。
+- 預覽最初沿用舊main.js快取，重新載入HTML仍有舊腳本；暫時停用開發分頁快取後確認新問句、定義、選項，交付前須恢復。這是開發核對，沒有更改學生資料。
+- 重建SCORM17檔；16個runtime與canonical sim及Site dist逐位元組相同。ZIP SHA-256：3f99af10ecc1a1df2d98a9ca2717630764471ab08b115401324709f8ed165b06。

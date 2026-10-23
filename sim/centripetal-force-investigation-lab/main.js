@@ -3,7 +3,7 @@
   const M = CentripetalModel, P = CentripetalPersistence, S = CentripetalScoring;
   const $ = id => document.getElementById(id), stage = $("stageContent"), device = $("deviceSvg"), graph = $("graphSvg");
   const titles = ["半徑如何影響徑向力？", "質量如何影響徑向力？", "轉速如何影響徑向力？"];
-  const prompts = ["保持同質量，比較力比與半徑比。半徑可相同（1:1），亦可試其他比例。", "同半徑、異質量：改變轉速，力比與總質量比有甚麼關係？", "只量測 A，B 作平衡配重。固定 A 的質量及半徑，推轉、測量、減速，再試反向。"];
+  const prompts = ["保持兩側質量相同，研究徑向力與半徑的關係。半徑可相同（1:1），亦可試其他比例。", "保持兩側半徑相同、總質量不同，觀察改變轉速時兩側徑向力的比值。", "只量測 A，B 作平衡配重。固定 A 的質量及半徑，推轉、測量、減速，再試反向。"];
   const compareOptions = [["supports", "斜率與設定比值相符，支持本題比例關係"], ["confounded", "兩個量同時改變，不能隔離"], ["no-contrast", "被研究量沒有差異"], ["insufficient", "資料不足"]];
   const reasonOptions = [["coefficient", "斜率對應兩側物理量比值／二次項對應質量與半徑的乘積"], ["constant", "只有常數項代表關係"], ["other", "係數與配置無關"], ["uncertain", "配置混雜或資料不足，不能隔離解釋"]];
   const lawOptions = [["linear", "徑向力與研究量成正比（其餘量固定）"], ["square", "徑向力與研究量的平方成正比（其餘量固定）"], ["inverse", "徑向力與研究量成反比"], ["none", "沒有可描述的關係"]];
@@ -294,9 +294,9 @@
     for (const [id, target] of [["setupView", "setup"], ["collectView", "collect"], ["analyseView", "analyse"]]) $(id).setAttribute("aria-current", v === target ? "page" : "false");
     const inquiry = s.rv >= 2 && p < 2;
     $("inquiryField").hidden = !inquiry || v !== "setup"; $("rolesField").hidden = inquiry;
-    $("setupReasonPrompt").textContent = p === 0 ? "比較兩側力比與半徑比，兩側質量應怎樣設定？為甚麼？" : "比較不同質量的力，兩側半徑應怎樣設定？為甚麼？";
-    setSelect("setupReason", [["equal-mass", "質量相同，避免質量差異影響力比"], ["equal-radius", "半徑相同，避免半徑差異影響力比"], ["equal-force", "先把兩個力調成相同"], ["different-both", "質量和半徑都要不同"]], t.inquiry?.[0], !editing);
-    setSelect("speedRelation", [["ratio-steady", "兩個力隨轉速改變，力比保持不變"], ["forces-steady", "兩個力都保持不變"], ["ratio-speed", "力比隨轉速增大"], ["unrelated", "兩個力沒有固定比例"]], t.inquiry?.[1], !editing);
+    $("setupReasonPrompt").textContent = p === 0 ? "要研究徑向力與半徑的關係，兩側質量應怎樣設定？為甚麼？" : "要研究徑向力與總質量的關係，兩側半徑應怎樣設定？為甚麼？";
+    setSelect("setupReason", [["equal-mass", "兩側質量相同，避免質量差異影響比較結果"], ["equal-radius", "兩側半徑相同，避免半徑差異影響比較結果"], ["equal-force", "先把兩側的徑向力調成相同"], ["different-both", "兩側的質量和半徑都要不同"]], t.inquiry?.[0], !editing);
+    setSelect("speedRelation", [["ratio-steady", "兩側徑向力隨轉速改變，但兩者的比值保持不變"], ["forces-steady", "兩側徑向力都保持不變"], ["ratio-speed", "兩側徑向力的比值隨轉速增大"], ["unrelated", "兩側徑向力沒有固定比例"]], t.inquiry?.[1], !editing);
     $("squareGraph").hidden = p !== 2 || v !== "analyse";
     $("squareGraph").textContent = squaredGraph ? "返回帶正負角速度圖" : "改看角速度平方圖";
     $("squareGraph").setAttribute("aria-pressed", String(squaredGraph));
@@ -322,14 +322,14 @@
     const fitNumber = value => fmt(Math.abs(value) < 1e-12 ? 0 : value).replace(/e([+-]?\d+)/, '\\times10^{$1}');
     $("fitResult").innerHTML = fit?.ok ? p === 2 && !squaredGraph ? `${math(`F_A=${fitNumber(fit.coefficients[0])}\\omega^2+${fitNumber(fit.coefficients[1])}\\omega+${fitNumber(fit.coefficients[2])}\\,\\mathrm{N}`, 'A 側徑向力二次擬合')}；${math(`\\mathrm{RMSE}=${fitNumber(fit.rmse)}\\,\\mathrm{N}`, '均方根誤差')}` : `${math(`F_A=${fitNumber(fit.coefficients[0])}${p === 2 ? "\\omega^2" : "F_B"}+${fitNumber(fit.coefficients[1])}\\,\\mathrm{N}`, '兩側徑向力線性擬合')}；${math(`\\mathrm{RMSE}=${fitNumber(fit.rmse)}\\,\\mathrm{N}`, '均方根誤差')}` :
       run?.a.some(Boolean) && run.q.length >= 2 ? "資料已更新或尚未擬合；原有結論保留，請重新擬合比較。" : "尚未擬合；請先收集足夠的不同轉速。";
-    $("numericPrompt").innerHTML = p === 2 ? "角速度加倍時，力變成多少倍？" : p === 0 ? `${math('r_A/r_B', '兩側半徑比')} = ?` : `${math('m_A/m_B', '兩側質量比')} = ?`;
+    $("numericPrompt").innerHTML = p === 2 ? "角速度加倍時，力變成多少倍？" : p === 0 ? `${math('r_A/r_B', '兩側半徑的比值')} = ?` : `${math('m_A/m_B', '兩側質量的比值')} = ?`;
     $("numericAnswer").value = run?.a[0] || ""; $("numericAnswer").disabled = !editing || !activeRun();
     setSelect("comparison", p === 2 ? lawOptions : compareOptions, run?.a[1], !editing || !activeRun());
     setSelect("reason", reasonOptions, run?.a[2], !editing || !activeRun());
     $("lawPrompt").innerHTML = p === 2 ? `${math('F_A', 'A 側徑向力')} 與 ${math('\\omega', '角速度')} 的關係` : p === 0 ? `${math('F', '徑向力')} 與 ${math('r', '半徑')} 的關係` : `${math('F', '徑向力')} 與 ${math('m', '質量')} 的關係`;
-    if (p < 2) $("lawPrompt").innerHTML = `兩側${p === 0 ? "質量" : "半徑"}相同、同時角速度相同時，${math("F_A/F_B", "力比")} 與 ${math(p === 0 ? "r_A/r_B" : "m_A/m_B", "設定比值")} 有甚麼關係？`;
+    if (p < 2) $("lawPrompt").innerHTML = `兩側${p === 0 ? "質量" : "半徑"}相同、同時角速度相同時，兩側徑向力的比值 ${math("F_A/F_B", "兩側徑向力的比值")} 與${p === 0 ? "半徑" : "總質量"}的比值 ${math(p === 0 ? "r_A/r_B" : "m_A/m_B", "A側除以B側的比值")} 有甚麼關係？`;
     else $("lawPrompt").innerHTML = `固定質量及半徑，${math("F_A", "徑向力")} 與 ${math("\\omega", "角速度")} 的關係`;
-    setSelect("law", p < 2 ? [["linear", "力比等於設定比值"], ["square", "力比等於設定比值的平方"], ["inverse", "力比等於設定比值的倒數"], ["none", "沒有固定關係"]] : lawOptions, t.law, !editing);
+    setSelect("law", p < 2 ? [["linear", "兩個比值相等"], ["square", "前者等於後者的平方"], ["inverse", "前者等於後者的倒數"], ["none", "沒有固定關係"]] : lawOptions, t.law, !editing);
     $("syncAnswer").value = s.sync || ""; $("massPartsAnswer").value = s.massParts || "";
     $("syncAnswer").disabled = !editing; $("massPartsAnswer").disabled = !editing;
     $("clearTaskButton").disabled = !editing;
