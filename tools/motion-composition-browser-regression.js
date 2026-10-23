@@ -3,7 +3,7 @@
 const assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path"),os=require("node:os");
 const {spawn}=require("node:child_process");
 const {XMLParser}=require("fast-xml-parser");
-const {CdpClient,buildAndExtractPackage,createServer,listenServer,devToolsPort,fetchJson,evaluate,delay,findBrowser,stopChrome,closeServer,validateOwnedDirectory}=require("./position-time-browser-regression.js");
+const {CdpClient,buildAndExtractPackage,createServer,listenServer,devToolsPort,fetchJson,evaluate,delay,findBrowser,stopChrome,closeServer,validateOwnedDirectory,waitForCondition,clickControl}=require("./position-time-browser-regression.js");
 const M=require("../sim/motion-composition-stroboscopic-lab/model.js"),P=require("../sim/motion-composition-stroboscopic-lab/persistence.js"),S=require("../sim/motion-composition-stroboscopic-lab/scoring.js");
 const {filled,durableDraft,finishedData}=require("../sim/motion-composition-stroboscopic-lab/test-support.js");
 const root=path.resolve(__dirname,".."),slug=P.ACTIVITY,suffix=process.env.MOTION_ARTIFACT_SUFFIX||"";
@@ -17,12 +17,8 @@ function sourceParity(){
 }
 const call = (cdp, code, embedded = false) => evaluate(cdp, `((w,d)=>{${code}})(${embedded ? 'document.getElementById("activity").contentWindow,document.getElementById("activity").contentDocument' : "window,document"})`);
 async function ready(cdp, embedded = false) {
-  for (let i = 0; i < 150; i++) {
-    // Header setup can resize the stage before ResizeObserver updates its geometry.
-    try { if (await call(cdp, "const a=w.__motionComposition;if(d.readyState!=='complete'||!a)return false;const l=a.getGeometry(),r=d.getElementById('stage').getBoundingClientRect();return l.width===r.width&&l.height===r.height;", embedded)) return; } catch (_) {}
-    await delay(40);
-  }
-  throw new Error("Activity did not initialize with matching stage geometry");
+  // Header setup can resize the stage before ResizeObserver updates its geometry.
+  return waitForCondition(() => evaluate(cdp, `(()=>{const w=${embedded ? 'document.getElementById("activity")?.contentWindow' : 'window'},d=w?.document;if(!d)return false;const a=w.__motionComposition;if(d.readyState!=='complete'||!a)return false;const l=a.getGeometry(),r=d.getElementById('stage').getBoundingClientRect();return l.width===r.width&&l.height===r.height;})()`), `${slug} initialization with matching stage geometry`);
 }
 async function viewport(cdp, width, height, touch = true, scale = 1) {
   await cdp.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: width < 600, scale });
@@ -65,9 +61,7 @@ async function rect(cdp, selector, embedded = false, scroll = false) {
   return r;
 }
 async function click(cdp, selector, embedded = false) {
-  const p = await rect(cdp, selector, embedded, true);
-  await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", x: p.x, y: p.y, button: "left", clickCount: 1 });
-  await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: p.x, y: p.y, button: "left", clickCount: 1 }); await delay(40);
+  return clickControl(cdp, selector, embedded ? 'document.getElementById("activity").contentWindow' : 'window');
 }
 const traySelector=slot=>`#trayHandle${slot+1}`;
 async function capture(cdp,embedded=false){
@@ -397,7 +391,7 @@ async function hostTopologies(cdp,base,label,fresh){
   const navigateHost=async()=>{
    await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:false});await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:2});
    await cdp.send('Page.navigate',{url:`${base}/__motion-host.html?topology=${topology}&src=${encodeURIComponent(src)}`});
-   for(let n=0;n<150;n++){try{if(await hostCall(cdp,'return d.readyState===\'complete\'&&Boolean(w.__motionComposition);'))return;}catch(_){}await delay(30);}throw new Error('Host topology did not initialize');
+   await waitForCondition(()=>evaluate(cdp,"(()=>{const shell=document.getElementById('shell')?.contentWindow||window,w=shell.document.getElementById('activity')?.contentWindow;return w?.document.readyState==='complete'&&Boolean(w.__motionComposition);})()"),'Motion host topology initialization');
   };
   const reset=async(panel='middle')=>{
    await evaluate(cdp,topology==='container'?"document.getElementById('host').scrollTop=300":"scrollTo(0,300)");

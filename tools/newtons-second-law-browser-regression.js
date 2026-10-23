@@ -3,7 +3,7 @@
 const assert = require("node:assert/strict"), fs = require("node:fs"), path = require("node:path"), os = require("node:os");
 const { spawn } = require("node:child_process");
 const { XMLParser } = require("fast-xml-parser");
-const { CdpClient, buildAndExtractPackage, createServer, listenServer, devToolsPort, fetchJson, evaluate, delay, findBrowser, stopChrome, closeServer, validateOwnedDirectory } = require("./position-time-browser-regression.js");
+const { CdpClient, buildAndExtractPackage, createServer, listenServer, devToolsPort, fetchJson, evaluate, delay, findBrowser, stopChrome, closeServer, validateOwnedDirectory, waitForCondition, clickControl } = require("./position-time-browser-regression.js");
 const M = require("../sim/newtons-second-law-investigation-lab/model.js"), G = require("../sim/newtons-second-law-investigation-lab/graph.js"), P = require("../sim/newtons-second-law-investigation-lab/persistence.js"), S = require("../sim/newtons-second-law-investigation-lab/scoring.js");
 const root = path.resolve(__dirname, ".."), slug = P.ACTIVITY, artifactDir = path.join(root, "output/playwright/newtons-second-law");
 function sourceParity() {
@@ -15,11 +15,7 @@ function sourceParity() {
 }
 const call = (cdp, code, embedded = false) => evaluate(cdp, `((w,d)=>{${code}})(${embedded ? 'document.getElementById("activity").contentWindow,document.getElementById("activity").contentDocument' : "window,document"})`);
 async function ready(cdp, embedded = false) {
-  for (let i = 0; i < 150; i++) {
-    try { if (await call(cdp, "return d.readyState==='complete' && Boolean(w.__newtonApp);", embedded)) return; } catch (_) {}
-    await delay(40);
-  }
-  throw new Error("Activity did not initialize");
+  return waitForCondition(() => evaluate(cdp, `(()=>{const w=${embedded ? 'document.getElementById("activity")?.contentWindow' : 'window'},d=w?.document;if(!d)return false;return d.readyState==='complete' && Boolean(w.__newtonApp);})()`), `${slug} initialization`);
 }
 async function viewport(cdp, width, height, touch = true, scale = 1) {
   await cdp.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: width < 600, scale });
@@ -63,9 +59,7 @@ async function rect(cdp, selector, embedded = false, scroll = false) {
   return r;
 }
 async function click(cdp, selector, embedded = false) {
-  const p = await rect(cdp, selector, embedded, true);
-  await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", x: p.x, y: p.y, button: "left", clickCount: 1 });
-  await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: p.x, y: p.y, button: "left", clickCount: 1 }); await delay(40);
+  return clickControl(cdp, selector, embedded ? 'document.getElementById("activity").contentWindow' : 'window');
 }
 async function confirmClick(cdp, selector, accept, touch = false) {
   const dialog = new Promise((resolve, reject) => {

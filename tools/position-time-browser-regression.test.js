@@ -2,19 +2,24 @@
 
 const assert = require("node:assert/strict");
 const { EventEmitter } = require("node:events");
+const vm = require('node:vm');
 const path = require("node:path");
 const fs = require('node:fs'), os = require('node:os');
 const {
   CdpClient,
+  clickControl,
+  controlPoint,
   devToolsPort,
   childHasExited,
   cleanupResources,
   resolvePackageFile,
   resolveScoLaunchPath,
+  saveBrowserFailure,
   stopChrome,
   validateOwnedDirectory,
   validateOwnedProfile,
   waitForChildExit,
+  waitForCondition,
   withTimeout
 } = require("./position-time-browser-regression.js");
 
@@ -97,6 +102,98 @@ assert.equal(validateOwnedDirectory(ownedPackage, fakeTemp, /^simlab-position-ti
 assert.throws(() => validateOwnedDirectory(path.join(fakeTemp, "other-package"), fakeTemp, /^simlab-position-time-package-[A-Za-z0-9]+$/, "SCORM package", fakeFileSystem), /unowned SCORM package/, "unrelated package directory is rejected");
 
 await assert.rejects(withTimeout(new Promise(() => {}), 10, "test operation"), /test operation timed out/, "bounded operations cannot hang forever");
+
+let conditionCalls=0;
+await waitForCondition(async()=>++conditionCalls===3,'initialization',1000,1);
+assert.equal(conditionCalls,3,'unready checks can become ready');
+const navigationError=new Error('Runtime.evaluate: Cannot find context with specified id');
+conditionCalls=0;
+await waitForCondition(async()=>{if(++conditionCalls===1)throw navigationError;return true;},'navigation',1000,1);
+assert.equal(conditionCalls,2,'navigation context replacement is transient');
+for(const message of ['CDP Runtime.evaluate timed out after 15000 ms.','Chrome DevTools WebSocket closed.','TypeError: broken activity','AssertionError: wrong answer']){
+  const fatal=new Error(message);conditionCalls=0;
+  await assert.rejects(waitForCondition(async()=>{conditionCalls++;throw fatal;},'fatal',1000,1),error=>error===fatal);
+  assert.equal(conditionCalls,1,'fatal errors are not polled or replaced');
+}
+await assert.rejects(waitForCondition(()=>new Promise(()=>{}),'hung evaluation',20,1),/hung evaluation timed out/,'one hung evaluation cannot exceed the overall deadline');
+conditionCalls=0;
+await assert.rejects(waitForCondition(async()=>{conditionCalls++;await new Promise(r=>setTimeout(r,15));return false;},'slow evaluation',40,1),/slow evaluation timed out/);
+assert(conditionCalls<=3,'evaluation time counts towards the deadline');
+await assert.rejects(waitForCondition(async()=>{throw navigationError;},'navigation never finished',20,1),error=>/navigation never finished timed out/.test(error.message)&&error.cause===navigationError,'the last navigation error is preserved at the deadline');
+
+function controlFixture(options = {}) {
+  const listeners = new Map(), inputs = []; let frames = 0, clock = 0, scrolls = 0;
+  const target = {isConnected:true,disabled:!!options.disabled,clientLeft:0,clientTop:0,
+    contains(node){return node===this;}, scrollIntoView(){scrolls++;},
+    getBoundingClientRect(){const x=options.moving?frames:20;return {x,y:30,left:x,top:30,width:options.hidden?0:40,height:40};}};
+  const document = {fonts:{ready:options.fontsPending?new Promise(()=>{}):Promise.resolve()},querySelector:()=>options.missing?null:target,
+    elementFromPoint:()=>options.obscured?{}:target,
+    addEventListener(type,fn){listeners.set(type,fn);},removeEventListener(type){listeners.delete(type);}};
+  const window = {document,scrollX:0,scrollY:0,innerWidth:390,innerHeight:700,
+    getComputedStyle:()=>({visibility:'visible'}),requestAnimationFrame(fn){frames++;clock+=16;queueMicrotask(fn);}};
+  window.top=window;window.parent=window;
+  window.window=window;window.performance={now:()=>clock};const scope=vm.createContext(window);
+  window.eval=code=>vm.runInContext(code,scope);
+  if(options.frame){const frame={...target,getBoundingClientRect:()=>({left:100,top:frames<3?frames*10:60}),clientLeft:2,clientTop:3};
+    const parent={document:{elementFromPoint:()=>options.coveredFrame?{}:frame},scrollX:0,scrollY:0,innerWidth:900,innerHeight:1200};parent.top=parent;
+    window.frameElement=frame;window.parent=parent;window.top=parent;}
+  const fire=(type,pointer)=>listeners.get(type)?.({type,pointerType:pointer,isTrusted:!options.untrusted,composedPath:()=>options.wrongTarget?[]:[target]});
+  const cdp={async send(method,params){
+    if(method==='Runtime.evaluate'){const value=await vm.runInContext(params.expression,scope);return {result:{value:value===undefined?undefined:JSON.parse(JSON.stringify(value))}};}
+    inputs.push({method,...params});if(options.transportError)throw options.transportError;
+    const pointer=method==='Input.dispatchTouchEvent'?'touch':'mouse';
+    if(['touchStart','mousePressed'].includes(params.type))fire('pointerdown',pointer);
+    else {fire('pointerup',pointer);if(!options.noClick)fire('click',pointer);}
+    return {};
+  }};
+  return {cdp,inputs,listeners,window,get frames(){return frames;},get scrolls(){return scrolls;}};
+}
+for(const touch of [false,true]){
+  const fixture=controlFixture();await clickControl(fixture.cdp,'#control','window',touch);
+  assert.equal(fixture.inputs.length,2,'one press and release, never a retry');
+  assert.equal(fixture.scrolls,1);assert(fixture.frames>=5);assert.equal(fixture.listeners.size,0);
+  assert(fixture.window.__simlabControlInput.events.every(e=>e.trusted&&e.matched));
+}
+const movingFrame=controlFixture({frame:true});assert.deepEqual(await controlPoint(movingFrame.cdp,'#control'),{x:142,y:113});
+assert(movingFrame.frames>=5,'ancestor frame movement settles before coordinates are returned');
+for(const options of [{missing:true},{hidden:true},{disabled:true},{obscured:true},{frame:true,coveredFrame:true}]){
+  const fixture=controlFixture(options);await assert.rejects(clickControl(fixture.cdp,'#control'),/Missing|Unavailable|Obscured/);
+  assert.equal(fixture.inputs.length,0,'unavailable targets never receive input');
+}
+for(const options of [{moving:true},{fontsPending:true}]){
+  const fixture=controlFixture(options);await assert.rejects(clickControl(fixture.cdp,'#control'),/did not settle|timed out/);
+  assert.equal(fixture.inputs.length,0,'unstable geometry or pending fonts cannot hang or receive input');
+}
+for(const options of [{untrusted:true},{wrongTarget:true},{noClick:true}]){
+  const fixture=controlFixture(options);await assert.rejects(clickControl(fixture.cdp,'#control'),/Missing trusted|Native click/);
+  assert.equal(fixture.inputs.length,2,'missing or wrong native events must not trigger another tap');assert.equal(fixture.listeners.size,0);
+}
+const inputError=new Error('input transport closed'),brokenInput=controlFixture({transportError:inputError});
+await assert.rejects(clickControl(brokenInput.cdp,'#control'),error=>error===inputError);assert.equal(brokenInput.inputs.length,1);assert.equal(brokenInput.listeners.size,0);
+
+const failureDirectory=fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),'simlab-failure-test-'));
+try {
+  const originalFailure=new Error('Expected check mode, got edit'),details={source:'zip',selector:'#check'};
+  const failureCdp={async send(method){return method==='Runtime.evaluate'?{result:{value:{mode:'edit',events:['pointerup']}}}:{data:Buffer.from('screenshot fixture').toString('base64')};}};
+  await saveBrowserFailure(failureCdp,failureDirectory,originalFailure,details,'fixture');
+  let saved=JSON.parse(fs.readFileSync(path.join(failureDirectory,'failure.json'),'utf8'));
+  assert(saved.error.includes(originalFailure.message));assert.deepEqual(saved.details,details);
+  assert.equal(saved.state.mode,'edit');assert.equal(saved.screenshot,'failure.png');assert.deepEqual(saved.diagnosticErrors,[]);
+  assert.equal(fs.readFileSync(path.join(failureDirectory,'failure.png'),'utf8'),'screenshot fixture');
+  await saveBrowserFailure({async send(method){if(method==='Runtime.evaluate')throw Error('context gone');return failureCdp.send(method);}},failureDirectory,originalFailure,details,'fixture');
+  saved=JSON.parse(fs.readFileSync(path.join(failureDirectory,'failure.json'),'utf8'));
+  assert(saved.error.includes(originalFailure.message)&&saved.diagnosticErrors.some(e=>e.includes('context gone'))&&saved.screenshot,'one failed probe keeps the original assertion and other evidence');
+  await saveBrowserFailure({send:()=>new Promise(()=>{})},failureDirectory,originalFailure,details,'fixture');
+  saved=JSON.parse(fs.readFileSync(path.join(failureDirectory,'failure.json'),'utf8'));
+  assert.equal(saved.diagnosticErrors.length,2);assert(saved.diagnosticErrors.every(e=>e.includes('timed out after 2000 ms')));
+  assert(saved.error.includes(originalFailure.message));assert.equal(saved.screenshot,undefined,'an older screenshot is never attributed to this failed capture');
+  const originalConsole=console.error;let diagnostic;
+  try{console.error=(...args)=>{diagnostic=args.join(' ');};await saveBrowserFailure(failureCdp,path.join(failureDirectory,'missing'),originalFailure,details,'fixture');}
+  finally{console.error=originalConsole;}
+  assert(diagnostic.includes('Could not save browser failure evidence'),'artifact write failure is reported without throwing over the original assertion');
+} finally {
+  const safe=validateOwnedDirectory(failureDirectory,os.tmpdir(),/^simlab-failure-test-[A-Za-z0-9]+$/,'failure diagnostic fixture');fs.rmSync(safe,{recursive:true,force:false});
+}
 
 class FakeWebSocket {
   constructor() {

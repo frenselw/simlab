@@ -24,10 +24,111 @@ function withTimeout(promise, milliseconds, label) {
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
+async function waitForCondition(check, label, milliseconds = 15000, interval = 40) {
+  const deadline = performance.now() + milliseconds;
+  let lastNavigationError;
+  while (performance.now() < deadline) {
+    try {
+      if (await withTimeout(Promise.resolve().then(check), Math.max(1, deadline - performance.now()), label)) return;
+    } catch (error) {
+      // Navigation may replace the execution context; transport and application errors are fatal.
+      if (!/^(?:Runtime\.evaluate: )?(?:Cannot find context with specified id|Execution context was destroyed)(?:\.|$)/.test(error.message)) throw error;
+      lastNavigationError = error;
+    }
+    await delay(Math.max(0, Math.min(interval, deadline - performance.now())));
+  }
+  throw new Error(`${label} timed out after ${milliseconds} ms.`, { cause: lastNavigationError });
+}
+
+async function controlPoint(cdp, selector, context = 'window') {
+  const locate = async (w, selector) => {
+    const d = w.document, e = d.querySelector(selector);
+    if (!e) throw Error('Missing control: ' + selector);
+    await d.fonts.ready;
+    e.scrollIntoView({block:'nearest', inline:'nearest', behavior:'instant'});
+    let previous, stable = 0;
+    const deadline = performance.now() + 2000;
+    while (performance.now() < deadline) {
+      await new Promise(resolve => w.requestAnimationFrame(resolve));
+      const r = e.getBoundingClientRect(), style = w.getComputedStyle(e);
+      if (!e.isConnected || e.disabled || !r.width || !r.height || style.visibility !== 'visible') throw Error('Unavailable control: ' + selector);
+      let x = r.left + r.width / 2, y = r.top + r.height / 2, owner = w, target = e;
+      const geometry = [r.x, r.y, r.width, r.height];
+      while (true) {
+        const hit = owner.document.elementFromPoint(x, y);
+        if (!target.contains(hit)) throw Error('Obscured control: ' + selector);
+        geometry.push(x, y, owner.scrollX, owner.scrollY, owner.innerWidth, owner.innerHeight);
+        if (owner === owner.top) break;
+        target = owner.frameElement;
+        const frame = target.getBoundingClientRect();
+        x += frame.left + target.clientLeft; y += frame.top + target.clientTop; owner = owner.parent;
+      }
+      const signature = JSON.stringify(geometry);
+      stable = signature === previous ? stable + 1 : 0;
+      if (stable >= 2) return {x, y};
+      previous = signature;
+    }
+    throw Error('Control geometry did not settle: ' + selector);
+  };
+  return withTimeout(evaluate(cdp, `(${locate})((${context}),${JSON.stringify(selector)})`), 3000, 'Locate control ' + selector);
+}
+
+async function clickControl(cdp, selector, context = 'window', touch = false) {
+  const p = await controlPoint(cdp, selector, context);
+  const inside = code => evaluate(cdp, `(${context}).eval(${JSON.stringify(code)})`);
+  await inside(`(()=>{const e=document.querySelector(${JSON.stringify(selector)}),events=[];
+    const record=event=>events.push({type:event.type,trusted:event.isTrusted,pointer:event.pointerType,matched:event.composedPath().includes(e)});
+    for(const type of ['pointerdown','pointerup','click'])document.addEventListener(type,record,true);
+    window.__simlabControlInput={selector:${JSON.stringify(selector)},point:${JSON.stringify(p)},events,
+      cleanup(){for(const type of ['pointerdown','pointerup','click'])document.removeEventListener(type,record,true);}};})()`);
+  let failure;
+  try {
+    if (touch) {
+      await cdp.send('Input.dispatchTouchEvent', {type:'touchStart',touchPoints:[{...p,id:1,radiusX:2,radiusY:2,force:1}]});
+      await cdp.send('Input.dispatchTouchEvent', {type:'touchEnd',touchPoints:[]});
+    } else {
+      await cdp.send('Input.dispatchMouseEvent', {type:'mousePressed',...p,button:'left',buttons:1,clickCount:1});
+      await cdp.send('Input.dispatchMouseEvent', {type:'mouseReleased',...p,button:'left',buttons:0,clickCount:1});
+    }
+    await waitForCondition(() => inside('__simlabControlInput.events.some(e=>e.type==="click")'), 'Native click ' + selector, 1000);
+    const events = await inside('__simlabControlInput.events');
+    for (const type of ['pointerdown','pointerup','click']) assert(events.some(e => e.type === type && e.trusted && e.matched && e.pointer === (touch ? 'touch' : 'mouse')), `Missing trusted ${touch ? 'touch' : 'mouse'} ${type} on ${selector}: ${JSON.stringify(events)}`);
+    await withTimeout(inside('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))'), 2000, 'Render after ' + selector);
+    return p;
+  } catch (error) { failure = error; throw error; }
+  finally {
+    try { await inside('__simlabControlInput.cleanup()'); }
+    catch (error) { if (!failure) throw error; }
+  }
+}
+
 function formatError(error, indent = "") {
   const own = `${indent}${error.stack || error.message || String(error)}`;
   if (!(error instanceof AggregateError)) return own;
   return `${own}\n${Array.from(error.errors, (nested) => formatError(nested, `${indent}  `)).join("\n")}`;
+}
+
+async function saveBrowserFailure(cdp, directory, error, details, expression) {
+  const report = { error: formatError(error), details, diagnosticErrors: [] };
+  try {
+    const results = await Promise.allSettled([
+      withTimeout(Promise.resolve().then(() => evaluate(cdp, expression)), 2000, 'Failure state capture'),
+      withTimeout(Promise.resolve().then(() => cdp.send('Page.captureScreenshot', {format:'png'})), 2000, 'Failure screenshot')
+    ]);
+    for (const [index, result] of results.entries()) {
+      if (result.status === 'rejected') report.diagnosticErrors.push(String(result.reason));
+      else if (index === 0) report.state = result.value;
+      else {
+        try { fs.writeFileSync(path.join(directory, 'failure.png'), Buffer.from(result.value.data, 'base64')); report.screenshot = 'failure.png'; }
+        catch (captureError) { report.diagnosticErrors.push(String(captureError)); }
+      }
+    }
+    fs.writeFileSync(path.join(directory, 'failure.json'), JSON.stringify(report, null, 2) + '\n');
+  } catch (captureError) {
+    // Diagnostics must never replace the assertion or prevent the caller's cleanup.
+    console.error('Could not save browser failure evidence:', captureError.message);
+  }
+  return report;
 }
 
 function commandPath(command) {
@@ -1737,7 +1838,7 @@ async function main() {
   console.log(summary);
 }
 
-module.exports = { CdpClient, buildAndExtractPackage, childHasExited, cleanupResources, closeServer, contentType, createServer, delay, devToolsPort, evaluate, fetchJson, findBrowser, listenServer, removeOwnedPackage, removeOwnedProfile, resolvePackageFile, resolveScoLaunchPath, stopChrome, validateOwnedDirectory, validateOwnedProfile, waitForChildExit, withTimeout };
+module.exports = { CdpClient, clickControl, controlPoint, buildAndExtractPackage, childHasExited, cleanupResources, closeServer, contentType, createServer, delay, devToolsPort, evaluate, fetchJson, findBrowser, listenServer, removeOwnedPackage, removeOwnedProfile, resolvePackageFile, resolveScoLaunchPath, saveBrowserFailure, stopChrome, validateOwnedDirectory, validateOwnedProfile, waitForChildExit, waitForCondition, withTimeout };
 
 if (require.main === module) {
   main().catch((error) => {

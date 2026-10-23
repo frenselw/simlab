@@ -9,6 +9,9 @@ assert.deepEqual(gestureIssues(before,after,[sample(210),sample(240),sample(270)
 assert.ok(gestureIssues(before,after,[sample(220),sample(210),sample(270)],stage).some(x=>x.includes("reversed")),"same final position must still reject feedback jumps");
 assert.ok(gestureIssues(before,before,[sample(200)],stage).some(x=>x.includes("did not scroll")),"swallowed nested gesture must fail");
 assert.ok(gestureIssues(before,{...after,state:{...after.state,hooks:{answers:[1]}}},[sample(270)],stage).includes("learner state changed"),"blank swipe cannot edit work");
+const playing={...before,state:{...before.state,hooks:{__centripetalSourceApp:{items:[{pose:1300,arrows:[]}]}},forms:[{id:'motionPosition',value:'1000'}]}},advanced={...after,state:{...playing.state,forms:[{id:'motionPosition',value:'2000'}]}};
+assert.deepEqual(gestureIssues(playing,advanced,[sample(270)],stage),[],"unsaved playback position can advance during a swipe");
+assert(gestureIssues(playing,{...advanced,state:{...advanced.state,hooks:{__centripetalSourceApp:{items:[{pose:2000,arrows:[]}]}}}},[sample(270)],stage).includes('learner state changed'),"saved observation must still be protected");
 assert.ok(gestureIssues(before,after,[{...sample(230),panel:70},sample(270)],stage).some(x=>x.includes("sibling panel")),"transient wrong-owner movement must fail even if restored");
 assert.ok(gestureIssues(before,{...after,events:[{type:"pointerdown",isTrusted:false,pointerType:"touch"}]},[sample(270)],stage).includes("trusted touch pointer missing"));
 assert.ok(gestureIssues(before,after,[],stage).includes("missing movement samples"));

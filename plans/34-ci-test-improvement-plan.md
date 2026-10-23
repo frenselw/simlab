@@ -7,6 +7,27 @@
 
 規劃階段只交付本文件及審核記錄。使用者其後批准補入階段交接條件並開始 P0／P1，達標後連續推進 P2–P4，不逐階段再次詢問。實作範圍為測試、CI、打包驗證及文件；若需要修改模擬本身，先告知使用者。
 
+## 2026-10-22：等待、失敗診斷與分片權重
+
+使用者批准在 `codex/ci-stability` 處理檢視建議 1、3、4。範圍為測試工具與文件；物理、評分、學生 snapshot、活動輸入時序及工具搬檔不在本批範圍。
+
+其後使用者批准追加第 2 項共用測試輸入。首次分支完整 run `39725697099` 的 262 項有 261 項通過；電路評量在滑片拖動後的 `#check` 收到可信 pointerdown／pointerup 與 touchstart／touchend，但沒有 click，保留首次失敗 artifact。本機修改前後各 100 次聚焦流程均通過，未能解釋固定 Linux／Chrome 的失敗。追加範圍為普通控制的定位、捲動／畫面就緒及原生點按完成證據；保留拖動／採樣／取消及活動狀態斷言，只有有證據的輸入校準才調整時序，不以重點一次、程式 click 或放寬斷言通過。驗證須包括共用 helper 的拒絕案例、source／ZIP、手機／桌面與宿主／fullscreen，最後提交再跑正式完整 CI。獨立 `codex/ci-touch-diagnostic` 只收集相同固定環境的原因與候選證據，不能提供正式 gate／receipt，也不合併其臨時 workflow。
+
+根因證據：診斷 run `39729679249` 重現原輸入失敗。Chrome trace 在滑片放開後出現約 764 px/s 的水平 `GestureFlingStart`，下一個 `#check` 的 touchStart 觸發 `GestureFlingCancel`，tap 經過 suppression 後未派送 DOM click；當時文件已先發出 scrollend。單純改用 `synthesizeTapGesture` 亦失敗，未採用。修正讓此「停定的滑片拖動」在放開前停留 100ms。run `39730065097` 的兩個獨立候選（停定、停定加零位移採樣）各通過原 842 checks 與 source／ZIP 各 50 次原流程，共 1042 checks；選擇較小的停定版本。首次失敗 trace 完整保存於 `output/ci-tests/touch-diagnostic-original-39729679249/`；成功候選的 trace 匯出超時，只有完整斷言結果，不宣稱取得成功 trace。
+
+普通控制共用 `clickControl`，先供電路評量及運動合成、力平衡兩版、牛頓第二／第三定律共六個 driver 使用；其契約見[生產指南](../docs/simulation-scorm-production-guide.md#browser-check-tooling)。既有 DC／AC 的已校準拖動、取消與採樣路徑不做全面遷移。既有 helper 自測補入遮擋／隱藏／停用、移動宿主 frame、錯誤目標／非可信／缺少 click、通訊失敗及 listener 清理；缺少 click 只會失敗，不會再次輸入。沒有新增依賴、測試入口或工具搬檔。
+
+追加第 2 項的提交前驗證：固定 Linux／Chrome 診斷 run `39730913162` 使用最終共用 helper 與停定修正，通過 helper 自測及 1042 checks（原 842 加 source／ZIP 各 50 次聚焦操作）；結果保存於 `output/ci-tests/touch-diagnostic-shared-control-39730913162/`。本機電路評量完整 842 checks、helper／CI plan 自測、check／check:tests、文件連結與 diff 檢查通過。新增輸入失敗加次要清理失敗的注入驗證仍保留原錯誤、事件及截圖，見 `output/ci-tests/ci-stability-controls-injected-assessed-cleanup/`。運動合成完整本機回歸及最後提交的正式完整 CI 另行執行，以上聚焦結果不代替正式完整驗收。
+
+- 將吞掉所有例外的初始化／條件輪詢改為有總截止時間的共用等待。只有已知導航 context 暫態可以重試；缺少尚未載入的 iframe 明確回傳未就緒，通訊超時、斷線與程式錯誤保留原錯誤。活動自己的就緒條件保持。
+- 電路評量與 AC 在首次失敗時保存案例、最後操作、狀態、事件及截圖。診斷有獨立上限，不參與成功路徑的效能量測；診斷或清理失敗不能掩蓋原錯誤。
+- 權重只取已核實完整成功的 main run `39719145504`（`4aa4d50680f9c757b932e7db08be118f80142950`）之入口耗時。保留全部入口、八個 browser 分片及既有 gate；回算改善不當作新 CI 實測。
+- 驗證：補入現有工具自測，涵蓋等待成功／導航／致命錯誤／掛起、診斷部分失敗與超時、權重覆蓋完整清單；執行全部 Node、check／check:tests、committed selection preview，以及分支完整 CI。首次失敗照實保留，不以重跑綠燈取代修復證據。
+
+提交前證據：共用工具自測、CI 分片自測、check／check:tests（222 Node＋35 browser）、文件及 diff 檢查通過。真實 Chrome 在電路評量及 AC 首次原生滑鼠操作後注入指定錯誤，兩個入口均拒絕並保留同一錯誤物件，保存 source／案例、最後操作座標、可信事件、實際狀態與截圖後清理完成；診斷本身掛起／部分失敗／無法寫檔亦有自測。證據為 `output/ci-tests/ci-stability-injected-assessed/`、`ci-stability-injected-ac/` 及對應 log。
+
+分片回算：以該成功 run 的實測入口耗時，更新後八片估算為 1255／1238／1233／1237／1228／1240／1230／1235 秒；舊分配最慢約 1537 秒。這是相同資料的編排估計，沒有宣稱已取得約 4.7 分鐘的遠端提速。全部 Node 與電路評量 source／ZIP 本機完整驗證另存 `output/ci-tests/ci-stability-node/`、`ci-stability-assessed-full.log`；分支實際完整驗收與耗時以最後提交的 Actions 結果為準。
+
 ## 2026-10-20：活動測試變更的基線判定修正
 
 - 本次僅修改CI工具／測試及其文件，物理、評分、學生snapshot與Sites為N/A，不發布學生活動。使用者已授權驗證後commit／push。
