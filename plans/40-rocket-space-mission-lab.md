@@ -729,3 +729,12 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 - 原20布局、裝配／中間插入／精確ordinal／跨級搬移／鍵盤調位、手機原生面板捲動／桌面整卡、不中斷飛行控制／背景旋轉／鏡頭、288組向量transform、任務、評分提交／恢復／pending重試／唯讀、全屏及WebGL故障回歸通過。本次未重跑獨立iframe scroll矩陣或全庫Node／browser；真手機與真Moodle仍未驗證。
 - 主report.json：completed=true、errors=[]、70 flows；runtime SHA-256：7b53373adf8c4b7c5fe88eabda5dd1bfea042fb57ad8fb271a1bd4f120d87603（已與最終宣告runtime bytes核對）；ZIP SHA-256：39ecb9ed4895430d857c69a31dc1191e8b6fc18f86210494989d6dcad720b065。報告／截圖：output/playwright/rocket-space-mission-lab/；ZIP：output/rocket-space-mission-lab-scorm.zip。
 - P16已commit／push：e758fd5f109a7f36561481099b6b600c08b8a87a；提交選擇預覽output/rocket/selection-p16.log，mode=affected。沿用使用者明確持續發布授權，Sites來源154bbe01bfed1f800b9264fa00c3abebc15a1560、deployment appgdep_6adce3bbafbc8191beb6b85fd35287f0，native結果succeeded。維持https://simlab-rocket-space-missions.ieyp.chatgpt.site及owner-private；未等待CI。
+
+
+### P17：清楚表達鏡頭方向的名稱
+
+- 使用者認為「俯視」有誤導。將鏡頭「地球」改「地球全景」、「俯視」改「軌道正視」，同步title與aria-label，說明分別是斜角看地球／軌道，及正面看軌道平面；避免以不明確的上下方向命名。
+- 僅改HTML用詞；維持factory／follow／orbit／plane鍵、鏡頭位置、手勢、running、資料／評分／SCORM與schema。低風險文字改動不新增鏡像測試，沿用既有layouts／directCamera／launchAndCamera做source及ZIP聚焦驗證，特別確認320px四個鏡頭按鈕仍在舞台內、≥44px且不遮捲頁把手。其餘phase／變體／rubric／snapshot／pending契約沿用，未重跑全活動或全庫。
+
+- P17執行證據：npm run check、check:tests（278 entries）、文件與diff檢查通過。ignored output/rocket-p17-camera-check.cjs選取既有registered owner的layouts／directCamera／launchAndCamera，source及extracted ZIP共20布局、14 flows，completed=true、errors=[]、selection=camera-labels。桌面及窄320／390／橫向touch，原生背景轉動、鏡頭預設位置／active與running一致、關機滑行／分級／明示暫停／hidden契約通過；320px按鈕≥44px且在捲頁把手內側，ZIP截圖已檢視。未重跑無關裝配／任務／SCORM完整矩陣、活動Node或全庫測試；真手機／Moodle未驗證。
+- runtime SHA-256：3355273bea88d3b4209c70ae307bebaf6f674a03830ff1ac65eabc542eab3348（與最終宣告runtime bytes核對）；ZIP SHA-256：7f1d27212328027a03e27dea70b37b02ae87d4506dc11f3c340dc1823a6105ee。報告／截圖：output/playwright/rocket-space-mission-lab/；ZIP：output/rocket-space-mission-lab-scorm.zip。
