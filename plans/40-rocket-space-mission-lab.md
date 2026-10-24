@@ -674,3 +674,13 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 - 中立host可信touch source及package各完成T1（單層iframe、390×844、camera-surface）、T2（有界中介iframe、320×568與390×844、camera-surface及planning）、T3（外層overflow元素owner、320×568、camera-surface），共12 cases；左右stage strip上下掃動實際外層owner，activity document／visual viewport／panel及答案不變；panel text／button starts、邊界／取消／連續掃動與之後stage掃動隔離通過，未寫host鎖樣式。相機／變軌操作的complete、cancel、secondary、blur、lostcapture通過，無遺留preview。報告scroll-p12-source/package-T1/T2/T3.json均completed=true、status=passed、errors=[]且全部gesture issues=[]；共同runtime digest ff32f69daeca8ff6de295d268be50aa9d2c6b3ed5b2b6b53e6601e347a40f4a3。T0獨立頁零外層捲動範圍，未主張把手可捲動不存在的頁面高度；真Moodle／跨origin receiver未測也未新增。
 - 主report.json：completed=true、errors=[]、42 flows；runtime SHA-256：56cb098a2ee0bc4c9c67e97a86481a4bc86b92e73ef0f60894f3e1873a7910da；最後ZIP SHA-256：d130b7a5a8a368934fb99b762881a0225422a02ae7ce99ba8fcaba7fe2d1e6fa。報告／截圖在output/playwright/rocket-space-mission-lab/，ZIP在output/rocket-space-mission-lab-scorm.zip。未重跑全庫Node／browser、完整所有phase／變體iframe矩陣或200% zoom；真手機／Moodle與校內效能仍未驗證。
 - P12已commit／push：6b560f1ce38977b374c71b6f111897eabedd7d1d；提交選擇預覽output/rocket/selection-p12.log（mobile-scroll共用fixture不在選擇器細分依賴內，保守列full；本次執行範圍以以上實測證據為準，未主張全庫測試）。沿用使用者明確持續發布授權，Sites來源2b2fd1df4c9176bcfb1a383cf4a37d3dcd25211d、deployment appgdep_6adcce007bc88191b7570bb7cf94996e，native結果succeeded。維持https://simlab-rocket-space-missions.ieyp.chatgpt.site及owner-private；未等待CI。
+
+
+### P13：只有手機／觸控版顯示捲頁把手（2026-10-24）
+
+- 使用者更正P12：桌面不需要捲頁把手。沿用Circuit Workbench的裝置能力media query：hover:hover且pointer:fine時隱藏；any-pointer:coarse保留，支援手機橫屏及觸控混合裝置，不以窄桌面視窗冒充手機。桌面相機操作區同時擴至兩邊，不留下無作用的32px區；觸控版仍保留兩側32px原生pan-y與小把手。
+- 範圍只限CSS、既有browser owner及本計劃；不改依賴、manifest、物理／評分、phase／variant／snapshot或保存契約。更新實際CDP觸控能力，驗證1280px與窄390px滑鼠版無把手且背景可旋轉，320／390px及844px橫屏觸控仍有把手；重跑source／ZIP既有owner和聚焦T2觸控捲頁。沿用低風險評分及既有保存測試決策；真手機／Moodle仍獨立驗收。
+
+- P13執行證據：npm run check、npm run check:tests（278 entries）、文件／diff檢查通過。source／extracted ZIP各20布局，1280×800及390×844 mouse使用實際fine-pointer能力：把手無尺寸／命中區、相機覆蓋舞台全闊；390×844、320×568及844×390 touch保留兩邊32px把手與原生pan-y。十組直接背景旋轉／方向鍵／鏡頭預設通過；桌面與手機截圖已檢視，桌面無把手、手機保留。原裝配／插入／調位／飛行／相機／評分提交／恢復／唯讀／全屏／故障回歸均通過。
+- source與package T2各320×568 camera-surface profile通過：左右原生外層捲頁、面板內容／邊界／取消／連續掃動隔離、相機complete/cancel/secondary/blur/lostcapture；scroll-p13-source/package-T2.json皆completed=true、status=passed、errors=[]及全部gesture issues=[]。本次未重跑T1/T3、全phase矩陣或不受CSS影響的活動Node測試；P12證據保留為歷史，真手機／Moodle仍未驗證。
+- 主report.json：completed=true、errors=[]、44 flows；runtime SHA-256：9b1a762b63fb7b0db55a02f2eba2c01a7eb0f36291cbe2079308fa9f57fed4d0；ZIP SHA-256：928a9da23f04cc8b2944aeb0b588f363e8e043f2aed0ad1f569a793275f2e169。報告／截圖：output/playwright/rocket-space-mission-lab/；ZIP：output/rocket-space-mission-lab-scorm.zip。
