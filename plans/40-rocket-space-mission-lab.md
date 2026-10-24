@@ -592,3 +592,15 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 - 同一真實模型的直上飛行在1 m、約100 m、1 km、20 km、50 km、69 km、71 km、100 km、140 km採樣；地面／發射台位置隨高度連續，天空fraction單調由0至1，70 km附近無跳色。實際畫面人工檢視1 m／1 km／20 km／71 km／140 km及手機組裝截圖；高空globe作背景、詳細地面負責depth，避免兩個表面相交閃爍。採樣最高77262 triangles、58 draw calls，在原圖像預算內。
 - ZIP：output/rocket-space-mission-lab-scorm.zip；圖像及報告：output/playwright/rocket-space-mission-lab/；靜態檢查：output/rocket/check-p6.log。此證據限本地Chrome及模擬觸控，未重跑全庫browser／完整iframe觸控矩陣，未驗真手機／真Moodle／校內效能。未等待CI。
 - P6已commit／push：e14d77ae1440c3a15cba496a176982780e4ad18b；提交選擇預覽output/rocket/selection-p6.log已產生。Sites來源1374c85b32d126f3c66127e5571e105f11572a2d，deployment appgdep_6adc8303394881918f0cfdafb5f2b0ca，native結果succeeded，維持原owner-private網址。ZIP SHA-256：3023b99e881620bc8d11a517778071b8e76073b75d8bd8dbd076eb80d4f549fa。
+
+
+### P7：手機滾動、獨立手柄及原位裝配預覽（2026-10-24）
+
+- 元件卡圖片／名稱／資料使用原生縱向滾動；只有明示「⠿ 拖動」的44 × 44 CSS px以上手柄攔截拖動。卡片輕點及鍵盤Enter／Space仍可加入零件；手柄輕點不安裝。保留舞台已裝零件拖出／移級。
+- 組裝不再開獨立放大視窗。有效接點以同一production model action計算臨時craft，在原舞台顯示整枚火箭安裝後的排列，固定相機及原接點幾何；pointerup才提交及保存。離開接點／取消／失焦／第二指／lost capture恢復原模型。變軌標記的既有放大預覽不變。
+- 錯位／已有引擎／四箱上限不改答案，舞台顯示短暫「無法安裝」警告。正常拖動中顯示放手安裝提示。評分、快照、SCORM schema、phase/variant及manifest依賴不變。
+- 驗證決策：沿用已登記活動browser owner及六個Node測試；擴充可信touch的卡片上掃／下掃、各手柄、原位整體預覽／草稿不變、有效release、無效drop警告、取消及跨級搬移；source與extracted ZIP均執行。真手機／Moodle另列，未驗證前不宣稱通過。
+
+- P7執行證據：六個活動Node測試、npm run check、npm run check:tests（278 entries）及diff檢查通過。沿用既有browser owner，source與extracted ZIP各通過10種布局；各在320×568、390×844及844×390以可信touch從元件圖／名稱／資料開始掃動，面板滾動而答案／LMS草稿／舞台／根視窗／visualViewport不變，沒有開始元件拖動；四手柄均≥44×44 CSS px。
+- source及package各有1280×800可信mouse與390×844可信touch驗證：手柄起手、無獨立組裝preview window、原位預覽不改答案／保存、release後craft與預覽完全相同、錯位／已有引擎拒絕、拖回元件箱及跨級搬移。有效接點上的取消、blur及lost capture亦恢復原模型；錯位顯示舞台「無法安裝」警告。保留點選及Enter鍵加入；原有變軌預覽、提交／鎖定／續做／重試、全屏及WebGL故障恢復仍通過。
+- report.json：completed=true、errors=[]；runtime SHA-256：dda32d54749e3fab8c4eace101e02fa9b63502a78c9071ae4bd1cafa81a60a97。報告及手機原位／錯位截圖位於output/playwright/rocket-space-mission-lab/。SCORM包：output/rocket-space-mission-lab-scorm.zip；ZIP SHA-256：c83909ad60ee42e8d085addd5ad782c7a8401db7ff5ec091bb3476331c18fab8。未重跑全庫Node／browser及完整iframe觸控矩陣；真手機、真Moodle、校內效能仍未驗證，未宣稱Moodle-ready。

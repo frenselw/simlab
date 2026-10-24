@@ -16,23 +16,22 @@
       if(a.part&&a.moved){
         const panel=d.controlPanel.getBoundingClientRect();a.returning=Boolean(a.source&&e.clientX>=panel.left&&e.clientX<=panel.right&&e.clientY>=panel.top&&e.clientY<=panel.bottom);
         a.snap=a.returning?null:nearest(api.slots(a.part,a.source),x,y,30);
-        d.dragPartGhost.hidden=false;d.dragPartGhost.style.left=e.clientX+'px';d.dragPartGhost.style.top=e.clientY+'px';d.dragPartGhost.classList.toggle('fits',a.snap!==null||a.returning);
+        d.dragPartGhost.hidden=a.snap!==null;d.dragPartGhost.style.left=e.clientX+'px';d.dragPartGhost.style.top=e.clientY+'px';d.dragPartGhost.classList.toggle('fits',a.snap!==null||a.returning);d.dragPartGhost.classList.toggle('blocked',!a.returning&&a.snap===null&&x>=0&&y>=0&&x<=rect.width&&y<=rect.height);
         [d.slot0,d.slot1].forEach((slot,i)=>slot.classList.toggle('snap',a.snap===i));d.controlPanel.classList.toggle('return-active',a.returning);
         d.returnZone.hidden=!a.source;d.returnZone.textContent=a.returning?'放手，將零件放回元件箱':'元件箱 · 拖到這裏即可取出零件';d.returnZone.style.left=panel.left+8+'px';d.returnZone.style.top=panel.top+8+'px';d.returnZone.style.width=panel.width-16+'px';
         api.drag(a.part,x,y,a.snap,a.source,a.returning);
-        if(a.touch&&a.snap!==null){const p=api.slots(a.part,a.source)[a.snap];api.preview(p.x,p.y,'安裝位置預覽');}
       }
       if(a.kind==='node'){a.angle=api.angle(x,y,a.touch?24:14);api.moveNode(a.angle);if(a.touch)api.preview(x,y,'變軌標記預覽');}
       a.lastX=e.clientX;a.lastY=e.clientY;
     }
     function up(e){
       if(!active||e.pointerId!==active.id)return;const a=active;diagnostics.up++;release();
-      if(a.part){if(!a.moved){if(!a.source)api.attach();else api.selectedInstalled(a.source);}else if(a.returning)api.transfer(a.source,null);else if(a.snap!==null){if(a.source)api.transfer(a.source,a.snap);else api.attach(a.snap);}else api.missed();}
+      if(a.part){if(!a.moved){if(a.source)api.selectedInstalled(a.source);}else if(a.returning)api.transfer(a.source,null);else if(a.snap!==null){if(a.source)api.transfer(a.source,a.snap);else api.attach(a.snap);}else api.missed();}
       if(a.kind==='node'&&a.angle!==null)api.commitNode(a.angle);api.end();
     }
     function cancel(){if(active){diagnostics.cancel++;release();api.end();}}
     function bind(target,kind,part){target.addEventListener('pointerdown',e=>down(e,kind,part));target.addEventListener('pointermove',move);target.addEventListener('pointerup',up);target.addEventListener('pointercancel',cancel);target.addEventListener('lostpointercapture',cancel);}
-    d.partsGrid.querySelectorAll('[data-part]').forEach(b=>{bind(b,'part',b.dataset.part);b.addEventListener('click',e=>{if(e.detail===0&&api.allowed('part')){api.select(b.dataset.part,null);api.attach();api.end();}});});bind(d.rocketGrip,'installed');bind(d.nodeHandle,'node');bind(d.cameraSurface,'camera');
+    d.partsGrid.querySelectorAll('[data-part]').forEach(b=>{bind(b.querySelector('[data-part-handle]'),'part',b.dataset.part);b.addEventListener('click',e=>{if(e.detail!==0&&e.target.closest('[data-part-handle]'))return;if(api.allowed('part')){api.select(b.dataset.part,null);api.attach();api.end();}});});bind(d.rocketGrip,'installed');bind(d.nodeHandle,'node');bind(d.cameraSurface,'camera');
     d.cameraSurface.addEventListener('keydown',e=>{const delta={ArrowLeft:[-14,0],ArrowRight:[14,0],ArrowUp:[0,-14],ArrowDown:[0,14]}[e.key];if(delta){e.preventDefault();api.rotate(...delta);}});
     document.addEventListener('pointerdown',e=>{if(active&&e.pointerId!==active.id)cancel();},true);
     document.addEventListener('keydown',e=>{if(e.key==='Escape'&&active){e.preventDefault();cancel();}});
