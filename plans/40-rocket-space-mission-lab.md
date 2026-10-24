@@ -605,3 +605,14 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 - source及package各有1280×800可信mouse與390×844可信touch驗證：手柄起手、無獨立組裝preview window、原位預覽不改答案／保存、release後craft與預覽完全相同、錯位／已有引擎拒絕、拖回元件箱及跨級搬移。有效接點上的取消、blur及lost capture亦恢復原模型；錯位顯示舞台「無法安裝」警告。保留點選及Enter鍵加入；原有變軌預覽、提交／鎖定／續做／重試、全屏及WebGL故障恢復仍通過。
 - report.json：completed=true、errors=[]；runtime SHA-256：dda32d54749e3fab8c4eace101e02fa9b63502a78c9071ae4bd1cafa81a60a97。報告及手機原位／錯位截圖位於output/playwright/rocket-space-mission-lab/。SCORM包：output/rocket-space-mission-lab-scorm.zip；ZIP SHA-256：c83909ad60ee42e8d085addd5ad782c7a8401db7ff5ec091bb3476331c18fab8。未重跑全庫Node／browser及完整iframe觸控矩陣；真手機、真Moodle、校內效能仍未驗證，未宣稱Moodle-ready。
 - P7已commit／push：d20e220f1a74c7affa370817197ca16055587fcd；提交選擇預覽output/rocket/selection-p7.log已產生。使用者明確要求再部署後，Sites來源6c3639cc35f8d3bce20a14c29bc11a85e268239a、deployment appgdep_6adc965cbbf08191819b2917fb168408，native結果succeeded，維持原owner-private網址https://simlab-rocket-space-missions.ieyp.chatgpt.site。此輪僅部署已驗證產物，未重跑測試或等待CI。
+
+
+### P8：拖動中即時失效提示及緊湊頂欄（2026-10-24）
+
+- 修正P7只在放手後提示的缺口：零件在舞台內未對準相容接點時立即顯示「無法安裝」，持續按住不逾時；移至有效接點、離開舞台、取消或返回元件箱即清除。從palette拖回控制區視為取消，不顯示安裝錯誤；已裝零件拖回元件箱仍為正常取出。invalid release保留短暫提示。
+- 頂欄移除英文品牌／標語，狀態移入操作面板；桌面短標題與導航同列，手機只保留同列三個導航與共享全屏控制。保持按鈕≥44 CSS px、不遮擋、不橫溢。標題仍可供輔助技術讀取；不改共享樣式。
+- 變更限本活動HTML/CSS、interaction/main、既有browser owner及本計劃；物理、rubric、phase/snapshot、SCORM與manifest依賴不變。測試沿用六個Node測試及source/extracted ZIP owner，新增未放手即提示、超過2.6秒仍顯示、同手勢失效→有效清除、返回元件箱無錯誤、頂欄高度／導航與全屏可達性。
+
+- P8完成證據：六個活動Node測試、npm run check、npm run check:tests（278 entries）、文件及diff檢查通過。source與extracted ZIP的20種布局，頂欄均53 CSS px，三導航及共享全屏掣均≥44 CSS px高、不重疊、無橫溢；390×844手機截圖人工檢視通過。
+- source/package各以1280×800可信mouse及390×844可信touch驗證：零件仍按住時無效位置已有警告，保持2.8秒仍顯示，同一手勢移至空白／有效接點即時切換提示；palette拖回元件箱不改答案且放手後沒有安裝警告，已裝零件拖回仍正確取出。原位預覽／release一致、取消／blur／lost capture、原有滾動、任務、SCORM、全屏及WebGL故障恢復均通過。
+- report.json：completed=true、errors=[]；runtime SHA-256：7b2c7be1dedf0ebd1394179d1074dcd0985388eb930440c441bd9efa5fec531c；ZIP SHA-256：d24702cad2eedf7c20fa8f4119dbb6a3560827e0d79e93459fecde8887f82cf4。報告及invalid-held手機／桌面截圖在output/playwright/rocket-space-mission-lab/；ZIP為output/rocket-space-mission-lab-scorm.zip。未重跑全庫Node／browser、完整iframe矩陣；真手機及真Moodle仍未驗證。

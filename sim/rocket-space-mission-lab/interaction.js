@@ -26,7 +26,7 @@
     }
     function up(e){
       if(!active||e.pointerId!==active.id)return;const a=active;diagnostics.up++;release();
-      if(a.part){if(!a.moved){if(a.source)api.selectedInstalled(a.source);}else if(a.returning)api.transfer(a.source,null);else if(a.snap!==null){if(a.source)api.transfer(a.source,a.snap);else api.attach(a.snap);}else api.missed();}
+      if(a.part){if(!a.moved){if(a.source)api.selectedInstalled(a.source);}else if(a.returning)api.transfer(a.source,null);else if(a.snap!==null){if(a.source)api.transfer(a.source,a.snap);else api.attach(a.snap);}else{const r=d.stage.getBoundingClientRect();if(a.lastX>=r.left&&a.lastX<=r.right&&a.lastY>=r.top&&a.lastY<=r.bottom)api.missed();}}
       if(a.kind==='node'&&a.angle!==null)api.commitNode(a.angle);api.end();
     }
     function cancel(){if(active){diagnostics.cancel++;release();api.end();}}
