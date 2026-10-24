@@ -5,8 +5,8 @@
     let active=null;const diagnostics={down:0,move:0,up:0,cancel:0,trustedTouch:0};
     const release=()=>{if(!active)return;const a=active;active=null;try{a.target.releasePointerCapture(a.id);}catch(_){}d.dragPartGhost.hidden=true;d.touchPreview.hidden=true;d.returnZone.hidden=true;d.controlPanel.classList.remove('return-active');[d.slot0,d.slot1].forEach(b=>b.classList.remove('snap'));api.drag(null);};
     function down(e,kind,part){
-      if(active){cancel();return;}if(!api.allowed(kind))return;
-      let source=null;if(kind==='installed'){const r=d.stage.getBoundingClientRect();source=api.pickPart(e.clientX-r.left,e.clientY-r.top,e.pointerType==='touch');if(!source)return;part=source.part;}
+      if(active){cancel();return;}if(e.button!==0||!api.allowed(kind))return;
+      let source=null;if(kind==='installed'){const r=d.stage.getBoundingClientRect();source=api.pickPart(e.clientX-r.left,e.clientY-r.top,e.pointerType==='touch');if(source)part=source.part;else{kind='camera';if(!api.allowed(kind))return;}}
       e.preventDefault();active={id:e.pointerId,kind,part,source,target:e.currentTarget,x:e.clientX,y:e.clientY,lastX:e.clientX,lastY:e.clientY,touch:e.pointerType==='touch',moved:false,snap:null,angle:null,returning:false};e.currentTarget.setPointerCapture(e.pointerId);diagnostics.down++;if(e.isTrusted&&active.touch)diagnostics.trustedTouch++;
       if(part){api.select(part,source);const art=d.partsGrid.querySelector('[data-part="'+part+'"] .part-art');d.dragPartGhost.replaceChildren(art.cloneNode(true),document.createElement('span'));d.dragPartGhost.lastChild.textContent=api.label(part);}
     }

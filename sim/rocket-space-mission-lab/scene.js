@@ -64,7 +64,7 @@ export class RocketScene{
     this.resizeObserver=new ResizeObserver(()=>this.resize());this.resizeObserver.observe(host);this.resize();
   }
   resize(){const {width,height}=this.host.getBoundingClientRect();if(!width||!height)return;this.renderer.setSize(width,height,false);this.camera.aspect=width/height;this.camera.updateProjectionMatrix();this.draw();}
-  setView(view){this.view=view;this.yaw=view==='plane'?0:view==='orbit'?.2:.55;this.pitch=view==='plane'?0:.18;this.zoom=1;this.draw();}
+  setView(view){this.view=view;this.yaw=view==='plane'?0:view==='orbit'?.7:.55;this.pitch=view==='plane'?0:view==='orbit'?.48:.18;this.zoom=1;this.draw();}
   rotate(dx,dy){this.yaw+=dx*.008;this.pitch=Math.max(-1.15,Math.min(1.15,this.pitch+dy*.006));this.draw();}
   setData(data){this.data=data;const key=JSON.stringify([data.craft,data.flight?.separated]);if(key!==this.craftKey){if(this.rocket){this.scene.remove(this.rocket);dispose(this.rocket);}this.rocket=buildRocket(data.craft,Boolean(data.flight?.separated));this.scene.add(this.rocket);this.craftKey=key;}this.draw();}
   line(name,points,color,dashed=false){

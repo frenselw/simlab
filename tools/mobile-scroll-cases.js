@@ -172,7 +172,7 @@ function profiles(slug) {
     states.push(restored('coast',coast),restored('mission-empty',mission),restored('practice',practice),restored('planning',plan),restored('armed',armed),restored('burning',burn),restored('interrupted',M.change(burn,{type:'stop'})),restored('burn-complete',b));
     let ended=T.launched(1);M.advance(ended,1);ended=M.change(ended,{type:'stop'});M.advance(ended,30);states.push(restored('impact',ended),restored('escaped',T.escaped(1)));
     const complete=M.clone(coast);complete.records[1]=b.records[1];for(const mode of ['check','submitted','pending','committed'])states.push(restored(mode,complete,mode==='check'?['#checkButton']:['#checkButton','#submitButton'],{beforeContinue:mode==='pending'?'auditHost.__failFinal=true;':mode==='committed'?"auditHost.API.LMSFinish=()=> 'false';":''}));
-    states.push(restored('camera-mode',partial,['#orbitCamera']));return states;
+    states.push(restored('camera-surface',partial,[]));return states;
   }
   if(slug==='circuit-household-workbench'){
     const prepare="const app=window.CircuitHouseholdWorkbench;app.setPlayback({paused:true});if(document.getElementById('app').classList.contains('panel-hidden'))click('[data-circuit-id=\"panelToggle\"]');";
@@ -193,7 +193,7 @@ function profiles(slug) {
   });
 }
 function standaloneProfiles(slug){
-  if(slug==='rocket-space-mission-lab')return [{id:'initial'},click('mission-empty',['[data-tab="B"]']),click('practice',['[data-tab="B"]','#practiceButton']),click('planning',['[data-tab="B"]','#practiceButton','[data-node-at="phase"]']),click('camera-mode',['#orbitCamera']),...submit('#checkButton','#submitButton').filter(p=>p.id!=='pending')];
+  if(slug==='rocket-space-mission-lab')return [{id:'initial'},click('mission-empty',['[data-tab="B"]']),click('practice',['[data-tab="B"]','#practiceButton']),click('planning',['[data-tab="B"]','#practiceButton','[data-node-at="phase"]']),{id:'camera-surface'},...submit('#checkButton','#submitButton').filter(p=>p.id!=='pending')];
   if(slug==='centripetal-force-source-lab')return [{id:'initial'},...[0,1,2,3,4,5].map(page=>click(`case-${page}`,[`[data-page="${page}"]`])),click('check',['#checkButton']),click('submitted',['#checkButton','#submitButton'])];
   if(slug!=='circular-motion-vector-lab')return [{id:'initial'}];
   return [{id:'initial'},click('task-1',['[data-task="1"]']),click('task-2',['[data-task="2"]']),
