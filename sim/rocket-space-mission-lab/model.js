@@ -37,6 +37,8 @@
       let dt=Math.min(target-f.t,thrust(f)>0||O.elements(f.state).height<120000?.1:2);
       if(s.phase==='armed')dt=Math.min(dt,Math.max(0,s.node.fireAt-f.t));
       if(s.phase==='burning'){
+        // Automatic node burns point along the chosen direction, including resumed active burns.
+        f.attitude=O.wrap(targetAttitude(f));
         const engine=P.ENGINES[f.craft.stages[f.active].engine],remaining=s.burn.targetDv-s.burn.achievedDv,F=thrust(f);
         if(F>0)dt=Math.min(dt,P.mass(f)*(1-Math.exp(-remaining/(engine.isp*P.G0)))/(F/(engine.isp*P.G0)));
         if(dt<1e-9||F===0){f.controls.lit=false;s.burn.status=remaining<.001?'completed':'interrupted';s.phase='coast';s.node=null;continue;}
@@ -87,6 +89,12 @@
     }
     return n;
   }
-  function preview(s){if(s.phase!=='planning'||!s.node)return null;const q=change(s,{type:'execute'});if(q.phase!=='armed')return null;let steps=0;while(['armed','burning'].includes(q.phase)&&steps<200000){advance(q,10);steps+=100;}return {state:q.flight.state,orbit:O.elements(q.flight.state),fuel:q.flight.fuel,elapsed:q.flight.t-s.flight.t,achievedDv:q.burn?.achievedDv||0};}
+  function preview(s){
+    if(s.phase!=='planning'||!s.node)return null;const q=change(s,{type:'execute'});if(q.phase!=='armed'||q.node.fireAt>=604800)return null;
+    q.burn=null;let budget=200000;
+    while(['armed','burning'].includes(q.phase)&&budget>0){const result=advance(q,Math.max(10,(q.node?.fireAt||q.flight.t)-q.flight.t),budget);budget-=result.steps;if(result.elapsed<=0)return null;}
+    if(!q.burn||['armed','burning'].includes(q.phase))return null;
+    return {state:q.flight.state,orbit:O.elements(q.flight.state),fuel:q.flight.fuel,elapsed:q.flight.t-s.flight.t,achievedDv:q.burn.achievedDv};
+  }
   return Object.freeze({ACTIVITY:P.ACTIVITY,PHASES,clone,fresh,flight,atmosphere,targetAttitude,thrust,derivative,rk4,step,advance,change,preview});
 });

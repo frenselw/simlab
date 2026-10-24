@@ -36,3 +36,7 @@ for(let variant=0;variant<3;variant++){
  s=M.change(round(s),{type:'part',stage:0,part:'engine',value:0});s=M.change(s,{type:'part',stage:0,part:'large',value:1});s=M.change(round(s),{type:'launch'});s=M.change(round(s),{type:'ignite'});M.advance(s,.1);assert.deepEqual(round(s),s);s=M.change(round(s),{type:'separate'});s=M.change(round(s),{type:'ignite'});const t=s.flight.t;M.advance(s,.1);assert(s.flight.t>t&&s.flight.active===1);assert.deepEqual(round(s),s);
 }
 console.log('rocket separator persistence: all variants, unfinished lower, removal, launch and separated upper legal continuations');
+
+
+const legacy=T.legacyRetroBurn(),resumed=round(legacy),legacyEnergy=O.elements(legacy.flight.state).energy;assert.deepEqual(resumed,legacy);M.advance(resumed,.1);assert(O.elements(resumed.flight.state).energy<legacyEnergy,'A saved P18 active retrograde burn must align before continuing');assert.deepEqual(round(resumed),resumed);const finished=T.execute(round(resumed));assert.equal(finished.burn.status,'completed');assert(Math.abs(finished.burn.achievedDv-65)<1e-5);assert.deepEqual(round(finished),finished);
+console.log('rocket audit persistence: P18 active retrograde snapshot resumes in the intended direction without changing schema');

@@ -772,3 +772,16 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 - P18效能界限：整體global view減少球面幾何與高空層數，手機四視角中位接近一個refresh間隔；桌面軟件GPU發射台仍較重，不能聲稱所有視角都較原版快或保證真手機30fps。無陰影／後處理／遠端資產，新地球兩張影像合計439294 bytes，ZIP 679881 bytes；記錄實際數據而不作實機驗收。本次未重跑獨立iframe scroll矩陣或全庫Node／browser；真手機5秒／30fps與真Moodle仍待實際環境驗證。
 - P18最終runtime SHA-256：f86e10fe0bffd9a2a61ae30c51c7fcd6de222d85acc3d0bd1ddfbeee9b4dcad9；ZIP SHA-256：582f9ad8033f1ee03e4f8280b6c6255f9880183c6e373c1720fb3bf8fe87ee61。報告／截圖：output/playwright/rocket-space-mission-lab/；ZIP：output/rocket-space-mission-lab-scorm.zip。桌面／手機零件近照、八箱整箭、清空發射區、升空／海岸、全球地球／雲層截圖已檢視。地球自轉只屬renderer，既有非自轉地面物理／評分與schema1不變。
 - P18已commit／push：8210d290e901fc4b7bf5e7320b27501e08b2b57d；提交選擇預覽output/rocket/selection-p18.log，mode=affected。沿用使用者持續發布授權，Sites來源d4c03aa8cb21c3ba20f131a9cbd6cae9ecc79a74、deployment appgdep_6adcf48e8e70819186d912118f9caf2f，native結果succeeded。維持https://simlab-rocket-space-missions.ieyp.chatgpt.site及owner-private；未等待CI。
+
+
+### P19：兩個獨立代理審核及初版除錯
+
+- 使用者明確要求兩個subagents審核初版、匯總報告並跟進減少bug。審核基線3fc12d9（P18 runtime8210d29），代理audit_interaction_state負責互動／模型／持久化／提交，audit_scene_performance負責3D／鏡頭／資源／行動版效能；兩者只讀，root統一驗證及修正。報告：[初版審核及跟進](../docs/rocket-space-mission-lab-audit-2026-10-25.md)。負載為單一學生在本機或Moodle iframe使用。
+- 確認四項：P1短逆向節點因12°/s未轉身就燒完而反向加速；P2長等待preview固定20000s截斷並回傳上一次burn；P2低高度遠離發射場時地球底圖與當地地形同時缺席；P2 live resize沿用桌面DPR2，超過手機1.5上限。先保留會失敗的重現，再修根因。手動A轉向限速不變，B自動燃燒每步先對準選定速度方向，亦涵蓋已儲存active burn續做；已保留／提交records不重算。
+- preview隔離舊burn、依實際積分step budget推進至新燃燒終態；時間／計算上限或無進展時不冒充有效結果，UI明確表示未能完成預估。renderer在發射場附近且地形足以覆蓋時才省略全球底圖，遠離後保留地球；resize根據當前viewport重新套DPR上限。無新套件、runtime資產、snapshot欄位、schema、rubric或共享SCORM改動。
+- 沿用既有assessment風險、rubric、phase／variant及權威snapshot契約。新Node覆蓋三載荷短逆向／錯向順行、自動active burn codec續做、A手動限速、長等待第二次燃燒preview與actual一致、模型邊界返回不可預估。既有registered browser owner加入合法降軌跨地心角跟隨、全viewport無reload DPR切換、UI預覽／自動方向／resume；完整source／ZIP、六個Node、check／check:tests、文件／diff及committed selection-preview。T0–T3手勢未改，獨立scroll矩陣不重跑；真手機及真Moodle另驗。
+
+- P19場景覆核追加：R4亦涵蓋CSS尺寸不變時的DPR-only變化，resolution media query在CDP實測值已更新但change未觸發，改用既有RAF每幀比較一個已快取DPR數值，只有DPR變更才resize，不讀取每幀DOM尺寸。另確認R5：follow地球不寫depth以保留發射場地形，透明星點因此穿過球面；星點shader以同一球面做遮蔽，保留原漸現、地形depth及draw call數，補GPU pixel比較及shader runnable測試。R3用離發射點600km的保守margin（詳細地形半徑1280km）恢復全球底圖，留住近發射區效能；代理已驗五組視角無遠地形穿透。
+
+- P19完成證據：兩代理覆核均關閉原finding及追加R5，共1項P1／4項P2已修，詳見審核報告。六個Node全綠；逆向短燃燒及P18 active burn續做新增測試先在修前失敗。最終registered owner source／ZIP共94 flows、20 layouts，completed=true、errors=[]；原互動／自然分級／向量／SCORM／故障回歸全部通過。新增GPU星點球面內像素一致、合法遠距低空地球、DPR3→1→2.5與手機切換、長等待第二次燃燒preview、舊active burn codec及reload等皆有實際執行證據。獨立代理驗DPR變更下paused不動／playing續飛，及context restore shader正常。
+- P19檢查：npm run check、check:tests（278 entries）、文件及diff檢查通過；runtime SHA-256 b4fa613a935560a1e3840f4ff74eddb62505b7764caece30dc4b76274700732a，ZIP SHA-256 ab621f5cb5d857116837ab0251c0943b9e47811e0454dd8113d4fc2533678e76，大小680689 bytes。正式report與*-audit-*截圖在output/playwright/rocket-space-mission-lab/，獨立audit-scene-*證據在output/。無新schema／rubric／runtime依賴，已提交records不重算。真手機／真Moodle／獨立T1–T3矩陣未在本輪驗證。
