@@ -1,6 +1,6 @@
 # 火箭工廠與太空任務：3D SCORM 實施計劃
 
-狀態：**P0，待使用者審查，尚未開始程式實作。** 日期：2026-10-24。
+狀態：**使用者已批准實作；P1–P3 功能已接通，P4 驗證中，P5 待實際環境驗收。** 日期：2026-10-24。
 本文件從 [新活動計劃模板](NEW-SIMULATION-PLAN-TEMPLATE.md) 複製並填寫；遵循 [共同產品與風格](00-shared-platform-and-style.md) 及 [製作與驗證契約](../docs/simulation-scorm-production-guide.md)。下列數值、配分和效能預算是具體設計決定／待驗證目標，不能當成已通過的證據。
 
 ## 已確認需求與本輪範圍
@@ -8,7 +8,7 @@
 - 本 worktree 專門開發「火箭工廠與太空任務」，採真正 3D 場景，風格可愛、易上手，保留合理的發射與軌道物理。
 - 借鑑 Kerbal Space Program 的組裝、試飛、失敗後修改、入軌及變軌循環；美術和介面自行製作。
 - 學生要親手砌火箭、控制發射、嘗試入軌，並在軌道上改變速度。探索與任務成果是主體，公式與填答是輔助。
-- 使用者授權本輪建立專用分支和詳細計劃，**審查本計劃後才開始 runtime、測試程式、manifest、catalogue 和網站實作**。
+- 使用者已審查本計劃並明確指示立即開發，授權 runtime、測試、manifest、catalogue 和網站實作。
 - 延續既有要求：標題不帶教材章號；繁體中文；數學符號採 LaTeX 樣式；讀數固定位置；不用重設／空白提交彈窗；手機舞台和控制 panel 均須可用。
 - 教材參照：先前已讀的高中物理必修第二冊，第七章印刷頁 59–64。原 PDF 只作參考，不打包。
 - 卡文迪許實驗及天體質量活動不在本活動範圍。
@@ -538,4 +538,22 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 - 現有 [重心3D renderer](../sim/centre-of-mass-investigation-lab/part3-renderer.js) 與 [其manifest](../sim/manifests/centre-of-mass-investigation-lab.xml)：確認本地Three版本／資源打包模式；不把舊活動手機證據套用到本活動。
 - P0文件檢查（2026-10-24）：node tools/check-docs.js plans/40-rocket-space-mission-lab.md 通過；模板全部14個二級章節齊全；Markdown表格欄數一致。提交前另以git diff --cached --check檢查實際新文件差異。
 - P0只提交本計劃至codex/rocket-space-mission-lab；commit SHA及push結果以Git紀錄和本輪交付回覆為準，不在文件內預先宣稱遠端成功。
-- P1–P5程式、物理積分、瀏覽器、Sites、真機與Moodle：**尚未執行**。本計劃只有解析預算，沒有假稱試飛成功。
+- 上述為P0設計紀錄；實作證據及與初始規劃的差異如下，不將預算當成已通過結果。
+
+## 實作紀錄與驗證證據
+
+### P1–P3：模型與可操作版本（2026-10-24）
+
+- 已完成本地Three.js 3D工廠、跟隨／地球／正視鏡頭、點選與拖放組裝、發射／油門／俯仰／分級、任務B節點與有限推力預覽及執行、任務紀錄及共用SCORM流程。
+- 已執行六個活動Node測試：model、orbit、scoring、persistence、interaction、lifecycle均通過。三載荷均由真實推進、阻力及重力積分入軌，三目標均由兩次有限燃燒達到40分；合併A/B成果為100分，未操作／練習初態為0分。
+- 第二種設計亦已驗證：下級3大箱／大推力引擎，上級1大箱／高效率引擎，150 kg載荷，約202–217 km軌道且剩餘推進劑；與4大箱方案採不同轉向控制序列。
+- 真空10圈能量／角動量漂移、火箭方程、分級、低推重比台面支承、撞地與逃逸邊界已測。逃逸fixture由兩次實際2000 m/s推進產生，並在100,000 km範圍邊界停止。
+- 草稿／review採固定tuple codec，保留原始double精度、恢復固定平面零分量；包含最大草稿、active burn、兩份成果及轉義pending的容量測試通過。tuple欄位由persistence.js固定，與上方語義schema對應。
+- 續做會暫停；已確認節點保存fireAt，燃燒保存active／completed／interrupted；pending另保存不可變canonical比較字串，防止同分但不同答案的重試。
+- 任務B的可操作安全界線為近地點≥150 km、遠地點≤20,000 km，與A評分界線分開，容許1000 km目標附近的有限燃燒誤差及探索；超出總範圍的束縛軌道只暫停，不錯稱逃逸。
+- 此版提供本頁600點最近實際路徑，未加入時間軸回放控制；Moodle保留權威飛行快照。
+- npm ci --no-audit --no-fund使用既有lockfile，未新增／升級依賴。三維vendor與既有來源hash相同。
+- npm run check:tests：278 entries（240 Node、38 browser、48 helpers、2 manual）；npm run check通過。
+- 第一輪source／extracted ZIP browser已通過20個桌面／手機布局、可信零件／節點拖動、操作、提交、續做、pending／finish retry、standalone刷新、全屏與真WebGL context loss／restore。後續改動須以P4最終報告runtimeHash重新核對。
+- 真手機效能、校內網路首載與真Moodle尚未執行，不能稱Moodle-ready。
+- Sites已建立獨立private項目appgprj_6adc62579ab88191aba299bcb282ce95；身份亦即時保存在本地專用Sites checkout的.openai/hosting.json，避免重建同一站點。發布結果待P4補記。

@@ -71,6 +71,7 @@ The two assessed DC activities below already use this shared foundation. Assesse
 
 | Activity | Main task |
 |---|---|
+| [Rocket Factory and Space Missions](sim/rocket-space-mission-lab/index.html) — 火箭工廠與太空任務 | Assemble a 3D rocket, control launch and staging, reach orbit, and plan finite-thrust orbital manoeuvres; [implementation and readiness plan](plans/40-rocket-space-mission-lab.md) |
 | [Distance and Displacement Map Journey](sim/displacement-distance-map-journey/index.html) — 路程、位移與總位移地圖任務 | Move around a map, measure distance and draw segment and total displacements |
 | [Inertial Reference Frames: Road Observers](sim/inertial-reference-frame-road-observer/index.html) — 慣性參考系：公路觀察任務 | Switch viewpoints and use relative motion to identify reference frames |
 | [Position–Time Graph Motion Lab](sim/position-time-graph-motion-lab/index.html) — 位置—時間圖運動實驗室 | Set up motion, then observe, draw and measure position–time graphs |

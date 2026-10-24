@@ -5,6 +5,13 @@ const {groups:dcGroups}=require('./circuit-test-groups');
 const root=path.resolve(__dirname,'..');
 
 const registeredTests = [
+  'sim/rocket-space-mission-lab/model.test.js',
+  'sim/rocket-space-mission-lab/orbit.test.js',
+  'sim/rocket-space-mission-lab/scoring.test.js',
+  'sim/rocket-space-mission-lab/persistence.test.js',
+  'sim/rocket-space-mission-lab/interaction.test.js',
+  'sim/rocket-space-mission-lab/lifecycle.test.js',
+  {file:'tools/rocket-space-mission-browser-regression.js',kind:'browser',scope:'rocket-space-mission-lab'},
   'sim/centripetal-force-investigation-lab/model.test.js',
   'sim/centripetal-force-investigation-lab/scoring.test.js',
   'sim/centripetal-force-investigation-lab/persistence.test.js',

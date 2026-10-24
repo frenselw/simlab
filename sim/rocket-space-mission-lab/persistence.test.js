@@ -1,0 +1,18 @@
+'use strict';
+const assert=require('node:assert/strict'),P=require('./parts'),M=require('./model'),O=require('./orbit'),D=require('./persistence'),S=require('./scoring'),T=require('./test-support');
+const round=s=>D.decode(T.snapshot(s),'draft');
+for(let variant=0;variant<3;variant++){
+ let blank=M.fresh(()=>variant/3+.01);assert.deepEqual(round(blank),blank);assert.equal(M.change(round(blank),{type:'stages',count:2}).craft.stages.length,2);
+ let partial=M.change(blank,{type:'part',stage:0,part:'engine',value:0});assert.deepEqual(round(partial),partial);assert.equal(M.change(round(partial),{type:'part',stage:0,part:'small',value:1}).craft.stages[0].small,1);
+ let ascent=T.launched(variant),pad=M.change(ascent,{type:'stop'});pad.phase='pad';assert.deepEqual(round(pad),pad);assert(M.change(round(pad),{type:'ignite'}).flight.controls.lit);
+ M.advance(ascent,20);assert.deepEqual(round(ascent),ascent);let next=round(ascent);M.advance(next,1);assert(next.flight.t>ascent.flight.t);
+ let separated=M.change(ascent,{type:'separate'});assert.deepEqual(round(separated),separated);assert(M.change(round(separated),{type:'ignite'}).flight.controls.lit);
+ let a=T.reachOrbit(variant),b=T.raised(variant);b.records[0]=a.records[0];assert.deepEqual(round(b),b);const checked=M.change(b,{type:'check'});assert.deepEqual(round(checked),checked);assert.equal(M.change(round(checked),{type:'return'}).phase,'coast');assert.equal(S.score(checked).score,100);
+ const review=T.snapshot(checked,'review',S.score(checked));assert.deepEqual(D.decode(review,'review').records,b.records);const pending={version:1,activity:P.ACTIVITY,kind:'pending-final',payload:{reviewJson:JSON.stringify(review),score:100,maxScore:100,passed:true}};assert(D.bytes(pending)<=4000);assert(D.bytes(review)<2200);
+ const mission=M.change(a,{type:'mission'});assert.deepEqual(round(mission),mission);assert.equal(M.change(round(mission),{type:'practice'}).phase,'coast');let plan=M.change(M.change(mission,{type:'practice'}),{type:'node',at:'phase',angle:0,dv:200});assert.deepEqual(round(plan),plan);let armed=M.change(plan,{type:'execute'});assert.deepEqual(round(armed),armed);let burn=round(armed);M.advance(burn,.1);assert.equal(burn.phase,'burning');assert.deepEqual(round(burn),burn);const resumed=round(burn),fuel=resumed.flight.fuel[0];M.advance(resumed,.1);assert(resumed.flight.fuel[0]<fuel);assert.deepEqual(round(M.change(burn,{type:'check'})),M.change(burn,{type:'check'}));
+ const escape=T.escaped(variant);assert.deepEqual(round(escape),escape);assert.equal(M.change(round(escape),{type:'mission'}).phase,'mission');
+ burn.records=b.records;assert(D.bytes(T.snapshot(burn))<3200);const interruption=M.change(burn,{type:'stop'});assert.equal(round(interruption).burn.status,'interrupted');assert.equal(M.change(round(interruption),{type:'node',dv:10}).phase,'planning');
+}
+let impact=T.launched(1);M.advance(impact,1);impact=M.change(impact,{type:'stop'});M.advance(impact,30);assert.equal(impact.phase,'ended');assert.deepEqual(round(impact),impact);assert.equal(M.change(round(impact),{type:'workshop'}).phase,'workshop');
+const good=T.snapshot(T.raised(1));for(const mutate of [s=>s.answer[0]=2,s=>s.answer[1]=2,s=>s.answer[2]=4,s=>s.answer[7][4][0]=-1,s=>s.answer[7][3][0]=0,s=>s.answer[10][1][10]=3000,s=>s.answer[7][5]=1,s=>s.answer[7][8][3]='true']){const bad=P.clone(good);mutate(bad);assert.throws(()=>D.decode(bad,'draft'));}assert.throws(()=>D.decode({...good,answer:[...good.answer,0]},'draft'));
+console.log('rocket persistence: all variants, blank/partial, live flight, staging, nodes, burn/check/impact, continuations, canonical review and pending capacity passed');

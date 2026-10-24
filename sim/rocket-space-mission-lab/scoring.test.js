@@ -1,0 +1,7 @@
+'use strict';
+const assert=require('node:assert/strict'),P=require('./parts'),M=require('./model'),O=require('./orbit'),S=require('./scoring'),D=require('./persistence'),T=require('./test-support');
+assert.equal(S.score(M.fresh()).score,0);assert.equal(S.score(M.change(M.fresh(),{type:'practice'})).score,0);
+for(let i=0;i<3;i++){const a=T.reachOrbit(i),b=T.raised(i);assert.equal(S.score(a).score,60);assert.equal(S.score(b).score,40);a.records[1]=b.records[1];assert.equal(S.score(a).score,100);assert.equal(S.score(D.decode(T.snapshot(a),'draft')).score,100);}
+let s=T.reachOrbit(1);s.records[0].state=O.circular(99998);assert.equal(S.score(s).detail[1].earned,0);s.records[0].state=O.circular(100000);assert.equal(S.score(s).detail[1].earned,10);s.records[0].state=O.circular(149998);assert.equal(S.score(s).detail[2].earned,0);s.records[0].state=O.circular(150000);assert.equal(S.score(s).detail[2].earned,20);s.records[0].state=O.circular(400002);assert.equal(S.score(s).detail[3].earned,0);s.records[0].state=O.circular(400000);assert.equal(S.score(s).detail[3].earned,20);
+s=T.raised(1);s.records[1].after=O.circular(719998);assert.equal(S.score(s).score,0);s.records[1].after=O.circular(720000);assert.equal(S.score(s).score,40);s.records[1].after=O.circular(880002);assert.equal(S.score(s).score,0);
+console.log('rocket scoring: untouched/practice zero, independent A/B credit, all variants and exact height tolerance boundaries passed');

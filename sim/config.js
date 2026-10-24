@@ -1,4 +1,5 @@
 const simulationList = [
+  {title:'火箭工廠與太空任務',folder:'rocket-space-mission-lab',categories:['Mechanics'],description:'組裝立體火箭，控制發射與分級，把衛星送入軌道，再親手規劃變軌任務。',tags:['physics','mechanics','gravity','rocket','orbital-motion','3d','scorm'],status:'planned'},
   {title:'向心力探究：操作轉盤與同步量測',folder:'centripetal-force-investigation-lab',categories:['Mechanics'],description:'親手推動旋轉平台，調整兩側質量與半徑，由同步測力讀數及擬合探究向心力關係。',tags:['physics','mechanics','centripetal-force','fair-test','measurement','curve-fitting','scorm'],status:'planned'},
   {title:'誰提供向心力：受力分析與圓心方向',folder:'centripetal-force-source-lab',categories:['Mechanics'],description:'在六個圓周運動情境中畫出實際作用力，辨認圓心方向並建立向心力關係。',tags:['physics','mechanics','centripetal-force','free-body-diagram','circular-motion','scorm'],status:'active'},
   {title:'圓周運動：由位移到速度與加速度方向',folder:'circular-motion-vector-lab',categories:['Mechanics'],description:'縮短兩個時刻的間隔，觀察位移方向、建構速度變化量，判斷瞬時速度與向心加速度方向。',tags:['physics','mechanics','circular-motion','displacement','velocity-change','centripetal-acceleration','vectors','scorm'],status:'active'},

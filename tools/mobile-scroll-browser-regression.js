@@ -36,7 +36,7 @@ if(args.nested)report.host='same-origin scrollable outer page; bounded non-scrol
 report.topology=topology;
 if (!catalogue.length || (selected && [...selected].some(slug => !catalogue.some(s => s.folder === slug)))) throw new Error('Missing activity coverage');
 function selectedProfiles(slug) {
-  if(mode==='standalone'&&args.phases==='all'&&['circular-motion-vector-lab','centripetal-force-source-lab'].includes(slug))return A.standaloneProfiles(slug);
+  if(mode==='standalone'&&args.phases==='all'&&['circular-motion-vector-lab','centripetal-force-source-lab','rocket-space-mission-lab'].includes(slug))return A.standaloneProfiles(slug);
   if(slug==='circuit-household-workbench'){const profiles=A.profiles(slug);return args.phases==='all'?profiles:profiles.filter(p=>p.id==='initial');}
   return args.phases==='all' ? A.profiles(slug) : slug==='centre-of-mass-investigation-lab' ? String(args.parts||'1,2,3').split(',').map(part=>({id:'part-'+part,part:Number(part)})) : [{id:'initial'}];
 }
@@ -83,7 +83,7 @@ async function observation() {
     const rect=e=>{if(!e)return null;const r=e.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height};};
     const vv=w=>w.visualViewport?Object.fromEntries(['pageTop','pageLeft','offsetTop','offsetLeft','width','height','scale'].map(k=>[k,w.visualViewport[k]])):null;
     const scrollers=[...document.querySelectorAll('*')].filter(e=>{const c=window.getComputedStyle(e);return /auto|scroll/.test(c.overflowY)&&e.scrollHeight>e.clientHeight+1;}).map(e=>({id:e.id,class:e.className?.baseVal||e.className,top:e.scrollTop,range:e.scrollHeight-e.clientHeight,height:e.clientHeight}));
-    const hooks=['__centripetalSourceApp','__forceCompositionApp','__forceOrthogonalApp','__equilibriumApp','__advancedEquilibriumApp','__reactionApp','__newtonApp','__kinematicsGraphDebug','__centreMassDebug','__hookesLawApp','__staticKineticFrictionApp','__motionComposition','__projectileApp','__circularVectorApp'];
+    const hooks=['__centripetalSourceApp','__forceCompositionApp','__forceOrthogonalApp','__equilibriumApp','__advancedEquilibriumApp','__reactionApp','__newtonApp','__kinematicsGraphDebug','__centreMassDebug','__hookesLawApp','__staticKineticFrictionApp','__motionComposition','__projectileApp','__circularVectorApp','__rocketApp'];
     const state={};for(const name of hooks){const app=window[name];if(app?.getState)state[name]=app.getState();}
     if(window.CircuitHouseholdWorkbench)state.household=window.CircuitHouseholdWorkbench.captureSession();
     if(window.__freeFallDebug?.state)state.freeFall=window.__freeFallDebug.state();

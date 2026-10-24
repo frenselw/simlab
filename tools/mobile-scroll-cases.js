@@ -163,6 +163,17 @@ function activityProfiles(slug) {
   return [initial];
 }
 function profiles(slug) {
+  if(slug==='rocket-space-mission-lab'){
+    const M=require('../sim/rocket-space-mission-lab/model'),P=require('../sim/rocket-space-mission-lab/persistence'),T=require('../sim/rocket-space-mission-lab/test-support');
+    const restored=(id,s,continuation=['#checkButton','#backButton'],extra={})=>({id,prepare:`return restore('${slug}',${JSON.stringify(P.draft(s))});`,continue:continuation,settleMs:250,expectReady:'Boolean(window.__rocketApp?.getScene())',...extra});
+    const states=[{id:'initial'}],blank=M.fresh(()=>.5),partial=M.change(blank,{type:'part',stage:0,part:'engine',value:0}),launch=T.launched(1),pad=M.change(launch,{type:'stop'});pad.phase='pad';
+    states.push(restored('partial-workshop',partial),restored('pad',pad));M.advance(launch,20);states.push(restored('ascent',launch));const separated=M.change(launch,{type:'separate'});states.push(restored('separated',separated));
+    const coast=T.reachOrbit(1),b=T.raised(1),mission=M.change(coast,{type:'mission'}),practice=M.change(mission,{type:'practice'}),plan=M.change(practice,{type:'node',at:'phase',angle:0,dv:150}),armed=M.change(plan,{type:'execute'}),burn=M.clone(armed);M.advance(burn,.1);
+    states.push(restored('coast',coast),restored('mission-empty',mission),restored('practice',practice),restored('planning',plan),restored('armed',armed),restored('burning',burn),restored('interrupted',M.change(burn,{type:'stop'})),restored('burn-complete',b));
+    let ended=T.launched(1);M.advance(ended,1);ended=M.change(ended,{type:'stop'});M.advance(ended,30);states.push(restored('impact',ended),restored('escaped',T.escaped(1)));
+    const complete=M.clone(coast);complete.records[1]=b.records[1];for(const mode of ['check','submitted','pending','committed'])states.push(restored(mode,complete,mode==='check'?['#checkButton']:['#checkButton','#submitButton'],{beforeContinue:mode==='pending'?'auditHost.__failFinal=true;':mode==='committed'?"auditHost.API.LMSFinish=()=> 'false';":''}));
+    states.push(restored('camera-mode',partial,['#orbitCamera']));return states;
+  }
   if(slug==='circuit-household-workbench'){
     const prepare="const app=window.CircuitHouseholdWorkbench;app.setPlayback({paused:true});if(document.getElementById('app').classList.contains('panel-hidden'))click('[data-circuit-id=\"panelToggle\"]');";
     return [
@@ -182,6 +193,7 @@ function profiles(slug) {
   });
 }
 function standaloneProfiles(slug){
+  if(slug==='rocket-space-mission-lab')return [{id:'initial'},click('mission-empty',['[data-tab="B"]']),click('practice',['[data-tab="B"]','#practiceButton']),click('planning',['[data-tab="B"]','#practiceButton','[data-node-at="phase"]']),click('camera-mode',['#orbitCamera']),...submit('#checkButton','#submitButton').filter(p=>p.id!=='pending')];
   if(slug==='centripetal-force-source-lab')return [{id:'initial'},...[0,1,2,3,4,5].map(page=>click(`case-${page}`,[`[data-page="${page}"]`])),click('check',['#checkButton']),click('submitted',['#checkButton','#submitButton'])];
   if(slug!=='circular-motion-vector-lab')return [{id:'initial'}];
   return [{id:'initial'},click('task-1',['[data-task="1"]']),click('task-2',['[data-task="2"]']),
