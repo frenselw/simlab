@@ -648,3 +648,14 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 - 四組source/package可信mouse／touch流程證明：待發射只有明示點火、運行時開關／拖動相機仍繼續計時、原本暫停時開關相機不啟動、關機後滑行／分級繼續、暫停與繼續按鈕及狀態文字一致。原手柄／接縫插入／即時警告、任務／SCORM／續做／全屏／WebGL故障恢復仍通過。觸控測試等待實際pointer事件／回饋處理完成，不以固定20ms幀時限判失敗。
 - report.json：completed=true、errors=[]；runtime SHA-256：baf97c1bce712e33b984daf89f72e652ce1eea06860c8b274df12157aee5f506；ZIP SHA-256：bd11c9113dd19f071b255b0770be7012ebecbfe4f03ee4587a859b62859d1b54。報告及clear-launch-pad／flight-controls／ascent截圖在output/playwright/rocket-space-mission-lab/，ZIP為output/rocket-space-mission-lab-scorm.zip。未重跑全庫Node／browser或完整iframe矩陣；真手機／Moodle與校內效能未驗證。
 - P10已commit／push：9063559d77bec20cd066093782158f69ecf52d70；提交選擇預覽output/rocket/selection-p10.log。沿用使用者明確持續發布授權，Sites來源6ff0bb7d48cc7913e7b681ef3c142d1e1e7df21d、deployment appgdep_6adcb380f5188191a206e58b17929e91，native結果succeeded。維持https://simlab-rocket-space-missions.ieyp.chatgpt.site及owner-private；未等待CI。
+
+
+### P11：直接操作火箭與可見頁面的相機失焦（2026-10-24）
+
+- 使用者要求刪除重複的各級引擎選單／數量控制，以及無清楚作用的「＋上級／下級」。保留元件卡加入／手柄拖放、火箭實際零件點選／搬移，只有空級顯示與模型空位重合的「拖入零件」入口；已裝級直接按零件決定裝配級。點選零件才出現取出／上移／下移工具，鍵盤可從火箭本身逐件選取並操作，不再列兩份完整編輯器。
+- 失焦只清理暫存手勢／預覽；真正document.hidden才暫停飛行且不自動恢復。原window.blur無條件pause是可見的手機／iframe操作仍可能停飛的路徑；不聲稱已重現使用者實機。規劃、提交、技術故障等既有暫停及鎖定仍保留。
+- 範圍：本活動HTML/CSS/main及既有browser owner；不改物理、評分、snapshot schema、manifest或依賴。沿用原有低風險教學評分及所有階段／變體往返契約。測試更新所有舊選單caller、直接點零件／鍵盤取出重排、空級可達、容量拒絕，並加入相機可信touch期間失焦取消但時間繼續／背景事件暫停且不自動恢復的回歸；source與extracted ZIP同跑。真手機／Moodle仍需獨立驗收。
+
+- P11完成證據：六個活動Node測試、npm run check、npm run check:tests（278 entries）、文件／diff檢查通過。source及extracted ZIP共20布局；1280×800 mouse、390×844與320×568 touch加入／點選取出、鍵盤裝配與移除最後零件後焦點返回空級均通過。兩級已裝零件直接點選、精確接縫插入／重排／跨級搬移、滿箱拒絕及鍵盤選取後調位通過；舊選單及常駐「＋上級／下級」均不存在。桌面及390px零件工具截圖已檢視，工具位於火箭旁、不遮火箭，且按鈕位於舞台內。
+- source／ZIP各於1280×800及390×844在運行中可信touch轉鏡頭，再注入可見window.blur：取消手勢但running／飛行時間繼續；注入document.hidden／visibilitychange則暫停，恢復可見／focus亦不自動恢復。失焦來源以事件回歸覆蓋，並非使用者實機重現。原待發射／明示暫停繼續／關機滑行／分級、SCORM保存／提交重試／review恢復／全屏／WebGL故障回歸亦通過。已提交review無craft欄位，空級提示必須安全隱藏，不可影響確認成績。
+- report.json：completed=true、errors=[]；runtime SHA-256：79ecf036a78aefa3e5897d7c32663c3440cb84c0589026bd107c9ba9e5af29cf；ZIP SHA-256：4f045f2c86da9cd96dcbbee36ef276b8d3325d297f162ca577910c8288a99e18。報告及part-tools／onboarding／flight-controls截圖：output/playwright/rocket-space-mission-lab/；ZIP：output/rocket-space-mission-lab-scorm.zip。未重跑全庫Node／browser或完整iframe矩陣；真手機／Moodle與校內效能仍未驗證。
