@@ -87,6 +87,8 @@ The two assessed DC activities below already use this shared foundation. Assesse
 | [Circular Motion: Velocity and Acceleration Directions](sim/circular-motion-vector-lab/index.html) — 圓周運動：由位移到速度與加速度方向 | Shorten the time interval, compare displacement directions and construct velocity changes to infer instantaneous directions |
 | [Centripetal Force Investigation](sim/centripetal-force-investigation-lab/index.html) — 向心力探究：操作轉盤與同步量測 | Push a turntable, compare synchronous radial force readings and fit the observed relationships |
 
+Rocket Factory uses locally packaged Three.js and requires WebGL 2. Learners assemble up to two stages, control throttle/pitch/staging, and plan finite-thrust orbital manoeuvres. The 3D view has a fixed flight plane and attitude assistance. Mission B can use a practice spacecraft independently of Mission A. Standalone refresh starts fresh; Moodle resumes the same attempt paused. See the [activity plan and actual readiness evidence](plans/40-rocket-space-mission-lab.md) for model limits, scoring and acceptance status.
+
 #### Forces and investigations
 
 | Activity | Main task |

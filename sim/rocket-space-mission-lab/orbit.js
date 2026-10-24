@@ -13,7 +13,7 @@
   function timeToAngle(q,angle){
     const o=elements(q);if(!o.bound||Math.abs(o.momentum)<1)return null;
     const meanAt=a=>{const nu=wrap(a-o.peri),E=2*Math.atan2(Math.sqrt(1-o.e)*Math.sin(nu/2),Math.sqrt(1+o.e)*Math.cos(nu/2));return wrap(E-o.e*Math.sin(E));};
-    const delta=wrap(Math.sign(o.momentum)*(meanAt(angle)-meanAt(Math.atan2(q[1],q[0]))));return delta/TAU*o.period;
+    const raw=wrap(Math.sign(o.momentum)*(meanAt(angle)-meanAt(Math.atan2(q[1],q[0])))),delta=raw<1e-10||TAU-raw<1e-10?0:raw;return delta/TAU*o.period;
   }
   function node(q,at,angle){const o=elements(q);if(!operable(q))return null;const a=o.e<.002?angle:at==='periapsis'?o.peri:at==='apoapsis'?o.peri+Math.PI:angle;return {angle:wrap(a),delay:timeToAngle(q,a)};}
   function circular(height){const r=P.R+height;return [r,0,0,0,Math.sqrt(P.MU/r),0];}
