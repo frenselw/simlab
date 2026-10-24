@@ -51,13 +51,19 @@
   function change(s,action){
     const n=clone(s),f=n.flight;if(n.phase==='check'&&action.type!=='return')return n;
     switch(action.type){
-      case 'part':{if(n.phase!=='workshop')break;const st=n.craft.stages[action.stage];if(!st)break;if(action.part==='engine')st.engine=action.value;else if(['small','large'].includes(action.part)&&Number.isInteger(action.value)&&action.value>=0&&action.value<=4&&action.value+st[action.part==='small'?'large':'small']<=4)st[action.part]=action.value;break;}
+      case 'part':{if(n.phase!=='workshop')break;const st=n.craft.stages[action.stage];if(!st)break;if(action.part==='engine')st.engine=action.value;else if(['small','large'].includes(action.part)&&Number.isInteger(action.value)&&action.value>=0&&action.value<=4&&action.value+st[action.part==='small'?'large':'small']<=4){const list=P.tanks(st);while(list.filter(k=>k===action.part).length>action.value)list.splice(list.lastIndexOf(action.part),1);while(list.filter(k=>k===action.part).length<action.value)list.push(action.part);P.setTanks(st,list);}break;}
+      case 'insert':{
+        if(n.phase!=='workshop'||!['small','large'].includes(action.part)||!P.canFit(n.craft,action.stage,action.part))break;
+        const st=n.craft.stages[action.stage],list=P.tanks(st);if(!Number.isInteger(action.at)||action.at<0||action.at>list.length)break;list.splice(action.at,0,action.part);P.setTanks(st,list);break;
+      }
       case 'transfer':{
-        if(n.phase!=='workshop'||!Number.isInteger(action.from)||action.to!==null&&!Number.isInteger(action.to)||action.from===action.to)break;
-        const st=n.craft.stages[action.from],part=action.part,engine=['engine-0','engine-1'].includes(part);
-        if(!st||!(engine?st.engine===Number(part.slice(-1)):['small','large'].includes(part)&&st[part]>0)||action.to!==null&&!P.canFit(n.craft,action.to,part))break;
-        if(engine)st.engine=null;else st[part]--;
-        if(action.to!==null){const target=n.craft.stages[action.to];if(engine)target.engine=Number(part.slice(-1));else target[part]++;}break;
+        if(n.phase!=='workshop'||!Number.isInteger(action.from)||action.to!==null&&!Number.isInteger(action.to))break;
+        const st=n.craft.stages[action.from],part=action.part,engine=['engine-0','engine-1'].includes(part),same=action.from===action.to;
+        if(!st||!(engine?st.engine===Number(part.slice(-1)):['small','large'].includes(part)&&st[part]>0)||action.to!==null&&!same&&!P.canFit(n.craft,action.to,part))break;
+        if(engine){if(same||action.at!==undefined)break;st.engine=null;if(action.to!==null)n.craft.stages[action.to].engine=Number(part.slice(-1));break;}
+        const list=P.tanks(st),ordinal=action.ordinal??0,index=list.map((k,i)=>k===part?i:-1).filter(i=>i>=0)[ordinal];if(!Number.isInteger(ordinal)||ordinal<0||index===undefined)break;
+        const target=action.to===null?null:same?list:P.tanks(n.craft.stages[action.to]),at=action.at??target?.length;if(target&&(!Number.isInteger(at)||at<0||at>target.length)||same&&action.at===undefined)break;
+        list.splice(index,1);if(target)target.splice(same&&at>index?at-1:at,0,part);P.setTanks(st,list);if(target&&!same)P.setTanks(n.craft.stages[action.to],target);break;
       }
       case 'stages':if(n.phase==='workshop'&&[1,2].includes(action.count)){n.craft.stages=action.count===1?[n.craft.stages[0]]:[n.craft.stages[0],n.craft.stages[1]||P.emptyStage()];n.craft.separator=action.count===2;}break;
       case 'launch':if(P.complete(n.craft)){n.flight=flight(n.craft);n.task='A';n.phase='pad';n.node=null;n.burn=null;}break;

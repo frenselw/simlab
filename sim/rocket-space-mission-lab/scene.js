@@ -14,12 +14,12 @@ function buildRocket(c,separated){
   const mesh=(geometry,mat,x,yy,z,parent=partParent)=>{const m=new THREE.Mesh(geometry,mat);m.position.set(x,yy,z);parent.add(m);return m;};
   c.stages.forEach((s,i)=>{
     if(separated&&i===0)return;
-    const base=y,accent=s.engine===0?orange:mint;const startPart=(part,ordinal=0)=>{partParent=new THREE.Group();partParent.userData.part={stage:i,part,ordinal};group.add(partParent);parts.push(partParent);};
+    const base=y,accent=s.engine===0?orange:mint;const startPart=(part,ordinal=0,index=null)=>{partParent=new THREE.Group();partParent.userData.part={stage:i,part,ordinal,index};group.add(partParent);parts.push(partParent);};
     if(s.engine!==null){startPart('engine-'+s.engine);mesh(new THREE.CylinderGeometry(.8,1.38,1.5,16,1,true),dark,0,y+.75,0);mesh(new THREE.CylinderGeometry(1.1,1.1,.45,16),metal,0,y+1.55,0);y+=2;}
-    partParent=group;const tanks=[...Array(s.large).fill(4.1),...Array(s.small).fill(2.4)];
-    tanks.forEach((h,j)=>{startPart(h===4.1?'large':'small',h===4.1?j:j-s.large);mesh(new THREE.CylinderGeometry(1.4,1.4,h,20),white,0,y+h/2,0);for(const dy of [.2,h-.2])mesh(new THREE.CylinderGeometry(1.43,1.43,.23,20),accent,0,y+dy,0);mesh(new THREE.BoxGeometry(.14,h*.68,.08),metal,0,y+h/2,1.39);y+=h;});
+    partParent=group;const tanks=P.tanks(s),joins=[y],ordinals={small:0,large:0};
+    tanks.forEach((part,j)=>{const h=part==='large'?4.1:2.4;startPart(part,ordinals[part]++,j);mesh(new THREE.CylinderGeometry(1.4,1.4,h,20),white,0,y+h/2,0);for(const dy of [.2,h-.2])mesh(new THREE.CylinderGeometry(1.43,1.43,.23,20),accent,0,y+dy,0);mesh(new THREE.BoxGeometry(.14,h*.68,.08),metal,0,y+h/2,1.39);y+=h;joins.push(y);});
     partParent=group;if(tanks.length===0){mesh(new THREE.CylinderGeometry(1.35,1.35,3,16),material('#a7c0b7',{transparent:true,opacity:.3,wireframe:true}),0,y+1.5,0);y+=3;}
-    slots[i]=(base+y)/2;ranges[i]={base,engine:s.engine===null?0:2,large:s.large,small:s.small};
+    slots[i]=(base+y)/2;ranges[i]={base,engine:s.engine===null?0:2,large:s.large,small:s.small,joins};
     if(i===0&&c.stages.length===2&&!separated){mesh(new THREE.CylinderGeometry(1.47,1.47,.65,20),orange,0,y+.325,0);y+=.65;}
   });
   mesh(new THREE.CylinderGeometry(1.25,1.4,2,20),white,0,y+1,0);mesh(new THREE.SphereGeometry(1.25,20,12,0,Math.PI*2,0,Math.PI/2),white,0,y+2,0);const faceY=y+1.1;
@@ -97,13 +97,12 @@ export class RocketScene{
     try{this.renderer.render(this.scene,this.camera);}catch(_){this.lost=true;this.onFault('render');}
   }
   project(position){const p=position.clone().project(this.camera);const r=this.host.getBoundingClientRect();return {x:(p.x+1)*r.width/2,y:(1-p.y)*r.height/2,visible:p.z>=-1&&p.z<=1&&Math.abs(p.x)<.98&&Math.abs(p.y)<.98};}
-  slotPoints(part=null,source=null){if(!this.rocket)return [];this.rocket.updateMatrixWorld();return this.rocket.userData.slots.map((middle,i)=>{
-    const r=this.rocket.userData.ranges[i],engine=part?.startsWith('engine-'),y=!part?middle:engine?r.base+.85:r.base+r.engine+r.large*4.1+(part==='small'?r.small*2.4+1.2:2.05);
-    const p=this.project(this.rocket.localToWorld(new THREE.Vector3(0,y,0))),bodyX=p.x,bodyY=p.y;
-    if(part)p.x=Math.max(28,Math.min(this.host.clientWidth-28,p.x+(engine?-1:1)*58));else p.x+=48;
-    p.y=Math.max(28,Math.min(this.host.clientHeight-96,p.y));
-    return {...p,bodyX,bodyY,localY:y,compatible:!part||source?.stage===i||P.canFit(this.data.craft,i,part)};
-  });}
+  slotPoints(part=null,source=null){
+    if(!this.rocket)return [];this.rocket.updateMatrixWorld();const engine=part?.startsWith('engine-'),tank=part&&!engine;
+    const point=(stage,y,at,gap=false)=>{const p=this.project(this.rocket.localToWorld(new THREE.Vector3(0,y,0))),bodyX=p.x,bodyY=p.y;if(part)p.x=Math.max(28,Math.min(this.host.clientWidth-28,p.x+(engine||gap?-1:1)*58));else p.x+=48;p.y=Math.max(28,Math.min(this.host.clientHeight-96,p.y));return {...p,bodyX,bodyY,localY:y,stage,at,gap,compatible:!part||source?.stage===stage||P.canFit(this.data.craft,stage,part)};};
+    const points=this.rocket.userData.slots.map((middle,i)=>{const r=this.rocket.userData.ranges[i],at=tank?r.joins.length-1:undefined,y=!part?middle:engine?r.base+.85:at?r.joins[at]:r.base+r.engine+2.05;return point(i,y,at);});
+    if(tank)for(const [i,r]of this.rocket.userData.ranges.entries())r.joins.slice(0,-1).forEach((y,at)=>points.push(point(i,y,at,true)));return points;
+  }
   gripRect(){
     if(!this.rocket?.userData.parts.length)return null;this.rocket.updateMatrixWorld();const box=this.rocket.userData.partBounds.clone().applyMatrix4(this.rocket.matrixWorld);
     const points=[];for(const x of [box.min.x,box.max.x])for(const y of [box.min.y,box.max.y])for(const z of [box.min.z,box.max.z])points.push(this.project(new THREE.Vector3(x,y,z)));

@@ -17,3 +17,17 @@ for(const action of [{from:1,to:0,part:'large'},{from:1,to:0,part:'engine-1'},{f
 let full=M.change(moved,{type:'part',stage:1,part:'large',value:4});assert(!P.canFit(full.craft,1,'small'));assert.deepEqual(M.change(full,{type:'transfer',from:0,to:1,part:'large'}),full);let checkedAssembly=M.change(moved,{type:'check'});assert.deepEqual(M.change(checkedAssembly,{type:'transfer',from:0,to:null,part:'large'}),checkedAssembly);
 
 const withRecord=M.change(T.reachOrbit(1),{type:'workshop'}),storedRecord=P.clone(withRecord.records),afterRemoval=M.change(withRecord,{type:'transfer',from:0,to:null,part:'large'});assert.deepEqual(afterRemoval.records,storedRecord);assert.equal(afterRemoval.craft.stages[0].large,withRecord.craft.stages[0].large-1);
+
+
+let ordered=M.change(M.fresh(()=>.5),{type:'part',stage:0,part:'large',value:2});
+ordered=M.change(ordered,{type:'insert',stage:0,part:'small',at:1});assert.deepEqual(P.tanks(ordered.craft.stages[0]),['large','small','large']);assert.equal(ordered.craft.stages[0].order,'lsl');
+const immutable=P.clone(ordered),massBefore=P.dry(ordered.craft.stages[0]),capacityBefore=P.capacity(ordered.craft.stages[0]);
+let reordered=M.change(ordered,{type:'transfer',from:0,to:0,part:'large',ordinal:1,at:0});assert.deepEqual(P.tanks(reordered.craft.stages[0]),['large','large','small']);assert.equal(reordered.craft.stages[0].order,undefined);assert.equal(P.dry(reordered.craft.stages[0]),massBefore);assert.equal(P.capacity(reordered.craft.stages[0]),capacityBefore);assert.deepEqual(ordered,immutable);
+assert.deepEqual(P.tanks(M.change(ordered,{type:'transfer',from:0,to:null,part:'large',ordinal:0}).craft.stages[0]),['small','large']);
+let two=M.change(ordered,{type:'stages',count:2});two=M.change(two,{type:'part',stage:1,part:'small',value:1});two=M.change(two,{type:'transfer',from:0,to:1,part:'large',ordinal:1,at:0});assert.deepEqual(P.tanks(two.craft.stages[0]),['large','small']);assert.deepEqual(P.tanks(two.craft.stages[1]),['large','small']);
+let four=M.change(ordered,{type:'insert',stage:0,part:'small',at:0});assert.deepEqual(P.tanks(four.craft.stages[0]),['small','large','small','large']);assert.deepEqual(M.change(four,{type:'insert',stage:0,part:'small',at:2}),four);assert.deepEqual(P.tanks(M.change(four,{type:'transfer',from:0,to:0,part:'large',ordinal:1,at:1}).craft.stages[0]),['small','large','large','small']);
+for(const at of [-1,4,.5,null,NaN])assert.deepEqual(M.change(ordered,{type:'insert',stage:0,part:'small',at}),ordered);
+for(const ordinal of [-1,2,.5,NaN])assert.deepEqual(M.change(ordered,{type:'transfer',from:0,to:null,part:'large',ordinal}),ordered);
+for(const action of [{type:'insert',stage:0,part:'engine-0',at:1},{type:'insert',stage:4,part:'small',at:0},{type:'transfer',from:0,to:0,part:'small',ordinal:0,at:8}])assert.deepEqual(M.change(ordered,action),ordered);
+const lockedOrder=M.change(ordered,{type:'check'});assert.deepEqual(M.change(lockedOrder,{type:'insert',stage:0,part:'small',at:1}),lockedOrder);assert.deepEqual(M.change(lockedOrder,{type:'transfer',from:0,to:0,part:'large',at:1}),lockedOrder);
+console.log('rocket insertion: ordered middle insertion, same-stage reorder, exact removal, atomic transfer, limits and locking passed');

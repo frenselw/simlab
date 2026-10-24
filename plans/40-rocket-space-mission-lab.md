@@ -618,3 +618,16 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 - report.json：completed=true、errors=[]；runtime SHA-256：7b2c7be1dedf0ebd1394179d1074dcd0985388eb930440c441bd9efa5fec531c；ZIP SHA-256：d24702cad2eedf7c20fa8f4119dbb6a3560827e0d79e93459fecde8887f82cf4。報告及invalid-held手機／桌面截圖在output/playwright/rocket-space-mission-lab/；ZIP為output/rocket-space-mission-lab-scorm.zip。未重跑全庫Node／browser、完整iframe矩陣；真手機及真Moodle仍未驗證。
 - 發布偏好（使用者2026-10-24明確指示）：已批准本活動網站發布，要求同一網站後續修改不要每次重新詢問。對既有appgprj_6adc62579ab88191aba299bcb282ce95、原私人讀者範圍及本活動範圍，完成必要測試後直接沿用授權部署；不增加聊天確認。工具審批層的拒絕仍須如實處理，不得繞過。
 - P8已commit／push：ab8749f80e39eb0efbc44708f8f71acad0121918；選擇預覽output/rocket/selection-p8.log。使用者再次明確確認網站發布授權後，Sites來源267cfedf98fcbd60074242bd50655174c214ab5e、deployment appgdep_6adc9e673428819195fafbe48b830c2c，native結果succeeded。維持https://simlab-rocket-space-missions.ieyp.chatgpt.site及owner-private；發布已測試產物，未重跑測試或等待CI。
+
+
+### P9：燃料箱接縫插入與重排（2026-10-24）
+
+- 新燃料箱可拖至引擎上方、任兩個燃料箱之間或最上方；同級及跨級的已裝燃料箱可直接拖到接縫重排。引擎仍只在每級底部，每級最多四箱；載荷／分離器沿用任務決定。保留手柄、原生滾動、原位完整預覽、release一次提交、錯位／取消還原與即時警告。
+- 最小模型擴充：stage沿用engine/small/large作質量與容量，新增可選order字串（s/l，由下至上）。只在非舊有「大箱在下、小箱在上」順序時保存order；三欄舊stage按原排序讀取。所有改數量、插入、指定ordinal取出／同級移動／跨級搬移同步計數與次序，先驗證目的才原子修改。modelVersion不變，排列不改物理與rubric。
+- Snapshot相容擴充：既有schema/envelope仍為1；stage tuple原[engine,small,large]照常讀取，可選第4欄order（最多4個s/l，數量必須相符，canonical次序不重複保存）。draft、flight、records、review與pending均用同一codec。未知欄位、錯誤順序／次數／插入索引均拒絕；4000-byte gate及舊快照回讀需執行驗證。
+- UI以每級頂部接點加各接縫的可視標記提供30 CSS px snap；穩定原接點與相機，預覽不改答案。活動outer layer將flat snap target解為stage/at傳入production model；不靠renderer私藏次序。
+- 測試：擴充既有model/persistence及browser owner，不新增依賴或test entry。Node檢查首／中／尾插入、重排、精確取出、容量／索引／鎖定、計數守恆、舊新codec及有序飛行／紀錄續做／容量。source/extracted ZIP各以可信mouse/touch在異種箱之間插入、取消、同級重排、跨級搬移，實際預覽與保存一致，並重跑原有回歸。真手機／Moodle仍獨立驗收。
+
+- P9執行證據：六個活動Node測試、npm run check、npm run check:tests（278 entries）、文件與diff檢查通過。新增中間插入、同級／跨級／精確ordinal搬移、滿箱與非法索引拒絕、次序／質量／容量守恆、check鎖定測試；所有變體的舊／新codec、錯誤order拒絕及有序workshop/pad/ascent/active-burn/check/review往返與合法續做通過，含有序紀錄pending 4000-byte gate。
+- source及extracted ZIP各有1280×800可信mouse與390×844可信touch：兩大箱中間插小箱成large/small/large、取消不變、同級重排、四箱滿時拒絕新增、精確選取第2大箱跨級插入及非拖放重排控制通過；預覽期間答案／LMS草稿／相機／scroll均不變，release與完整預覽一致。20種布局、原手柄／面板滾動／即時警告、任務／SCORM／全屏／WebGL故障回歸亦通過。桌面及手機middle-insert截圖已人工檢視。
+- report.json：completed=true、errors=[]；runtime SHA-256：8977c59daa6e73af806da938c8620a31eae53063f4b0761bf39d5562ea672b1c；ZIP SHA-256：5a5aba9063391ac5bd6dd6a523f4c55075bd7446c2a6819db81f094629620995。報告及截圖：output/playwright/rocket-space-mission-lab/；ZIP：output/rocket-space-mission-lab-scorm.zip。未重跑全庫Node／browser及完整iframe矩陣，真手機／Moodle仍未驗證。

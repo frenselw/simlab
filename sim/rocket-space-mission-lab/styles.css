@@ -19,3 +19,7 @@
 
 .sim-header{display:flex;padding:4px 56px 4px 12px;gap:12px}.identity h1{font-size:20px;line-height:1.2;white-space:nowrap;margin:0}#taskNav{margin:0;align-self:center;gap:4px}#taskNav button{min-height:44px;padding:6px 8px;font-size:14px}
 @media(max-width:959px){.identity{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}#taskNav{flex:1}#taskNav button{flex:1}#taskNav button span{display:none}}
+
+.assembly-guides circle{fill:#fff9e7;stroke:var(--teal);stroke-width:2}.assembly-guides .selected{stroke:#db8b27;stroke-width:3}.assembly-guides text{fill:var(--teal);font-size:13px;font-weight:650;paint-order:stroke;stroke:#fffef5;stroke-width:3px}
+
+.tank-order{font-size:14px;margin-top:8px}.tank-order summary{cursor:pointer;min-height:44px;align-content:center;color:var(--teal)}.tank-order>div{display:flex;align-items:center;gap:4px;margin:4px 0}.tank-order>div>span{flex:1}.tank-order button{min-width:44px;padding:5px}.tank-order small{color:var(--muted)}
