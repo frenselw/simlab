@@ -739,3 +739,35 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 - P17執行證據：npm run check、check:tests（278 entries）、文件與diff檢查通過。ignored output/rocket-p17-camera-check.cjs選取既有registered owner的layouts／directCamera／launchAndCamera，source及extracted ZIP共20布局、14 flows，completed=true、errors=[]、selection=camera-labels。桌面及窄320／390／橫向touch，原生背景轉動、鏡頭預設位置／active與running一致、關機滑行／分級／明示暫停／hidden契約通過；320px按鈕≥44px且在捲頁把手內側，ZIP截圖已檢視。未重跑無關裝配／任務／SCORM完整矩陣、活動Node或全庫測試；真手機／Moodle未驗證。
 - runtime SHA-256：3355273bea88d3b4209c70ae307bebaf6f674a03830ff1ac65eabc542eab3348（與最終宣告runtime bytes核對）；ZIP SHA-256：7f1d27212328027a03e27dea70b37b02ae87d4506dc11f3c340dc1823a6105ee。報告／截圖：output/playwright/rocket-space-mission-lab/；ZIP：output/rocket-space-mission-lab-scorm.zip。
 - P17已commit／push：54ee5322627f895a4d9e8a750246f2ac9d00b05b；提交選擇預覽output/rocket/selection-p17.log。沿用持續發布授權，Sites來源3afcacc60603fe79a06386d9bb23a7327ca2934e、deployment appgdep_6adce525ea348191986292407ffc3ac5，native結果succeeded。維持https://simlab-rocket-space-missions.ieyp.chatgpt.site及owner-private；未等待CI。
+
+
+### P18：精細零件、發射環境、地球與模擬時間自轉
+
+- 使用者要求整體美術大幅提升，同時保持流暢；地球目前完全不轉。保留可愛載荷及淺色介面，重做3D零件的板縫／鉚釘／維修口／管線／冷卻環／噴嘴／隔熱材質及對應元件SVG；發射底座加入排焰口／排焰槽／鋼架／固定座／混凝土板／安全標線。河岸、道路、森林群、工業建築與海岸地形更精細，維持發射場至少300m清空、樹≥450m、遠方建築≥650m，近景雲移至遠處並用柔邊透明貼圖，避免遮住火箭。
+- 地球使用本地2048×1024 NASA Earth Observatory Blue Marble Next Generation（2004年6月）地表圖，另以本地NASA雲圖／大氣邊緣／明暗面表達層次。來源：https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-map/ 及其credits；NASA影像使用規範：https://www.nasa.gov/nasa-brand-center/images-and-media/ 。只作科學教學呈現，非即時天氣，無NASA背書；記錄來源／縮圖處理／雜湊並在折疊說明署名，不載入遠端runtime資產。
+- 自轉直接由selected flight的t決定，以NASA Earth Fact Sheet 23.9345h（86164.2s）為恆星日。前進／快轉跟實際積分t，paused／review／hidden不自動流逝，resume可重現相同地表角度。這一輪只補地表視覺自轉，不把它注入既有球對稱重力／初始地面速度／評分；無新snapshot欄位或schema改動。舊「首版不自轉」只描述歷史物理簡化，自此renderer有依t的地表動畫。
+- 效能策略：表面細節烘入共用Canvas貼圖、重複鉚釘／環／管件／樹／建築用InstancedMesh，維持每個可選部件的part metadata／pick anchor／順序與1.6半徑包絡；引擎第一child仍為噴嘴，分離器外殼仍包住上級噴嘴。地球球面由256×128降低至128×64，以更細貼圖取代大量三角形；無動態陰影、後處理或新重型依賴，pixel ratio維持手機≤1.5／桌面≤2，≤100draw calls／≤100k triangles／ZIP≤5MB。重建／預覽釋放geometry、material及instancing buffers，快取貼圖不反覆建立，避免記憶體隨組裝增加。
+- 範圍：scene／專用scene-art模組、元件SVG與少量CSS、本地影像及NOTICE、manifest、main必要的錯誤／載入接線、既有browser owner及本計劃。先保存同機baseline，再補自轉／快轉／暫停／還原、最大火箭／多高度與鏡頭、冷載本地貼圖、繪圖上限／RAF幀間隔／CPU draw與重建記憶體檢查；執行六個Node、完整source／ZIP既有互動／SCORM／故障回歸及檢查／提交選擇預覽。保留低風險rubric、phase／variant矩陣及權威snapshot／pending契約。軟件GPU與模擬觸控只作同機對照，不冒充真手機30fps／校內網路5秒／真Moodle驗收。
+
+- P18首輪出圖／量度後調整：改用NASA真實雲層合成影像（1024×512本地JPEG），取代粗筆觸程序雲；近景仍用小型柔邊雲。微鉚釘改較低面數的實體頭，減少不可辨識的環／曲面分段；重複細節仍instancing，表面鉚釘／板縫保留貼圖。以輕量Phong材質表達金屬，大片地面／樹用Lambert，移除近景看不出的bump計算。追蹤視角在詳細地形足以覆蓋地球時不重繪全球球面／雲殼（120／300km門檻），軌道／正視保留完整全球層；持續檢查高度與天空連續性。森林256棵，仍多於原96棵，並守原清空距離。
+- P18進一步優化：降低地面／雲圖的各向異性過濾，機身保留2×；近景按投影像素隱藏不足一像素的實體鉚釘／冷卻環，放大時恢復，貼圖細節一直保留。遠處樹／建築／地面雲在無法辨認時不送GPU；工廠大地板只在工廠顯示，發射時保留真實小範圍底座／apron，避免巨大貼圖地板蓋住草地與重複填色。
+
+- P18地形出圖修正：高空寬三角形的vertex色曾把海岸拉成放射條紋；改由地面Lambert shader按每個fragment的本地座標算連續海岸／沙灘色，保留同一曲面與貼圖、無額外mesh或draw call。50／71／140km截圖再次檢視；修正前完整測試中止，不作最終通過證據。
+- P18完成證據：六個活動Node測試、最終npm run check、check:tests（278 entries）、文件／diff檢查通過。既有registered browser owner加入本輪測試，最終source及extracted ZIP共20布局、88 flows，completed=true、errors=[]；所有manifest檔逐byte一致。真實mouse／native touch裝配、插入／跨級搬移、分離器遮罩與安裝環、全部速度及燃料讀數、不中斷控制／轉鏡、288組向量transform、任務／評分／提交重試／恢復／唯讀、全屏／WebGL失效恢復均回歸通過。
+- P18新驗證：兩份交付各驗地表2048×1024／雲1024×512本地載入、runtime資源同origin及shader runnable；連續積分1秒及600秒後自轉角跟實際t一致，paused旋轉鏡頭不改時間／角度，Moodle fixture reload還原同角度，已提交review按紀錄t固定。封鎖地表圖片時明示載入失敗、保留成果且仍可檢查／提交，解除後正常啟動。
+- P18負載驗證：每份以最長八箱火箭在0／20／119.999／120.001／179.999／180.001／299.999／300.001／1000km、follow／orbit／plane共27組實際GPU出圖，地表／雲／大氣門檻及<=100 calls／100k triangles通過；本矩陣最高68 calls／41550 triangles。微細節縮小隱藏／放大恢復、DPR3模擬下手機1.5／桌面2上限通過。每份12輪換引擎／燃料箱／原位preview再還原，暖機後geometries／textures／programs與WebGL live buffers固定（source {"geometries": 26, "textures": 7, "programs": 9, "buffers": 68}），模型不被renderer改動。
+- P18同機對照：output/playwright/rocket-space-mission-lab/art-baseline.json保留P17原版，最終report.json保存本輪。Chrome SwiftShader、DPR1、paused場景每RAF單次draw、28幀捨首4幀；以下為source中位幀間隔／P95（ms），是軟件GPU短樣本而非真手機持續fps或網路載入測試。
+
+| 尺寸／視角 | 原版中位／P95 | P18中位／P95 |
+| --- | --- | --- |
+| 1280／workshop | 33.4／33.5 | 33.4／33.5 |
+| 1280／pad | 66.8／166.9 | 83.5／200.3 |
+| 1280／ascent | 66.8／83.4 | 50.0／50.1 |
+| 1280／orbit | 66.7／66.9 | 50.1／66.8 |
+| 390／workshop | 16.7／16.7 | 16.7／16.8 |
+| 390／pad | 16.7／33.4 | 16.8／33.4 |
+| 390／ascent | 16.8／116.7 | 16.7／16.8 |
+| 390／orbit | 33.4／50.0 | 16.7／66.7 |
+
+- P18效能界限：整體global view減少球面幾何與高空層數，手機四視角中位接近一個refresh間隔；桌面軟件GPU發射台仍較重，不能聲稱所有視角都較原版快或保證真手機30fps。無陰影／後處理／遠端資產，新地球兩張影像合計439294 bytes，ZIP 679881 bytes；記錄實際數據而不作實機驗收。本次未重跑獨立iframe scroll矩陣或全庫Node／browser；真手機5秒／30fps與真Moodle仍待實際環境驗證。
+- P18最終runtime SHA-256：f86e10fe0bffd9a2a61ae30c51c7fcd6de222d85acc3d0bd1ddfbeee9b4dcad9；ZIP SHA-256：582f9ad8033f1ee03e4f8280b6c6255f9880183c6e373c1720fb3bf8fe87ee61。報告／截圖：output/playwright/rocket-space-mission-lab/；ZIP：output/rocket-space-mission-lab-scorm.zip。桌面／手機零件近照、八箱整箭、清空發射區、升空／海岸、全球地球／雲層截圖已檢視。地球自轉只屬renderer，既有非自轉地面物理／評分與schema1不變。

@@ -1,0 +1,14 @@
+Earth surface image: NASA Earth Observatory.
+Blue Marble: Next Generation, June 2004. Produced by Reto Stoeckli (NASA Goddard Space Flight Center).
+Source: https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-map/
+Original: https://assets.science.nasa.gov/content/dam/science/esd/eo/images/bmng/bmng-base/june/world.200406.3x5400x2700.jpg
+Usage: https://www.nasa.gov/nasa-brand-center/images-and-media/
+Original 5400x2700 JPEG resized to 2048x1024, JPEG quality 88, using Windows System.Drawing bicubic resampling. No geographic features were added or removed.
+Local earth-day.jpg SHA-256: dece9e59f76fa3478d434f369a92b7546e89c1bdf5984b90ca3b96f6d553f4a5
+Not current imagery or live weather. NASA does not endorse this simulation.
+Local earth-clouds.jpg: NASA Earth Observatory / Reto Stoeckli, Blue Marble clouds composite.
+Source: https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57747/cloud_combined_2048.jpg
+Original 2048x1024 JPEG resized to 1024x512 with bicubic resampling, JPEG quality 88. Cloud brightness is used as opacity; this is not live weather.
+SHA-256: c682aa5cd1e91554dd59266671a356dfdca7038d2be26cca19e8de961dc20567
+Near-field soft clouds, rocket skins, concrete, roads and other procedural art: SimLab original Canvas/SVG/Three.js code.
+Sidereal period reference: https://nssdc.gsfc.nasa.gov/planetary/factsheet/earthfact.html (23.9345 hours).
