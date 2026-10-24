@@ -36,3 +36,9 @@
 
 @media(hover:hover) and (pointer:fine){.scroll-strip{display:none}.camera-surface{inset-inline:0}}
 @media(any-pointer:coarse){.scroll-strip{display:block}.camera-surface{inset-inline:32px}}
+
+.payload-card{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:10px;margin:14px 0}.payload-name{min-width:0}.payload-name small{display:block;color:var(--muted);font-size:12px}.payload-mass{display:flex;align-items:baseline;gap:4px;white-space:nowrap;font-variant-numeric:tabular-nums}.payload-mass strong{font-size:24px;line-height:1.2}.payload-card .payload-mass span{font-size:14px;color:var(--muted)}
+@media(hover:hover) and (pointer:fine){.part-drag{display:none}.parts-grid button{cursor:grab}.parts-grid button:active{cursor:grabbing}}
+@media(any-pointer:coarse){.part-drag{display:flex}.parts-grid button{cursor:pointer}}
+
+.part-drag{white-space:nowrap;padding:4px}

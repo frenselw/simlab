@@ -685,3 +685,16 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 - source與package T2各320×568 camera-surface profile通過：左右原生外層捲頁、面板內容／邊界／取消／連續掃動隔離、相機complete/cancel/secondary/blur/lostcapture；scroll-p13-source/package-T2.json皆completed=true、status=passed、errors=[]及全部gesture issues=[]。本次未重跑T1/T3、全phase矩陣或不受CSS影響的活動Node測試；P12證據保留為歷史，真手機／Moodle仍未驗證。
 - 主report.json：completed=true、errors=[]、44 flows；runtime SHA-256：9b1a762b63fb7b0db55a02f2eba2c01a7eb0f36291cbe2079308fa9f57fed4d0；ZIP SHA-256：928a9da23f04cc8b2944aeb0b588f363e8e043f2aed0ad1f569a793275f2e169。報告／截圖：output/playwright/rocket-space-mission-lab/；ZIP：output/rocket-space-mission-lab-scorm.zip。
 - P13已commit／push：f72d211b4ddfe4b9a7a29c638f910e7f9e0fa8bf；提交選擇預覽output/rocket/selection-p13.log。沿用使用者明確持續發布授權，Sites來源c06f90037af7a95afd0e10ac5de77ea7c2991976、deployment appgdep_6adcd03293048191afcd3b910503ceb1，native結果succeeded。維持https://simlab-rocket-space-missions.ieyp.chatgpt.site及owner-private；未等待CI。
+
+
+### P14：桌面整卡拖放、簡潔元件面板及任務名稱（2026-10-24）
+
+- 使用者要求桌面不顯示元件拖動把手、手機保留；桌面mouse整張元件卡可拖動，手機touch只有手柄開始拖動，卡片內容仍原生pan-y。仍可點卡片／Enter加入；一次drag/cancel後的合成click不得再加入一次；新觸控開始時清除上一手勢的click抑制，取消後首次點卡仍只加入一次。capture目標統一為穩定卡片button，更新所有既有測試caller及lostcapture。沿用P13裝置能力query，不加依賴／UA判斷。
+- 刪除組裝標題下常駐掃動／拖動教學及初始提示佔位，實際操作只顯示精簡狀態；保留無法安裝、容量／技術錯誤、必要結束試飛及成績說明。衛星卡改成圖示／名稱及載荷質量標籤／數字與kg的一行排版，不再擠在公式文字裏；手機手柄文字維持單行，避免320px元件卡不必要增高。
+- 面向學生的A/B改用「發射入軌／軌道變更」及發射／變軌紀錄，包含導航、保留／帶入按鈕、提示及成績明細；模型task A/B、record索引、評分與snapshot不變，成績標題只在UI轉譯，舊保存／pending／review繼續相容。
+- 範圍：HTML/CSS/main/interaction、既有browser owner及本計劃。低風險評分、rubric、phase/variant保存矩陣與schema沿用。驗證source／ZIP的真實fine mouse整卡拖放（取消／無效落點／lost capture不額外新增）、touch掃卡不安裝／手柄拖放、鍵盤加入、衛星卡320px及桌面排版、無常駐操作教學／A/B copy；重跑既有裝配／任務／保存提交及聚焦iframe手機手勢隔離。真手機／真Moodle仍獨立驗收。
+
+- P14完成證據：六個活動Node測試、npm run check、npm run check:tests（278 entries）、文件／diff檢查通過。source／extracted ZIP共20布局；1280×800 fine mouse實際整卡拖入／插入／無效落點／取消／blur／lost capture不額外加入，390×844及320×568 touch掃卡仍捲面板、只由手柄拖入，取消後第一次普通點卡安裝一次通過；第二指只取消、不轉交新操作。卡片／Enter點選及已裝零件、同／跨級搬移、精確接縫重排、容量／即時警告／原位預覽保持通過。
+- 十組source／ZIP的1280×800及窄390×844 mouse、390×844／320×568／844×390 touch排版通過：桌面無把手、手機手柄44px且單行；無常駐操作教學／初始佔位；衛星名稱與數值／kg不重疊，質量與模型一致。桌面及320pxcompact-panel截圖已檢視。按鈕／提示／導航／成績明細以發射入軌與軌道變更命名；原有A/B資料及評分不變，review及舊保存／pending相容。原相機／飛行／任務／提交重試／續做／鎖定／全屏／WebGL故障回歸通過。
+- 最終source及package T2各320×568 camera-surface profile通過：左右原生外頁捲動、面板文字／按鈕／邊界／取消／連續掃動隔離、相機complete/cancel/secondary/blur/lostcapture；scroll-p14-source/package-T2.json皆completed=true、status=passed、errors=[]及全部gesture issues=[]。本次未重跑T1/T3、全phase矩陣或全庫Node／browser；真手機／Moodle仍未驗證。
+- 主report.json：completed=true、errors=[]、44 flows；runtime SHA-256：7e812ca238376c82cd8ce2006a6fbab4b8f20704e0495191b98379cc17641424（已與最終宣告runtime bytes核對）；ZIP SHA-256：1b1d8764720356706fe8e1b11410a6f58a00eb7b444434ddd73ead9f22e60354。報告／截圖：output/playwright/rocket-space-mission-lab/；ZIP：output/rocket-space-mission-lab-scorm.zip。
