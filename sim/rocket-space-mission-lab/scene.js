@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three-0.185.1/three.module.min.js';
-const P=window.RocketParts,O=window.RocketOrbit;
+const P=window.RocketParts,O=window.RocketOrbit,M=window.RocketModel;
 const material=(color,extra={})=>new THREE.MeshStandardMaterial({color,roughness:.75,metalness:.08,flatShading:true,...extra});
 function dispose(group){group.traverse(o=>{o.geometry?.dispose();if(o.material)for(const m of Array.isArray(o.material)?o.material:[o.material])m.dispose();});}
 function earthTexture(){
@@ -28,7 +28,7 @@ function buildRocket(c,separated){
   mesh(new THREE.CylinderGeometry(.04,.04,1.1,8),metal,0,y+3.6,0);mesh(new THREE.SphereGeometry(.17,10,8),orange,0,y+4.15,0);
   const flame=new THREE.Group();flame.position.y=-.2;mesh(new THREE.ConeGeometry(.95,4,12),material('#f1a44d',{emissive:'#eb7830',emissiveIntensity:.5}),0,-2,0,flame).rotation.z=Math.PI;mesh(new THREE.ConeGeometry(.5,2.5,12),material('#fff1ad',{emissive:'#ffdf94',emissiveIntensity:.7}),0,-1.2,.05,flame).rotation.z=Math.PI;flame.visible=false;group.add(flame);group.userData={slots,parts,ranges,height:y+4.4,flame};group.updateMatrixWorld(true);const bounds=new THREE.Box3();for(const part of parts)bounds.union(new THREE.Box3().setFromObject(part));group.userData.partBounds=bounds;return group;
 }
-function vectorArrow(color){const group=new THREE.Group(),mat=material(color,{emissive:color,emissiveIntensity:.3}),shaft=new THREE.Mesh(new THREE.CylinderGeometry(.026,.026,.74,8),mat),head=new THREE.Mesh(new THREE.ConeGeometry(.09,.26,10),mat);shaft.position.y=.37;head.position.y=.87;group.add(shaft,head);return group;}
+function vectorArrow(color){const group=new THREE.Group(),mat=new THREE.MeshBasicMaterial({color,transparent:true,depthTest:false,depthWrite:false,toneMapped:false}),shaft=new THREE.Mesh(new THREE.CylinderGeometry(.026,.026,.74,8),mat),head=new THREE.Mesh(new THREE.ConeGeometry(.09,.26,10),mat);shaft.position.y=.37;head.position.y=.87;shaft.renderOrder=head.renderOrder=10;group.add(shaft,head);return group;}
 function launchLandscape(){
   const group=new THREE.Group(),vertices=[],colors=[],rings=[0,100,500,2000,8000,32000,60000,120000,240000,480000,960000,1280000],segments=64;
   const point=(r,j)=>{const a=j/segments*Math.PI*2;return [r*Math.cos(a),Math.sqrt(P.R*P.R-r*r)-P.R-.85,r*Math.sin(a)];};
@@ -59,7 +59,7 @@ export class RocketScene{
     this.earthMap=earthTexture();this.earth=new THREE.Mesh(new THREE.SphereGeometry(1,256,128),new THREE.MeshStandardMaterial({map:this.earthMap,roughness:1,metalness:0}));this.earth.rotation.y=.7;this.scene.add(this.earth);
     this.halo=new THREE.Mesh(new THREE.SphereGeometry(1,48,32),new THREE.MeshBasicMaterial({color:'#77bccc',transparent:true,opacity:.08,side:THREE.BackSide,depthWrite:false}));this.scene.add(this.halo);
     const coords=[],rng=(()=>{let t=512;return()=>{t=(t*1664525+1013904223)>>>0;return t/4294967296;};})();for(let i=0;i<450;i++){const a=rng()*Math.PI*2,b=Math.acos(2*rng()-1);coords.push(70*Math.sin(b)*Math.cos(a),70*Math.cos(b),70*Math.sin(b)*Math.sin(a));}const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(coords,3));this.stars=new THREE.Points(geo,new THREE.PointsMaterial({color:'#e0eee5',size:.075,sizeAttenuation:true}));this.scene.add(this.stars);
-    this.velocityArrow=vectorArrow('#70cecb');this.thrustArrow=vectorArrow('#f7bb72');this.scene.add(this.velocityArrow,this.thrustArrow);this.lines={};this.data=null;this.view='factory';this.yaw=.55;this.pitch=.18;this.zoom=1;this.lost=false;this.reducedMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
+    this.velocityArrow=vectorArrow('#137b7e');this.thrustArrow=vectorArrow('#9c5e20');this.scene.add(this.velocityArrow,this.thrustArrow);this.lines={};this.data=null;this.view='factory';this.yaw=.55;this.pitch=.18;this.zoom=1;this.lost=false;this.reducedMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
     this.renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();this.lost=true;onFault('lost');});this.renderer.domElement.addEventListener('webglcontextrestored',()=>{this.lost=false;this.renderer.resetState();onFault('restored');this.draw();});
     this.resizeObserver=new ResizeObserver(()=>this.resize());this.resizeObserver.observe(host);this.resize();
   }
@@ -96,7 +96,15 @@ export class RocketScene{
     this.stars.visible=space||Boolean(f&&altitude>25000);this.stars.material.transparent=true;this.stars.material.opacity=space?1:THREE.MathUtils.smoothstep(altitude,25000,120000);this.stars.material.depthWrite=false;this.stars.position.copy(this.camera.position);this.stars.scale.setScalar(this.camera.far/140);
     this.rocket.visible=(!space||Boolean(f))&&!this.assemblyPreview?.visible;
     if(this.assemblyPreview?.visible){this.assemblyPreview.position.copy(this.rocket.position);this.assemblyPreview.quaternion.copy(this.rocket.quaternion);this.assemblyPreview.scale.copy(this.rocket.scale);}const lit=f?.controls.lit&&f.controls.throttle>0&&f.fuel[f.active]>0;this.rocket.userData.flame.visible=Boolean(lit);if(lit)this.rocket.userData.flame.scale.y=this.reducedMotion?.9:.8+.15*Math.sin(performance.now()*.035);
-    this.velocityArrow.visible=Boolean(f&&Math.hypot(f.state[3],f.state[4])>.1);this.thrustArrow.visible=Boolean(lit);if(f){const theta=space?0:Math.atan2(f.state[1],f.state[0]),o=O.elements(f.state),base=this.rocket.position.clone().add(new THREE.Vector3(0,height*this.rocket.scale.y*.5,0));for(const [arrow,direction,length]of [[this.velocityArrow,new THREE.Vector3(space?f.state[4]:o.tangential,space?f.state[3]:o.radial,0),space?.55:height*this.rocket.scale.y],[this.thrustArrow,new THREE.Vector3(Math.sin(f.attitude-theta),Math.cos(f.attitude-theta),0),space?.4:height*this.rocket.scale.y*.75]]){arrow.position.copy(base);arrow.scale.setScalar(length);if(direction.lengthSq())arrow.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),direction.normalize());}}
+    this.velocityArrow.visible=Boolean(f&&Math.hypot(f.state[3],f.state[4])>.1);this.thrustArrow.visible=Boolean(f&&M.thrust(f)>0);
+    if(f){
+      const theta=space?0:Math.atan2(f.state[1],f.state[0]),o=O.elements(f.state),center=this.rocket.localToWorld(new THREE.Vector3(0,height*.5,0)),axis=new THREE.Vector3(0,1,0).applyQuaternion(this.rocket.quaternion),forward=this.camera.getWorldDirection(new THREE.Vector3()),depth=center.clone().sub(this.camera.position).dot(forward),pixelWorld=2*depth*Math.tan(THREE.MathUtils.degToRad(this.camera.fov)/2)/this.host.clientHeight,reference=pixelWorld*Math.min(90,this.host.clientHeight*.18,this.host.clientWidth*.25),halfHeight=height*this.rocket.scale.y*.5,radius=1.6*this.rocket.scale.x;
+      for(const [arrow,direction,length,sign]of [[this.velocityArrow,new THREE.Vector3(space?f.state[4]:o.tangential,space?f.state[3]:o.radial,0),reference*o.speed/8000,-1],[this.thrustArrow,new THREE.Vector3(Math.sin(f.attitude-theta),Math.cos(f.attitude-theta),0),reference*M.thrust(f)/600000,1]]){
+        if(!arrow.visible)continue;direction.normalize();const side=forward.clone().cross(direction);if(side.lengthSq()<1e-8)side.set(1,0,0).applyQuaternion(this.camera.quaternion);side.normalize();const a=side.dot(axis),support=halfHeight*Math.abs(a)+radius*Math.sqrt(Math.max(0,1-a*a)),width=Math.min(pixelWorld*40,length*2);
+        // Keep the whole vector outside the rotated rocket's enclosing cylinder.
+        arrow.position.copy(center).addScaledVector(side,sign*(support+8*pixelWorld));arrow.scale.set(width,length,width);arrow.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),direction);
+      }
+    }
     try{this.renderer.render(this.scene,this.camera);}catch(_){this.lost=true;this.onFault('render');}
   }
   project(position){const p=position.clone().project(this.camera);const r=this.host.getBoundingClientRect();return {x:(p.x+1)*r.width/2,y:(1-p.y)*r.height/2,visible:p.z>=-1&&p.z<=1&&Math.abs(p.x)<.98&&Math.abs(p.y)<.98};}

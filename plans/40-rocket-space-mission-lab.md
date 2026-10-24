@@ -699,3 +699,16 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 - 最終source及package T2各320×568 camera-surface profile通過：左右原生外頁捲動、面板文字／按鈕／邊界／取消／連續掃動隔離、相機complete/cancel/secondary/blur/lostcapture；scroll-p14-source/package-T2.json皆completed=true、status=passed、errors=[]及全部gesture issues=[]。本次未重跑T1/T3、全phase矩陣或全庫Node／browser；真手機／Moodle仍未驗證。
 - 主report.json：completed=true、errors=[]、44 flows；runtime SHA-256：7e812ca238376c82cd8ce2006a6fbab4b8f20704e0495191b98379cc17641424（已與最終宣告runtime bytes核對）；ZIP SHA-256：1b1d8764720356706fe8e1b11410a6f58a00eb7b444434ddd73ead9f22e60354。報告／截圖：output/playwright/rocket-space-mission-lab/；ZIP：output/rocket-space-mission-lab-scorm.zip。
 - P14已commit／push：29e19683baa803c81958ca061a44b036c4f50d0c；提交選擇預覽output/rocket/selection-p14.log。沿用使用者明確持續發布授權，Sites來源c958ee594cdfd875af793c9b7a2a251f619f5109、deployment appgdep_6adcd5d2a330819199da084479f66c7d，native結果succeeded。維持https://simlab-rocket-space-missions.ieyp.chatgpt.site及owner-private；未等待CI。
+
+
+### P15：飛行控制不中斷與按大小顯示的速度／推力箭嘴
+
+- 使用者回報面板轉向等控制會突然暫停，及箭嘴固定長度／插入長火箭頂部。Controller已保留control的running，但tick把單一elapsed=0當作停止，合法零時間／小於積分容差的幀也會停飛。修正此停止判斷；只由明示暫停、規劃／檢查／提交、hidden、技術故障或已結束／模型界線停飛，不自動恢復原本暫停的飛行。用轉向微調／直上水平、姿態、油門與0-time-frame連續操作驗證；不聲稱已重現使用者實機事件。
+- 速度長度以總速率m/s、推力長度以production M.thrust（包括引擎／油門／燃料）計算；固定viewport下採線性比例，不以固定箭長或當前高度冒充數值。0速率／0推力隱藏。以min(90px, viewport高×18%, viewport闊×25%)作8000m/s／600kN參考長度，world-per-pixel只跟鏡頭深度／縮放轉換，維持同一畫面速度加倍／力加倍箭長加倍。
+- 起點以實際rocket.localToWorld中心、旋轉軸、剩餘級height及scale計算；在向量的鏡頭平面法線方向以火箭包絡cylinder的support距離加8px間隔置於機身兩側，不再從固定world-Y中點穿過火箭。箭身粗細與長度分開，向量以與圖例一致的深色unlit材質及圖示overlay保留日光／太空背景可見性；不把顯示位置／尺度帶入碰撞、力或評分。更新「只示方向」舊圖例，勿誤導箭長語意。
+- 範圍：ui-runtime、scene、HTML圖例、既有lifecycle／browser owner及本計劃；沿用既有model／Three／manifest依賴，無新套件、無新增snapshot欄位或schema變更。低風險rubric、phase/variant矩陣、舊快照／pending／review及真正背景暫停契約不變。測試包含Node先重現0-time-frame停止、source／ZIP實際mouse/touch飛行控制與滑桿、paused不自啟、長短／傾斜／分級／不同高度縮放與三鏡頭箭嘴幾何、速度與油門倍數／零值及原有全回歸。真手機／Moodle仍獨立驗收。
+
+- P15完成證據：六個活動Node測試、最終npm run check、npm run check:tests（278 entries）、文件／diff檢查通過。先以lifecycle測試重現control後tick(0)誤暫停，再驗證save true/false、0／1e-12／正常幀、手動paused保持paused。實際source／ZIP各1280×800 fine mouse及390×844 native touch的轉向±2°、直上／水平、油門±5%、原生滑桿與姿態選項皆保留running且時間前進；同一批按鈕在paused不自動恢復。
+- source／ZIP各桌面及手機共288組production向量transform案例通過：最長八大燃料箱、最短單小燃料箱、分離後上級；1000m／150km、follow／orbit／plane、0°／90°與0.5×／2×鏡頭。向量沿實際方向且取樣線段全在機身保守cylinder外；速度／油門加倍箭長加倍，零速度／零油門／空燃料箱隱藏對應箭嘴，draw不改模型。密集矩陣暫停重複GPU出圖以免軟件GPU累積逾時，finally恢復production renderer；最後真實WebGL出圖及桌面／手機長火箭、上級截圖已檢視，深色加粗箭嘴位於機身外並可見。
+- 原20布局、整卡／手柄拖放、原生面板捲動、已裝零件點選、插入／調位／跨級搬移、連續背景旋轉、三鏡頭、關機／分級續飛、hidden明示暫停、任務、提交重試／恢復／唯讀、全屏與WebGL故障回歸通過。本次未重跑獨立iframe scroll T1/T2/T3矩陣或全庫Node／browser；真手機與真Moodle仍未驗證。
+- 主report.json：completed=true、errors=[]、52 flows；runtime SHA-256：5171a82ed7e84411c8b321830a911a986168584d2d0ef05a45bc1476c195df45（已與最終宣告runtime bytes核對）；ZIP SHA-256：e00343cdc123481b60d4ead6c1701df3757c524128066eea06f69c1085c716b6。報告／截圖：output/playwright/rocket-space-mission-lab/；ZIP：output/rocket-space-mission-lab-scorm.zip。
