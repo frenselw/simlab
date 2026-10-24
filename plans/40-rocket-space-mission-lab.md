@@ -771,3 +771,4 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 
 - P18效能界限：整體global view減少球面幾何與高空層數，手機四視角中位接近一個refresh間隔；桌面軟件GPU發射台仍較重，不能聲稱所有視角都較原版快或保證真手機30fps。無陰影／後處理／遠端資產，新地球兩張影像合計439294 bytes，ZIP 679881 bytes；記錄實際數據而不作實機驗收。本次未重跑獨立iframe scroll矩陣或全庫Node／browser；真手機5秒／30fps與真Moodle仍待實際環境驗證。
 - P18最終runtime SHA-256：f86e10fe0bffd9a2a61ae30c51c7fcd6de222d85acc3d0bd1ddfbeee9b4dcad9；ZIP SHA-256：582f9ad8033f1ee03e4f8280b6c6255f9880183c6e373c1720fb3bf8fe87ee61。報告／截圖：output/playwright/rocket-space-mission-lab/；ZIP：output/rocket-space-mission-lab-scorm.zip。桌面／手機零件近照、八箱整箭、清空發射區、升空／海岸、全球地球／雲層截圖已檢視。地球自轉只屬renderer，既有非自轉地面物理／評分與schema1不變。
+- P18已commit／push：8210d290e901fc4b7bf5e7320b27501e08b2b57d；提交選擇預覽output/rocket/selection-p18.log，mode=affected。沿用使用者持續發布授權，Sites來源d4c03aa8cb21c3ba20f131a9cbd6cae9ecc79a74、deployment appgdep_6adcf48e8e70819186d912118f9caf2f，native結果succeeded。維持https://simlab-rocket-space-missions.ieyp.chatgpt.site及owner-private；未等待CI。
