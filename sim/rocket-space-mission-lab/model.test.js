@@ -31,3 +31,13 @@ for(const ordinal of [-1,2,.5,NaN])assert.deepEqual(M.change(ordered,{type:'tran
 for(const action of [{type:'insert',stage:0,part:'engine-0',at:1},{type:'insert',stage:4,part:'small',at:0},{type:'transfer',from:0,to:0,part:'small',ordinal:0,at:8}])assert.deepEqual(M.change(ordered,action),ordered);
 const lockedOrder=M.change(ordered,{type:'check'});assert.deepEqual(M.change(lockedOrder,{type:'insert',stage:0,part:'small',at:1}),lockedOrder);assert.deepEqual(M.change(lockedOrder,{type:'transfer',from:0,to:0,part:'large',at:1}),lockedOrder);
 console.log('rocket insertion: ordered middle insertion, same-stage reorder, exact removal, atomic transfer, limits and locking passed');
+
+for(let variant=0;variant<3;variant++){
+ let upper=M.fresh(()=>variant/3+.01);assert.deepEqual(M.change(upper,{type:'separator'}),upper);
+ upper=M.change(upper,{type:'part',stage:0,part:'engine',value:1});assert.deepEqual(M.change(upper,{type:'separator'}),upper);
+ upper=M.change(upper,{type:'part',stage:0,part:'large',value:1});upper=M.change(upper,{type:'insert',stage:0,part:'small',at:0});
+ const original=P.clone(upper.craft.stages[0]),built=M.change(upper,{type:'separator'});assert.equal(built.craft.stages.length,2);assert.deepEqual(built.craft.stages[1],original);assert.deepEqual(built.craft.stages[0],P.emptyStage());assert.equal(built.craft.separator,true);assert.equal(P.mass({craft:built.craft,separated:false},built.craft.stages.map(P.capacity))-P.mass({craft:upper.craft,separated:false},upper.craft.stages.map(P.capacity)),60);assert.deepEqual(M.change(built,{type:'separator'}),built);
+ assert.deepEqual(M.change(built,{type:'transfer',from:1,to:null,part:'separator'}),upper);
+ let lower=M.change(built,{type:'part',stage:0,part:'engine',value:0});assert.deepEqual(M.change(lower,{type:'transfer',from:1,to:null,part:'separator'}),lower);lower=M.change(lower,{type:'part',stage:0,part:'large',value:1});const fly=M.change(M.change(lower,{type:'launch'}),{type:'ignite'});assert.equal(fly.flight.active,0);assert.equal(M.thrust(fly.flight),600000);const staged=M.change(fly,{type:'separate'});assert.equal(staged.flight.active,1);assert.deepEqual(staged.flight.craft.stages[1],original);assert.equal(M.thrust(M.change(staged,{type:'ignite'}).flight),80000);assert.deepEqual(M.change(fly,{type:'separator'}),fly);assert.deepEqual(M.change(M.change(built,{type:'check'}),{type:'separator'}),M.change(built,{type:'check'}));
+}
+console.log('rocket separator: bottom extension preserves upper stage, adds 60kg, rejects loss/duplicates and fires lower then upper');

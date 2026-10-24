@@ -11,7 +11,7 @@
   const capacity=s=>1500*s.small+6000*s.large;
   const dry=s=>100*s.small+400*s.large+(ENGINES[s.engine]?.dry||0);
   const complete=c=>c.stages.length>0&&c.stages.every(s=>s.engine!==null&&s.small+s.large>0)&&c.separator===(c.stages.length===2);
-  function canFit(c,stage,part){const s=c.stages[stage];return Boolean(s&&(['engine-0','engine-1'].includes(part)?s.engine===null:['small','large'].includes(part)&&s.small+s.large<4));}
+  function canFit(c,stage,part){const s=c.stages[stage];if(part==='separator')return stage===0&&c.stages.length===1&&complete(c);return Boolean(s&&(['engine-0','engine-1'].includes(part)?s.engine===null:['small','large'].includes(part)&&s.small+s.large<4));}
   function mass(f,fuel=f.fuel){return PAYLOADS[f.craft.payload]+f.craft.stages.reduce((sum,s,i)=>sum+(f.separated&&i===0?0:dry(s)+(fuel[i]||0)),0)+(f.craft.separator&&!f.separated?60:0);}
   function twr(c){if(!complete(c))return 0;const f={craft:c,fuel:c.stages.map(capacity),separated:false};return ENGINES[c.stages[0].engine].thrust/(mass(f)*MU/R**2);}
   return Object.freeze({ACTIVITY,R,MU,G0,PAYLOADS,TARGETS,ENGINES,clone,emptyStage,emptyCraft,tanks,setTanks,capacity,dry,complete,canFit,mass,twr});

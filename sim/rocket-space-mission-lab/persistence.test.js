@@ -30,3 +30,9 @@ for(let variant=0;variant<3;variant++){
  const review=T.snapshot(orbit,'review',S.score(orbit));assert.deepEqual(D.decode(review,'review').records,orbit.records);assert(D.bytes({version:1,activity:P.ACTIVITY,kind:'pending-final',payload:{reviewJson:JSON.stringify(review),score:S.score(orbit).score,maxScore:100,passed:false}})<=4000);assert(D.bytes(T.snapshot(orbit))<=4000);
 }
 console.log('rocket ordered persistence: old/new codecs, invalid order, all variants and ordered workshop/flight/burn/check/review continuations passed');
+
+for(let variant=0;variant<3;variant++){
+ let s=M.fresh(()=>variant/3+.01);s=M.change(s,{type:'part',stage:0,part:'engine',value:1});s=M.change(s,{type:'part',stage:0,part:'small',value:1});s=M.change(s,{type:'separator'});assert.equal(s.craft.stages.length,2);assert.deepEqual(round(s),s);const removed=M.change(round(s),{type:'transfer',from:1,to:null,part:'separator'});assert.equal(removed.craft.stages.length,1);assert.deepEqual(round(removed),removed);
+ s=M.change(round(s),{type:'part',stage:0,part:'engine',value:0});s=M.change(s,{type:'part',stage:0,part:'large',value:1});s=M.change(round(s),{type:'launch'});s=M.change(round(s),{type:'ignite'});M.advance(s,.1);assert.deepEqual(round(s),s);s=M.change(round(s),{type:'separate'});s=M.change(round(s),{type:'ignite'});const t=s.flight.t;M.advance(s,.1);assert(s.flight.t>t&&s.flight.active===1);assert.deepEqual(round(s),s);
+}
+console.log('rocket separator persistence: all variants, unfinished lower, removal, launch and separated upper legal continuations');

@@ -713,3 +713,18 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 - 原20布局、整卡／手柄拖放、原生面板捲動、已裝零件點選、插入／調位／跨級搬移、連續背景旋轉、三鏡頭、關機／分級續飛、hidden明示暫停、任務、提交重試／恢復／唯讀、全屏與WebGL故障回歸通過。本次未重跑獨立iframe scroll T1/T2/T3矩陣或全庫Node／browser；真手機與真Moodle仍未驗證。
 - 主report.json：completed=true、errors=[]、52 flows；runtime SHA-256：5171a82ed7e84411c8b321830a911a986168584d2d0ef05a45bc1476c195df45（已與最終宣告runtime bytes核對）；ZIP SHA-256：e00343cdc123481b60d4ead6c1701df3757c524128066eea06f69c1085c716b6。報告／截圖：output/playwright/rocket-space-mission-lab/；ZIP：output/rocket-space-mission-lab-scorm.zip。
 - P15已commit／push：59eecd76a65dea3718ad73c18375bf535729d076；提交選擇預覽output/rocket/selection-p15.log。沿用使用者明確持續發布授權，Sites來源333a564f746a47b660331c4fab68ba0b14da5148、deployment appgdep_6adcde0756748191916814518068e85f，native結果succeeded。維持https://simlab-rocket-space-missions.ieyp.chatgpt.site及owner-private；未等待CI。
+
+
+### P16：完整速度讀數、分級燃料與由分離器向下加建
+
+- 需求：補垂直及總速率，避免直上時水平0造成誤解；兩級各自顯示推進劑百分比；以分離器元件取代單級／兩級按鈕，原已完成的單級成為上級，在其引擎下加分離器／新下級，外殼包住上級噴嘴，飛行分離後再露出。
+- 速度沿用O.elements的radial／tangential／speed，顯示垂直及水平分量的絕對值與總速率；低於1000m/s採m/s一位小數，否則km/s兩位，避免低速全部0.00。HUD保留緊湊三欄：高度、總速率及兩個分量、各級燃料。兩級依各自capacity顯示，active與未點火級不混合，分離後下級標示已分離而不是冒充已消耗；記錄／review使用selectedFlight同一套讀數。
+- 兩級schema仍為lower-first stages[0]/[1]及separator boolean，最多兩級，mass／fuel／評分／snapshot schema不變。新增separator模型操作只在workshop且單級引擎與燃料完整時，原級原封移至index1、prepend空index0，增加既有60kg分離器。保留舊stages action供既有fixture／caller，刪除UI切換。移除分離器只在下級已空時恢復原上級，拒絕靜默丟失任何下級零件；check／review／pending保持鎖定。
+- 分離器沿用元件卡mouse整卡／touch手柄、點選／鍵盤、舞台接點、原位預覽、直接點選取出與取消契約；只有原單級底部接點可裝，重複／未完成／第三級拒絕，拖放不改草稿直到釋放。引擎仍屬原上級，opaque interstage包覆噴嘴，不修改推力；分離器可取出且上級引擎仍可由可見安裝環／鍵盤選取。下級先點火，分離後切換原上級，所有元件及有序燃料箱保留。
+- 範圍：parts／model／scene／main／HTML／CSS及既有model／persistence／browser owner／本計劃，無新依賴／資產。沿用既有低風險rubric、phase/variant、權威snapshot及提交／重試／信任契約。先加模型與codec往返／合法續做測試，再執行source／ZIP真實mouse/touch分離器拖放／取消／不合法／移除、兩級順序與外殼、讀數獨立／低速／下降／不同鏡頭／review、320px及橫向布局；六個Node、check／check:tests、文件及提交選擇預覽。真手機／Moodle另驗，不以本機模擬代替。
+
+- P16完成證據：先用model測試重現separator不能建立下級，再通過六個活動Node測試、最終npm run check、npm run check:tests（278 entries）、文件／diff檢查。三變體保留有序上級、質量只增加60kg、未完成／重複／飛行／check拒絕、下級有件拒絕移除、空下級移除，以及下級600kN→原上級80kN順序通過。新建未完成下級／移除／launch／separated upper均有production codec往返與合法續做，舊快照／pending／唯讀契約不變。
+- source／ZIP各1280×800 mouse及390×844、320×568、844×390 native touch分離器拖放／取消、原位預覽不更改答案、上級保留、空下級取出、鍵盤再加、第三級拒絕、下級有件不可靜默丟失、下級先點火及分離後原上級點火通過。實際shroud包住上級nozzle的bounds，安裝環仍可直接選取，分離後外殼消失；桌面／手機shell截圖已檢視。移除級數切換，新增元件沿用桌面整卡／手機手柄規則。
+- source／ZIP各1280×800、390×844、320×568、844×390、390×460：總／垂直／水平速率300-400-500、1m/s直上及水平0、下降分量絕對值、3-4-5km/s換單位通過；兩級50%／25%獨立讀數、分離後下級「已分離」與上級25%、已提交review同一紀錄、切回單級僅主級100%通過。HUD數值及圖例不重疊／不越界；320px、橫向與短窗口截圖已檢視。HUD與圖例用flex自然換行，不擴充頁首標題或新增操作教學。
+- 原20布局、裝配／中間插入／精確ordinal／跨級搬移／鍵盤調位、手機原生面板捲動／桌面整卡、不中斷飛行控制／背景旋轉／鏡頭、288組向量transform、任務、評分提交／恢復／pending重試／唯讀、全屏及WebGL故障回歸通過。本次未重跑獨立iframe scroll矩陣或全庫Node／browser；真手機與真Moodle仍未驗證。
+- 主report.json：completed=true、errors=[]、70 flows；runtime SHA-256：7b53373adf8c4b7c5fe88eabda5dd1bfea042fb57ad8fb271a1bd4f120d87603（已與最終宣告runtime bytes核對）；ZIP SHA-256：39ecb9ed4895430d857c69a31dc1191e8b6fc18f86210494989d6dcad720b065。報告／截圖：output/playwright/rocket-space-mission-lab/；ZIP：output/rocket-space-mission-lab-scorm.zip。

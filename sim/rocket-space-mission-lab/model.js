@@ -58,6 +58,7 @@
       }
       case 'transfer':{
         if(n.phase!=='workshop'||!Number.isInteger(action.from)||action.to!==null&&!Number.isInteger(action.to))break;
+        if(action.part==='separator'){const lower=n.craft.stages[0];if(action.from===1&&action.to===null&&action.at===undefined&&(action.ordinal===undefined||action.ordinal===0)&&n.craft.separator&&n.craft.stages.length===2&&lower.engine===null&&!lower.small&&!lower.large){n.craft.stages=[n.craft.stages[1]];n.craft.separator=false;}break;}
         const st=n.craft.stages[action.from],part=action.part,engine=['engine-0','engine-1'].includes(part),same=action.from===action.to;
         if(!st||!(engine?st.engine===Number(part.slice(-1)):['small','large'].includes(part)&&st[part]>0)||action.to!==null&&!same&&!P.canFit(n.craft,action.to,part))break;
         if(engine){if(same||action.at!==undefined)break;st.engine=null;if(action.to!==null)n.craft.stages[action.to].engine=Number(part.slice(-1));break;}
@@ -65,6 +66,7 @@
         const target=action.to===null?null:same?list:P.tanks(n.craft.stages[action.to]),at=action.at??target?.length;if(target&&(!Number.isInteger(at)||at<0||at>target.length)||same&&action.at===undefined)break;
         list.splice(index,1);if(target)target.splice(same&&at>index?at-1:at,0,part);P.setTanks(st,list);if(target&&!same)P.setTanks(n.craft.stages[action.to],target);break;
       }
+      case 'separator':if(n.phase==='workshop'&&P.canFit(n.craft,0,'separator')){n.craft.stages.unshift(P.emptyStage());n.craft.separator=true;}break;
       case 'stages':if(n.phase==='workshop'&&[1,2].includes(action.count)){n.craft.stages=action.count===1?[n.craft.stages[0]]:[n.craft.stages[0],n.craft.stages[1]||P.emptyStage()];n.craft.separator=action.count===2;}break;
       case 'launch':if(P.complete(n.craft)){n.flight=flight(n.craft);n.task='A';n.phase='pad';n.node=null;n.burn=null;}break;
       case 'workshop':n.phase='workshop';n.task='A';n.flight=null;n.node=null;n.burn=null;break;
