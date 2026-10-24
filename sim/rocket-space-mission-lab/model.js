@@ -52,6 +52,13 @@
     const n=clone(s),f=n.flight;if(n.phase==='check'&&action.type!=='return')return n;
     switch(action.type){
       case 'part':{if(n.phase!=='workshop')break;const st=n.craft.stages[action.stage];if(!st)break;if(action.part==='engine')st.engine=action.value;else if(['small','large'].includes(action.part)&&Number.isInteger(action.value)&&action.value>=0&&action.value<=4&&action.value+st[action.part==='small'?'large':'small']<=4)st[action.part]=action.value;break;}
+      case 'transfer':{
+        if(n.phase!=='workshop'||!Number.isInteger(action.from)||action.to!==null&&!Number.isInteger(action.to)||action.from===action.to)break;
+        const st=n.craft.stages[action.from],part=action.part,engine=['engine-0','engine-1'].includes(part);
+        if(!st||!(engine?st.engine===Number(part.slice(-1)):['small','large'].includes(part)&&st[part]>0)||action.to!==null&&!P.canFit(n.craft,action.to,part))break;
+        if(engine)st.engine=null;else st[part]--;
+        if(action.to!==null){const target=n.craft.stages[action.to];if(engine)target.engine=Number(part.slice(-1));else target[part]++;}break;
+      }
       case 'stages':if(n.phase==='workshop'&&[1,2].includes(action.count)){n.craft.stages=action.count===1?[n.craft.stages[0]]:[n.craft.stages[0],n.craft.stages[1]||P.emptyStage()];n.craft.separator=action.count===2;}break;
       case 'launch':if(P.complete(n.craft)){n.flight=flight(n.craft);n.task='A';n.phase='pad';n.node=null;n.burn=null;}break;
       case 'workshop':n.phase='workshop';n.task='A';n.flight=null;n.node=null;n.burn=null;break;

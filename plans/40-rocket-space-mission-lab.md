@@ -577,3 +577,17 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 - 六個活動Node測試通過；npm run check:tests通過（278 entries）。最終活動browser source及extracted ZIP完成20種布局；各有桌面可信滑鼠、手機可信觸控從空白裝配開始，Enter鍵加入、編輯區移除、兩級選擇、箱數上限、滑鼠／觸控拖放與取消、點火推進、任務B、提交／鎖定／續做／重試及全屏／WebGL故障恢復通過。報告completed=true、errors=[]，runtime SHA-256：0f8beeeea84963e700e859908b6196cf85f7820e4cfa94f6f6d1434639c75d46。
 - 舊P4全觸控矩陣屬當時版本；本次僅重跑本活動專項，沒有重跑全庫Node／browser或完整觸控矩陣。真手機與真Moodle仍未驗證，不宣稱已重現並排除使用者裝置的所有失效。
 - 修正版已commit／push：8f726c809e6e42f3a263165280e0593c73a0cc83；Sites來源ca5be107437f45aaafb6b054430bf38c6920f87b，deployment appgdep_6adc7313a6688191bbc2bccb7dd4ac5a native結果succeeded，保持原owner-private網址。ZIP SHA-256：1622b3af9a07b25c497b226487bf54e922beb3d301ec1d3bb8049db628b57d40。未等待CI。
+
+### P6：拖入／拖回及連續升空環境（實作決策，2026-10-24）
+
+- 依使用者指定參考Circuit Workbench的palette preview、有效snap、release提交、取消復位及panel discard。只參考手勢，不改電路共用核心。變更範圍為本活動parts/model、interaction、scene、main、HTML/CSS、既有Node／browser測試及本計劃；不新增依賴。
+- 元件箱拖入：引擎只可入空的引擎位，燃料箱只可入未滿四箱的燃料位；拖錯位置不修改答案。保留點選／鍵盤加入及數量控制作替代操作。舞台上的已裝引擎或燃料箱可直接拖走，放回元件箱（控制區）才移除，亦可移至另一個相容級；未放到有效位置、取消、失焦或失去capture均回原位。衛星載荷與兩級分離器由任務／級數決定，不能作散件移除。
+- 已裝零件採實際3D幾何raycast；單一穩定HTML grip貼合可拖零件的畫面投影及局部touch halo，不攔截周圍空白或側條。元件箱及安裝拖動均有實際零件外觀預覽；相機在拖動中固定。只在有效release執行一次model change及共用保存，預覽不改答案。
+- 沿用權威craft的每級engine／small／large計數，不新增持久id或改snapshot版本；同類燃料箱可互換。新增原子transfer action，同時驗證來源存在與目的相容後才搬移或移除；不污染既有flight／records。評分／SCORM／phase/variant matrix均沿用現行契約；workshop可改，check／pending／review均不可改。
+- 飛行在同一局部地平座標顯示發射台、地面、道路、樹木／建築及雲層；場景位置隨實際飛船位置連續改變，不再以是否剛離地切掉地面。依高度連續變暗的天空、漸現星空及高空地球曲面建立高度參照。跟隨鏡頭逐漸拉遠，火箭圖示適度放大並明示，物理計算仍用原本真實尺度。背景只是教學視覺，並非地理重建或大氣光學模型。
+- 驗證：既有六個Node測試加入相容性、原子移除／搬移、失效目的不動及保存往返；本活動source＋extracted ZIP browser驗證可信mouse/touch拖入／拖回／搬移／錯位／取消，原有提交鎖定及手機布局，並檢查點火前後地面連續、不同高度天空漸暗與圖像預算。真手機／Moodle及全庫回歸不以本次本地證據代替。
+
+- P6完成證據：六個活動Node測試通過（含相容性、原子搬移／取出、check不可改、保留已有A紀錄、移除後codec往返）。npm run check、npm run check:tests、文件及diff檢查通過。
+- 最終source／extracted ZIP專項report.json為completed=true、errors=[]；runtime SHA-256：290f0f03e1f33294605287b911412b4decd0c60108b1739b835e8c68cefc0ace。兩份產物各驗證1280×800可信mouse及390×844可信touch的完整拖入／拖出／移級／錯接／已有引擎拒絕／取消復位；直接拖到實體接合處亦可吸附。記錄實際pointerdown目標，拖動期間panel／stage／visualViewport／相機保持固定；點選已裝零件同步目前裝配級。共用check／submit／pending／review、全屏與WebGL故障測試仍通過。
+- 同一真實模型的直上飛行在1 m、約100 m、1 km、20 km、50 km、69 km、71 km、100 km、140 km採樣；地面／發射台位置隨高度連續，天空fraction單調由0至1，70 km附近無跳色。實際畫面人工檢視1 m／1 km／20 km／71 km／140 km及手機組裝截圖；高空globe作背景、詳細地面負責depth，避免兩個表面相交閃爍。採樣最高77262 triangles、58 draw calls，在原圖像預算內。
+- ZIP：output/rocket-space-mission-lab-scorm.zip；圖像及報告：output/playwright/rocket-space-mission-lab/；靜態檢查：output/rocket/check-p6.log。此證據限本地Chrome及模擬觸控，未重跑全庫browser／完整iframe觸控矩陣，未驗真手機／真Moodle／校內效能。未等待CI。
