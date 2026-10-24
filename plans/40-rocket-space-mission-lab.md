@@ -565,6 +565,6 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 - 完整觸控矩陣：source及package的T1/T2/T3各40 cases，standalone source／package的T0各14 cases；共268 cases、2304 gestures、0 issues。證據位於同目錄scroll-source-T1/T2/T3.json、scroll-package-T1/T2/T3.json、scroll-standalone-T0.json、scroll-standalone-T0-package.json。相機／節點包含完成、取消、第二指、失焦及lost capture；真手機T4仍未執行。
 - 全項目Node回歸：240/240通過，output/tests/rocket-full-node.json；後續新增即時節點與最大兩級active-burn草稿測試亦已專項重跑通過。
 - npm run check、npm run check:tests及npm run package:all通過，證據為output/rocket/check-final.log、registry-final.log、package-all-final.log。所有SCORM包均已驗證；本活動ZIP為output/rocket-space-mission-lab-scorm.zip。
-- 已提交選擇預覽記錄於output/rocket/committed-selection.log；新增catalogue／registry選取全量檢查。GitHub Quality與額外全項目browser回歸尚在進行，不把它們標成通過，也不等待它們才交付試用。
-- 試用站：https://simlab-rocket-space-missions.ieyp.chatgpt.site （owner-private）；已部署並保持同一網址，最後觸控修正隨交付更新。站點build-info.json記錄來源commit及ZIP hash。
+- 已提交選擇預覽記錄於output/rocket/committed-selection.log；新增catalogue／registry選取全量檢查。GitHub Quality未等待完成；額外全項目browser回歸已停止以免拖延交付及繼續佔用本機資源，其不完整報告不作通過證據。活動專項browser及上述觸控矩陣均已完成。
+- 試用站：https://simlab-rocket-space-missions.ieyp.chatgpt.site （owner-private）；最後觸控修正已成功部署並保持同一網址；Sites來源提交e1aaa059b9788dfaed8c8adbf0ea55d82d289857，deployment appgdep_6adc6ed5d6308191be8351d28324a509，native結果succeeded。站點build-info.json記錄來源commit及ZIP hash。
 - 交付定位：可操作的形成性SCORM試用版。package-ready的全量回歸gate仍待確認；Moodle-ready未達成，真Moodle／真手機／校內網路效能尚未驗收。沒有聲稱完整飛行影片、三維自由軌道傾角或多天體任務。
