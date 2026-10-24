@@ -632,3 +632,18 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 - source及extracted ZIP各有1280×800可信mouse與390×844可信touch：兩大箱中間插小箱成large/small/large、取消不變、同級重排、四箱滿時拒絕新增、精確選取第2大箱跨級插入及非拖放重排控制通過；預覽期間答案／LMS草稿／相機／scroll均不變，release與完整預覽一致。20種布局、原手柄／面板滾動／即時警告、任務／SCORM／全屏／WebGL故障回歸亦通過。桌面及手機middle-insert截圖已人工檢視。
 - report.json：completed=true、errors=[]；runtime SHA-256：8977c59daa6e73af806da938c8620a31eae53063f4b0761bf39d5562ea672b1c；ZIP SHA-256：5a5aba9063391ac5bd6dd6a523f4c55075bd7446c2a6819db81f094629620995。報告及截圖：output/playwright/rocket-space-mission-lab/；ZIP：output/rocket-space-mission-lab-scorm.zip。未重跑全庫Node／browser及完整iframe矩陣，真手機／Moodle仍未驗證。
 - P9已commit／push：643e59e887b637f9f8067817d9416f1683cb10f9；提交選擇預覽output/rocket/selection-p9.log。沿用使用者明確持續發布授權，Sites來源a7901506a168c3fee6ea6ae03dfe98bb5dc81147、deployment appgdep_6adcac65d5dc8191bbf9694b8ef5ba78，native結果succeeded。維持https://simlab-rocket-space-missions.ieyp.chatgpt.site及owner-private；未等待CI。
+
+
+### P10：清晰標題／控制、空曠發射台與外圍景觀（2026-10-24）
+
+- 頂部恢復常見可見標題，手機以20px標題列＋44px導航列呈現，總高≤80px；桌面同列。刪除舞台英文／大標語／副標，不讓文字遮火箭。導航改為組裝發射、軌道任務、成果提交；鏡頭只留有標籤選單與轉動開關，縮放／回正移到面板可展開的「鏡頭設定」。
+- 保留既有明示相機模式及兩側≥32px捲動區。開／關相機模式、選鏡頭、縮放均不暫停或啟動物理；只改顯示。以實際running狀態標示「飛行中／已暫停／待發射」，暫停與繼續按鈕命名清楚；發射台只顯示「點火發射」，避免無效果的播放控制。
+- 關機／分級是物理控制，不再暗中改running；運行中關機後滑行、分級後可點火上級，原本暫停時仍保持暫停。規劃／檢查／提交、失焦、技術故障及恢復仍遵守現有暫停契約；模型方程、評分及保存schema不變。
+- 發射台周圍至少350m不設樹木／建築，保留清楚平台與混凝土底座；移除貼近火箭的裝飾燈柱。外圍添加河流／河岸、森林群及遠方建築／道路，全部本地低面數幾何、instancing，仍守100 draw calls／100,000 triangles預算與連續升空環境。
+- 範圍：本活動HTML/CSS/main/scene/ui-runtime、既有lifecycle/browser測試與計劃。新測試覆蓋可見緊湊標題／無舞台標語／導航全屏可達、清空區及實際pad截圖、運行／暫停時相機mode可信touch、關機／分級後時間繼續。沿用owner重跑source/ZIP、手柄／接縫、SCORM／故障／高度採樣；真手機／Moodle仍獨立驗收。
+
+- P10完成證據：六個活動Node測試、npm run check、npm run check:tests（278 entries）、文件／diff檢查通過。新增Controller測試證明關機與分級保留running，原本暫停時操作不會偷偷恢復；check／提交／技術故障暫停契約沿用原有測試。
+- source及extracted ZIP各以1280×800及390×844驗證可見頂欄標題、無畫面標語、鏡頭選單及開關；20布局頂欄高度集合為[53, 75] CSS px，導航及全屏按鈕可達、不重疊。縮放／回正收納面板，stage只留鏡頭／轉動視角。SVG裝配導線以真正hidden屬性切換，發射／飛行不再殘留接點導線；A任務恢復預設follow，避免在發射台卻見地球遠景。
+- 發射平台空曠底座及兩個額外yaw角度、桌面／手機畫面已人工檢視；樹木中心最近450m，建築中心距離>650m，96棵樹與12座遠方建築、河流／河岸在場景內。原真實模型升空高度採樣及天空漸變通過，採樣最高80018 triangles／58 draw calls。
+- 四組source/package可信mouse／touch流程證明：待發射只有明示點火、運行時開關／拖動相機仍繼續計時、原本暫停時開關相機不啟動、關機後滑行／分級繼續、暫停與繼續按鈕及狀態文字一致。原手柄／接縫插入／即時警告、任務／SCORM／續做／全屏／WebGL故障恢復仍通過。觸控測試等待實際pointer事件／回饋處理完成，不以固定20ms幀時限判失敗。
+- report.json：completed=true、errors=[]；runtime SHA-256：baf97c1bce712e33b984daf89f72e652ce1eea06860c8b274df12157aee5f506；ZIP SHA-256：bd11c9113dd19f071b255b0770be7012ebecbfe4f03ee4587a859b62859d1b54。報告及clear-launch-pad／flight-controls／ascent截圖在output/playwright/rocket-space-mission-lab/，ZIP為output/rocket-space-mission-lab-scorm.zip。未重跑全庫Node／browser或完整iframe矩陣；真手機／Moodle與校內效能未驗證。
