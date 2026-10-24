@@ -82,3 +82,10 @@ R1同一variant1重現修後：速率7729.891847→7664.893453m/s，實際變速
 - 正式報告／截圖：ignored `output/playwright/rocket-space-mission-lab/report.json`及相鄰`*-audit-*`圖片。兩代理獨立證據：`output/audit-scene-report.json`、`audit-scene-close-report.json`、`audit-scene-state-report.json`及相應圖片；不把較早未完成或固定時間等待失敗的報告當最終證據。
 
 **結論：** 初版可繼續試用，已完成本輪五項除錯；真手機持續幀率、真Moodle及未改動的獨立T1–T3 scroll矩陣仍未在本輪驗證。
+
+## 發佈及提交紀錄
+
+- 已commit及push：7a5ce1b90654ea8edaf85b9108f7eca84de2f187。
+- committed test selection-preview：output/rocket/selection-p19.log；mode=full，因既有test-support.js為測試fixture helper而非manifest runtime consumer，選擇器保守全選。本輪實際執行活動六Node及完整source／ZIP；未執行全庫或等待CI，沒有把測試fixture加進學生runtime來規避選擇器。
+- Sites來源：a021704661dfcb71e3f5ca367b4bde341848496d；deployment：appgdep_6adcfe8625c08191acad291bff4f2b4b；native結果succeeded。
+- 已部署至[原網站](https://simlab-rocket-space-missions.ieyp.chatgpt.site)，保留owner-private。
