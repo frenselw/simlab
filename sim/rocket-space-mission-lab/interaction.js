@@ -16,6 +16,7 @@
     function bind(target,kind,part){target.addEventListener('pointerdown',e=>down(e,kind,part));target.addEventListener('pointermove',move);target.addEventListener('pointerup',up);target.addEventListener('pointercancel',cancel);target.addEventListener('lostpointercapture',cancel);}
     d.partsGrid.querySelectorAll('[data-part]').forEach(b=>{bind(b,'part',b.dataset.part);b.addEventListener('click',e=>{if(e.detail===0&&api.allowed('part'))api.select(b.dataset.part);});});bind(d.nodeHandle,'node');bind(d.cameraSurface,'camera');
     d.cameraSurface.addEventListener('keydown',e=>{const delta={ArrowLeft:[-14,0],ArrowRight:[14,0],ArrowUp:[0,-14],ArrowDown:[0,14]}[e.key];if(delta){e.preventDefault();api.rotate(...delta);}});
+    document.addEventListener('pointerdown',e=>{if(active&&e.pointerId!==active.id)cancel();},true);
     return {cancel,diagnostics,get active(){return active;}};
   }
   return Object.freeze({nearest,install});

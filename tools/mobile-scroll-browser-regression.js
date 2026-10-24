@@ -415,6 +415,7 @@ async function main() {
       if(args.operations&&sim.folder==='plane-mirror-pencil-ray-diagram')entry.gestures.push(...await O.runMirrorOperations({cdp,childEval,observation,prepare,swipe,delay:H.delay},spec));
       if(args.operations&&sim.folder==='horizontal-projectile-lab')entry.gestures.push(...await O.runProjectileOperations({cdp,childEval,observation,prepare,delay:H.delay},spec));
       if(args.operations&&sim.folder==='circular-motion-vector-lab')entry.gestures.push(...await O.runCircularVectorOperations({cdp,childEval,observation,prepare,delay:H.delay},spec));
+      if(args.operations&&sim.folder==='rocket-space-mission-lab')entry.gestures.push(...await O.runRocketOperations({cdp,childEval,observation,prepare,delay:H.delay},spec));
       report.cases.push(entry);
       if(entry.gestures.some(g=>g.issues.length)){process.exitCode=1;const shot=await cdp.send('Page.captureScreenshot',{format:'png'});const dir=path.join(root,'output/playwright/mobile-scroll-failures');fs.mkdirSync(dir,{recursive:true});fs.writeFileSync(path.join(dir,sim.folder+'-'+spec.id+'-'+topology+'-'+width+'.png'),Buffer.from(shot.data,'base64'));}
       console.log(JSON.stringify({slug:sim.folder,profile:spec.id,part,viewport:width+'x'+height,issues:entry.gestures.filter(g=>g.issues.length).map(g=>({gesture:g.case||g.region+'-'+g.direction+'-'+(g.position||''),issues:[...new Set(g.issues)]}))}));
