@@ -576,3 +576,4 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 - 保留原配色與三區布局；手機先展示級數及零件，載荷資訊移至其後。「拖動視角／結束轉動」明示相機模式。快照schema、評分、物理模型及已保存答案未改。
 - 六個活動Node測試通過；npm run check:tests通過（278 entries）。最終活動browser source及extracted ZIP完成20種布局；各有桌面可信滑鼠、手機可信觸控從空白裝配開始，Enter鍵加入、編輯區移除、兩級選擇、箱數上限、滑鼠／觸控拖放與取消、點火推進、任務B、提交／鎖定／續做／重試及全屏／WebGL故障恢復通過。報告completed=true、errors=[]，runtime SHA-256：0f8beeeea84963e700e859908b6196cf85f7820e4cfa94f6f6d1434639c75d46。
 - 舊P4全觸控矩陣屬當時版本；本次僅重跑本活動專項，沒有重跑全庫Node／browser或完整觸控矩陣。真手機與真Moodle仍未驗證，不宣稱已重現並排除使用者裝置的所有失效。
+- 修正版已commit／push：8f726c809e6e42f3a263165280e0593c73a0cc83；Sites來源ca5be107437f45aaafb6b054430bf38c6920f87b，deployment appgdep_6adc7313a6688191bbc2bccb7dd4ac5a native結果succeeded，保持原owner-private網址。ZIP SHA-256：1622b3af9a07b25c497b226487bf54e922beb3d301ec1d3bb8049db628b57d40。未等待CI。
