@@ -216,8 +216,8 @@
 | Fullscreen | 整個活動根節點 data-sim-fullscreen-target，header data-sim-fullscreen；shared/fullscreen.js，44 px 可按區，20 px 圖示 |
 | Desktop / tablet | ≥960 px：stage＋約 320 px panel；stage 至少約 65% 可用寬；橫向短畫面 ≥640 px 且高 <520 px 採兩欄，panel 約 40% 寬 |
 | Control-panel classification | bounded split-panel；飛行中需要同時看舞台與操作，panel 獨立捲動 |
-| Phone stage and controls | 高度扣 header 後名義上 stage 54%、panel 46%；stage 上限 400 px。panel 目標至少 160 px，絕不低於契約 96 px；短視窗先縮舞台／改欄，不縮字 |
-| 數字例子 | 390×844、header 約104：stage 約400、panel 約340；375×667：stage 約304、panel 約259。這些是設計預算，需用實際渲染驗證 |
+| Phone stage and controls | P27：直向控制區 clamp(240px, 42dvh, 360px)，包含固定飛行操作列；剩餘空間給 stage。低於520px的窄視窗控制區clamp(172px,calc(100dvh - 275px),220px)，優先保留約200px舞台以避開角落儀表／鏡頭列；panel獨立捲動，不依賴fullscreen。 |
+| 數字例子 | P27設計預算：390×664、header約74px，stage約311px、controls約279px，其中可捲內容約206px；390×460，stage約200px、controls185px，其中可捲內容約112px。實測證據見P27；較早P22/P23高度為歷史。 |
 | Phone text | 主字／控制 16 px；次要字≥14 px；關鍵舞台讀數≥16 px；固定寬度 tabular numerals，符號不隨數值位數移動 |
 | Viewports | 320×568、375×667、390×844、430×932、768×1024、1280×800、1920×1080、844×390、640×360、390×460 iframe、200% zoom、鍵盤／工具列變動 |
 | Scroll topology | 活動根無競爭捲動範圍；panel overflow-y:auto＋contain；舞台空白／側條原生捲動 enclosing owner；T0–T4 實測 |
@@ -886,3 +886,37 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 - P26完成證據：check:tests（278 entries）、文件及diff檢查通過。output/rocket-p26-check.cjs選取既有registered owner的onboarding／workshop，source／extracted ZIP共8 flows，completed=true、errors=[]、selection=small-sockets；1280×800桌面及390×844／320×568手機，原生點按、拖放／取消、裝配與分級／點火通過。拖動期間實測可見圓點10–12px、透明按鈕至少44×44px、無大底色／border／box-shadow，small-sockets-*.png已檢視。
 - runtime SHA-256 3972fae562f47cafc771141198cca422f2d1892fd2f5bc317f4f3891a084c6b1；ZIP SHA-256 6a3a27ee01195727ac32991bac4e8fcbfecd3d30ccab800fa6da79ed5118e64d，260082 bytes。僅活動CSS，沒有JS／模型／評分／保存修改；未重跑無關美術、特效或全庫，真手機及真Moodle未驗證。
 - P26已commit／push：3ad39f089516716c03e3f234e35e8bd08a60084b；committed selection-preview在output/rocket/selection-p26.log，mode=affected。實際驗證選取如上，未執行全庫或等待CI。沿用持續發布授權，Sites來源0dadc5104c0b32bea77d65f4036d855ff1588dc7、deployment appgdep_6add7cc7788c8191b92332649b0e186c，native succeeded；使用驗過ZIP，原網址及owner-private維持。
+
+
+### P27：非全螢幕手機面板與美術優化規劃
+
+- 使用者指出普通手機瀏覽器的控制區太窄，並要求保留卡通風格、提升地球／太空細節且兼顧性能的詳細方案。先修改自適應面板；美術只制定[實作方案](../docs/rocket-art-direction-and-performance-plan.md)，尚未更換場景資產。
+- 影響範圍：活動styles.css、既有registered browser owner、此計劃及美術方案。沿用assessment risk、rubric、phase/variant、snapshot schema和依賴；CSS不寫入學習狀態，無model／SCORM／manifest新增依賴。
+- 版面決定：取消26dvh／236px上限及短屏166px限制，直向改為clamp(240px,42dvh,360px)，短屏以clamp(172px,calc(100dvh - 275px),220px)分配，390×460保留200px舞台，避免角落儀表與鏡頭重疊。固定飛行操作列保留，內容獨立捲動，44px觸控及數字16px保留，底部兼容safe-area。全螢幕沿用同一套自適應規則。
+- 驗證決定：延伸已登記mobileCockpit案例，加入375×600、390×664普通瀏覽器可視區；往返844／664／568／460px高度，檢查非全螢幕、可見內容高度、底部控制可達及state不變。source和extracted ZIP沿用layouts、telemetry、trusted touch、鏡頭／裝配及lifecycle相關案例；靜態check、check:tests、活動Node與文件檢查。真Safari工具列／鍵盤、實機熱負荷、真Moodle另驗。
+- 目前未commit；committed selection-preview待有實際commit後記錄，不以工作目錄預覽冒充。
+
+- P27完成證據：六活動Node測試、npm run check、check:tests（278 entries）、JS語法、文件及diff檢查通過。沿用既有registered owner，ignored wrapper選取mobileCockpit／toolbarResize／layouts／completeTelemetry／geographyAndHud／onboarding／paletteScrolling／directCamera／launchAndCamera／workshop／lifecycle，source與extracted ZIP共60 flows、20 layouts，completed=true、errors=[]。報告：[p27-panel-check.json](../output/playwright/rocket-space-mission-lab/p27-panel-check.json)。引擎Chrome 155.0.8059.86，軟體GPU；沒有以此宣稱真手機性能。
+- 七種操作艙尺寸中，390×664舞台310.1px、控制區278.9px、可捲內容205.6px；375×600可捲內容178.7px；320×568為166.7px；390×844為281.2px。390×460短視窗保留200px舞台、可捲內容111.7px，儀表、鏡頭及向量圖例無重疊；第一輪短屏重疊的中止報告保留為p26-panel-first-run.json，最終版已重新完整執行本輪選取。
+- source／ZIP共48次trusted touch從數字／加減掣起始掃動，只移動panel而不改state／window／visualViewport；28次running／paused分離後原位點燃上級流程通過。844→664→568→460→844高度往返保持暫停飛行state、最後控制可達，無根頁面溢出。窄／短手機、工廠、桌面與封裝手機截圖已目視。
+- runtime SHA-256：75cb354c040e1776166fa962f77903acc1ce0323311f91852e9e2049712d81fd；ZIP SHA-256：60127d66a8e5b076ba16816ed82b3b17f20ebe719713f7256f34124b1eefeb03，260140 bytes。manifest所列runtime與解包內容逐byte一致。
+- 測試歸屬工作目錄預覽在output/rocket/selection-p27-worktree.json，mode=affected、唯一browser owner為rocket-space-mission-lab；選取器列出240個Node及該browser owner，但本輪實際只執行上述六活動Node和指定browser案例。未提交，故無本輪committed selection-preview；未部署。無新增runtime依賴或美術資產，未重跑無關全庫／美術benchmark；真Safari工具列／鍵盤、真機長時間性能、獨立T1–T3宿主矩陣及真Moodle仍待驗。
+
+
+### P28：卡通美術完整實作與原站部署
+
+- 使用者已確認P27美術方案並明確要求完整實作及更新原有網站。沿用P27手機面板；美術按地理色圖、局部地貌、雲層／星野、火箭／發射場材質及性能收尾實作。Sites project appgprj_6adc62579ab88191aba299bcb282ce95，保留owner-private及原網址。
+- 沿用既定低風險assessment、rubric、phase/variant、snapshot schema；美術與性能層不改物理、評分、快照、SCORM報告或提交規則。地理位置沿用原發射點轉換，自轉仍僅視覺。新增runtime貼圖／地理資料要列入manifest；offline資料與產生工具獨立保存來源及重建方法。
+- 影響範圍：scene-art.js、scene.js、main.js必要渲染更新；新assets及離線製圖工具；manifest、既有browser owner及必要Node資產檢查／registry；活動計劃及美術方案證據。先保存未改美術的runtime供同環境比較。
+- 測試決定：實際查看2K／4K地球、低空／中空／軌道、三鏡頭、極區／經線接縫；來源／ZIP全部火箭browser owner與六Node，地標跨高度一致、素材故障保持提交、暫停無閒置GPU繪製、像素比例及降級、重建資源穩定、100 calls／100k triangles、手機紋理預算與ZIP≤5MB。增加可重建素材自檢及測試歸屬；保存持續採樣及前後比較，軟體GPU證據不得稱真iPhone性能。
+- 完成檢查後commit／push本活動變更、產生committed selection-preview，以測過SCORM內容更新Sites source checkout、保存版本及部署，核對native部署結果與build標識。真機／Moodle環境若無法取得，清楚保留驗收限制而不虛構結果。
+
+- P28完整本地回歸完成：七活動Node、registry自測、npm run check、check:tests（279 entries）、修改文件鏈結、語法及diff檢查通過。既有registered browser owner全跑source／extracted ZIP，合共130 flows、20 layouts，completed=true、errors=[]；Chrome 155.0.8059.86／SwiftShader。報告[report.json](../output/playwright/rocket-space-mission-lab/report.json)，首輪樹木移位導致launch clearance失敗的報告保留為p28-first-full-run.json，修正後已重新完整執行。
+- 已驗全球／局部地理跨高度一致、普通手機控制區與動態高度往返、trusted touch、裝配／分級／RCS、變軌／預覽、部分提交、Moodle模擬續做／pending／review鎖定、fullscreen、貼圖載入失敗仍可提交、context loss／restore、重建資源穩定。Node資產檢查驗來源／素材hash、海岸／地標、陸地和封裝完整；離線生成器另有接縫及shader座標roundtrip自檢。
+- 完整回歸版本runtime SHA-256：7c1dc75e9f8bed400526a960094650191d8d88ec68cacf29478941d67e7f678d。全部採樣場景最多73 draw calls、48,554 triangles；貼圖估算手機45.583MiB／桌面84.583MiB（含mipmap，不含framebuffer／driver）。暫停300ms期間0 GPU draws／0操作定位更新；兩級DPR降級與冷卻不改model或新增textures，樹木維持450m clearance且避開河岸。
+- P27面板與P28卡通美術在本輪一併提交及部署；P27段落的「未提交／未部署」是當時歷史狀態。真iPhone／Android工具列／鍵盤／熱負荷／冷載／輸入延遲、三輪真機基準、真Moodle及獨立T1–T3宿主矩陣未驗證；本輪本地通過不宣稱Moodle-ready或真手機30fps。
+
+- 同機基準snapshot的runtime hash為75cb354c040e1776166fa962f77903acc1ce0323311f91852e9e2049712d81fd。原始與封裝四場景各合計60秒採樣；桌面p95約33.4／66.9／66.8／50.2ms，與舊版相同；手機軌道50.1→33.5ms。暫停300ms的舊版操作定位18次，新版0次。軟體GPU結果只作相對比較。
+- 首輪手機pad source曾出現p95=50ms、package=33.5ms；對舊／新各三次重測，舊版三次33.5ms，新版50.1／33.5／33.5ms。針對這個觀察，把背景球每fragment的atan／asin轉成既有球體UV，保留世界方向固定與日夜漸變；兩行shader修改不涉及控制／物理／持久化。最終版再跑registered owner的geographyAndHud／earthStyle／sceneArt／artPerformance／layouts及三次手機pad benchmark，分別驗source／ZIP，報告p28-final-sky.json；不把此前的全流程報告冒充最後shader的runtime hash。
+
+- 最後背景shader版本的source／ZIP專項驗證完成：20 flows、20 layouts、errors=[]，每份三次pad穩態採樣。source p95=50／33.5／33.5ms；package三次均33.5ms，與舊版三次33.5ms相同。首次source尾端慢幀仍保留為已知觀察，不能宣稱所有首次入景樣本都達到≤10%回退門檻；沒有把軟體GPU推算成真機性能。最後runtime hash c84316dcefbc2b2c53328db755eafb979e0b575110e1a6982ccc0e7251d00c9f，ZIP SHA-256 1f57b33b0bacf5dd91992d7bb48e79429075cdcb2610c4ec6d86d7080465d04b，910154 bytes。這份ZIP供Sites部署，之後不再重建。

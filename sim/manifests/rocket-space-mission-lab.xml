@@ -5,6 +5,7 @@
   <resources><resource identifier="RES-ROCKET" type="webcontent" adlcp:scormtype="sco" href="rocket-space-mission-lab/index.html">
     <file href="rocket-space-mission-lab/index.html"/><file href="rocket-space-mission-lab/styles.css"/><file href="rocket-space-mission-lab/parts.js"/><file href="rocket-space-mission-lab/orbit.js"/><file href="rocket-space-mission-lab/model.js"/><file href="rocket-space-mission-lab/scoring.js"/><file href="rocket-space-mission-lab/persistence.js"/><file href="rocket-space-mission-lab/ui-runtime.js"/><file href="rocket-space-mission-lab/interaction.js"/><file href="rocket-space-mission-lab/scene.js"/><file href="rocket-space-mission-lab/scene-art.js"/><file href="rocket-space-mission-lab/main.js"/>
     <file href="rocket-space-mission-lab/vendor/three-0.185.1/three.module.min.js"/><file href="rocket-space-mission-lab/vendor/three-0.185.1/three.core.min.js"/><file href="rocket-space-mission-lab/vendor/three-0.185.1/LICENSE"/>
+    <file href="rocket-space-mission-lab/assets/earth-2k.webp"/><file href="rocket-space-mission-lab/assets/earth-4k.webp"/><file href="rocket-space-mission-lab/assets/launch-region.webp"/><file href="rocket-space-mission-lab/assets/clouds.webp"/><file href="rocket-space-mission-lab/assets/starfield.webp"/><file href="rocket-space-mission-lab/assets/geography.json"/>
     <file href="shared/styles.css"/><file href="shared/fullscreen.js"/><file href="shared/scorm.js"/><file href="shared/activity-flow.js"/>
   </resource></resources>
 </manifest>

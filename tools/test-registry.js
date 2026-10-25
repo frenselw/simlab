@@ -5,6 +5,7 @@ const {groups:dcGroups}=require('./circuit-test-groups');
 const root=path.resolve(__dirname,'..');
 
 const registeredTests = [
+  'sim/rocket-space-mission-lab/art.test.js',
   'sim/rocket-space-mission-lab/model.test.js',
   'sim/rocket-space-mission-lab/orbit.test.js',
   'sim/rocket-space-mission-lab/scoring.test.js',
