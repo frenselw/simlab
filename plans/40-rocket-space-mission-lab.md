@@ -827,3 +827,15 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 
 - 最終owner先因已移除的「箭長隨大小變化」舊文字斷言中止；只更新測試為速度／推力圖例存在，未更動runtime。保留前27個已過source flows，核對runtime SHA完全相同後，先由flightVectors續跑；cameraDrag的負角度字串插值亦只改測試加括號，未改runtime，再由launchAndCamera完成其餘source及完整package。兩份中止報告均保留，最終report以resumedSourceAt記錄，102 flows沒有跳過。
 - P21已commit／push：83d02a942d46b180a36e73d2ce59840ba21a1f0c；committed selection-preview在output/rocket/selection-p21.log，mode=affected。實際執行活動六Node、完整source／ZIP owner與既述靜態檢查，未執行全庫或等待CI。沿用持續發布授權，Sites來源fdb78876ccf6cb11dbd16fadf9774a0c0cc633aa、deployment appgdep_6add5dddd2188191b7cd9409f91b894e，native succeeded；精確使用驗過ZIP，原網址及owner-private維持。
+
+### P22：手機操作艙與獨立畫面／讀數分區
+
+- 使用者要求先處理操作：HUD及三鏡頭掣遮畫面、手機控制區太高、捲動誤改油門／轉向、分離後上級點火不方便。新增simulation-pane內的讀數列／純3D舞台／鏡頭工具列，讀數與鏡頭按鈕不覆蓋Canvas；控制區用controls-pane固定飛行操作列加獨立捲動內容。手機直向控制區約26dvh（180–236px；短窗口166px），餘位給模擬區，維持header／stage／controls三區、全屏及32px側捲頁條。桌面仍並排。
+- 飛行操作列固定顯示時間／狀態、暫停／繼續、當前級點火／關機及分離；分離仍僅切換上級並滑行，不自動點火。耗盡下級時分離按鈕與其後「上級點火」在同一操作位置，無須捲動找掣。保留paused／running、關機與分離不中斷、明示點火繼續等既有模型規則。
+- 油門／俯仰角重排為並列設定組。手機／coarse pointer隱藏會搶垂直手勢的range，改用數值輸入、加減及直上／45°／水平預設；桌面range保留。B變速量同樣有手機數字輸入，保留原±5。數字僅合法change才寫入、編輯中不被RAF覆寫；滑過按鈕／數字欄只捲面板，不變答案。T1–T3頁面／iframe捲動拓樸不改，控制面板T0及所有新目標用trusted native touch驗。
+- 範圍HTML／CSS／main、既有registered browser owner與本計劃；無scene／美術、physics、rubric、snapshot schema、共享SCORM或manifest依賴變更。沿用既有低風險assessment、phase／variant與保存／重試契約。先驗source及ZIP的桌面／手機／橫向／短窗口布局、非遮蔽讀數、純Canvas增高、原生面板滾動跨數字／按鈕不改值、數字／鍵盤合法／無效輸入、分離後無捲動點火及running／paused，並回歸裝配／鏡頭／向量／任務／提交恢復；六Node、check／check:tests、文件／diff及committed selection-preview。真手機與Moodle另驗。
+
+- P22完成證據：六活動Node、npm run check、check:tests（278 entries）、文件／diff檢查通過。既有registered owner以output/rocket-p22-regression.cjs選取本輪相關案例，source／extracted ZIP共88 flows、20 layouts，completed=true、errors=[]、selection=mobile-cockpit；逐byte核對manifest runtime。保留auditFixes／sceneArt／原生裝配／分級／全部telemetry／flightControls／288組向量transform／20布局／直接轉鏡／任務／SCORM保存恢復／pending及WebGL故障等，省略未改美術的geographyAndHud／earthStyle／artBenchmark；未聲稱完整全活動或全庫測試。
+- source／ZIP各390×844、320×568、844×390、390×460 native touch及1280×800 mouse操作艙通過：HUD完全位於Canvas上方、鏡頭／向量圖例完全位於Canvas下方、44px觸控按鈕、頁面與visualViewport不漂移、固定操作列不隨內容捲動。390×844純Canvas 459.1px，P21讀數至鏡頭列之間有效空間259.9px，增加約77%；新讀數43.4px、鏡頭列46.0px、固定操作列72.3px。五種尺寸與上下級截圖已檢視。
+- 共32次trusted native touch從油門數字、角度數字、油門／轉向按鈕開始垂直掃動：只面板scrollTop增加，完整state／window／visualViewport一致。手機range隱藏、桌面range保留，35%／42°／非法999°／B變速250m/s數字與鍵盤change驗證通過；RAF不覆寫正在編輯的欄位。每份五尺寸各running／paused分離後保留滑行、不自動點火，無面板跳位、焦點不捲動，原分離按鈕同一觸點可直接點燃上級並明示續飛，合共20次分離接點火流程通過。移除分離toast以避免面板底部錨定突然跳位。
+- runtime SHA-256 efc73fd33e3b2abe99930b976c79cd2918f51c820cf48bcc2b60ef043640bcba；ZIP SHA-256 a1edfce6a5cc64474cc3a47d9ad5cc3bee8390d9800b2a7110f1901f869aaa22，258631 bytes。報告／cockpit／full-telemetry等截圖在output/playwright/rocket-space-mission-lab/。無scene／物理／rubric／schema／共享runtime改動；真手機鍵盤與長時間操作、真Moodle及獨立T1–T3宿主矩陣本輪未驗，不能以模擬觸控取代實機驗收。
