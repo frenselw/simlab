@@ -330,8 +330,7 @@ def bake_relief(land):
     tmp=ROOT/'output/rocket/terrain-source.json';tmp.parent.mkdir(parents=True,exist_ok=True)
     tmp.write_text(json.dumps(source,separators=(',',':')),encoding='utf-8')
     subprocess.run(['node',str(Path(__file__).with_name('bake-terrain.mjs')),str(tmp)],cwd=ROOT,check=True)
-    data=(OUT/'terrain.bin').read_bytes()
-    return {'file':'terrain.bin','bytes':len(data),'sha256':hashlib.sha256(data).hexdigest(),'extentMetres':extent,'chunks':16,'levels':3,'illustrative':True}
+    return json.loads((OUT/'geography.json').read_text(encoding='utf-8'))['terrain']
 
 
 def main():
@@ -370,7 +369,8 @@ def main():
     for p in landmarks:
         glon,glat=local_to_geo(np.array([[p['x']]]),np.array([[p['z']]]));p['longitude']=round(float(glon[0,0]),7);p['latitude']=round(float(glat[0,0]),7)
     relief=bake_relief(land)
-    metadata={'terrain':relief,'version':1,'seed':SEED,'projection':{'radius':R,'latitudeRadians':LAT,'longitudeRadians':LON,'extentMetres':EXTENT,'imagesNorthUp':True,'globalUV':'u=(lon+180)/360; imageY=(90-lat)/180','regionalUV':'imageX=(east+120000)/240000; imageY=(120000-north)/240000','localVector':'(east/R,sqrt(1-(east*east+north*north)/(R*R)),north/R)','sceneToChart':'east=.764842*x+.644218*z; north=-.644218*x+.764842*z'},'sources':sources,'coastRows':rows,'landGrid':{'width':129,'height':129,'extentMetres':EXTENT,'northUp':True,'rows':grid_rows},'ridges':RIDGES,'river':{'nearPad':{'minZ':-2200,'maxZ':2200,'center':'-540+sin(z/4400*pi*3)*90','waterWidth':76,'bankWidth':112},'samples':[[round(v[0]),round(v[1])] for v in river[::3]]},'landmarks':landmarks,'assets':{p.name:{'dimensions':list(Image.open(p).size),'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()} for p in sorted(OUT.glob('*.webp'))}}
+    existing=json.loads((OUT/'geography.json').read_text(encoding='utf-8'))
+    metadata={**existing,'terrain':relief,'version':1,'seed':SEED,'projection':{'radius':R,'latitudeRadians':LAT,'longitudeRadians':LON,'extentMetres':EXTENT,'imagesNorthUp':True,'globalUV':'u=(lon+180)/360; imageY=(90-lat)/180','regionalUV':'imageX=(east+120000)/240000; imageY=(120000-north)/240000','localVector':'(east/R,sqrt(1-(east*east+north*north)/(R*R)),north/R)','sceneToChart':'east=.764842*x+.644218*z; north=-.644218*x+.764842*z'},'sources':sources,'coastRows':rows,'landGrid':{'width':129,'height':129,'extentMetres':EXTENT,'northUp':True,'rows':grid_rows},'ridges':RIDGES,'river':{'nearPad':{'minZ':-2200,'maxZ':2200,'center':'-540+sin(z/4400*pi*3)*90','waterWidth':76,'bankWidth':112},'samples':[[round(v[0]),round(v[1])] for v in river[::3]]},'landmarks':landmarks,'assets':{p.name:{'dimensions':list(Image.open(p).size),'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()} for p in sorted(OUT.glob('*.webp'))}}
     (OUT/'geography.json').write_text(json.dumps(metadata,separators=(',',':'))+'\n',encoding='utf-8')
     assert regional_mask[h//2,w//2], 'Launch pad must be dry land'
     assert all(abs(v['x'])>10000 for v in rows if v['z'] is not None and abs(v['z'])<10000 and v['x'] is not None), 'Pad area must stay away from coastline'

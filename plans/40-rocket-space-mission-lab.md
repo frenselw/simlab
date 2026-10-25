@@ -1,4 +1,4 @@
-﻿# 火箭工廠與太空任務：3D SCORM 實施計劃
+# 火箭工廠與太空任務：3D SCORM 實施計劃
 
 狀態：**使用者已批准實作；P1–P3 功能已接通，P4 驗證中，P5 待實際環境驗收。** 日期：2026-10-24。
 本文件從 [新活動計劃模板](NEW-SIMULATION-PLAN-TEMPLATE.md) 複製並填寫；遵循 [共同產品與風格](00-shared-platform-and-style.md) 及 [製作與驗證契約](../docs/simulation-scorm-production-guide.md)。下列數值、配分和效能預算是具體設計決定／待驗證目標，不能當成已通過的證據。
@@ -1105,3 +1105,29 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 
 - Sites helper已push來源ed6fd12b5547c61db961ca2371c31b17da0d11c7及rocket-ground-readability-p36.tar.gz。版本appgprj_6adc62579ab88191aba299bcb282ce95~appgver_08b08f5158548191ad02651eb1b49435，deployment appgdep_6ade1e3629ac8191a8b01472f80b2194，native status=succeeded，2026-10-25 15:20:31 UTC。原網址https://simlab-rocket-space-missions.ieyp.chatgpt.site，保留owner-only audience，發布前get_site確認owner／0external。
 - 線上475份檔案核對完成：程式、樣式、素材及build-info逐byte等於已驗dist；兩份HTML僅移除平台插入script後相同，只跟隨同origin canonical index redirect。build-info.sourceCommit=299c08ef227f17bcff4b9b12e8203750154d555b、packageSha256=9754e89b00378986c0e582c090d26d15c4fd37b2360af1c8530462d7c50390fb；證據output/rocket/p36-live-verification.json。原網址已交給Codex頁籤開啟（queued）；本次Chrome／HTTP server／helper／驗證程序均結束，既有.codex-remote-attachments未動。
+
+## P37 — 地形光照修復（計劃 2026-10-25／實作 2026-10-26）
+
+### 2026-10-25 計劃階段（歷史）
+
+- 使用者回報 1,182.5 km 高空的大陸格紋、地貌不自然，明確要求先分析與詳細計劃，暫停程式修改及部署。
+- 詳細診斷、視覺方向、分期、檔案範圍、性能預算與驗收見[地形光照修復計劃](../docs/rocket-terrain-lighting-repair-plan.md)。此計劃修訂 P36 光照／細節方向，保留近地精度修正；尚未實作。
+- 只讀資產診斷：全球以 10° 分塊並保留重複邊界頂點；各自 computeVertexNormals 配合八倍坡度公式，會放大粗球面及單側邊界誤差。北美 1,395 對共點的法線角差 p95 約 2.96°；在記憶體把高度設零後仍約 2.60°，固定測試光源的倍率差 p95 仍約 0.290。這是係數診斷，不冒充截圖像素比較。
+- 已核對場景有 HemisphereLight／DirectionalLight，但地形 BasicMaterial 使用獨立 shader；全球及區域色彩另含舊定向烘焙明暗。後續優先連續法線、純本色、統一漫反射與補光，再評估必要地標。P36 的近地及區域接替驗收未覆蓋全球分塊法線連續性，不能視作此問題已通過。
+- 本輪只有文件變更；runtime、資產、碰撞、rubric、phase/variant、snapshot、SCORM 與網站未更動。未執行新候選畫面或效能驗收，真手機／Moodle仍未驗。
+
+### 2026-10-26 實作與驗收
+
+- 2026-10-26 使用者已授權依計劃實作。範圍：terrain／global-terrain／contact-ground 共用高度場法線與單一 diffuse＋local skylight、scene／scene-art 光源一致、移除噪點與收斂地標；生成器／全部全球和區域本色／hash invariant／art.test；既有 browser owner 的連續法線、零高度球面及真正坡面轉光 GPU 驗收。物理、碰撞高度、rubric、phase/variant、snapshot schema及 SCORM 語義不變。
+- 生成器只重算本色、不重新三角化；normal 在載入或既有近地重建時計算，沒有新增 runtime 檔案或 manifest 依賴。沿用原有 4 active／6 cache／2 request 限制。最終驗收採 source／extracted ZIP 的桌面與手機、發射台／丘陵／接地／全球 LOD／故障回退／分離，並與從 HEAD archive 保存的 P36 近地 100 m 及高空 1,182.5 km 三輪同機基準比較。
+
+- 最終視覺收斂：以投影尺寸淡出細坡面法線，高空只保留自然球體／大尺度明暗；移除暖溫帶由單一高頂點造成的巨大白色雪斑，極區色帶仍保留。沿用原雲／大氣及台座柔和接觸陰影，未新增遠山霧或即時全球投影。
+- 新增 globalTerrainArt 診斷修正：手動跨洲鏡頭須隱藏 contactGround 並清空其裁切半徑，否則舊近地面可遮住真正全球地形。最後全球／日期變更線／極區／粗細回退案例使用修正後 helper；早期 48-flow 的全球截圖不作此輪全球視覺驗收依據。
+
+- 最後 runtime SHA-256 9d3cc726b16288e26b057a7ec209b8a682ce0febaedde5e826db49724a1fac64：p37-final.json source／extracted ZIP 共 20 flows completed=true、errors=[]，包含桌面 1280×800／手機非全屏 390×664 的新光照、發射台、接縫及跨洲／日期變更線／極區／粗細 cache／失敗回退與性能資源檢查。全部 15,060 對 coarse 共點及 155 對 coarse/fine 共點角差 0°；零高度法線誤差約 0.000003°；GPU 接縫曲率殘差 p95 1/255。單色丘陵在兩側測試太陽下平均像素差約 38/255；實際物件主光方向 dot=1。發射台兩角度遮掉 0 pixels；移動／品質／資源回收通過。300 km 區域／全球接替日照／背光 mean 約 0.031–0.776／255，p95≤1.334／255。
+- 前一 runtime a6a1a9b33449c7bb0a73a16df8661a817d03014d848c1878b87a210f0706ecbf 的 p37-first-final.json 另完成 source／ZIP 共 48 flows：包含 terrainArt／terrainDepth、三地接地／爆炸、真空分離／上級點火、flightEffects／RCS／下級下降、sceneArt、生命周期／快照恢復／pending／renderer故障等。之後只加入遠景坡度淡出、收斂本色及修正診斷 helper；位置／高度、模型、控制與 codec 未改。這 48-flow 的舊全球 helper 截圖有近地遮擋盲點，不冒充最後固定版的完整全球視覺證據。
+- 最終同 runtime 的 p37-candidate-benchmark.json 共 12 samples，兩尺寸 × 近地 100 m／高空 1,182.5 km × 三輪，各暖機 2.5 s／採樣 15 s；Chrome155／SwiftShader。桌面 median 近地 66.8／高空33.4ms，p95分別83.4–83.5／50.1ms；手機 median33.4／16.7ms，p95分別33.5／33.4ms，三輪與舊基準相同節奏，最差p95比≤1.0。CPU p95桌面近地2.5–4.8、高空2.1–2.3ms，手機近地2.8–3.2、高空2.2–2.4ms；不宣稱CPU完全無回退。最大84calls／74,797tri，紋理預算內。比較見p37-performance-comparison.json。
+- 舊基準由5b35204的git archive提供，實際servedRuntimeHash=86a73e26a1917979fdda9c7830f10aa32b0e13ca53267e28e13a3de31f338ac0（Git輸出換行與當時工作副本不同）；原baseline報告的runtimeHash是runner另外建立的當時包，已加servedRuntimeHash及provenanceNote，效能比較只用實際服務的archive hash。兩版輸入／視窗／DPR／品質與取樣一致；不拿軟體GPU結果推算真iPhone。
+- 全球441份binary及區域27,279頂點只改本色：25,421,720非顏色bytes對5b35204完全不變，64,786次共點RGBA對照一致；surface-data未改。p37-albedo-preservation.json、p37-generator-fixture.json、p37-regional-generator-fixture.json記錄正常生成／recolor一致、metadata保留與非顏色invariant。最終art.test、npm check、check:tests（279entries）、JS語法及diff通過。未跑全庫、完整最後runtime browser owner、真手機／Moodle或熱負荷；未重新三角化全世界。
+
+- 最後供部署 ZIP：16,003,213 bytes，SHA-256 94c630f07ba52d25d7aef92af7f231c9de25cb7f86f1ba0f7a8a73cfd69a3929。最後一次 source／ZIP 驗收後凍結，不再重建；Sites dist 將直接從此包抽取。

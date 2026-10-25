@@ -46,7 +46,7 @@ The two global resolutions are alternatives: load exactly one. Shipping both per
 
 ## Regional 3D terrain (P31)
 
-The same refined source coastlines feed `terrain.bin`: a 480 km square, split into 16 chunks with three prebuilt detail levels and baked directional shading. `generate.py` calls `bake-terrain.mjs` and the installed SciPy's Delaunay triangulator in `triangulate-terrain.py`; coast constraints are recovered and land area checked offline. No browser triangulation, terrain download service or new dependency is used. The binary contains a compact height field and interleaved positions, normals, colors, edge fade and indices. The renderer selects a single level per chunk from projected size with hysteresis; shore and chunk boundaries retain common vertices. Low altitude uses smooth cartoon relief and sparse instanced woodland; orbit retains the existing atlas. Heights are illustrative, not elevation survey data or a change to the physics collision sphere.
+The same refined source coastlines feed `terrain.bin`: a 480 km square, split into 16 chunks with three prebuilt detail levels and unlit vertex albedo (P37). `generate.py` calls `bake-terrain.mjs` and the installed SciPy's Delaunay triangulator in `triangulate-terrain.py`; coast constraints are recovered and land area checked offline. No browser triangulation, terrain download service or new dependency is used. The binary contains a compact height field and interleaved positions, normals, colors, edge fade and indices. The renderer selects a single level per chunk from projected size with hysteresis; shore and chunk boundaries retain common vertices. Low altitude uses smooth cartoon relief and sparse instanced woodland; orbit retains the existing atlas. Heights are illustrative, not elevation survey data or a change to the physics collision sphere.
 
 The launch clearing and near-pad river stay level. Nearby props sample the actual highest-detail surface once when built. A small curvature/depth clearance and a less extreme follow-camera near plane prevent the globe from cutting through the terrain. The globe supplies quiet water under the vector coast; both blend back to the original atlas at the regional perimeter. No shadow maps, postprocessing targets, extra color textures or per-frame mesh generation are added.
 
@@ -62,9 +62,21 @@ The runtime copies only horizon-visible coarse ranges into one reusable index bu
 
 ## Regional/global color continuity (P33)
 
-`bake-terrain.mjs` samples the checked-in global coarse mesh's linear vertex colors in the launch E/N chart. It retains local slope shading near the pad and fades that variation before the regional edge. Both runtime meshes share `terrainLighting` and the same sun vector. Rebuild regional colors with `node tools/rocket-art/bake-terrain.mjs output/rocket/terrain-source.json` after changing the global coarse palette, then update geography.json's terrain hash. Coarse global geometry remains the color reference at long viewing distances; region geometry fades by projected size and global land replaces it behind transparency.
+`bake-terrain.mjs` samples the checked-in global coarse mesh's linear vertex colors in the launch E/N chart. P37 removes the former baked local slope shading; runtime normals and a shared sun/skylight model provide the relief lighting. Both runtime meshes share `terrainLighting` and the same sun vector. Rebuild regional colors with `node tools/rocket-art/bake-terrain.mjs output/rocket/terrain-source.json` after changing the global coarse palette, then update geography.json's terrain hash. Coarse global geometry remains the color reference at long viewing distances; region geometry fades by projected size and global land replaces it behind transparency.
 
 
 ## Shared contact surface (P34)
 
 `python tools/rocket-art/bake-surface.py` creates surface-data.js from the same pinned Natural Earth land/coast/mountain field plus the existing regional heightfield. It packs land flags and metre heights in Uint16 grids (global0.5°, regional257×257); sea is zero. surface.js owns the deterministic query used by modelVersion2 contact, HUD AGL and the near-flight contact mesh. Orbital/scoring heights retain the reference sphere. The contact mesh uses dense concentric rings and the global coarse color field, while clipping covered old ground; it updates only after100m surface travel and is disabled above5km AGL. This avoids coarse sphere-chord gaps without globally increasing mesh density. Heights remain illustrative, not survey elevation data.
+
+
+## Continuous terrain lighting and unlit albedo (P37)
+
+Recolor existing meshes without rerunning triangulation:
+
+```text
+python tools/rocket-art/global-terrain.py --recolor
+node tools/rocket-art/bake-terrain.mjs --recolor
+```
+
+These commands update only colors and metadata hashes; headers, positions, normals stored in the regional binary, fades, indices and height grids remain byte-identical. The global color field no longer includes a fixed directional slope shade. Exact shared global positions use identical albedo, including harmonized border vertices. Runtime lighting normals are sampled from the shared contact height field at fixed geographic positions rather than computed separately from tile triangles; the rendered geometry and physical collision data remain unchanged. Global, regional and contact ground share one diffuse sun and local skylight model. No global noise texture, new runtime dependency, shadow pass or postprocessing target is added. P31/P33 descriptions of baked directional lighting are historical.

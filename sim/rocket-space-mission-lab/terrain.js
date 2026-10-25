@@ -1,25 +1,42 @@
 import * as THREE from './vendor/three-0.185.1/three.module.min.js';
 
-const detailData=new Uint8Array(128*128*4);let detailSeed=9173;
-for(let i=0;i<detailData.length;i+=4){detailSeed=(Math.imul(detailSeed,1664525)+1013904223)>>>0;detailData[i]=detailData[i+1]=detailData[i+2]=detailSeed>>>24;detailData[i+3]=255;}
-export const terrainDetailTexture=new THREE.DataTexture(detailData,128,128);
-terrainDetailTexture.wrapS=terrainDetailTexture.wrapT=THREE.RepeatWrapping;terrainDetailTexture.magFilter=THREE.LinearFilter;terrainDetailTexture.minFilter=THREE.LinearMipmapNearestFilter;terrainDetailTexture.generateMipmaps=true;terrainDetailTexture.anisotropy=1;terrainDetailTexture.needsUpdate=true;
-export const terrainLighting=`
-vec3 radial=normalize(vRadial);
-diffuseColor.rgb*=mix(vec3(.24,.34,.48),vec3(1.06,1.03,.96),smoothstep(-.12,.7,dot(radial,uSun)))*vSlopeLight;
-vec2 detail=vec2(dot(vGroundPoint,vec3(.83,.31,.46)),dot(vGroundPoint,vec3(-.2,.94,-.27)))*1555.419921875;
-diffuseColor.rgb*=.82+.36*texture2D(uGroundDetail,detail).r;
+const R=6371000,radial=new THREE.Vector3(),east=new THREE.Vector3(),north=new THREE.Vector3(),sample=new THREE.Vector3();
+export function terrainNormal(point,out){
+ const S=window.RocketSurface;radial.copy(point).normalize();
+ if(S.waterAt(radial.x,radial.y,radial.z))return out.copy(radial);
+ east.set(0,1,0).cross(radial);if(east.lengthSq()<.001)east.set(1,0,0).cross(radial);east.normalize();north.crossVectors(radial,east).normalize();
+ const extent=radial.y>0?Math.max(Math.abs(radial.x),Math.abs(radial.z))*R:Infinity,step=THREE.MathUtils.lerp(1000,16000,THREE.MathUtils.smoothstep(extent,120000,240000));
+ const height=(axis,sign)=>{sample.copy(radial).addScaledVector(axis,sign*step/R).normalize();return S.heightAt(sample.x,sample.y,sample.z);};
+ const dx=(height(east,1)-height(east,-1))/(2*step),dz=(height(north,1)-height(north,-1))/(2*step);
+ // Only physical relief slopes are emphasized; mesh curvature and tile borders never enter the lighting normal.
+ return out.copy(radial).addScaledVector(east,-2*dx).addScaledVector(north,-2*dz).normalize();
+}
+export function setTerrainNormals(geometry,origin){
+ const started=performance.now(),p=geometry.attributes.position,n=geometry.attributes.normal||new THREE.BufferAttribute(new Float32Array(p.count*3),3),point=new THREE.Vector3(),normal=new THREE.Vector3();
+ for(let i=0;i<p.count;i++){point.fromBufferAttribute(p,i).add(origin);terrainNormal(point,normal);n.setXYZ(i,normal.x,normal.y,normal.z);}geometry.setAttribute('normal',n);n.needsUpdate=true;return performance.now()-started;
+}
+export const terrainSlopeDetail={value:1};
+export const groundLight=`
+uniform float uSlopeDetail;
+vec3 terrainIrradiance(vec3 normal,vec3 radial,vec3 sun){
+ normal=normalize(mix(radial,normal,uSlopeDetail));
+ float day=smoothstep(-.12,.25,dot(radial,sun));
+ float sky=.5+.5*max(0.0,dot(normal,radial));
+ vec3 ambient=mix(vec3(.035,.045,.07),vec3(.22,.28,.34),day)*(.7+.3*sky);
+ return ambient+vec3(1.0,.95,.83)*(.92*max(0.0,dot(normal,sun)));
+}
 `;
+export const terrainLighting='diffuseColor.rgb*=terrainIrradiance(normalize(vSlope),normalize(vRadial),uSun);';
 
 export function createTerrain(buffer,sun){
  const length=new DataView(buffer).getUint32(0,true),header=JSON.parse(new TextDecoder().decode(new Uint8Array(buffer,4,length))),start=4+Math.ceil(length/4)*4,heights=new Float32Array(buffer,start,header.heightSize**2),group=new THREE.Group();
  const material=new THREE.MeshBasicMaterial({vertexColors:true,transparent:true,depthWrite:true});
- material.onBeforeCompile=shader=>{shader.uniforms.uSun={value:sun};shader.uniforms.uGroundDetail={value:terrainDetailTexture};shader.vertexShader='uniform vec3 uSun;varying float vSlopeLight;attribute float landFade;varying float vLandFade;varying vec3 vRadial,vSlope,vGroundPoint;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvLandFade=landFade;vGroundPoint=(position+vec3(0.0,6371000.0,0.0))/6371000.0;vSlope=normalize(mat3(modelMatrix)*normal);vRadial=normalize(mat3(modelMatrix)*normalize(position+vec3(0.0,6371000.0,0.0)));vSlopeLight=clamp(1.0+8.0*dot(vSlope-vRadial,uSun),.62,1.34);');shader.fragmentShader='varying float vSlopeLight;uniform sampler2D uGroundDetail;uniform vec3 uSun;varying vec3 vRadial,vSlope,vGroundPoint;varying float vLandFade;\n'+shader.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\ndiffuseColor.a*=vLandFade;'+terrainLighting);};
+ material.onBeforeCompile=shader=>{shader.uniforms.uSun={value:sun};shader.uniforms.uSlopeDetail=terrainSlopeDetail;shader.vertexShader='attribute float landFade;varying float vLandFade;varying vec3 vRadial,vSlope,vGroundPoint;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvLandFade=landFade;vGroundPoint=(position+vec3(0.0,6371000.0,0.0))/6371000.0;vSlope=normalize(mat3(modelMatrix)*normal);vRadial=normalize(mat3(modelMatrix)*normalize(position+vec3(0.0,6371000.0,0.0)));');shader.fragmentShader=groundLight+'uniform vec3 uSun;varying vec3 vRadial,vSlope,vGroundPoint;varying float vLandFade;\n'+shader.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\ndiffuseColor.a*=vLandFade;'+terrainLighting);};
  // Opaque inner tiles draw before the globe so covered ground is shaded once.
  const solid=material.clone();solid.transparent=false;solid.onBeforeCompile=material.onBeforeCompile;
  const chunks=header.chunks.map(chunk=>{
   const inner=chunk.box.every(v=>Math.abs(v)<header.extent*.88);
-  const levels=chunk.levels.map(level=>{const attributes=new THREE.InterleavedBuffer(new Float32Array(buffer,start+level.offset,level.vertices*10),10),g=new THREE.BufferGeometry();for(const [name,size,offset]of [['position',3,0],['normal',3,3],['color',3,6],['landFade',1,9]])g.setAttribute(name,new THREE.InterleavedBufferAttribute(attributes,size,offset));g.setIndex(new THREE.BufferAttribute(new Uint32Array(buffer,start+level.offset+level.vertices*40,level.indices),1));g.computeBoundingSphere();const mesh=new THREE.Mesh(g,inner?solid:material);mesh.renderOrder=inner?-3:0;mesh.visible=false;group.add(mesh);return mesh;});
+  const levels=chunk.levels.map(level=>{const attributes=new THREE.InterleavedBuffer(new Float32Array(buffer,start+level.offset,level.vertices*10),10),g=new THREE.BufferGeometry();for(const [name,size,offset]of [['position',3,0],['normal',3,3],['color',3,6],['landFade',1,9]])g.setAttribute(name,new THREE.InterleavedBufferAttribute(attributes,size,offset));g.setIndex(new THREE.BufferAttribute(new Uint32Array(buffer,start+level.offset+level.vertices*40,level.indices),1));setTerrainNormals(g,new THREE.Vector3(0,R,0));g.computeBoundingSphere();const mesh=new THREE.Mesh(g,inner?solid:material);mesh.renderOrder=inner?-3:0;mesh.visible=false;group.add(mesh);return mesh;});
   return {levels,level:2,center:new THREE.Vector3((chunk.box[0]+chunk.box[1])/2,0,(chunk.box[2]+chunk.box[3])/2),size:chunk.box[1]-chunk.box[0]};
  });
  const townCandidates=[],canopyRows=[];for(const chunk of chunks){const geometry=chunk.levels[0].geometry,positions=geometry.attributes.position;for(let i=0;i<positions.count;i+=7){const x=positions.getX(i),y=positions.getY(i),z=positions.getZ(i),height=y-(Math.sqrt(6371000**2-x*x-z*z)-6371000);if(x>10000&&x<80000&&Math.abs(z)<80000&&height>40&&height<300&&geometry.attributes.normal.getY(i)>.995)townCandidates.push([x,z]);if(Math.hypot(x,z)<9000||Math.hypot(x,z)>160000||height<60||height>1100||Math.sin(x*.003+z*.002)<.25)continue;canopyRows.push([x,y,z]);}}

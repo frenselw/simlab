@@ -135,7 +135,7 @@ def field(points,shore):
     dry=np.zeros(len(lon))
     for cx,cy,sx,sy in [(14,23,31,10),(46,25,15,9),(82,43,24,10),(134,-25,19,10),(23,-23,10,9),(-112,36,15,10),(-68,-24,5,12)]:dry=np.maximum(dry,np.exp(-((lon-cx)/sx)**4-((lat-cy)/sy)**4))
     color=color*(1-dry[:,None]*.7)+np.array([.48,.43,.27])*dry[:,None]*.7
-    cold=np.maximum(smooth(65,78,np.abs(lat)),smooth(1800,3400,h)*.7);color=color*(1-cold[:,None])+np.array([.76,.81,.72])*cold[:,None]
+    cold=smooth(65,78,np.abs(lat));color=color*(1-cold[:,None])+np.array([.76,.81,.72])*cold[:,None]
     beach=np.exp(-shore/8)*.4;color=color*(1-beach[:,None])+np.array([.50,.46,.30])*beach[:,None]
     color+=n[:,None]*.025
     return h,color
@@ -159,15 +159,6 @@ def build_mesh(polygons,box,limit,coast_tolerance,shore_field):
     h[oncoast&~border]=0;h[np.array([tuple(np.round(q,4)) in COAST_CUTS for q in v])]=0
     # Shared global field and canonical boundary points make every cell seam identical.
     unit=vectors(v[:,0],v[:,1]);positions=(unit*(1+h[:,None]/art.R)).astype('<f4')
-    # Bake broad local slope lighting with deterministic neighbouring height samples.
-    delta=.015
-    neighbors=[]
-    for axis in (0,1):
-        samples=[]
-        for sign in (-1,1):
-            q=v.copy();q[:,axis]+=delta*sign;s=map_coordinates(shore_field,[(90-q[:,1])*10,(q[:,0]+180)*10],order=1,mode='nearest');samples.append(field(q,s)[0])
-        neighbors.append((samples[1]-samples[0])/(2*delta*111200*(np.maximum(.1,np.cos(np.radians(v[:,1]))) if axis==0 else 1)))
-    shade=np.clip(.82-neighbors[0]*8-neighbors[1]*6,.58,1.12);color=np.clip((color+art.noise(v[:,0],v[:,1],384)[:,None]*.03)*shade[:,None],0,1)
     colors=np.column_stack((np.rint(color*255).astype('u1'),np.full(len(v),255,'u1')))
     faces=np.array(mesh['faces'],dtype='<u4');p=positions[faces].astype(float);orientation=np.einsum('ij,ij->i',np.cross(p[:,1]-p[:,0],p[:,2]-p[:,0]),p.mean(axis=1));flip=orientation<0;faces[flip]=faces[flip][:,[0,2,1]]
     assert np.isfinite(positions).all() and np.max(h)<=3500 and np.min(h)>=0
@@ -198,18 +189,59 @@ def harmonize(mesh,all_seams):
     return np.array(positions,dtype='<f4'),np.array(colors,dtype='u1'),np.array(faces,dtype='<u4').reshape(-1),seam
 
 
-def write_binary(path,cells,meshes,prototype):
+def albedo(positions,shore):
+    unit=positions.astype(float)/np.linalg.norm(positions.astype(float),axis=1)[:,None]
+    # The inverse basis maps local E/U/N back to geographic X/Y/Z.
+    geographic=unit[:,0,None]*art.EAST+unit[:,1,None]*art.UP+unit[:,2,None]*art.NORTH
+    points=np.column_stack((np.degrees(np.arctan2(geographic[:,2],geographic[:,0])),np.degrees(np.arcsin(np.clip(geographic[:,1],-1,1)))))
+    distance=map_coordinates(shore,[(90-points[:,1])*10,(points[:,0]+180)*10],order=1,mode='nearest')
+    color=field(points,distance)[1]
+    return np.column_stack((np.rint(np.clip(color,0,1)*255).astype('u1'),np.full(len(positions),255,'u1')))
+
+
+def write_binary(path,cells,meshes,prototype,shore):
     positions=[];colors=[];indices=[];base=0;index_count=0;output_cells=[]
     for cell,mesh in zip(cells,meshes):
         if mesh is None:continue
-        p,c,i,_=mesh;metadata=dict(cell,firstIndex=index_count,indexCount=len(i));output_cells.append(metadata);positions.append(p);colors.append(c);indices.append(i+base);base+=len(p);index_count+=len(i)
+        p,c,i,_=mesh;metadata=dict(cell,firstIndex=index_count,indexCount=len(i));output_cells.append(metadata);positions.append(p);colors.append(albedo(p,shore));indices.append(i+base);base+=len(p);index_count+=len(i)
     header={'version':1,'prototype':prototype,'vertexCount':base,'indexCount':index_count,'cells':output_cells,'radiusMetres':art.R,'maxReliefMetres':3500,'illustrative':True}
     data=json.dumps(header,separators=(',',':')).encode();prefix=struct.pack('<I',len(data))+data+b' '*((-len(data))%4)
     path.write_bytes(prefix+b''.join(p.tobytes() for p in positions)+b''.join(c.tobytes() for c in colors)+b''.join(i.astype('<u4').tobytes() for i in indices))
-    return dict(file='global/'+path.name,bytes=path.stat().st_size,sha256=hashlib.sha256(path.read_bytes()).hexdigest(),vertices=base,triangles=index_count//3,cells=len(output_cells))
+    invariant=prefix+b''.join(p.tobytes() for p in positions)+b''.join(i.astype('<u4').tobytes() for i in indices)
+    return dict(file='global/'+path.name,bytes=path.stat().st_size,sha256=hashlib.sha256(path.read_bytes()).hexdigest(),nonColorSha256=hashlib.sha256(invariant).hexdigest(),vertices=base,triangles=index_count//3,cells=len(output_cells))
+
+def recolor():
+    image=Image.new('L',(3601,1801));draw=ImageDraw.Draw(image)
+    rings=[ring for shape in art.load_shapes('ne_50m_land') for ring in shape]
+    for outer in (True,False):
+        for ring in rings:
+            if (area(ring)<0)==outer:draw.polygon([((x+180)*10,(90-y)*10) for x,y in ring],fill=255 if outer else 0)
+    shore=distance_transform_edt(np.asarray(image)>127)*11.12
+    metadata_path=art.OUT/'geography.json';metadata=json.loads(metadata_path.read_text(encoding='utf-8'))
+    records=metadata['globalTerrain']['files'];preserved=0;changed=0;shared={}
+    for record in records:
+        path=art.OUT/record['file'];before=path.read_bytes();data=bytearray(before)
+        length=struct.unpack_from('<I',data)[0];header=json.loads(data[4:4+length]);start=4+(length+3)//4*4;n=header['vertexCount'];color_start=start+n*12;index=color_start+n*4
+        positions=np.frombuffer(before,'<f4',n*3,start).reshape(n,3)
+        rgba=albedo(positions,shore)
+        data[color_start:index]=rgba.tobytes()
+        assert data[:color_start]==before[:color_start] and data[index:]==before[index:],'Recolor must not alter headers, positions or topology'
+        for position,c in zip(np.frombuffer(before,'<f4',n*3,start).reshape(n,3),rgba):
+            key=position.tobytes()
+            if key in shared:assert shared[key]==c.tobytes(),'Shared positions must have identical albedo'
+            else:shared[key]=c.tobytes()
+        invariant=hashlib.sha256(before[:color_start]+before[index:]).hexdigest()
+        record['nonColorSha256']=invariant;record['sha256']=hashlib.sha256(data).hexdigest();path.write_bytes(data)
+        preserved+=color_start+len(data)-index;changed+=sum(a!=b for a,b in zip(before[color_start:index],data[color_start:index]))
+    metadata['globalTerrain']['colorModel']='unlit-albedo-v1'
+    metadata_path.write_text(json.dumps(metadata,separators=(',',':'))+'\n',encoding='utf-8')
+    print(json.dumps(dict(files=len(records),geometryBytesPreserved=preserved,colorBytesChanged=changed,sharedPositions=len(shared))))
+
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--prototype',action='store_true');args=parser.parse_args();start=time.monotonic();OUT.mkdir(exist_ok=True)
+    parser=argparse.ArgumentParser();parser.add_argument('--prototype',action='store_true');parser.add_argument('--recolor',action='store_true',help='Replace only global color bytes; preserve all geometry');args=parser.parse_args();start=time.monotonic();OUT.mkdir(exist_ok=True)
+    if args.recolor:
+        recolor();return
     shapes=art.load_shapes('ne_50m_land');outers=[];holes=[]
     for shape in shapes:
         for ring in shape:
@@ -251,7 +283,7 @@ def main():
                 # Boundary recovery is required to retain exactly the same cuts across LODs.
                 fine_meshes.append(fine);fine_cells.append(cell);fine_count+=1
         print(f'Latitude row {row+1}/18: {len(cells)} land cells; {sum(len(m[0]) for m in coarse)} coarse vertices',flush=True)
-    write_binary(OUT/'coarse.bin',cells,coarse,True)
+    write_binary(OUT/'coarse.bin',cells,coarse,True,shore)
     all_seams=dict(seams)
     for mesh in fine_meshes:
         for q,p in mesh[3].items():
@@ -263,11 +295,14 @@ def main():
     for cell,fine in zip(fine_cells,fine_meshes):
         assert by_id[cell['id']][3]==fine[3],('LOD border topology/relief',cell['id'],set(by_id[cell['id']][3])-set(fine[3]),set(fine[3])-set(by_id[cell['id']][3]))
         assert len(fine[2])//3<15000,('Fine tile triangle budget',cell['id'])
-        fine_records.append(write_binary(OUT/cell['file'],[dict(cell,file=None)],[fine],args.prototype))
-    coarse_record=write_binary(OUT/'coarse.bin',cells,coarse,args.prototype);records=[coarse_record]+fine_records
+        fine_records.append(write_binary(OUT/cell['file'],[dict(cell,file=None)],[fine],args.prototype,shore))
+    coarse_record=write_binary(OUT/'coarse.bin',cells,coarse,args.prototype,shore);records=[coarse_record]+fine_records
     assert coarse_record['vertices']<200000 and coarse_record['triangles']<100000,'Coarse budget'
     assert sum(r['bytes'] for r in records)<28000000,'Download budget'
-    metadata={'version':1,'prototype':args.prototype,'directory':'global','coarse':'global/coarse.bin','cellDegrees':10,'boundaryStepDegrees':BOUNDARY,'fineStepDegrees':.2,'fineCells':fine_count,'landCells':len(cells),'maxReliefMetres':3500,'illustrative':True,'bytes':sum(r['bytes'] for r in records),'vertices':sum(r['vertices'] for r in records),'triangles':sum(r['triangles'] for r in records),'files':records,'seconds':round(time.monotonic()-start,2),'source':{'file':'ne_50m_land.zip','sha256':hashlib.sha256((art.SOURCE/'ne_50m_land.zip').read_bytes()).hexdigest()}}
+    metadata={'version':1,'prototype':args.prototype,'colorModel':'unlit-albedo-v1','directory':'global','coarse':'global/coarse.bin','cellDegrees':10,'boundaryStepDegrees':BOUNDARY,'fineStepDegrees':.2,'fineCells':fine_count,'landCells':len(cells),'maxReliefMetres':3500,'illustrative':True,'bytes':sum(r['bytes'] for r in records),'vertices':sum(r['vertices'] for r in records),'triangles':sum(r['triangles'] for r in records),'files':records,'seconds':round(time.monotonic()-start,2),'source':{'file':'ne_50m_land.zip','sha256':hashlib.sha256((art.SOURCE/'ne_50m_land.zip').read_bytes()).hexdigest()}}
+    if not args.prototype:
+        metadata_path=art.OUT/'geography.json';geography=json.loads(metadata_path.read_text(encoding='utf-8'));geography['globalTerrain']=metadata
+        metadata_path.write_text(json.dumps(geography,separators=(',',':'))+'\n',encoding='utf-8')
     output=art.ROOT/'output/rocket/global-metadata.json';output.parent.mkdir(exist_ok=True,parents=True);output.write_text(json.dumps(metadata,separators=(',',':'))+'\n');print(json.dumps({k:v for k,v in metadata.items() if k!='files'}),flush=True)
 
 if __name__=='__main__':main()
