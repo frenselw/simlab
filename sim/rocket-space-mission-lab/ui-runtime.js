@@ -1,4 +1,4 @@
-(function(root,factory){const node=typeof module==='object'&&module.exports,api=factory(node?require('./parts.js'):root.RocketParts,node?require('./model.js'):root.RocketModel,node?require('./persistence.js'):root.RocketPersistence,node?require('./scoring.js'):root.RocketScoring);if(node)module.exports=api;root.RocketRuntime=api;})(typeof window==='undefined'?globalThis:window,function(P,M,D,S){
+(function(root,factory){const node=typeof module==='object'&&module.exports,api=factory(node?require('./parts.js'):root.RocketParts,node?require('./model.js'):root.RocketModel,node?require('./persistence.js'):root.RocketPersistence,node?require('./scoring.js'):root.RocketScoring,node?require('./orbit.js'):root.RocketOrbit);if(node)module.exports=api;root.RocketRuntime=api;})(typeof window==='undefined'?globalThis:window,function(P,M,D,S,O){
   'use strict';
   class Controller{
     constructor(scorm,flow,render=()=>{}){Object.assign(this,{scorm,flow,render,state:null,mode:'technical',notice:'',result:null,trusted:false,unsaved:false,finalSnapshot:null,frozenCanonical:null,running:false,canResetDraft:false});}
@@ -37,5 +37,10 @@
     }
     retryFinal(){if(!['frozen','committed'].includes(this.mode))return;try{this.validateFinal(this.finalSnapshot);this.handleOutcome(this.mode==='committed'?this.scorm.retryFinish():this.scorm.retryPending());}catch(_){this.scorm.quarantinePending();this.technical('提交資料未能核對，已停止重試。請聯絡教師。');}}
   }
-  return Object.freeze({Controller});
+  function warpLimit(flight){return flight.controls.lit||O.elements(flight.state).height<120000?5:1000;}
+  function advanceFrame(controller,seconds,warp){
+    const result=controller.tick(seconds*Math.min(warp,warpLimit(controller.state.flight)),800);
+    return seconds>0&&result?result.elapsed/seconds:0;
+  }
+  return Object.freeze({Controller,warpLimit,advanceFrame});
 });

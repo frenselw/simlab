@@ -1135,3 +1135,17 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 - 已 commit／push d82272095cde36e998cf9f33ad0faeb95c250047。committed selection-preview：output/rocket/selection-p37.json，5b352048bb1892817d9a156eed5e5e142aa7562a→d82272095cde36e998cf9f33ad0faeb95c250047。preview mode=full／279 entries，原因為選取器不識別 tools/rocket-art/README.md 的 dependency；這是選取預覽，不代表279項全跑，實際執行範圍如上。
 - Sites helper 已推送來源 edc2e0c3a6c6b70c8b72367e6da5ec3a7b6dd33e，archive=output/rocket/rocket-terrain-lighting-p37.tar.gz。版本 appgprj_6adc62579ab88191aba299bcb282ce95~appgver_035500cedcb88191af7698490d973189，deployment appgdep_6ade4104a2908191b643f3b74e2e6677，native status=succeeded，2026-10-26 01:49:08（UTC+08）。原網址 https://simlab-rocket-space-missions.ieyp.chatgpt.site，保留owner-only audience；get_site確認owner、1 allowed user、0 groups／external visitors。
 - 線上475份檔案核對完成，p37-live-verification.json completed=true：非HTML逐byte一致；兩份HTML僅扣除平台插入script後相同，只跟隨同origin canonical index redirect。build-info.sourceCommit=d82272095cde36e998cf9f33ad0faeb95c250047、packageSha256=94c630f07ba52d25d7aef92af7f231c9de25cb7f86f1ba0f7a8a73cfd69a3929。網址已交給Codex頁籤開啟（queued）。本輪Chrome／HTTP server／來源helper及驗證程序皆已結束，只清理本輪Python cache，既有.codex-remote-attachments未動。
+
+## P38 — 緊湊飛行控制與時間倍率（2026-10-26）
+
+- 使用者授權實作：讀數框依內容收窄；倍率放入點火／暫停／分離操作列；油門和轉向用預設及微調按鈕，移除直接輸入及發射姿態選單。保留已確認的美術效果。
+- 風險／邊界：只改 HTML、CSS、main、現有 ui-runtime 及 owning tests；不改評分、snapshot、phase/variant、物理步長、SCORM 或 runtime dependencies。舊草稿姿態保留，按轉向時明確切回角度穩定；軌道任務的順／逆向推進保留。所有合法空白／部分提交流程沿用。
+- 倍率：燃燒／低於120km上限5×，選單停用不適用倍率並顯示原因；再點火時同步降至5×。真空滑行允許20/100/1000×。每幀以真實前景時間推進，維持800步工作上限，實際倍率以已推進時間除真實時間，背景仍暫停並清掉時鐘。
+- 測試決策：沿用 lifecycle unit test、rocket browser owner，新增慢幀與倍率政策斷言；source／extracted ZIP 驗320/390手機、橫屏、Safari式短視窗、按鈕捲動、連續飛行控制、分離後原位點火、HUD、任務與生命週期。check／check:tests及committed selection-preview。無真手機／Moodle證據不宣稱通過。
+
+- 實作：HUD以內容寬度排版，保留22px主讀數及13px分量；固定操作列中的倍率使用原生select，按鈕保留44px觸控高度及實際內容寬度。油門5個預設＋±5%，轉向6個預設＋±2°，選中值標示aria-pressed，當前值為唯讀output；分離詳情移至主要控制之下，禁止自動捲動錨定令面板跳位。
+- 計時：以performance.now的獨立物理時鐘從play開始，pause清零；消除50ms截斷及首幀計入暫停前時間。每幀仍最多800步，工作量受限時以完整經過時間回報實際倍率。原生選單只在限制／標籤確實改變時更新，避免每100ms重建選項。
+
+- 最後 runtime c57941c211edf43207cda84a30bd762b064f4bbe832c1417851efce871420585：p38-release.json source／extracted ZIP 共20 flows completed=true、errors=[]。包含20／100／1000×各180ms前景阻塞、暫停選倍率不自動播放、再點火同步5×、低空限制、運行時選單零child／disabled DOM變動、五尺寸讀數／燃料／唯讀成果、桌面／觸控／鍵盤連續控制、舊姿態轉角度、任務執行／保留及review／pending／finish retry、standalone refresh／storage denied、fullscreen／renderer recovery。末幀GPU可能尚未繪製，倍率驗收比較已推進時間不超過真實時間、覆蓋完整阻塞時段及實際積分倍率，沒有用繪圖延遲假裝積分丟時間。
+- 先前同版面的p38-final.json source已完成7尺寸mobileCockpit及toolbarResize（320×568、375×600、390×664／844／460、844×390、1280×800）：44px觸控、按鈕滑動不改飛行、無root溢出、分離後同位置點火與捲動不跳位、縮視窗後末項可達，截圖已目視。該report後在package的1000×量測捉到首幀多計暫停前時間，整份completed=false，非完整通過；最後修正物理時鐘及選單DOM更新後另驗上述20 flows，未重跑全部7尺寸手勢矩陣。
+- lifecycle／model／persistence／interaction node tests、npm check、check:tests（279 entries）及diff通過。最後ZIP 16,003,693 bytes，SHA-256 90099daa1dc39731ad241bb3d3accc18a93155760afe6c42f673d61f5935422c，凍結後不再重建。沒有改地形／素材／評分／codec，未跑全庫或完整browser owner、真iPhone Safari／Android／Moodle或熱負荷。
