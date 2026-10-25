@@ -876,3 +876,12 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 - 分離前後上級投影位置誤差小於1px；下級繼承正向速度、關機滑行，兩級都上升，上級點火增加相對間距。下級頭部仍可見時不會清理；模擬時間暫停時位置／軌跡不變，轉鏡不觸發噴氣，reload／review／紀錄返回不重播。RCS順逆向成對氣流力矩、到位停止、快進完成後停止、噴嘴固定及減少動態穩定透明度通過；不改權威state。八次反覆重建／分離／清理，warm-up後geometry／texture／program／實際GL buffer數量一致：{"geometries":21,"textures":8,"programs":12,"buffers":63}。下級與上級同時顯示的測量上限45 draw calls／40462 triangles；RCS及向量各案例亦符合100／100k預算。手機／桌面分離及噴氣截圖已目視。
 - 最終runtime SHA-256 4ae23e12f72ce08a50753fb316119e193f62ab7fe3e711093f79e7b4b906a9e4；ZIP SHA-256 755296c9fad7d4ab6523bf7d980421e09b4debfc06d1c75190a4a1dc1d283e7f，260007 bytes。效果按模擬時間運行、快進會加速；RCS僅作視覺呈現，不另扣燃料。真手機及真Moodle未驗證。
 - P25已commit／push：e39bb3e605256055bfa2efe83468a881fa74f686；committed selection-preview在output/rocket/selection-p25.log，mode=affected。實際驗證選取與各輪runtime界線如上，未執行全庫或等待CI。沿用持續發布授權，Sites來源3ea0de13e97eae3bfff694152157e28a69cce1e6、deployment appgdep_6add7ab0c1408191b705fc6262e69d82，native succeeded；使用最終驗過ZIP，原網址及owner-private維持。
+
+
+### P26：安裝接點改為小圓點
+
+- 使用者指出大圓形遮擋火箭；改為10px可見圓點，吸附時12px並以小光環標示。保留44px透明按鈕及既有30px拖放吸附範圍，移除正常／選取／不相容／hover／snap各狀態的大底色與外框，不改安裝判定或接點位置。
+- 沿用既定assessment risk／rubric／dependencies／phase matrix／snapshot schema；本輪僅活動CSS，無runtime依賴或物理／評分／保存修改，不新增持久測試。選取既有registered browser owner的onboarding／workshop，驗證source與ZIP桌面／手機點按、拖放、分級及點火，拖動期間核對小標記、透明44px命中區及截圖。
+
+- P26完成證據：check:tests（278 entries）、文件及diff檢查通過。output/rocket-p26-check.cjs選取既有registered owner的onboarding／workshop，source／extracted ZIP共8 flows，completed=true、errors=[]、selection=small-sockets；1280×800桌面及390×844／320×568手機，原生點按、拖放／取消、裝配與分級／點火通過。拖動期間實測可見圓點10–12px、透明按鈕至少44×44px、無大底色／border／box-shadow，small-sockets-*.png已檢視。
+- runtime SHA-256 3972fae562f47cafc771141198cca422f2d1892fd2f5bc317f4f3891a084c6b1；ZIP SHA-256 6a3a27ee01195727ac32991bac4e8fcbfecd3d30ccab800fa6da79ed5118e64d，260082 bytes。僅活動CSS，沒有JS／模型／評分／保存修改；未重跑無關美術、特效或全庫，真手機及真Moodle未驗證。
