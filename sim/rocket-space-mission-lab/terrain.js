@@ -1,10 +1,20 @@
 import * as THREE from './vendor/three-0.185.1/three.module.min.js';
 
-export const terrainLighting='diffuseColor.rgb*=mix(vec3(.24,.34,.48),vec3(1.06,1.03,.96),smoothstep(-.12,.7,dot(normalize(vRadial),uSun)));';
+const detailData=new Uint8Array(128*128*4);let detailSeed=9173;
+for(let i=0;i<detailData.length;i+=4){detailSeed=(Math.imul(detailSeed,1664525)+1013904223)>>>0;detailData[i]=detailData[i+1]=detailData[i+2]=detailSeed>>>24;detailData[i+3]=255;}
+export const terrainDetailTexture=new THREE.DataTexture(detailData,128,128);
+terrainDetailTexture.wrapS=terrainDetailTexture.wrapT=THREE.RepeatWrapping;terrainDetailTexture.magFilter=THREE.LinearFilter;terrainDetailTexture.minFilter=THREE.LinearMipmapNearestFilter;terrainDetailTexture.generateMipmaps=true;terrainDetailTexture.anisotropy=1;terrainDetailTexture.needsUpdate=true;
+export const terrainLighting=`
+vec3 radial=normalize(vRadial);
+diffuseColor.rgb*=mix(vec3(.24,.34,.48),vec3(1.06,1.03,.96),smoothstep(-.12,.7,dot(radial,uSun)))*vSlopeLight;
+vec2 detail=vec2(dot(vGroundPoint,vec3(.83,.31,.46)),dot(vGroundPoint,vec3(-.2,.94,-.27)))*1555.419921875;
+diffuseColor.rgb*=.82+.36*texture2D(uGroundDetail,detail).r;
+`;
+
 export function createTerrain(buffer,sun){
  const length=new DataView(buffer).getUint32(0,true),header=JSON.parse(new TextDecoder().decode(new Uint8Array(buffer,4,length))),start=4+Math.ceil(length/4)*4,heights=new Float32Array(buffer,start,header.heightSize**2),group=new THREE.Group();
  const material=new THREE.MeshBasicMaterial({vertexColors:true,transparent:true,depthWrite:true});
- material.onBeforeCompile=shader=>{shader.uniforms.uSun={value:sun};shader.vertexShader='attribute float landFade;varying float vLandFade;varying vec3 vRadial;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvLandFade=landFade;vRadial=normalize(mat3(modelMatrix)*normalize(position+vec3(0.0,6371000.0,0.0)));');shader.fragmentShader='uniform vec3 uSun;varying vec3 vRadial;varying float vLandFade;\n'+shader.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\ndiffuseColor.a*=vLandFade;'+terrainLighting);};
+ material.onBeforeCompile=shader=>{shader.uniforms.uSun={value:sun};shader.uniforms.uGroundDetail={value:terrainDetailTexture};shader.vertexShader='uniform vec3 uSun;varying float vSlopeLight;attribute float landFade;varying float vLandFade;varying vec3 vRadial,vSlope,vGroundPoint;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvLandFade=landFade;vGroundPoint=(position+vec3(0.0,6371000.0,0.0))/6371000.0;vSlope=normalize(mat3(modelMatrix)*normal);vRadial=normalize(mat3(modelMatrix)*normalize(position+vec3(0.0,6371000.0,0.0)));vSlopeLight=clamp(1.0+8.0*dot(vSlope-vRadial,uSun),.62,1.34);');shader.fragmentShader='varying float vSlopeLight;uniform sampler2D uGroundDetail;uniform vec3 uSun;varying vec3 vRadial,vSlope,vGroundPoint;varying float vLandFade;\n'+shader.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\ndiffuseColor.a*=vLandFade;'+terrainLighting);};
  // Opaque inner tiles draw before the globe so covered ground is shaded once.
  const solid=material.clone();solid.transparent=false;solid.onBeforeCompile=material.onBeforeCompile;
  const chunks=header.chunks.map(chunk=>{

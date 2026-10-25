@@ -1085,3 +1085,18 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 
 - Sites helper已push來源95d2914f6bd2bbb30d2040ac1c546c011e7ba7b6及rocket-separation-camera-p35.tar.gz。版本appgprj_6adc62579ab88191aba299bcb282ce95~appgver_1fa016a59bd88191963093b6454eb902，deployment appgdep_6ade0f1b2e4c819185cbd5ea3329f89f，native status=succeeded，2026-10-25 14:16:05 UTC；原網址https://simlab-rocket-space-missions.ieyp.chatgpt.site，保留owner-only audience。
 - 線上475份檔案已核對：程式／樣式／素材／build-info逐byte等於已驗dist，兩份HTML僅移除平台插入script後相同，僅跟隨同origin canonical index redirect。build-info.sourceCommit=52ea4007a76c45b3c4bdddd3d3e40a7ed3368b5b、packageSha256=cf6312bd120b0de24e3b441b349ab33415903227f1bcb2e8ee70903a41e36793；證據output/rocket/p35-live-verification.json。原網址已交給Codex頁籤開啟（queued）；本次Chrome／HTTP server／helper／驗證程序已結束，既有.codex-remote-attachments未動。
+
+## P36 — 近地精度、坡面光照與地表參照（2026-10-25）
+
+- 用戶截圖：發射台被近地面切成放射碎片，山坡和平地同色，異地下降缺乏相對移動參照。檢查發現contact ground仍把近地頂點存成地球半徑尺度Float32，厘米級發射台與地面深度失準；共用terrainLighting只用radial日夜光照。
+- 範圍：接觸地面頂點改為中心相對座標，由子mesh雙精度平移定位；所有地形共用坡面明暗及固定世界座標地表色斑，接觸區增加有限批次低模植被／石塊作近地移動參照。沿用同一surface碰撞資料、光源、現有品質與距離降級；不改模型、schema、rubric或記錄。
+- 沿用art.test及browser owner，驗發射台俯視／低角度／近地升降、異地丘陵／海面、坡面受光差、細節世界固定及回收有界、先前地形接觸／分離、來源與SCORM閉包、必要近地benchmark。通過後更新原owner-private Sites；真機／Moodle仍須另驗。
+
+- 完成近地中心相對頂點：子mesh以中心平移定位，頂點只存小差值；碰撞高度與球面資料不改。內外圈共用法線，以完整1664tri計算，不因分成opaque／fade網格而出錯。發射台幾何未重建，消除地面精度造成的切片。
+- 所有地形共用坡面受光：全球coarse／fine從原幾何計法線，區域用現有法線，contact從相對座標幾何計法線；卡通強化坡面明暗在vertex計一次，保留共同日夜光源。共用128×128 RGBA程序細節紋理，含mip約87,381bytes、1份cache資源，固定世界座標32m色斑；低成本mip／線性取樣，不用後製或動態陰影。原441份全球binary／區域binary及WebP不變。
+- 異地近地面新增最多81個低模樹石、兩個InstancedMesh draw calls；經緯格固定、同surface定高，地面移動100m才重建。低於1200m完整顯示、到2000m淡出，品質2隱藏；無每幀增加物件。這是卡通參照物，未新增真實地貌／建物／生態資料。
+- 最後runtime fef034c7291d58fe24550469de5cd26bbf690de2563fc67cc065f1a63c2bc36f：p36-final-optimized.json source／extracted ZIP共8-flow completed=true、errors=[]。兩尺寸俯視／低角度發射台白色遮擋mask各1098／355 pixels，新增地面遮掉0 pixels；移動200m仍有72個重疊樹石位置相同（誤差<2cm），總量≤81、往返6次geometry／texture／program不增，品質降級隱藏通過。山地受光係數範圍.745–1.273、shader runnable；區域／全球300km接替日照／背光平均RGB差1.82–4.59／255，p95≤13.34／255，無舊三角補丁回歸。最後桌面／手機截圖已目視。
+- 前一runtime253c315ac199c7101aa04221c96823ce2a08a92bff2d0946ee520db71c521412的p36-release.json另完成14 flows：source／ZIP地面可讀性與接縫、ZIP三地terrainImpacts／terrainDepth／vacuumSeparation。之後只改材質取樣與頂點光照，幾何、props、模型與codec未改；保留各runtime界線，不把前14-flow當最後全套。調優中一次benchmark缺少vertex光源uniform，該p36-invalid-benchmark.json作廢，已補宣告且benchmark owner新增shader編譯失敗斷言。
+- 最後p36-benchmark.json與最後runtime相同，Chrome155／SwiftShader近地100m，各暖機2.5s／採樣15s：1280px median66.8ms／p9583.5ms／CPU p954.7ms；390px median33.4ms／p9533.5ms／CPU p952.9ms。取樣89calls／76,229tri（手機63,429tri），紋理約88.60MB／47.71MB，均在現有預算內。相對P34同場景，median及手機p95保持，桌面p95由66.8增至83.5ms，CPU增加；不聲稱零回退或推算真機。
+- art.test、npm check、check:tests（279 entries）通過；最後vertex shader調優後另驗相關JS syntax、diff、上述8-flow及帶shader斷言的benchmark。沿用既有browser owner；未跑全庫／完整owner或真iPhone／Android／Moodle、熱負荷。
+- 最後供部署ZIP SHA-256 9754e89b00378986c0e582c090d26d15c4fd37b2360af1c8530462d7c50390fb，16491899bytes；直接從此已驗ZIP準備Sites dist，不再重建。

@@ -1,7 +1,7 @@
 import * as THREE from './vendor/three-0.185.1/three.module.min.js';
-import {createTerrain} from './terrain.js';
+import {createTerrain,terrainDetailTexture} from './terrain.js';
 import {createGlobalTerrain} from './global-terrain.js';
-const P=window.RocketParts,cache=new Map();
+const P=window.RocketParts,cache=new Map();cache.set('terrain-detail',terrainDetailTexture);
 const compact=innerWidth<960,loader=new THREE.TextureLoader();
 async function artTexture(name){const texture=await loader.loadAsync(new URL('./assets/'+name,import.meta.url).href);texture.colorSpace=THREE.SRGBColorSpace;cache.set(name,texture);return texture;}
 const [dayMap,regionMap,weatherTexture,starMap,geography,terrainBuffer,globalBuffer]=await Promise.all([
