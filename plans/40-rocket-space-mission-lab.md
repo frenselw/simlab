@@ -840,3 +840,15 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 - 共32次trusted native touch從油門數字、角度數字、油門／轉向按鈕開始垂直掃動：只面板scrollTop增加，完整state／window／visualViewport一致。手機range隱藏、桌面range保留，35%／42°／非法999°／B變速250m/s數字與鍵盤change驗證通過；RAF不覆寫正在編輯的欄位。每份五尺寸各running／paused分離後保留滑行、不自動點火，無面板跳位、焦點不捲動，原分離按鈕同一觸點可直接點燃上級並明示續飛，合共20次分離接點火流程通過。移除分離toast以避免面板底部錨定突然跳位。
 - runtime SHA-256 efc73fd33e3b2abe99930b976c79cd2918f51c820cf48bcc2b60ef043640bcba；ZIP SHA-256 a1edfce6a5cc64474cc3a47d9ad5cc3bee8390d9800b2a7110f1901f869aaa22，258631 bytes。報告／cockpit／full-telemetry等截圖在output/playwright/rocket-space-mission-lab/。無scene／物理／rubric／schema／共享runtime改動；真手機鍵盤與長時間操作、真Moodle及獨立T1–T3宿主矩陣本輪未驗，不能以模擬觸控取代實機驗收。
 - P22已commit／push：dad6bf4e2376e44034936d8b7642bce86b297f62；committed selection-preview在output/rocket/selection-p22.log，mode=affected。實際執行活動六Node、相關source／ZIP owner（selection=mobile-cockpit）與既述靜態檢查，未執行全庫或等待CI。沿用持續發布授權，Sites來源86d440dc49dc009512535fcc72e381c9a9b19fec、deployment appgdep_6add6dc6a5a08191a7078805d88d0c34，native succeeded；精確使用驗過ZIP，原網址及owner-private維持。
+
+
+### P23：角落儀表與可見燃料條
+
+- 依使用者否決P22外置讀數／鏡頭列，取消兩列佔用Canvas高度。讀數改為左上窄儀表、右上兩級燃料橫條；鏡頭以44px按鈕置左下角，中央保留火箭視線。主要數字22px，分量與燃料至少13px，保留全部速率與單位。
+- 沿用既定assessment risk、rubric、dependencies、phase/variant matrix及snapshot schema；不變更物理、美術、評分、持久化或共享runtime。僅調整活動CSS與既有registered browser owner幾何／可讀性斷言。
+- 驗證決策：source與extracted ZIP的手機／桌面、短屏／橫屏，實際字體與橫條比例、Canvas填滿simulation pane、原生鏡頭與捲頁把手、控制區掃動不誤改、分離後原位點火、飛行／記錄／fullscreen／SCORM生命週期；截圖目視。未改的地球美術與基準不重跑，真手機及真Moodle仍為獨立驗收。
+
+- P23完成證據：六活動Node、npm run check、check:tests（278 entries）、文件與diff檢查通過。既有registered owner以output/rocket-p23-check.cjs選取完整telemetry／mobileCockpit／20 layouts／directCamera／launchAndCamera／flightVectors／lifecycle，source及extracted ZIP共40 flows，completed=true、errors=[]、selection=compact-instruments；另以output/rocket-p23-geography.cjs重跑受影響geographyAndHud幾何及既有地理延續檢查（4 flows、五尺寸各兩份），completed=true、errors=[]。其餘未改美術、GPU基準及裝配評分矩陣本輪未重跑。
+- 各五尺寸390×844／320×568／844×390／390×460／1280×800，主讀數至少22px、分量及燃料至少13px；兩級86×6px燃料條分別50%／25%比例通過，單級隱藏、分離標籤、複核結果皆保留。儀表卡避開畫面中線，Canvas與simulation pane同高，不再有外置讀數／鏡頭列；390×844 Canvas為549.5625px。手機直／橫／短屏及桌面截圖已目視檢查，主要數字、單位、橫條可見。
+- 保留44px鏡頭按鈕及32px手機側邊捲頁把手；共32次trusted原生觸控掃動控制欄，不改state／window／visualViewport。source及ZIP共20次running／paused分離後同位置點燃上級，面板不跳動。轉鏡、飛行暫停／續飛、向量位置／長度、SCORM生命週期與fullscreen皆在既有owner選取案例通過。
+- runtime SHA-256 84769e90c94fb75040848a7bb94bc138be3b4a491cc5c8869afbd57cf53955a2；ZIP SHA-256 81aeee99c3ebab6674f19fef07a9c48d5c34f041ae5ed7df478617b301d7e33b，258803 bytes。報告及截圖在output/playwright/rocket-space-mission-lab/。此輪沒有物理、scene、美術、rubric、snapshot schema或共享runtime修改；真手機與真Moodle未驗證，模擬觸控證據不代表實機驗收。
