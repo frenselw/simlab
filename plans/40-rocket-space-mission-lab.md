@@ -863,3 +863,15 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 - P24完成證據：main.js語法、既有interaction／lifecycle兩Node、check:tests（278 entries）、文件及diff檢查通過。既有registered browser owner以output/rocket-p24-check.cjs選取onboarding／workshop，source與extracted ZIP共8 flows，completed=true、errors=[]、selection=assembly-labels。各1280×800桌面、390×844與320×568原生觸控：空接點點按、鍵盤選取／移除、元件點按、拖放／取消、分離器裝配、點火及分級通過。未新增持久測試或改動registered owner。
 - 接點沒有可見文字，保留aria-label；手機與桌面組裝截圖已目視。runtime SHA-256 62fed76245bf37198deefcd3d27a916ac4ee060f3c50994cc08e779e7fbb91b4；ZIP SHA-256 45701418974d6bc7b38efc5a474678f639035bb946d206fd83a4da56cebe60f4，258635 bytes。證據位於output/playwright/rocket-space-mission-lab/p24-assembly-check.json及*-assembly-no-labels-*.png／*-empty-socket-*.png。未重跑無關地球美術、全活動矩陣或全庫；真手機及真Moodle未驗證。
 - P24已commit／push：be93722c9a0f054c54fd82616ec43d16d6baddc1；committed selection-preview在output/rocket/selection-p24.log，mode=affected。實際驗證範圍如上，未執行全庫或等待CI。沿用持續發布授權，Sites來源f7a25612a1f2ec264a6b4985c56379f014b4c77f、deployment appgdep_6add74bbb670819190b215848e2da9c8，native succeeded；使用驗過ZIP，原網址及owner-private維持。
+
+
+### P25：可見分離與姿態噴氣
+
+- 分離時保留下級與分離器幾何，沿用分離前位置／速度，加1.5 m/s微小分離速度；下級以既有模型的無推力、真空重力滑行作視覺軌跡，上級沿權威飛行狀態運動。模型尺寸本來已誇張，兩級相對位移亦按火箭顯示比例呈現。鏡頭四秒內平滑由完整火箭轉為跟隨上級，保留上下級點火流程。下級離鏡後或60模擬秒清理資源；不加入下級氣動、回收／碰撞評分。
+- 轉向採一對相反方向的短促藍白RCS氣流，僅由實際姿態變化觸發，鏡頭旋轉不觸發。動畫由模擬時間驅動，暫停凍結、還原或複核不重播；減少動態設定保留穩定氣流、不閃動。
+- 沿用既定assessment risk／rubric／dependencies／phase matrix／snapshot schema；效果僅位於scene與scene-art，main傳入可播放效果的edit標記，不改物理、燃料／評分、SCORM或持久化欄位。兩個既有runtime已在manifest，無新增依賴。
+- 驗證決策：擴充既有registered browser owner的effects案例，source與ZIP、桌面／手機／窄屏／橫屏，驗證向上慣性、逐漸分開、上級點火加大間距、轉向氣流力矩方向、無轉鏡誤噴、暫停／還原／複核、資源清理及100 draw calls／100k triangles預算。沿用sceneArt、flightVectors、launchAndCamera與lifecycle相關檢查，目視分離及噴氣截圖。真手機與真Moodle為獨立驗收。
+
+- P25完成證據：六活動Node、npm run check、check:tests（278 entries）、語法／文件／diff檢查通過。既有registered owner新增flightEffects，無新增runtime依賴。output/rocket-p25-check.cjs先跑source／ZIP的effects、sceneArt、flightVectors、launchAndCamera、lifecycle，共20 flows（p25-effects-check.json）。其後放大藍白氣流及改成整個下級完全離鏡才清理，source／ZIP四尺寸1280×800、390×844、320×568、844×390重跑effects／vectors，共12 flows（p25-final-effects-check.json）。最後修正噴氣以透明度脈動保持噴嘴位置，以及唯讀紀錄返回edit不可誤播，source／ZIP桌面1280×800與手機390×844重跑effects／vectors，共8 flows（p25-anchor-effects-check.json、selection=flight-effects-anchors）；三份報告completed=true、errors=[]，最後報告runtime與當前manifest逐byte一致。早期廣泛檢查與最後兩輪屬不同runtime雜湊，沒有聲稱最後再次執行全部活動／全庫或真Moodle。
+- 分離前後上級投影位置誤差小於1px；下級繼承正向速度、關機滑行，兩級都上升，上級點火增加相對間距。下級頭部仍可見時不會清理；模擬時間暫停時位置／軌跡不變，轉鏡不觸發噴氣，reload／review／紀錄返回不重播。RCS順逆向成對氣流力矩、到位停止、快進完成後停止、噴嘴固定及減少動態穩定透明度通過；不改權威state。八次反覆重建／分離／清理，warm-up後geometry／texture／program／實際GL buffer數量一致：{"geometries":21,"textures":8,"programs":12,"buffers":63}。下級與上級同時顯示的測量上限45 draw calls／40462 triangles；RCS及向量各ケース亦符合100／100k預算。手機／桌面分離及噴氣截圖已目視。
+- 最終runtime SHA-256 4ae23e12f72ce08a50753fb316119e193f62ab7fe3e711093f79e7b4b906a9e4；ZIP SHA-256 755296c9fad7d4ab6523bf7d980421e09b4debfc06d1c75190a4a1dc1d283e7f，260007 bytes。效果按模擬時間運行、快進會加速；RCS僅作視覺呈現，不另扣燃料。真手機及真Moodle未驗證。

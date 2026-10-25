@@ -115,5 +115,13 @@ export function buildRocket(c,separated){
   batch(new THREE.SphereGeometry(1,12,8),dark,[-1,1].map(side=>[side*.4,faceY,1.24,.16,.16,.16]));batch(new THREE.SphereGeometry(1,8,6),material('#ffffff'),[-1,1].map(side=>[side*.4-.03,faceY+.05,1.37,.07,.07,.07]));
   const smile=new THREE.TorusGeometry(.24,.035,6,14,Math.PI);const mouth=mesh(smile,dark,0,faceY-.25,1.32);mouth.rotation.z=Math.PI;
   mesh(new THREE.CylinderGeometry(.04,.04,1.1,8),metal,0,y+3.6,0);mesh(new THREE.SphereGeometry(.17,10,8),orange,0,y+4.15,0);
-  const flame=new THREE.Group();flame.position.y=-.2;for(const [radius,length,color,opacity]of [[.78,4.8,c.stages[separated?1:0].engine===1?'#69b9ff':'#ffad52',.45],[.45,3.6,'#b4e8ff',.8],[.22,2.1,'#fff8e7',1]]){mesh(new THREE.ConeGeometry(radius,length,24),new THREE.MeshBasicMaterial({color,transparent:true,opacity,blending:THREE.AdditiveBlending,depthWrite:false,toneMapped:false}),0,-length/2,0,flame).rotation.z=Math.PI;}flame.visible=false;group.add(flame);group.microDetails=microDetails;group.userData={slots,parts,ranges,separatorY,height:y+4.4,flame};group.updateMatrixWorld(true);const bounds=new THREE.Box3();for(const part of parts)bounds.union(new THREE.Box3().setFromObject(part));group.userData.partBounds=bounds;return group;
+  const rcs=[new THREE.Group(),new THREE.Group()],nozzles=[];
+  for(const [index,direction]of [-1,1].entries())for(const [level,side]of [[y+.25,-direction],[1.8,direction]]){
+    nozzles.push([side*1.53,level,0,.13,.24,.13,0,0,-side*Math.PI/2]);
+    for(const [radius,length,opacity]of [[.5,3.2,.45],[.23,2.1,.9]]){
+      const plume=mesh(new THREE.ConeGeometry(radius,length,10),new THREE.MeshBasicMaterial({color:radius>.3?'#7bc9ff':'#e1f6ff',transparent:true,opacity,blending:THREE.AdditiveBlending,depthWrite:false,toneMapped:false}),side*(1.65+length/2),level,0,rcs[index]);plume.rotation.z=side*Math.PI/2;plume.userData.baseOpacity=opacity;
+    }
+  }
+  batch(new THREE.CylinderGeometry(1,1,1,10),dark,nozzles);for(const jets of rcs){jets.visible=false;group.add(jets);}
+  const flame=new THREE.Group();flame.position.y=-.2;for(const [radius,length,color,opacity]of [[.78,4.8,c.stages[separated?1:0].engine===1?'#69b9ff':'#ffad52',.45],[.45,3.6,'#b4e8ff',.8],[.22,2.1,'#fff8e7',1]]){mesh(new THREE.ConeGeometry(radius,length,24),new THREE.MeshBasicMaterial({color,transparent:true,opacity,blending:THREE.AdditiveBlending,depthWrite:false,toneMapped:false}),0,-length/2,0,flame).rotation.z=Math.PI;}flame.visible=false;group.add(flame);group.microDetails=microDetails;group.userData={slots,parts,ranges,separatorY,height:y+4.4,flame,rcs};group.updateMatrixWorld(true);const bounds=new THREE.Box3();for(const part of parts)bounds.union(new THREE.Box3().setFromObject(part));group.userData.partBounds=bounds;return group;
 }
