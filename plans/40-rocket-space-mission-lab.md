@@ -1,4 +1,4 @@
-# 火箭工廠與太空任務：3D SCORM 實施計劃
+﻿# 火箭工廠與太空任務：3D SCORM 實施計劃
 
 狀態：**使用者已批准實作；P1–P3 功能已接通，P4 驗證中，P5 待實際環境驗收。** 日期：2026-10-24。
 本文件從 [新活動計劃模板](NEW-SIMULATION-PLAN-TEMPLATE.md) 複製並填寫；遵循 [共同產品與風格](00-shared-platform-and-style.md) 及 [製作與驗證契約](../docs/simulation-scorm-production-guide.md)。下列數值、配分和效能預算是具體設計決定／待驗證目標，不能當成已通過的證據。
@@ -1054,8 +1054,12 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 - 近地接觸mesh共1664tri，10m至160km同心稠密rings，僅AGL<5km啟用、地表移動100m才更新；遮掉所覆蓋舊粗地面並沿外圈淡出，使用全球粗色場及共同日照，不新增紋理。近地鏡頭按火箭方向對準；AGL<10m以可見船體實際頂點計地表間隙並校準最低點，避免倒轉／橫向圖形懸空或穿地。
 - HUD「離地」用AGL，1km內用m，另顯示參考球面海拔；orbital elements、rubric及分數定義不變。modelVersion2新impact嚴格驗共享地表；v1 draft先舊契約驗證再遷移，歷史review／pending保持v1。Node lifecycle補驗v1 finished信任、pending凍結／重試原文不變、editable draft遷移及合法續飛。
 - 撞擊pool固定2組，火光／6組煙／12碎片或水花，3.2s內回收顯示、不持續重畫；main impact之後隱藏已毀圖示，分離下級落地只處理其事件。效果不寫snapshot，pause／hidden／context lost不走時，reload／review不重播；低動態抑制飛散碎片。
-- 最後runtime 147d4c2595a73ac9b88a730a47a083c9e31f7e59703f8b75987d4ee6e3103b29：source／extracted ZIP共10-flow p34-final.json completed=true、errors=[]，含桌面／手機各3地點、實際船體接觸、AGL單位、火光／水花、一次觸發及完結idle、reload不重播、低動態、contact ground的depth像素比對、SCORM及context recovery。12次主級contact的clearance約0（|error|<1e-8m）、graphic vertex gap=0；山地海拔2435.1035m而AGL=0，海面=0。取樣主級爆炸最高75calls／73,709tri。
+- 透明接觸地面版本runtime 147d4c2595a73ac9b88a730a47a083c9e31f7e59703f8b75987d4ee6e3103b29：source／extracted ZIP共10-flow p34-final.json completed=true、errors=[]，含桌面／手機各3地點、實際船體接觸、AGL單位、火光／水花、一次觸發及完結idle、reload不重播、低動態、contact ground的depth像素比對、SCORM及context recovery。12次主級contact的clearance約0（|error|<1e-8m）、graphic vertex gap=0；山地海拔2435.1035m而AGL=0，海面=0。取樣主級爆炸最高75calls／73,709tri。
 - 較早p34-release.json另跑分離下級的完整下降／impact／RCS及回收流程，但其source測試期間仍有表面及鏡頭修正，不冒充最後固定runtime全套；最終固定runtime驗收以上述10-flow為準。模型及persistence的真實異地丘陵、signed AGL、山脊sweep、落地停止、±10m偽impact拒絕、draft/review roundtrip、舊版遷移都已執行。
 - 同runtime近地100m source benchmark各暖機2.5s、採樣15s：1280px median 66.8ms /p95 83.4ms /CPU p95 2.8ms; 390px median 33.4ms /p95 33.5ms /CPU p95 2.7ms。為Chrome155／SwiftShader桌面模擬，非真手機／GPU熱負荷證據；沒有廣泛重跑高空benchmark。
 - 七活動Node、npm check、check:tests（279 entries）、JS/Python syntax及diff通過；新增Surface資源／海水0／clearance自檢已併入既有art.test。沿用browser registry owner擴展。未跑全庫或完整browser owner；真iPhone／Android／Moodle未驗。地面高度仍卡通示意，非測繪DEM。
-- 最終ZIP SHA-256 1755f33ee5cb3fe436986d132c928e049123f675f05d7198154216c55956ed0c，16490088bytes；從此ZIP準備Sites dist，不再重建。
+- 上述透明版本ZIP SHA-256 1755f33ee5cb3fe436986d132c928e049123f675f05d7198154216c55956ed0c，16490088bytes；未部署，改以下列優化後封包為準。
+
+- 最終接觸地面將120km內不透明部分先寫depth，僅外圈透明過渡；仍1664tri、增加1call，避免全片透明重複繪畫。補上globalTerrain.colorAt有界8格快取，共用原粗網格色場。最後runtime 8f0ab5d9a06f76c95d317697b6293d0a6aef05e55917c5e99e2d6d093e0afe26：p34-opaque.json source／extracted ZIP共8-flow completed=true、errors=[]；桌面／手機各3地點的AGL、船體接地、火光／水花、單次／回收／reload／低動態與depth像素檢查通過。模型、codec及生命週期未再改，上述10-flow的生命週期證據保留其runtime界線。
+- 同最後runtime的p34-benchmark.json，近地100m、同Chrome155／SwiftShader、暖機2.5s及採樣15s：桌面median66.7ms／p9566.8ms／CPU p952.9ms；手機尺寸median33.4ms／p9533.5ms／CPU p952.5ms。桌面尾端改善，手機未量到改善；不能與P33的10km場景直接比較，亦不聲稱無性能回退或真機流暢。
+- 最後供部署ZIP SHA-256 3a0465e05007eade6247360f69c28f5cd6ed9e42c26a078e0e43a29a5e2d094a，16490260bytes；後續直接從這份已驗ZIP準備Sites dist，不再重建。
