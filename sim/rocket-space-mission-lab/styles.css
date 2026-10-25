@@ -50,4 +50,4 @@
 .flight-readouts{position:absolute;top:16px;left:20px;right:20px;display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:8px;pointer-events:none;z-index:3}.flight-readouts .telemetry{position:static;flex:1 1 500px;width:100%;min-width:0}.flight-readouts .direction-legend{position:static;margin-left:auto}
 @media(max-width:959px){.flight-readouts{top:12px;left:12px;right:12px}}@media(max-height:519px){.flight-readouts{top:7px;left:8px;right:8px}}
 
-.parts-grid .part-diagram{width:56px;height:39px}.asset-credit{font-size:11px!important}
+.parts-grid .part-diagram{width:56px;height:39px}

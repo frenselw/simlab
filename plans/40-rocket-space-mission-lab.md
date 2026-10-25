@@ -786,3 +786,16 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 - P19完成證據：兩代理覆核均關閉原finding及追加R5，共1項P1／4項P2已修，詳見審核報告。六個Node全綠；逆向短燃燒及P18 active burn續做新增測試先在修前失敗。最終registered owner source／ZIP共94 flows、20 layouts，completed=true、errors=[]；原互動／自然分級／向量／SCORM／故障回歸全部通過。新增GPU星點球面內像素一致、合法遠距低空地球、DPR3→1→2.5與手機切換、長等待第二次燃燒preview、舊active burn codec及reload等皆有實際執行證據。獨立代理驗DPR變更下paused不動／playing續飛，及context restore shader正常。
 - P19檢查：npm run check、check:tests（278 entries）、文件及diff檢查通過；runtime SHA-256 b4fa613a935560a1e3840f4ff74eddb62505b7764caece30dc4b76274700732a，ZIP SHA-256 ab621f5cb5d857116837ab0251c0943b9e47811e0454dd8113d4fc2533678e76，大小680689 bytes。正式report與*-audit-*截圖在output/playwright/rocket-space-mission-lab/，獨立audit-scene-*證據在output/。無新schema／rubric／runtime依賴，已提交records不重算。真手機／真Moodle／獨立T1–T3矩陣未在本輪驗證。
 - P19已commit／push：7a5ce1b90654ea8edaf85b9108f7eca84de2f187；committed selection-preview為output/rocket/selection-p19.log，mode=full，原因是既有test-support.js測試fixture helper未宣告為runtime asset consumer，選擇器保守全選。未更改共享選擇器／registry或把測試fixture加入runtime；本輪實際只執行活動六Node與完整活動source／ZIP，未執行全庫或等待CI。Sites來源a021704661dfcb71e3f5ca367b4bde341848496d、deployment appgdep_6adcfe8625c08191acad291bff4f2b4b，native succeeded；原網址與owner-private維持。
+
+
+### P20：統一卡通地球，消除高空近景地形接縫
+
+- 使用者真手機截圖在940.4km看見大片簡化青綠近景海洋蓋住寫實衛星地球，兩種海色／造型混雜；要求恢復一致卡通美術。P18仍保留發射場有限地形於所有高度、同時啟用全球底圖／雲殼，形成可見地形patch邊界；P19只補遠距底圖，未解決這個重疊及風格問題。
+- 修正只涉及scene／scene-art、學習說明署名、舊影像manifest依賴及既有browser owner。重用P17原創大陸輪廓，生成一次性本地Canvas插畫地表／葉狀雲：海洋／陸地／海岸採同一組配色，加簡單海岸線及區域色塊，移除NASA照片與照片雲runtime依賴。保留精細火箭／發射台、河岸／樹木／建築與地球依t自轉。地圖是航天示意插畫，非地理／即時氣象資料。
+- 近景環境按20–60km高度及距發射點300–600km平滑淡出；全程使用同一地球球面，20km以下發射區採近景海岸配色，60km以上及遠距採全球插畫；有限近景地面mesh已刪除，只有道路／河流／樹／建築／底座等細節隨高度淡出。雲／大氣同一透明度漸入；多角度、縮放及下降亦使用同一規則，避免切換高度硬跳。fade只改renderer材質／可見性，不改physics／rubric／schema／已儲存答案。
+- before/after重現原940.4km／3300m/s、20／40／60km邊界、100／300／940.4／1200km、近／遠發射地心角、follow／orbit／plane、桌面／手機尺寸，驗證高空local opacity=0且studio／landscape均隱藏、地球仍可見、Canvas插畫資產及shader正常、draw calls／triangles上限、暫停／續做／DPR與星點遮蔽不回歸。以現有registered owner新增案例並更新舊「地形始終顯示／照片載入」測試為新契約，執行source／ZIP完整owner、六Node、check／check:tests、文件／diff及committed selection-preview。物理、snapshot及SCORM外層不變；真手機／真Moodle另驗，T1–T3手勢未改不重跑。
+
+- P20出圖補正：單純淡出兩個重疊球面仍會在40km看見雙地平線。刪除發射場大型地面mesh，改為全程同一地球球面，以北極密集環支援發射點米級近景；同一fragment shader從近景海岸配色平滑轉為全球插畫，近景只留道路／河流／森林／建築／底座並淡出。球面隨跟隨地心角轉換，雲／大氣沿同一球面漸入，沒有第二個地面或有限patch邊界。相對原128×64球面僅小量增加全景面數，省去近景地面萬個三角形，仍守100k預算。
+
+- P20完成證據：六個活動Node、npm run check、check:tests（278 entries）、文件／diff檢查通過。最終registered owner source／extracted ZIP共98 flows、20 layouts，completed=true、errors=[]；manifest所有runtime bytes與ZIP一致。真實單級火箭積分至942.3km重現升空，再覆核原截圖940.4km／3.30km/s、0／20／40／60／100／300／940.4／1200km及各邊界、四個地心角、follow／orbit／plane與縮放；高空無近景patch、同一球面保留、Canvas插畫無舊照片請求。新矩陣最高43 calls／43192 triangles，40km local opacity=.5、60km以上=0；原星點遮蔽／DPR／互動／SCORM／故障回歸通過。桌面／手機發射台、過渡、高空與地球全景截圖已檢視，沒有雙地平線／貼片邊界。
+- P20 runtime SHA-256 338408133718ad44cf7a3bda1000e4a5a39c87a2e115bf9d22ca980fe621aeac；ZIP SHA-256 e0b988a93d66129335087f11574f46edb4c83118fdc47c88803fecc72661faa4，大小255995 bytes（移除439294 bytes照片，無新套件或外部runtime請求）。報告／截圖在output/playwright/rocket-space-mission-lab/。P18照片及有限地面mesh決策由本節取代；物理／schema／rubric／提交記錄不變。未重跑全庫或獨立T1–T3矩陣；真手機fps／真Moodle未驗證。
