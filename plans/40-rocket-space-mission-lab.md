@@ -1100,3 +1100,8 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 - 最後p36-benchmark.json與最後runtime相同，Chrome155／SwiftShader近地100m，各暖機2.5s／採樣15s：1280px median66.8ms／p9583.5ms／CPU p954.7ms；390px median33.4ms／p9533.5ms／CPU p952.9ms。取樣89calls／76,229tri（手機63,429tri），紋理約88.60MB／47.71MB，均在現有預算內。相對P34同場景，median及手機p95保持，桌面p95由66.8增至83.5ms，CPU增加；不聲稱零回退或推算真機。
 - art.test、npm check、check:tests（279 entries）通過；最後vertex shader調優後另驗相關JS syntax、diff、上述8-flow及帶shader斷言的benchmark。沿用既有browser owner；未跑全庫／完整owner或真iPhone／Android／Moodle、熱負荷。
 - 最後供部署ZIP SHA-256 9754e89b00378986c0e582c090d26d15c4fd37b2360af1c8530462d7c50390fb，16491899bytes；直接從此已驗ZIP準備Sites dist，不再重建。
+
+- 已commit／push實作299c08ef227f17bcff4b9b12e8203750154d555b；committed selection-preview output/rocket/selection-p36.json，baseb75e0a4→299c08e、mode=affected、242 entries，全部修改映射rocket活動／owning browser scope。只代表選取預覽，實際執行範圍如上，非242項全跑。
+
+- Sites helper已push來源ed6fd12b5547c61db961ca2371c31b17da0d11c7及rocket-ground-readability-p36.tar.gz。版本appgprj_6adc62579ab88191aba299bcb282ce95~appgver_08b08f5158548191ad02651eb1b49435，deployment appgdep_6ade1e3629ac8191a8b01472f80b2194，native status=succeeded，2026-10-25 15:20:31 UTC。原網址https://simlab-rocket-space-missions.ieyp.chatgpt.site，保留owner-only audience，發布前get_site確認owner／0external。
+- 線上475份檔案核對完成：程式、樣式、素材及build-info逐byte等於已驗dist；兩份HTML僅移除平台插入script後相同，只跟隨同origin canonical index redirect。build-info.sourceCommit=299c08ef227f17bcff4b9b12e8203750154d555b、packageSha256=9754e89b00378986c0e582c090d26d15c4fd37b2360af1c8530462d7c50390fb；證據output/rocket/p36-live-verification.json。原網址已交給Codex頁籤開啟（queued）；本次Chrome／HTTP server／helper／驗證程序均結束，既有.codex-remote-attachments未動。
