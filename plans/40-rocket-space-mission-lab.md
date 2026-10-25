@@ -1068,3 +1068,15 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 
 - Sites helper已push來源101c3ed4a36641e8d535ed327bc8eea8c1a018e6及rocket-terrain-impact-p34.tar.gz。版本appgprj_6adc62579ab88191aba299bcb282ce95~appgver_f27ad65a88588191b6f468fb0b6f031b，deployment appgdep_6ade05f195c08191b82b9f2e06e47570，native status=succeeded，2026-10-25 13:37:00 UTC。原網址https://simlab-rocket-space-missions.ieyp.chatgpt.site；owner-only audience保留，get_site確認owner／0external。
 - 線上475份檔案已核對：全部程式、樣式、地形binary及其他素材、build-info逐byte等於驗過dist；兩份HTML僅移除平台插入script後相同，僅跟隨同origin canonical index redirect。build-info.sourceCommit=872449b63523f7d689f7b5ee96d99c6fafb8a9c7、packageSha256=3a0465e05007eade6247360f69c28f5cd6ed9e42c26a078e0e43a29a5e2d094a，證據output/rocket/p34-live-verification.json。原網址已交給Codex頁籤開啟（queued）；本次測試Chrome／HTTP server／helper及線上驗證程序已結束，既有.codex-remote-attachments未動。
+
+## P35 — 已點火分離畫面（2026-10-25）
+
+- 用戶補充上級已點火。最新版本source重現：60s實際相距約23.4km、速度差約810m/s，但高空跟隨鏡頭按海拔拉遠，放大圖示掩蓋間距，目視仍似完整火箭。
+- 範圍：跟隨鏡頭在分離後4s平順轉到以真實兩級間距決定的近景；距離增加後仍受原跟隨距離上限約束。先同步下級狀態再計鏡頭，避免讀上一幀的下級位置。物理、推力、snapshot、rubric和歷史結果不變；不用虛構減速。
+- 沿用既有browser owner加已點火／滑行、桌面／手機的畫面間距斷言及首4s採樣；保留原分離位置、暫停、視角、下降／落地、RCS檢查。來源／解壓ZIP驗後更新原owner-private Sites；不新增依賴或素材。
+
+- 已實現：分離跟隨距離在4s內以對數平順轉到間距近景，鏡頭中心偏移≤相機距離10%，上級近地／下級遠離也保留上級；下級RK4同步提前至鏡頭計算前，未更改動力學。只有scene.js少量修改，無新增素材／依賴／draw calls。
+- 最後runtime 66a819fc827ade48e5bcaf966edee11a142ec6085f2f2f4723d6225f2867c29c：p35-release.json completed=true、errors=[]、10 flows。source／extracted ZIP各桌面1280×800與手機390×664驗滑行／已點火首1／4／10／60s畫面，後三點已點火均>30px且兩級接點可見；60s相距23.37–23.42km、速度差809.8–810.8m/s，屏幕間距桌面194.6px／手機80.8px。上級近地而下級遠處fixture亦保留上級可見。
+- 同最後runtime的ZIP另驗四種尺寸flightEffects（1280×800、390×844、320×568、844×390），包括原分離接點不跳、暫停不動、reload不重播、不同視角實際米制位置、下級長時間下降與真正地面impact、RCS及資源回收；取樣boost最高54calls／63,205tri。ZIP桌面／手機另驗三地terrainImpacts，船體接地、AGL、單次效果及回收／resume不重播通過。
+- 前一runtime f74a7fe0b906feeaa7f94001af9ad36fcb8cee12511247eafa4369cec7fdf2aa的p35-final.json跑完8個source flows後，HTTP server teardown超時；沒有冒充completed。測試owner新增離頁後關服，最後10-flow成功退出；只重驗最後受影響範圍，沒有全庫重跑。npm check、check:tests（279 entries）、JS syntax及diff通過；真手機／Moodle及額外效能benchmark未驗。
+- 最後供部署ZIP SHA-256 cf6312bd120b0de24e3b441b349ab33415903227f1bcb2e8ee70903a41e36793，16490388bytes；直接用這份已驗ZIP準備Sites dist，不再重建。

@@ -60,8 +60,6 @@ export class RocketScene{
     if(f)this.effectPose={t:f.t,attitude:f.attitude};
     for(const [i,jets]of this.rocket.userData.rcs.entries()){jets.visible=Boolean(this.data.live&&f&&!['impact','escaped'].includes(f.status)&&f.t<this.rcsUntil&&this.rcsDirection===[-1,1][i]);for(const plume of jets.children)plume.material.opacity=plume.userData.baseOpacity*(this.reducedMotion?1:.85+.15*Math.sin(f?.t*70||0));}
     const drop=this.separation;if(!drop||!f)return;
-    // Reuse gravity, atmospheric drag and impact detection with the detached mass.
-    for(let i=0;i<20000&&drop.coast.t<f.t-1e-8&&!['impact','escaped'].includes(drop.coast.status);i++)M.step(drop.coast,Math.min(O.elements(drop.coast.state).height<120000?.1:2,f.t-drop.coast.t),{mass:drop.mass});
     if(drop.coast.status==='impact'){this.impacts.emit(drop.coast.state,drop.coast.t,Math.max(.015,this.rocket.scale.y*this.rocket.userData.height*.6));this.clearSeparation();return;}
     const angle=space?0:theta,dx=drop.coast.state[0]-f.state[0],dy=drop.coast.state[1]-f.state[1],axis=new THREE.Vector3(Math.sin(drop.attitude-angle),Math.cos(drop.attitude-angle),0),offset=new THREE.Vector3(dy*Math.cos(angle)-dx*Math.sin(angle),dx*Math.cos(angle)+dy*Math.sin(angle),0);
     // Flight coordinates use metres; only the stage artwork uses the enlarged scale.
@@ -78,6 +76,7 @@ export class RocketScene{
     if(!this.data||!this.rocket||this.lost)return;const {flight:f,workshop}=this.data,space=['orbit','plane'].includes(this.view),factory=workshop&&this.view==='factory',height=this.rocket.userData.height;
     const agl=f?S.clearance(f.state,f.t):0,altitude=f?Math.max(0,O.elements(f.state).height):0,theta=f?Math.atan2(f.state[1],f.state[0]):0;
     this.earth.geometry=f&&!space&&altitude<120000?this.earth.userData.nearGeometry:this.earth.userData.farGeometry;
+    const drop=this.separation;if(drop&&f)for(let i=0;i<20000&&drop.coast.t<f.t-1e-8&&!['impact','escaped'].includes(drop.coast.status);i++)M.step(drop.coast,Math.min(O.elements(drop.coast.state).height<120000?.1:2,f.t-drop.coast.t),{mass:drop.mass});
     const separation=this.separation,blend=separation?THREE.MathUtils.smoothstep(f.t-separation.start,0,4):1,displayHeight=separation?THREE.MathUtils.lerp(separation.height,height,blend):height;
     const localOpacity=(1-THREE.MathUtils.smoothstep(altitude,20000,60000))*(1-THREE.MathUtils.smoothstep(Math.abs(theta)*P.R,300000,600000)),local=Boolean(f&&!space&&localOpacity>0);
     this.environmentOpacity=localOpacity;this.planetOpacity.value=space?1:1-localOpacity;
@@ -94,7 +93,10 @@ export class RocketScene{
       // Leave depth clearance for Float32 rounding at planetary scale.
       const r=Math.hypot(f.state[0],f.state[1]);this.earth.position.set(0,-r/1000,0);this.earth.scale.setScalar((P.R-5)/1000);this.halo.position.copy(this.earth.position);this.halo.scale.setScalar((P.R+80000)/1000);
       distance=Math.max(.035,displayHeight*(this.host.clientHeight<240?.007:.0038),Math.max(0,agl)/1000*3+.035)/this.zoom;
+      // A close following camera makes real separation visible beneath enlarged stage artwork.
+      if(separation){const gap=Math.hypot(f.state[0]-separation.coast.state[0],f.state[1]-separation.coast.state[1]),close=Math.max(.035,displayHeight*.0038,gap*.005+.035)/this.zoom;distance*=Math.pow(Math.min(1,close/distance),blend);}
       this.rocket.scale.setScalar(Math.max(.001,distance*.16/displayHeight));this.rocket.position.set(0,0,0);this.rocket.rotation.z=theta-f.attitude;target.set(0,displayHeight*this.rocket.scale.y*.65,0);
+      if(separation){const dx=separation.coast.state[0]-f.state[0],dy=separation.coast.state[1]-f.state[1],weight=Math.min(.0005*blend,distance*.1/Math.max(1,Math.hypot(dx,dy)));target.x+=(dy*Math.cos(theta)-dx*Math.sin(theta))*weight;target.y+=(dx*Math.cos(theta)+dy*Math.sin(theta))*weight;}
       for(const environment of [this.studio,this.landscape,this.relief]){environment.scale.setScalar(.001);environment.position.set(-P.R*Math.sin(theta)/1000,(P.R*Math.cos(theta)-r)/1000,0);environment.rotation.z=theta;}
     }
     if(f&&!factory&&!space&&agl<500){const blend=1-THREE.MathUtils.smoothstep(agl,200,500),minimum=hullMinimum(this.rocket,this.rocket.rotation.z);let offset=-minimum*this.rocket.scale.y*blend+Math.max(0,-agl)/1000;if(agl<10){const key=[f.t,f.attitude,this.rocket.scale.y].join(',');if(this.rocket.contactKey!==key){this.rocket.contactKey=key;this.rocket.contactOffset=(Math.max(0,agl)-hullClearance(this.rocket,f,this.rocket.rotation.z))/1000;}offset=this.rocket.contactOffset;}this.rocket.position.y+=offset;target.copy(this.rocket.position).add(new THREE.Vector3(0,displayHeight*this.rocket.scale.y*.5,0).applyQuaternion(this.rocket.quaternion));}
