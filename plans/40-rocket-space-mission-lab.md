@@ -1080,3 +1080,8 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 - 同最後runtime的ZIP另驗四種尺寸flightEffects（1280×800、390×844、320×568、844×390），包括原分離接點不跳、暫停不動、reload不重播、不同視角實際米制位置、下級長時間下降與真正地面impact、RCS及資源回收；取樣boost最高54calls／63,205tri。ZIP桌面／手機另驗三地terrainImpacts，船體接地、AGL、單次效果及回收／resume不重播通過。
 - 前一runtime f74a7fe0b906feeaa7f94001af9ad36fcb8cee12511247eafa4369cec7fdf2aa的p35-final.json跑完8個source flows後，HTTP server teardown超時；沒有冒充completed。測試owner新增離頁後關服，最後10-flow成功退出；只重驗最後受影響範圍，沒有全庫重跑。npm check、check:tests（279 entries）、JS syntax及diff通過；真手機／Moodle及額外效能benchmark未驗。
 - 最後供部署ZIP SHA-256 cf6312bd120b0de24e3b441b349ab33415903227f1bcb2e8ee70903a41e36793，16490388bytes；直接用這份已驗ZIP準備Sites dist，不再重建。
+
+- 已commit／push實作52ea4007a76c45b3c4bdddd3d3e40a7ed3368b5b；committed selection-preview output/rocket/selection-p35.json，baseb81f259→52ea400、mode=affected、242 entries，映射rocket活動及owning browser scope。這是選取預覽，實際執行範圍如上，非242項全部執行。
+
+- Sites helper已push來源95d2914f6bd2bbb30d2040ac1c546c011e7ba7b6及rocket-separation-camera-p35.tar.gz。版本appgprj_6adc62579ab88191aba299bcb282ce95~appgver_1fa016a59bd88191963093b6454eb902，deployment appgdep_6ade0f1b2e4c819185cbd5ea3329f89f，native status=succeeded，2026-10-25 14:16:05 UTC；原網址https://simlab-rocket-space-missions.ieyp.chatgpt.site，保留owner-only audience。
+- 線上475份檔案已核對：程式／樣式／素材／build-info逐byte等於已驗dist，兩份HTML僅移除平台插入script後相同，僅跟隨同origin canonical index redirect。build-info.sourceCommit=52ea4007a76c45b3c4bdddd3d3e40a7ed3368b5b、packageSha256=cf6312bd120b0de24e3b441b349ab33415903227f1bcb2e8ee70903a41e36793；證據output/rocket/p35-live-verification.json。原網址已交給Codex頁籤開啟（queued）；本次Chrome／HTTP server／helper／驗證程序已結束，既有.codex-remote-attachments未動。
