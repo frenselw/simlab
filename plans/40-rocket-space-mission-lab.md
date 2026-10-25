@@ -945,3 +945,25 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 - P29已commit／push：06531bf638e1cd2909cf5dacd26276e0cfd95a00。committed selection-preview在output/rocket/selection-p29.json，mode=affected，只歸屬rocket-space-mission-lab；實際執行七Node與上述42-flow／最終8-flow專項，未聲稱全庫或完整browser owner／CI。
 - Sites helper已push來源9f2efad18ae2a3b53011822bd93a318fd1b9c6e8，以上述驗過ZIP產生rocket-effects-p29.tar.gz。版本appgprj_6adc62579ab88191aba299bcb282ce95~appgver_433d0bd3670c8191be848d5cf5cba4a1；deployment appgdep_6adda6a81f80819186ddf83f21adbc1a，native status=succeeded。原網址https://simlab-rocket-space-missions.ieyp.chatgpt.site及owner-only audience維持。
 - 線上27份檔案已核對：程式／樣式／素材／build-info逐byte相同，兩份HTML移除託管平台插入script後亦相同；只跟隨同origin的canonical index redirect。build-info.sourceCommit=06531bf638e1cd2909cf5dacd26276e0cfd95a00，packageSha256與最終ZIP相符，證據output/rocket/p29-live-verification.json。原網站已交給Codex頁籤開啟（queued），本地預覽及測試Chrome已關閉。
+
+
+### P30：適量分布雲團、引擎辨識與簡潔SIMLAB標示
+
+- 使用者要求改善僅集中發射場、交叉薄片狀的雲，適量分布到其他區域；大推力引擎改四噴嘴集束、高效率引擎改單個寬口真空鐘形噴嘴，選件圖亦須能辨識；移除P–1500／P–6000、條碼及序號裝飾，改為燃料箱上橫向SIMLAB。
+- 範圍：scene-art.js的雲／引擎／機身貼圖與火焰、scene.js必要的噴嘴火焰縮放、index.html引擎SVG；既有離線雲圖生成器與clouds.webp／geography.json資產hash；既有art.test及registered browser owner專項。無新增依賴，manifest沿用既有資產。沿用assessment risk、rubric、phase/variant、snapshot schema、燃料／質量／推力與SCORM；兩種引擎僅更改視覺，安裝／分離器包覆／選取幾何契約維持原2m引擎高度。
+- 雲決定：以單批次圓潤立體雲團取代交叉平面，少量分布近／遠處及四方，保留發射點周圍淨空；全球雲圖保留1K、適度且跨經度分布，不增加runtime紋理尺寸或逐幀雲模擬。近景雲不再當作地面微細裝飾過早隱藏，隨原有局部環境漸退。
+- 驗證決定：檢查離線雲圖覆蓋／經線接縫／資產hash；七活動Node、check、check:tests；source與extracted ZIP桌面／手機的四／單噴嘴、火焰出口／油門縮放、logo貼圖、近遠雲分布與截圖、分離器包覆／安裝拖放、分離/RCS、資源重建與100 calls／100k triangles預算。維持手機紋理預算；檢查後commit／push，將測過ZIP部署原有owner-private網站並核對線上檔案。真手機／真Moodle另驗。
+
+- 首輪美術預覽source／ZIP共4 flows通過，含實際噴嘴與火焰錨點、油門寬度、logo文字、雲團及全球雲覆蓋；桌面及手機截圖已目視。較廣回歸的naturalStaging發現加長真空噴嘴超出舊外殼0.15m，已把該外殼提高至2.32m（留2cm實際間隙）並把可點選安裝環調至引擎base+1.7m；引擎stage高度／質量／物理不變。失敗報告保留為p30-first-regression.json，修正後重跑。
+
+- 補充幾何證據：擴殼到恰好2.3m時選取已通過，但instanced Float32噴嘴頂緣比殼的bbox高約0.000000085m；增加2cm實際間隙，沒有放寬包覆assert。既有測試現在分別記錄包覆與實際pick結果，方便診斷。
+
+- 火焰沿用instances helper，把四個出口按三層顏色各合併一批，與單出口同為3次火焰draw；油門僅在數值改變時更新各instance的寬度，出口座標固定，逐幀只沿用既有長度動畫。bounds預先保留全寬，避免縮放後錯誤裁切。
+
+- 58-flow source／ZIP較廣回歸通過（p30-art-regression.json），包含新版美術、sceneArt、artPerformance、naturalStaging、onboarding、assemblyDrags、launchAndCamera、flightEffects、flightVectors、lifecycle及工廠／10km低空各15秒採樣。桌面p95約33.5／50.2ms，舊版33.4／50.1ms；手機工廠16.8ms相同，低空median仍16.7ms，但p95由16.8升至33.4ms。據此只把手機地球經向網格128降至96，保留全部近地徑向細分、2K貼圖與雲／引擎形狀；桌面不變。最後另跑美術／地理一致性／scene資源與手機benchmark專項；不以較早58-flow報告冒充最後runtime。
+
+- 手機96經向版本專項18 flows通過，但低空p95仍33.4ms（median16.7ms）。再針對近地shader：當地表完全由局部圖覆蓋時直接取局部色，省去被覆蓋的全球UV三角函數及atlas取樣；混合邊界與雲仍走原路。既有地理像素檢查加入強制原取樣路徑的GPU對照，確認快路徑與原路徑色值一致。這是性能修正，不另降雲／噴嘴細節。
+
+- 最終近地取樣優化版：source／ZIP專項18 flows（p30-final-mobile.json）及完整局部混合邊界GPU對照4 flows（p30-shader-boundary.json）均completed=true、errors=[]。快路徑與強制原取樣路徑逐像素一致；手機工廠／10km低空各15秒採樣p95均16.8ms、median16.7ms，回復舊版基準。這是Chrome 155／SwiftShader本機相對比較，不推算為真iPhone效能。
+- 最終七活動Node、靜態／registry（279 entries）、語法及diff檢查通過；雲圖生成器重建逐byte一致，覆蓋0.2538、四個經度區域0.2401–0.2676，1K與接縫契約維持。手機／桌面紋理估算45.417／84.417MiB，較舊版各少0.167MiB。重建資源穩定，最終專項最多72 draw calls／56186 triangles。桌面／手機兩引擎、噴嘴近照、近遠雲及軌道截圖已目視。
+- 最終runtime SHA-256 83b50ab29527509903614aca3b3a4ebe519dc84d73f7e453268c9da59766ac75；供部署ZIP SHA-256 9a76f692478d67a8c6546f3c85f2fd27bf7ca7c891189d73b750efb27626d07b，945902 bytes。廣泛58-flow版本runtime為910687814d52b0c88867b67e8593d754c94adc3005a00cf8e2d54e903e8a83cf；先前baseline由9c1ac80 git archive建立，實際runtime hash e7fe2a61dc39a6a5653c5f0d57bcc63e2542df6c315cb47ccc2caa0785340d4b，四個15秒採樣保存在p30-first-regression.json的before flows。未重跑全庫／完整browser owner，真手機、熱負荷與真Moodle仍待驗。

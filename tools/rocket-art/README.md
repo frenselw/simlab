@@ -35,7 +35,7 @@ All images are north-up. Standard Three.js `TextureLoader` with its default `fli
 
 The local patch retains detailed coast shape and interpolates its *color* to the global atlas outside a 90 km radius, exactly matching global color at 112 km. The shader independently fades the patch between 75 and 115 km. These blends depend on surface coordinates, not camera altitude, so coastline positions do not move during flight.
 
-`clouds.webp` is RGBA, with fragmented directional bands and asymmetric spirals. `starfield.webp` is a deliberately dim RGB environment field, intended to sit behind separately rendered foreground star points. Large atmosphere/postprocessing textures, photographic textures, and runtime geographic parsers are not used.
+`clouds.webp` is RGBA, with fragmented cloud bands distributed across all four longitude quarters. The generator checks moderate alpha coverage (12–32%) and an exact longitude seam. Low-altitude clouds use 18 rounded, instanced clusters spread from 9.5 to 107 km around the launch area; these are separate from the 1K global atlas. `starfield.webp` is a deliberately dim RGB environment field, intended to sit behind separately rendered foreground star points. Large atmosphere/postprocessing textures, photographic textures, and runtime geographic parsers are not used.
 
 ## Reproducibility and limits
 

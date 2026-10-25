@@ -245,25 +245,20 @@ def paint_region(image,mask):
 
 def clouds():
     w,h=1024,512; alpha=Image.new('L',(w,h));d=ImageDraw.Draw(alpha);rng=np.random.default_rng(SEED+7)
-    for band in range(14):
-        start=rng.uniform(-100,w);cy=rng.uniform(60,h-60);span=rng.uniform(100,330);drift=rng.uniform(-.5,.5)
-        for j in range(140):
-            t=rng.uniform(0,1);x=start+t*span; y=cy+(t-.5)*span*drift+math.sin(t*7+band)*9+rng.normal(0,6)
-            radius=rng.uniform(2,9)*(math.sin(math.pi*t)*.6+.4)
-            if rng.random()<.16:continue
+    for band in range(32):
+        start=(band%8)*w/8+rng.uniform(-50,50);cy=75+(band//8)*118+rng.uniform(-27,27);span=rng.uniform(110,180);drift=rng.uniform(-.24,.24)
+        for j in range(160):
+            t=rng.uniform(0,1);x=start+t*span;y=cy+(t-.5)*span*drift+math.sin(t*7+band)*10+rng.normal(0,7)
+            radius=rng.uniform(3,8)*(math.sin(math.pi*t)*.6+.4)
+            if rng.random()<.18:continue
             for shift in [-w,0,w]:
-                d.ellipse((x+shift-radius*1.8,y-radius*.6,x+shift+radius*1.8,y+radius*.6),fill=int(rng.uniform(90,220)))
-    for cx,cy in [(220,135),(740,355)]:
-        for arm in range(2):
-            for j in range(170):
-                t=j/169
-                if rng.random()<.14+t*.15:continue
-                angle=t*5.3+arm*3.05;r=5+t*45+rng.normal(0,1.2+t*1.3)
-                x=cx+math.cos(angle)*r*1.6;y=cy+math.sin(angle)*r*.65
-                rad=(2+rng.random()*4)*(1-t*.55)
-                d.ellipse((x-rad*1.8,y-rad*.65,x+rad*1.8,y+rad*.65),fill=int(rng.uniform(100,190)*(1-t*.35)))
+                d.ellipse((x+shift-radius*1.8,y-radius*.75,x+shift+radius*1.8,y+radius*.75),fill=int(rng.uniform(100,230)))
     alpha=alpha.filter(ImageFilter.GaussianBlur(.65))
     a=np.array(alpha);a[:,0]=a[:,-1]=(a[:,0].astype(int)+a[:,-1])/2
+    coverage=np.mean(a>32);quadrants=[np.mean(a[:,i*w//4:(i+1)*w//4]>32) for i in range(4)]
+    assert .12<coverage<.32 and min(quadrants)>.08, 'Moderate clouds across longitudes'
+    assert np.array_equal(a[:,0],a[:,-1]), 'Cloud longitude seam'
+    print('Cloud coverage:',round(float(coverage),4),'quadrants:',[round(float(v),4) for v in quadrants],flush=True)
     rgba=np.empty((h,w,4),np.uint8);rgba[:,:,:3]=[242,246,233];rgba[:,:,3]=a
     return Image.fromarray(rgba,'RGBA')
 
