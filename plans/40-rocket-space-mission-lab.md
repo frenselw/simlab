@@ -800,3 +800,29 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 - P20完成證據：六個活動Node、npm run check、check:tests（278 entries）、文件／diff檢查通過。最終registered owner source／extracted ZIP共98 flows、20 layouts，completed=true、errors=[]；manifest所有runtime bytes與ZIP一致。真實單級火箭積分至942.3km重現升空，再覆核原截圖940.4km／3.30km/s、0／20／40／60／100／300／940.4／1200km及各邊界、四個地心角、follow／orbit／plane與縮放；高空無近景patch、同一球面保留、Canvas插畫無舊照片請求。新矩陣最高43 calls／43192 triangles，40km local opacity=.5、60km以上=0；原星點遮蔽／DPR／互動／SCORM／故障回歸通過。桌面／手機發射台、過渡、高空與地球全景截圖已檢視，沒有雙地平線／貼片邊界。
 - P20 runtime SHA-256 338408133718ad44cf7a3bda1000e4a5a39c87a2e115bf9d22ca980fe621aeac；ZIP SHA-256 e0b988a93d66129335087f11574f46edb4c83118fdc47c88803fecc72661faa4，大小255995 bytes（移除439294 bytes照片，無新套件或外部runtime請求）。報告／截圖在output/playwright/rocket-space-mission-lab/。P18照片及有限地面mesh決策由本節取代；物理／schema／rubric／提交記錄不變。未重跑全庫或獨立T1–T3矩陣；真手機fps／真Moodle未驗證。
 - P20已commit／push：33cfc4c8da4313b6b48e000e3547e240b279743e；committed selection-preview在output/rocket/selection-p20.log，mode=full，原因為已移除NOTICE.txt不再有manifest consumer，選擇器保守全選。未改共享選擇器或把舊照片／NOTICE重新加入runtime；實際只執行活動六Node、完整活動source／ZIP與既述靜態檢查，未執行全庫或等待CI。Sites來源4341518e47b67bf7f4b87974d3b91bc5b34cde35、deployment appgdep_6add538b8d848191a6264012087388be，native succeeded；精確使用驗過ZIP並清除Site舊照片，原網址與owner-private維持。
+
+### P21：固定地理連續性、可辨地標及緊湊讀數
+
+- 使用者指出P20隨高度改變地表配色使陸地消失、全球輪廓粗糙、近景缺地標及HUD遮箭。本輪移除高度驅動的地理混色：同一球面的固定沿海區與全球圖按空間座標銜接，近景海岸／河道／林地／田地／山脈／城鎮印在同一地表，遠景仍留住；只有米級3D道具按投影大小淡出。全球補可辨大陸海岸、山系、河湖及島鏈，維持原創卡通插畫，不加照片或依賴。
+- 沿海發射區以加州海岸方向為示意基準，非測繪或真實發射基地。局部與全球共用定位，山脈3D輪廓與地圖陰影同位；發射台附近保持清空。HUD改三行小型讀數：高度／總速率、垂直／水平、兩級推進劑及向量圖例；保留所有讀數及無障礙名稱，不新增操作說明。鏡頭留足整箭空間。
+- 範圍scene／scene-art／HTML／CSS與既有registered browser owner／本計劃；manifest及所有runtime依賴不變。沿用低風險rubric、phase／variant、權威snapshot／SCORM契約，無物理或答案遷移。補固定時間多高度／多鏡頭同地表採樣、海岸河山地標及GPU／布局斷言，執行完整source／ZIP owner、六Node、check／check:tests、文件／diff與committed selection-preview；真手機效能／Moodle另驗，未改T1–T3手勢。
+
+- P21完成證據：六活動Node、npm run check、check:tests（278 entries）、文件／diff檢查通過。最終registered owner source／extracted ZIP共102 flows、20 layouts，completed=true、errors=[]，宣告runtime bytes與ZIP一致。GPU以固定鏡頭與同一球面材質讀回64×64地表，0／20／40／60／940.4km所有RGBA逐byte一致（近景747種像素色），確認不是以高度更換陸海圖；桌面／手機及兩份交付均通過。0／1／5／20／60／940.4km截圖、全球大陸／河湖／山系／生物群落、固定河道及36座山脈已檢視；近景海岸方向亦校正為同一全球沿岸方向，P20高度混色決策由本節取代。
+- P21布局：1280×800／390×844／320×568／844×390／390×460皆驗整箭投影位於HUD及鏡頭列之間，讀數與圖例互不遮住，總／垂直／水平讀數、兩級燃料及review皆保留。桌面HUD 73.1px、手機70.1px，向量圖例移入同條末行；預設follow望向陸地地標。新美術矩陣最高47 calls／45424 triangles，無照片、新套件、共享runtime或schema改動；原組裝、分級、控制／鏡頭不中斷、星點／DPR、評分／恢復／pending重試及故障回歸皆過。未執行全庫或獨立T1–T3矩陣；本機SwiftShader與模擬觸控不建立真手機fps／Moodle驗收。
+- 地圖由快取Canvas生成：全球4096×2048、區域2048×2048，兩者未含mipmap約48MiB RGBA紋理，比P20增加約40MiB；沒有額外下載，重建後geometry／texture／program／buffer固定，DPR與繪圖預算仍受測試約束。真手機GPU記憶體與長時間流暢度仍須實機確認。
+- P21 runtime SHA-256 d6278264a53d6b4a44c53fc81f3d650c96cd539e2e24af3d918de987ad55ea42；ZIP SHA-256 b7c76c5fdbd315323078383fc5cb202295ba5781767a979267519230ca7c5c1a，257627 bytes。正式報告與geography／full-telemetry截圖在output/playwright/rocket-space-mission-lab/。
+
+- P21同機對照：Chrome SwiftShader、DPR1、paused各28 RAF捨首4；保留P20驗證報告為p20-before-geography.json。下列為source中位／P95幀間隔（ms），並非真手機持續fps。手機orbit中位由16.8升至33.3ms，其他場景中位大致相同，不能聲稱新增細節完全零成本；維持draw-call／triangle／DPR上限與穩定重建，實機記憶體／長時間流暢度另驗。
+
+| 尺寸／場景 | P20 | P21 |
+| --- | --- | --- |
+| 1280／workshop | 33.3／33.4 | 33.3／33.4 |
+| 1280／pad | 66.7／66.8 | 66.7／66.8 |
+| 1280／ascent | 66.8／83.5 | 66.7／66.8 |
+| 1280／orbit | 50.1／66.8 | 50.0／50.1 |
+| 390／workshop | 16.7／16.8 | 16.7／16.7 |
+| 390／pad | 33.4／33.4 | 33.4／33.4 |
+| 390／ascent | 16.8／66.7 | 16.8／33.4 |
+| 390／orbit | 16.8／33.5 | 33.3／33.4 |
+
+- 最終owner先因已移除的「箭長隨大小變化」舊文字斷言中止；只更新測試為速度／推力圖例存在，未更動runtime。保留前27個已過source flows，核對runtime SHA完全相同後，先由flightVectors續跑；cameraDrag的負角度字串插值亦只改測試加括號，未改runtime，再由launchAndCamera完成其餘source及完整package。兩份中止報告均保留，最終report以resumedSourceAt記錄，102 flows沒有跳過。
