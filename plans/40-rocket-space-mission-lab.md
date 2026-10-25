@@ -853,3 +853,12 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 - 保留44px鏡頭按鈕及32px手機側邊捲頁把手；共32次trusted原生觸控掃動控制欄，不改state／window／visualViewport。source及ZIP共20次running／paused分離後同位置點燃上級，面板不跳動。轉鏡、飛行暫停／續飛、向量位置／長度、SCORM生命週期與fullscreen皆在既有owner選取案例通過。
 - runtime SHA-256 84769e90c94fb75040848a7bb94bc138be3b4a491cc5c8869afbd57cf53955a2；ZIP SHA-256 81aeee99c3ebab6674f19fef07a9c48d5c34f041ae5ed7df478617b301d7e33b，258803 bytes。報告及截圖在output/playwright/rocket-space-mission-lab/。此輪沒有物理、scene、美術、rubric、snapshot schema或共享runtime修改；真手機與真Moodle未驗證，模擬觸控證據不代表實機驗收。
 - P23已commit／push：045eea1ff057e54aa20423bbef345125b67cbbc6；committed selection-preview在output/rocket/selection-p23.log，mode=affected。實際執行上述活動六Node、source／ZIP選取owner與geographyAndHud，未聲稱完整全庫或等待CI。沿用持續發布授權，Sites來源645ce400fa4359c29505d2649781e11c0a644cde、deployment appgdep_6add72ead7e481918b06e805c0ac3550，native succeeded；使用驗過ZIP，原網址及owner-private維持。
+
+
+### P24：移除組裝接點提示字
+
+- 按使用者要求移除火箭上「拖入零件」、拖放接點名稱及「插入」提示，接點保留44px透明圓框與可存取名稱，保留拖放吸附及不相容警告。
+- 沿用既定assessment risk／rubric／dependencies／phase matrix／snapshot schema，無物理、scene、評分、持久化或共享核心修改。此為局部文字及外觀修正，不新增測試；選取既有registered owner的onboarding／workshop，驗證source與ZIP的桌面／手機裝配、接點點按、原生拖放、分級與點火，並檢視組裝截圖。
+
+- P24完成證據：main.js語法、既有interaction／lifecycle兩Node、check:tests（278 entries）、文件及diff檢查通過。既有registered browser owner以output/rocket-p24-check.cjs選取onboarding／workshop，source與extracted ZIP共8 flows，completed=true、errors=[]、selection=assembly-labels。各1280×800桌面、390×844與320×568原生觸控：空接點點按、鍵盤選取／移除、元件點按、拖放／取消、分離器裝配、點火及分級通過。未新增持久測試或改動registered owner。
+- 接點沒有可見文字，保留aria-label；手機與桌面組裝截圖已目視。runtime SHA-256 62fed76245bf37198deefcd3d27a916ac4ee060f3c50994cc08e779e7fbb91b4；ZIP SHA-256 45701418974d6bc7b38efc5a474678f639035bb946d206fd83a4da56cebe60f4，258635 bytes。證據位於output/playwright/rocket-space-mission-lab/p24-assembly-check.json及*-assembly-no-labels-*.png／*-empty-socket-*.png。未重跑無關地球美術、全活動矩陣或全庫；真手機及真Moodle未驗證。
