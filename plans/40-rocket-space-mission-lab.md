@@ -1036,3 +1036,7 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 - 兩個15秒source benchmark同一runtime，Chrome155／SwiftShader暖機2.5秒：桌面10km median50.1ms／p9550.2ms、CPU p952.7ms、70calls／71,053tri；手機尺寸median16.7ms／p9533.4ms、CPU p952.3ms、65calls／43,853tri。沒有新增記憶體資產或後製；僅就本機模擬報告，不推算實機。
 - 七個活動Node、npm check、check:tests（279 entries）、最後JS syntax及diff通過。沿用既有registry owner擴展驗證，無評分／snapshot／physics schema變更；沒有跑全庫或完整browser owner。真iPhone／Android／Moodle及熱負荷未驗。
 - 最後供部署ZIP SHA-256 f80bb88471b39c03faa64e2616fee7f944cafbf321a18bcb816f82906acf770c，16294350bytes，後續從此ZIP準備dist，不再重建。
+
+- 已commit／push實作66a20b402eac8fbe2bf5225875dd1b7bfe3e9d07。committed selection-preview output/rocket/selection-p33.json，base0921abb→66a20b4、mode=full、279 entries（README未映射）；僅為選取預覽，非全庫執行證據。
+- Sites helper已push來源b87f0aec39db3bb7cd067ff9447981011b466f9d及封裝rocket-seam-separation-p33.tar.gz（16,244,683bytes）。版本appgprj_6adc62579ab88191aba299bcb282ce95~appgver_4bade88a9b448191a29cc457db105e58，deployment appgdep_6addf280d48081919580bc4f4c777dc0，native status=succeeded，2026-10-25 12:14:02 UTC。原網址https://simlab-rocket-space-missions.ieyp.chatgpt.site，owner-only audience保留；發布後get_site確認1owner／0external。
+- 線上471份檔案已核對：程式、樣式、地形binary及其他素材、build-info逐byte等於驗過dist；兩份HTML僅移除平台插入script後相同，僅跟隨同origin canonical index redirect。build-info.sourceCommit=66a20b402eac8fbe2bf5225875dd1b7bfe3e9d07、packageSha256=f80bb88471b39c03faa64e2616fee7f944cafbf321a18bcb816f82906acf770c，證據output/rocket/p33-live-verification.json。原網址已交給Codex頁籤開啟（queued）；本次測試Chrome／HTTP server／helper已結束，既有.codex-remote-attachments未動。
