@@ -972,3 +972,22 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 - P30已commit／push：ce75a4796e2982abd14c42644de99c4806c3084d；committed selection-preview在output/rocket/selection-p30.json，mode=full、279 entries，原因是tools/rocket-art/README.md未映射。這是選取預覽，不代表已跑全庫／CI；實際執行範圍與runtime界線如上。
 - Sites來源ae0e2970eeedb02c6dba4ec244d1a403d8c7fc96，archive為rocket-art-refinements-p30.tar.gz；版本appgprj_6adc62579ab88191aba299bcb282ce95~appgver_616bc6f3a3348191974fe3eeadd51c89，deployment appgdep_6addb6920658819191f301997449047a，native succeeded。沿用原網址https://simlab-rocket-space-missions.ieyp.chatgpt.site與owner-only audience。
 - 線上27份檔案核對完成：JS／CSS／素材／build-info逐byte等於驗過dist，兩份HTML移除託管平台插入script後亦一致；只跟隨同origin的canonical index redirect。build-info.sourceCommit=ce75a4796e2982abd14c42644de99c4806c3084d，packageSha256與最終ZIP相符。證據output/rocket/p30-live-verification.json；原網址已交給Codex頁籤開啟（queued）。本地預覽及所有測試Chrome已關閉，生成的Python cache已清理，既有.codex-remote-attachments未動。
+
+
+### P31：連續立體區域地形與海岸／距離精度銜接
+
+- 使用者授權實作先前分析並部署。範圍：既有離線地理生成器、區域地形資產與renderer、既有art.test及registered browser owner、manifest。保留卡通風格；assessment risk／rubric／phase與variant／權威snapshot／物理碰撞地球半徑／評分與SCORM沿用，地形僅作視覺，不改發射或軌道物理。
+- 決定：以相同Natural Earth海陸輪廓離線生成約480km寬的曲面立體地形，包含連續山脊丘陵及幾何海岸；分16區，各提供三種精度、共享邊界輪廓，屏幕投影大小與品質控制精度，有緩衝防反覆切換。近場設備仍按原規則隱藏，但立體地形不在60km高度一刀切；遠景逐步融入原地球，邊緣高度歸零。預先生成幾何／法線／配色，不在飛行逐幀重建，不增加重型後製或動態陰影。樹／建築按新地面落點定位，發射點與既有近場河道保留平整淨空。
+- 依賴：既有本地Three與離線Python／NumPy／SciPy／Pillow，無新套件或網絡地圖。新增runtime檔案納入manifest與資產hash。風險：海岸對齊、區域邊界裂縫、LOD跳變、手機繪圖量／記憶體及reload／context恢復；以source與extracted ZIP實際檢查。
+- 驗證決定：七活動Node、靜態／registry／selection-preview；地形資產確定性與合法拓撲、海岸共享、正法線與有限數值、平整發射／河道；source及ZIP桌面與手機近地斜望／沿海／中高空／軌道／縮放／遠離／下降返回、狀態不變、LOD與draw budget（100 calls／100k triangles）、資源穩定、context recovery與提交可達。與原版同機同鏡頭比較15秒採樣；真iPhone／熱負荷與真Moodle另驗。完成後部署原owner-private網站。
+
+- 實作補充：以SciPy Delaunay離線產生受海岸邊界約束的網格，每層核對海陸面積；棄用第一輪狹長三角面細分。分區／精度共用邊界，近場500m網格及原發射淨空保留，遠方山地依屏幕精度簡化；最多240組低面數立體林冠只在可辨識的中景出現。近地全覆蓋區域的地球shader直接畫安靜海色，避免被幾何覆蓋的地圖取樣；邊緣及軌道沿用原圖。新增terrain.bin與terrain.js已納入manifest，無增加runtime紋理。
+- 首輪預覽修正：地球Float32近極點高度與地形三角面的深度太接近，出現底面穿透；另用像素對照檢查，並收緊follow相機的深度範圍。新art.test檢查所有LOD的共享邊界，揭示海岸／分區交點的0m與高度場判定差異；以同一分段高度統一處理，不放寬裂縫斷言。這些預覽不作最終驗證或部署證據。
+
+- 性能補充：中央四區使用不透明地形先寫入depth，地球略過被覆蓋的像素，外環保留邊緣混合；手機近地海面另用48經向網格，地理海岸由獨立精細地形負責，120km以上／軌道恢復原96、桌面維持128。沒有降低海岸、山地、林地精度或貼圖解像度。河流原有水面／河岸共面，新增水面depth offset避免露出條紋。淡出的外環先恢復底圖，再淡出立體地形，避免海色清除已淡去的陸地。
+
+- 回歸證據：p31-check.json共54 flows（含舊版4個benchmark及source／ZIP各25個流程），completed=true、errors=[]，runtime a4b7534087fe0470ad0a7bf37d1af12c54922397fc797f0bcf9682638dd7db14；涵蓋分離、RCS、向量、相機、自然上升、地球分層、context recovery與提交生命週期。後續36-flow p31-final.json（runtime f9f7195d7c808cb8a6acb58cc16221d50b7cab7b29a0c2d897bff8f9afe0fa46）通過地面像素對照、LOD資源重用與上述主流程；手機近海精度調整後20-flow p31-mobile-final.json（runtime 9068f5c7567419f7f1d4da9fbcffbc6fb468e89745595a1581ecc9eb21c3de14）亦通過。這些是不同runtime的階段證據，沒有冒充最終全套回歸。
+- 最後將地形光照離線烘焙，使用vertex color基本材質，保留真實網格起伏；最終source／extracted ZIP共20 flows，p31-release.json completed=true、errors=[]。包含桌面／手機各高度與zoom、48／96／128海面精度、海岸、4次LOD循環穩定、品質降級、暫停不繪圖、地理GPU對照，以及地球加入前後不透明地形像素差異=0。最後runtime SHA-256 e01fc38ed32d787114c8ef11dc060c1ec5422824e00e3bf4c9bf1bd2b53bcd65；ZIP SHA-256 4d896ce9a0b7ed8d6b0ee1ca7da78855efc6ead0c1ebe6d29f739cdad40ab5a0，1929748 bytes，供部署並不再重建。
+- 資源：最後視角取樣最多85 draw calls／73456 triangles，低於100／100k預算；terrain.bin 1877428 bytes、三層合計43250 triangles，離線重建逐byte相同（SHA-256 a226b8d3b517f96b094f4b2ec120f738446662f663a34ae0e715180e7a1f44ba）。所有共享邊界高度一致；手機／桌面紋理估算仍45.417／84.417MiB。七活動Node、靜態／registry（279 entries）、最後目標語法、docs與diff檢查通過。桌面／手機各高度、海岸、發射場與地平線截圖已目視。
+- 性能限度：同機Chrome155／SwiftShader，每個場景暖機2.5秒、採樣15秒。02e8a9c git archive基準runtime 38eae13fff2232e62927a580e78b6dce0ae8d6e42de80ea020216651e825b417；工廠桌面／手機p95=33.5／16.8ms，10km上升桌面／手機p95=50.2／16.8ms。最後上升桌面median約50.1ms、p95=50.2ms，手機median約16.7ms（與原版相同）、p95=33.4ms，CPU p95約1.9–2.4ms。平均顯示節奏保留，但手機尾端慢幀未完全回到基準；不聲稱所有性能指標均無回退或推算為真iPhone表現。新場景沒有新增紋理或後製，仍按像素大小、分區、品質降級控制繪圖量。
+- 真iPhone／Android、熱負荷與真Moodle未驗；未跑全庫或完整browser owner。山地高度是視覺示意，物理碰撞仍沿用原地球半徑，沒有新增地形碰撞或改評分／snapshot。

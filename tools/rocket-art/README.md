@@ -42,3 +42,10 @@ The local patch retains detailed coast shape and interpolates its *color* to the
 The checked-in outputs were generated with Pillow 9.3.0, NumPy 2.2.6 and SciPy 1.16.3. A different WebP codec version may change compressed bytes while preserving the illustration. All full-resolution files were visually inspected; a dark-background composite was used to inspect cloud alpha.
 
 The two global resolutions are alternatives: load exactly one. Shipping both permits phone/desktop selection, but loading both increases GPU memory needlessly. WebP download bytes do not represent decoded GPU texture memory; that estimate belongs in the scene's resource checks.
+
+
+## Regional 3D terrain (P31)
+
+The same refined source coastlines feed `terrain.bin`: a 480 km square, split into 16 chunks with three prebuilt detail levels and baked directional shading. `generate.py` calls `bake-terrain.mjs` and the installed SciPy's Delaunay triangulator in `triangulate-terrain.py`; coast constraints are recovered and land area checked offline. No browser triangulation, terrain download service or new dependency is used. The binary contains a compact height field and interleaved positions, normals, colors, edge fade and indices. The renderer selects a single level per chunk from projected size with hysteresis; shore and chunk boundaries retain common vertices. Low altitude uses smooth cartoon relief and sparse instanced woodland; orbit retains the existing atlas. Heights are illustrative, not elevation survey data or a change to the physics collision sphere.
+
+The launch clearing and near-pad river stay level. Nearby props sample the actual highest-detail surface once when built. A small curvature/depth clearance and a less extreme follow-camera near plane prevent the globe from cutting through the terrain. The globe supplies quiet water under the vector coast; both blend back to the original atlas at the regional perimeter. No shadow maps, postprocessing targets, extra color textures or per-frame mesh generation are added.

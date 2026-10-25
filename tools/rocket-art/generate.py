@@ -2,7 +2,7 @@
 Run: python tools/rocket-art/generate.py (Pillow, NumPy and SciPy; offline only).
 """
 from pathlib import Path
-import hashlib, json, math, struct, zipfile
+import hashlib, json, math, struct, zipfile, subprocess
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 from scipy.ndimage import distance_transform_edt, map_coordinates, gaussian_filter
@@ -282,6 +282,55 @@ def save(image,name):
     print(name,image.size,(OUT/name).stat().st_size,flush=True)
 
 
+def clip_ring(points, xmin, xmax, zmin, zmax):
+    points = [list(p) for p in points]
+    for axis, bound, sign in [(0,xmin,1),(0,xmax,-1),(1,zmin,1),(1,zmax,-1)]:
+        result=[]
+        for a,b in zip(points,points[1:]+points[:1]):
+            inside_a=(a[axis]-bound)*sign>=0;inside_b=(b[axis]-bound)*sign>=0
+            if inside_a:result.append(a)
+            if inside_a!=inside_b:
+                t=(bound-a[axis])/(b[axis]-a[axis]);result.append([a[j]+t*(b[j]-a[j]) for j in range(2)])
+        points=result
+        if not points:break
+    return points
+
+
+def bake_relief(land):
+    # Bake geometry once: the browser only selects prebuilt detail levels.
+    extent=240000.
+    groups=[]
+    for shape in land:
+        rings=[]
+        for ring in shape:
+            if not np.any((ring[:,0]>-125)&(ring[:,0]<-116)&(ring[:,1]>30)&(ring[:,1]<39)):continue
+            clipped=clip_ring(ring,-125,-116,30,39)
+            if len(clipped)<3:continue
+            local=geo_to_local(np.asarray(clipped))[:,:2]
+            points=clip_ring(local,-extent,extent,-extent,extent)
+            if len(points)<3:continue
+            # Preserve the refined coast while discarding sub-40m redundant points.
+            reduced=[points[0]]
+            for q in points[1:]:
+                if math.dist(q,reduced[-1])>40:reduced.append(q)
+            if len(reduced)>2 and math.dist(reduced[0],reduced[-1])<40:reduced.pop()
+            if len(reduced)>=3:rings.append([[round(x,2),round(z,2)] for x,z in reduced])
+        if rings:groups.append(rings)
+    canvas=Image.new('L',(2048,2048));draw=ImageDraw.Draw(canvas)
+    for rings in groups:
+        for i,ring in enumerate(rings):
+            draw.polygon([((x+extent)/(2*extent)*2048,(extent-z)/(2*extent)*2048) for x,z in ring],fill=255 if i==0 else 0)
+    mask=np.asarray(canvas)>127
+    shore=(distance_transform_edt(mask)-distance_transform_edt(~mask))*(2*extent/mask.shape[0])
+    field=Image.fromarray(shore.astype(np.float32),'F').resize((257,257),Image.Resampling.BILINEAR)
+    source={'extent':extent,'groups':groups,'shore':np.round(np.asarray(field)).astype(int).tolist(),'ridges':RIDGES}
+    tmp=ROOT/'output/rocket/terrain-source.json';tmp.parent.mkdir(parents=True,exist_ok=True)
+    tmp.write_text(json.dumps(source,separators=(',',':')),encoding='utf-8')
+    subprocess.run(['node',str(Path(__file__).with_name('bake-terrain.mjs')),str(tmp)],cwd=ROOT,check=True)
+    data=(OUT/'terrain.bin').read_bytes()
+    return {'file':'terrain.bin','bytes':len(data),'sha256':hashlib.sha256(data).hexdigest(),'extentMetres':extent,'chunks':16,'levels':3,'illustrative':True}
+
+
 def main():
     OUT.mkdir(exist_ok=True)
     land=refine_coasts(load_shapes('ne_50m_land'));lakes=load_shapes('ne_50m_lakes');rivers=load_shapes('ne_50m_rivers_lake_centerlines')
@@ -317,7 +366,8 @@ def main():
     landmarks=[{'name':'launch','x':0,'z':0,'land':True},{'name':'river-near-pad','x':-540,'z':0,'land':True},{'name':'west-coast','x':next(v['x'] for v in rows if v['z']==0),'z':0,'land':False},{'name':'ridge','x':round(RIDGES[0]['x']),'z':RIDGES[0]['z'],'land':True}]
     for p in landmarks:
         glon,glat=local_to_geo(np.array([[p['x']]]),np.array([[p['z']]]));p['longitude']=round(float(glon[0,0]),7);p['latitude']=round(float(glat[0,0]),7)
-    metadata={'version':1,'seed':SEED,'projection':{'radius':R,'latitudeRadians':LAT,'longitudeRadians':LON,'extentMetres':EXTENT,'imagesNorthUp':True,'globalUV':'u=(lon+180)/360; imageY=(90-lat)/180','regionalUV':'imageX=(east+120000)/240000; imageY=(120000-north)/240000','localVector':'(east/R,sqrt(1-(east*east+north*north)/(R*R)),north/R)','sceneToChart':'east=.764842*x+.644218*z; north=-.644218*x+.764842*z'},'sources':sources,'coastRows':rows,'landGrid':{'width':129,'height':129,'extentMetres':EXTENT,'northUp':True,'rows':grid_rows},'ridges':RIDGES,'river':{'nearPad':{'minZ':-2200,'maxZ':2200,'center':'-540+sin(z/4400*pi*3)*90','waterWidth':76,'bankWidth':112},'samples':[[round(v[0]),round(v[1])] for v in river[::3]]},'landmarks':landmarks,'assets':{p.name:{'dimensions':list(Image.open(p).size),'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()} for p in sorted(OUT.glob('*.webp'))}}
+    relief=bake_relief(land)
+    metadata={'terrain':relief,'version':1,'seed':SEED,'projection':{'radius':R,'latitudeRadians':LAT,'longitudeRadians':LON,'extentMetres':EXTENT,'imagesNorthUp':True,'globalUV':'u=(lon+180)/360; imageY=(90-lat)/180','regionalUV':'imageX=(east+120000)/240000; imageY=(120000-north)/240000','localVector':'(east/R,sqrt(1-(east*east+north*north)/(R*R)),north/R)','sceneToChart':'east=.764842*x+.644218*z; north=-.644218*x+.764842*z'},'sources':sources,'coastRows':rows,'landGrid':{'width':129,'height':129,'extentMetres':EXTENT,'northUp':True,'rows':grid_rows},'ridges':RIDGES,'river':{'nearPad':{'minZ':-2200,'maxZ':2200,'center':'-540+sin(z/4400*pi*3)*90','waterWidth':76,'bankWidth':112},'samples':[[round(v[0]),round(v[1])] for v in river[::3]]},'landmarks':landmarks,'assets':{p.name:{'dimensions':list(Image.open(p).size),'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()} for p in sorted(OUT.glob('*.webp'))}}
     (OUT/'geography.json').write_text(json.dumps(metadata,separators=(',',':'))+'\n',encoding='utf-8')
     assert regional_mask[h//2,w//2], 'Launch pad must be dry land'
     assert all(abs(v['x'])>10000 for v in rows if v['z'] is not None and abs(v['z'])<10000 and v['x'] is not None), 'Pad area must stay away from coastline'
