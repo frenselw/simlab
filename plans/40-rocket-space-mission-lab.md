@@ -885,3 +885,4 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 
 - P26完成證據：check:tests（278 entries）、文件及diff檢查通過。output/rocket-p26-check.cjs選取既有registered owner的onboarding／workshop，source／extracted ZIP共8 flows，completed=true、errors=[]、selection=small-sockets；1280×800桌面及390×844／320×568手機，原生點按、拖放／取消、裝配與分級／點火通過。拖動期間實測可見圓點10–12px、透明按鈕至少44×44px、無大底色／border／box-shadow，small-sockets-*.png已檢視。
 - runtime SHA-256 3972fae562f47cafc771141198cca422f2d1892fd2f5bc317f4f3891a084c6b1；ZIP SHA-256 6a3a27ee01195727ac32991bac4e8fcbfecd3d30ccab800fa6da79ed5118e64d，260082 bytes。僅活動CSS，沒有JS／模型／評分／保存修改；未重跑無關美術、特效或全庫，真手機及真Moodle未驗證。
+- P26已commit／push：3ad39f089516716c03e3f234e35e8bd08a60084b；committed selection-preview在output/rocket/selection-p26.log，mode=affected。實際驗證選取如上，未執行全庫或等待CI。沿用持續發布授權，Sites來源0dadc5104c0b32bea77d65f4036d855ff1588dc7、deployment appgdep_6add7cc7788c8191b92332649b0e186c，native succeeded；使用驗過ZIP，原網址及owner-private維持。
