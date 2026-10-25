@@ -63,3 +63,8 @@ The runtime copies only horizon-visible coarse ranges into one reusable index bu
 ## Regional/global color continuity (P33)
 
 `bake-terrain.mjs` samples the checked-in global coarse mesh's linear vertex colors in the launch E/N chart. It retains local slope shading near the pad and fades that variation before the regional edge. Both runtime meshes share `terrainLighting` and the same sun vector. Rebuild regional colors with `node tools/rocket-art/bake-terrain.mjs output/rocket/terrain-source.json` after changing the global coarse palette, then update geography.json's terrain hash. Coarse global geometry remains the color reference at long viewing distances; region geometry fades by projected size and global land replaces it behind transparency.
+
+
+## Shared contact surface (P34)
+
+`python tools/rocket-art/bake-surface.py` creates surface-data.js from the same pinned Natural Earth land/coast/mountain field plus the existing regional heightfield. It packs land flags and metre heights in Uint16 grids (global0.5°, regional257×257); sea is zero. surface.js owns the deterministic query used by modelVersion2 contact, HUD AGL and the near-flight contact mesh. Orbital/scoring heights retain the reference sphere. The contact mesh uses dense concentric rings and the global coarse color field, while clipping covered old ground; it updates only after100m surface travel and is disabled above5km AGL. This avoids coarse sphere-chord gaps without globally increasing mesh density. Heights remain illustrative, not survey elevation data.

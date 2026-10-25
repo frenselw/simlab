@@ -1040,3 +1040,22 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 - 已commit／push實作66a20b402eac8fbe2bf5225875dd1b7bfe3e9d07。committed selection-preview output/rocket/selection-p33.json，base0921abb→66a20b4、mode=full、279 entries（README未映射）；僅為選取預覽，非全庫執行證據。
 - Sites helper已push來源b87f0aec39db3bb7cd067ff9447981011b466f9d及封裝rocket-seam-separation-p33.tar.gz（16,244,683bytes）。版本appgprj_6adc62579ab88191aba299bcb282ce95~appgver_4bade88a9b448191a29cc457db105e58，deployment appgdep_6addf280d48081919580bc4f4c777dc0，native status=succeeded，2026-10-25 12:14:02 UTC。原網址https://simlab-rocket-space-missions.ieyp.chatgpt.site，owner-only audience保留；發布後get_site確認1owner／0external。
 - 線上471份檔案已核對：程式、樣式、地形binary及其他素材、build-info逐byte等於驗過dist；兩份HTML僅移除平台插入script後相同，僅跟隨同origin canonical index redirect。build-info.sourceCommit=66a20b402eac8fbe2bf5225875dd1b7bfe3e9d07、packageSha256=f80bb88471b39c03faa64e2616fee7f944cafbf321a18bcb816f82906acf770c，證據output/rocket/p33-live-verification.json。原網址已交給Codex頁籤開啟（queued）；本次測試Chrome／HTTP server／helper已結束，既有.codex-remote-attachments未動。
+
+
+## P34 — 當地地表碰撞與撞擊效果（2026-10-25）
+
+- 範圍：固定半徑碰撞改為共享地面高度，HUD離地改AGL且近地用m顯示，軌道／評分仍用參考球面海拔。共用同步surface資料含全球0.5°與原地區域heightfield；近飛行點使用與碰撞相同高度的稠密接觸地面，避免全球粗球面弦高造成視覺懸空。高空保留既有LOD／快取。
+- 物理modelVersion2；v1 draft先嚴格驗舊契約再遷移，impact點移到新地面；歷史review／pending v1保持原資料，舊評分與凍結重試不重寫。v2 impact必須符合共享surface高度，不能放寬成任意impact。rubric／orbit高度定義及獲得分數規則不變。
+- 撞擊一次性火光／碎片／煙（海面用水花），僅新即時impact播放；暫停與低動態效果、切記錄、重新載入／Moodle resume不重播，不改答案或快照；明確時長與有限物件／回收。下級同用碰撞，但不能令其他仍在飛的上級停下。
+- 驗證：異地高地／海面／區域坡地、橫跨山脊、不同方向最底點接地、近地AGL單位、主級及下級impact、效果單次與暫停／resume／review／context、全部合法snapshot及舊版本兼容；來源與解壓ZIP核對、資源預算及必要benchmark。沿用既有registry owner擴展，完成後部署原owner-private Sites。
+
+
+- 已實現共享surface.js／surface-data.js：全球721×361、區域257×257，870,589bytes（gzip約191KB）；海面精確0、海拔≤3500m，與原區域heightfield同源。物理只在近表面查詢，按250m掃描／二分找首次接觸；碰撞與分離下級共用根因，保留撞擊前速度供紀錄／效果。
+- 近地接觸mesh共1664tri，10m至160km同心稠密rings，僅AGL<5km啟用、地表移動100m才更新；遮掉所覆蓋舊粗地面並沿外圈淡出，使用全球粗色場及共同日照，不新增紋理。近地鏡頭按火箭方向對準；AGL<10m以可見船體實際頂點計地表間隙並校準最低點，避免倒轉／橫向圖形懸空或穿地。
+- HUD「離地」用AGL，1km內用m，另顯示參考球面海拔；orbital elements、rubric及分數定義不變。modelVersion2新impact嚴格驗共享地表；v1 draft先舊契約驗證再遷移，歷史review／pending保持v1。Node lifecycle補驗v1 finished信任、pending凍結／重試原文不變、editable draft遷移及合法續飛。
+- 撞擊pool固定2組，火光／6組煙／12碎片或水花，3.2s內回收顯示、不持續重畫；main impact之後隱藏已毀圖示，分離下級落地只處理其事件。效果不寫snapshot，pause／hidden／context lost不走時，reload／review不重播；低動態抑制飛散碎片。
+- 最後runtime 147d4c2595a73ac9b88a730a47a083c9e31f7e59703f8b75987d4ee6e3103b29：source／extracted ZIP共10-flow p34-final.json completed=true、errors=[]，含桌面／手機各3地點、實際船體接觸、AGL單位、火光／水花、一次觸發及完結idle、reload不重播、低動態、contact ground的depth像素比對、SCORM及context recovery。12次主級contact的clearance約0（|error|<1e-8m）、graphic vertex gap=0；山地海拔2435.1035m而AGL=0，海面=0。取樣主級爆炸最高75calls／73,709tri。
+- 較早p34-release.json另跑分離下級的完整下降／impact／RCS及回收流程，但其source測試期間仍有表面及鏡頭修正，不冒充最後固定runtime全套；最終固定runtime驗收以上述10-flow為準。模型及persistence的真實異地丘陵、signed AGL、山脊sweep、落地停止、±10m偽impact拒絕、draft/review roundtrip、舊版遷移都已執行。
+- 同runtime近地100m source benchmark各暖機2.5s、採樣15s：1280px median 66.8ms /p95 83.4ms /CPU p95 2.8ms; 390px median 33.4ms /p95 33.5ms /CPU p95 2.7ms。為Chrome155／SwiftShader桌面模擬，非真手機／GPU熱負荷證據；沒有廣泛重跑高空benchmark。
+- 七活動Node、npm check、check:tests（279 entries）、JS/Python syntax及diff通過；新增Surface資源／海水0／clearance自檢已併入既有art.test。沿用browser registry owner擴展。未跑全庫或完整browser owner；真iPhone／Android／Moodle未驗。地面高度仍卡通示意，非測繪DEM。
+- 最終ZIP SHA-256 1755f33ee5cb3fe436986d132c928e049123f675f05d7198154216c55956ed0c，16490088bytes；從此ZIP準備Sites dist，不再重建。

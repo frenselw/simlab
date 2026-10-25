@@ -66,3 +66,5 @@
 @media(max-width:959px){.camera-controls [data-camera-view]:disabled{display:none}}
 
 .separation-readout{margin:8px 0;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#eef4ed;color:var(--ink);font-size:13px;line-height:1.6;white-space:pre-line;font-variant-numeric:tabular-nums}
+
+.surface-altitude{display:block;font-size:11px;color:#405d65;margin-top:2px}

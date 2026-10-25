@@ -1,7 +1,7 @@
-(function(root,factory){const node=typeof module==='object'&&module.exports,api=factory(node?require('./parts.js'):root.RocketParts,node?require('./orbit.js'):root.RocketOrbit);if(node)module.exports=api;root.RocketModel=api;})(typeof window==='undefined'?globalThis:window,function(P,O){
+(function(root,factory){const node=typeof module==='object'&&module.exports,api=factory(node?require('./parts.js'):root.RocketParts,node?require('./orbit.js'):root.RocketOrbit,node?require('./surface.js'):root.RocketSurface);if(node)module.exports=api;root.RocketModel=api;})(typeof window==='undefined'?globalThis:window,function(P,O,S){
   'use strict';
   const clone=P.clone,PHASES=['workshop','pad','ascent','coast','ended','mission','planning','armed','burning','check'];
-  function fresh(random=Math.random){const variant=Math.min(2,Math.floor(random()*3));return {schema:1,modelVersion:1,variant,phase:'workshop',backPhase:null,craft:P.emptyCraft(variant),task:'A',flight:null,node:null,burn:null,records:[null,null]};}
+  function fresh(random=Math.random){const variant=Math.min(2,Math.floor(random()*3));return {schema:1,modelVersion:2,variant,phase:'workshop',backPhase:null,craft:P.emptyCraft(variant),task:'A',flight:null,node:null,burn:null,records:[null,null]};}
   function flight(craft,source='own',q=[P.R,0,0,0,0,0]){return {source,craft:clone(craft),t:0,state:q.slice(),fuel:[P.capacity(craft.stages[0]),craft.stages[1]?P.capacity(craft.stages[1]):null],active:0,separated:false,attitude:0,controls:{mode:'tilt',angle:0,throttle:1,lit:false},status:source==='practice'?'flying':'pad'};}
   function atmosphere(h){if(h>=120000)return 0;const t=Math.max(0,Math.min(1,(h-80000)/40000));return 1.225*Math.exp(-Math.max(0,h)/8500)*(1-t*t*(3-2*t));}
   function targetAttitude(f){const q=f.state,c=f.controls;if(c.mode==='tilt')return Math.atan2(q[1],q[0])+Math.sign(q[0]*q[4]-q[1]*q[3]||1)*c.angle*Math.PI/180;return Math.atan2(q[4],q[3])+(c.mode==='retrograde'?Math.PI:0);}
@@ -11,15 +11,25 @@
     return [vx,vy,0,-g*x+(F*Math.cos(attitude)-drag*vx)/m,-g*yy+(F*Math.sin(attitude)-drag*vy)/m,0,-F/(P.ENGINES[f.craft.stages[f.active].engine].isp*P.G0)];
   }
   function rk4(y,dt,f,angle,options){const d=(q)=>derivative(q,f,angle,options?.vacuum,options?.noGravity,options?.mass),add=(a,b,k)=>a.map((v,i)=>v+k*b[i]),k1=d(y),k2=d(add(y,k1,dt/2)),k3=d(add(y,k2,dt/2)),k4=d(add(y,k3,dt));return y.map((v,i)=>v+dt/6*(k1[i]+2*k2[i]+2*k3[i]+k4[i]));}
+  function clearance(q,t){const r=Math.hypot(q[0],q[1]);return r>P.R+S.MAX_HEIGHT?r-P.R:S.clearance(q,t);}
+  function contactInterval(y,next,dt,f,angle,options){
+    const distance=Math.hypot(next[0]-y[0],next[1]-y[1]);
+    if(Math.min(Math.hypot(y[0],y[1]),Math.hypot(next[0],next[1]))>P.R+S.MAX_HEIGHT+distance)return null;
+    if(clearance(y,f.t)<-.001)return [0,0];
+    // Sample within the terrain grid spacing so a fast sideways pass cannot skip a ridge.
+    const count=Math.max(1,Math.ceil(distance/250));
+    for(let i=1;i<=count;i++){const time=dt*i/count,q=i===count?next:rk4(y,time,f,angle,options);if(clearance(q,f.t+time)<=0)return [dt*(i-1)/count,time];}
+    return null;
+  }
   function step(f,requested,options){
     if(['impact','escaped'].includes(f.status))return 0;
     const F=thrust(f),engine=P.ENGINES[f.craft.stages[f.active].engine],mdot=F/(engine.isp*P.G0),dt=Math.min(requested,F>0?f.fuel[f.active]/mdot:Infinity),old=f.state.slice(),oldFuel=f.fuel[f.active],m0=P.mass(f),oldAttitude=f.attitude;
     const delta=Math.atan2(Math.sin(targetAttitude(f)-oldAttitude),Math.cos(targetAttitude(f)-oldAttitude)),turn=Math.max(-12*Math.PI/180*dt,Math.min(12*Math.PI/180*dt,delta));
     f.attitude=O.wrap(oldAttitude+turn);const angle=oldAttitude+turn/2,y=[...old,oldFuel];let next=rk4(y,dt,f,angle,options),usedDt=dt;
     if(f.status==='pad'&&Math.hypot(next[0],next[1])<=P.R+.001){next=[P.R,0,0,0,0,0,next[6]];}
-    else if(Math.hypot(next[0],next[1])<P.R){
-      let lo=0,hi=dt;for(let i=0;i<32;i++){const mid=(lo+hi)/2,q=rk4(y,mid,f,angle,options);if(Math.hypot(q[0],q[1])>=P.R)lo=mid;else hi=mid;}usedDt=hi;next=rk4(y,hi,f,angle,options);const r=Math.hypot(next[0],next[1]);next[0]*=P.R/r;next[1]*=P.R/r;f.status='impact';f.controls.lit=false;
-    }else f.status='flying';
+    else{const interval=contactInterval(y,next,dt,f,angle,options);if(interval){
+      let [lo,hi]=interval;for(let i=0;i<32;i++){const mid=(lo+hi)/2,q=rk4(y,mid,f,angle,options);if(clearance(q,f.t+mid)>0)lo=mid;else hi=mid;}usedDt=hi;next=rk4(y,hi,f,angle,options);const r=Math.hypot(next[0],next[1]),ground=S.radius(next,f.t+hi);next[0]*=ground/r;next[1]*=ground/r;f.status='impact';f.controls.lit=false;
+    }else f.status='flying';}
     if(Math.hypot(next[0],next[1])>P.R+1e8){let lo=0,hi=dt;for(let i=0;i<32;i++){const mid=(lo+hi)/2,q=rk4(y,mid,f,angle,options);if(Math.hypot(q[0],q[1])<=P.R+1e8)lo=mid;else hi=mid;}usedDt=lo;next=rk4(y,lo,f,angle,options);f.status=O.elements(next).energy>=0?'escaped':'flying';f.controls.lit=false;}
     f.state=next.slice(0,6);f.fuel[f.active]=Math.max(0,next[6]);f.t+=usedDt;
     if(f.fuel[f.active]<1e-8){f.fuel[f.active]=0;f.controls.lit=false;}

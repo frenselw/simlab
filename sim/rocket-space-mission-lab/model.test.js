@@ -51,3 +51,21 @@ console.log('rocket separator: bottom extension preserves upper stage, adds 60kg
  assert.deepEqual(f,original);assert.deepEqual(light.fuel,f.fuel);
  const ground=P.clone(f);ground.state=[P.R+2,0,0,-100,0,0];M.step(ground,.1,{mass:960});assert.equal(ground.status,'impact');assert(Math.abs(O.elements(ground.state).height)<.01);
 }
+
+// Radial altitude remains sea-level based, while impact follows the visible hill.
+{
+ const S=require('./surface'),q=T.remoteHill(),r=S.radius(q,0),length=Math.hypot(q[0],q[1]),unit=[q[0]/length,q[1]/length];
+ const f=M.flight(T.launched().craft,'own',[(r+100)*unit[0],(r+100)*unit[1],0,-1000*unit[0],-1000*unit[1],0]);f.status='flying';
+ assert(Math.abs(S.clearance(f.state,0)-100)<1e-6);M.step(f,.2);assert.equal(f.status,'impact');assert(Math.abs(S.clearance(f.state,f.t))<.001);assert(O.elements(f.state).height>100);assert.equal(f.controls.lit,false);assert(Math.hypot(f.state[3],f.state[4])>900);
+ const stopped=P.clone(f);M.step(f,1);assert.deepEqual(f,stopped);const below=f.state.slice(),above=f.state.slice();for(let i=0;i<2;i++){below[i]-=unit[i]*10;above[i]+=unit[i]*10;}assert(S.clearance(below,f.t)<-9);assert(S.clearance(above,f.t)>9);
+}
+console.log('rocket terrain collision: remote hill contact, signed clearance, retained impact velocity and stopped continuation passed');
+
+// Both ends are above a narrow ridge: contact must still occur during the step.
+{
+ const fs=require('node:fs'),vm=require('node:vm'),height=q=>Math.max(0,1200-6*Math.abs(q[1]*P.R/Math.hypot(q[0],q[1])-400)),surface={MAX_HEIGHT:3500,radius:q=>P.R+height(q),clearance:q=>Math.hypot(q[0],q[1])-P.R-height(q)},sandbox={module:{exports:{}},require:name=>name==='./surface.js'?surface:require(name)};
+ vm.runInNewContext(fs.readFileSync(require.resolve('./model.js'),'utf8'),sandbox);const model=sandbox.module.exports,f=model.flight(T.launched().craft,'own',[P.R+1000,0,0,0,8000,0]);f.status='flying';
+ const end=model.rk4([...f.state,f.fuel[0]],.1,f,0,{vacuum:true,noGravity:true});assert(surface.clearance(f.state)>0&&surface.clearance(end)>0);model.step(f,.1,{vacuum:true,noGravity:true});assert.equal(f.status,'impact');assert(f.t>.04&&f.t<.05);assert(Math.abs(surface.clearance(f.state))<.001);
+ const underground=model.flight(T.launched().craft,'own',[P.R+1000,400,0,0,8000,0]);underground.status='flying';model.step(underground,.1,{vacuum:true,noGravity:true});assert.equal(underground.status,'impact');assert.equal(underground.t,0);assert(Math.abs(surface.clearance(underground.state))<.001);
+}
+console.log('rocket swept contact: positive-endpoint ridge pass and already-underground legacy flight stop at first surface contact');
