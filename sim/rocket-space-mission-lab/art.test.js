@@ -26,3 +26,16 @@ assert(triangles<50000);assert(terrain.length<2*1024*1024);console.log('Terrain:
 
 const shared=new Map();for(const chunk of header.chunks)for(const level of chunk.levels){const from=start+level.offset;for(let i=0;i<level.vertices;i++){const at=from+i*40,x=terrain.readFloatLE(at),y=terrain.readFloatLE(at+4),z=terrain.readFloatLE(at+8);if(!chunk.box.some((b,j)=>Math.abs((j<2?x:z)-b)<.01))continue;const key=x.toFixed(2)+','+z.toFixed(2);if(shared.has(key))assert(Math.abs(shared.get(key)-y)<.01,'Shared chunk and LOD borders must not crack '+JSON.stringify({key,old:shared.get(key),y,box:chunk.box}));else shared.set(key,y);}}
 assert(shared.size>100);console.log('Terrain shared borders agree across neighboring chunks and all detail levels.');
+
+const global=g.globalTerrain;assert(global&&!global.prototype&&global.fineCells===global.landCells);assert(global.bytes<28e6);assert.equal(global.cellDegrees,10);assert.equal(global.source.sha256,hash(fs.readFileSync(path.join(root,'tools/rocket-art/sources',global.source.file))));assert(manifest.includes('/global-terrain.js'));
+let totalGlobalBytes=0;const globalHeaders=new Map();
+for(const asset of global.files){
+ const b=fs.readFileSync(path.join(dir,asset.file));assert.equal(hash(b),asset.sha256,asset.file);assert.equal(b.length,asset.bytes);assert(manifest.includes('rocket-space-mission-lab/assets/'+asset.file));totalGlobalBytes+=b.length;
+ const n=b.readUInt32LE(0),h=JSON.parse(b.toString('utf8',4,n+4)),offset=4+Math.ceil(n/4)*4,index=offset+h.vertexCount*16;assert.equal(h.version,1);assert.equal(h.prototype,false);assert.equal(index+h.indexCount*4,b.length);assert.equal(h.indexCount%3,0);assert.equal(h.indexCount/3,asset.triangles);globalHeaders.set(asset.file,h);
+ for(let i=0;i<h.vertexCount;i++){const p=Array.from({length:3},(_,k)=>b.readFloatLE(offset+i*12+k*4)),r=Math.hypot(...p);assert(p.every(Number.isFinite));assert(r>.99999&&r<1.00056,'Normalized radial relief');assert.equal(b[offset+h.vertexCount*12+i*4+3],255);}
+ for(let i=0;i<h.indexCount;i+=3){const v=[];for(let j=0;j<3;j++){const k=b.readUInt32LE(index+(i+j)*4);assert(k<h.vertexCount);v.push(Array.from({length:3},(_,a)=>b.readFloatLE(offset+k*12+a*4)));}const [a,c,d]=v,u=c.map((x,j)=>x-a[j]),w=d.map((x,j)=>x-a[j]),cross=[u[1]*w[2]-u[2]*w[1],u[2]*w[0]-u[0]*w[2],u[0]*w[1]-u[1]*w[0]];assert(cross.reduce((sum,x,j)=>sum+x*a[j],0)>0,'Every global triangle points outward');}
+ let end=0;for(const c of h.cells){assert.equal(c.firstIndex,end);end+=c.indexCount;assert.equal(c.bounds.length,4);assert(c.center.every(Number.isFinite)&&Math.abs(Math.hypot(...c.center)-1)<1e-6);assert(c.angularRadius>0&&c.angularRadius<.13);if(c.file)assert(global.files.some(a=>a.file==='global/'+c.file));}assert.equal(end,h.indexCount);
+ if(asset.file!=='global/coarse.bin')assert(asset.triangles<15000);
+}
+assert.equal(totalGlobalBytes,global.bytes);assert.equal(globalHeaders.get(global.coarse).cells.length,global.landCells);assert(globalHeaders.get(global.coarse).indexCount/3<100000);assert(global.files.length===global.landCells+1);
+console.log('Global terrain: pinned source, all land cells packaged, finite radial relief, outward triangles, binary blocks and bounded asset budgets passed.');

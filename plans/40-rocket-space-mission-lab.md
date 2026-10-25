@@ -995,3 +995,23 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 - 已commit／push實作3f0341b3e7f2fa17b5f1e47f3da3803d54e4bdc0。committed selection-preview位於output/rocket/selection-p31.json，base02e8a9c→3f0341b，mode=full、279 entries，原因是tools/rocket-art/README.md未映射；這是選取預覽，實際執行範圍及各runtime界線如上，不代表全庫／CI。
 - Sites helper已push來源0da7b4d0c8e5df60d299b0ded9fe19c4ed551c40，archive為rocket-terrain-p31.tar.gz。版本appgprj_6adc62579ab88191aba299bcb282ce95~appgver_b43555f7d46c8191857d1fe2555a4a37；deployment appgdep_6addccaa50348191b2c49a8b76afe176，native status=succeeded，2026-10-25 09:32:34 UTC。沿用原網址https://simlab-rocket-space-missions.ieyp.chatgpt.site與owner-only audience。
 - 線上29份檔案已核對：程式、樣式、地形binary及其他素材、build-info逐byte等於驗過dist；兩份HTML移除託管平台插入script後亦相同，僅跟隨同origin的canonical index redirect。build-info.sourceCommit=3f0341b3e7f2fa17b5f1e47f3da3803d54e4bdc0，packageSha256與最終ZIP一致；證據output/rocket/p31-live-verification.json。原網址已交給Codex頁籤開啟（queued），本地preview及全部測試Chrome已關閉；既有.codex-remote-attachments未動。
+
+
+## P32 — 全球立體地形（2026-10-25）
+
+- 範圍：完成 480 km 地方地形以外的全球卡通陸地；使用同一釘選 Natural Earth 海岸資料，離線生成低模曲面、山脈及頂點色。海洋保持球面，雲及星空沿用現有資源。
+- 決策：全球合併粗網格以單一 draw call 顯示可見區塊；10° 細節格按畫面大小載入，最多 4 個顯示、6 個快取及 2 個並行請求。細節載入失敗保留粗網格。離線共享邊界頂點，局部核心保留現有精細地形，外圍重疊過渡。
+- 不改物理、碰撞、任務、評分及 authoritative snapshot；屬非評核視覺層，現有階段／變體／Moodle 持續狀態契約不變。
+- 先驗證全球粗網格與一個外圍細節格，再生成其餘細節；鎖定後只跑必要的來源／解壓 SCORM 回歸和一次最終完整性檢查。註冊擁有者沿用 tools/rocket-space-mission-browser-regression.js 及 art.test.js。
+- 驗收：跨洲／日期變更線／極區／局部接縫、頂點有限及朝外、資源清單與 ZIP 一致、快取有界、停止時不持續重畫、品質降級及 context recovery；保持每幀 ≤100 calls /100,000 triangles。實機 iPhone 和真實 Moodle 不以桌面模擬代替。
+- 部署：通過後更新原有 owner-private Sites 網址；記錄來源 commit、封包 hash 和實際檢查證據。
+
+
+- 實作完成：全球440個非空陸地格與合併粗網格，海岸由實體三角面邊界構成；沿用釘選50m Natural Earth與共用山脈資料。細網格0.2°、海岸簡化0.015°、共享邊界0.3°；極區／凹灣在離線polygonization及constraint recovery處理，所有coarse/fine邊界逐點相同。山坡採卡通強化明暗與頂點色，仍有實際徑向高度，無新增runtime紋理或後製。
+- 全球素材共26,752,004 bytes；粗網格2,229,200 bytes／75,138 triangles，最大細格106,332 bytes／5,191 triangles。原24MB離線規劃上限改為28MB以保留0.2°精度，運行快取另行限制；全套已通過的bake在寫metadata前遇到舊總量斷言，metadata由全部已驗binary重建，seconds=null／recoveredAfterBudgetAdjustment=true，沒有虛構一次額外重建或時間。原local binary與WebP未更動。
+- 運行：可見粗格動態index buffer合併為一個mesh；球面前半球解析裁切避免海面穿透，區域核心裁切與原外圈淡出接駁。細格最多4個顯示、6個快取、2個請求，超出即dispose，品質2保留粗幾何；細格失敗留粗網格，重新載入才重試。低於20km且在原區域內不用全球細格。飛行、物理碰撞、評分及snapshot不變。
+- Prototype先驗source／解壓ZIP、桌面／手機共4 flows，最大57,651tri／3calls。全素材首輪24-flow p32-release.json通過，包括全球各洲、日期線、兩極、220/240/480/800km過渡、快取／失敗fallback、區域depth像素比對、context recovery、向量、SCORM生命週期；這是低空載入優化前的階段證據。
+- 最後runtime 9c7d251a1e05382f7905c68d50983a3b87d8964e10066e43e9e3cb06830160a1：p32-final.json source／解壓ZIP共18 flows completed=true／errors=[]，通過上述全球／區域視覺與資源、sceneArt及artPerformance檢查；低空四種高度的fine active均0。最大86calls／93,240tri；跨洲cache最多6、實測全球raw buffers最多2,805,736bytes（另有重用index GPU buffer），品質降級、細格失敗、暫停、資源回收及不改答案均通過。4個15秒p32-benchmark.json使用同一runtime；包裝前後manifest全部檔案逐byte相同。
+- 效能：Chrome155／SwiftShader同機量度，暖機2.5秒後每場景15秒；桌面10km／800km外圍median皆50.1ms，p95為66.7／66.8ms；手機尺寸median皆16.7ms、p95皆33.4ms，CPU p95桌面2.6／2.1ms、手機皆2.0ms。手機節奏與P31相同；桌面median相同但p95由50.2變66.7ms，低空停用fine仍有此軟體渲染尾端差異，不聲稱零回退或當成真實GPU結果。
+- 七個活動Node、JS/Python語法、npm check、check:tests（279 entries）及diff通過；沿用既有註冊擁有者擴展檢查。最後gate只改低空LOD啟用條件，已另驗JS語法及受影響18-flow；前24-flow生命週期／向量仍按其runtime列出，沒有冒充最後全套。沒有跑全庫或完整browser owner。桌面／手機截圖已目視；真iPhone／Android、熱負荷、真Moodle未驗。地形高度屬示意，無地形碰撞。
+- 最後供部署ZIP 4a98c411fbd0e6bcf4b781b168865445c55240ae31d57784f18383b64d6d8b48，16313897bytes；使用這份封包準備Sites dist，不再重建。
