@@ -1,9 +1,10 @@
 import * as THREE from './vendor/three-0.185.1/three.module.min.js';
 
-export function createTerrain(buffer){
+export const terrainLighting='diffuseColor.rgb*=mix(vec3(.24,.34,.48),vec3(1.06,1.03,.96),smoothstep(-.12,.7,dot(normalize(vRadial),uSun)));';
+export function createTerrain(buffer,sun){
  const length=new DataView(buffer).getUint32(0,true),header=JSON.parse(new TextDecoder().decode(new Uint8Array(buffer,4,length))),start=4+Math.ceil(length/4)*4,heights=new Float32Array(buffer,start,header.heightSize**2),group=new THREE.Group();
  const material=new THREE.MeshBasicMaterial({vertexColors:true,transparent:true,depthWrite:true});
- material.onBeforeCompile=shader=>{shader.vertexShader='attribute float landFade; varying float vLandFade;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvLandFade=landFade;');shader.fragmentShader='varying float vLandFade;\n'+shader.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\ndiffuseColor.a*=vLandFade;');};
+ material.onBeforeCompile=shader=>{shader.uniforms.uSun={value:sun};shader.vertexShader='attribute float landFade;varying float vLandFade;varying vec3 vRadial;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvLandFade=landFade;vRadial=normalize(mat3(modelMatrix)*normalize(position+vec3(0.0,6371000.0,0.0)));');shader.fragmentShader='uniform vec3 uSun;varying vec3 vRadial;varying float vLandFade;\n'+shader.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\ndiffuseColor.a*=vLandFade;'+terrainLighting);};
  // Opaque inner tiles draw before the globe so covered ground is shaded once.
  const solid=material.clone();solid.transparent=false;solid.onBeforeCompile=material.onBeforeCompile;
  const chunks=header.chunks.map(chunk=>{
@@ -21,9 +22,9 @@ export function createTerrain(buffer){
  const towns=[],centers=[];for(const [x,z]of townCandidates){if(centers.length===6)break;if(centers.some(p=>Math.hypot(x-p[0],z-p[1])<14000))continue;centers.push([x,z]);for(let i=0;i<6;i++)towns.push([x+(i%3-1)*280,z+(Math.floor(i/3)-.5)*340]);}
  const settlement=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshLambertMaterial({color:'#ffffff'}),towns.length);for(let i=0;i<towns.length;i++){const [x,z]=towns[i],h=35+i%4*14;transform.position.set(x,Math.sqrt(6371000**2-x*x-z*z)-6371000+group.groundHeight(x,z)-.78+h/2-1,z);transform.scale.set(100+i%3*24,h,80+i%2*30);transform.rotation.y=i%3*.15;transform.updateMatrix();settlement.setMatrixAt(i,transform.matrix);settlement.setColorAt(i,new THREE.Color(['#b8bba7','#b0c0b9','#bfb39d'][i%3]));}settlement.computeBoundingSphere();group.add(settlement);
  group.updateDetail=(camera,pixels,quality,enabled)=>{
-  group.updateMatrixWorld(true);const scale=group.scale.x,distance=camera.position.distanceTo(position.setFromMatrixPosition(group.matrixWorld)),extentPixels=header.extent*2*scale*pixels/Math.max(camera.near,distance),opacity=(1-smooth(4,28,extentPixels));
+  group.updateMatrixWorld(true);const scale=group.scale.x,distance=camera.position.distanceTo(position.setFromMatrixPosition(group.matrixWorld)),extentPixels=header.extent*2*scale*pixels/Math.max(camera.near,distance),opacity=(1-smooth(90,180,extentPixels));
   normal.set(0,1,0).transformDirection(group.matrixWorld);towardCamera.copy(camera.position).sub(position.setFromMatrixPosition(group.matrixWorld));
-  group.visible=Boolean(enabled&&extentPixels>4&&normal.dot(towardCamera)>-header.extent*.04*scale);material.opacity=1-opacity;material.depthWrite=material.opacity>.98;solid.opacity=material.opacity;const transparent=solid.opacity<1;if(solid.transparent!==transparent){solid.transparent=transparent;solid.needsUpdate=true;}
+  group.visible=Boolean(enabled&&extentPixels>90&&normal.dot(towardCamera)>-header.extent*.04*scale);material.opacity=1-opacity;material.depthWrite=material.opacity>.98;solid.opacity=material.opacity;const transparent=solid.opacity<1;if(solid.transparent!==transparent){solid.transparent=transparent;solid.needsUpdate=true;}
   for(const chunk of chunks){position.copy(chunk.center).applyMatrix4(group.matrixWorld);const distance=Math.max(camera.near,camera.position.distanceTo(position)),screen=chunk.size*scale*pixels/distance,old=chunk.level,threshold=old===0?135:180;
    chunk.level=quality>=2?2:screen>threshold?0:screen>(old===1?55:75)?1:2;if(quality===1)chunk.level=Math.max(1,chunk.level);
    for(let i=0;i<3;i++)chunk.levels[i].visible=i===chunk.level;

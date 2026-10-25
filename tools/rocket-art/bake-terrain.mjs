@@ -3,6 +3,11 @@ import path from 'node:path';
 import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
 const source=JSON.parse(fs.readFileSync(process.argv[2],'utf8')),E=source.extent,R=6371000,N=257,step=2*E/(N-1),heights=new Float32Array(N*N);
+// Sample the same coarse color field that remains visible around the regional mesh.
+const globe=fs.readFileSync('sim/rocket-space-mission-lab/assets/global/coarse.bin'),gl=globe.readUInt32LE(0),gh=JSON.parse(globe.toString('utf8',4,4+gl)),gs=4+Math.ceil(gl/4)*4,gi=gs+gh.vertexCount*16,colorTriangles=[];
+const vertex=i=>({x:globe.readFloatLE(gs+i*12)*R,z:globe.readFloatLE(gs+i*12+8)*R,y:globe.readFloatLE(gs+i*12+4),color:Array.from({length:3},(_,k)=>globe[gs+gh.vertexCount*12+i*4+k]/255)});
+for(let i=0;i<gh.indexCount;i+=3){const p=[0,1,2].map(k=>vertex(globe.readUInt32LE(gi+(i+k)*4)));if(p.some(v=>v.y<.99))continue;const box=[Math.min(...p.map(v=>v.x)),Math.max(...p.map(v=>v.x)),Math.min(...p.map(v=>v.z)),Math.max(...p.map(v=>v.z))];if(box[0]>E||box[1]<-E||box[2]>E||box[3]<-E)continue;colorTriangles.push({p,box});}
+function globalColor(x,z){let nearest=null,best=Infinity;for(const {p:[a,b,c],box}of colorTriangles){for(const v of [a,b,c]){const distance=(x-v.x)**2+(z-v.z)**2;if(distance<best){best=distance;nearest=v.color;}}if(x<box[0]||x>box[1]||z<box[2]||z>box[3])continue;const d=(b.z-c.z)*(a.x-c.x)+(c.x-b.x)*(a.z-c.z);if(Math.abs(d)<1e-6)continue;const u=((b.z-c.z)*(x-c.x)+(c.x-b.x)*(z-c.z))/d,v=((c.z-a.z)*(x-c.x)+(a.x-c.x)*(z-c.z))/d;if(u>=-1e-7&&v>=-1e-7&&u+v<=1+1e-7)return a.color.map((n,k)=>u*n+v*b.color[k]+(1-u-v)*c.color[k]);}assert(nearest,'Regional color source');return nearest;}
 const smooth=(a,b,x)=>{const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t);};
 for(let j=0;j<N;j++)for(let i=0;i<N;i++){
  const x=-E+i*step,z=E-j*step,d=source.shore[j][i];
@@ -34,9 +39,9 @@ for(let k=0;k<meshes.length;k++){
  function borderHeight(x,z,given){if(Math.abs(x-box[0])<.01||Math.abs(x-box[1])<.01){const a=Math.floor(z/1500)*1500,t=(z-a)/1500;return height(x,a)*(1-t)+height(x,a+1500)*t;}if(Math.abs(z-box[2])<.01||Math.abs(z-box[3])<.01){const a=Math.floor(x/1500)*1500,t=(x-a)/1500;return height(a,z)*(1-t)+height(a+1500,z)*t;}return given??height(x,z);}
  if(k%3===0)chunks.push({box,levels:[]});const levels=chunks.at(-1).levels;
  const attributes=new Float32Array(vertices.length*10),indices=new Uint32Array(faces.length*3);
- for(let i=0;i<vertices.length;i++){const [x,z,given]=vertices[i],h=borderHeight(x,z,given),curve=Math.sqrt(R*R-x*x-z*z)-R,blend=smooth(1500,5000,Math.hypot(x,z)),y=curve*blend+h-.78+blend*10,dx=(height(x+50,z)-height(x-50,z))/100-x/R,dz=(height(x,z+50)-height(x,z-50))/100-z/R,n=Math.hypot(dx,1,dz),variation=Math.sin(x/7000+z/5000)*.025,t=smooth(100,1200,h),fade=1-smooth(E*.88,E-500,Math.max(Math.abs(x),Math.abs(z)));
- const shade=.50+.70*Math.max(0,(-dx*30+40-dz*40)/(n*Math.hypot(30,40,40))),beach=given===0&&box.every((b,j)=>Math.abs((j<2?x:z)-b)>.01)?1:0;
- attributes.set([x,y,z,-dx/n,1/n,-dz/n,(.20+t*.07+variation)*(1-beach)+.40*beach,(.34-t*.035+variation)*(1-beach)+.36*beach,(.19-t*.02+variation)*(1-beach)+.23*beach,fade],i*10);for(let c=6;c<=8;c++)attributes[i*10+c]*=shade;}
+ for(let i=0;i<vertices.length;i++){const [x,z,given]=vertices[i],h=borderHeight(x,z,given),curve=Math.sqrt(R*R-x*x-z*z)-R,blend=smooth(1500,5000,Math.hypot(x,z)),y=curve*blend+h-.78+blend*10,dx=(height(x+50,z)-height(x-50,z))/100-x/R,dz=(height(x,z+50)-height(x,z-50))/100-z/R,n=Math.hypot(dx,1,dz),fade=1-smooth(E*.88,E-500,Math.max(Math.abs(x),Math.abs(z)));
+ const shade=.50+.70*Math.max(0,(-dx*30+40-dz*40)/(n*Math.hypot(30,40,40)));
+ const color=globalColor(x,z),detail=1-smooth(E*.7,E*.88,Math.max(Math.abs(x),Math.abs(z))),localShade=1+detail*(shade/(.50+.70*40/Math.hypot(30,40,40))-1);attributes.set([x,y,z,-dx/n,1/n,-dz/n,...color.map(c=>c*localShade),fade],i*10);}
  for(let i=0;i<faces.length;i++){let [a,b,c]=faces[i];const p=vertices[a],q=vertices[b],r=vertices[c];if((q[0]-p[0])*(r[1]-p[1])-(q[1]-p[1])*(r[0]-p[0])>0)[b,c]=[c,b];indices.set([a,b,c],i*3);}
  for(const v of attributes)assert(Number.isFinite(v));for(const i of indices)assert(i<vertices.length);
  const data=Buffer.from(attributes.buffer),index=Buffer.from(indices.buffer);levels.push({offset,vertices:vertices.length,indices:indices.length});buffers.push(data,index);offset+=data.length+index.length;totalTriangles+=faces.length;

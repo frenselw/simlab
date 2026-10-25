@@ -1019,3 +1019,20 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 - 已commit／push實作1120c690ec3ca235901b1bcd74e176d2cdd0dfd2；committed selection-preview output/rocket/selection-p32.json，base1444cca→1120c69，mode=full、279 entries（README未映射），只代表選取預覽，實際執行範圍依上列證據。
 - Sites helper已push來源8f26611d089307abe437a8f6fb02894cdad7ae20及封裝rocket-global-p32.tar.gz（16,257,588bytes）。版本appgprj_6adc62579ab88191aba299bcb282ce95~appgver_969f950f91a08191a7ab5dcef9e39664；deployment appgdep_6adde3e1884881919a5b9883fb45cc3c，native status=succeeded，2026-10-25 11:11:41 UTC。沿用原網址https://simlab-rocket-space-missions.ieyp.chatgpt.site與owner-only audience（發布前get_site已再確認1owner／0groups／0external）。
 - 線上471份檔案已核對：全部程式、樣式、441份全球地形binary及其他素材、build-info逐byte等於驗過的dist；兩份HTML只移除平台插入script後亦相同。只跟隨同origin canonical index redirect，bypass credential僅經隱藏stdin／同origin header使用。build-info.sourceCommit=1120c690ec3ca235901b1bcd74e176d2cdd0dfd2、packageSha256=4a98c411fbd0e6bcf4b781b168865445c55240ae31d57784f18383b64d6d8b48；證據output/rocket/p32-live-verification.json。原網址已交給Codex頁籤開啟（queued），所有本次測試Chrome／HTTP server／helper均已結束；既有.codex-remote-attachments未動。
+
+
+## P33 — 地形接縫與分離顯示（2026-10-25）
+
+- 用戶637.6km截圖揭示區域色盤／烘焙明暗與全球色盤、日夜光照不同。範圍：區域頂點色改為全球粗幾何的同一色場取樣，加同一日夜光照；區域遠景按畫面大小淡出，淡出時全球在後方完整接替，不能淡到海色或硬切core。
+- 不重建全球441份素材；保留區域海岸／高度／碰撞／細節，離線重烘焙區域顏色，無新增runtime紋理、幾何或依賴。擴展既有art.test及browser owner；驗637.6km截圖同角度、不同光照、區域depth、各高度接駁與資源預算，source及解壓ZIP一致。
+- 分離診斷：下級已有獨立RK4狀態；真空未點火同速符合重力模型，點火60秒會拉開約23km。大比例火箭圖示掩蓋真實距離。保留物理及snapshot；加入上下級實際速率／距離／下級升降比較，延長真空滑行和點火60秒測試，避免靠虛構減速製造畫面。等待用戶補充點火狀態，繼續獨立地形工作。
+- 評核／rubric／phase-variant／持續狀態契約不變；本輪均為顯示層修正。沿用原owner-private Sites更新，發布前完成封包驗證並記錄實際限制。
+
+
+- 已完成：區域baker以全球粗網格的同一linear頂點色場插值，近場保留坡面明暗、接縫前漸減額外明暗；terrain.js匯出共同terrainLighting，區域與全球共用planet.sun。區域90–180 projected pixels漸變，僅完全不透明時裁切全球core；半透明時完整全球陸地在後方接替。
+- 區域binary大小仍1,877,428bytes，與上一commit逐byte對照確認header、heightfield、全部LOD位置／normal／fade／indices不變，只有RGB改變。全球441份binary與紋理未改，無新runtime依賴、幾何或紋理。新的區域SHA-256 bb0d9d5dcef807131ea0becf49d267f152086dce95ed7bced31ccb44592a585c.
+- 分離物理無共用速度或強制跟隨；原獨立重力／阻力軌跡保留。控制面板新增上下級速率、實際距離、下級升降及點火狀態，明示火箭圖示放大。真空約637.6km／5,030m/sfixture：未點火60秒後相距90.118m、速率差1.506m/s；上級點火約60秒後相距23.37–23.42km、速率差809.8–810.8m/s。下級當時仍上升符合物理，沒有虛構減速或立刻墜落。用戶未補充點火狀態，兩種情況皆驗。
+- 最後runtime eaa5156229d73b63ad291d8ceb9411bd834230956977751942be5575f7465327：source／extracted ZIP共26-flow p33-release.json completed=true／errors=[]，包括637.6km及其他高度預覽、近場LOD／depth像素遮擋、長時間分離／下降／impact／RCS／資源清理與SCORM生命週期。另4-flow p33-colors.json在300km保留區域細節時，以日照／背光、每frame866–872個區域內陸pixel對照global替代，平均RGB差0.51–1.29／255，p95≤2.34／255；初版helper曾拿getState複本而未改實際高度，色差定量驗收以修正後這份4-flow為準。637.6km桌面／手機預覽目視已無異色補丁。
+- 兩個15秒source benchmark同一runtime，Chrome155／SwiftShader暖機2.5秒：桌面10km median50.1ms／p9550.2ms、CPU p952.7ms、70calls／71,053tri；手機尺寸median16.7ms／p9533.4ms、CPU p952.3ms、65calls／43,853tri。沒有新增記憶體資產或後製；僅就本機模擬報告，不推算實機。
+- 七個活動Node、npm check、check:tests（279 entries）、最後JS syntax及diff通過。沿用既有registry owner擴展驗證，無評分／snapshot／physics schema變更；沒有跑全庫或完整browser owner。真iPhone／Android／Moodle及熱負荷未驗。
+- 最後供部署ZIP SHA-256 f80bb88471b39c03faa64e2616fee7f944cafbf321a18bcb816f82906acf770c，16294350bytes，後續從此ZIP準備dist，不再重建。
