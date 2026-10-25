@@ -36,7 +36,7 @@ export class RocketScene{
       if(this.rocket){
         if(data.live&&this.data?.live&&f?.separated&&previous&&!previous.separated&&craft===this.effectCraft){
           this.clearSeparation();const coast=P.clone(previous);coast.controls.lit=false;coast.state[3]-=1.5*Math.cos(f.attitude);coast.state[4]-=1.5*Math.sin(f.attitude);
-          this.separation={body:this.rocket,coast,start:f.t,attitude:f.attitude,join:this.rocket.userData.ranges[1].base,height:this.rocket.userData.height};
+          this.separation={body:this.rocket,coast,mass:P.dry(previous.craft.stages[0])+previous.fuel[0]+60,start:f.t,attitude:f.attitude,join:this.rocket.userData.ranges[1].base,height:this.rocket.userData.height};
           for(const child of this.rocket.children)child.visible=Boolean(child.userData.part&&(child.userData.part.stage===0||child.userData.part.part==='separator'));
         }else{this.scene.remove(this.rocket);dispose(this.rocket);}
       }
@@ -46,19 +46,22 @@ export class RocketScene{
   }
   drawEffects(f,space,theta){
     const pose=this.effectPose,dt=f&&pose?f.t-pose.t:0,turn=f&&pose?Math.atan2(Math.sin(f.attitude-pose.attitude),Math.cos(f.attitude-pose.attitude)):0;
-    if(this.data.live&&dt>0&&Math.abs(turn)>1e-6&&Math.abs(turn)/dt>.0001){this.rcsDirection=Math.sign(turn);const target=M.targetAttitude(f)-f.attitude,aligned=Math.abs(Math.atan2(Math.sin(target),Math.cos(target)))<1e-5;this.rcsUntil=dt>.25&&aligned?f.t:f.t+.08;}
+    if(dt>0){
+      this.rcsUntil=0;
+      // Slow local-vertical/orbit tracking must not look like a permanent RCS burn.
+      if(this.data.live&&Math.abs(turn)/dt>Math.PI/360){this.rcsDirection=Math.sign(turn);const target=M.targetAttitude(f)-f.attitude,aligned=Math.abs(Math.atan2(Math.sin(target),Math.cos(target)))<1e-5;this.rcsUntil=dt>.25&&aligned?f.t:f.t+.08;}
+    }
     if(f)this.effectPose={t:f.t,attitude:f.attitude};
-    for(const [i,jets]of this.rocket.userData.rcs.entries()){jets.visible=Boolean(this.data.live&&f&&f.t<this.rcsUntil&&this.rcsDirection===[-1,1][i]);for(const plume of jets.children)plume.material.opacity=plume.userData.baseOpacity*(this.reducedMotion?1:.85+.15*Math.sin(f?.t*70||0));}
-    const drop=this.separation;if(!drop||!f)return;const age=f.t-drop.start;
-    if(age>60){this.clearSeparation();return;}
-    // Only the detached illustration coasts in vacuum; the assessed flight remains untouched.
-    for(let i=0;i<240&&drop.coast.t<f.t-1e-8&&!['impact','escaped'].includes(drop.coast.status);i++)M.step(drop.coast,Math.min(.25,f.t-drop.coast.t),{vacuum:true});
-    const angle=space?0:theta,dx=drop.coast.state[0]-f.state[0],dy=drop.coast.state[1]-f.state[1],axis=new THREE.Vector3(Math.sin(drop.attitude-angle),Math.cos(drop.attitude-angle),0),offset=new THREE.Vector3(dy*Math.cos(angle)-dx*Math.sin(angle),dx*Math.cos(angle)+dy*Math.sin(angle),0).addScaledVector(axis,-drop.join);
-    drop.body.scale.copy(this.rocket.scale);drop.body.position.copy(this.rocket.position).addScaledVector(offset,this.rocket.scale.y);drop.body.rotation.z=angle-drop.attitude;
-    fadeEnvironment(drop.body,1-THREE.MathUtils.smoothstep(age,55,60));drop.body.updateMatrixWorld(true);
-    const center=drop.body.localToWorld(new THREE.Vector3(0,drop.join/2,0));
-    const frustum=new THREE.Frustum().setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(this.camera.projectionMatrix,this.camera.matrixWorldInverse)),bounds=new THREE.Sphere(center,(drop.join/2+2)*this.rocket.scale.y);
-    if(drop.coast.status==='impact'||age>4&&!frustum.intersectsSphere(bounds))this.clearSeparation();
+    for(const [i,jets]of this.rocket.userData.rcs.entries()){jets.visible=Boolean(this.data.live&&f&&!['impact','escaped'].includes(f.status)&&f.t<this.rcsUntil&&this.rcsDirection===[-1,1][i]);for(const plume of jets.children)plume.material.opacity=plume.userData.baseOpacity*(this.reducedMotion?1:.85+.15*Math.sin(f?.t*70||0));}
+    const drop=this.separation;if(!drop||!f)return;
+    // Reuse gravity, atmospheric drag and impact detection with the detached mass.
+    for(let i=0;i<20000&&drop.coast.t<f.t-1e-8&&!['impact','escaped'].includes(drop.coast.status);i++)M.step(drop.coast,Math.min(O.elements(drop.coast.state).height<120000?.1:2,f.t-drop.coast.t),{mass:drop.mass});
+    if(drop.coast.status==='impact'){this.clearSeparation();return;}
+    const angle=space?0:theta,dx=drop.coast.state[0]-f.state[0],dy=drop.coast.state[1]-f.state[1],axis=new THREE.Vector3(Math.sin(drop.attitude-angle),Math.cos(drop.attitude-angle),0),offset=new THREE.Vector3(dy*Math.cos(angle)-dx*Math.sin(angle),dx*Math.cos(angle)+dy*Math.sin(angle),0);
+    // Flight coordinates use metres; only the stage artwork uses the enlarged scale.
+    const units=space?3/P.R:.001,scale=Math.min(this.rocket.scale.y,Math.max(0,O.elements(drop.coast.state).height)*units*.9/(drop.join+2));
+    drop.body.scale.setScalar(scale);drop.body.position.copy(this.rocket.position).addScaledVector(offset,units).addScaledVector(axis,-drop.join*scale);drop.body.rotation.z=angle-drop.attitude;
+    drop.body.updateMatrixWorld(true);
   }
   line(name,points,color,dashed=false){
     const old=this.lines[name];if(old){this.scene.remove(old);old.geometry.dispose();old.material.dispose();delete this.lines[name];}if(points.length<2)return;

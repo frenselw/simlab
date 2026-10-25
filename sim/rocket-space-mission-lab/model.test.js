@@ -41,3 +41,13 @@ for(let variant=0;variant<3;variant++){
  let lower=M.change(built,{type:'part',stage:0,part:'engine',value:0});assert.deepEqual(M.change(lower,{type:'transfer',from:1,to:null,part:'separator'}),lower);lower=M.change(lower,{type:'part',stage:0,part:'large',value:1});const fly=M.change(M.change(lower,{type:'launch'}),{type:'ignite'});assert.equal(fly.flight.active,0);assert.equal(M.thrust(fly.flight),600000);const staged=M.change(fly,{type:'separate'});assert.equal(staged.flight.active,1);assert.deepEqual(staged.flight.craft.stages[1],original);assert.equal(M.thrust(M.change(staged,{type:'ignite'}).flight),80000);assert.deepEqual(M.change(fly,{type:'separator'}),fly);assert.deepEqual(M.change(M.change(built,{type:'check'}),{type:'separator'}),M.change(built,{type:'check'}));
 }
 console.log('rocket separator: bottom extension preserves upper stage, adds 60kg, rejects loss/duplicates and fires lower then upper');
+
+// A detached stage has its own drag mass, without changing the authoritative craft.
+{
+ const f=M.flight(T.launched().craft,'own',[P.R+10000,0,0,500,100,0]);f.status='flying';
+ const original=P.clone(f),light=P.clone(f),heavy=P.clone(f),vacuum=P.clone(f);
+ M.step(light,.1,{mass:960});M.step(heavy,.1,{mass:9600});M.step(vacuum,.1,{mass:960,vacuum:true});
+ assert(light.state[3]<heavy.state[3]&&heavy.state[3]<vacuum.state[3]);assert(light.state[4]<heavy.state[4]);
+ assert.deepEqual(f,original);assert.deepEqual(light.fuel,f.fuel);
+ const ground=P.clone(f);ground.state=[P.R+2,0,0,-100,0,0];M.step(ground,.1,{mass:960});assert.equal(ground.status,'impact');assert(Math.abs(O.elements(ground.state).height)<.01);
+}

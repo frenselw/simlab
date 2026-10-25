@@ -867,7 +867,7 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 
 ### P25：可見分離與姿態噴氣
 
-- 分離時保留下級與分離器幾何，沿用分離前位置／速度，加1.5 m/s微小分離速度；下級以既有模型的無推力、真空重力滑行作視覺軌跡，上級沿權威飛行狀態運動。模型尺寸本來已誇張，兩級相對位移亦按火箭顯示比例呈現。鏡頭四秒內平滑由完整火箭轉為跟隨上級，保留上下級點火流程。下級離鏡後或60模擬秒清理資源；不加入下級氣動、回收／碰撞評分。
+- 歷史實作（分離與RCS規則已於P29修正）：分離時保留下級與分離器幾何，沿用分離前位置／速度，加1.5 m/s微小分離速度；下級以既有模型的無推力、真空重力滑行作視覺軌跡，上級沿權威飛行狀態運動。模型尺寸本來已誇張，兩級相對位移亦按火箭顯示比例呈現。鏡頭四秒內平滑由完整火箭轉為跟隨上級，保留上下級點火流程。下級離鏡後或60模擬秒清理資源；不加入下級氣動、回收／碰撞評分。
 - 轉向採一對相反方向的短促藍白RCS氣流，僅由實際姿態變化觸發，鏡頭旋轉不觸發。動畫由模擬時間驅動，暫停凍結、還原或複核不重播；減少動態設定保留穩定氣流、不閃動。
 - 沿用既定assessment risk／rubric／dependencies／phase matrix／snapshot schema；效果僅位於scene與scene-art，main傳入可播放效果的edit標記，不改物理、燃料／評分、SCORM或持久化欄位。兩個既有runtime已在manifest，無新增依賴。
 - 驗證決策：擴充既有registered browser owner的effects案例，source與ZIP、桌面／手機／窄屏／橫屏，驗證向上慣性、逐漸分開、上級點火加大間距、轉向氣流力矩方向、無轉鏡誤噴、暫停／還原／複核、資源清理及100 draw calls／100k triangles預算。沿用sceneArt、flightVectors、launchAndCamera與lifecycle相關檢查，目視分離及噴氣截圖。真手機與真Moodle為獨立驗收。
@@ -924,3 +924,19 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 - P28已commit／push：28cc65dc44dc99cd1f4df9cddb942b0e51c07d2e。committed selection-preview在output/rocket/selection-p28.json：mode=full，279 entries，原因包括新offline工具未映射及registry修改；這是選取預覽，不代表已跑其餘活動全庫或CI。實際執行範圍及最終shader專項如上。
 - 使用已驗ZIP更新Sites checkout，helper已push來源726bcd1ac0cf62a604a0341a0a7ca6caff84b156並產生rocket-art-p28.tar.gz；保存版本appgprj_6adc62579ab88191aba299bcb282ce95~appgver_5ccb289f1b248191b048390156371781，deployment appgdep_6add9eca40d08191a320930256be19e7，native status=succeeded。原網址https://simlab-rocket-space-missions.ieyp.chatgpt.site及owner-only audience維持。
 - 線上核對完成：27份檔案中，25份程式／樣式／素材／版本資料逐byte等於已推送dist；兩份HTML移除託管平台額外插入的938字元script後，原頁內容亦逐byte一致。入口index.html由平台正常canonical redirect；驗證只跟隨同站點的對應目錄，不把service token帶離該站。build-info.sourceCommit=28cc65dc44dc99cd1f4df9cddb942b0e51c07d2e，packageSha256與上述最終ZIP相符。證據output/rocket/p28-live-verification.json；原網址已交給Codex頁籤開啟（queued），本地預覽server與測試Chrome已關閉。
+
+
+### P29：分離軌跡、下級存續與RCS停止修正
+
+- 使用者回報下級分離後衝到上級前方、很快消失，以及RCS在沒有繼續調向時長噴。根因包括實際位移乘上放大的火箭比例、下級忽略阻力、離鏡／60秒即清理，以及把微小自動姿態追蹤視為持續轉向。
+- 範圍：scene的分離座標／生命週期與RCS視覺判定；model既有RK4增加僅供下級殘骸使用的質量選項，使其重用重力／阻力／觸地判定；既有model.test與registered browser owner的flightEffects案例。無新增依賴。權威上級物理、燃料、評分、SCORM、phase/variant及snapshot schema沿用；下級為session內視覺軌跡，reload／review不重播。
+- 實作決定：保留上級原速度，下級繼承並沿分離軸減1.5m/s；用下級乾重、餘油、分離環質量計阻力，按實際世界單位顯示相對位移；下級模型放大比例另受其離地高度限制，避免插入地球，從上級向下望可見下降。取消離鏡及定時刪除，實際觸地或離開本次flight時清理；有足夠水平速度則按物理繞行，不強迫垂直墜落。RCS有可見轉向才噴，微小方向維持不持續顯示，停止轉向／到位後熄滅；暫停沿用效果凍結。
+- 測試決定：七活動Node、check／check:tests及文件檢查；source與extracted ZIP四尺寸flightEffects，擴充低空阻力、傾斜分離、世界座標比例、超過60秒／離鏡返回、快進同步、下降與實際觸地、RCS小步長長時間到位後停止；沿用vectors、camera、mobile操作艙及lifecycle，檢查資源及100 calls／100k triangles。檢查後commit／push並更新既有owner-private網站；真手機／真Moodle另驗。
+
+
+- P29主要回歸完成：七活動Node、npm run check、check:tests（279 entries）、語法及diff檢查通過。既有registered owner專項選取flightEffects／flightVectors／launchAndCamera／directCamera／mobileCockpit／lifecycle，source與extracted ZIP共42 flows、errors=[]、completed=true，報告output/playwright/rocket-space-mission-lab/p29-effects-check.json；runtime hash 361697fd674edad8b2b29c88bd9f699835fb554249ea49afa99adeb01a4f48fd。包含原生觸控、暫停／續做、還原／提交、context recovery等既有案例；不是全庫或全部火箭browser owner。
+- 四尺寸1280×800、390×844、320×568、844×390均驗低空45°分離、真實座標比例、初速繼承、70秒離鏡返回仍保留、200秒後仍下降且最後實際觸地。從上級向下看的桌面及手機截圖已目視；下級按離地高度限制圖示大小，避免放大模型插入地球。分離、暫停、轉鏡均不改權威上級state。
+- RCS正常0.1秒步長案例：100步中有9步顯示轉向，最後30步微小自動方向追蹤持續改變姿態，但0步顯示噴氣；順逆向力矩、快進到位、無轉鏡誤噴、減少動態與review不重播通過。八次重建／分離／清理warm-up後資源一致：29 geometries、8 textures、12 programs、106 GL buffers；仍符合100 calls／100k triangles預算。
+- 首輪測試曾遇浮點時間assert與130次同步GPU繪製造成SwiftShader／CDP排隊逾時；已改為時間容差、直接採樣production drawEffects的小步長，再由既有正常draw案例驗圖形，資源重建分開browser turns。完整42-flow選取已重新通過，沒有把逾時當成功。最後另補impact／escaped時立即熄滅RCS，避免最後一幀長留；該單行修改後再跑source／ZIP四尺寸flightEffects，與上述較廣回歸分開記錄。
+
+- 最終版source／extracted ZIP四尺寸共8個effects flows通過，errors=[]；新增實際觸地最後一步仍在轉向時RCS必須為0。報告output/playwright/rocket-space-mission-lab/p29-final-effects-check.json；最終靜態／registry亦通過。runtime SHA-256 2fa69aa7b2288fac3d819334477b4f3b96c368f29af02ec8c15323f1175b38c4；ZIP SHA-256 0e0acf2c78a6edbb1b01aa321063afff2bc503b154bfc8228b2cc38b0f7a635c，910202 bytes。此ZIP供本輪部署，之後不再重建；最後專項記錄的最大46 draw calls／43328 triangles。真iPhone／Android、實機熱負荷、真Moodle及全庫未驗證；下級軌跡仍是session內視覺狀態，reload／review不重播。
