@@ -940,3 +940,8 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 - 首輪測試曾遇浮點時間assert與130次同步GPU繪製造成SwiftShader／CDP排隊逾時；已改為時間容差、直接採樣production drawEffects的小步長，再由既有正常draw案例驗圖形，資源重建分開browser turns。完整42-flow選取已重新通過，沒有把逾時當成功。最後另補impact／escaped時立即熄滅RCS，避免最後一幀長留；該單行修改後再跑source／ZIP四尺寸flightEffects，與上述較廣回歸分開記錄。
 
 - 最終版source／extracted ZIP四尺寸共8個effects flows通過，errors=[]；新增實際觸地最後一步仍在轉向時RCS必須為0。報告output/playwright/rocket-space-mission-lab/p29-final-effects-check.json；最終靜態／registry亦通過。runtime SHA-256 2fa69aa7b2288fac3d819334477b4f3b96c368f29af02ec8c15323f1175b38c4；ZIP SHA-256 0e0acf2c78a6edbb1b01aa321063afff2bc503b154bfc8228b2cc38b0f7a635c，910202 bytes。此ZIP供本輪部署，之後不再重建；最後專項記錄的最大46 draw calls／43328 triangles。真iPhone／Android、實機熱負荷、真Moodle及全庫未驗證；下級軌跡仍是session內視覺狀態，reload／review不重播。
+
+
+- P29已commit／push：06531bf638e1cd2909cf5dacd26276e0cfd95a00。committed selection-preview在output/rocket/selection-p29.json，mode=affected，只歸屬rocket-space-mission-lab；實際執行七Node與上述42-flow／最終8-flow專項，未聲稱全庫或完整browser owner／CI。
+- Sites helper已push來源9f2efad18ae2a3b53011822bd93a318fd1b9c6e8，以上述驗過ZIP產生rocket-effects-p29.tar.gz。版本appgprj_6adc62579ab88191aba299bcb282ce95~appgver_433d0bd3670c8191be848d5cf5cba4a1；deployment appgdep_6adda6a81f80819186ddf83f21adbc1a，native status=succeeded。原網址https://simlab-rocket-space-missions.ieyp.chatgpt.site及owner-only audience維持。
+- 線上27份檔案已核對：程式／樣式／素材／build-info逐byte相同，兩份HTML移除託管平台插入script後亦相同；只跟隨同origin的canonical index redirect。build-info.sourceCommit=06531bf638e1cd2909cf5dacd26276e0cfd95a00，packageSha256與最終ZIP相符，證據output/rocket/p29-live-verification.json。原網站已交給Codex頁籤開啟（queued），本地預覽及測試Chrome已關閉。
