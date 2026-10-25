@@ -826,3 +826,4 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 | 390／orbit | 16.8／33.5 | 33.3／33.4 |
 
 - 最終owner先因已移除的「箭長隨大小變化」舊文字斷言中止；只更新測試為速度／推力圖例存在，未更動runtime。保留前27個已過source flows，核對runtime SHA完全相同後，先由flightVectors續跑；cameraDrag的負角度字串插值亦只改測試加括號，未改runtime，再由launchAndCamera完成其餘source及完整package。兩份中止報告均保留，最終report以resumedSourceAt記錄，102 flows沒有跳過。
+- P21已commit／push：83d02a942d46b180a36e73d2ce59840ba21a1f0c；committed selection-preview在output/rocket/selection-p21.log，mode=affected。實際執行活動六Node、完整source／ZIP owner與既述靜態檢查，未執行全庫或等待CI。沿用持續發布授權，Sites來源fdb78876ccf6cb11dbd16fadf9774a0c0cc633aa、deployment appgdep_6add5dddd2188191b7cd9409f91b894e，native succeeded；精確使用驗過ZIP，原網址及owner-private維持。
