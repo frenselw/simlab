@@ -45,7 +45,8 @@ function coast(z){const rows=geography.coastRows;let i=0;while(i<rows.length-2&&
 export function createSky(){
  return new THREE.Mesh(new THREE.SphereGeometry(1,32,16),new THREE.ShaderMaterial({
   uniforms:{uMap:{value:starMap},uSpace:{value:0}},side:THREE.BackSide,depthWrite:false,depthTest:false,
-  vertexShader:`varying vec3 vDirection;varying vec2 vUv;void main(){vDirection=position;vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+  // Keep the background inside the far clip plane even with sub-metre camera near planes.
+  vertexShader:`varying vec3 vDirection;varying vec2 vUv;void main(){vDirection=position;vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);gl_Position.z=gl_Position.w;}`,
   fragmentShader:`uniform sampler2D uMap;uniform float uSpace;varying vec3 vDirection;varying vec2 vUv;void main(){vec3 d=normalize(vDirection);vec2 uv=vUv;vec3 day=mix(vec3(.66,.83,.88),vec3(.19,.48,.68),smoothstep(-.12,.8,d.y));vec3 night=texture2D(uMap,uv).rgb;gl_FragColor=vec4(mix(day,night,uSpace),1.0);
 #include <tonemapping_fragment>
 #include <colorspace_fragment>}`

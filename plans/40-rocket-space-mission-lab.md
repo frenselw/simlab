@@ -1,3 +1,17 @@
+# 2026-10-26 P45：向上望時天空多邊形露底修正
+
+- 使用者批准立即修正。診斷已確認：天空球在極遠處以一般投影深度繪製，近地鏡頭的near/far比例達數千萬，部分天空面被裁走；改底色後缺口跟隨變色，sky-only仍可重現。
+- 最小範圍：createSky頂點shader把背景z固定在有效遠深度；保留x/y/w、天空漸層/星圖、BackSide、depthTest/depthWrite=false及renderOrder。唯一caller為RocketScene；不改鏡頭near/far、地形、物理、箭號、評分/150kg/schema3/SCORM狀態。
+- 沿用現有已登記browser owner，加sky coverage回歸及--sky選項，包含source/實際SCORM：桌面1280×800、直向390×844、橫向844×390；8.4452km低鏡頭八方向與起飛/高空/全景/plane，鮮紫clear color檢測露底。保留一次舊shader負對照確認測試能捉到原bug；驗切換視角、狀態不變/無shader錯誤，沿用lifecycle/fullscreen/context recovery。無新依賴或未登記測試檔。
+- 未改其他活動或地形模糊問題。真機Safari與實際Moodle不能以本機替代。本輪驗證證據：
+- `node tools/check.js`、`node tools/test-registry.js`（279 entries）及原art.test.js通過。沒有新依賴或新測試檔。
+- 最終 `--sky` source＋實際SCORM共8 flows、0 JS errors，6個尺寸/版本組合各13案例，共78個天空視角全部0露底像素。source及package桌面負對照原shader各593389露底像素，證明能重現原bug。起飛/8.4452km/80km/全景/plane與八方向均通過，飛行狀態不變、深度設定保留，無shader錯誤。
+- 沿用lifecycle：100/0分、review/resume/唯讀、frozen/committed重試、standalone refresh/storage denied、fullscreen/context loss/restore、舊60分保持。報告 `output/rocket/p45-browser-report.json`，runtimeHash `d236c96e19eca9ee472b11d1b528ed4a38c1a310dc0c5a132146385644859842`；已檢視向上望截圖。
+- Source與SCORM逐manifest檔案閉包一致。此修正只改一行sky vertex depth與原因註解，頂點/貼圖/依賴及鏡頭near/far未改；不重跑無關全球藝術效能套件，原art Node資產/預算檢查通過。真機Safari與實際Moodle仍未驗。
+- 發布證據待補。
+
+---
+
 # 2026-10-26 P44：全景箭號與飛行儀表美化
 
 使用者批准三項修改；保持既有物理、評分、作答與鏡頭記憶。
