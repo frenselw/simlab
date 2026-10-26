@@ -1,3 +1,5 @@
+> 後續工作：[火箭模擬手勢縮放工作計劃](40-rocket-gesture-zoom-plan.md)。目前只完成規劃，尚未實作；以下 P49 為已發布版本的歷史證據。
+
 # 2026-10-26 P49：WebGL／Canvas 資源失效後完整恢復
 
 - 使用者已批准按P48診斷修正。範圍scene-art的生成貼圖cache、scene恢復handler、既有browser owner與計劃；沿用原shared SCORM/flow與main onFault暫停/提示。無新依賴、素材、評分、physics、schema4或150kg修改（formative/low-risk）。
