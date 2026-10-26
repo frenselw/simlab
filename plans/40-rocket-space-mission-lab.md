@@ -23,7 +23,10 @@
 - 舊版雙任務 SCO 已獨立保留 `output/rocket-space-mission-lab-legacy-p40-scorm.zip`，取 c574a7b 的 runtime/manifest 與相同未改資產；新版下載名為 `output/rocket-launch-orbit-lab-v2-scorm.zip`。
 - 本輪未重跑完整 3D browser art/performance suite；3D 與資產未修改，Node 閉包/地形/物理/分離/碰撞檢查仍通過。真機 Safari / 真實 Moodle 尚未驗收。
 - 最終 `--smoke` browser 通過：來源＋重新打包 SCO，20 layouts、14 flows、0 JS errors；六個飛行尺寸各驗固定近/遠地點與 44px 關機/保留、100/25 分、四項預覽、明確提交、舊 60 分摘要仍可見且不改原 snapshot。報告 `output/rocket/p41-final-browser-report.json`，runtimeHash `84464a9cbd56ded79778ad9552bf3a6c7ecc8d746278810e109349d8c89a40c6`。
-- commit / selection-preview / 部署證據在交付後補記。
+- 已 commit/push 實作 `5f019e397709b28bad9a518369f52312466a78fa`。committed selection-preview `output/rocket/selection-p41.json`：c574a7b→5f019e3，full / 279 entries（受 catalogue/README 變更影響）；只作選擇預覽，未宣稱全 279 項已跑。
+- Sites helper 開啟並推送同一個既有 owner-private Site，來源 commit `dcbbfa7690e7f3ba24f3fe740308d0641b672bab`，archive `output/rocket/rocket-launch-only-p41.tar.gz`。版本 `appgprj_6adc62579ab88191aba299bcb282ce95~appgver_52ce34ca3dc8819180fe0b6d8b12b1c5`；deployment `appgdep_6adeeaacf3888191a83e21da63f8ee25`，native succeeded，2026-10-26 13:52:52 UTC+08。網址 https://simlab-rocket-space-missions.ieyp.chatgpt.site 保留；get_site 確認 owner、1 allowed user、0 groups/external。
+- `output/rocket/p41-live-verification.json` completed=true：線上 12 份已修改入口/runtime/manifest/build-info 一致，非 HTML 逐 byte hash、HTML 只移除平台注入 script，認證只跟隨同 origin canonical index redirect。sourceCommit=5f019e397709b28bad9a518369f52312466a78fa、packageSha256=70026a54ba922d2f70829e5061a3d49427fd9d823ea497494dec3cc9aea958de。未改 3D 素材不重作線上逐檔驗證；本機 source/SCORM manifest 閉包完整驗證。
+- 網址已交 Codex 開啟（queued）；本輪 Chrome / HTTP server / Site helper / 線上核對程序已結束，既有 `.codex-remote-attachments` 未動。
 
 ---
 
