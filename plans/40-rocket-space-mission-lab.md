@@ -15,10 +15,13 @@
 
 - `node tools/check.js` / `node tools/test-registry.js` 通過；279 registered entries，沒有新增未登記測試檔。
 - 7 個 rocket Node 檔案通過（model/orbit/scoring/persistence/interaction/lifecycle/art）。140×300 km=69、200×1500 km=70、入軌進度單調；schema2 已交/待確認25分仍是25；schema2草稿保留state/fuel/records並可按新schema3繼續操作。
-- 最終 `--feedback-fixes` browser通過：source＋實際SCORM，12 flows、0 JS errors。320×568、390×844、844×390、1280×800驗題目可見/無01/數據預設展開、pad與飛行回到follow、三個飛行視角及factory分別記憶旋轉縮放、僅明確reset回正、公式SVG字形在viewBox內且不造成橫向捲動、新69/70分；另驗舊review/pending保持25及舊draft恢復後可操作，以及所有既有提交結果/readonly/refresh/fullscreen/context recovery。
+- 最終 `--feedback-fixes` browser通過：source＋實際SCORM，12 flows、0 JS errors。320×568、390×844、844×390、1280×800驗題目可見/無01/數據預設展開、pad與飛行回到follow、三個飛行視角四尺寸及factory桌面分別記憶旋轉縮放、僅明確reset回正、公式SVG字形在viewBox內且不造成橫向捲動、新69/70分；另驗舊review/pending保持25及舊draft恢復後可操作，以及所有既有提交結果/readonly/refresh/fullscreen/context recovery。
 - 報告 `output/rocket/p42-browser-report.json`，runtimeHash `5a961d771ebc0a2fbb247447230bc08ed3be2b0567b0f0243e1968f1902b3493`；檢視320px題目與根號分數截圖。公式以既有mathjax-full產生，SVG viewBox額外48 font units邊距保留字形外緣，沒有新增runtime JS/字型依賴。
 - 舊P41嚴格配分ZIP另存 `output/rocket-launch-orbit-lab-p41-strict-scorm.zip`。本輪不重跑完整3D藝術/效能browser；資產未改，art Node/閉包與物理回歸仍通過。真機與實際Moodle尚未驗收。
-- commit / selection-preview / 發布與線上核對待完成後補記。
+- 已commit/push實作 `fa31c5c2bf89cc6185968b744e28621d0cae7e62`。committed selection-preview `output/rocket/selection-p42.json`：1dc2667→fa31c5c，affected / 242 entries；只作選擇預覽，不宣稱全242項已執行。
+- Sites helper來源 `6c83e5646a0fb6a470e267129a40204a8419e583` 已push/打包 `output/rocket/rocket-feedback-fixes-p42.tar.gz`；來源憑證到期時按helper要求更新後續作，沒有另建Site或改分享權限。版本 `appgprj_6adc62579ab88191aba299bcb282ce95~appgver_ee6a621785c881918dcf8c6bec4319c9`，deployment `appgdep_6adef6bcb0388191a4e3794bc2ee768f`，native succeeded，2026-10-26 14:44:22 UTC+08。原網址 https://simlab-rocket-space-missions.ieyp.chatgpt.site 保留owner-private。
+- `output/rocket/p42-live-verification.json` completed=true：14份線上入口/修改程式/manifest/build-info與測試dist一致；非HTML逐byte hash，HTML只扣除平台注入script，憑證僅隨同origin canonical index redirect。sourceCommit=fa31c5c2bf89cc6185968b744e28621d0cae7e62；packageSha256=37d12dd1033ab0f2e28b46648a66ee07351017c3121528e93151d5b7a2a01362。未改素材不重跑逐檔線上核對；source/SCORM閉包完整檢查。
+- 網址已交Codex開啟（queued）。本輪Chrome/HTTP server/helper/核對程序已結束；既有附件未動。
 
 ---
 
