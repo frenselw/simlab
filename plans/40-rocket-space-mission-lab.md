@@ -1,3 +1,18 @@
+# 2026-10-26 P46：近地地形清晰度與交接
+
+- 使用者已批准根據重複A/B/A與反向診斷修正：120km opaque / 160km contact patch以疏遠環遮住regional，5km硬關造成跳變。診斷紀錄 `output/rocket/ground-handoff-confirmation/report.json`；同高度切換/回復逐像素相同，4999→5000m原33.65%像素顯著變化，固定同層僅0.10–0.12%。
+- 實作範圍：contact-ground.js 與 scene.js 共用遮罩接線；保留近地精確高度及既有terrain lighting、color source和props，以有限近地網格取代遠距覆蓋。採用2km核心/4km外緣，600–2400m AGL連續收窄至零，消除5km開關。遮罩和patch coverage共用半徑；外緣需保留底層覆蓋，沒有整片透明洞。
+- 風險：發射台深度/接地、remote hill/sea底層差異、移動後mask與geometry中心對齊、透明層排序、下降及視角來回。必須先看畫面及像素/接觸證據，不只驗visible旗標。原物理/評分/載荷150kg/schema3/SCORM生命周期不變，無新runtime依賴或素材。
+- 驗證：沿用已登記rocket browser，新增ground handoff案例，source/實際SCORM桌面/手機；2.9km與接觸層停用對照遠處不再大幅差異、4999/5000連續性、消退區上升下降、近地pad遮擋、remote hill/sea碰撞與effects、shader/資源預算、暫停/反覆切換無資源成長、原sky修正及lifecycle。Node art/model/persistence相關既有檢查、check.js/check:tests與committed selection。實測採受控Chrome，不能代表真機Safari或實際Moodle。
+- 原910 vertices/1664 triangles重新集中至4km內；兩個mesh合成一個，移除landFade attribute，以共用radius在fragment漸淡外緣。100m位置快取內，clip center與mesh origin一起更新，避免遮罩先移、幾何未移。
+- Node art/model/persistence、`node tools/check.js`、`node tools/test-registry.js`（279 entries）已通過；本機紀錄 `output/rocket/p46-check-codes.json`。舊groundReadability的160km光照範圍門檻改成坡度法線對受光的實際貢獻；保留並加跑原轉動光源像素測試，沒有改變production光照公式。
+- 最終 `--ground-handoff` source＋實際SCORM共30 flows、0 JS errors；runtimeHash `db9eb431b93b1e375ff34111fea37aace6fdcaa2cfa4ecc55732e1d3a14be2d0`，報告 `output/rocket/p46-browser-report.json`。桌面1280×800、直向390×844、橫向844×390：2.9km啟停contact對照0差異，600/1200/2000/2400/5000m每1m交接均<1%顯著像素差，4999→5000m為0.13–0.17%；下降返回逐像素相同。
+- 發射台/海岸/山坡共18個視窗及版本組合，接縫取樣0穿洞；mask/mesh中心在100m快取移動內一致。910 vertices/1664 triangles保持；暫停12次繪圖0重建、geometry/texture/program沒有成長，實測最多61 draw calls/71975 triangles。已檢視2.9km清晰地面、手機海岸/山坡邊界及近地發射台截圖。
+- 既有ground readability、轉動光源/全球法線連續、terrain depth、異地山坡/海面/發射台碰撞與一次性effects、天空coverage及lifecycle通過。舊terrainDepth fixture的5km狀態補上flying（此前錯標pad）；未放寬production驗證。評分100/0分、review/pending/retry、standalone refresh、fullscreen/context recovery維持。
+- 真機Safari與實際Moodle未驗；本機Chrome使用受控軟件渲染，預算/資源檢查不代表真機FPS。發布證據另記。
+
+---
+
 # 2026-10-26 P45：向上望時天空多邊形露底修正
 
 - 使用者批准立即修正。診斷已確認：天空球在極遠處以一般投影深度繪製，近地鏡頭的near/far比例達數千萬，部分天空面被裁走；改底色後缺口跟隨變色，sky-only仍可重現。
