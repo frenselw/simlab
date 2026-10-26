@@ -1,3 +1,32 @@
+# 2026-10-26 現行範圍修訂：固定載荷、只評發射入軌
+
+使用者已批准實作本節；以下舊版 A/B 雙任務文件屬歷史記錄，本節優先。
+
+- 所有人固定 150 kg 載荷；新作答不抽籤，不按載荷分變體。
+- formative / low-risk 瀏覽器評分；沿用 shared SCORM/activity-flow/fullscreen；沒有新依賴。
+- 100 分：實際升空至 10 m 10 分；該次最高海拔 100 km 15 分；關機且 flying、安全束縛軌道（近地點 >=150 km、遠地點 <=1000 km）45 分；安全後圓化 0–30 分，e<=0.03 滿分，e>=0.06 零分，中間線性取整，未達 e<=0.03 時最多 29 分，避免四捨五入提早滿分。合格 >=70。200–400 km 只作練習建議。
+- 單次紀錄保存最高海拔與是否已關機；不拼接不同試飛。起飛和太空高度的部分分數在墜毀後保留。暫停、提示、重試、時間與燃料均不扣分。
+- 刪除 B 任務、練習飛船、節點與自動變軌；保留手動再點火圓化、軌道鏡頭與關機後路徑。
+- header 只有組裝與發射 / 成果與提交；固定飛行操作列加入近/遠地點、文字狀態及 44px 關機/保留按鈕，無須捲動控制區。保留單一成果，提供關機並保留，提交前顯示四項分數及原因。
+- Assessment ID 改為 rocket-launch-orbit-lab-v2；answer schema 2（shared snapshot envelope version 1）。這是新 Moodle 活動版本，須新增活動，不能覆蓋有既有作答的舊 SCO。舊 ZIP/原始提交保留，舊 activity ID 不被新 decode 接受，也不重新計分。
+- authoritative draft: schema, modelVersion, phase/backPhase, fixed craft payload index 0, flight（state/fuel/active/separated/t/attitude/controls/status/maxHeight）, records[一份或 null]；review: schema/modelVersion/records。紀錄包含 state、craft、fuel、active、separated、t、status、maxHeight、engineOff。不保存衍生分數作權威答案。
+- phase matrix: workshop -> 組裝/檢查；pad -> 點火/檢查；ascent -> 控制/關機/分離/檢查；coast -> 點火/控制/保留/檢查；ended -> 保留部分成果/工廠/檢查；check -> 返回/提交；review/pending -> 唯讀/同一份重試。
+- 每個可保存 phase（包括 check 的每個 backPhase）都做 encode/decode/restore 與合法延續；另驗空白、部分、墜毀、安全/近圓、非法數值及舊 ID 拒收、4000-byte 限額、四種提交結果與 frozen canonical。
+- 測試沿用 tools/test-registry.js 的 rocket 檔案與 browser owner；刪除舊變軌 fixtures，保留物理/碰撞/分離/鏡頭/觸控回歸。實際真機與 Moodle readiness 不以本機瀏覽器代替。
+- 交付：更新 catalogue/manifest/測試/版本資訊，跑 check:tests、選擇預覽、相關 Node/browser、SCORM 打包；commit/push，再部署現有同一個 owner-private Site。
+
+本輪已執行證據：
+
+- `node tools/check.js` 通過；`node tools/test-registry.js` 通過（279 entries / 241 Node / 38 browser）。
+- 7 個已登記 rocket Node 檔案通過：art、model、orbit、scoring、persistence、interaction、lifecycle。包括真實垂直試飛最高海拔約 483 km 後墜毀保留 25 分；18t 手動預設角度/油門方案得 100 分並完整滑行一圈；e=0.03001 不會因取整而提前滿分。
+- `--launch-only` browser：來源＋SCORM 均通過，20 個工廠版面、34 flows、0 JS errors，涵蓋原生觸控安裝/拖曳/捲動、油門/角度、分離/點火、暫停、倍率、四項計分、空白/部分提交、pending/finish 重試、readonly/resume、fullscreen/context recovery、standalone refresh/storage denied。報告 `output/rocket/p41-cockpit-browser-report.json`。之後補上固定關機/保留按鈕和舊成績摘要，最終版另跑 `--smoke`。
+- 舊版雙任務 SCO 已獨立保留 `output/rocket-space-mission-lab-legacy-p40-scorm.zip`，取 c574a7b 的 runtime/manifest 與相同未改資產；新版下載名為 `output/rocket-launch-orbit-lab-v2-scorm.zip`。
+- 本輪未重跑完整 3D browser art/performance suite；3D 與資產未修改，Node 閉包/地形/物理/分離/碰撞檢查仍通過。真機 Safari / 真實 Moodle 尚未驗收。
+- 最終 `--smoke` browser 通過：來源＋重新打包 SCO，20 layouts、14 flows、0 JS errors；六個飛行尺寸各驗固定近/遠地點與 44px 關機/保留、100/25 分、四項預覽、明確提交、舊 60 分摘要仍可見且不改原 snapshot。報告 `output/rocket/p41-final-browser-report.json`，runtimeHash `84464a9cbd56ded79778ad9552bf3a6c7ecc8d746278810e109349d8c89a40c6`。
+- commit / selection-preview / 部署證據在交付後補記。
+
+---
+
 # 火箭工廠與太空任務：3D SCORM 實施計劃
 
 狀態：**使用者已批准實作；P1–P3 功能已接通，P4 驗證中，P5 待實際環境驗收。** 日期：2026-10-24。

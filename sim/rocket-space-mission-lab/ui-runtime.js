@@ -11,7 +11,7 @@
       const attempt=this.scorm.loadAttempt(P.ACTIVITY),startup=this.flow.startup(attempt);
       if(startup==='editable'){
         try{this.state=attempt.state==='draft'?D.decode(attempt.snapshot,'draft'):M.fresh();this.mode=this.state.phase==='check'?'check':'edit';if(attempt.state==='new')this.save();}
-        catch(_){this.canResetDraft=attempt.state==='draft';this.technical('未提交的草稿未能還原。可保留原紀錄聯絡教師，或明確重新載入空白草稿。');return;}
+        catch(_){this.canResetDraft=attempt.state==='draft'&&(!attempt.snapshot?.activity||attempt.snapshot.activity===P.ACTIVITY);this.technical('未提交的草稿未能還原。可保留原紀錄聯絡教師，或明確重新載入空白草稿。');return;}
       }else if(startup==='review'){
         this.mode='mismatch';this.result={...this.flow.recordedResult(attempt),maxScore:100};this.notice='已記錄結果未能完整核對，保持唯讀，只顯示可信的 Moodle 摘要。';
         try{const s=D.decode(attempt.snapshot,'review'),result=S.score(s);if(this.flow.reviewResult(result,attempt.snapshot,attempt).trusted){this.state=s;this.result=result;this.mode='review';this.trusted=true;this.notice='';}}catch(_){}
@@ -26,7 +26,7 @@
     command(action,options={}){if(this.mode!=='edit')return false;try{const next=M.change(this.state,action);D.validate(next);if(JSON.stringify(next)===JSON.stringify(this.state))return false;this.state=next;if(!['control','stop','separate'].includes(action.type))this.running=false;if(options.save!==false)this.save();this.emit();return true;}catch(_){this.notice='這個操作未能安全記錄，原有進度保持不變。';this.emit();return false;}}
     tick(seconds,budget){if(!this.running||this.mode!=='edit')return null;const result=M.advance(this.state,seconds,budget);if(this.state.phase==='ended'||this.state.flight.t>=604800||Math.hypot(...this.state.flight.state.slice(0,2))>=P.R+1e8-.01)this.running=false;return result;}
     pause(){this.running=false;if(this.editable)this.save();this.emit();}
-    play(){if(this.mode==='edit'&&this.state.flight&&!['planning','ended','workshop'].includes(this.state.phase)){this.running=true;this.emit();}}
+    play(){if(this.mode==='edit'&&this.state.flight&&!['ended','workshop'].includes(this.state.phase)){this.running=true;this.emit();}}
     check(){if(!this.editable)return;this.running=false;if(this.state.phase!=='check')this.state=M.change(this.state,{type:'check'});this.mode='check';this.save();this.emit();}
     back(){if(this.mode!=='check')return;this.state=M.change(this.state,{type:'return'});this.mode='edit';this.save();this.emit();}
     retrySave(){this.save();this.emit();}

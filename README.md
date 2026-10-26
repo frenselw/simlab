@@ -71,7 +71,7 @@ The two assessed DC activities below already use this shared foundation. Assesse
 
 | Activity | Main task |
 |---|---|
-| [Rocket Factory and Space Missions](sim/rocket-space-mission-lab/index.html) — 火箭工廠與太空任務 | Assemble a 3D rocket, control launch and staging, reach orbit, and plan finite-thrust orbital manoeuvres; [implementation and readiness plan](plans/40-rocket-space-mission-lab.md) |
+| [Rocket Factory: Launch to Orbit](sim/rocket-space-mission-lab/index.html) — 火箭工廠：發射入軌 | Assemble a 3D rocket with a fixed 150 kg payload, control launch and staging, and reach a safe near-circular orbit; [implementation and readiness plan](plans/40-rocket-space-mission-lab.md) |
 | [Distance and Displacement Map Journey](sim/displacement-distance-map-journey/index.html) — 路程、位移與總位移地圖任務 | Move around a map, measure distance and draw segment and total displacements |
 | [Inertial Reference Frames: Road Observers](sim/inertial-reference-frame-road-observer/index.html) — 慣性參考系：公路觀察任務 | Switch viewpoints and use relative motion to identify reference frames |
 | [Position–Time Graph Motion Lab](sim/position-time-graph-motion-lab/index.html) — 位置—時間圖運動實驗室 | Set up motion, then observe, draw and measure position–time graphs |
@@ -87,7 +87,7 @@ The two assessed DC activities below already use this shared foundation. Assesse
 | [Circular Motion: Velocity and Acceleration Directions](sim/circular-motion-vector-lab/index.html) — 圓周運動：由位移到速度與加速度方向 | Shorten the time interval, compare displacement directions and construct velocity changes to infer instantaneous directions |
 | [Centripetal Force Investigation](sim/centripetal-force-investigation-lab/index.html) — 向心力探究：操作轉盤與同步量測 | Push a turntable, compare synchronous radial force readings and fit the observed relationships |
 
-Rocket Factory uses locally packaged Three.js and requires WebGL 2. Learners assemble up to two stages, control throttle/pitch/staging, and plan finite-thrust orbital manoeuvres. The 3D view has a fixed flight plane and attitude assistance. Mission B can use a practice spacecraft independently of Mission A. Standalone refresh starts fresh; Moodle resumes the same attempt paused. See the [activity plan and actual readiness evidence](plans/40-rocket-space-mission-lab.md) for model limits, scoring and acceptance status.
+Rocket Factory uses locally packaged Three.js and requires WebGL 2. Learners assemble up to two stages with the same fixed 150 kg payload and control throttle/pitch/staging to establish a safe near-circular orbit. The launch-only rubric awards 10/15/45/30 points for liftoff, reaching space, safe orbit, and circularity (pass: 70). The 3D view has a fixed flight plane and attitude assistance. The v2 assessment has its own activity ID; add it as a new Moodle activity rather than replacing an old SCO with existing attempts. The previous two-task package is retained separately at output/rocket-space-mission-lab-legacy-p40-scorm.zip. Standalone refresh starts fresh; Moodle resumes the same attempt paused. See the [activity plan and actual readiness evidence](plans/40-rocket-space-mission-lab.md) for model limits, scoring and acceptance status.
 
 #### Forces and investigations
 

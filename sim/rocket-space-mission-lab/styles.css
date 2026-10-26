@@ -68,3 +68,12 @@
 .separation-readout{margin:8px 0;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#eef4ed;color:var(--ink);font-size:13px;line-height:1.6;white-space:pre-line;font-variant-numeric:tabular-nums}
 
 .surface-altitude{display:block;font-size:11px;color:#405d65;margin-top:2px}
+
+/* Keep orbit decisions visible while the lower control panel scrolls. */
+.orbit-strip{display:flex;justify-content:space-between;gap:8px;margin:3px 0;font-size:12px;font-variant-numeric:tabular-nums;color:#405d65}.orbit-strip span{white-space:nowrap}.orbit-strip b{color:var(--ink)}.orbit-status{font-size:12px;font-weight:700;line-height:1.35;color:#665322}.orbit-status[data-state=safe],.orbit-status[data-state=near]{color:#11635f}.orbit-details{margin:8px 0}.orbit-details summary{min-height:44px;display:flex;align-items:center;font-size:14px;color:var(--teal);cursor:pointer}.score-item{padding:8px 0;border-bottom:1px solid var(--line)}.score-item .score-row{margin:0}.score-item p{font-size:13px;color:var(--muted);margin:4px 0;line-height:1.5}
+@media(max-width:359px){.orbit-strip{font-size:11px;gap:4px}.orbit-status{font-size:11px}.flight-actions{gap:3px}.flight-actions button{padding-inline:5px}#igniteButton,#stopButton,#separateButton{min-width:70px}}
+
+@media(max-width:639px) and (min-height:520px){.workspace{grid-template-rows:minmax(0,1fr) clamp(282px,42vh,360px);grid-template-rows:minmax(0,1fr) clamp(282px,42dvh,360px)}}
+@media(max-width:639px) and (max-height:519px){.workspace{grid-template-rows:minmax(0,1fr) clamp(220px,calc(100vh - 235px),260px);grid-template-rows:minmax(0,1fr) clamp(220px,calc(100dvh - 235px),260px)}}
+
+.orbit-decision{display:flex;gap:6px;align-items:center;min-height:44px}.orbit-decision-values{flex:1;min-width:0}.orbit-decision .orbit-strip{margin:2px 0 0}.orbit-decision #recordA{flex:none;min-width:78px;max-width:84px;min-height:44px;padding:4px;font-size:12px;line-height:1.25}

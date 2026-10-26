@@ -1,12 +1,14 @@
-(function(root,factory){const node=typeof module==='object'&&module.exports,api=factory(node?require('./parts.js'):root.RocketParts,node?require('./orbit.js'):root.RocketOrbit);if(node)module.exports=api;root.RocketScoring=api;})(typeof window==='undefined'?globalThis:window,function(P,O){
+(function(root,factory){const node=typeof module==='object'&&module.exports,api=factory(node?require('./orbit.js'):root.RocketOrbit);if(node)module.exports=api;root.RocketScoring=api;})(typeof window==='undefined'?globalThis:window,function(O){
   'use strict';
+  function evaluate(r){const orbit=r?O.elements(r.state):null,engineOff=Boolean(r&&(r.engineOff??!r.controls?.lit)),safe=Boolean(r&&r.status==='flying'&&engineOff&&O.safe(r.state)),near=Boolean(safe&&orbit.e<=.03+1e-9);return {orbit,engineOff,safe,near};}
   function score(s){
-    const [a,b]=s.records,oa=a?O.elements(a.state):null,ob=b?O.elements(b.after):null,target=P.TARGETS[s.variant],inBand=h=>h!==null&&h>=target*.9-1&&h<=target*1.1+1;
-    const boundA=oa?.bound&&a.status==='flying',boundB=ob?.bound&&Math.hypot(b.after[0],b.after[1])>P.R;
-    const conditions=[a&&P.complete(a.craft)&&P.twr(a.craft)>1.05+1e-6,oa&&oa.height>=100000-1,boundA&&oa.hp>=150000-1&&oa.ha<=1000000+1,boundA&&oa.hp>=200000-1&&oa.ha<=400000+1&&oa.e<=.03+1e-6,boundB&&inBand(ob.ha),boundB&&inBand(ob.hp),boundB&&inBand(ob.hp)&&inBand(ob.ha)&&ob.hp>=150000-1&&ob.e<=.03+1e-6];
-    const names=['A：可起飛設計','A：到達太空高度','A：安全束縛軌道','A：目標近圓軌道','B：遠地點到達目標','B：近地點到達目標','B：完成圓化'],points=[10,10,20,20,15,15,10];
-    const detail=names.map((title,i)=>({id:String(i+1),title,earned:conditions[i]?points[i]:0,max:points[i]})),total=detail.reduce((v,d)=>v+d.earned,0);
-    return {score:total,maxScore:100,passed:total>=60,completed:true,detail};
+    const r=s.records[0],v=evaluate(r),height=r?.maxHeight||0,circle=v.safe?(v.near?30:Math.min(29,Math.round(30*Math.max(0,Math.min(1,(.06-v.orbit.e)/.03))))):0;
+    const detail=[
+      {id:'liftoff',title:'成功升空',earned:height>=10-1e-6?10:0,max:10,reason:height>=10-1e-6?'已離台並升至 10 m。':'尚未升至 10 m。'},
+      {id:'space',title:'到達太空',earned:height>=100000-1e-6?15:0,max:15,reason:height>=100000-1e-6?'最高海拔已達 100 km。':'最高海拔未達 100 km。'},
+      {id:'safe',title:'建立安全軌道',earned:v.safe?45:0,max:45,reason:v.safe?'已關機；近地點至少 150 km、遠地點不超過 1,000 km。':!r?'未保留試飛成果。':!v.engineOff?'引擎仍在推進，需關機保留。':r.status!=='flying'?'試飛已墜毀或離開範圍。':!v.orbit.bound?'尚未建立束縛軌道。':v.orbit.hp<150000-1?'近地點低於 150 km。':'遠地點超過 1,000 km。'},
+      {id:'circular',title:'軌道圓化程度',earned:circle,max:30,reason:!v.safe?'先建立安全軌道，再計圓化分數。':v.near?'已接近圓形（e ≤ 0.03）。':'軌道仍較橢圓；e 由 0.06 降至 0.03 可逐步取得 30 分。'}
+    ],total=detail.reduce((sum,d)=>sum+d.earned,0);return {score:total,maxScore:100,passed:total>=70,completed:true,detail};
   }
-  return Object.freeze({score});
+  return Object.freeze({score,evaluate});
 });

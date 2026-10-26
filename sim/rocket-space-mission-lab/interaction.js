@@ -21,17 +21,16 @@
         d.returnZone.hidden=!a.source;d.returnZone.textContent=a.returning?'放手，將零件放回元件箱':'元件箱 · 拖到這裏即可取出零件';d.returnZone.style.left=panel.left+8+'px';d.returnZone.style.top=panel.top+8+'px';d.returnZone.style.width=panel.width-16+'px';
         api.drag(a.part,x,y,a.snap,a.source,a.returning);
       }
-      if(a.kind==='node'){a.angle=api.angle(x,y,a.touch?24:14);api.moveNode(a.angle);if(a.touch)api.preview(x,y,'變軌標記預覽');}
       a.lastX=e.clientX;a.lastY=e.clientY;
     }
     function up(e){
       if(!active||e.pointerId!==active.id)return;const a=active,target=a.snap===null?null:api.slots(a.part,a.source)[a.snap];diagnostics.up++;release();
       if(a.part){if(!a.moved){if(a.source)api.selectedInstalled(a.source);}else if(a.returning)api.transfer(a.source,null);else if(a.snap!==null){if(a.source)api.transfer(a.source,target.stage,target.at);else api.attach(target.stage,target.at);}else{const r=d.stage.getBoundingClientRect();if(a.lastX>=r.left&&a.lastX<=r.right&&a.lastY>=r.top&&a.lastY<=r.bottom)api.missed();}}
-      if(a.kind==='node'&&a.angle!==null)api.commitNode(a.angle);api.end();
+      api.end();
     }
     function cancel(){if(active){diagnostics.cancel++;release();api.end();}}
     function bind(target,kind,part){target.addEventListener('pointerdown',e=>down(e,kind,part));target.addEventListener('pointermove',move);target.addEventListener('pointerup',up);target.addEventListener('pointercancel',cancel);target.addEventListener('lostpointercapture',cancel);}
-    d.partsGrid.querySelectorAll('[data-part]').forEach(b=>{bind(b,'part',b.dataset.part);b.addEventListener('click',e=>{if(e.detail!==0&&(draggedCard===b||e.target.closest('[data-part-handle]'))){draggedCard=null;return;}if(api.allowed('part')){api.select(b.dataset.part,null);api.attach();api.end();}});});bind(d.rocketGrip,'installed');bind(d.nodeHandle,'node');bind(d.cameraSurface,'camera');
+    d.partsGrid.querySelectorAll('[data-part]').forEach(b=>{bind(b,'part',b.dataset.part);b.addEventListener('click',e=>{if(e.detail!==0&&(draggedCard===b||e.target.closest('[data-part-handle]'))){draggedCard=null;return;}if(api.allowed('part')){api.select(b.dataset.part,null);api.attach();api.end();}});});bind(d.rocketGrip,'installed');bind(d.cameraSurface,'camera');
     d.cameraSurface.addEventListener('keydown',e=>{const delta={ArrowLeft:[-14,0],ArrowRight:[14,0],ArrowUp:[0,-14],ArrowDown:[0,14]}[e.key];if(delta){e.preventDefault();api.rotate(...delta);}});
     document.addEventListener('pointerdown',e=>{if(active&&e.pointerId!==active.id)cancel();},true);
     document.addEventListener('keydown',e=>{if(e.key==='Escape'&&active){e.preventDefault();cancel();}});

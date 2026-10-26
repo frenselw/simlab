@@ -1,7 +1,7 @@
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;root.RocketParts=api;})(typeof window==='undefined'?globalThis:window,function(){
   'use strict';
-  const ACTIVITY='rocket-space-mission-lab',R=6371000,MU=3.986004418e14,G0=9.80665;
-  const PAYLOADS=[120,150,180],TARGETS=[600000,800000,1000000];
+  const ACTIVITY='rocket-launch-orbit-lab-v2',R=6371000,MU=3.986004418e14,G0=9.80665;
+  const PAYLOADS=[150];
   const ENGINES=[{name:'大推力引擎',dry:500,thrust:600000,isp:300,color:'#ee895c'},{name:'高效率引擎',dry:150,thrust:80000,isp:340,color:'#50b5ad'}];
   const clone=v=>JSON.parse(JSON.stringify(v));
   const emptyStage=()=>({engine:null,small:0,large:0});
@@ -14,5 +14,5 @@
   function canFit(c,stage,part){const s=c.stages[stage];if(part==='separator')return stage===0&&c.stages.length===1&&complete(c);return Boolean(s&&(['engine-0','engine-1'].includes(part)?s.engine===null:['small','large'].includes(part)&&s.small+s.large<4));}
   function mass(f,fuel=f.fuel){return PAYLOADS[f.craft.payload]+f.craft.stages.reduce((sum,s,i)=>sum+(f.separated&&i===0?0:dry(s)+(fuel[i]||0)),0)+(f.craft.separator&&!f.separated?60:0);}
   function twr(c){if(!complete(c))return 0;const f={craft:c,fuel:c.stages.map(capacity),separated:false};return ENGINES[c.stages[0].engine].thrust/(mass(f)*MU/R**2);}
-  return Object.freeze({ACTIVITY,R,MU,G0,PAYLOADS,TARGETS,ENGINES,clone,emptyStage,emptyCraft,tanks,setTanks,capacity,dry,complete,canFit,mass,twr});
+  return Object.freeze({ACTIVITY,R,MU,G0,PAYLOADS,ENGINES,clone,emptyStage,emptyCraft,tanks,setTanks,capacity,dry,complete,canFit,mass,twr});
 });
