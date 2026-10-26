@@ -7,9 +7,13 @@
 - 原910 vertices/1664 triangles重新集中至4km內；兩個mesh合成一個，移除landFade attribute，以共用radius在fragment漸淡外緣。100m位置快取內，clip center與mesh origin一起更新，避免遮罩先移、幾何未移。
 - Node art/model/persistence、`node tools/check.js`、`node tools/test-registry.js`（279 entries）已通過；本機紀錄 `output/rocket/p46-check-codes.json`。舊groundReadability的160km光照範圍門檻改成坡度法線對受光的實際貢獻；保留並加跑原轉動光源像素測試，沒有改變production光照公式。
 - 最終 `--ground-handoff` source＋實際SCORM共30 flows、0 JS errors；runtimeHash `db9eb431b93b1e375ff34111fea37aace6fdcaa2cfa4ecc55732e1d3a14be2d0`，報告 `output/rocket/p46-browser-report.json`。桌面1280×800、直向390×844、橫向844×390：2.9km啟停contact對照0差異，600/1200/2000/2400/5000m每1m交接均<1%顯著像素差，4999→5000m為0.13–0.17%；下降返回逐像素相同。
-- 發射台/海岸/山坡共18個視窗及版本組合，接縫取樣0穿洞；mask/mesh中心在100m快取移動內一致。910 vertices/1664 triangles保持；暫停12次繪圖0重建、geometry/texture/program沒有成長，實測最多61 draw calls/71975 triangles。已檢視2.9km清晰地面、手機海岸/山坡邊界及近地發射台截圖。
+- 發射台/海岸/山坡共18個視窗及版本組合，接縫取樣0穿洞；mask/mesh中心在100m快取移動內一致。910 vertices/1664 triangles保持；暫停12次繪圖0重建、geometry/texture/program沒有成長，交接穩定畫面實測最多61 draw calls/71975 triangles。已檢視2.9km清晰地面、手機海岸/山坡邊界及近地發射台截圖。
 - 既有ground readability、轉動光源/全球法線連續、terrain depth、異地山坡/海面/發射台碰撞與一次性effects、天空coverage及lifecycle通過。舊terrainDepth fixture的5km狀態補上flying（此前錯標pad）；未放寬production驗證。評分100/0分、review/pending/retry、standalone refresh、fullscreen/context recovery維持。
-- 真機Safari與實際Moodle未驗；本機Chrome使用受控軟件渲染，預算/資源檢查不代表真機FPS。發布證據另記。
+- 真機Safari與實際Moodle未驗；本機Chrome使用受控軟件渲染，預算/資源檢查不代表真機FPS。
+- 實作已commit/push `d4a9dfa601e120d31415947dd469bf113eb5bb6a`；committed selection-preview `output/rocket/selection-p46.json`（2af282c→d4a9dfa，affected預覽，未宣稱整批全跑）。
+- Sites helper來源 `12672664fe9168a3d852334dac9d210b27f8cb6a` 已push/打包 `output/rocket/rocket-ground-handoff-p46.tar.gz`。版本44 `appgprj_6adc62579ab88191aba299bcb282ce95~appgver_ef6fd067540c8191bd2f3dcadb93510e`，deployment `appgdep_6adf3c16eb20819197f052c94490d42a`，native succeeded，2026-10-26 19:40:17 UTC+08。原網址 https://simlab-rocket-space-missions.ieyp.chatgpt.site 與owner-private audience保留。
+- `output/rocket/p46-live-verification.json` completed=true：16份線上檔案（包括contact-ground.js、scene.js與原sky修正）符合測試dist；非HTML逐byte hash，HTML只扣平台注入script，憑證只跟隨same-origin canonical index redirect。sourceCommit=d4a9dfa601e120d31415947dd469bf113eb5bb6a，packageSha256=086e87e29f549a31bb534aca4173decb74fc9cad60f0a06214094fcd4bb068cf。474份ZIP entries已核對dist，SCO同步 `output/rocket-launch-orbit-lab-v2-scorm.zip`。
+- 受控browser/server/helper/live verifier已結束；既有附件未改。
 
 ---
 
