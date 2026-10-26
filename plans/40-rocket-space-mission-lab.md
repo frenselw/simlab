@@ -1,3 +1,24 @@
+# 2026-10-26 P43：手機兩行固定操作列
+
+使用者已批准立即實作前一輪分析；本節調整固定列及可捲動內容，評分/物理/存檔格式不變。
+
+- 固定列只保留近/遠地點一行，以及暫停、點火/關機、分離、倍率一行；目標高度72–80px，按鈕保持至少44px。倍率與其他按鈕連排。
+- 級別/飛行狀態、倍率提示、時間與完整入軌狀態移至預設展開的軌道詳細數據；recordA原有關機/保留語義與id保留，移回捲動區。
+- 題目以原生details呈現：進入工廠預設完整展開，進入飛行預設縮成一行可展開目標；只在工廠/飛行切換時設定預設，操作時不反覆覆蓋使用者開合選擇。進成果頁/返回不重設飛行已選開合。
+- 保留現有控制區總高度，將節省的固定高度交給下方scroll panel；不把空間再轉給畫布。既有scroll strips、44px targets、viewport與相機狀態保留。
+- 影響僅index/styles/main與同一owning browser、計劃/說明；沒有新依賴、新schema或新測試檔案。舊成績與pending維持現行兼容規則。
+- 測試：source及SCORM於320/375/390等手機（含460px短視窗）、橫向與桌面檢查固定高度/可捲動高度/44px/無橫向溢出；原生觸控捲動不改飛行，固定關機及分離/點火不受捲動影響；題目預設及手動展開、資料預設展開、保存/提交仍可到達。沿用登記browser的生命周期檢查與package closure。真機及實際Moodle不以本機代替。
+
+本輪已執行證據：
+
+- `node tools/check.js` 與 `node tools/test-registry.js` 通過（279 entries，無新增未登記檔案）。
+- 最終 `--compact-deck` browser source＋實際SCORM通過，16 flows、0 JS errors。320×568、375×600、390×460/664/844、844×390、1280×800驗固定兩行、每掣至少44px、近遠地點不溢出、沒有橫向頁面捲動、題目預設/手動開合不被render覆寫、詳細數據預設展開、關機/保存/檢查可達、捲到最底仍可分離/上級原位點火。
+- 實測固定列 72.84–74.19px；390×460 scroll panel 149.81px。原生觸控在油門掣上捲動不改飛行狀態。沿用lifecycle檢查100/0分、review lock/resume、pending/finish重試、fullscreen/context recovery、standalone refresh與舊摘要保留。未改評分/物理/存檔，本輪不重跑無關3D art/performance browser。
+- 報告 `output/rocket/p43-browser-report.json`，runtimeHash `974eaa004e386c09f1f32d4c50f962d81b66dbfae02b9ca70350586242115633`；已檢視320px控制區截圖。真機Safari及實際Moodle仍未驗收。
+- commit / selection-preview / 發布與線上核對待完成後補記。
+
+---
+
 # 2026-10-26 P42：寬鬆部分分、導航與題目提示修訂
 
 使用者已明確批准七項修改；本節優先於 P41 配分邊界，舊文字保留作歷史。
