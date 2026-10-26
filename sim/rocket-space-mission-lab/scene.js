@@ -30,7 +30,7 @@ export class RocketScene{
     if(slow){this.quality++;this.sampleAfter=now+5000;this.resize();}
   }
   resetFrameSample(){this.frameSamples.length=0;this.sampleAfter=0;}
-  setView(view,reset=false){this.cameraViews.set(this.view,{yaw:this.yaw,pitch:this.pitch,zoom:this.zoom});const saved=!reset&&this.cameraViews.get(view);this.view=view;Object.assign(this,saved||{yaw:view==='plane'?0:view==='orbit'?.7:view==='follow'?-.65:.55,pitch:view==='plane'?0:view==='orbit'?.48:.18,zoom:1});this.draw();}
+  setView(view,reset=false){if(view==='factory'&&reset)this.factoryHeight=13;this.cameraViews.set(this.view,{yaw:this.yaw,pitch:this.pitch,zoom:this.zoom});const saved=!reset&&this.cameraViews.get(view);this.view=view;Object.assign(this,saved||{yaw:view==='plane'?0:view==='orbit'?.7:view==='follow'?-.65:.55,pitch:view==='plane'?0:view==='orbit'?.48:.18,zoom:1});this.draw();}
   rotate(dx,dy){this.yaw+=dx*.008;this.pitch=Math.max(-1.5,Math.min(1.5,this.pitch+dy*.006));this.draw();}
   clearSeparation(){if(this.separation){this.scene.remove(this.separation.body);dispose(this.separation.body);this.separation=null;}}
   setData(data){
@@ -73,7 +73,7 @@ export class RocketScene{
   }
   setPaths(actual,predicted,planned){this.line('actual',actual,'#ee9674');this.line('predicted',predicted,'#b0e3d4',true);this.line('planned',planned,'#f6ca74',true);}
   draw(){
-    if(!this.data||!this.rocket||this.lost)return;const {flight:f,workshop}=this.data,space=['orbit','plane'].includes(this.view),factory=workshop&&this.view==='factory',height=this.rocket.userData.height;
+    if(!this.data||!this.rocket||this.lost)return;const {flight:f,workshop}=this.data,space=['orbit','plane'].includes(this.view),factory=workshop&&this.view==='factory',height=Math.max(.1,this.rocket.userData.height);
     const agl=f?S.clearance(f.state,f.t):0,altitude=f?Math.max(0,O.elements(f.state).height):0,theta=f?Math.atan2(f.state[1],f.state[0]):0;
     this.earth.geometry=f&&!space&&altitude<120000?this.earth.userData.nearGeometry:this.earth.userData.farGeometry;
     const drop=this.separation;if(drop&&f)for(let i=0;i<20000&&drop.coast.t<f.t-1e-8&&!['impact','escaped'].includes(drop.coast.status);i++)M.step(drop.coast,Math.min(O.elements(drop.coast.state).height<120000?.1:2,f.t-drop.coast.t),{mass:drop.mass});
@@ -88,7 +88,7 @@ export class RocketScene{
     this.sky.visible=!(factory||!f&&!space);this.sky.material.uniforms.uSpace.value=sky;
     const target=new THREE.Vector3();let distance;
     if(space){this.earth.position.set(0,0,0);this.earth.scale.setScalar(3);this.halo.position.copy(this.earth.position);this.halo.scale.setScalar(3.045);this.rocket.scale.setScalar(.33/displayHeight);this.rocket.position.set(f?f.state[1]*3/P.R:0,f?f.state[0]*3/P.R:3,0);this.rocket.rotation.z=f?-f.attitude:0;target.set(0,.3,0);const h=this.host.clientHeight;distance=Math.max(14.5,3*h/(2*Math.tan(Math.PI/9)*Math.max(20,(h-130)/2)))/this.zoom;}
-    else if(factory||!f){this.rocket.scale.setScalar(1);this.rocket.position.set(0,0,0);this.rocket.rotation.z=0;target.set(0,height*.44,0);distance=Math.max(24,height*1.85)/this.zoom;}
+    else if(factory||!f){this.rocket.scale.setScalar(1);this.rocket.position.set(0,0,0);this.rocket.rotation.z=0;this.factoryHeight=this.factoryHeight||13;const framing=height+(P.hasCapsule(this.data.craft)?0:4.4);if(framing>this.factoryHeight)this.factoryHeight=Math.ceil(framing/5)*5;target.set(0,this.factoryHeight*.44,0);distance=Math.max(24,this.factoryHeight*1.85)/this.zoom;}
     else{
       // Leave depth clearance for Float32 rounding at planetary scale.
       const r=Math.hypot(f.state[0],f.state[1]);this.earth.position.set(0,-r/1000,0);this.earth.scale.setScalar((P.R-5)/1000);this.halo.position.copy(this.earth.position);this.halo.scale.setScalar((P.R+80000)/1000);
@@ -142,9 +142,10 @@ export class RocketScene{
   animateEffects(now){const elapsed=this.effectClock?Math.max(0,(now-this.effectClock)/1000):0,delta=Math.min(.05,elapsed);this.effectClock=now;if(this.lost||document.hidden||!this.data?.live||(this.data.running===false&&this.data.flight?.status!=='impact'))return false;const separating=this.separation&&this.data.running!==false&&this.separation.visualAge<.6;if(separating)this.separation.visualAge=Math.min(.6,this.separation.visualAge+elapsed);if(this.impacts.advance(delta)||separating){this.draw();return true;}return false;}
   project(position){const p=position.clone().project(this.camera);const r=this.host.getBoundingClientRect();return {x:(p.x+1)*r.width/2,y:(1-p.y)*r.height/2,visible:p.z>=-1&&p.z<=1&&Math.abs(p.x)<.98&&Math.abs(p.y)<.98};}
   slotPoints(part=null,source=null){
-    if(!this.rocket)return [];this.rocket.updateMatrixWorld();const engine=part?.startsWith('engine-'),tank=part&&!engine&&part!=='separator';
+    if(!this.rocket)return [];this.rocket.updateMatrixWorld();const engine=part?.startsWith('engine-'),tank=['small','large'].includes(part);
     const point=(stage,y,at,gap=false)=>{const p=this.project(this.rocket.localToWorld(new THREE.Vector3(0,y,0))),bodyX=p.x,bodyY=p.y;if(part)p.x=Math.max(28,Math.min(this.host.clientWidth-28,p.x+(engine||gap?-1:1)*58));else p.x+=48;p.y=Math.max(28,Math.min(this.host.clientHeight-96,p.y));return {...p,bodyX,bodyY,localY:y,stage,at,gap,compatible:!part||source?.stage===stage||P.canFit(this.data.craft,stage,part)};};
-    if(part==='separator')return this.rocket.userData.slots.map((middle,i)=>point(i,source&&i===1?this.rocket.userData.separatorY:this.data.craft.stages.length===1?-.5:middle,undefined));
+    if(part==='capsule')return [point(this.data.craft.stages.length-1,this.rocket.userData.bodyTop,undefined)];
+    if(part==='separator')return [source?point(1,this.rocket.userData.separatorY,undefined):point(0,this.rocket.userData.ranges[0].joins.at(-1)+.325,undefined)];
     const points=this.rocket.userData.slots.map((middle,i)=>{const r=this.rocket.userData.ranges[i],at=tank?r.joins.length-1:undefined,y=!part?middle:engine?r.base+.85:at?r.joins[at]:r.base+r.engine+2.05;return point(i,y,at);});
     if(tank)for(const [i,r]of this.rocket.userData.ranges.entries())r.joins.slice(0,-1).forEach((y,at)=>points.push(point(i,y,at,true)));return points;
   }
@@ -164,7 +165,7 @@ export class RocketScene{
     if(key!==this.assemblyPreviewKey){if(this.assemblyPreview){this.scene.remove(this.assemblyPreview);dispose(this.assemblyPreview);this.assemblyPreview=null;}this.assemblyPreviewKey=key;if(craft){this.assemblyPreview=buildRocket(craft,false);this.scene.add(this.assemblyPreview);}}
     if(this.assemblyPreview){this.assemblyPreview.visible=true;if(this.dragGhost)this.dragGhost.visible=false;this.draw();return;}
     if(!part){if(this.dragGhost)this.dragGhost.visible=false;for(const p of this.rocket?.userData.parts||[])p.visible=true;this.draw();return;}
-    if(this.ghostPart!==part){if(this.dragGhost){this.scene.remove(this.dragGhost);dispose(this.dragGhost);}const c=P.emptyCraft(0);if(part==='separator'){c.stages=[P.emptyStage(),{engine:0,small:1,large:0}];c.separator=true;}else if(part.startsWith('engine-'))c.stages[0].engine=Number(part.slice(-1));else c.stages[0][part]=1;const temporary=buildRocket(c,false),piece=temporary.userData.parts.find(p=>p.userData.part.part===part),center=new THREE.Box3().setFromObject(piece).getCenter(new THREE.Vector3());piece.traverse(o=>{if(o.isMesh){o.geometry=o.geometry.clone();o.material=o.material.clone();o.material.transparent=true;o.material.opacity=.65;}});temporary.remove(piece);dispose(temporary);piece.position.sub(center);this.dragGhost=new THREE.Group();this.dragGhost.add(piece);this.scene.add(this.dragGhost);this.ghostPart=part;}
+    if(this.ghostPart!==part){if(this.dragGhost){this.scene.remove(this.dragGhost);dispose(this.dragGhost);}const c=P.emptyCraft(0);if(part==='capsule')delete c.capsule;else if(part==='separator'){c.stages=[P.emptyStage(),{engine:0,small:1,large:0}];c.separator=true;}else if(part.startsWith('engine-'))c.stages[0].engine=Number(part.slice(-1));else c.stages[0][part]=1;const temporary=buildRocket(c,false),piece=temporary.userData.parts.find(p=>p.userData.part.part===part),center=new THREE.Box3().setFromObject(piece).getCenter(new THREE.Vector3());piece.traverse(o=>{if(o.isMesh){o.geometry=o.geometry.clone();o.material=o.material.clone();o.material.transparent=true;o.material.opacity=.65;}});temporary.remove(piece);dispose(temporary);piece.position.sub(center);this.dragGhost=new THREE.Group();this.dragGhost.add(piece);this.scene.add(this.dragGhost);this.ghostPart=part;}
     for(const p of this.rocket.userData.parts)p.visible=!(source&&p.userData.part.stage===source.stage&&p.userData.part.part===source.part&&p.userData.part.ordinal===source.ordinal);
     this.dragGhost.visible=x>=0&&y>=0&&x<=this.host.clientWidth&&y<=this.host.clientHeight;
     if(snap!==null){const point=this.slotPoints(part,source)[snap];this.dragGhost.position.copy(this.rocket.localToWorld(new THREE.Vector3(0,point.localY,0)));}

@@ -126,15 +126,19 @@ export function buildRocket(c,separated){
     }
     partParent=group;const tanks=P.tanks(s),joins=[y],ordinals={small:0,large:0};
     tanks.forEach((part,j)=>{const h=part==='large'?4.1:2.4;startPart(part,ordinals[part]++,j);mesh(new THREE.CylinderGeometry(1.4,1.4,h,32),tankMats[part],0,y+h/2,0);batch(band,accent,[.2,h-.2].map(dy=>[0,y+dy,0,1.43,.23,1.43]));batch(pipe,metal,[[-.2,y+h/2,1.41,.04,h*.67,.04],[.2,y+h/2,1.41,.04,h*.67,.04],[0,y+h*.48,1.44,.115,.06,.115,Math.PI/2]]);batch(bolts,metal,Array.from({length:16},(_,j)=>{const a=(j%8)*Math.PI/4;return [1.44*Math.sin(a),y+(j<8?.2:h-.2),1.44*Math.cos(a),.04,.04,.04];}));y+=h;joins.push(y);});
-    partParent=group;if(tanks.length===0){mesh(new THREE.CylinderGeometry(1.35,1.35,3,16),material('#a7c0b7',{transparent:true,opacity:.3,wireframe:true}),0,y+1.5,0);y+=3;}
+    partParent=group;
     slots[i]=(base+y)/2;ranges[i]={base,engine:s.engine===null?0:2,large:s.large,small:s.small,joins};
   });
+  const bodyTop=y;
+  if(P.hasCapsule(c)){partParent=new THREE.Group();partParent.userData.part={stage:c.stages.length-1,part:'capsule',ordinal:0,index:null};group.add(partParent);parts.push(partParent);
   mesh(new THREE.CylinderGeometry(1.25,1.4,2,32),skin,0,y+1,0);mesh(new THREE.SphereGeometry(1.25,32,20,0,Math.PI*2,0,Math.PI/2),white,0,y+2,0);const faceY=y+1.1;
   batch(new THREE.SphereGeometry(1,12,8),dark,[-1,1].map(side=>[side*.4,faceY,1.24,.16,.16,.16]));batch(new THREE.SphereGeometry(1,8,6),material('#ffffff'),[-1,1].map(side=>[side*.4-.03,faceY+.05,1.37,.07,.07,.07]));
   const smile=new THREE.TorusGeometry(.24,.035,6,14,Math.PI);const mouth=mesh(smile,dark,0,faceY-.25,1.32);mouth.rotation.z=Math.PI;
   mesh(new THREE.CylinderGeometry(.04,.04,1.1,8),metal,0,y+3.6,0);mesh(new THREE.SphereGeometry(.17,10,8),orange,0,y+4.15,0);
+  }
+  partParent=group;
   const rcs=[new THREE.Group(),new THREE.Group()],nozzles=[];
-  for(const [index,direction]of [-1,1].entries())for(const [level,side]of [[y+.25,-direction],[1.8,direction]]){
+  if(P.hasCapsule(c))for(const [index,direction]of [-1,1].entries())for(const [level,side]of [[y+.25,-direction],[1.8,direction]]){
     nozzles.push([side*1.53,level,0,.13,.24,.13,0,0,-side*Math.PI/2]);
     for(const [radius,length,opacity]of [[.5,3.2,.45],[.23,2.1,.9]]){
       const plume=mesh(new THREE.ConeGeometry(radius,length,10),new THREE.MeshBasicMaterial({color:radius>.3?'#7bc9ff':'#e1f6ff',transparent:true,opacity,blending:THREE.AdditiveBlending,depthWrite:false,toneMapped:false}),side*(1.65+length/2),level,0,rcs[index]);plume.rotation.z=side*Math.PI/2;plume.userData.baseOpacity=opacity;
@@ -147,5 +151,5 @@ export function buildRocket(c,separated){
     // Keep full-width bounds while throttle only narrows the individual plumes.
     plume.computeBoundingSphere();
   }
-  flame.visible=false;group.add(flame);group.microDetails=microDetails;group.userData={slots,parts,ranges,separatorY,height:y+4.4,flame,rcs};group.updateMatrixWorld(true);const bounds=new THREE.Box3();for(const part of parts)bounds.union(new THREE.Box3().setFromObject(part));group.userData.partBounds=bounds;return group;
+  flame.visible=false;group.add(flame);group.microDetails=microDetails;group.userData={slots,parts,ranges,separatorY,bodyTop,height:y+(P.hasCapsule(c)?4.4:0),flame,rcs};group.updateMatrixWorld(true);const bounds=new THREE.Box3();for(const part of parts)bounds.union(new THREE.Box3().setFromObject(part));group.userData.partBounds=bounds;return group;
 }

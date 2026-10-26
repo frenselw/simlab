@@ -1,7 +1,7 @@
 (function(root,factory){const node=typeof module==='object'&&module.exports,api=factory(node?require('./parts.js'):root.RocketParts,node?require('./orbit.js'):root.RocketOrbit,node?require('./surface.js'):root.RocketSurface);if(node)module.exports=api;root.RocketModel=api;})(typeof window==='undefined'?globalThis:window,function(P,O,S){
   'use strict';
   const clone=P.clone,PHASES=['workshop','pad','ascent','coast','ended','check'];
-  function fresh(){return {schema:3,modelVersion:2,variant:0,phase:'workshop',backPhase:null,craft:P.emptyCraft(0),flight:null,records:[null]};}
+  function fresh(){return {schema:4,modelVersion:2,variant:0,phase:'workshop',backPhase:null,craft:P.emptyCraft(0),flight:null,records:[null]};}
   function flight(craft,source='own',q=[P.R,0,0,0,0,0]){return {source,craft:clone(craft),t:0,state:q.slice(),fuel:[P.capacity(craft.stages[0]),craft.stages[1]?P.capacity(craft.stages[1]):null],active:0,separated:false,attitude:0,controls:{mode:'tilt',angle:0,throttle:1,lit:false},status:source==='practice'?'flying':'pad',maxHeight:Math.max(0,O.elements(q).height)};}
   function atmosphere(h){if(h>=120000)return 0;const t=Math.max(0,Math.min(1,(h-80000)/40000));return 1.225*Math.exp(-Math.max(0,h)/8500)*(1-t*t*(3-2*t));}
   function targetAttitude(f){const q=f.state,c=f.controls;if(c.mode==='tilt')return Math.atan2(q[1],q[0])+Math.sign(q[0]*q[4]-q[1]*q[3]||1)*c.angle*Math.PI/180;return Math.atan2(q[4],q[3])+(c.mode==='retrograde'?Math.PI:0);}
@@ -51,14 +51,15 @@
   function change(s,action){
     const n=clone(s),f=n.flight;if(n.phase==='check'&&action.type!=='return')return n;
     switch(action.type){
-      case 'part':{if(n.phase!=='workshop')break;const st=n.craft.stages[action.stage];if(!st)break;if(action.part==='engine')st.engine=action.value;else if(['small','large'].includes(action.part)&&Number.isInteger(action.value)&&action.value>=0&&action.value<=4&&action.value+st[action.part==='small'?'large':'small']<=4){const list=P.tanks(st);while(list.filter(k=>k===action.part).length>action.value)list.splice(list.lastIndexOf(action.part),1);while(list.filter(k=>k===action.part).length<action.value)list.push(action.part);P.setTanks(st,list);}break;}
+      case 'part':{if(n.phase!=='workshop')break;const st=n.craft.stages[action.stage];if(!st)break;if(action.part==='engine'){if([null,0,1].includes(action.value))st.engine=action.value;}else if(['small','large'].includes(action.part)&&Number.isInteger(action.value)&&action.value>=0&&action.value<=4&&action.value+st[action.part==='small'?'large':'small']<=4&&(action.value<=st[action.part]||P.canFit(n.craft,action.stage,action.part))){const list=P.tanks(st);while(list.filter(k=>k===action.part).length>action.value)list.splice(list.lastIndexOf(action.part),1);while(list.filter(k=>k===action.part).length<action.value)list.push(action.part);P.setTanks(st,list);}break;}
       case 'insert':{
         if(n.phase!=='workshop'||!['small','large'].includes(action.part)||!P.canFit(n.craft,action.stage,action.part))break;
         const st=n.craft.stages[action.stage],list=P.tanks(st);if(!Number.isInteger(action.at)||action.at<0||action.at>list.length)break;list.splice(action.at,0,action.part);P.setTanks(st,list);break;
       }
       case 'transfer':{
         if(n.phase!=='workshop'||!Number.isInteger(action.from)||action.to!==null&&!Number.isInteger(action.to))break;
-        if(action.part==='separator'){const lower=n.craft.stages[0];if(action.from===1&&action.to===null&&action.at===undefined&&(action.ordinal===undefined||action.ordinal===0)&&n.craft.separator&&n.craft.stages.length===2&&lower.engine===null&&!lower.small&&!lower.large){n.craft.stages=[n.craft.stages[1]];n.craft.separator=false;}break;}
+        if(action.part==='capsule'){if(action.from===n.craft.stages.length-1&&action.to===null&&action.at===undefined&&(action.ordinal===undefined||action.ordinal===0)&&P.hasCapsule(n.craft))n.craft.capsule=false;break;}
+        if(action.part==='separator'){const upper=n.craft.stages[1];if(action.from===1&&action.to===null&&action.at===undefined&&(action.ordinal===undefined||action.ordinal===0)&&n.craft.separator&&upper&&upper.engine===null&&!upper.small&&!upper.large&&!P.hasCapsule(n.craft)){n.craft.stages.pop();n.craft.separator=false;}break;}
         const st=n.craft.stages[action.from],part=action.part,engine=['engine-0','engine-1'].includes(part),same=action.from===action.to;
         if(!st||!(engine?st.engine===Number(part.slice(-1)):['small','large'].includes(part)&&st[part]>0)||action.to!==null&&!same&&!P.canFit(n.craft,action.to,part))break;
         if(engine){if(same||action.at!==undefined)break;st.engine=null;if(action.to!==null)n.craft.stages[action.to].engine=Number(part.slice(-1));break;}
@@ -66,8 +67,9 @@
         const target=action.to===null?null:same?list:P.tanks(n.craft.stages[action.to]),at=action.at??target?.length;if(target&&(!Number.isInteger(at)||at<0||at>target.length)||same&&action.at===undefined)break;
         list.splice(index,1);if(target)target.splice(same&&at>index?at-1:at,0,part);P.setTanks(st,list);if(target&&!same)P.setTanks(n.craft.stages[action.to],target);break;
       }
-      case 'separator':if(n.phase==='workshop'&&P.canFit(n.craft,0,'separator')){n.craft.stages.unshift(P.emptyStage());n.craft.separator=true;}break;
-      case 'stages':if(n.phase==='workshop'&&[1,2].includes(action.count)){n.craft.stages=action.count===1?[n.craft.stages[0]]:[n.craft.stages[0],n.craft.stages[1]||P.emptyStage()];n.craft.separator=action.count===2;}break;
+      case 'separator':if(n.phase==='workshop'&&P.canFit(n.craft,0,'separator')){n.craft.stages.push(P.emptyStage());n.craft.separator=true;}break;
+      case 'stages':if(n.phase==='workshop'&&[1,2].includes(action.count)&&!P.hasCapsule(n.craft)){n.craft.stages=action.count===1?[n.craft.stages[0]]:[n.craft.stages[0],n.craft.stages[1]||P.emptyStage()];n.craft.separator=action.count===2;}break;
+      case 'capsule':if(n.phase==='workshop'&&P.canFit(n.craft,n.craft.stages.length-1,'capsule'))delete n.craft.capsule;break;
       case 'launch':if(n.phase==='workshop'&&P.complete(n.craft)){n.flight=flight(n.craft);n.phase='pad';}break;
       case 'workshop':n.phase='workshop';n.flight=null;break;
       case 'control':if(f&&['pad','ascent','coast'].includes(n.phase)){if(action.key==='throttle'&&Number.isFinite(action.value)&&action.value>=0&&action.value<=1)f.controls.throttle=action.value;if(action.key==='angle'&&Number.isFinite(action.value)&&action.value>=0&&action.value<=180){f.controls.angle=action.value;f.controls.mode='tilt';}if(action.key==='mode'&&['tilt','prograde','retrograde'].includes(action.value))f.controls.mode=action.value;}break;

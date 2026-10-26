@@ -19,12 +19,12 @@ let full=M.change(moved,{type:'part',stage:1,part:'large',value:4});assert(!P.ca
 const withRecord=M.change(T.reachOrbit(1),{type:'workshop'}),storedRecord=P.clone(withRecord.records),afterRemoval=M.change(withRecord,{type:'transfer',from:0,to:null,part:'large'});assert.deepEqual(afterRemoval.records,storedRecord);assert.equal(afterRemoval.craft.stages[0].large,withRecord.craft.stages[0].large-1);
 
 
-let ordered=M.change(M.fresh(()=>.5),{type:'part',stage:0,part:'large',value:2});
+let ordered=M.change(M.change(M.fresh(()=>.5),{type:'part',stage:0,part:'engine',value:0}),{type:'part',stage:0,part:'large',value:2});
 ordered=M.change(ordered,{type:'insert',stage:0,part:'small',at:1});assert.deepEqual(P.tanks(ordered.craft.stages[0]),['large','small','large']);assert.equal(ordered.craft.stages[0].order,'lsl');
 const immutable=P.clone(ordered),massBefore=P.dry(ordered.craft.stages[0]),capacityBefore=P.capacity(ordered.craft.stages[0]);
 let reordered=M.change(ordered,{type:'transfer',from:0,to:0,part:'large',ordinal:1,at:0});assert.deepEqual(P.tanks(reordered.craft.stages[0]),['large','large','small']);assert.equal(reordered.craft.stages[0].order,undefined);assert.equal(P.dry(reordered.craft.stages[0]),massBefore);assert.equal(P.capacity(reordered.craft.stages[0]),capacityBefore);assert.deepEqual(ordered,immutable);
 assert.deepEqual(P.tanks(M.change(ordered,{type:'transfer',from:0,to:null,part:'large',ordinal:0}).craft.stages[0]),['small','large']);
-let two=M.change(ordered,{type:'stages',count:2});two=M.change(two,{type:'part',stage:1,part:'small',value:1});two=M.change(two,{type:'transfer',from:0,to:1,part:'large',ordinal:1,at:0});assert.deepEqual(P.tanks(two.craft.stages[0]),['large','small']);assert.deepEqual(P.tanks(two.craft.stages[1]),['large','small']);
+let two=M.change(ordered,{type:'stages',count:2});two=M.change(M.change(two,{type:'part',stage:1,part:'engine',value:1}),{type:'part',stage:1,part:'small',value:1});two=M.change(two,{type:'transfer',from:0,to:1,part:'large',ordinal:1,at:0});assert.deepEqual(P.tanks(two.craft.stages[0]),['large','small']);assert.deepEqual(P.tanks(two.craft.stages[1]),['large','small']);
 let four=M.change(ordered,{type:'insert',stage:0,part:'small',at:0});assert.deepEqual(P.tanks(four.craft.stages[0]),['small','large','small','large']);assert.deepEqual(M.change(four,{type:'insert',stage:0,part:'small',at:2}),four);assert.deepEqual(P.tanks(M.change(four,{type:'transfer',from:0,to:0,part:'large',ordinal:1,at:1}).craft.stages[0]),['small','large','large','small']);
 for(const at of [-1,4,.5,null,NaN])assert.deepEqual(M.change(ordered,{type:'insert',stage:0,part:'small',at}),ordered);
 for(const ordinal of [-1,2,.5,NaN])assert.deepEqual(M.change(ordered,{type:'transfer',from:0,to:null,part:'large',ordinal}),ordered);
@@ -33,14 +33,18 @@ const lockedOrder=M.change(ordered,{type:'check'});assert.deepEqual(M.change(loc
 console.log('rocket insertion: ordered middle insertion, same-stage reorder, exact removal, atomic transfer, limits and locking passed');
 
 for(let variant=0;variant<3;variant++){
- let upper=M.fresh(()=>variant/3+.01);assert.deepEqual(M.change(upper,{type:'separator'}),upper);
- upper=M.change(upper,{type:'part',stage:0,part:'engine',value:1});assert.deepEqual(M.change(upper,{type:'separator'}),upper);
- upper=M.change(upper,{type:'part',stage:0,part:'large',value:1});upper=M.change(upper,{type:'insert',stage:0,part:'small',at:0});
- const original=P.clone(upper.craft.stages[0]),built=M.change(upper,{type:'separator'});assert.equal(built.craft.stages.length,2);assert.deepEqual(built.craft.stages[1],original);assert.deepEqual(built.craft.stages[0],P.emptyStage());assert.equal(built.craft.separator,true);assert.equal(P.mass({craft:built.craft,separated:false},built.craft.stages.map(P.capacity))-P.mass({craft:upper.craft,separated:false},upper.craft.stages.map(P.capacity)),60);assert.deepEqual(M.change(built,{type:'separator'}),built);
- assert.deepEqual(M.change(built,{type:'transfer',from:1,to:null,part:'separator'}),upper);
- let lower=M.change(built,{type:'part',stage:0,part:'engine',value:0});assert.deepEqual(M.change(lower,{type:'transfer',from:1,to:null,part:'separator'}),lower);lower=M.change(lower,{type:'part',stage:0,part:'large',value:1});const fly=M.change(M.change(lower,{type:'launch'}),{type:'ignite'});assert.equal(fly.flight.active,0);assert.equal(M.thrust(fly.flight),600000);const staged=M.change(fly,{type:'separate'});assert.equal(staged.flight.active,1);assert.deepEqual(staged.flight.craft.stages[1],original);assert.equal(M.thrust(M.change(staged,{type:'ignite'}).flight),80000);assert.deepEqual(M.change(fly,{type:'separator'}),fly);assert.deepEqual(M.change(M.change(built,{type:'check'}),{type:'separator'}),M.change(built,{type:'check'}));
+ let lower=M.fresh();assert.deepEqual(M.change(lower,{type:'capsule'}),lower);assert.deepEqual(M.change(lower,{type:'separator'}),lower);assert.deepEqual(M.change(lower,{type:'part',stage:0,part:'large',value:1}),lower);
+ lower=M.change(lower,{type:'part',stage:0,part:'engine',value:0});assert.deepEqual(M.change(lower,{type:'separator'}),lower);
+ lower=M.change(lower,{type:'part',stage:0,part:'large',value:1});lower=M.change(lower,{type:'insert',stage:0,part:'small',at:0});
+ const original=P.clone(lower.craft.stages[0]),built=M.change(lower,{type:'separator'});assert.deepEqual(built.craft.stages[0],original);assert.deepEqual(built.craft.stages[1],P.emptyStage());assert.equal(built.craft.separator,true);assert.equal(P.mass({craft:built.craft,separated:false},built.craft.stages.map(P.capacity))-P.mass({craft:lower.craft,separated:false},lower.craft.stages.map(P.capacity)),60);assert.deepEqual(M.change(built,{type:'separator'}),built);assert.deepEqual(M.change(built,{type:'capsule'}),built);
+ assert.deepEqual(M.change(built,{type:'transfer',from:1,to:null,part:'separator'}),lower);
+ let upper=M.change(built,{type:'part',stage:1,part:'engine',value:1});assert.deepEqual(M.change(upper,{type:'transfer',from:1,to:null,part:'separator'}),upper);upper=M.change(upper,{type:'part',stage:1,part:'large',value:1});assert.deepEqual(M.change(upper,{type:'launch'}),upper);
+ const ready=M.change(upper,{type:'capsule'});assert(P.complete(ready.craft));assert.equal(P.mass({craft:ready.craft,separated:false},ready.craft.stages.map(P.capacity))-P.mass({craft:upper.craft,separated:false},upper.craft.stages.map(P.capacity)),150);assert.deepEqual(M.change(ready,{type:'capsule'}),ready);assert.deepEqual(M.change(ready,{type:'insert',stage:0,part:'large',at:0}),ready);assert.deepEqual(M.change(ready,{type:'separator'}),ready);
+ const unsealed=M.change(ready,{type:'transfer',from:1,to:null,part:'capsule'});assert.deepEqual(unsealed,upper);assert.deepEqual(M.change(unsealed,{type:'launch'}),unsealed);assert.deepEqual(M.change(unsealed,{type:'capsule'}),ready);
+ const fly=M.change(M.change(ready,{type:'launch'}),{type:'ignite'});assert.equal(fly.flight.active,0);assert.equal(M.thrust(fly.flight),600000);const staged=M.change(fly,{type:'separate'});assert.equal(staged.flight.active,1);assert.deepEqual(staged.flight.craft.stages[0],original);assert(P.hasCapsule(staged.flight.craft));assert.equal(M.thrust(M.change(staged,{type:'ignite'}).flight),80000);assert.deepEqual(M.change(fly,{type:'transfer',from:1,to:null,part:'capsule'}),fly);
+ const single=M.change(lower,{type:'capsule'});assert(P.complete(single.craft));assert.equal(M.change(single,{type:'launch'}).phase,'pad');assert.deepEqual(M.change(single,{type:'separator'}),single);
 }
-console.log('rocket separator: bottom extension preserves upper stage, adds 60kg, rejects loss/duplicates and fires lower then upper');
+console.log('rocket bottom-up assembly: retained lower stage, top extension, final capsule gate, fixed 150kg, reversible edits, single/two-stage ignition and separation passed');
 
 // A detached stage has its own drag mass, without changing the authoritative craft.
 {

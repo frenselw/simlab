@@ -1,3 +1,17 @@
+# 2026-10-26 P47：由下向上組裝及最後安裝太空艙
+
+- 使用者已批准按方案實作。流程：下級引擎→燃料箱→（可選分離器→上級引擎→燃料箱）→太空艙；分離器向上新增stage[1]，stage[0]身份不變。太空艙只一件、最後裝，固定載荷150kg；已裝後先取下才可增加箱/級，既有引擎更換及箱內重排可保留艙。
+- Scope：parts/model/scene-art/scene/main/index、persistence與既有測試/fixture/說明。沿用SVG卡、Three模型、touch/click/keyboard/ghost與shared SCORM/fullscreen，無新依賴。風險集中上下級身份、末端吸附/拆件、part bounds/落地、舊pending canonical bytes及手機camera/scroll；不改physics與10/15/45/30 rubric（formative/low-risk browser grading）。
+- 狀態：新draft/review schema4、modelVersion2。craft.capsule=false代表未裝；已裝沿用既有craft（省略欄位），由P.hasCapsule統一解讀。compact craft可多第三個false；schema2/3仍按舊兩欄格式讀取，舊review保持版本與bytes，舊draft轉schema4，未完成舊workshop補未裝艙；飛行/紀錄視為已裝，固定150kg只計一次。
+- Phase矩陣：workshop空白/引擎/箱/分離器空上級/完整無艙/有艙/拆艙可存並可check-submit；pad/ascent/coast/ended及record必須完整且有艙；check原樣返回；review/committed/frozen不改分或凍結payload。既有合法partial送出0分，沒有額外組裝分。
+- 驗證決定：現有model/persistence/runtime/scoring/interaction tests補規則與所有新組裝階段round-trip+legal continuation；舊schema2/3 review/pending重試保持canonical。原入軌recipe/分離質量與推力維持。已登記browser新增--assembly，source+實際SCORM桌面/320/390/短橫向，click/touch/keyboard/取消drag/艙ghost/取出與補裝/接點/bottom anchor/camera、scroll/fullscreen/context、life cycle；相關碰撞/分離畫面驗證與manifest閉包。check.js/check:tests/committed selection，真機Safari及實際Moodle另列未驗。
+- 實作：保留bottom=0，不再加未安裝的假燃料箱/自動艙；太空艙成為可raycast/選取/取出/ghost的獨立group，分離後隨上級。工廠按已裝尺寸預留下一件4.4m空間，只於實際尺寸需要時擴大構圖；drag preview不移鏡頭/接點。空級按鈕移到模型旁及避開手機底部相機掣。
+- 七組既有Node測試（model/orbit/scoring/persistence/interaction/lifecycle/art）通過，包括新組裝階段/check的encode/decode/restore與legal continuation、舊schema3 frozen retry payload不變，以及原手動入軌recipe滿分並滑行一圈。check.js與test-registry最終檢查通過；證據 output/rocket/p47-node-codes.json、p47-static-final-codes.json。沒有新test file或依賴。
+- 舊separationTrueScale fixture在直接切換高空狀態時補回相同maxHeight，未放寬production snapshot validation。新capsule browser reload以timeOrigin變更確認真reload，preview頂點投影必須在畫面內。
+- 發布沿用原owner-private Site；完成後記錄實測及commit/push/部署證據。
+
+---
+
 # 2026-10-26 P46：近地地形清晰度與交接
 
 - 使用者已批准根據重複A/B/A與反向診斷修正：120km opaque / 160km contact patch以疏遠環遮住regional，5km硬關造成跳變。診斷紀錄 `output/rocket/ground-handoff-confirmation/report.json`；同高度切換/回復逐像素相同，4999→5000m原33.65%像素顯著變化，固定同層僅0.10–0.12%。
