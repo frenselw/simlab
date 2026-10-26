@@ -1154,3 +1154,15 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 - Sites helper來源ec65272a2df6d689513a1ec0880b6a85088a83d5及output/rocket/rocket-flight-controls-p38.tar.gz已推送／打包。版本appgprj_6adc62579ab88191aba299bcb282ce95~appgver_dc2d633dcc908191825faea07b3d54a0，deployment appgdep_6ade97cef9148191bbb836c3fe8890a0，native status=succeeded，2026-10-26 07:59:19 UTC+08；原網址https://simlab-rocket-space-missions.ieyp.chatgpt.site。保留owner-only audience，get_site確認owner、1 allowed user、0 groups／external；原網址已交給Codex頁籤開啟（queued）。
 
 - p38-live-verification.json completed=true：線上475份檔案與已驗dist一致；非HTML逐byte核對，兩份HTML僅移除平台注入script後相同，只跟隨同origin canonical index redirect。build-info.sourceCommit=f2e528c5d0cbb09950fef2cd42725f387226f91a、packageSha256=90099daa1dc39731ad241bb3d3accc18a93155760afe6c42f673d61f5935422c。本輪Chrome／HTTP server／Sites helper及核對程序皆已結束，既有.codex-remote-attachments未動。
+
+## P39 — 分離追蹤、鏡頭避地與倍率閃爍（2026-10-26）
+
+- 使用者確認第二項是倍率按鈕／數字閃；已授權修正並沿用原網站交付。診斷：分離後按兩級距離拉鏡、取中點，造成下級畫面位置鎖定；582.5m／pitch=-1.15鏡頭實際穿地約859m；1.3s內倍率title／相同文字重寫8次。
+- 範圍：scene跟上級，取消按兩級距離縮放／中點追蹤，短過渡用前景畫面時間；共用鏡頭以實際terrain高度限制向下旋轉，涵蓋工廠、發射台、異地及跟隨；main倍率顯示只改確實變更的屬性／字串，實際倍率降頻並保留有效量度。物理、碰撞、rubric、phase/variant、snapshot及SCORM／依賴不變。
+- 風險／驗收：沿用rocket browser owner新增連續分離位移／相機距離與上級目標、暫停及高倍率的視覺過渡、近地俯仰／縮放／異地山坡鏡頭clearance與near plane、原生select全部屬性及status文字的MutationObserver檢查，桌面／手機source及extracted ZIP；跑相關既有分離／RCS／接地／控制回歸及check／check:tests，記錄committed selection-preview。真iPhone Safari／Moodle未實測不得宣稱通過。
+
+- 最終實作：移除兩級中點／按gap縮放，鏡頭只依上級與高度定位；600ms前景畫面時間過渡，暫停凍結，保留至少高度0.2倍的距離避免地球深度破面。旋轉可近垂直查看下級；共用相機以地形取樣及最多16次二分調整俯仰，保持距離／畫面比例，工廠離地≥0.2m、跟隨離地≥2m；近裁切不越過地表，遠裁切保留原範圍。沒有新增shader／貼圖／後製／動態陰影。
+- 倍率：title／顯示文字同值不重寫，原生input即時記錄選擇、change去重；有效量度每0.5s按真實時間加權，切換不先寫0，tabular數字固定最小寬度。補齊play時物理時鐘起點；上一版該插入受CRLF匹配影響未進入render，最後版用帶斷言的換行匹配確認已插入。
+- 最終runtime ea6aa34ef00c8a63922b61521d8b4154d7c2565a30a8c10003032b04c3600c0e：p39-release.json source／extracted ZIP 10 flows completed=true、errors=[]，桌面1280×800及手機390×664。涵蓋432個跟隨鏡頭組合（發射台／582.5m／80km／異地丘陵×yaw／pitch／zoom）、12個工廠組合、near plane／火箭仍可見；只改下級位置不改上級鏡頭、連續相對位移、暫停視覺過渡凍結、600ms畫面過渡、向下找仍在飛的下級；RCS轉向後熄、20／100／1000×慢幀及真空點火／未點火分離。原生select監察全部屬性／child／text均0變更，1400ms status只兩次不同有效文字，input後選擇保留、change不重設量度；無假0。最後桌面／手機截圖已目視。
+- 前一runtime0a0cebe6288d8ee013f059755f3a083d7e0696492d331ed16aaadbe817482a73另有p39-candidate.json 4 flows及p39-final.json 14 flows皆completed=true、errors=[]：相同鏡頭安全／倍率、連續控制、三地接地／爆炸及真空分離。最後只恢復原far範圍及補原生input／change去重，並用上述10-flow重驗相關範圍；前14-flow不冒充最後完整重跑。舊測試要求下級永遠留在畫面，已改成上級保留、下級相對位置增加及物理時間同步。
+- art.test、lifecycle.test、npm check、check:tests（279 entries）、最後相關JS syntax及diff通過；沿用現有browser owner／manifest，未改物理／碰撞高度／評分／codec。最後ZIP 16004104 bytes，SHA-256 efeee652c61816b82bf750d58f04f62aa45de56662f76da9afe4a0f186e0029c；凍結後不再重建。未跑全庫／完整owner、真iPhone Safari／Android／Moodle或熱負荷；原生Safari是否尚有平台重繪須真機核對。
