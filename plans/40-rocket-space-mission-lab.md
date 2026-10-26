@@ -1,3 +1,28 @@
+# 2026-10-26 P44：全景箭號與飛行儀表美化
+
+使用者批准三項修改；保持既有物理、評分、作答與鏡頭記憶。
+
+- 全景/軌道正視箭號採原屏幕比例的一半（600kN/8km/s基準最多45px）；跟隨比例不變。兩種箭號維持線性推力/速度比例、方向、零值隱藏及火箭外側偏移。
+- timeValue移回固定列，與近/遠地點同一行，T+時間標籤具完整可讀標籤；不增加固定列列數。固定列目標<=80px，維持44px操作及手機可捲動空間。
+- 左上角以單一窄儀表卡統一邊框/圓角/細分隔線、22px主要數字與13px速度分量，數字/單位對齊；右側燃料卡使用相同視覺。保持畫布原尺寸和中間走廊。超過10000km高度固定讀數改為整公里避免過長，詳細軌道數值仍保留。
+- Scope: scene/index/styles/main、原登記browser與計劃。沒有新依賴、schema或新測試檔；shared styles/scorm/fullscreen不變。
+- 驗證：source/SCORM桌面及窄/矮手機，固定時間可見/更新/暫停不跳/捲動不消失、固定列<=80px/44px/scroll panel、左HUD沒有值或單位重疊及過寬空白。全景/plane與follow實際投影長度比較、油門線性、兩引擎比例、零值隱藏與render不改物理。沿用既有向量外側/方向與完整遙測檢查。真機及實際Moodle不以本機代替。
+
+本輪已執行證據：
+
+- `node tools/check.js`、`node tools/test-registry.js` 通過（279 entries）。最終 `--instruments` source＋實際SCORM共28 flows、0 JS errors；runtimeHash `c1af61f727c29c46790f2e7ec0f47274023bed9fb3859ffc83972f4458a8c229`，報告 `output/rocket/p44-browser-report.json`。
+- 320×568、375×600、390×460/844、844×390、1280×800驗T+時間更新/暫停/捲動固定、固定列<=80px、44px操作、卡片字級/單位/邊界；全景/plane投影箭號為follow一半、推力線性及零值隱藏。沿用完整遙測、144組向量旋轉/視角組合及生命周期檢查（100/0分、舊摘要不改分、review/pending/retry、refresh/fullscreen/context recovery）。既有vector fixture補回與新高度一致的maxHeight，未放寬production validation。
+- 已檢視320px手機實際SCORM儀表截圖。390×460縮短卡片padding，保留22px主字並與底部相機工具留位。評分/物理/存檔未改，本輪不重跑無關藝術效能browser；真機Safari及實際Moodle未驗。
+- 發布證據稍後補入。
+
+同輪新增唯讀地形調查（未修改地形runtime）：
+
+- 使用者2.9km模糊、5.5km突然清晰；`scene.js` 明確在AGL<5000m才啟用contactGround。contact-ground.js以910 vertices/1664 triangles覆蓋120km不透明核心、160km外緣，同時裁走內部的regional/global地形；遠環稀疏三角形插值海陸顏色/坡度，造成大範圍模糊。
+- 固定同一2.9km狀態/鏡頭，僅診斷時停用contact層，海岸/山坡即清晰；4999m有contact，5000/5001m關閉，mask由120km直接歸零。regional已全opacity1/最高LOD，globalPending=0，確認主因為表面交接而非等待下載。報告/對照圖 `output/rocket/ground-handoff-diagnosis/`。
+- 建議把contact縮至真正近地範圍、重新集中原頂點預算，外圍持續顯示regional；高度/顏色/法線與遮罩同步平滑交接，避免透明洞/重疊；驗上升下降、海陸與4999/5000m連續性。不能只把5km硬開關改成另一高度，也不需增加全球網格。此處是調查方案，未實作。
+
+---
+
 # 2026-10-26 P43：手機兩行固定操作列
 
 使用者已批准立即實作前一輪分析；本節調整固定列及可捲動內容，評分/物理/存檔格式不變。
