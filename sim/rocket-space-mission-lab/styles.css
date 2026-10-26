@@ -90,3 +90,5 @@
 @media(max-width:359px){.flight-deck .flight-actions{gap:4px}.deck-readouts{gap:6px}.deck-readouts>.orbit-strip{gap:4px}}
 
 @media(max-height:519px){.flight-readouts .telemetry>.flight-metrics{padding:2px 7px}.flight-metrics .altitude-metric{display:grid;grid-template-columns:24px auto;column-gap:6px;align-items:center}.flight-metrics .altitude-metric .metric-label{max-width:24px;line-height:1.05;white-space:normal}.flight-metrics .altitude-metric .metric-value{justify-content:flex-end;line-height:1}.flight-metrics .surface-altitude{grid-column:1 / -1;font-size:10px;line-height:11px;margin:0}.flight-metrics .velocity-metrics{display:flex;align-items:baseline;justify-content:space-between;gap:6px;margin-top:2px;padding-top:2px!important}.flight-metrics .metric-value{line-height:1}.flight-metrics .speed-components{margin-top:2px;line-height:1}.flight-metrics .speed-components b,.flight-metrics .speed-components small{line-height:1}}
+
+.parts-grid .part-drag{margin-top:auto}

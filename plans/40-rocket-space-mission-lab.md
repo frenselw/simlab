@@ -1,3 +1,15 @@
+# 2026-10-26 P48：元件卡對齊與夜面返回工廠黑畫面調查
+
+- 使用者要求修正太空艙/分離器文字及drag handle對齊；黑畫面部分要求分析。確認手機Samsung Internet，refresh恢復。此輪只改卡片文字/CSS及既有browser owner，繪圖程式維持以隔離診斷，physics/rubric/150kg/schema4/SCORM不變。
+- 卡片：太空艙質量改與分離器同樣簡短的kg標示（固定150kg仍由題目說明）；handle靠卡片底部對齊，保留44px與native scroll/drag ownership。不增加固定卡片高度或新依賴。
+- 驗證：已登記browser新增--cards，source/實際SCORM手機320/375/390/430與橫向/桌面，量度兩卡title/mass/handle對齊及44px；加大字級與overflow、既有onboarding及paletteScrolling。check.js/check:tests及committed selection；真Samsung Internet未直接測試。
+- 繪圖唯讀調查：desktop及390×844正常day/night impact-return亮度完全相同，工廠lights=1.65/2.4/.6。強制context loss/restore可重現黑色背景、clearColor由dbece2變000000；貼圖仍正常，不能把使用者完整症狀全部歸因於同一原因。繼續比較夜面隱藏模型/分離後restore及in-memory還原，診斷輸出output/rocket/p48-*，不改繪圖runtime。
+- 額外受控驗證：夜面impact時強制WebGL loss/restore，再返工廠，可重現clearColor=000000／42.40%黑背景，僅在memory重設clearColor即可還原。Canvas2D bitmap reset＋WebGL restore得到94.34%黑畫面，箭身/地台黑、白艙頂和有色色環保留；補回同一批原像素＋背景色降至0.00062%黑，lights全程1.65/2.4/.6。這是人工失效機制對照，不是已捕捉使用者Samsung原生故障事件；不得把因果推斷寫成真機已證實。資料 output/rocket/p48-night-context-diagnosis/、p48-canvas-loss-diagnosis/。
+- 依MDN CanvasRenderingContext2D.isContextLost／HTMLCanvasElement.contextlost，GPU/記憶體故障可令Canvas backing store失效，預設恢復等同reset，需重新繪畫。目前canvasMap cache只保留texture，沒有重繪callback；WebGL恢復亦未重設clear color。建議後續恢復原背景、重畫cached Canvas貼圖並重新上傳，保持答案及paused狀態；本輪未改scene/scene-art或其他renderer程式。參考 https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/isContextLost 。
+- 發布沿用原Site；完成後補卡片測試及發布紀錄。
+
+---
+
 # 2026-10-26 P47：由下向上組裝及最後安裝太空艙
 
 - 使用者已批准按方案實作。流程：下級引擎→燃料箱→（可選分離器→上級引擎→燃料箱）→太空艙；分離器向上新增stage[1]，stage[0]身份不變。太空艙只一件、最後裝，固定載荷150kg；已裝後先取下才可增加箱/級，既有引擎更換及箱內重排可保留艙。
