@@ -13,7 +13,10 @@
 - `node tools/check.js`、`node tools/test-registry.js` 通過（279 entries）。最終 `--instruments` source＋實際SCORM共28 flows、0 JS errors；runtimeHash `c1af61f727c29c46790f2e7ec0f47274023bed9fb3859ffc83972f4458a8c229`，報告 `output/rocket/p44-browser-report.json`。
 - 320×568、375×600、390×460/844、844×390、1280×800驗T+時間更新/暫停/捲動固定、固定列<=80px、44px操作、卡片字級/單位/邊界；全景/plane投影箭號為follow一半、推力線性及零值隱藏。沿用完整遙測、144組向量旋轉/視角組合及生命周期檢查（100/0分、舊摘要不改分、review/pending/retry、refresh/fullscreen/context recovery）。既有vector fixture補回與新高度一致的maxHeight，未放寬production validation。
 - 已檢視320px手機實際SCORM儀表截圖。390×460縮短卡片padding，保留22px主字並與底部相機工具留位。評分/物理/存檔未改，本輪不重跑無關藝術效能browser；真機Safari及實際Moodle未驗。
-- 發布證據稍後補入。
+- 已commit/push實作 `5f224df8a19667405a22204a3f55848f8cb6c35b`；committed selection-preview `output/rocket/selection-p44.json`（f65298d→5f224df，affected預覽，未宣稱整批全跑）。實測各尺寸固定列79px，未增加列數。
+- Sites helper來源 `52928a487493ced49d315a077ac6893f235f4300` 已push/打包 `output/rocket/rocket-instruments-p44.tar.gz`。版本 `appgprj_6adc62579ab88191aba299bcb282ce95~appgver_66678a466aa48191814de8f5d1dca3c7`，deployment `appgdep_6adf0c05d7b88191b8fb453bedb0fbea`，native succeeded，2026-10-26 16:15:13 UTC+08；原網址 https://simlab-rocket-space-missions.ieyp.chatgpt.site 與owner-private audience保留。
+- `output/rocket/p44-live-verification.json` completed=true：14份線上入口/runtime/manifest/build-info與測試dist一致；非HTML逐byte hash，HTML只扣平台注入script，憑證只隨同origin canonical index redirect。sourceCommit=5f224df8a19667405a22204a3f55848f8cb6c35b，packageSha256=aa4f5fa079dbfb16a29bd4deb8d33c30e3f6b135009611d821b7ac8e430b841b。474份ZIP entries已核對dist閉包；SCO同步 `output/rocket-launch-orbit-lab-v2-scorm.zip`。
+- 網址已交Codex開啟（queued）。受控helper/瀏覽器與診斷程序均結束；既有附件未改。今輪發布只包含儀表/箭號，地形覆蓋問題保留上述調查，未以未測修正混入。
 
 同輪新增唯讀地形調查（未修改地形runtime）：
 
