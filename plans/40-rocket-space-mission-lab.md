@@ -8,7 +8,12 @@
 - 實作：保留bottom=0，不再加未安裝的假燃料箱/自動艙；太空艙成為可raycast/選取/取出/ghost的獨立group，分離後隨上級。工廠按已裝尺寸預留下一件4.4m空間，只於實際尺寸需要時擴大構圖；drag preview不移鏡頭/接點。空級按鈕移到模型旁及避開手機底部相機掣。
 - 七組既有Node測試（model/orbit/scoring/persistence/interaction/lifecycle/art）通過，包括新組裝階段/check的encode/decode/restore與legal continuation、舊schema3 frozen retry payload不變，以及原手動入軌recipe滿分並滑行一圈。check.js與test-registry最終檢查通過；證據 output/rocket/p47-node-codes.json、p47-static-final-codes.json。沒有新test file或依賴。
 - 舊separationTrueScale fixture在直接切換高空狀態時補回相同maxHeight，未放寬production snapshot validation。新capsule browser reload以timeOrigin變更確認真reload，preview頂點投影必須在畫面內。
-- 發布沿用原owner-private Site；完成後記錄實測及commit/push/部署證據。
+- 最終 `--assembly` source＋實際SCORM共50 flows（各25）、20 layouts、0 JS errors；runtimeHash `a3ea147a70951574bc2b6f3c62d7b0f6c363dff28beeb1c574974abeb26c60ed`，報告 `output/rocket/p47-browser-report.json`。四尺寸1280×800、390×844、320×568、844×390的source/package共8組bottom-up/capsule cases：底部幾何固定、頂部接點、完整preview在畫面內、cancel不改答案/存檔、raycast/鍵盤/取出/拖回元件箱、缺艙禁止發射、duplicate拒絕、150kg只計一次、真reload恢復及艙隨上級均通過。已檢視手機完成模型及桌面完整preview截圖。
+- 沿用trusted touch/mouse組裝、ordinal重排/跨級搬移、錯位/滿箱拒絕、44px handles與card內容native scroll、fullscreen/context recovery、0/100分/readonly/pending/finish retry/standalone refresh/storage denied。32組高度/箱數/油門分離情境保持true-scale和同步；source/package各兩尺寸的launch/hill/sea落地與effects通過。真機Safari與實際Moodle未驗；本機Chrome受控軟件渲染不代表真機FPS或Moodle-ready。
+- 實作已commit/push `48107643339c6f570f04b3d9f258a29a00a1d7a0`；committed selection-preview `output/rocket/selection-p47.json`（9fcff9d→4810764，affected預覽，未宣稱整批全跑）。browser啟動時HEAD仍為9fcff9d，測試的是已實作working tree；發布時重算所有manifest runtime bytes，與上述runtimeHash完全相同，排除測試後換檔。
+- 474份ZIP entries與Site dist逐份核對，SCO同步 `output/rocket-launch-orbit-lab-v2-scorm.zip`；build-info sourceCommit=48107643339c6f570f04b3d9f258a29a00a1d7a0、answerSchema=4、payloadKg=150、packageSha256=becd880e8ceb739adf496e9649fc6d85e92f167157fc07fd1ea87499e4ef65fb。
+- Sites helper來源 `b2c25e1f1af326effb74f8c570838e704dc152b2` 已push/打包 `output/rocket/rocket-bottom-up-capsule-p47.tar.gz`。網站版本45 `appgprj_6adc62579ab88191aba299bcb282ce95~appgver_f7b252bf2f8c819198e0c8021f87007d`，deployment `appgdep_6adf50a673a08191b5210fce40baeae1`，native succeeded，2026-10-26 21:08:03 UTC+08。原網址 https://simlab-rocket-space-missions.ieyp.chatgpt.site 與owner-private audience保留。
+- `output/rocket/p47-live-verification.json` completed=true：16份線上入口/runtime/manifest/build-info與測試dist一致，涵蓋全部7份改動runtime。非HTML逐byte hash，HTML只扣平台注入script，憑證只跟隨same-origin canonical index redirect。網址已交Codex開啟（queued）；受控browser/server/helper/verifier及本機preview均已結束，既有附件未改。
 
 ---
 
