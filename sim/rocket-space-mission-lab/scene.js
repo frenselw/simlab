@@ -6,7 +6,7 @@ const P=window.RocketParts,O=window.RocketOrbit,M=window.RocketModel,S=window.Ro
 function vectorArrow(color){const group=new THREE.Group(),mat=new THREE.MeshBasicMaterial({color,transparent:true,depthTest:false,depthWrite:false,toneMapped:false}),shaft=new THREE.Mesh(new THREE.CylinderGeometry(.026,.026,.74,8),mat),head=new THREE.Mesh(new THREE.ConeGeometry(.09,.26,10),mat);shaft.position.y=.37;head.position.y=.87;shaft.renderOrder=head.renderOrder=10;group.add(shaft,head);return group;}
 export class RocketScene{
   constructor(host,onFault){
-    this.host=host;this.onFault=onFault;this.renderCount=0;this.quality=0;this.frameSamples=[];this.sampleAfter=0;this.renderer=new THREE.WebGLRenderer({antialias:true,alpha:false});this.renderer.setPixelRatio(Math.min(devicePixelRatio,innerWidth<960?1.5:2));this.renderer.setClearColor('#dbece2');this.renderer.outputColorSpace=THREE.SRGBColorSpace;this.renderer.toneMapping=THREE.ACESFilmicToneMapping;this.renderer.toneMappingExposure=1.15;host.append(this.renderer.domElement);
+    this.host=host;this.onFault=onFault;this.renderCount=0;this.quality=0;this.frameSamples=[];this.sampleAfter=0;this.renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,logarithmicDepthBuffer:true});this.renderer.setPixelRatio(Math.min(devicePixelRatio,innerWidth<960?1.5:2));this.renderer.setClearColor('#dbece2');this.renderer.outputColorSpace=THREE.SRGBColorSpace;this.renderer.toneMapping=THREE.ACESFilmicToneMapping;this.renderer.toneMappingExposure=1.15;host.append(this.renderer.domElement);
     this.scene=new THREE.Scene();this.camera=new THREE.PerspectiveCamera(40,1,.01,50000);this.ambient=new THREE.HemisphereLight('#fafff3','#64818d',1.65);this.sunLight=new THREE.DirectionalLight('#fff5e5',2.4);this.sunLight.position.set(30,40,40);this.fillLight=new THREE.DirectionalLight('#a4cce7',.6);this.fillLight.position.set(-20,10,-30);this.scene.add(this.ambient,this.sunLight,this.fillLight);
     const planet=createPlanet();this.studio=createPad();this.scene.add(this.studio);this.relief=createRelief(planet.sun);this.scene.add(this.relief);this.landscape=createLandscape(this.relief);this.scene.add(this.landscape);this.sky=createSky();this.sky.renderOrder=-10;this.scene.add(this.sky);
     this.earth=planet.earth;this.clouds=planet.clouds;this.halo=planet.halo;this.planetSun=planet.sun;this.planetOpacity=planet.opacity;this.planetSurface=planet.surface;this.earthMap=this.earth.material.uniforms.uMap.value;this.scene.add(this.earth,this.clouds,this.halo);this.globalTerrain=planet.globalTerrain;this.globalTerrain.onChange=()=>this.draw();this.scene.add(this.globalTerrain);this.contactGround=createContactGround(planet.sun,this.globalTerrain.colorAt);this.scene.add(this.contactGround);const materials=new Set();this.relief.traverse(o=>{if(o.material&&o.geometry?.attributes.landFade)materials.add(o.material);});for(const material of materials)clipContact(material,this.contactGround.clipping,true);clipContact(this.globalTerrain.children[0].material,this.contactGround.clipping);
@@ -62,7 +62,7 @@ export class RocketScene{
     const drop=this.separation;if(!drop||!f)return;
     if(drop.coast.status==='impact'){this.impacts.emit(drop.coast.state,drop.coast.t,Math.max(.015,this.rocket.scale.y*this.rocket.userData.height*.6));this.clearSeparation();return;}
     const angle=space?0:theta,dx=drop.coast.state[0]-f.state[0],dy=drop.coast.state[1]-f.state[1],axis=new THREE.Vector3(Math.sin(drop.attitude-angle),Math.cos(drop.attitude-angle),0),offset=new THREE.Vector3(dy*Math.cos(angle)-dx*Math.sin(angle),dx*Math.cos(angle)+dy*Math.sin(angle),0);
-    // Flight coordinates use metres; only the stage artwork uses the enlarged scale.
+    // Follow-view geometry and separation displacement both use one metre per .001 world units.
     const units=space?3/P.R:.001,scale=Math.min(this.rocket.scale.y,Math.max(0,O.elements(drop.coast.state).height)*units*.9/(drop.join+2));
     drop.body.scale.setScalar(scale);drop.body.position.copy(this.rocket.position).addScaledVector(offset,units).addScaledVector(axis,-drop.join*scale);drop.body.rotation.z=angle-drop.attitude;
     drop.body.updateMatrixWorld(true);
@@ -94,7 +94,7 @@ export class RocketScene{
       const r=Math.hypot(f.state[0],f.state[1]);this.earth.position.set(0,-r/1000,0);this.earth.scale.setScalar((P.R-5)/1000);this.halo.position.copy(this.earth.position);this.halo.scale.setScalar((P.R+80000)/1000);
       distance=Math.max(.035,displayHeight*(this.host.clientHeight<240?.007:.0038),Math.max(0,agl)/1000*3+.035)/this.zoom;
       // Keep the upper stage framing independent of the falling stage's distance.
-      if(separation){const close=Math.max(.035,displayHeight*.0038,Math.max(0,agl)*.0002)/this.zoom;distance*=Math.pow(Math.min(1,close/distance),blend);}
+      if(f.separated){const close=Math.max(.035,displayHeight*.0038)/this.zoom;distance*=Math.pow(Math.min(1,close/distance),blend);}
       this.rocket.scale.setScalar(Math.max(.001,distance*.16/displayHeight));this.rocket.position.set(0,0,0);this.rocket.rotation.z=theta-f.attitude;target.set(0,displayHeight*this.rocket.scale.y*.65,0);
       for(const environment of [this.studio,this.landscape,this.relief]){environment.scale.setScalar(.001);environment.position.set(-P.R*Math.sin(theta)/1000,(P.R*Math.cos(theta)-r)/1000,0);environment.rotation.z=theta;}
     }
