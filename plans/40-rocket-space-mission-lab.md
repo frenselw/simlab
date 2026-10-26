@@ -6,7 +6,10 @@
 - 繪圖唯讀調查：desktop及390×844正常day/night impact-return亮度完全相同，工廠lights=1.65/2.4/.6。強制context loss/restore可重現黑色背景、clearColor由dbece2變000000；貼圖仍正常，不能把使用者完整症狀全部歸因於同一原因。繼續比較夜面隱藏模型/分離後restore及in-memory還原，診斷輸出output/rocket/p48-*，不改繪圖runtime。
 - 額外受控驗證：夜面impact時強制WebGL loss/restore，再返工廠，可重現clearColor=000000／42.40%黑背景，僅在memory重設clearColor即可還原。Canvas2D bitmap reset＋WebGL restore得到94.34%黑畫面，箭身/地台黑、白艙頂和有色色環保留；補回同一批原像素＋背景色降至0.00062%黑，lights全程1.65/2.4/.6。這是人工失效機制對照，不是已捕捉使用者Samsung原生故障事件；不得把因果推斷寫成真機已證實。資料 output/rocket/p48-night-context-diagnosis/、p48-canvas-loss-diagnosis/。
 - 依MDN CanvasRenderingContext2D.isContextLost／HTMLCanvasElement.contextlost，GPU/記憶體故障可令Canvas backing store失效，預設恢復等同reset，需重新繪畫。目前canvasMap cache只保留texture，沒有重繪callback；WebGL恢復亦未重設clear color。建議後續恢復原背景、重畫cached Canvas貼圖並重新上傳，保持答案及paused狀態；本輪未改scene/scene-art或其他renderer程式。參考 https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/isContextLost 。
-- 發布沿用原Site；完成後補卡片測試及發布紀錄。
+- 卡片最終 --cards source＋實際SCORM共24 flows、20 layouts、0 JS errors；報告 output/rocket/p48-browser-report.json，runtimeHash 5707363e42e85863ec0b3ec62191d2672412f256f4d08e0683e77226bf5ae54e。320/375/390/430/844/1280六尺寸、14/18px字級共24組對照，title/mass/可見handle最大Y差均0px，44px及overflow/手機scroll/drag/keyboard onboarding通過；已檢視390px實際封裝截圖。check.js/test-registry通過，無新依賴或test file。
+- 實作已commit/push 659ebd3c38b93c2545f0adebdaa6e4c8aab4911b；committed selection-preview output/rocket/selection-p48.json（02715a9→659ebd3，affected預覽，未宣稱整批全跑）。發布時重算manifest runtimeHash吻合測試、474份ZIP entries逐份核對dist，SCORM同步output/rocket-launch-orbit-lab-v2-scorm.zip。packageSha256=7d68415464a39d7837c73be9b4219538341bb7f7f1bb095597f142dc124d07a9。
+- Sites helper來源df15da42d92e40087bf8f802b0457e2dee325755已push/打包output/rocket/rocket-card-alignment-p48.tar.gz。網站版本46 appgprj_6adc62579ab88191aba299bcb282ce95~appgver_e45faad533dc8191a4053a5d322ec12e，deployment appgdep_6adf595d43d481918397610efb0a0a43，native succeeded，2026-10-26 21:45:19 UTC+08。原網址與owner-private audience保留。
+- output/rocket/p48-live-verification.json completed=true，16份線上檔案與測試dist一致（含本輪index/styles，renderer維持上一版）。非HTML逐byte hash，HTML只扣平台注入script；token只跟same-origin canonical index redirect。已交Codex開啟原網址（queued），受控browser/probe/helper/verifier及preview server已結束；既有附件未改。黑畫面維持分析結果，未聲稱已修復或已捕捉真Samsung故障；真機及實際Moodle未驗。
 
 ---
 
