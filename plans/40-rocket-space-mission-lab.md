@@ -9,7 +9,9 @@
 - 最終 --graphics-recovery source＋實際SCORM共14 flows、0 JS errors；desktop1280×800、portrait390×844、landscape844×390共6個版本/視窗組合，60個正向pixel/CPU內容檢查通過。兩個舊handler負對照各94.34%黑畫面；新恢復最大frame平均RGB差0.639/255、>=16差異像素1.287%、CPU RGB平均差4.375/255、alpha平均差0。證據output/rocket/p49-browser-report.json；runtimeHash=d74b18fc8f6a092779d3142737cd4667b44785ab5f4942d4e8e4f0fe5c9de92e。
 - 驗Canvas-only、多canvas等待、Canvas先於/後於WebGL恢復、repaint拋錯保持fault並可重試、三次重複失效資源數穩定、12次idle draw texture/source version與資源不變。夜面coast運行中失效保持資料及paused，手動按繼續才前進；夜面impact模型隱藏時失效後返回完整工廠，既有100分成果及鏡頭保留。frozen pending的原payload bytes不變，可legal retry為review100；空白workshop恢復後可繼續裝引擎。
 - 既有skyCoverage及lifecycle source/package通過：0/100分、readonly/pending/finish retry、standalone refresh/storage denied、fullscreen/context恢復；Node art/lifecycle、check.js、test-registry通過（279 entries），沒有新dependency/test file。已檢視實際SCORM手機夜面墜毀返回工廠截圖。真Samsung與實際Moodle未驗，受控故障驗證不能證明原真機自然觸發原因。
-- 發布證據完成後補入。
+- 實作已commit/push 860a204d83b31b2aa19faa4383b3734c9e3c7f08；committed selection-preview output/rocket/selection-p49.json（24657c0→860a204，affected預覽，未宣稱整批全跑）。發布前重算manifest runtimeHash吻合上述測試，474份ZIP entries逐份核對dist，SCO同步output/rocket-launch-orbit-lab-v2-scorm.zip。packageSha256=ecdd86c517df9b64341ca5dcb52d805ec2d45bcbf336e66c158a0196dcc9976a；build-info保留schema4、payload150kg。
+- Sites helper來源723616f3c600ebfb8c051d15b4a85a924d54f862已push/打包output/rocket/rocket-graphics-recovery-p49.tar.gz。網站版本47 appgprj_6adc62579ab88191aba299bcb282ce95~appgver_6dbd321e51088191af2ba54c3745800d，deployment appgdep_6adf713f6f748191b3305898f491a316，native succeeded，2026-10-26T15:27:07.661255+00:00。原網址 https://simlab-rocket-space-missions.ieyp.chatgpt.site 與owner-private audience保留。
+- output/rocket/p49-live-verification.json completed=true：16份線上檔案與測試dist一致，包括本輪scene.js、scene-art.js，sourceCommit與packageSha256吻合。非HTML逐byte hash，HTML只扣平台注入script；憑證只隨same-origin canonical index redirect。已交Codex開啟活動原網址（queued），本輪browser/probe/helper/verifier及本機preview server均已結束，既有附件未改。真Samsung Internet與實際Moodle未驗；受控故障類型已修復，未宣稱原真機自然觸發原因已被證實。
 
 ---
 
