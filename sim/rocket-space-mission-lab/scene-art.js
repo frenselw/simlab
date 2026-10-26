@@ -1,7 +1,10 @@
 import * as THREE from './vendor/three-0.185.1/three.module.min.js';
 import {createTerrain,groundLight,terrainSlopeDetail} from './terrain.js';
 import {createGlobalTerrain} from './global-terrain.js';
-const P=window.RocketParts,cache=new Map();
+const P=window.RocketParts,cache=new Map(),canvasMaps=new Map(),lostCanvases=new Set();
+export const artRecovery=new EventTarget();
+export function artTexturesReady(){return lostCanvases.size===0&&[...canvasMaps.keys()].every(c=>!c.getContext('2d')?.isContextLost?.());}
+export function restoreArtTextures(){for(const repaint of canvasMaps.values())repaint();for(const texture of cache.values())texture.needsUpdate=true;}
 const compact=innerWidth<960,loader=new THREE.TextureLoader();
 async function artTexture(name){const texture=await loader.loadAsync(new URL('./assets/'+name,import.meta.url).href);texture.colorSpace=THREE.SRGBColorSpace;cache.set(name,texture);return texture;}
 const [dayMap,regionMap,weatherTexture,starMap,geography,terrainBuffer,globalBuffer]=await Promise.all([
@@ -21,7 +24,10 @@ export function fadeEnvironment(group,opacity){
  group.traverse(o=>{for(const m of o.material?(Array.isArray(o.material)?o.material:[o.material]):[]){const base=m.userData.environmentBase??={opacity:m.opacity,transparent:m.transparent,depthWrite:m.depthWrite},transparent=base.transparent||opacity<1;if(m.transparent!==transparent){m.transparent=transparent;m.needsUpdate=true;}m.opacity=base.opacity*opacity;m.depthWrite=base.depthWrite&&opacity===1;}});
 }
 function random(seed){return()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};}
-function canvasMap(key,width,height,paint){if(cache.has(key))return cache.get(key);const c=document.createElement('canvas');c.width=width;c.height=height;paint(c.getContext('2d'),width,height,random(731+key.length*97));const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=['metal','small','large','payload','separator'].includes(key)?2:1;cache.set(key,t);return t;}
+function canvasMap(key,width,height,paint){
+ if(cache.has(key))return cache.get(key);const c=document.createElement('canvas'),repaint=()=>{c.width=width;c.height=height;paint(c.getContext('2d'),width,height,random(731+key.length*97));};repaint();const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=['metal','small','large','payload','separator'].includes(key)?2:1;cache.set(key,t);canvasMaps.set(c,repaint);
+ c.addEventListener('contextlost',()=>{lostCanvases.add(c);artRecovery.dispatchEvent(new Event('lost'));});c.addEventListener('contextrestored',()=>{lostCanvases.delete(c);artRecovery.dispatchEvent(new Event('restored'));});return t;
+}
 function surface(key){return canvasMap(key,compact?256:512,compact?256:512,(x,w,h,rng)=>{
  x.scale(w/512,h/512);w=h=512;
  const metal=key==='metal',ground=['concrete','grass','road'].includes(key);x.fillStyle=metal?'#84939c':key==='grass'?'#d1d5bc':key==='road'?'#45525b':key==='concrete'?'#c2c7c5':'#e9eee9';x.fillRect(0,0,w,h);

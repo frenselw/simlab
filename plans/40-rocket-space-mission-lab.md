@@ -1,3 +1,18 @@
+# 2026-10-26 P49：WebGL／Canvas 資源失效後完整恢復
+
+- 使用者已批准按P48診斷修正。範圍scene-art的生成貼圖cache、scene恢復handler、既有browser owner與計劃；沿用原shared SCORM/flow與main onFault暫停/提示。無新依賴、素材、評分、physics、schema4或150kg修改（formative/low-risk）。
+- 資源策略：保留deterministic paint callback／尺寸／seed，恢復時重畫現有Canvas並標記texture.needsUpdate；不保存額外完整pixel備份，不在正常每幀讀GPU或重建。Canvas2D lost/restored事件亦納入等待；WebGL仍lost或Canvas未ready期間維持paused/fault狀態。瀏覽器2D恢復使用預設行為，不preventDefault；WebGL lost仍preventDefault以允許恢復。
+- 顯示策略：共用renderer設定初始化與恢復的背景dbece2、sRGB、ACES曝光1.15；失敗維持fault、資料不動，畫面恢復後仍由學生明確繼續。沿用現有鏡頭記憶與設計／飛行／紀錄資料，不自動reload或重啟attempt。
+- 狀態／phase矩陣：workshop空白/完整/drag、pad、ascent/coast、night impact→workshop、check/review/frozen的權威資料不因恢復修改；只改顯示資源及running=false。既有persist encode/decode與rubric未變；以原lifecycle驗0/100、review/pending/finish retry及standalone refresh。
+- 驗證決定：已登記browser新增--graphics-recovery，source＋實際SCORM於desktop/mobile portrait/landscape，以P48可重現的bitmap reset＋真WEBGL_lose_context做pixel/CPU貼圖hash對照；保留舊恢復負對照證明可捉黑畫面。驗夜面impact及return、Canvas2D事件多資源先後恢復、重複故障、repaint失敗不報成功、資料/成績/鏡頭不變、保持paused且可legal continuation；idle無重畫及資源數不成長。check.js/check:tests、原art/lifecycle與committed selection；真Samsung仍須實機驗證。
+- 實測Canvas在context reset後會切換GPU/CPU raster path，原圖與同seed重畫可有局部抗鋸齒/噪點差異：mobile最大texture平均byte差2.42、frame平均RGB差0.575，>=16差異像素1.50%。desktop正式對照CPU RGB平均差4.37/255；驗證採CPU RGB平均差<6/255、alpha平均差<.25，frame平均差<2/255且>=16差異像素<5%，另有>80%黑畫面舊handler負對照；不為強求hash一致而更改正常渲染路徑。
+- 最終 --graphics-recovery source＋實際SCORM共14 flows、0 JS errors；desktop1280×800、portrait390×844、landscape844×390共6個版本/視窗組合，60個正向pixel/CPU內容檢查通過。兩個舊handler負對照各94.34%黑畫面；新恢復最大frame平均RGB差0.639/255、>=16差異像素1.287%、CPU RGB平均差4.375/255、alpha平均差0。證據output/rocket/p49-browser-report.json；runtimeHash=d74b18fc8f6a092779d3142737cd4667b44785ab5f4942d4e8e4f0fe5c9de92e。
+- 驗Canvas-only、多canvas等待、Canvas先於/後於WebGL恢復、repaint拋錯保持fault並可重試、三次重複失效資源數穩定、12次idle draw texture/source version與資源不變。夜面coast運行中失效保持資料及paused，手動按繼續才前進；夜面impact模型隱藏時失效後返回完整工廠，既有100分成果及鏡頭保留。frozen pending的原payload bytes不變，可legal retry為review100；空白workshop恢復後可繼續裝引擎。
+- 既有skyCoverage及lifecycle source/package通過：0/100分、readonly/pending/finish retry、standalone refresh/storage denied、fullscreen/context恢復；Node art/lifecycle、check.js、test-registry通過（279 entries），沒有新dependency/test file。已檢視實際SCORM手機夜面墜毀返回工廠截圖。真Samsung與實際Moodle未驗，受控故障驗證不能證明原真機自然觸發原因。
+- 發布證據完成後補入。
+
+---
+
 # 2026-10-26 P48：元件卡對齊與夜面返回工廠黑畫面調查
 
 - 使用者要求修正太空艙/分離器文字及drag handle對齊；黑畫面部分要求分析。確認手機Samsung Internet，refresh恢復。此輪只改卡片文字/CSS及既有browser owner，繪圖程式維持以隔離診斷，physics/rubric/150kg/schema4/SCORM不變。
