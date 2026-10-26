@@ -15,7 +15,10 @@
 - 最終 `--compact-deck` browser source＋實際SCORM通過，16 flows、0 JS errors。320×568、375×600、390×460/664/844、844×390、1280×800驗固定兩行、每掣至少44px、近遠地點不溢出、沒有橫向頁面捲動、題目預設/手動開合不被render覆寫、詳細數據預設展開、關機/保存/檢查可達、捲到最底仍可分離/上級原位點火。
 - 實測固定列 72.84–74.19px；390×460 scroll panel 149.81px。原生觸控在油門掣上捲動不改飛行狀態。沿用lifecycle檢查100/0分、review lock/resume、pending/finish重試、fullscreen/context recovery、standalone refresh與舊摘要保留。未改評分/物理/存檔，本輪不重跑無關3D art/performance browser。
 - 報告 `output/rocket/p43-browser-report.json`，runtimeHash `974eaa004e386c09f1f32d4c50f962d81b66dbfae02b9ca70350586242115633`；已檢視320px控制區截圖。真機Safari及實際Moodle仍未驗收。
-- commit / selection-preview / 發布與線上核對待完成後補記。
+- 已commit/push實作 `05eaf25f6c98ecb7d5fdc2d798b7f69fcc81573f`。committed selection-preview `output/rocket/selection-p43.json`：3c2bd8f→05eaf25，affected / 242 entries；只作選擇預覽，未宣稱全242項已跑。
+- Sites helper來源 `b635e4493846348ed6d3737cfadd1d49a7923f1c` 已push/打包 `output/rocket/rocket-compact-deck-p43.tar.gz`。版本 `appgprj_6adc62579ab88191aba299bcb282ce95~appgver_2832089d0a5c8191b3478e94c3247db2`，deployment `appgdep_6adefe68039c8191915893757e163078`，native succeeded，2026-10-26 15:17:04 UTC+08。原網址 https://simlab-rocket-space-missions.ieyp.chatgpt.site 與owner-private audience保留。
+- `output/rocket/p43-live-verification.json` completed=true：14份線上入口/runtime/manifest/build-info與測試dist一致；非HTML逐byte hash，HTML只扣除平台注入script，憑證僅隨同origin canonical index redirect。sourceCommit=05eaf25f6c98ecb7d5fdc2d798b7f69fcc81573f，packageSha256=05b5fdc0e4becc6d38f7ae5bbc9c37fc0d2efe4304a9e91e7d34ae1180ece42e。
+- 新SCO已同步 `output/rocket-launch-orbit-lab-v2-scorm.zip`；網址已交Codex開啟（queued）。本輪Chrome/HTTP server/helper/核對程序均已結束，既有附件未動。
 
 ---
 
