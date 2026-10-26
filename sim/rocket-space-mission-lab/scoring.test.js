@@ -7,7 +7,7 @@ const original=P.clone(s.records[0]);
 function at(h,e=0){const r=P.R+h,a=r/(1-e);return [r,0,0,0,Math.sqrt(P.MU*(2/r-1/a)),0];}
 function result(h,e=0,extra={}){s.records[0]={...P.clone(original),state:at(h,e),maxHeight:Math.max(h,100000),...extra};return S.score(s);}
 for(const [h,points]of [[9,0],[10,10],[99999,10],[100000,25]]){s.records[0]={...P.clone(original),state:O.circular(h),maxHeight:h,engineOff:false};assert.equal(S.score(s).score,points);}
-assert.equal(result(149998).score,25);assert.equal(result(150000).score,100);assert.equal(result(1000000).score,100);assert.equal(result(1000002).score,25);assert.equal(result(500000).score,100,'200–400 km is guidance, not a scoring constraint');
+assert.equal(result(149998).score,69);assert.equal(result(150000).score,100);assert.equal(result(1000000).score,100);assert.equal(result(1000002).score,100);assert.equal(result(500000).score,100,'200–400 km is guidance, not a scoring constraint');
 for(const [e,score]of [[.03,100],[.04,90],[.05,80],[.06,70]]){const v=result(150000,e);assert.equal(v.score,score);assert(v.passed);}
 assert.equal(result(150000,.03001).score,99,'Rounding cannot award full marks before near-circular is reached');assert.equal(result(300000,0,{engineOff:false}).score,25);assert.equal(result(300000,0,{status:'impact'}).score,25);
 s.records[0]={...P.clone(original),state:at(0),status:'impact',maxHeight:200000};assert.equal(S.score(s).score,25,'A later crash preserves reached milestones only');
@@ -16,3 +16,9 @@ s=T.launched();M.advance(s,1);const lit=M.change(s,{type:'record'});assert.equal
 console.log('rocket scoring: fixed payload, untouched zero, earned milestones, safe boundaries, graduated circularity, cutoff and retained flight passed');
 
 let ballistic=T.launched();M.advance(ballistic,1800,40000);assert.equal(ballistic.flight.status,'impact');assert(ballistic.flight.maxHeight>=100000);ballistic=M.change(ballistic,{type:'record'});assert.equal(S.score(ballistic).score,25);assert.equal(S.score(D.decode(T.snapshot(ballistic),'draft')).score,25);
+
+function ellipse(hp,ha){const rp=P.R+hp,ra=P.R+ha,a=(rp+ra)/2;return [rp,0,0,0,Math.sqrt(P.MU*(2/rp-1/a)),0];}
+s=T.reachOrbit();s.records[0].state=ellipse(140000,300000);assert.equal(S.score(s).score,69);assert.equal(S.score(s).passed,false);const old=P.clone(s);old.schema=2;assert.equal(S.score(old).score,25,'Submitted schema2 must keep its original rubric');
+s.records[0].state=ellipse(200000,1500000);assert.equal(S.score(s).score,70);assert(S.score(s).passed);old.records=P.clone(s.records);assert.equal(S.score(old).score,25,'Old high-apogee results must not be regraded');
+let previous=0;for(const hp of [-P.R+1,-4000000,-2000000,-1000000,0,100000,140000,149998,150000]){s.records[0].state=ellipse(hp,1500000);const result=S.score(s);assert(result.score>=previous);assert.equal(result.detail[2].earned===45,hp>=150000-1);previous=result.score;}
+console.log('rocket relaxed rubric: 140x300=69, 200x1500=70, monotonic progress, no unsafe pass and old grades preserved');

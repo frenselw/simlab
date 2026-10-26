@@ -1,3 +1,27 @@
+# 2026-10-26 P42：寬鬆部分分、導航與題目提示修訂
+
+使用者已明確批准七項修改；本節優先於 P41 配分邊界，舊文字保留作歷史。
+
+- 固定150 kg、形成性低風險評分、四項10/15/45/30與70分合格保留。入軌45分按關機後仍 flying 且 bound 的近地點進度：clamp((R+hp)/(R+150km),0,1) ×45取整；hp未達150km最多44，達標45；墜毀/逃逸/未關機不計此項。安全軌道不再設遠地點上限。圓化仍須安全入軌，e<=.03滿30、.03至.06逐步給分；未達近圓最多29。
+- 例：140×300km=69；200×1500km=70；安全近圓100；到太空後墜毀25。未操作0；保留單次成果，不拼接不同試飛。
+- 新作答 answer schema3；原 schema2 草稿保留所有答案/狀態，恢復為schema3；schema2已提交及pending review維持原舊配分與canonical內容，不能重新計分或解鎖。shared envelope version1、activity ID及modelVersion2不變。
+- 回到組裝/發射時：工廠恢復factory，有飛行則恢復檢查前視角（預設follow）。各視角分別保留 yaw/pitch/zoom；只有明確按「視角回正」才重設。鏡頭屬本次頁面暫態，不寫入作答。
+- 移除導航與工廠標籤01；預設展開軌道詳細數據，使用者仍可收合。
+- 控制區加入預設可見活動題目（固定載荷、目標、滿分條件、建議高度及保留/提交流程）。航天提示改成淺白步驟、近/遠地點解釋及兩條公式。用既有mathjax-full開發依賴產生內嵌靜態SVG，保留LaTeX來源與可讀標籤，不載入額外runtime library；小手機檢查根號/分數完整。
+- 測試決定：新增同一登記檔案內的分數單調性/邊界、schema2 draft migration/review/pending維持、各視角來回與reset、pad/flying/check導航、目標與提示與數學在320/390/844/1280尺寸、source/SCORM同版。既有物理/碰撞/提交流程保留。仍不以本機取代真機或實際Moodle驗收。
+- 影響：model/scoring/orbit/persistence、main/index/styles/scene、相關Node與原owning browser、計劃與README/manifest版本；沒有新runtime依賴或新測試檔案。
+
+本輪已執行證據：
+
+- `node tools/check.js` / `node tools/test-registry.js` 通過；279 registered entries，沒有新增未登記測試檔。
+- 7 個 rocket Node 檔案通過（model/orbit/scoring/persistence/interaction/lifecycle/art）。140×300 km=69、200×1500 km=70、入軌進度單調；schema2 已交/待確認25分仍是25；schema2草稿保留state/fuel/records並可按新schema3繼續操作。
+- 最終 `--feedback-fixes` browser通過：source＋實際SCORM，12 flows、0 JS errors。320×568、390×844、844×390、1280×800驗題目可見/無01/數據預設展開、pad與飛行回到follow、三個飛行視角及factory分別記憶旋轉縮放、僅明確reset回正、公式SVG字形在viewBox內且不造成橫向捲動、新69/70分；另驗舊review/pending保持25及舊draft恢復後可操作，以及所有既有提交結果/readonly/refresh/fullscreen/context recovery。
+- 報告 `output/rocket/p42-browser-report.json`，runtimeHash `5a961d771ebc0a2fbb247447230bc08ed3be2b0567b0f0243e1968f1902b3493`；檢視320px題目與根號分數截圖。公式以既有mathjax-full產生，SVG viewBox額外48 font units邊距保留字形外緣，沒有新增runtime JS/字型依賴。
+- 舊P41嚴格配分ZIP另存 `output/rocket-launch-orbit-lab-p41-strict-scorm.zip`。本輪不重跑完整3D藝術/效能browser；資產未改，art Node/閉包與物理回歸仍通過。真機與實際Moodle尚未驗收。
+- commit / selection-preview / 發布與線上核對待完成後補記。
+
+---
+
 # 2026-10-26 現行範圍修訂：固定載荷、只評發射入軌
 
 使用者已批准實作本節；以下舊版 A/B 雙任務文件屬歷史記錄，本節優先。

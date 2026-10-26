@@ -6,7 +6,7 @@
     const ex=vy*momentum/P.MU-x/r,ey=-vx*momentum/P.MU-y/r,e=Math.hypot(ex,ey),bound=energy<-1e-8,a=bound?-P.MU/(2*energy):null;
     return {r,height:r-P.R,speed,tangential:momentum/r,radial:(x*vx+y*vy)/r,energy,momentum,e,a,hp:bound?a*(1-e)-P.R:null,ha:bound?a*(1+e)-P.R:null,period:bound?TAU*Math.sqrt(a**3/P.MU):null,peri:Math.atan2(ey,ex),bound};
   }
-  function safe(q){const o=elements(q);return o.bound&&o.hp>=150000-1&&o.ha<=1000000+1;}
+  function safe(q){const o=elements(q);return o.bound&&o.hp>=150000-1;}
   function operable(q){const o=elements(q);return o.bound&&o.hp>=150000-1&&o.ha<=20000000;}
   function atAngle(o,angle){const radius=o.a*(1-o.e*o.e)/(1+o.e*Math.cos(angle-o.peri));return [radius*Math.cos(angle),radius*Math.sin(angle),0];}
   function path(q,count=180){const o=elements(q);if(Math.abs(o.momentum)<1)return [];if(o.bound&&o.e<.99999)return Array.from({length:count+1},(_,i)=>atAngle(o,TAU*i/count));if(o.bound)return [];const p=o.momentum**2/P.MU,nu=Math.atan2(Math.sin(Math.atan2(q[1],q[0])-o.peri),Math.cos(Math.atan2(q[1],q[0])-o.peri)),limit=Math.acos(Math.max(-1,Math.min(1,(p/(P.R+1e8)-1)/o.e))),end=Math.sign(o.momentum)*limit,points=[];for(let i=0;i<=count;i++){const angle=nu+(end-nu)*i/count,r=p/(1+o.e*Math.cos(angle));if(!Number.isFinite(r)||r<=0)break;points.push([r*Math.cos(angle+o.peri),r*Math.sin(angle+o.peri),0]);if(r<P.R)break;}return points;}

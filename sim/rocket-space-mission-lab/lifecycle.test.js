@@ -28,3 +28,7 @@ f.controls.lit=false;h.controller.play();for(const [seconds,warp]of [[.2,20],[.3
 assert.equal(advanceFrame(h.controller,0,20),0);h.controller.pause();const frozen=f.t;assert.equal(advanceFrame(h.controller,.5,100),0);assert.equal(f.t,frozen);h.controller.play();const before=f.t,actual=advanceFrame(h.controller,10,1000);assert(actual>0&&actual<1000);assert(Math.abs(actual-(f.t-before)/10)<1e-7,'Budget-limited actual warp uses full wall time');
 f.controls.lit=true;assert(advanceFrame(h.controller,.2,100)<=5+1e-7);
 console.log('rocket frame timing: real slow-frame time, warp eligibility, paused state, work budget and honest actual rate passed');
+
+let oldState=T.reachOrbit();oldState.schema=2;oldState.records[0].state=[P.R+140000,0,0,0,Math.sqrt(P.MU/(P.R+140000)),0];const oldResult=S.score(oldState);assert.equal(oldResult.score,25);const oldSnapshot=T.snapshot(oldState,'review',oldResult),oldPending={version:1,activity:P.ACTIVITY,kind:'pending-final',payload:{reviewJson:JSON.stringify(oldSnapshot),score:25,maxScore:100,passed:false}};
+h=harness({state:'finished',snapshot:oldSnapshot,score:'25',status:'failed'});assert(h.controller.trusted);assert.equal(h.controller.result.score,25);h=harness({state:'pending-final',snapshot:oldPending});assert.equal(h.controller.mode,'frozen');h.controller.retryFinal();assert.equal(h.controller.mode,'review');assert.equal(h.controller.result.score,25);assert.equal(h.controller.state.schema,2);
+console.log('rocket old submissions: strict-rubric 25 stays 25 through recorded review and frozen retry');
