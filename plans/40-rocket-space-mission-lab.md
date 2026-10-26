@@ -8,7 +8,10 @@
 - 最終 `--sky` source＋實際SCORM共8 flows、0 JS errors，6個尺寸/版本組合各13案例，共78個天空視角全部0露底像素。source及package桌面負對照原shader各593389露底像素，證明能重現原bug。起飛/8.4452km/80km/全景/plane與八方向均通過，飛行狀態不變、深度設定保留，無shader錯誤。
 - 沿用lifecycle：100/0分、review/resume/唯讀、frozen/committed重試、standalone refresh/storage denied、fullscreen/context loss/restore、舊60分保持。報告 `output/rocket/p45-browser-report.json`，runtimeHash `d236c96e19eca9ee472b11d1b528ed4a38c1a310dc0c5a132146385644859842`；已檢視向上望截圖。
 - Source與SCORM逐manifest檔案閉包一致。此修正只改一行sky vertex depth與原因註解，頂點/貼圖/依賴及鏡頭near/far未改；不重跑無關全球藝術效能套件，原art Node資產/預算檢查通過。真機Safari與實際Moodle仍未驗。
-- 發布證據待補。
+- 已commit/push實作 `1a952de14dd480952b603b3295cc4ec4b53459b7`；committed selection-preview `output/rocket/selection-p45.json`（29efafa→1a952de，affected預覽，未宣稱整批全跑）。
+- Sites helper來源 `8f8fd4fc289248f6c76337fd1c9c11699889166b` 已push/打包 `output/rocket/rocket-sky-depth-p45.tar.gz`。版本 `appgprj_6adc62579ab88191aba299bcb282ce95~appgver_3ac90b5caca481919ae7e71d3e039550`，deployment `appgdep_6adf2a4c48a48191b9ce58fedf1fe9ac`，native succeeded，2026-10-26 18:24:21 UTC+08。原網址 https://simlab-rocket-space-missions.ieyp.chatgpt.site 與owner-private audience保留。
+- `output/rocket/p45-live-verification.json` completed=true：15份線上檔案（包括實際改動的scene-art.js）與測試dist一致；非HTML逐byte hash，HTML只扣平台注入script；憑證僅隨同origin canonical index redirect。sourceCommit=1a952de14dd480952b603b3295cc4ec4b53459b7，packageSha256=078e7661741402b7ad6ce597d81751bb2f90f754f6c9fe279b85593152635f9b；474份ZIP entries核對dist，SCO同步 `output/rocket-launch-orbit-lab-v2-scorm.zip`。
+- 已交Codex開啟活動原網址（queued）。本輪browser/server/helper/live verifier均已結束，既有附件未改。
 
 ---
 
