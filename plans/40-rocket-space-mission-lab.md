@@ -12,6 +12,10 @@
 - 最終兩組均completed=true，output/rocket/p51-browser-report.json合併28 flows、0 JS errors；source與實際解壓SCORM各14。四尺寸1920×1000、1280×800、390×844、844×390，共4608組姿態/縮放/高度/地表方位檢查；最大投影中心誤差4.14e-11 CSS px，舊固定目標負對照偏移51.2–154.0px。分離起始鏡頭誤差0、結束對準上級、改下級軌跡不移鏡頭；wheel及圖像恢復後保留資料/zoom與置中。已檢視桌面、手機與封裝縮放截圖。
 - runtimeHash=4688be2970d5345ffa0fee68d55ed110d44a1dc8c9b86634542381e757af1d81。相鄰回歸含32個true-scale分離情境、288組向量、發射台/異地山坡/海面撞擊、天空0露底（舊shader歷史fixture露底593389 pixels）、0/100分與舊分數、readonly/pending/retry、standalone fresh/fullscreen/context recovery。分組原報告p51-center-report.json與p51-sky-report.json均保留；沒有採用未完成報告。
 
+- 實作已commit/push 7d8abe89d1b22d5495efa5a071a9ef79b6bf88e1；committed affected預覽output/rocket/selection-p51.json（75a03af→7d8abe8，僅預覽，未宣稱整批全跑）。473份runtime及474份ZIP entries核對dist，SCORM同步output/rocket-launch-orbit-lab-v2-scorm.zip；packageSha256=1105fbf204f8689d1770359946c17242d671123c0695424c8525805542c78881，build-info.sourceCommit=7d8abe8、schema4及payload150kg。
+- 官方Sites helper已push來源b0c24fd8428902378ed28d2f2d2d59e747f478ac並建立output/rocket/rocket-follow-center-p51.tar.gz。原網站版本49，version_id=appgprj_6adc62579ab88191aba299bcb282ce95~appgver_9037ad58bca08191a5a5cecbf639127b，deployment=appgdep_6ae00d0612d88191a649e6fc6c182fe0，native succeeded於2026-10-27 10:31:44 UTC+08；同一網址及owner-private受眾保持（1 user、0 groups、0 external）。
+- output/rocket/p51-live-verification.json completed=true：16份線上檔案核對實測dist，非HTML逐byte hash，HTML只扣既知平台注入script；same-origin canonical redirect限制保留。原網站已重新開啟，本機preview及測試瀏覽器均已關閉。真Samsung/iPhone、實體touchpad及實際Moodle未驗。
+
 # 2026-10-27 P50 手勢縮放與鏡頭操作
 
 - 使用者已批准按[詳細工作計劃](40-rocket-gesture-zoom-plan.md)實作並沿用原網站發布。基準25e245d；範圍interaction/scene/main/index/styles、既有interaction test及browser owner，無新依賴、評分、physics、schema4或固定150kg修改。
