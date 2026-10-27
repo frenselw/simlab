@@ -6,6 +6,11 @@
 - 補R1真production高空下落跨門檻及總預算回歸；R2每份profile production codec roundtrip與合法check/return續做，實際source/package宿主還原及standalone當前按鈕/中央camera ownership。只跑關聯測試，不跑全部大型rocket browser owner。
 - 審核輪次上限規則：Round1完整；後續可集中修正與相連範圍，若超過三輪，Round4起僅審上輪後改動及其直接影響。沒有以新輪名重設計數。
 
+- 審核完成三輪：Round2兩位確認R1/R2關閉，B再發現P3未點火fixture phase誤留ascent；36a1e8d兩行修正及phase/status/unlit斷言，Round3兩位獨立核對delta、codec/check-return/點火升空續做並關閉P3，無未處理已確認事項。完整紀錄見[branch審核與跟進](../docs/rocket-branch-review-2026-10-27.md)。
+- 必要驗證：修正後lifecycle、shared mobile Node及279-entry registry通過；390×844 source/package camera操作、package pad、standalone pad/ascent/submitted共6個browser cases通過且0 JS errors。未跑無關全套browser；真手機/實際Moodle未驗。
+- 修正已commit/push cad160a、36a1e8d；已提交版本selection-preview output/rocket/selection-p57.json。實測runtimeHash=7765f8fce670ab66f96c657ad148a1127a3f2a188c7ef9d9eb76bf1ddb5b0c25，ZIP=dec9720ab0196889475809257e73a5f24b894d55346dc280afba2c0f0470655e，474 entries逐一符合dist，保留schema4/150kg。
+- 原Site來源92d243612defa344642e8d0902fed47c963f73ea，版本55，deployment appgdep_6ae0802d6c8c8191a1d4176065c09ba6 native succeeded於18:43 UTC+08。受眾保持owner-private 1 user/0 groups/0 external；線上8份關鍵檔案符合實測dist，output/rocket/p57-live-verification.json completed=true。安全著陸/傾倒仍擱置。
+
 # 2026-10-27 P56 刪除示意河道及釐清觸地規則
 
 - 使用者要求刪除發射場示意河，另詢問低速觸地是否爆炸。只刪河道shader/2KB路徑查表與供應端、離線示意河筆觸及相關測試預期；保留槽口裁切。觸地規則只讀取/小型assert確認，不改physics、碰撞、rubric、schema4或SCORM。
