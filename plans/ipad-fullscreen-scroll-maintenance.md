@@ -19,6 +19,7 @@
 
 ## 執行證據
 
+- 此輪維護連同火箭觸控倍速修正已commit `c911515d0a25b7ff28caa38b110ad4b0e6073ff8`；committed selection-preview與交付檔名見[火箭計畫](40-rocket-space-mission-lab.md)。下列未提交註記保留其驗證當時的歷史界線；iPad原生退出手勢問題仍未解決。
 - 使用者後續實機回報：已把新版ZIP上載Moodle，iPad仍稍微向下拉便退出全螢幕，感受不到改善。這是明確的實機失敗回報，CSS措施未解決其環境的問題；iPadOS／瀏覽器／實際部署hash及fullscreen event log尚未提供。不能再用下列Chrome成功作為iPad修復證據。
 - 原因分析補充：WebKit公開的[原生fullscreen controller](https://github.com/WebKit/WebKit/blob/main/Source/WebKit/UIProcess/ios/fullscreen/WKFullScreenWindowControllerIOS.mm)在FULLSCREEN_DISMISSAL_GESTURES分支向原生view加入單指向下UISwipeGestureRecognizer，並允許與其他手勢同時辨識；interactive dismiss另考慮位移及速度。這支持「面板捲動同時觸發原生退出」的推斷，不代表已確認使用者所裝版本的同一段實作。與網頁CSS overscroll分屬不同層級，需用實機事件及宿主對照確認；本輪分析沒有再更動runtime。
 - `node sim/shared/fullscreen.test.js` 通過；標準／WebKit、外部退出、拒絕／busy 與 teardown class 清理均已執行。

@@ -2,6 +2,7 @@
 
 ## 後續：觸控失焦修正（本輪）
 
+- 使用者要求提交及推送後，實作／回歸／共用防回彈與驗證記錄已commit `c911515d0a25b7ff28caa38b110ad4b0e6073ff8`。committed selection-preview：`output/rocket/selection-ipad-touch-fix.json`，base `0fc1d30922de42aeb7a9ad3ec3efdd24972c89c5` → 該commit，full／packages=all／279 entries；這只是選取預覽，不表示全庫已執行或CI已通過。使用者指定交付檔名繼續為`output/rocket-space-mission-lab-scorm.zip`，其內容與下列最終hash一致。以下「未commit」字樣記錄的是當時執行驗證的歷史狀態。
 - 後續實機回報：桌面可選倍率，iPad完全揀唔到，上一版不能視為iPad成功。新風險：選項開啟時無條件focus目前倍率，而focusout的relatedTarget=null即關閉；WebKit點按button可先清焦、再click，會隱藏尚待點擊的選項。修正決定：只於鍵盤開啟時移焦、null目標不當成已離開選項；保留明確外點、外部焦點、Esc、blur／resize／模式切換關閉。不攔截整頁觸控、不在pointerdown即提交倍率。
 - 補驗決定：沿用rocket browser owner，加入可重現的null-relatedTarget／touch下清焦序列、普通及fullscreen下paused／running選倍率、鍵盤離開／外點與鎖定；另外用已安裝的Playwright WebKit作source／extracted ZIP引擎診斷。WebKit桌面測試仍不取代真iPad複驗。評分／物理／phase／snapshot／SCORM及runtime依賴沿用下列範圍，無新runtime檔案。
 - 已在實際WebKit引擎、hasTouch/mobile／1024×768下，用production組裝及發射台UI重現：tap 5×的pointerdown之後，1×先focusout（relatedTarget=null），原handler關閉選項，最後click目標變成controlsPane，值保持1。修正後同樣操作click正確落在5×，值為5。before／after：`output/rocket/ipad-warp-focus-before.json`、`output/rocket/ipad-warp-focus-after.json`。
