@@ -212,7 +212,7 @@ def paint_region(image,mask):
     def pt(points):return [((x+EXTENT)*factor,(EXTENT-z)*factor) for x,z in points]
     ink=Image.new('RGBA',image.size);d=ImageDraw.Draw(ink)
     rng=np.random.default_rng(SEED+2)
-    # Preserve the existing 3D ridge footprints and the river through the pad area.
+    # Preserve the existing 3D ridge footprints.
     for ridge in RIDGES:
         x,z,r=ridge['x'],ridge['z'],ridge['r']
         a=rng.uniform(-.35,.35)

@@ -7,6 +7,10 @@
 - --no-river-only source/實際SCORM desktop1280×800及phone390×844共4 flows、0 JS errors，output/rocket/p56-browser-report.json completed=true；runtimeHash=dfecb6f894702451813f2f7dd69e46c481b791c93e9ac58f0439c46b7e3e2b2e。原河位固定鏡頭blue pixels均0，river=false且無River查表；排焰槽uLaunchCut仍1，shader無錯。已檢視封裝手機截圖。43 calls/48771–61571 triangles，維持預算。
 - 小型Node assert確認：flying在地面初速0/.01m/s，step後status均impact（實際接觸速度約2.3e-11/.01000000002m/s）；原pad靜止step仍pad。沒有修改model或爆炸/傾倒邏輯，現行無安全著陸/傾倒狀態。279-entry registry通過，不跑無關全套。
 
+- 實作已commit/push 534b8220dec147684378fa3c8002d4646166b30b；affected預覽output/rocket/selection-p56.json（99d8510→534b822，僅預覽）。實測ZIP的474 entries/runtime核對dist，SCO同步output/rocket-launch-orbit-lab-v2-scorm.zip；packageSha256=ce223896bac460de76f5ccc0b9425c35ab4b51d5d5024d7ed50979dcc4d2a578。
+- 官方Sites來源187c86b29f84c2bd3426b28dec98adafc399968c，archive output/rocket/rocket-no-river-p56.tar.gz。原網站版本54，version_id=appgprj_6adc62579ab88191aba299bcb282ce95~appgver_536b539317dc8191a1f93544de093e24，deployment=appgdep_6ae06b2c305c8191b256217d53db058a，native succeeded於2026-10-27 17:13:23 UTC+08。原網址與owner-private受眾保持，1 user/0 groups/0 external。
+- output/rocket/p56-live-verification.json核對scene/scene-art/contact-ground、入口、main及build-info共7份線上檔案，符合實測dist；原網站已開啟，測試瀏覽器及preview已關閉。真手機GPU/實際Moodle未驗，觸地規則維持原樣。
+
 # 2026-10-27 P55 收臂、下沉排焰通道、蒸氣與連續河道
 
 - 使用者批准四項修正並沿用必要測試。範圍scene/scene-art/contact-ground及既有browser owner專項；沿用現有依賴、renderer/動畫循環。無飛行physics、rubric、schema4、150kg或SCORM格式修改。
