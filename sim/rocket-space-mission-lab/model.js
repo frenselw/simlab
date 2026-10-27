@@ -51,6 +51,7 @@
   function change(s,action){
     const n=clone(s),f=n.flight;if(n.phase==='check'&&action.type!=='return')return n;
     switch(action.type){
+      case 'clear-craft':if(n.phase==='workshop')n.craft=P.emptyCraft(n.variant);break;
       case 'part':{if(n.phase!=='workshop')break;const st=n.craft.stages[action.stage];if(!st)break;if(action.part==='engine'){if([null,0,1].includes(action.value))st.engine=action.value;}else if(['small','large'].includes(action.part)&&Number.isInteger(action.value)&&action.value>=0&&action.value<=4&&action.value+st[action.part==='small'?'large':'small']<=4&&(action.value<=st[action.part]||P.canFit(n.craft,action.stage,action.part))){const list=P.tanks(st);while(list.filter(k=>k===action.part).length>action.value)list.splice(list.lastIndexOf(action.part),1);while(list.filter(k=>k===action.part).length<action.value)list.push(action.part);P.setTanks(st,list);}break;}
       case 'insert':{
         if(n.phase!=='workshop'||!['small','large'].includes(action.part)||!P.canFit(n.craft,action.stage,action.part))break;

@@ -1,3 +1,13 @@
+# 2026-10-27 P53 重新開始試飛與拆除全部元件
+
+- 使用者批准修改返工廠文案並新增一按拆除。範圍index/main/styles、model單一clear-craft命令、既有interaction test及browser owner專項；不改飛行physics、rubric/schema4/150kg/SCORM流程或新增依賴。
+- 重新開始試飛沿用workshop命令：清除當次飛行並返回設計，保留craft及records。新增拆除全部元件只限workshop，回復emptyCraft，保留records；空設計禁用，重設選取與焦點，沿用controller存檔/唯讀防護。這不是清除已提交結果或重開attempt。
+- 必要驗收：interaction命令保留成果/不可變輸入、非法phase拒絕、production draft encode/decode與合法繼續；既有browser owner --workshop-actions-only在source/實際SCORM驗桌面/手機按鈕、空設計禁用、保存內容、還原後重砌/發射、空中與撞擊重新開始、唯讀拒絕及按鈕版面。無重跑無關飛行/美術/評分全套。
+- 沿用已註冊test owner並保存registry/committed selection-preview；原網站同受眾發布。真手機/Moodle另列未驗。
+
+- interaction.test.js與279-entry registry通過；browser --workshop-actions-only source/實際SCORM共4 flows、0 JS errors，output/rocket/p53-browser-report.json completed=true。1280×800可信mouse、320×568可信touch；拆除掣100×44px且與標題不重疊，已檢視封裝手機截圖。空中/墜毀重開保留設計及records，清空全部零件保留records，檢查production draft保存、還原重砌/發射及flight/review拒絕清空。
+- runtimeHash=c58b57d9b0e8746e7e11bcf41beecb2e21a63451f9959276890838b968f0b57e。只跑本次操作專項，未重跑飛行物理、美術或計分全套。未新增依賴/正式測試檔。
+
 # 2026-10-27 P52 全球雲系與日夜光照
 
 - 使用者批准立即修改並限定必要測試；本次只改全球雲圖生成器、clouds.webp及資產hash、雲層shader、既有browser owner雲層專項與本文。近景立體雲、地形、鏡頭、physics、rubric、schema4、150kg及SCORM流程保持；無新依賴。

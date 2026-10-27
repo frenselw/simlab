@@ -14,3 +14,12 @@ assert.equal(I.wheelFactor(NaN,0,400),1);
 assert.equal(I.wheelFactor(Infinity,0,400),1);
 assert.equal(I.wheelFactor(-6000,0,400),I.wheelFactor(-600,0,400));
 assert(I.wheelFactor(-20,0,400)>1&&I.wheelFactor(20,0,400)<1);
+
+{
+ const P=require('./parts'),D=require('./persistence'),before=JSON.stringify(s),cleared=M.change(s,{type:'clear-craft'});
+ assert.equal(JSON.stringify(s),before);assert.deepEqual(cleared.craft,P.emptyCraft(0));assert.equal(cleared.phase,'workshop');assert.equal(cleared.flight,null);assert.equal(JSON.stringify(cleared.records),original);
+ const restored=D.decode(T.snapshot(cleared),'draft');assert.deepEqual(restored,cleared);
+ let rebuilt=M.change(restored,{type:'part',stage:0,part:'engine',value:0});rebuilt=M.change(rebuilt,{type:'part',stage:0,part:'small',value:1});rebuilt=M.change(M.change(rebuilt,{type:'capsule'}),{type:'launch'});D.validate(rebuilt);assert.equal(rebuilt.phase,'pad');assert.equal(JSON.stringify(rebuilt.records),original);
+ for(const locked of [rebuilt,M.change(rebuilt,{type:'check'}),T.launched()])assert.deepEqual(M.change(locked,{type:'clear-craft'}),locked);
+ console.log('rocket workshop: clear design preserves records, draft roundtrip and rebuild; flight/check reject clearing');
+}

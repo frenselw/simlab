@@ -94,3 +94,5 @@
 .parts-grid .part-drag{margin-top:auto}
 
 .camera-hint{position:absolute;z-index:8;left:50%;bottom:88px;transform:translateX(-50%);max-width:calc(100% - 80px);padding:7px 10px;border-radius:8px;background:#fffef5ed;color:#35685f;font-size:12px;text-align:center;pointer-events:none}
+
+.workshop-heading{display:flex;align-items:center;justify-content:space-between;gap:8px}.workshop-heading h2{margin:0}.workshop-heading button{flex:none;min-height:44px;padding:6px 10px;font-size:13px}
