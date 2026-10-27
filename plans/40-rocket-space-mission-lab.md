@@ -9,6 +9,10 @@
 - art.test.js及279-entry registry通過；--clouds-only於source/實際解壓SCORM共4 flows、0 JS errors，output/rocket/p52-browser-report.json completed=true。桌面1280×800/手機390×844，日面/夜面/交界/地平線共16張截圖；已檢視桌面日面與封裝手機交界。隔離雲層實際像素night/day約0.0291–0.0292，shader無錯，仍為1 mesh/1024×512；全景42 calls、86903–92023 triangles，地平線50–52 calls、30402–49913 triangles。未將SwiftShader當真機FPS證據。
 - runtimeHash=0bc6d065cf38bb66bfa961f770df6c994d80fa3718754e24d06425d1d408e547。生成器初始雲系過度集中單一經度區，被原覆蓋率assert攔下；以不同空間尺度校準後才生成最終資產。最終報告只取新資產的完整成功執行，沒有採納生成前的舊圖檢查。
 
+- 實作已commit/push 1cddfa6d3086af00a43d2b45d419c0e61fb4a8d7；affected預覽output/rocket/selection-p52.json（feb1758→1cddfa6，僅預覽）。473份runtime及474份ZIP entries核對dist，SCO同步output/rocket-launch-orbit-lab-v2-scorm.zip；packageSha256=59acaebf24f6e4035cfd0b55a08f2409d299f83ca1d12ba4324cd6435044e3a6。
+- 官方Sites來源9511e6009dd4f7cdd22afb49a440ea7f5397939a，archive output/rocket/rocket-clouds-p52.tar.gz；原網站版本50，version_id=appgprj_6adc62579ab88191aba299bcb282ce95~appgver_7152e9b3a6d08191b5da722b527f95a0，deployment=appgdep_6ae01dacbd208191a6e6b47986998778，native succeeded於2026-10-27 11:42:46 UTC+08。原網址與owner-private受眾保持，1 user/0 groups/0 external。
+- 線上核對output/rocket/p52-live-verification.json針對入口、build-info、scene-art.js、clouds.webp及geography.json共6份；保留same-origin限制及逐byte比對。測試瀏覽器與本機preview已關閉。近景立體雲未改，真手機GPU/Moodle未驗。
+
 # 2026-10-27 P51 跟隨鏡頭對準實際機身中心
 
 - 使用者批准修正二級傾斜時偏離畫面中心；沿用原網站發布。範圍僅scene.js的follow目標點、既有browser owner與本計劃；不新增依賴或UI，不改評分、physics、schema4、150kg及存檔格式。
