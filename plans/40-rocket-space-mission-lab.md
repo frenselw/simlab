@@ -8,6 +8,10 @@
 - interaction.test.js與279-entry registry通過；browser --workshop-actions-only source/實際SCORM共4 flows、0 JS errors，output/rocket/p53-browser-report.json completed=true。1280×800可信mouse、320×568可信touch；拆除掣100×44px且與標題不重疊，已檢視封裝手機截圖。空中/墜毀重開保留設計及records，清空全部零件保留records，檢查production draft保存、還原重砌/發射及flight/review拒絕清空。
 - runtimeHash=c58b57d9b0e8746e7e11bcf41beecb2e21a63451f9959276890838b968f0b57e。只跑本次操作專項，未重跑飛行物理、美術或計分全套。未新增依賴/正式測試檔。
 
+- 實作已commit/push 20317d1af14e68c344238685ca4d6bfc942876dc；affected預覽output/rocket/selection-p53.json（1792f36→20317d1，僅預覽）。實測ZIP的474 entries核對dist，runtime逐檔一致；SCO同步output/rocket-launch-orbit-lab-v2-scorm.zip，packageSha256=fe742702ee0c7e1dcc6259fda1c8e0bf3f9e0f8939f6f0524930731d196e20ec。
+- 官方Sites來源841e70e1c48ccd49ec850cf61a7aed89147f9803，archive output/rocket/rocket-workshop-actions-p53.tar.gz。原網站版本51，version_id=appgprj_6adc62579ab88191aba299bcb282ce95~appgver_09b2a8d2ae048191811141153a6d42e6，deployment=appgdep_6ae0337aa2fc8191bd282a2a04f290af，native succeeded於2026-10-27 13:15:46 UTC+08。原網址與owner-private受眾保持，1 user/0 groups/0 external。
+- output/rocket/p53-live-verification.json核對入口、build-info、main/model/styles共6份線上檔案，與已驗收dist一致；憑證限same-origin且只經隱藏stdin。測試瀏覽器及preview已關閉；真手機/Moodle未驗。
+
 # 2026-10-27 P52 全球雲系與日夜光照
 
 - 使用者批准立即修改並限定必要測試；本次只改全球雲圖生成器、clouds.webp及資產hash、雲層shader、既有browser owner雲層專項與本文。近景立體雲、地形、鏡頭、physics、rubric、schema4、150kg及SCORM流程保持；無新依賴。
