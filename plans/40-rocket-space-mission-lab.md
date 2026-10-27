@@ -1,3 +1,14 @@
+# 2026-10-27 P54 工廠裝配區與航天基地
+
+- 使用者批准基地美術方案並要求測試不過量。範圍scene-art的既有pad/landscape及scene顯示條件、既有browser owner基地專項；沿用Canvas/Three批次模型，無新檔案/依賴/圖片，無physics、rubric、schema4、150kg、存檔改動。
+- 工廠為開放裝配區，外圍框架、工作枱、架及推車；發射場有可配合火箭高度的服務塔、側方支臂、水塔/泵房及排焰通道。外圍重複24棟改為4組用途分明設施，連接道路、儲罐區與地形底座。中央保留組裝淨空，場景設施不加入零件拾取。
+- 沿用太陽/天空補光與獨立factory照明；模型共用材質及InstancedMesh，簡單接觸陰影，不加動態shadow/postprocessing。factory裝配設施與launch設施分開顯示，依既有像素細節/高度淡出。
+- 必要驗收僅--base-art-only：source與實際SCORM各桌面/手機，工廠/發射台/剛離地固定畫面、組裝拾取與縮放/返工廠、底座及道路有限高度/淨空、shader、draw calls<=100與triangles<=100000；遠處隱藏細節。沿用registry owner及committed selection-preview，不重跑無關物理/計分全套。真手機/Moodle未驗。
+
+- 最終--base-art-only source/實際SCORM桌面1280×800及手機390×844共4 flows、0 JS errors，output/rocket/p54-browser-report.json completed=true；runtimeHash=d37c24932cc64b408849622ffbc9d87199300c6d4ddd424cd4ac0144f7bd6dd2。工廠45–55 calls/10510–17470 triangles，待發射82 calls/61907–74707 triangles，剛離地84 calls/61959–74759 triangles；保持100 calls/100000 triangles內。未將SwiftShader量度當真機FPS。
+- 已檢視空工廠、手機待發射/升空與基地道路畫面。工廠封閉轉盤及四柱框架、排焰槽只在發射場顯示；服務塔依完整火箭高度設定，升空支臂收向側方。道路頂點有限且法線向上、4組建築底座跨地形角點、6條連接路；樹木避開設施/道路後255棵，建築最近約680m。真零件拾取/取消、縮放旋轉不改設計，60km隱藏本地設施，返回工廠顯示模式正確。
+- 只重跑同一基地專項一次以驗收人工檢視修正；沒有跑無關物理/評分全套。279-entry registry通過，沿用browser owner且無新增正式test file或runtime依賴。
+
 # 2026-10-27 P53 重新開始試飛與拆除全部元件
 
 - 使用者批准修改返工廠文案並新增一按拆除。範圍index/main/styles、model單一clear-craft命令、既有interaction test及browser owner專項；不改飛行physics、rubric/schema4/150kg/SCORM流程或新增依賴。
