@@ -49,3 +49,10 @@ for(const axis of ['x','y'])for(const slot of [0,1]){
   target=null;assert(!probe().aligned&&!probe().previewAligned,'no target must stay unaligned');
 }
 console.log('Projectile probes accept exact fractional positions and reject rounded, offset, wrong-slot and missing reading targets.');
+
+{
+ const profiles=require('./mobile-scroll-cases'),P=require('../sim/rocket-space-mission-lab/parts'),D=require('../sim/rocket-space-mission-lab/persistence'),M=require('../sim/rocket-space-mission-lab/model'),html=require('fs').readFileSync(path.join(__dirname,'../sim/rocket-space-mission-lab/index.html'),'utf8'),source=profiles.profiles('rocket-space-mission-lab');
+ assert.equal(new Set(source.map(p=>p.id)).size,source.length);for(const profile of source)if(profile.prepare){let state;vm.runInNewContext(`(()=>{${profile.prepare}})()`,{restore:(activity,answer)=>{assert.equal(activity,P.ACTIVITY);state=D.decode({version:1,activity,kind:'draft',answer},'draft');return true;}});assert(state);D.validate(M.change(M.change(state,{type:'check'}),{type:'return'}));}
+ for(const profile of profiles.standaloneProfiles('rocket-space-mission-lab'))if(profile.prepare)vm.runInNewContext(profile.prepare,{click:selector=>{if(selector.startsWith('#'))assert(html.includes('id="'+selector.slice(1)+'"'),selector);else{const part=/^\[data-part="([^"]+)"\]$/.exec(selector);assert(part&&html.includes('data-part="'+part[1]+'"'),selector);}},window:{__rocketApp:{controller:{tick(){},pause(){}}}}});
+ console.log('Rocket host profiles: current activity ID, legal codec continuations and existing standalone selectors passed');
+}

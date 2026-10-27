@@ -1,3 +1,11 @@
+# 2026-10-27 P57 兩位獨立branch reviewer覆核及修正
+
+- 使用者明確要求兩個subagents獨立平行審核整個branch並跟進；安全著陸/傾倒繼續擱置。Round1基準1ef4bdf4fd696b4a12c37f7c1bedfe6d6f96849d，目標79976bf967fcae241495129411833ae170b3bed7。兩位各自審閱完整新增/改動與相連呼叫點，無共享初次結論，無修改來源。
+- 兩位均確認同兩項P2：R1高倍速一幀跨入120km以下仍用原高倍速，合法下落會由120.4km在0.2s前景幀直撞地；R2共用手機scroll profiles依賴已刪T.raised/T.escaped、變軌phase、第二record、舊activity ID與不存在按鈕。
+- 基準七組rocket Node+279-entry registry全通過，顯示兩項邊界缺測。修正只限ui-runtime分步倍速與lifecycle test，共用mobile-scroll profiles/operations及其既有Node/browser owner；保留總800積分步、剩餘真實時間與actual rate，來源profile使用現行P.ACTIVITY與合法單record草稿，standalone改真實組裝/發射按鈕。
+- 補R1真production高空下落跨門檻及總預算回歸；R2每份profile production codec roundtrip與合法check/return續做，實際source/package宿主還原及standalone當前按鈕/中央camera ownership。只跑關聯測試，不跑全部大型rocket browser owner。
+- 審核輪次上限規則：Round1完整；後續可集中修正與相連範圍，若超過三輪，Round4起僅審上輪後改動及其直接影響。沒有以新輪名重設計數。
+
 # 2026-10-27 P56 刪除示意河道及釐清觸地規則
 
 - 使用者要求刪除發射場示意河，另詢問低速觸地是否爆炸。只刪河道shader/2KB路徑查表與供應端、離線示意河筆觸及相關測試預期；保留槽口裁切。觸地規則只讀取/小型assert確認，不改physics、碰撞、rubric、schema4或SCORM。

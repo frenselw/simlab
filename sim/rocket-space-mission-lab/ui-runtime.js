@@ -39,8 +39,15 @@
   }
   function warpLimit(flight){return flight.controls.lit||O.elements(flight.state).height<120000?5:1000;}
   function advanceFrame(controller,seconds,warp){
-    const result=controller.tick(seconds*Math.min(warp,warpLimit(controller.state.flight)),800);
-    return seconds>0&&result?result.elapsed/seconds:0;
+    let remaining=seconds,elapsed=0,steps=0;
+    while(remaining>1e-9&&steps<800){
+      const f=controller.state.flight,o=O.elements(f.state),rate=Math.min(warp,warpLimit(f));let request=remaining*rate;
+      // Approach the atmosphere boundary before rechecking the rate for the remaining wall time.
+      if(rate>5&&o.radial<0)request=Math.min(request,Math.max(.001,(o.height-120000)/-o.radial));
+      const result=controller.tick(request,1);if(!result||result.elapsed<=0||!result.steps)break;
+      elapsed+=result.elapsed;remaining=Math.max(0,remaining-result.elapsed/rate);steps+=result.steps;
+    }
+    return seconds>0?elapsed/seconds:0;
   }
   return Object.freeze({Controller,warpLimit,advanceFrame});
 });

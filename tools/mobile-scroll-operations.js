@@ -217,8 +217,8 @@ async function runCircularVectorOperations({cdp,childEval,observation,prepare,de
   return results;
 }
 async function runRocketOperations({cdp,childEval,observation,prepare,delay},spec){
-  if(!['camera-surface','planning'].includes(spec.id))return [];
-  const results=[],selector=spec.id==='camera-surface'?'#cameraSurface':'#nodeHandle';let id=17000;
+  if(spec.id!=='camera-surface')return [];
+  const results=[],selector='#cameraSurface';let id=17000;
   for(const ending of ['complete','cancel','secondary','blur','lostcapture']){
     await prepare('stage','middle');const point=await childEval(`(()=>{const e=document.querySelector('${selector}'),r=e.getBoundingClientRect(),f=frameOffset();if(e.hidden||!r.width)throw Error('Rocket owned target unavailable');return{x:r.x+(e.id==='cameraSurface'?44:r.width/2)+f.left,y:r.y+r.height/2+f.top};})()`),before=await observation(),samples=[],touch=p=>({...p,id,radiusX:1,radiusY:1,force:1});
     await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[touch(point)]});for(let j=1;j<=4;j++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[touch({x:point.x+j*4,y:point.y+j*2})]});await delay(20);samples.push(await observation());}
@@ -226,7 +226,7 @@ async function runRocketOperations({cdp,childEval,observation,prepare,delay},spe
     else if(ending==='secondary'){await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[touch({x:point.x+16,y:point.y+8}),{...touch({x:point.x-12,y:point.y+12}),id:id+1}]});await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});}
     else{if(ending==='blur')await childEval("window.dispatchEvent(new window.Event('blur'))");if(ending==='lostcapture')await childEval(`(()=>{const e=document.querySelector('${selector}'),p=window.__auditEvents.find(e=>e.type==='pointerdown')?.pointerId;if(p==null||!e.hasPointerCapture(p))throw Error('Rocket did not capture');e.releasePointerCapture(p);})()`);await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});}
     await delay(80);const after=await observation(),issues=[];for(const sample of [...samples,after])for(const key of ['host','document','panel','outerWindow','immediateParent'])if(Math.abs((sample[key]||0)-(before[key]||0))>1.1)issues.push('rocket owned drag moved '+key);
-    const canonical=v=>JSON.stringify(v.state.hooks.__rocketApp);if(spec.id==='camera-surface'||ending!=='complete'){if(canonical(before)!==canonical(after))issues.push('rocket cancelled/camera gesture changed answer');}else if(canonical(before)===canonical(after))issues.push('rocket node drag did not commit');
+    const canonical=v=>JSON.stringify(v.state.hooks.__rocketApp);if(canonical(before)!==canonical(after))issues.push('rocket camera gesture changed answer');
     if(!after.events.some(e=>e.type==='pointerdown'&&e.isTrusted&&e.pointerType==='touch'))issues.push('rocket missing trusted touch');if(await childEval("!document.getElementById('touchPreview').hidden"))issues.push('rocket preview remained');results.push({case:'rocket-'+spec.id+'-'+ending,point,before,after,samples,issues:[...new Set(issues)]});id+=2;
   }return results;
 }
