@@ -166,7 +166,7 @@ function profiles(slug) {
   if(slug==='rocket-space-mission-lab'){
     const M=require('../sim/rocket-space-mission-lab/model'),P=require('../sim/rocket-space-mission-lab/parts'),D=require('../sim/rocket-space-mission-lab/persistence'),T=require('../sim/rocket-space-mission-lab/test-support');
     const restored=(id,s,continuation=['#checkButton','#backButton'],extra={})=>({id,prepare:`return restore('${P.ACTIVITY}',${JSON.stringify(D.draft(s))});`,continue:continuation,settleMs:250,expectReady:'Boolean(window.__rocketApp?.getScene())',...extra});
-    const states=[{id:'initial'}],blank=M.fresh(),partial=M.change(blank,{type:'part',stage:0,part:'engine',value:0}),launch=T.launched(),pad=M.change(launch,{type:'stop'});
+    const states=[{id:'initial'}],blank=M.fresh(),partial=M.change(blank,{type:'part',stage:0,part:'engine',value:0}),launch=T.launched(),pad=M.change(launch,{type:'stop'});pad.phase='pad';
     states.push(restored('partial-workshop',partial),restored('pad',pad));M.advance(launch,20);states.push(restored('ascent',launch),restored('separated',M.change(launch,{type:'separate'})));const coast=T.reachOrbit();states.push(restored('coast',coast));
     let ended=T.launched();M.advance(ended,1);ended=M.change(ended,{type:'stop'});M.advance(ended,30);states.push(restored('impact',ended));
     const escaped=P.clone(pad);escaped.phase='ended';Object.assign(escaped.flight,{t:100,state:[P.R+1e8,0,0,12000,0,0],maxHeight:1e8,status:'escaped'});states.push(restored('escaped',escaped));
