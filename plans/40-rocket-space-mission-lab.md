@@ -1,3 +1,16 @@
+# 2026-10-27 P55 收臂、下沉排焰通道、蒸氣與連續河道
+
+- 使用者批准四項修正並沿用必要測試。範圍scene/scene-art/contact-ground及既有browser owner專項；沿用現有依賴、renderer/動畫循環。無飛行physics、rubric、schema4、150kg或SCORM格式修改。
+- 收臂使用短效視覺時間及ease-out，不由pad/flying硬切；暫停/失焦/圖像故障不推進，還原途中飛行直接收起，重新試飛復位。固定32個軟邊billboard煙團池，沿槽入口/出口產生並消散，不跟火箭走。
+- 排焰通道有底、側壁、斜板與出口；所有會覆蓋該局部的地面與平台共用槽口裁切，保持中央支承面及既有接地基準。視為發射台內部設施，不改全球地形碰撞。
+- 河道先以隱藏河岸/地面的固定鏡頭對照確認干涉；移除重疊短帶，改由各地面層共用同一細小路徑查表直接著色河水與兩側河岸，無共面水面爭深度，延續至上下游。保留3D地形；不新增大貼圖或逐像素長路徑迴圈。
+- 必要驗收僅收臂起/中/末、暫停/倍速/還原/重開，槽口正斜視及封底、煙生成/消散/資源不增長、河道對照/連續/跨地面層、desktop/phone source+SCORM shader與<=100 calls/100000 triangles；沿用已註冊owner及selection-preview，不跑無關評分/飛行全套。真手機/Moodle另列未驗。
+
+- 修改前固定鏡頭對照output/rocket/p55-river-before.json：all藍色像素792、隱藏bank後1550、只留water及照明1544；確認河岸重疊為主要缺口來源。新河水/岸直接共用地面shader，2KB 512×1 RGBA查表，按單調北向點接續原路徑，範圍-9200至39895m；無重疊短帶。
+- 最終--launch-site-only source/實際SCORM各desktop1280×800及phone390×844，共4 flows、0 JS errors，output/rocket/p55-browser-report.json completed=true；runtimeHash=a8574738f6a3b5c8b8ce6fd8a23baaf3cbc60dd46373b2730e69247a7527b838。收臂角度逐幀單調0→90°，20s物理時間跳進不改視覺角度，暫停角度/煙團不變；還原飛行直接收起、返工廠復位。32池內實測24煙團，停止後0。
+- 槽底深2.7m；同一鏡頭把槽底暫標紅，開裁切見754 pixels、關裁切0，確認底板真正露出；槽中央0露底magenta、shader無錯。煙霧貼圖軟邊及密度經畫面檢視調整，已檢視手機/桌面煙霧、槽及連續河道。河道3張同姿態畫面0差異、743藍色pixels，重疊strip數0。
+- 測試未一次排隊數十張SwiftShader全畫面：動畫數值階段暫停GPU render，只繪驗收幀，避免5s screenshot timeout。最終85 calls、60817–73617 triangles，保持100/100000內；279-entry registry通過。不跑無關計分/物理全套，真手機GPU/Moodle未驗。
+
 # 2026-10-27 P54 工廠裝配區與航天基地
 
 - 使用者批准基地美術方案並要求測試不過量。範圍scene-art的既有pad/landscape及scene顯示條件、既有browser owner基地專項；沿用Canvas/Three批次模型，無新檔案/依賴/圖片，無physics、rubric、schema4、150kg、存檔改動。
