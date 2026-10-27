@@ -11,6 +11,10 @@
 - 槽底深2.7m；同一鏡頭把槽底暫標紅，開裁切見754 pixels、關裁切0，確認底板真正露出；槽中央0露底magenta、shader無錯。煙霧貼圖軟邊及密度經畫面檢視調整，已檢視手機/桌面煙霧、槽及連續河道。河道3張同姿態畫面0差異、743藍色pixels，重疊strip數0。
 - 測試未一次排隊數十張SwiftShader全畫面：動畫數值階段暫停GPU render，只繪驗收幀，避免5s screenshot timeout。最終85 calls、60817–73617 triangles，保持100/100000內；279-entry registry通過。不跑無關計分/物理全套，真手機GPU/Moodle未驗。
 
+- 實作已commit/push cab62a0c02d8374da7dfc74c9f19e1c0b25c69b2；affected預覽output/rocket/selection-p55.json（41ed9e3→cab62a0，僅預覽）。實測ZIP的474 entries/runtime核對dist，SCO同步output/rocket-launch-orbit-lab-v2-scorm.zip；packageSha256=2f208763c256267a8db38aac655d7935c65836ed6bf2f62b8bac8b3b4f555583。
+- 官方Sites來源61d4dd22c3f40d8aba33e4155df2920ae8c83e06，archive output/rocket/rocket-launch-effects-p55.tar.gz。原網站版本53，version_id=appgprj_6adc62579ab88191aba299bcb282ce95~appgver_38638eb9486881919edb3909744a2f27，deployment=appgdep_6ae05ed02f1881919129464048701b83，native succeeded於2026-10-27 16:20:40 UTC+08。原網址與owner-private受眾保持，1 user/0 groups/0 external。
+- output/rocket/p55-live-verification.json核對scene/scene-art/contact-ground、入口、main及build-info共7份線上檔案，符合實測dist。原網站已開啟，測試瀏覽器及preview已關閉；真手機GPU/實際Moodle未驗。槽口為視覺設施，不改全域碰撞地形。
+
 # 2026-10-27 P54 工廠裝配區與航天基地
 
 - 使用者批准基地美術方案並要求測試不過量。範圍scene-art的既有pad/landscape及scene顯示條件、既有browser owner基地專項；沿用Canvas/Three批次模型，無新檔案/依賴/圖片，無physics、rubric、schema4、150kg、存檔改動。
