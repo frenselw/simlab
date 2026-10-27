@@ -1,3 +1,12 @@
+# 2026-10-27 P56 刪除示意河道及釐清觸地規則
+
+- 使用者要求刪除發射場示意河，另詢問低速觸地是否爆炸。只刪河道shader/2KB路徑查表與供應端、離線示意河筆觸及相關測試預期；保留槽口裁切。觸地規則只讀取/小型assert確認，不改physics、碰撞、rubric、schema4或SCORM。
+- 現行model飛行再觸地直接impact且關機，無速度門檻；status=pad例外。scene由flying→impact觸發特效，無安全落地或碰撞後傾倒模擬，歷史impact還原不重播。
+- 必要驗收僅--no-river-only：source/實際SCORM桌面與手機、0/3800m地面shader無河道/查表、原河位固定鏡頭無藍帶及河岸；槽口仍啟用、無shader errors及預算。Node只自檢接近零速/零速觸地與pad例外，不跑無關全套；沿用registry及committed selection-preview。原網站同受眾發布，真手機/Moodle未驗。
+
+- --no-river-only source/實際SCORM desktop1280×800及phone390×844共4 flows、0 JS errors，output/rocket/p56-browser-report.json completed=true；runtimeHash=dfecb6f894702451813f2f7dd69e46c481b791c93e9ac58f0439c46b7e3e2b2e。原河位固定鏡頭blue pixels均0，river=false且無River查表；排焰槽uLaunchCut仍1，shader無錯。已檢視封裝手機截圖。43 calls/48771–61571 triangles，維持預算。
+- 小型Node assert確認：flying在地面初速0/.01m/s，step後status均impact（實際接觸速度約2.3e-11/.01000000002m/s）；原pad靜止step仍pad。沒有修改model或爆炸/傾倒邏輯，現行無安全著陸/傾倒狀態。279-entry registry通過，不跑無關全套。
+
 # 2026-10-27 P55 收臂、下沉排焰通道、蒸氣與連續河道
 
 - 使用者批准四項修正並沿用必要測試。範圍scene/scene-art/contact-ground及既有browser owner專項；沿用現有依賴、renderer/動畫循環。無飛行physics、rubric、schema4、150kg或SCORM格式修改。

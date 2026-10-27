@@ -230,10 +230,7 @@ def paint_region(image,mask):
         d.polygon(pt(np.vstack((spine,right[::-1]))),fill=(67,117,91,48))
         d.line(pt(spine),fill=(213,209,159,85),width=2)
     river=river_path()
-    for width,color in [(360,(195,188,133,230)),(160,(80,143,143,255)),(76,(69,138,153,255))]:
-        d.line(pt(river),fill=color,width=max(1,round(width*factor)),joint='curve')
-    for points in [[[-7000,40000],[-19000,52000],[-24000,67000]], [[-1600,20000],[10000,25000],[15000,39000]],[[-9600,-9800],[-2000,-14000],[9000,-12000]]]:
-        d.line(pt(curve(points)),fill=(82,145,147,190),width=2,joint='curve')
+    # The artificial launch-area river is no longer painted.
     # Quiet field mosaics and scattered woodland are baked, never extra meshes.
     for i in range(4400):
         x=rng.uniform(-EXTENT,EXTENT);z=rng.uniform(-EXTENT,EXTENT)

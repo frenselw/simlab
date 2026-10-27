@@ -79,7 +79,7 @@ uniform sampler2D uMap,uRegion;uniform vec3 uSun;uniform float uCloud,uOpacity,u
 uniform vec3 uSun;uniform float uOpacity;varying vec3 vNormal;varying vec3 vWorld;void main(){vec3 n=normalize(vNormal);float rim=pow(1.0-abs(dot(n,normalize(cameraPosition-vWorld))),2.4);float sun=.25+.75*max(0.0,dot(n,uSun));gl_FragColor=vec4(.16,.52,.92,rim*sun*.36*uOpacity);\n#include <logdepthbuf_fragment>
 #include <tonemapping_fragment>\n#include <colorspace_fragment>}`,side:THREE.BackSide,transparent:true,depthWrite:false}));
  earth.userData.farGeometry=earth.geometry;earth.userData.nearGeometry=compact?planetGeometry(48):earth.geometry;
- earth.rotation.order='ZYX';return {earth,clouds,halo,sun,opacity,surface,riverSamples:geography.river.samples,globalTerrain:createGlobalTerrain(globalBuffer,sun)};
+ earth.rotation.order='ZYX';return {earth,clouds,halo,sun,opacity,surface,globalTerrain:createGlobalTerrain(globalBuffer,sun)};
 }
 export function createPad(){
  const group=new THREE.Group(),add=(g,m,x,y,z)=>{const mesh=new THREE.Mesh(g,m);mesh.position.set(x,y,z);group.add(mesh);return mesh;},concrete=new THREE.MeshLambertMaterial({color:'#b8c6c5',map:surface('concrete')}),steel=material('#71848b',{map:surface('metal'),metalness:.7,roughness:.42});
@@ -137,12 +137,11 @@ export function createLandscape(relief){
  const group=new THREE.Group(),groundY=(x,z)=>Math.sqrt(P.R*P.R-x*x-z*z)-P.R+relief.groundHeight(x,z);
  function ribbon(width,color,center,start,length,mat,lift=-.7){const v=[],uv=[];for(let i=0;i<96;i++){const edge=(j,s)=>{const z=start+j/96*length,x=center(z)+s*width/2;return [x,groundY(x,z)+lift,z];};for(const [j,s]of [[i,-1],[i+1,-1],[i,1],[i,1],[i+1,-1],[i+1,1]]){v.push(...edge(j,s));uv.push((s+1)/2,j/96*length/80);}}const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(v,3));geo.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));geo.computeVertexNormals();group.add(new THREE.Mesh(geo,mat||material(color,{side:THREE.DoubleSide})));}
  const road=surface('road');road.wrapS=road.wrapT=THREE.RepeatWrapping;const roadMaterial=material('#ffffff',{map:road,roughness:.92});ribbon(18,'#ffffff',()=>320,-1800,4200,roadMaterial,.08);
- // River water and banks are painted once by the shared ground shader.
  group.landmarks=[];
  const plans=[['assembly',650,200,130,42,90],['logistics',850,260,90,18,60],['control',580,-480,80,22,50],['utility',720,420,42,12,30]];
  const links=[[[8,3],[50,12],[200,60],[320,60]],[[320,60],[500,60],[650,247]],[[320,260],[650,260],[850,292]],[[320,-450],[450,-450],[580,-453]],[[320,420],[650,420],[720,437]],[[320,-950],[800,-950],[1025,-950]]];
  const occupied=(x,z)=>plans.some(([,a,b,w,,d])=>Math.abs(x-a)<w/2+20&&Math.abs(z-b)<d/2+20)||Math.abs(x-1100)<90&&Math.abs(z+950)<75||links.some(path=>path.some((b,i)=>{if(!i)return false;const a=path[i-1],dx=b[0]-a[0],dz=b[1]-a[1],t=Math.max(0,Math.min(1,((x-a[0])*dx+(z-a[1])*dz)/(dx*dx+dz*dz)));return Math.hypot(x-a[0]-t*dx,z-a[1]-t*dz)<18;}));
- group.nearDetails=[];const trunks=[],cones=[],leaves=[];let treeMin=Infinity,buildingMin=Infinity;for(let i=0;i<256;i++){const a=i*2.399,r=450+i%24*250;let x=Math.cos(a)*r,z=Math.sin(a)*r;if(x<coast(z)+300)x=coast(z)+500;const riverX=-540+Math.sin(z/4400*Math.PI*3)*90;if(Math.abs(z)<=2200&&Math.abs(x-riverX)<90)x=riverX-90;if(Math.abs(x-320)<22)x=344;if(occupied(x,z))continue;const y=groundY(x,z),s=.8+i%7*.12;treeMin=Math.min(treeMin,Math.hypot(x,z));trunks.push([x,y+4*s,z,.8*s,8*s,.8*s]);for(let tier=0;tier<2;tier++){const row=[x,y+(9+tier*5)*s,z,(6-tier)*s,(i%2?11:7)*s,(6-tier)*s,0,a,0,i%3?'#4b7963':'#638a6b'];(i%2?cones:leaves).push(row);}}
+ group.nearDetails=[];const trunks=[],cones=[],leaves=[];let treeMin=Infinity,buildingMin=Infinity;for(let i=0;i<256;i++){const a=i*2.399,r=450+i%24*250;let x=Math.cos(a)*r,z=Math.sin(a)*r;if(x<coast(z)+300)x=coast(z)+500;if(Math.abs(x-320)<22)x=344;if(occupied(x,z))continue;const y=groundY(x,z),s=.8+i%7*.12;treeMin=Math.min(treeMin,Math.hypot(x,z));trunks.push([x,y+4*s,z,.8*s,8*s,.8*s]);for(let tier=0;tier<2;tier++){const row=[x,y+(9+tier*5)*s,z,(6-tier)*s,(i%2?11:7)*s,(6-tier)*s,0,a,0,i%3?'#4b7963':'#638a6b'];(i%2?cones:leaves).push(row);}}
  group.nearDetails.push(instances(group,new THREE.CylinderGeometry(1,1,1,5),new THREE.MeshLambertMaterial({color:'#756457'}),trunks));group.nearDetails.push(instances(group,new THREE.ConeGeometry(1,1,7),new THREE.MeshLambertMaterial({color:'#ffffff'}),cones));group.nearDetails.push(instances(group,new THREE.IcosahedronGeometry(1,0),new THREE.MeshLambertMaterial({color:'#ffffff'}),leaves));
  const wallMap=canvasMap('buildings',256,256,(x,w,h)=>{x.fillStyle='#c2cdcc';x.fillRect(0,0,w,h);x.fillStyle='#5d7880';x.fillRect(20,75,216,180);x.strokeStyle='#8fa6a9';for(let y=80;y<h;y+=12){x.beginPath();x.moveTo(22,y);x.lineTo(234,y);x.stroke();}x.fillStyle='#aec9cb';for(let a=22;a<240;a+=36)x.fillRect(a,28,27,20);});
  const walls=[],roofs=[],windows=[],foundations=[],details=[],facilities=[];
@@ -165,7 +164,7 @@ export function createLandscape(relief){
   for(const [j,dx,dy,dz]of [[0,-1200,0,0],[1,-520,280,-160],[2,150,440,100],[3,830,150,-100],[4,1400,-50,80]]){const scale=.85+i%3*.16;clouds.push([cx+dx*scale,groundY(cx+dx*scale,cz+dz)+h+dy*scale,cz+dz,(720+j%3*150)*scale,(290+j%3*60)*scale,(650+j%2*140)*scale,0,a,0]);}
  }
  const weather=instances(group,new THREE.SphereGeometry(1,8,5),new THREE.MeshLambertMaterial({color:'#f2f3eb'}),clouds);group.landmarks.push(weather);group.weather=weather;
- group.userData={clearRadius:300,treeMin,buildingMin,trees:trunks.length,buildings:plans.length,facilities,accessRoads:links,serviceRoads:links.length,tankBase,mountains:ridges.length,regionalMapWidth:regionMap.image.width,river:true,coast:true,cloudClearRadius:5000,cloudCenters};return group;
+ group.userData={clearRadius:300,treeMin,buildingMin,trees:trunks.length,buildings:plans.length,facilities,accessRoads:links,serviceRoads:links.length,tankBase,mountains:ridges.length,regionalMapWidth:regionMap.image.width,river:false,coast:true,cloudClearRadius:5000,cloudCenters};return group;
 }
 
 export function buildRocket(c,separated){
