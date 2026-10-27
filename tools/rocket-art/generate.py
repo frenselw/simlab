@@ -247,22 +247,24 @@ def paint_region(image,mask):
 
 
 def clouds():
-    w,h=1024,512; alpha=Image.new('L',(w,h));d=ImageDraw.Draw(alpha);rng=np.random.default_rng(SEED+7)
-    for band in range(32):
-        start=(band%8)*w/8+rng.uniform(-50,50);cy=75+(band//8)*118+rng.uniform(-27,27);span=rng.uniform(110,180);drift=rng.uniform(-.24,.24)
-        for j in range(160):
-            t=rng.uniform(0,1);x=start+t*span;y=cy+(t-.5)*span*drift+math.sin(t*7+band)*10+rng.normal(0,7)
-            radius=rng.uniform(3,8)*(math.sin(math.pi*t)*.6+.4)
-            if rng.random()<.18:continue
-            for shift in [-w,0,w]:
-                d.ellipse((x+shift-radius*1.8,y-radius*.75,x+shift+radius*1.8,y+radius*.75),fill=int(rng.uniform(100,230)))
-    alpha=alpha.filter(ImageFilter.GaussianBlur(.65))
-    a=np.array(alpha);a[:,0]=a[:,-1]=(a[:,0].astype(int)+a[:,-1])/2
+    w,h=1024,512
+    yy,xx=np.mgrid[0:h,0:w].astype(np.float32)
+    lon=xx/(w-1)*360-180;lat=90-yy/(h-1)*180
+    # Warp a continuous density field instead of stamping overlapping discs.
+    flow_lon=lon+24*noise(lon,lat,8);flow_lat=lat+13*noise(lon,lat,16)
+    field=.55*noise(flow_lon,flow_lat,20)+.28*noise(flow_lon,flow_lat,40)+.12*noise(flow_lon,flow_lat,80)+.05*noise(flow_lon,flow_lat,160)
+    edge=np.quantile(field,.69);core=np.quantile(field,.95)
+    density=np.clip((field-edge)/(core-edge),0,1)
+    density=density*density*(3-2*density)
+    density*=np.clip((86-np.abs(lat))/14,0,1)
+    a=np.round(density*235).astype(np.uint8)
+    a[:,0]=a[:,-1]=np.round((a[:,0].astype(float)+a[:,-1])/2)
     coverage=np.mean(a>32);quadrants=[np.mean(a[:,i*w//4:(i+1)*w//4]>32) for i in range(4)]
+    print('Cloud coverage:',round(float(coverage),4),'quadrants:',[round(float(v),4) for v in quadrants],flush=True)
     assert .12<coverage<.32 and min(quadrants)>.08, 'Moderate clouds across longitudes'
     assert np.array_equal(a[:,0],a[:,-1]), 'Cloud longitude seam'
-    print('Cloud coverage:',round(float(coverage),4),'quadrants:',[round(float(v),4) for v in quadrants],flush=True)
-    rgba=np.empty((h,w,4),np.uint8);rgba[:,:,:3]=[242,246,233];rgba[:,:,3]=a
+    assert np.mean((a>8)&(a<200))>.08, 'Continuous thin and thick clouds'
+    rgba=np.empty((h,w,4),np.uint8);rgba[:,:,:3]=[239,244,245];rgba[:,:,3]=a
     return Image.fromarray(rgba,'RGBA')
 
 
@@ -382,4 +384,12 @@ def main():
     assert len(rows)==481 and len(RIDGES)==36
     print('Self-check: source parsing, launch land, coastline clearance, seam, budget and shader coordinate roundtrip passed.',flush=True)
 
-if __name__=='__main__':main()
+if __name__=='__main__':
+    import argparse
+    parser=argparse.ArgumentParser();parser.add_argument('--clouds-only',action='store_true');args=parser.parse_args()
+    if args.clouds_only:
+        image=clouds();save(image,'clouds.webp')
+        metadata=json.loads((OUT/'geography.json').read_text(encoding='utf-8'));asset=OUT/'clouds.webp'
+        metadata['assets']['clouds.webp']={'dimensions':list(image.size),'bytes':asset.stat().st_size,'sha256':hashlib.sha256(asset.read_bytes()).hexdigest()}
+        (OUT/'geography.json').write_text(json.dumps(metadata,separators=(',',':'))+'\n',encoding='utf-8')
+    else:main()

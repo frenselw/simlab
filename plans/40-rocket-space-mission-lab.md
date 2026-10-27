@@ -1,3 +1,14 @@
+# 2026-10-27 P52 全球雲系與日夜光照
+
+- 使用者批准立即修改並限定必要測試；本次只改全球雲圖生成器、clouds.webp及資產hash、雲層shader、既有browser owner雲層專項與本文。近景立體雲、地形、鏡頭、physics、rubric、schema4、150kg及SCORM流程保持；無新依賴。
+- 以離線連續密度/尺度不同的噪聲及座標扭曲取代重疊橢圓；沿用1024×512 RGBA與單一球殼，控制覆蓋率及經度接縫。雲層背光亮度隨同一太陽方向下降，保留柔和卡通輪廓。
+- 必要驗收僅：生成器覆蓋率/接縫/尺寸/資產hash；既有art資產合約；既有browser owner --clouds-only於source及實際解壓SCORM驗桌面/手機全景日夜/地平線，像素檢查背光雲明顯變暗、shader及draw/triangle預算。檢查畫面後即提交/封裝/原網站發布，不重跑分離、撞擊、計分或提交流程。
+- 風險為雲圖觀感與shader編譯；雲層固定一張貼圖/一個mesh，無即時噪聲或額外pass。未驗真手機GPU與Moodle；發布保持原受眾，保存committed selection-preview，無新test file。
+
+- 最終必要驗收：生成器覆蓋率20.73%，四經度區13.41/18.22/28.11/23.19%，精確接縫與連續厚薄自檢通過；1024×512雲圖89004→45714 bytes。metadata解析比較只改clouds.webp條目，地形等資產保持。
+- art.test.js及279-entry registry通過；--clouds-only於source/實際解壓SCORM共4 flows、0 JS errors，output/rocket/p52-browser-report.json completed=true。桌面1280×800/手機390×844，日面/夜面/交界/地平線共16張截圖；已檢視桌面日面與封裝手機交界。隔離雲層實際像素night/day約0.0291–0.0292，shader無錯，仍為1 mesh/1024×512；全景42 calls、86903–92023 triangles，地平線50–52 calls、30402–49913 triangles。未將SwiftShader當真機FPS證據。
+- runtimeHash=0bc6d065cf38bb66bfa961f770df6c994d80fa3718754e24d06425d1d408e547。生成器初始雲系過度集中單一經度區，被原覆蓋率assert攔下；以不同空間尺度校準後才生成最終資產。最終報告只取新資產的完整成功執行，沒有採納生成前的舊圖檢查。
+
 # 2026-10-27 P51 跟隨鏡頭對準實際機身中心
 
 - 使用者批准修正二級傾斜時偏離畫面中心；沿用原網站發布。範圍僅scene.js的follow目標點、既有browser owner與本計劃；不新增依賴或UI，不改評分、physics、schema4、150kg及存檔格式。
