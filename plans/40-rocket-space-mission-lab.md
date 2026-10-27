@@ -1,3 +1,17 @@
+# 2026-10-27 P51 跟隨鏡頭對準實際機身中心
+
+- 使用者批准修正二級傾斜時偏離畫面中心；沿用原網站發布。範圍僅scene.js的follow目標點、既有browser owner與本計劃；不新增依賴或UI，不改評分、physics、schema4、150kg及存檔格式。
+- 目標取既有partBounds（只含實體零件，不含尾焰），經實際縮放、姿態及最終平移轉換；發射台接地補償後亦共用同一公式。組裝及地球視角構圖保持原規則。
+- 分離0.6秒沿用原有smoothstep，從完整機身中心平滑過渡至上級中心；不取下級飛行位置作鏡頭依據。保留各視角yaw/pitch/zoom與地表避碰。
+- 驗收：既有browser owner加入--follow-center，source與實際解壓SCORM皆驗完整/短/分離火箭、多角度與縮放、手機直橫及桌面置中；以舊固定目標作負對照，驗分離起止/連續性、下級獨立性、wheel與context恢復，並回歸true-scale分離、地表接觸、天空、向量與提交生命週期。保留實際畫面截圖人工檢視。
+- 測試沿用註冊owner，無新增正式測試檔；提交後保留affected selection-preview。發布從實測ZIP核對所有runtime並保留同一owner-private受眾。實機Samsung/iPhone、實體touchpad與真Moodle另列未驗。
+
+- 分組驗收避免重跑：--sky已完成source/實際SCORM的天空正負對照及submission lifecycle，output/rocket/p51-sky-report.json。舊天空負對照原本依賴follow目標與避地結果，改用P50已記錄的完整鏡頭姿態/near作固定歷史fixture；同一姿態下新shader要求0露底、舊shader要求露底，production天空與near/far規則均未改。其餘置中/分離/接地/向量由--follow-center組完成。
+- Node art、interaction、lifecycle及全域check.js、279-entry test registry通過；未新增正式test file或依賴。
+
+- 最終兩組均completed=true，output/rocket/p51-browser-report.json合併28 flows、0 JS errors；source與實際解壓SCORM各14。四尺寸1920×1000、1280×800、390×844、844×390，共4608組姿態/縮放/高度/地表方位檢查；最大投影中心誤差4.14e-11 CSS px，舊固定目標負對照偏移51.2–154.0px。分離起始鏡頭誤差0、結束對準上級、改下級軌跡不移鏡頭；wheel及圖像恢復後保留資料/zoom與置中。已檢視桌面、手機與封裝縮放截圖。
+- runtimeHash=4688be2970d5345ffa0fee68d55ed110d44a1dc8c9b86634542381e757af1d81。相鄰回歸含32個true-scale分離情境、288組向量、發射台/異地山坡/海面撞擊、天空0露底（舊shader歷史fixture露底593389 pixels）、0/100分與舊分數、readonly/pending/retry、standalone fresh/fullscreen/context recovery。分組原報告p51-center-report.json與p51-sky-report.json均保留；沒有採用未完成報告。
+
 # 2026-10-27 P50 手勢縮放與鏡頭操作
 
 - 使用者已批准按[詳細工作計劃](40-rocket-gesture-zoom-plan.md)實作並沿用原網站發布。基準25e245d；範圍interaction/scene/main/index/styles、既有interaction test及browser owner，無新依賴、評分、physics、schema4或固定150kg修改。
