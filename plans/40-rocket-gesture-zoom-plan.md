@@ -2,7 +2,7 @@
 
 本次改進讓學生直接用手機雙指、滑鼠滾輪或 touchpad 調整 3D 畫面的遠近，並移除控制面板中的「鏡頭設定」區。操作須同時適用於組裝、發射、飛行及成果檢視；縮放後仍能準確選取和安裝零件，頁面及控制面板也要保持容易捲動。
 
-**狀態：程式實作及本機來源與 SCORM 驗收完成，發布中。** 本文件的驗收項目按下方工作清單追蹤；實際執行與發布結果集中記入主計劃 P50，不以規劃門檻冒充通過證據。
+**狀態：程式實作、本機來源與 SCORM 驗收、網站版本 48 發布及線上檔案核對完成。** 本文件的驗收項目按下方工作清單追蹤；實際執行與發布結果集中記入主計劃 P50，不以規劃門檻冒充通過證據。
 
 | 基準 | 內容 |
 |---|---|
@@ -340,13 +340,13 @@ Z02 的 70% 是特定無裁切測試場景的最低檢出門檻，用來捉到�
 
 ## 十一 測試執行與證據管理
 
-優先擴充現有 `tools/rocket-space-mission-browser-regression.js`，預計增加 `--gesture-zoom` 聚焦入口；這個參數在規劃基準中尚不存在，不能現在就當成可用命令。正式 full runner 也要包含新情境。
+既有 `tools/rocket-space-mission-browser-regression.js` 已提供 `--gesture-zoom` 整合入口、`--gesture-zoom-only` 手機聚焦、`--gesture-core-hosts` 與 `--gesture-regressions-only` 分組；正式 full runner 也包含新情境。實際執行組別及來源前段續跑方式見主計劃 P50，不以可用參數冒充已執行整套。
 
 本次會影響鏡頭、幾何投影及手勢，因此必跑新情境，以及既有 direct camera、camera memory、bottom-up assembly、分離真實尺度、碰撞與地表深度、向上望天空、向量比例、graphics recovery 及生命周期案例。先按階段執行聚焦案例，最後做一次完整的受影響組合；通過後只因新修改或明確未解問題重跑，避免無目的重複全套。
 
 沿用七份已登記的 rocket Node tests；只有新增非平凡規則才增加對應小型測試。Node 無法代替可信輸入與實際投影驗證。`npm run check`、`npm run check:tests`、manifest 閉包及 `git diff --check` 都要記錄結果。新增正式 helper 或 test file 時更新登記，單純增加既有 runner 的情境則沿用原 owner。
 
-提交後執行 `node tools/run-tests.js --base <本輪基準SHA> --head <實作SHA> --plan`，保存 affected selection；這是選取預覽，不是所列測試已執行的證據。Windows browser 操作沿用 production guide 的環境規則；若使用 Playwright CLI，明確使用 Git Bash，不使用 PATH 上的 WSL bash。
+提交後執行 `node tools/run-tests.js --base=<本輪基準SHA> --head=<實作SHA> --plan`，保存 affected selection；這是選取預覽，不是所列測試已執行的證據。Windows browser 操作沿用 production guide 的環境規則；若使用 Playwright CLI，明確使用 Git Bash，不使用 PATH 上的 WSL bash。
 
 建議產出以下忽略版控的證據，正式摘要寫入主計劃：
 
@@ -396,8 +396,8 @@ Z02 的 70% 是特定無裁切測試場景的最低檢出門檻，用來捉到�
 - [x] 完成資料、恢復及效能檢查，通過 D01–D06。
 - [x] 完成 source／解壓 SCORM 與 T0–T3 宿主驗證。
 - [x] 記錄 Samsung Internet、iPhone Safari 與實體桌面輸入的驗證或尚未驗證範圍。
-- [ ] 通過靜態檢查、registry、相關 Node tests 及提交後 selection preview。
-- [ ] 提交並推送實作，封裝、部署原 Site、核對線上檔案及記錄實際結果。
+- [x] 通過靜態檢查、registry、相關 Node tests 及提交後 selection preview。
+- [x] 提交並推送實作，封裝、部署原 Site、核對線上檔案及記錄實際結果。
 - [ ] 實際 Moodle T4 驗證完成後，才標記 Moodle-ready。
 
 實際驗收及分組限制見[主計劃 P50](40-rocket-space-mission-lab.md)。觸控板事件分支已實作及受控驗證；實體裝置校準與 Moodle T4 仍待實測。

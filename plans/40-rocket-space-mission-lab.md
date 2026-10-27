@@ -13,7 +13,12 @@
 - 相鄰回歸含32個分離情境（0.4/2.5手動zoom不改上下級世界尺寸/位置/時間）、288組向量、地表接觸/effects/depth、天空、組裝與卡片捲動、儀表、圖像恢復60個正向內容檢查及兩個舊黑畫面負對照、0/100分及舊25分/60分、readonly/pending/finish retry、standalone refresh/storage denied/fullscreen。
 - 驗收沿用既有owner分組，避免無關重跑：初次相鄰source前段33 flows已完成，遇到舊short fixture未裝艙而停止；補齊合法capsule後以--gesture-regressions-only --source-vectors-onward完成source尾段及完整package。彙整保留前段原completed=false與失敗排除原因，僅採納已完成33 flows；其後組別及--gesture-core-hosts、補跑--gesture-hosts-only均completed=true。來源/封裝情境數相同且所有ZIP entry逐一吻合，沒有將初次整組誤報成功。
 - 原directCamera測試改讀現行太空艙卡，flightVectors短火箭先裝艙再發射；production validation不變。七組Node測試、全域check.js/279-entry registry及最新runner node --check通過，證據p50-node-codes.json、p50-static-final-codes.json。無新依賴/正式test file。
-- 真Samsung Internet/iPhone Safari、實體touchpad與實際Moodle T4未驗；本機SwiftShader不代表真機FPS。提交、封裝及發布證據待補。
+- 真Samsung Internet/iPhone Safari、實體touchpad與實際Moodle T4未驗；本機SwiftShader不代表真機FPS。
+- 實作已commit/push 18af35fdc7e0ce2981359b467ef3bccd4932f9a0；committed selection-preview output/rocket/selection-p50.json（25e245d→18af35f，affected預覽，未宣稱整批全跑）。473份manifest runtime與dist逐byte核對，474份ZIP entries吻合，SCORM同步output/rocket-launch-orbit-lab-v2-scorm.zip；packageSha256=a5e45b969758a546e88f3376caf79066361a4129c7b64450d0ea9b39501515eb，build-info保留schema4及payload150kg。
+- Sites helper已建立並push來源7884bc67ab2f08eb5a905717290c7d08df2c57da，archive output/rocket/rocket-gesture-zoom-p50.tar.gz。Sites與實作是兩個Git倉庫；前者commit包含build-info.sourceCommit=18af35f，不能把兩者SHA混用。原opening的723616f僅為先前網站HEAD；經核對官方helper saveSource流程、ZIP hash與473份runtime一致後，審查准予準備新來源。正式發布只使用helper新返回的7884bc6及對應archive。
+- 網站版本48 appgprj_6adc62579ab88191aba299bcb282ce95~appgver_cf13bd48aa1481918d2fe3729f500cef，deployment appgdep_6adff001a7308191b445e6cc27ff43df，native succeeded，2026-10-27T00:27:54.618307+00:00。原網址 https://simlab-rocket-space-missions.ieyp.chatgpt.site 與owner-private audience保留（1 user/0 groups/0 external）。
+- output/rocket/p50-live-verification.json completed=true：16份線上入口/runtime/manifest/build-info與測試dist一致，包括本輪5份runtime；sourceCommit=18af35fdc7e0ce2981359b467ef3bccd4932f9a0，packageSha256=a5e45b969758a546e88f3376caf79066361a4129c7b64450d0ea9b39501515eb。非HTML逐byte hash，HTML只扣既有平台注入script；憑證僅隨same-origin canonical index redirect。
+- 已交Codex開啟活動原網址（queued）；來源與封裝的手機/200%畫面已檢視。所有本輪browser/probe/helper/verifier及8769 preview server已結束，既有附件未改。實體手機/touchpad及實際Moodle T4仍未驗，沒有宣稱真機FPS或Moodle-ready。
 
 ---
 
