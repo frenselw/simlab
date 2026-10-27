@@ -9,6 +9,10 @@
 - 已檢視空工廠、手機待發射/升空與基地道路畫面。工廠封閉轉盤及四柱框架、排焰槽只在發射場顯示；服務塔依完整火箭高度設定，升空支臂收向側方。道路頂點有限且法線向上、4組建築底座跨地形角點、6條連接路；樹木避開設施/道路後255棵，建築最近約680m。真零件拾取/取消、縮放旋轉不改設計，60km隱藏本地設施，返回工廠顯示模式正確。
 - 只重跑同一基地專項一次以驗收人工檢視修正；沒有跑無關物理/評分全套。279-entry registry通過，沿用browser owner且無新增正式test file或runtime依賴。
 
+- 實作已commit/push dc79b43e32de40791dc5be1b683936ad66dea8ff；affected預覽output/rocket/selection-p54.json（2656801→dc79b43，僅預覽）。實測ZIP的474 entries與runtime核對dist，SCO同步output/rocket-launch-orbit-lab-v2-scorm.zip；packageSha256=c90b54ff7faa9a2b4ff934583d483da1e20a3d7c45559fcfd09b22c521c432d8。
+- 官方Sites來源e9ffa5afc471ae827a3cc2f5a7b422cdd2d1bb99，archive output/rocket/rocket-base-art-p54.tar.gz。原網站版本52，version_id=appgprj_6adc62579ab88191aba299bcb282ce95~appgver_4bd3b3ddf6bc819194616e22586e5550，deployment=appgdep_6ae04a59baac8191978ffcd192250930，native succeeded於2026-10-27 14:53:21 UTC+08。原網址與owner-private受眾保持，1 user/0 groups/0 external。
+- output/rocket/p54-live-verification.json核對scene/scene-art、入口、main及build-info共6份線上檔案，符合實測dist。原網站已開啟，測試瀏覽器及preview已關閉。未驗真手機GPU及實際Moodle，設施為教學示意模型而非工程配置標準。
+
 # 2026-10-27 P53 重新開始試飛與拆除全部元件
 
 - 使用者批准修改返工廠文案並新增一按拆除。範圍index/main/styles、model單一clear-craft命令、既有interaction test及browser owner專項；不改飛行physics、rubric/schema4/150kg/SCORM流程或新增依賴。
