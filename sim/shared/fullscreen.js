@@ -53,6 +53,8 @@
     const active = () => Boolean(doc.fullscreenElement || doc.webkitFullscreenElement);
     function sync() {
       const full = active();
+      // Only this SCO document is affected; never change the embedding player.
+      doc.documentElement.classList?.toggle("sim-fullscreen-active", full);
       const label = full ? "退出全螢幕" : "進入全螢幕";
       button.disabled = busy;
       button.setAttribute("aria-pressed", String(full));
@@ -122,6 +124,7 @@
     return Object.freeze({
       toggle,
       destroy() {
+        doc.documentElement.classList?.remove("sim-fullscreen-active");
         button.removeEventListener("click", toggle);
         view?.removeEventListener("resize", layout);
         for (const event of ["fullscreenchange", "webkitfullscreenchange"]) doc.removeEventListener(event, changed);

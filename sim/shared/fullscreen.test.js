@@ -18,7 +18,12 @@ class Document extends EventTarget {
     super();
     this.button = new Button();
     this.status = { dataset: {}, hidden: true, textContent: "" };
-    this.documentElement = {};
+    const classes = new Set();
+    this.documentElement = { classList: {
+      toggle(name, value) { if (value) classes.add(name); else classes.delete(name); },
+      remove(name) { classes.delete(name); },
+      contains(name) { return classes.has(name); }
+    } };
     this.fullscreenElement = null;
     this.fullscreenEnabled = true;
   }
@@ -36,6 +41,8 @@ function native(doc) {
   doc.exitFullscreen = async function () { assert.equal(this, doc); doc.change(null); };
 }
 function state(doc, active) {
+  assert.equal(doc.documentElement.classList.contains("sim-fullscreen-active"), active,
+    "overscroll guard follows actual browser fullscreen state");
   assert.equal(doc.button.attributes["aria-pressed"], String(active));
   assert.equal(doc.button.attributes["aria-label"], active ? "退出全螢幕" : "進入全螢幕");
   assert.equal(doc.button.title, doc.button.attributes["aria-label"]);
@@ -117,6 +124,10 @@ function state(doc, active) {
   assert.equal(legacy.status.hidden, false);
   legacy.change(legacy.documentElement, true); assert.equal(legacy.status.hidden, true);
 
+  // Teardown also removes a guard while fullscreen is still active.
+  await oldController.toggle(); legacy.change(legacy.documentElement, true);
+  state(legacy, true); oldController.destroy();
+  assert.equal(legacy.documentElement.classList.contains("sim-fullscreen-active"), false);
   controller.destroy(); doc.change(doc.documentElement); state(doc, false);
   assert.equal(attach({ getElementById: () => null }), null);
   console.log("Fullscreen controls: native/WebKit state, external exit, busy, unsupported, policy and retry passed");

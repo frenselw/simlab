@@ -171,6 +171,15 @@ Standalone workbenches include the same shared files in their runtime asset list
   fullscreen; the controller reads the actual fullscreen element.
 - Keep the button available in edit/check/review/pending/technical modes.
   Assessment locking applies to learner inputs, not this display control.
+- During native fullscreen, the shared controller marks this SCO's root with
+  `sim-fullscreen-active`; shared CSS disables vertical overscroll on its root,
+  body, target and internal scroll containers. Unlike `contain`, `none` also
+  suppresses local bounce while preserving native scrolling and touch ownership.
+  Remove the marker on browser/button exit or controller teardown. Do not change
+  ancestor/player styles, cancel all touch moves, or automatically re-enter.
+  This mitigates boundary effects; WebKit's fullscreen dismiss gesture can also
+  occur before a boundary ([WebKit 227387](https://bugs.webkit.org/show_bug.cgi?id=227387)).
+  Real iPad verification is required before claiming that symptom is resolved.
 - Do not persist fullscreen, recreate the activity, open a raw SCO tab, clear
   learner work, write SCORM fields, or add commit/finish/page-lifecycle handlers.
   The existing responsive layout and resize/cancel contracts still apply.

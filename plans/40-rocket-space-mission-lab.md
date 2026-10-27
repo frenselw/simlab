@@ -1,3 +1,28 @@
+# 2026-10-27 iPad 全螢幕倍速選單維護
+
+## 後續：觸控失焦修正（本輪）
+
+- 後續實機回報：桌面可選倍率，iPad完全揀唔到，上一版不能視為iPad成功。新風險：選項開啟時無條件focus目前倍率，而focusout的relatedTarget=null即關閉；WebKit點按button可先清焦、再click，會隱藏尚待點擊的選項。修正決定：只於鍵盤開啟時移焦、null目標不當成已離開選項；保留明確外點、外部焦點、Esc、blur／resize／模式切換關閉。不攔截整頁觸控、不在pointerdown即提交倍率。
+- 補驗決定：沿用rocket browser owner，加入可重現的null-relatedTarget／touch下清焦序列、普通及fullscreen下paused／running選倍率、鍵盤離開／外點與鎖定；另外用已安裝的Playwright WebKit作source／extracted ZIP引擎診斷。WebKit桌面測試仍不取代真iPad複驗。評分／物理／phase／snapshot／SCORM及runtime依賴沿用下列範圍，無新runtime檔案。
+- 已在實際WebKit引擎、hasTouch/mobile／1024×768下，用production組裝及發射台UI重現：tap 5×的pointerdown之後，1×先focusout（relatedTarget=null），原handler關閉選項，最後click目標變成controlsPane，值保持1。修正後同樣操作click正確落在5×，值為5。before／after：`output/rocket/ipad-warp-focus-before.json`、`output/rocket/ipad-warp-focus-after.json`。
+- WebKit source／真解壓ZIP、390×844／1024×768／1280×800共6 cases通過：全部五種倍率的重複可信tap、真實null焦點事件、暫停state／LMS不變、運行中1／5×續飛、鍵盤焦點與外點關閉；報告`output/rocket/ipad-warp-webkit-touch-report.json`，completed=true／errors=[]。使用預裝webkit-2336，UA Version/26.6 Safari；此自動化context沒有fullscreen API，因此只代表WebKit普通顯示觸控成功，未冒充WebKit原生fullscreen／真iPad驗收。Playwright CLI預設要求未安裝的2368，改用公開config指定已裝2336，無下載或新增repo依賴；CLI及兩個自建server已關閉。
+- 已註冊rocket owner的`--warp-fullscreen-only`重跑source／ZIP共10 flows、0 JS errors：四尺寸原生Chrome fullscreen，補null-relatedTarget及pointerdown清焦後click的合法續做，仍覆蓋倍率限制、slow-frame、running／paused、review／pending、鍵盤外移及外點；`output/rocket/ipad-warp-focus-chrome-report.json`。lifecycle Node、check、279-entry registry、syntax、文件連結及diff通過；沒有全庫或大型owner全跑。WebKit診斷為補充證據，永久回歸留在既有registered owner。未commit，無committed selection-preview。
+- 最終ZIP 15,817,440 bytes、474 entries逐byte等於來源，SHA-256 `87ef1a04a9a30a74db66da2b7a26763032d362f3ba1a37697f9ec096dc1651ff`，runtimeHash `70109a446d28e02531c97d9278c2f928d5801fcce607678899635b90d06cd7ff`。canonical包及方便分辨的新檔`output/rocket-space-mission-lab-ipad-touch-fix-scorm.zip`完全相同，核對報告`output/rocket/ipad-warp-focus-package-verification.json`。沒有更新Moodle／Sites。
+- 本輪修的是倍速選項觸控回歸；iPad下拉退出原生全螢幕仍未解決，亦未新增播放器嵌入模式。真iPad的新ZIP仍待使用者複驗。
+
+## 第一輪：頁內按鈕取代原生選單（歷史證據）
+
+- 使用者回報全螢幕點選1×／5×即退出。既有原生select可能喚起系統picker；上輪共用overscroll防護不涵蓋此路徑，不能宣稱已解決。
+- 將火箭倍速換為fullscreen target內的普通button及非模態選項區，沒有原生select／dialog／另開視窗。保留1／5／20／100／1000×、低空／燃燒最多5×、下降跨門檻及實際倍率顯示；不自動重新要求fullscreen。
+- 本次只改顯示／輸入層；低風險評核、rubric、physics、phase/variant、權威snapshot schema4、保存／重試與SCORM契約全部沿用。倍率仍為非持續的顯示控制；無新增依賴或manifest項目。
+- 選項觸控區至少44px；目前倍率可讀，支援鍵盤Tab／Enter／Escape、選定狀態與disabled理由。選項必須在320×500、390×844、1024×768與desktop內可見，不因展開而壓縮面板；選取、點外面、模式切換及resize會關閉。
+- 沿用rocket browser owner，加入source／extracted ZIP真fullscreen trusted touch選取1×／5×及真空高倍率、選項邊界、取消、readonly鎖定／切換；保留原slow-frame／高倍率限制回歸及lifecycle Node。靜態check／registry／diff，重建火箭ZIP並核對來源。未驗真iPad／Moodle不得宣稱已治癒其原生fullscreen問題。
+- 驗證完成：`node tools/rocket-space-mission-browser-regression.js --warp-fullscreen-only` 在Chrome156／SwiftShader、source及真解壓ZIP通過10 flows、0 JS errors。其中8 cases涵蓋320×500、390×844、1024×768、1280×800：可信觸控開啟／選1×及5×、飛行中轉倍率維持running及fullscreen、合法真空草稿選20／100／1000×、選項全在viewport及≥44px／未被遮擋、鍵盤Enter／Escape、外點／resize關閉、review／pending鎖定及明確退出。暫停選倍率時state／stage／LMS逐項不變。其餘2 flows重驗slow-frame實際倍率、點火自動降至5×、停機重開高倍率、低空禁用高倍率及控制欄尺寸。
+- 測試整修記錄：最初CDP 5s transport timeout，改用與其他runner一致的15s並加入operation診斷；其後兩個測試自身問題為動態selector引號及在四次tap後錯要求六個click，均修正至正確語法／四個可信tap及明確目標集合，沒有放寬產品行為斷言。最後上述10 flows完整重跑成功。既有camera/warp修訂測試也改從production按鈕選取，不再派發舊select input/change。
+- 七組rocket Node全部通過；`npm run check`、279-entry registry、main／browser語法及diff通過。沿用既有registered owner，未新增入口，未跑全庫或完整大型rocket owner。尚未commit／無committed selection-preview。
+- 最後SCORM ZIP 15,817,324 bytes、474 entries與現行source逐byte相符；SHA-256 `382db0316bf1005b252a15496785eccc7e63dc71fe3d96506f854d073ebeae63`。包含本輪UI及上輪共用防回彈的未提交修正；報告基準HEAD不是已提交的最後runtime。證據：`output/rocket/ipad-warp-browser-report.json`、`output/rocket/ipad-warp-package-verification.json`；包為`output/rocket-space-mission-lab-scorm.zip`。
+- 只替換火箭倍速；其他活動的native selects未改。Moodle／Sites未更新，真iPad原回報仍待實機確認。共用回彈修正的獨立失敗／限制沿用[維護紀錄](ipad-fullscreen-scroll-maintenance.md)，不以本輪火箭成功冒充全庫或真機通過。
+
 # 2026-10-27 P57 兩位獨立branch reviewer覆核及修正
 
 - 使用者明確要求兩個subagents獨立平行審核整個branch並跟進；安全著陸/傾倒繼續擱置。Round1基準1ef4bdf4fd696b4a12c37f7c1bedfe6d6f96849d，目標79976bf967fcae241495129411833ae170b3bed7。兩位各自審閱完整新增/改動與相連呼叫點，無共享初次結論，無修改來源。

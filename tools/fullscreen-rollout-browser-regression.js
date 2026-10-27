@@ -3,7 +3,7 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os');
 const {spawn,spawnSync}=require('node:child_process');const AdmZip=require('adm-zip');
 const H=require('./position-time-browser-regression.js');
-const root=path.resolve(__dirname,'..'),output=path.join(root,'output/playwright/fullscreen-rollout');
+const root=path.resolve(__dirname,'..'),tabletOnly=process.argv.includes('--tablet-only'),output=path.join(root,'output/playwright/fullscreen-rollout'+(tabletOnly?'-tablet':''));
 const slugs=fs.readdirSync(path.join(root,'sim/manifests')).filter(n=>n.endsWith('.xml')).map(n=>path.basename(n,'.xml')).sort();
 async function main(){
  fs.mkdirSync(output,{recursive:true});const temp=fs.realpathSync(os.tmpdir());let directory,profile,chrome,cdp,server,failure;
@@ -40,27 +40,62 @@ async function main(){
   cdp.on('Runtime.exceptionThrown',e=>report.errors.push(e.exceptionDetails?.exception?.description||e.exceptionDetails?.text));
   const child=code=>H.evaluate(cdp,`((w,d)=>{${code}})(document.getElementById('activity').contentWindow,document.getElementById('activity').contentDocument)`);
   async function until(code){for(let i=0;i<120;i++){try{if(await child('return '+code))return;}catch(_){}await H.delay(40);}report.timeout=await child("return {trusted:w.__fullscreenTrusted,trace:w.__fullscreenTrace,focused:d.hasFocus(),visibility:d.visibilityState,active:Boolean(d.fullscreenElement),label:d.getElementById('fullscreenButton')?.getAttribute('aria-label'),disabled:d.getElementById('fullscreenButton')?.disabled,error:d.getElementById('fullscreenStatus')?.textContent};").catch(()=>null);throw Error('Condition timed out: '+code);}
-  async function click(touch){
-   const point=await child("const b=d.getElementById('fullscreenButton');b.scrollIntoView({block:'nearest'});const r=b.getBoundingClientRect(),f=w.frameElement.getBoundingClientRect();return {x:r.left+r.width/2+f.left,y:r.top+r.height/2+f.top};");
+  async function click(touch,selector='#fullscreenButton'){
+   const point=await child(`const b=d.querySelector(${JSON.stringify(selector)});b.scrollIntoView({block:'nearest'});const r=b.getBoundingClientRect(),f=w.frameElement.getBoundingClientRect();return {x:r.left+r.width/2+f.left,y:r.top+r.height/2+f.top};`);
    if(touch){await H.delay(150);await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...point,id:911,radiusX:2,radiusY:2,force:1}]});await H.delay(50);await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});}
    else{await cdp.send('Input.dispatchMouseEvent',{type:'mousePressed',...point,button:'left',clickCount:1});await cdp.send('Input.dispatchMouseEvent',{type:'mouseReleased',...point,button:'left',clickCount:1});}
   }
   const evidence=()=>child(`const target=d.querySelector('[data-sim-fullscreen-target]'),button=d.getElementById('fullscreenButton'),header=d.querySelector('[data-sim-fullscreen]'),r=target.getBoundingClientRect(),b=button.getBoundingClientRect(),overlaps=[];for(const e of header.querySelectorAll('h1,button,a')){if(e===button||!e.getClientRects().length)continue;const rects=e.tagName==='H1'?(()=>{const range=d.createRange();range.selectNodeContents(e);return Array.from(range.getClientRects());})():Array.from(e.getClientRects());for(const x of rects)if(x.left<b.right-.5&&x.right>b.left+.5&&x.top<b.bottom-.5&&x.bottom>b.top+.5)overlaps.push(e.tagName+': '+e.textContent.trim());}return {active:d.fullscreenElement===target,label:button.getAttribute('aria-label'),disabled:button.disabled,pressed:button.getAttribute('aria-pressed'),button:[b.x,b.y,b.width,b.height],target:[r.x,r.y,r.width,r.height],viewport:[w.innerWidth,w.innerHeight],overlaps,error:d.getElementById('fullscreenStatus').dataset.fullscreenError||null,panels:Array.from(d.querySelectorAll('.sim-panel,.control-panel,.controls-panel,.freefall-panel')).filter(e=>e.getClientRects().length).map(e=>({height:e.clientHeight,width:e.clientWidth,range:e.scrollHeight-e.clientHeight})),trusted:w.__fullscreenTrusted};`);
-  for(const mode of ['source','package'])for(const [width,height] of [[320,500],[1280,900]]){
-   await cdp.send('Emulation.setDeviceMetricsOverride',{width,height,screenWidth:width,screenHeight:height,deviceScaleFactor:1,mobile:width<600});await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:width<600,maxTouchPoints:2});
+  const containment=()=>child(`const target=d.querySelector('[data-sim-fullscreen-target]');return {marked:d.documentElement.classList.contains('sim-fullscreen-active'),root:w.getComputedStyle(d.documentElement).overscrollBehaviorY,body:w.getComputedStyle(d.body).overscrollBehaviorY,scrollers:[target,...target.querySelectorAll('*')].filter(e=>{const s=w.getComputedStyle(e);return e===target||(/auto|scroll/.test(s.overflowY)&&e.clientHeight>0);}).map(e=>({id:e.id,className:typeof e.className==='string'?e.className:'',overscroll:w.getComputedStyle(e).overscrollBehaviorY,touchAction:w.getComputedStyle(e).touchAction}))};`);
+  async function panelSwipes(){
+   const panel=await child(`const e=Array.from(d.querySelectorAll('aside,.control-panel,.sim-panel')).find(e=>e.clientHeight>=96&&e.scrollHeight-e.clientHeight>150&&/auto|scroll/.test(w.getComputedStyle(e).overflowY));if(!e)throw Error('Tablet panel needs native scroll range');w.__fullscreenScrollPanel=e;const r=e.getBoundingClientRect();let x=r.left+6,y=r.top+r.height/2;for(let f=w;f!==f.top;f=f.parent){const b=f.frameElement.getBoundingClientRect();x+=b.left;y+=b.top;}return {x,y,distance:Math.min(100,r.height/3),range:e.scrollHeight-e.clientHeight};`);
+   const work=()=>child(`return {inputs:Array.from(d.querySelectorAll('input,select,textarea')).map(e=>[e.id,e.name,e.value,e.checked]),states:[w.__circularVectorApp,w.__centripetalSourceApp,w.__centripetalApp].filter(Boolean).map(a=>a.getState()),stage:Array.from(d.querySelectorAll('.sim-stage,#stage,#motionStage')).map(e=>{const r=e.getBoundingClientRect();return [r.x,r.y,r.width,r.height];}),scroll:[w.scrollX,w.scrollY,w.visualViewport.offsetTop,w.visualViewport.offsetLeft]};`);
+   const original=await work(),hostBefore=await H.evaluate(cdp,'[scrollX,scrollY]'),lmsBefore=await H.evaluate(cdp,'JSON.stringify(window.__values)'),moves=[];
+   async function swipe(position,direction,label){
+    await child(`w.__fullscreenScrollPanel.scrollTop=${JSON.stringify(position)};`);await H.delay(150);
+    const before=await child('return w.__fullscreenScrollPanel.scrollTop;');
+    const touch=y=>({x:panel.x,y,id:912,radiusX:2,radiusY:2,force:1});
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[touch(panel.y)]});
+    for(let i=1;i<=12;i++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[touch(panel.y+direction*panel.distance*i/12)]});await H.delay(20);}
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await H.delay(450);
+    const after=await child('return w.__fullscreenScrollPanel.scrollTop;');
+    assert.equal((await evidence()).active,true,label+' retains fullscreen');
+    assert.deepEqual(await work(),original,label+' preserves answers, stage and SCO viewport');
+    assert.deepEqual(await H.evaluate(cdp,'[scrollX,scrollY]'),hostBefore,label+' leaves host fixed');
+    assert.equal(await H.evaluate(cdp,'JSON.stringify(window.__values)'),lmsBefore,label+' leaves LMS unchanged');
+    if(label==='top-outward')assert.ok(Math.abs(after)<1,label);
+    else if(label==='bottom-outward')assert.ok(Math.abs(after-panel.range)<1,label);
+    else assert.ok(direction<0?after>before+5:after<before-5,label+' scrolls natively: '+JSON.stringify({before,after,panel}));
+    moves.push({label,before,after});
+   }
+   await swipe(panel.range/2,1,'middle-down');await swipe(panel.range/2,-1,'middle-up');
+   await swipe(0,1,'top-outward');await swipe(0,-1,'top-inward');
+   await swipe(panel.range,-1,'bottom-outward');await swipe(panel.range,1,'bottom-inward');
+   return {panel,moves};
+  }
+  for(const mode of ['source','package'])for(const [width,height] of (tabletOnly?[[1024,768]]:[[320,500],[1280,900],[1024,768]])){
+   const tablet=width===1024;
+   await cdp.send('Emulation.setDeviceMetricsOverride',{width,height,screenWidth:width,screenHeight:height,deviceScaleFactor:1,mobile:width<600||tablet});await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:width<600||tablet,maxTouchPoints:2});
    for(const slug of slugs){
+    if(tablet&&!/^(circular-motion|centripetal-force)-/.test(slug))continue;
     console.log(mode+' '+slug+' '+width+'x'+height);
     report.current={mode,slug,width,height};
     const src=mode==='source'?'/sim/'+slug+'/index.html':'/__packages/'+slug+'/'+slug+'/index.html';
     await cdp.send('Page.navigate',{url:base+'/__rollout-host?src='+encodeURIComponent(src)});
     await until("d.readyState==='complete' && Boolean(d.getElementById('fullscreenButton'))");await H.delay(100);
+    // The source activity's observation panel fits on tablets; its production
+    // analysis view supplies the long native panel this regression exercises.
+    if(tablet&&slug==='centripetal-force-source-lab')await click(true,'#analyseButton');
     await child("w.__fullscreenTrusted=false;w.__fullscreenTrace=[];d.getElementById('fullscreenButton').addEventListener('click',e=>{w.__fullscreenTrusted=e.isTrusted;w.__fullscreenTrace.push({type:'click',trusted:e.isTrusted,active:Boolean(d.fullscreenElement)});});for(const type of ['fullscreenchange','fullscreenerror'])d.addEventListener(type,()=>w.__fullscreenTrace.push({type,active:Boolean(d.fullscreenElement)}));");
-    const before=await evidence();assert.deepEqual(before.overlaps,[],slug+' header overlap');assert.equal(before.button[2],44);assert.equal(before.button[3],44);
+    const before=await evidence(),beforeContainment=await containment();assert.equal(beforeContainment.marked,false);assert.deepEqual(before.overlaps,[],slug+' header overlap');assert.equal(before.button[2],44);assert.equal(before.button[3],44);
     const lmsBefore=await H.evaluate(cdp,"JSON.stringify(window.__values)");
-    await click(width<600);await until("d.fullscreenElement===d.querySelector('[data-sim-fullscreen-target]') && !d.getElementById('fullscreenButton').disabled && d.getElementById('fullscreenButton').getAttribute('aria-pressed')==='true'");
+    await click(width<600||tablet);await until("d.fullscreenElement===d.querySelector('[data-sim-fullscreen-target]') && !d.getElementById('fullscreenButton').disabled && d.getElementById('fullscreenButton').getAttribute('aria-pressed')==='true'");
     const entered=await evidence();assert.equal(entered.trusted,true);assert.equal(entered.label,'退出全螢幕');assert.equal(entered.pressed,'true');assert.deepEqual(entered.overlaps,[],slug+' fullscreen overlap');
     assert.ok(Math.abs(entered.target[2]-entered.viewport[0])<2&&Math.abs(entered.target[3]-entered.viewport[1])<2,slug+' target fills viewport');
     assert.equal(await H.evaluate(cdp,"JSON.stringify(window.__values)"),lmsBefore,slug+' same SCORM state');
+    const fullContainment=await containment();assert.equal(fullContainment.marked,true);assert.equal(fullContainment.root,'none');assert.equal(fullContainment.body,'none');
+    for(const s of fullContainment.scrollers)assert.equal(s.overscroll,'none',slug+' fullscreen overscroll: '+JSON.stringify(s));
+    const scrollEvidence=tablet?await panelSwipes():null;
     if(width<600)for(const p of entered.panels)assert.ok(p.height>=80,slug+' usable phone panel: '+JSON.stringify(p));
     // Existing native dialogs are in the document top layer, including those
     // outside main. Verify they remain visible and clickable over fullscreen.
@@ -69,9 +104,10 @@ async function main(){
     if(slug==='newtons-third-law-reaction-force-lab'||slug==='hookes-law-spring-investigation-lab'||slug==='kinematics-quantitative-graph-builder'||slug==='position-time-graph-motion-lab'){
      const {data}=await cdp.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});fs.writeFileSync(path.join(output,mode+'-'+slug+'-'+width+'.png'),Buffer.from(data,'base64'));
     }
-    await click(width<600);await until("!d.fullscreenElement && !d.getElementById('fullscreenButton').disabled && d.getElementById('fullscreenButton').getAttribute('aria-pressed')==='false'");const exited=await evidence();assert.equal(exited.label,'進入全螢幕');assert.equal(exited.pressed,'false');
+    await click(width<600||tablet);await until("!d.fullscreenElement && !d.getElementById('fullscreenButton').disabled && d.getElementById('fullscreenButton').getAttribute('aria-pressed')==='false'");const exited=await evidence();assert.equal(exited.label,'進入全螢幕');assert.equal(exited.pressed,'false');
+    assert.deepEqual(await containment(),beforeContainment,slug+' restores original overscroll and touch ownership');
     assert.equal(await H.evaluate(cdp,"JSON.stringify(window.__values)"),lmsBefore,slug+' retains SCORM state after exit');
-    report.cases.push({mode,slug,width,height,before,entered,exited,dialogs});
+    report.cases.push({mode,slug,width,height,before,entered,exited,dialogs,fullContainment,scrollEvidence});
    }
   }
   // A denied frame still leaves the display button usable and reports the policy.
