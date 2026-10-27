@@ -23,7 +23,7 @@
 .assembly-guides circle{fill:#fff9e7;stroke:var(--teal);stroke-width:2}.assembly-guides .selected{stroke:#db8b27;stroke-width:3}
 
 
-.camera-controls{align-items:center;gap:4px}.camera-settings-actions{display:flex;gap:8px;flex-wrap:wrap}.flight-state{margin:8px 0;color:var(--teal);font-weight:700;font-size:14px}.flight-actions button{min-height:44px}
+.camera-controls{align-items:center;gap:4px}.flight-state{margin:8px 0;color:var(--teal);font-weight:700;font-size:14px}.flight-actions button{min-height:44px}
 
 /* The visible dot stays small while the touch target remains 44px. */
 .assembly-slot{width:44px;min-width:44px;height:44px;padding:0;border-radius:50%;background:transparent;touch-action:pan-y}.assembly-slot::after{content:"";position:absolute;left:50%;top:50%;width:10px;height:10px;box-sizing:border-box;transform:translate(-50%,-50%);border:2px solid #168b80;border-radius:50%;background:#fffefa;pointer-events:none}.assembly-slot:hover:enabled{border:0;background:transparent;box-shadow:none}.part-tools{position:absolute;right:8px;z-index:8;max-width:170px;padding:7px;border:1px solid var(--line);border-radius:10px;background:#fffef5f5;box-shadow:0 3px 12px #183e4520}.part-tools b{display:block;font-size:12px;margin-bottom:4px}.part-tools>div{display:flex;gap:4px;flex-wrap:wrap}.part-tools button{min-width:44px;padding:6px;font-size:14px}
@@ -92,3 +92,5 @@
 @media(max-height:519px){.flight-readouts .telemetry>.flight-metrics{padding:2px 7px}.flight-metrics .altitude-metric{display:grid;grid-template-columns:24px auto;column-gap:6px;align-items:center}.flight-metrics .altitude-metric .metric-label{max-width:24px;line-height:1.05;white-space:normal}.flight-metrics .altitude-metric .metric-value{justify-content:flex-end;line-height:1}.flight-metrics .surface-altitude{grid-column:1 / -1;font-size:10px;line-height:11px;margin:0}.flight-metrics .velocity-metrics{display:flex;align-items:baseline;justify-content:space-between;gap:6px;margin-top:2px;padding-top:2px!important}.flight-metrics .metric-value{line-height:1}.flight-metrics .speed-components{margin-top:2px;line-height:1}.flight-metrics .speed-components b,.flight-metrics .speed-components small{line-height:1}}
 
 .parts-grid .part-drag{margin-top:auto}
+
+.camera-hint{position:absolute;z-index:8;left:50%;bottom:88px;transform:translateX(-50%);max-width:calc(100% - 80px);padding:7px 10px;border-radius:8px;background:#fffef5ed;color:#35685f;font-size:12px;text-align:center;pointer-events:none}

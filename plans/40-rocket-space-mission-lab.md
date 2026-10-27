@@ -1,4 +1,21 @@
-> 後續工作：[火箭模擬手勢縮放工作計劃](40-rocket-gesture-zoom-plan.md)。目前只完成規劃，尚未實作；以下 P49 為已發布版本的歷史證據。
+# 2026-10-27 P50 手勢縮放與鏡頭操作
+
+- 使用者已批准按[詳細工作計劃](40-rocket-gesture-zoom-plan.md)實作並沿用原網站發布。基準25e245d；範圍interaction/scene/main/index/styles、既有interaction test及browser owner，無新依賴、評分、physics、schema4或固定150kg修改。
+- 正常構圖先計算模型顯示比例及分離過渡，再只在最終鏡頭距離套用手動zoom；避免跟隨模式的模型尺寸同步縮小。四視角記憶沿用既有cameraViews，回正只影響當前視角。
+- 中央雙指接管取消未提交零件預覽；一指放開後等待全部放開，第三指、失焦、取消、尺寸/視角/頁面及圖像失效均清理。元件箱、側帶與面板起點不轉為縮放；滾輪、touchpad、聚焦鍵盤及空白雙點回正共用倍率。Safari形狀事件為相容分支，實機事件序列另列未驗。
+- 移除鏡頭設定區與三按鈕；保留四視角及fullscreen。鏡頭輸入合併至既有動畫幀，更新投影與接點，不經模型命令、存檔或完整面板render。保留P49故障恢復及明確繼續規則。
+- 最終分組驗收彙整為output/rocket/p50-browser-report.json：source＋實際解壓SCORM共114 flows（各57）、0 JS errors；runtimeHash=c711ba4d2775406e75b2485aae9e5e8985e6342144a0441625278894d3579bfd。四份實測ZIP的所有非目錄entry資料雜湊一致，entryHash=1d21b0d66b3ca23ac8f635fcd20297589f74d56d6175e455d8d52bf2f3dd5853，發布前仍須重算runtime與核對dist。
+- 六尺寸1280×800、390×844、844×390、320×568、430×932、390×460，source/package共12組手勢案例；主要三尺寸驗四視角，另外三尺寸驗組裝縮放/操作/佈局，因同一鏡頭公式而分組。30個實際framebuffer配對採0.5→1倍未裁切構圖，像素高度比1.857–2.273，返回誤差最多1px，model world scale與position不變；完整火箭1→2倍可局部裁切，屬用戶主動放大。
+- 驗兩指接管、不旋轉、部分放手/第三指/取消/失焦/Escape/真pointer ID失去capture、上下限反向、元件箱起點排除、四類已裝零件實際拾取與取消、放大後取出並裝回太空艙。Safari形狀事件為合成分支驗證，wheel在該分支不重複縮放；不代表真Safari已驗。
+- 反覆30次縮放暖機後再30次：studio保持33 geometries/7 textures/9 programs。60個同步wheel事件合併至幀繪圖；等cameraDirty與terrain pending清空及兩個RAF後，閒置不再重畫。readonly100分、frozen原bytes及合法retry、running/paused語義、鏡頭/成果往返均通過。
+- 原生Chrome 200%使用臨時profile的settingsPrivate設定，source/package各一例：1280×800變640×400 CSS px、DPR2、visualViewport scale1，無水平/垂直溢出；鍵盤縮放/回正不改答案，最後說明控制項可到達。已檢視200%及手機縮放對照截圖。未使用使用者瀏覽器profile。
+- T1直接iframe、T2非捲動wrapper、T3 overflow元素宿主；五種factory/follow/review/pending/lost狀態，source/package共6組，180次可信側帶/面板滑動及24次兩個正常活動對照。另記錄30筆panelRange，20筆無範圍，其餘132/422/721/844px；無範圍明示N/A，有範圍要求實際/單調移動。每move/release驗owner/non-owner、viewport、stage、styles、state與zoom；沒有鎖html/body或競爭捲動。對照活動從source提供，沒有放入SCO。
+- 相鄰回歸含32個分離情境（0.4/2.5手動zoom不改上下級世界尺寸/位置/時間）、288組向量、地表接觸/effects/depth、天空、組裝與卡片捲動、儀表、圖像恢復60個正向內容檢查及兩個舊黑畫面負對照、0/100分及舊25分/60分、readonly/pending/finish retry、standalone refresh/storage denied/fullscreen。
+- 驗收沿用既有owner分組，避免無關重跑：初次相鄰source前段33 flows已完成，遇到舊short fixture未裝艙而停止；補齊合法capsule後以--gesture-regressions-only --source-vectors-onward完成source尾段及完整package。彙整保留前段原completed=false與失敗排除原因，僅採納已完成33 flows；其後組別及--gesture-core-hosts、補跑--gesture-hosts-only均completed=true。來源/封裝情境數相同且所有ZIP entry逐一吻合，沒有將初次整組誤報成功。
+- 原directCamera測試改讀現行太空艙卡，flightVectors短火箭先裝艙再發射；production validation不變。七組Node測試、全域check.js/279-entry registry及最新runner node --check通過，證據p50-node-codes.json、p50-static-final-codes.json。無新依賴/正式test file。
+- 真Samsung Internet/iPhone Safari、實體touchpad與實際Moodle T4未驗；本機SwiftShader不代表真機FPS。提交、封裝及發布證據待補。
+
+---
 
 # 2026-10-26 P49：WebGL／Canvas 資源失效後完整恢復
 

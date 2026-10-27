@@ -37,7 +37,8 @@ export class RocketScene{
   }
   resetFrameSample(){this.frameSamples.length=0;this.sampleAfter=0;}
   setView(view,reset=false){if(view==='factory'&&reset)this.factoryHeight=13;this.cameraViews.set(this.view,{yaw:this.yaw,pitch:this.pitch,zoom:this.zoom});const saved=!reset&&this.cameraViews.get(view);this.view=view;Object.assign(this,saved||{yaw:view==='plane'?0:view==='orbit'?.7:view==='follow'?-.65:.55,pitch:view==='plane'?0:view==='orbit'?.48:.18,zoom:1});this.draw();}
-  rotate(dx,dy){this.yaw+=dx*.008;this.pitch=Math.max(-1.5,Math.min(1.5,this.pitch+dy*.006));this.draw();}
+  setZoom(value){if(Number.isFinite(value)){const next=Math.max(.4,Math.min(2.5,value));if(next!==this.zoom){this.zoom=next;this.cameraDirty=true;}}return this.zoom;}
+  rotate(dx,dy,draw=true){this.yaw+=dx*.008;this.pitch=Math.max(-1.5,Math.min(1.5,this.pitch+dy*.006));this.cameraDirty=true;if(draw)this.draw();}
   clearSeparation(){if(this.separation){this.scene.remove(this.separation.body);dispose(this.separation.body);this.separation=null;}}
   setData(data){
     const previous=this.data?.flight,f=data.flight,craft=JSON.stringify(data.craft),key=JSON.stringify([data.craft,f?.separated]);
@@ -79,7 +80,7 @@ export class RocketScene{
   }
   setPaths(actual,predicted,planned){this.line('actual',actual,'#ee9674');this.line('predicted',predicted,'#b0e3d4',true);this.line('planned',planned,'#f6ca74',true);}
   draw(){
-    if(!this.data||!this.rocket||this.lost)return;const {flight:f,workshop}=this.data,space=['orbit','plane'].includes(this.view),factory=workshop&&this.view==='factory',height=Math.max(.1,this.rocket.userData.height);
+    if(!this.data||!this.rocket||this.lost)return;this.cameraDirty=false;const {flight:f,workshop}=this.data,space=['orbit','plane'].includes(this.view),factory=workshop&&this.view==='factory',height=Math.max(.1,this.rocket.userData.height);
     const agl=f?S.clearance(f.state,f.t):0,altitude=f?Math.max(0,O.elements(f.state).height):0,theta=f?Math.atan2(f.state[1],f.state[0]):0;
     this.earth.geometry=f&&!space&&altitude<120000?this.earth.userData.nearGeometry:this.earth.userData.farGeometry;
     const drop=this.separation;if(drop&&f)for(let i=0;i<20000&&drop.coast.t<f.t-1e-8&&!['impact','escaped'].includes(drop.coast.status);i++)M.step(drop.coast,Math.min(O.elements(drop.coast.state).height<120000?.1:2,f.t-drop.coast.t),{mass:drop.mass});
@@ -93,25 +94,27 @@ export class RocketScene{
     const sky=space?1:THREE.MathUtils.smoothstep(altitude,0,120000);this.skyFraction=sky;
     this.sky.visible=!(factory||!f&&!space);this.sky.material.uniforms.uSpace.value=sky;
     const target=new THREE.Vector3();let distance;
-    if(space){this.earth.position.set(0,0,0);this.earth.scale.setScalar(3);this.halo.position.copy(this.earth.position);this.halo.scale.setScalar(3.045);this.rocket.scale.setScalar(.33/displayHeight);this.rocket.position.set(f?f.state[1]*3/P.R:0,f?f.state[0]*3/P.R:3,0);this.rocket.rotation.z=f?-f.attitude:0;target.set(0,.3,0);const h=this.host.clientHeight;distance=Math.max(14.5,3*h/(2*Math.tan(Math.PI/9)*Math.max(20,(h-130)/2)))/this.zoom;}
-    else if(factory||!f){this.rocket.scale.setScalar(1);this.rocket.position.set(0,0,0);this.rocket.rotation.z=0;this.factoryHeight=this.factoryHeight||13;const framing=height+(P.hasCapsule(this.data.craft)?0:4.4);if(framing>this.factoryHeight)this.factoryHeight=Math.ceil(framing/5)*5;target.set(0,this.factoryHeight*.44,0);distance=Math.max(24,this.factoryHeight*1.85)/this.zoom;}
+    if(space){this.earth.position.set(0,0,0);this.earth.scale.setScalar(3);this.halo.position.copy(this.earth.position);this.halo.scale.setScalar(3.045);this.rocket.scale.setScalar(.33/displayHeight);this.rocket.position.set(f?f.state[1]*3/P.R:0,f?f.state[0]*3/P.R:3,0);this.rocket.rotation.z=f?-f.attitude:0;target.set(0,.3,0);const h=this.host.clientHeight;distance=Math.max(14.5,3*h/(2*Math.tan(Math.PI/9)*Math.max(20,(h-130)/2)));}
+    else if(factory||!f){this.rocket.scale.setScalar(1);this.rocket.position.set(0,0,0);this.rocket.rotation.z=0;this.factoryHeight=this.factoryHeight||13;const framing=height+(P.hasCapsule(this.data.craft)?0:4.4);if(framing>this.factoryHeight)this.factoryHeight=Math.ceil(framing/5)*5;target.set(0,this.factoryHeight*.44,0);distance=Math.max(24,this.factoryHeight*1.85);}
     else{
       // Leave depth clearance for Float32 rounding at planetary scale.
       const r=Math.hypot(f.state[0],f.state[1]);this.earth.position.set(0,-r/1000,0);this.earth.scale.setScalar((P.R-5)/1000);this.halo.position.copy(this.earth.position);this.halo.scale.setScalar((P.R+80000)/1000);
-      distance=Math.max(.035,displayHeight*(this.host.clientHeight<240?.007:.0038),Math.max(0,agl)/1000*3+.035)/this.zoom;
+      distance=Math.max(.035,displayHeight*(this.host.clientHeight<240?.007:.0038),Math.max(0,agl)/1000*3+.035);
       // Keep the upper stage framing independent of the falling stage's distance.
-      if(f.separated){const close=Math.max(.035,displayHeight*.0038)/this.zoom;distance*=Math.pow(Math.min(1,close/distance),blend);}
+      if(f.separated){const close=Math.max(.035,displayHeight*.0038);distance*=Math.pow(Math.min(1,close/distance),blend);}
       this.rocket.scale.setScalar(Math.max(.001,distance*.16/displayHeight));this.rocket.position.set(0,0,0);this.rocket.rotation.z=theta-f.attitude;target.set(0,displayHeight*this.rocket.scale.y*.65,0);
       for(const environment of [this.studio,this.landscape,this.relief]){environment.scale.setScalar(.001);environment.position.set(-P.R*Math.sin(theta)/1000,(P.R*Math.cos(theta)-r)/1000,0);environment.rotation.z=theta;}
     }
     if(f&&!factory&&!space&&agl<500){const blend=1-THREE.MathUtils.smoothstep(agl,200,500),minimum=hullMinimum(this.rocket,this.rocket.rotation.z);let offset=-minimum*this.rocket.scale.y*blend+Math.max(0,-agl)/1000;if(agl<10){const key=[f.t,f.attitude,this.rocket.scale.y].join(',');if(this.rocket.contactKey!==key){this.rocket.contactKey=key;this.rocket.contactOffset=(Math.max(0,agl)-hullClearance(this.rocket,f,this.rocket.rotation.z))/1000;}offset=this.rocket.contactOffset;}this.rocket.position.y+=offset;target.copy(this.rocket.position).add(new THREE.Vector3(0,displayHeight*this.rocket.scale.y*.5,0).applyQuaternion(this.rocket.quaternion));}
     if(separation)this.rocket.position.addScaledVector(new THREE.Vector3(Math.sin(separation.attitude-(space?0:theta)),Math.cos(separation.attitude-(space?0:theta)),0),separation.join*(1-blend)*this.rocket.scale.y);
-    if(space&&f&&O.elements(f.state).r>2*P.R)distance=Math.max(distance,(O.elements(f.state).r*3/P.R+1)/Math.tan(Math.PI/9)*1.1/this.zoom);
+    if(space&&f&&O.elements(f.state).r>2*P.R)distance=Math.max(distance,(O.elements(f.state).r*3/P.R+1)/Math.tan(Math.PI/9)*1.1);
     this.earth.rotation.y=.7+(f?.t||0)%EARTH_DAY/EARTH_DAY*O.TAU;this.earth.rotation.z=space?0:theta;this.clouds.position.copy(this.earth.position);this.clouds.scale.copy(this.earth.scale).multiplyScalar(1.0018);this.clouds.rotation.copy(this.earth.rotation);this.clouds.rotateY(.025);const sunAngle=space?0:theta;this.planetSun.set(-.5*Math.cos(sunAngle)-.3*Math.sin(sunAngle),-.5*Math.sin(sunAngle)+.3*Math.cos(sunAngle),1).normalize();
     this.sunLight.position.copy(factory||!f?new THREE.Vector3(30,40,40):this.planetSun);this.sunLight.intensity=factory||!f?2.4:2;this.ambient.intensity=factory||!f?1.65:1;this.ambient.position.copy(space?this.rocket.position:new THREE.Vector3(0,1,0));this.fillLight.intensity=factory||!f?.6:0;
     if(factory||!f){this.studio.scale.setScalar(1);this.studio.position.set(0,0,0);this.studio.rotation.z=0;}
     this.landscape.rotation.y=(f?.t||0)%EARTH_DAY/EARTH_DAY*O.TAU;this.relief.rotation.y=this.landscape.rotation.y;
     this.globalTerrain.position.copy(this.earth.position);this.globalTerrain.scale.copy(this.earth.scale);this.globalTerrain.rotation.copy(this.earth.rotation);this.globalTerrain.rotateY(-.7);this.globalTerrain.updateMatrixWorld(true);
+    // Keep model scale and staging independent of the user camera distance.
+    distance/=this.zoom;
     const positionCamera=pitch=>this.camera.position.copy(target).add(new THREE.Vector3(Math.sin(this.yaw)*Math.cos(pitch)*distance,Math.sin(pitch)*distance,Math.cos(this.yaw)*Math.cos(pitch)*distance));positionCamera(this.pitch);
     let cameraClearance=Infinity;
     if(!space){
@@ -161,7 +164,7 @@ export class RocketScene{
     const left=Math.min(...points.map(p=>p.x))-5,right=Math.max(...points.map(p=>p.x))+5,top=Math.min(...points.map(p=>p.y))-5,bottom=Math.max(...points.map(p=>p.y))+5,width=Math.max(44,right-left),height=Math.max(44,bottom-top);return {left:(left+right-width)/2,top:(top+bottom-height)/2,width,height};
   }
   pickPart(x,y,touch=false){
-    if(!this.data?.workshop)return null;const rect=this.host.getBoundingClientRect(),ray=new THREE.Raycaster();ray.setFromCamera(new THREE.Vector2(x/rect.width*2-1,1-y/rect.height*2),this.camera);
+    if(!this.rocket?.visible)return null;const rect=this.host.getBoundingClientRect(),ray=new THREE.Raycaster();ray.setFromCamera(new THREE.Vector2(x/rect.width*2-1,1-y/rect.height*2),this.camera);
     for(const hit of ray.intersectObjects(this.rocket.userData.parts,true)){let node=hit.object;while(node&&!node.userData.part)node=node.parent;if(node?.userData.part)return {...node.userData.part};}
     if(touch){let best=null,distance=24;for(const p of this.partPoints()){const d=Math.hypot(p.x-x,p.y-y);if(d<distance){distance=d;best={stage:p.stage,part:p.part,ordinal:p.ordinal,index:p.index};}}return best;}return null;
   }
