@@ -531,3 +531,39 @@ Sites 是 standalone 練習，刷新全新開始；不代替 Moodle SCORM 成績
 - 修正後 SCORM 包：`output/circuit-dc-wire-match-scorm.zip`，包含 `circuit-dc-wire-match/DEPLOYMENT.md`；需 Moodle extended capacity，並非嚴格 4096 字元通用包。沒有更改真 Moodle 管理設定。
 - committed selection preview（`9101ed0` → `b1337d4`）選 full／286 entries，包含本活動新增 native-wire 測試及 shared scorm 測試；輸出 `output/native-wire-selection.json`。此為選擇證據，不是全套 CI 通過。
 - 已開啟部署網址供檢視；沿用已通過的 source／package 實測，沒有將原生發布成功當作真 Moodle／真機驗收。
+
+## 拉線對保存容量的實測（2026-10-30）
+
+使用者要求實測容量影響。本次只量度及記錄，沒有改應用程式或重新發布。使用目前原生 `CircuitModel.addWire/attach/moveWireEnd/bendWire/detach/straightenWire`、正式 profile／codec，以及真正 shared `CircuitActivityRuntime` + `SimScorm`；以 mock LMS 故意拒絕 score 寫入，讀取實際已 commit 的 pending-final checkpoint。40 種合法狀態逐一驗證 encode/decode 後實際 route 完全相同。
+
+重現腳本：`output/wire-capacity-experiment/run.js`；完整數據：`output/wire-capacity-experiment/results.json`、`results.csv`。來源 commit 記於 JSON，沒有以畫布像素、截圖大小或 ZIP 大小代替 suspend_data 容量。
+
+下表均為**完整凍結提交封套 UTF-8 bytes**；包含 reviewJson、總分及 pass 標記，不只是導線 payload。
+
+| 情況 | 中間點總數 | 草稿 bytes | pending bytes | 佔 64000 上限 |
+|---|---:|---:|---:|---:|
+| 五題全空 | 0 | 192 | 394 | 0.62% |
+| 一條兩端接好的直線 | 0 | 197 | 399 | 0.62% |
+| 同一條線拉彎 1 次 | 96 | 2117 | 2319 | 3.62% |
+| 同一條線累計拉彎 100 次 | 96 | 2117 | 2319 | 3.62% |
+| 五題接好，30 條線均未手動拉彎 | 20 | 862 | 1066 | 1.67% |
+| 其中 1 條已拉彎 | 116 | 2782 | 2986 | 4.67% |
+| 其中 2 條已拉彎 | 210 | 4662 | 4866 | 7.60% |
+| 其中 10 條已拉彎 | 970 | 19862 | 20066 | 31.35% |
+| 全部 30 條答案線拉彎 | 2880 | 58062 | 58266 | 91.04% |
+| 32 條庫存線全部拉彎 | 3072 | 61792 | 61994 | 96.87% |
+| 32 條拉彎後全部拔開兩端 | 3072 | 63072 | 63274 | 98.87% |
+
+### 觀察
+
+- 一條本來沒有中間點的直線，首次彎曲後變成 96 點；每點 x/y 各 8 bytes，故 raw 增加 `96×2×8=1536` bytes，Base85 後增加 **1920 bytes**。原本已有 1／2 個折點的導線，增幅會稍少。
+- 同線拉 1、2、5、10、50、100 次均為 2319 bytes pending：只保留當前線形，沒有把拉線歷史不斷附加。
+- 首次拉彎幅度 1、10、50、150、300 世界單位全部產生 96 點，容量一樣。因此「只彎一點點」並不較省。
+- 只拖直線端至 100／300／600／1000 世界單位，pending 均為 419 bytes；整條未接線導線搬動亦不增加容量。導線較長不是主要原因，變成多點曲線才是。
+- 對同一條彎線使用核心「拉直」後，pending 回到 399 bytes；一般反向拖回去不保證刪掉中間點。
+- 逐題單獨完成且全部拉彎：第 1–5 題 pending 分別為 **6171／8096／13911／15836／15836 bytes**（另四題保持空白）。連最簡單三線題亦已超過 4096 字元嚴格模式。
+- 此次真正原生操作到達 63274 bytes；先前以最大分數欄位驗算的保守封套為 63276 bytes。差 2 bytes 來自分數／布林值字串長度，沒有線形資料差異。部署預算仍採 **63276**，餘量只有 **724 bytes（約 1.13%）**。
+
+結論：目前原生 96 點＋無損 Float64＋固定庫存，已在 64000 內得到完整最壞界線，但很接近上限；不能再隨意增加庫存、點數或 snapshot 欄位。這不是說學生多拖幾次就會持續膨脹，也不能以再削線形點數當作無代價優化。
+
+驗證界線：使用正式拉線與 SCORM 核心，但 LMS 是 mock，沒有連到真 Moodle／手機；容量測試不等於實際站點資料庫保存與恢復已驗收。沒有更動 Moodle 設定、學生答案或線上 Site。
