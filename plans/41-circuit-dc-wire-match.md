@@ -521,3 +521,13 @@ Sites 是 standalone 練習，刷新全新開始；不代替 Moodle SCORM 成績
 - Shared `scorm.test.js` 預設 4000／明確 64000 邊界及初始化後禁止修改通過；兩個原有 DC SCORM 的 `assessed-activities.test.js` 通過。新增容量只由可信 spec 選取。
 - `check:tests` 通過（286 entries／247 Node／39 browser）；`npm run check`、`npm run package:all` 及六包 `package:circuit-platform` 均通過。ZIP 另包含教師 `DEPLOYMENT.md` 說明容量需求。
 - 完整全專案回歸未在此修訂重跑；先前其他三個活動的 browser 失敗仍未處理。真 Moodle、其容量設定、真手機 T4 仍需部署環境確認，不標 Moodle-ready。
+
+### 修訂 2 已發布至原私人 Site
+
+- Sites 原生發布回傳 `succeeded`：https://simlab-dc-wire-match.ieyp.chatgpt.site 。保持 owner-private，未變更 audience。
+- SimLab runtime commit：`b1337d47c86ca2312b17d827f989ee8591a54e01`；Sites source commit：`91855b3f92819435d9a0a739c9d063423b6d3d7a`。
+- Saved version：`appgprj_6ae3d4154a488191b9f9fca18a8b4900~appgver_d102c36fe29c8191a35e326c038021f8`；deployment：`appgdep_6ae3da0a3de4819190864ee1a3ac14e0`。
+- 38 個部署檔案與已測試來源逐 byte 核對，證據 `output/sites/native-wire-assets.json`。官方 helper 完成來源推送／封裝，archive 為 `output/sites/circuit-dc-wire-match-native.tar.gz`；部署及 SHA-256 紀錄為 `output/sites/native-wire-deployment.json`。
+- 修正後 SCORM 包：`output/circuit-dc-wire-match-scorm.zip`，包含 `circuit-dc-wire-match/DEPLOYMENT.md`；需 Moodle extended capacity，並非嚴格 4096 字元通用包。沒有更改真 Moodle 管理設定。
+- committed selection preview（`9101ed0` → `b1337d4`）選 full／286 entries，包含本活動新增 native-wire 測試及 shared scorm 測試；輸出 `output/native-wire-selection.json`。此為選擇證據，不是全套 CI 通過。
+- 已開啟部署網址供檢視；沿用已通過的 source／package 實測，沒有將原生發布成功當作真 Moodle／真機驗收。
