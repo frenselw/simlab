@@ -463,3 +463,25 @@ source 與解壓 package 在 T0–T3 執行：五題、不同端子朝向／支�
 - 初次 committed selection-preview：base `0fc1d30922de42aeb7a9ad3ec3efdd24972c89c5`、head `40599510035c927d5c0bb116fcb6cdd9ee9482dd`，結果 full／285 entries，包含本活動五個 Node entries 及 browser owner。原因為共用生產文件／基建與 catalogue／registry 範圍；最新完整分支範圍的輸出保存於 `output/wire-match-selection.json`。
 - 全套 `npm test` 的瀏覽器部分仍執行中，進度見 `output/wire-match-full-tests.log`；尚無全部通過結果或 GitHub run URL，不標 package-ready。上述部署矩陣未執行項目亦保持未勾選。
 - 本地試用 server：`http://127.0.0.1:10431/circuit-dc-wire-match/index.html`（僅在目前電腦啟動期間可用）。
+
+## Sites 部署（2026-10-30）
+
+使用者要求部署至 Sites，已建立本活動獨立 owner-private Site；沒有覆寫三個工作台或主目錄 Site 的 project ID／audience。
+
+| 項目 | 部署證據 |
+|---|---|
+| 網址 | https://simlab-dc-wire-match.ieyp.chatgpt.site |
+| Project ID | `appgprj_6ae3d4154a488191b9f9fca18a8b4900` |
+| Sites source commit | `c8f3850ed2bd6d6a98a6b5758118152638a7140a` |
+| Saved version | `appgprj_6ae3d4154a488191b9f9fca18a8b4900~appgver_e132c0948a648191a590498123e3ab32` |
+| Deployment | `appgdep_6ae3d46eeb3c8191ba20e0b298d83a7d`，原生工具回傳 `succeeded` |
+| 存取 | owner-private，需要擁有者帳號登入；沒有變更成公開學生入口 |
+| 來源／封裝 | `output/sites/circuit-dc-wire-match-source`；`output/sites/circuit-dc-wire-match.tar.gz` |
+
+以活動 manifest 的 37 個 runtime 檔案準備 buildless dist，與已測試來源逐 byte／SHA-256 核對；另加 root redirect，保留 query/hash。官方 helper 推送來源及封裝，原生私人 save-and-deploy 成功，並已在 Codex 開啟站點。部署紀錄為 `output/sites/circuit-dc-wire-match-deployment.json`。未上載測試、fixture 或其他工作台入口。
+
+Sites 是 standalone 練習，刷新全新開始；不代替 Moodle SCORM 成績回傳。沿用已通過的來源／解壓 SCORM browser 證據，本次沒有重跑線上 browser 或真 Moodle／實體手機驗收。
+
+### 全專案回歸更新
+
+先前背景 `npm test` 已完成：282／285 通過。本活動 browser 通過；失敗 entry 為 `tools/rocket-space-mission-browser-regression.js`、`tools/circuit-household-browser-regression.js`、`tools/free-fall-stroboscopic-browser-regression.js`，未在本次 Sites 部署範圍內修復。報告：`output/ci-tests/local-1793291018594-7752/report.json`。因此不能把此次部署或本活動專項通過說成完整專案 gate 已通過。
