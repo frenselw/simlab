@@ -453,3 +453,13 @@ source 與解壓 package 在 T0–T3 執行：五題、不同端子朝向／支�
 另執行 96 個 T1–T3 host 案例（source／package × 三種 host × 第 1／5 題 × real／schematic × edit／check／review／frozen），左右把手分別用可信觸控滑動，核對 per-move 單調捲動、正確 owner、活動 document 不捲、答案不變。Evidence：`output/playwright/wire-match/evidence.json`，110 個摘要案例，0 個 runtime exception；各題 screenshot 在同目錄。
 
 此證據不等於所有部署手勢矩陣已通過：T4 真 Moodle／真手機、所有編輯 target 的完整 phase／interruption 矩陣及 200% zoom 等仍保持未驗證。完整專案回歸結果未出前，不標 package-ready 或 Moodle-ready。
+
+### 最後修正及回歸範圍
+
+- 增加連續切題 6 次的 browser 測試，修正尚在掛載時重複 mount 同一 host、面板離開 DOM 時引用失效的競爭。掛載依序執行、丟棄過期掛載並保留外層 DOM 引用；不改 Workbench 核心。
+- 此修正後重新打包六包，重新執行本活動 source／package 全部 browser 案例並通過。
+- 全部 246 個 Node entry 已有通過證據：四分片 245 項通過；`tools/ci-prepare.test.js` 在分片的 120 秒界線超時，後以允許建立 Git fixture 的獨立執行重跑通過。不能把四分片報告說成全部一次通過。證據：`output/wire-match-node-shards/*/report.json` 及 `output/wire-match-ci-prepare.log`。
+- `npm run check` 最後一輪通過，`git diff --check` 通過。
+- 初次 committed selection-preview：base `0fc1d30922de42aeb7a9ad3ec3efdd24972c89c5`、head `40599510035c927d5c0bb116fcb6cdd9ee9482dd`，結果 full／285 entries，包含本活動五個 Node entries 及 browser owner。原因為共用生產文件／基建與 catalogue／registry 範圍；最新完整分支範圍的輸出保存於 `output/wire-match-selection.json`。
+- 全套 `npm test` 的瀏覽器部分仍執行中，進度見 `output/wire-match-full-tests.log`；尚無全部通過結果或 GitHub run URL，不標 package-ready。上述部署矩陣未執行項目亦保持未勾選。
+- 本地試用 server：`http://127.0.0.1:8792/circuit-dc-wire-match/`（僅在目前電腦啟動期間可用）。
