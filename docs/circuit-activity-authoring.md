@@ -258,3 +258,11 @@ A／V 接孔於 2026-10-05 內移，接孔變更使用 v5；2026-10-06 導線電
 自動縮放先使用全寬畫布；只有實際端點的完整 44 px 觸控區碰到可見捲頁把手時，才縮至安全範圍。底部取線仍預留把手空間，避免為了下角把手而無條件縮小整個電路及電表量程字體。
 
 接點快捷加線優先沿所選／原有導線末段向前延伸，無既有線時沿端子外向。前方有導線、其他元件外框或畫布邊界阻擋時，才比較多個方向，選端子外側較疏離、線端留在畫布內的方向；外側沒有足夠可見空間時改選其他可見方向。連續新增會把上次的新線也納入避讓，形成分開的分支。既有導線、電路連接、庫存及線長不變；空間擠迫時選可用空間較大的方向。
+
+## 看圖接線五題活動（2026-10-30）
+
+`circuit-dc-wire-match` 直接使用現有 `CircuitEditor.mount`、student profile、panelContent 及 `CircuitActivityRuntime.Controller`；固定元件與空 palette 裁剪教師功能，沒有另一份 editor／routing／solver。題圖、帶極性的端子分組比對、交叉扣分及五題 codec 均留在活動外層。詳見[活動計劃](../plans/41-circuit-dc-wire-match.md)。
+
+本活動使用現有 `wirePointLimit:3`、1200 線長，五題庫存 4／5／7／8／8。SCORM 恢復保留 Float64 線形；目前最大合法 pending 為 3970 bytes，變更 schema 或庫存必須重測真正 pending 封套。不能在保存時另作量化。
+
+`package:circuit-platform` 現在包括第三個 DC SCORM，共三個 standalone 與三個 SCORM ZIP。新活動有自己的 browser owner；既有 assessed browser suite 仍只處理原本兩題，其特殊操作不能套用到固定元件接線題。真 Moodle／實體手機與完整部署手勢驗收仍以本活動計劃的實際證據為準。

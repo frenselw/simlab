@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest identifier="circuit-dc-wire-match" version="1.0" xmlns="http://www.imsproject.org/xsd/imscp_rootv1p1p2" xmlns:adlcp="http://www.adlnet.org/xsd/adlcp_rootv1p2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.imsproject.org/xsd/imscp_rootv1p1p2 imscp_rootv1p1p2.xsd http://www.adlnet.org/xsd/adlcp_rootv1p2 adlcp_rootv1p2.xsd">
+<metadata><schema>ADL SCORM</schema><schemaversion>1.2</schemaversion></metadata>
+<organizations default="ORG-circuit-dc-wire-match"><organization identifier="ORG-circuit-dc-wire-match"><title>看圖接線：五個基礎電路</title><item identifier="ITEM-circuit-dc-wire-match" identifierref="RES-circuit-dc-wire-match"><title>看圖接線：五個基礎電路</title></item></organization></organizations>
+<resources><resource identifier="RES-circuit-dc-wire-match" type="webcontent" adlcp:scormtype="sco" href="circuit-dc-wire-match/index.html">
+      <file href="circuit-workbench/circuit-editor.css"/>
+      <file href="circuit-workbench/circuit-editor-ui.js"/>
+      <file href="circuit-workbench/circuit-editor.js"/>
+      <file href="circuit-workbench/circuit-profile.js"/>
+      <file href="circuit-workbench/circuit-checks.js"/>
+      <file href="circuit-workbench/circuit-math.js"/>
+      <file href="circuit-workbench/mathjax-tex-svg.js"/>
+      <file href="circuit-workbench/mathjax-license.txt"/>
+      <file href="circuit-workbench/component-registry.js"/>
+      <file href="circuit-workbench/circuit-meter-motion.js"/>
+      <file href="circuit-workbench/circuit-relay-motion.js"/>
+      <file href="circuit-workbench/circuit-model.js"/>
+      <file href="circuit-workbench/circuit-snapping.js"/>
+      <file href="circuit-workbench/circuit-solver.js"/>
+      <file href="circuit-workbench/circuit-routing.js"/>
+      <file href="circuit-workbench/circuit-label-layout.js"/>
+      <file href="circuit-workbench/circuit-renderer.js"/>
+      <file href="circuit-workbench/circuit-document.js"/>
+      <file href="circuit-workbench/presets.js"/>
+      <file href="shared/styles.css"/>
+      <file href="shared/fullscreen.js"/>
+      <file href="shared/scorm.js"/>
+      <file href="shared/activity-flow.js"/>
+      <file href="circuit-workbench/circuit-activity-data.js"/>
+      <file href="circuit-workbench/circuit-activity-runtime.js"/>
+      <file href="circuit-dc-wire-match/index.html"/>
+      <file href="circuit-dc-wire-match/styles.css"/>
+      <file href="circuit-dc-wire-match/main.js"/>
+      <file href="circuit-dc-wire-match/spec.js"/>
+      <file href="circuit-dc-wire-match/scoring.js"/>
+      <file href="circuit-dc-wire-match/persistence.js"/>
+      <file href="circuit-dc-wire-match/crossings.js"/>
+      <file href="circuit-dc-wire-match/assets/circuit-01.svg"/>
+      <file href="circuit-dc-wire-match/assets/circuit-02.svg"/>
+      <file href="circuit-dc-wire-match/assets/circuit-03.svg"/>
+      <file href="circuit-dc-wire-match/assets/circuit-04.svg"/>
+      <file href="circuit-dc-wire-match/assets/circuit-05.svg"/>
+</resource></resources></manifest>

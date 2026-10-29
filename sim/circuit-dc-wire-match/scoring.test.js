@@ -1,0 +1,5 @@
+'use strict';
+const a=require('node:assert/strict'),Q=require('./spec'),P=require('./persistence'),S=require('./scoring'),M=require('../circuit-workbench/circuit-model'),{solved}=require('./fixtures');
+a.equal(S.score(P.fresh()).score,0);
+const s=P.fresh();for(let q=0;q<5;q++){const d=solved(q,0);s.answers[q]=P.encode(d,q,0);const before=S.assess(d,q);d.components.filter(c=>c.type==='switch').forEach(c=>c.params.closed=true);a.equal(S.assess(d,q).units,before.units);for(const c of d.components.filter(c=>c.type!=='battery')){for(const w of d.wires)for(const k of ['from','to'])if(w[k].startsWith(c.id+':'))w[k]=c.id+':'+(w[k].endsWith(':a')?'b':'a');}a.equal(S.assess(d,q).correct,before.correct);}
+a.equal(S.score(s).score,100);const wrong=solved(0,0);for(const w of wrong.wires)for(const k of ['from','to'])if(w[k].startsWith('B:'))w[k]=w[k]==='B:a'?'B:b':'B:a';a(S.assess(wrong,0).correct<3);const partial=solved(3,0);partial.wires.pop();M.cleanup(partial);a(S.assess(partial,3).correct>0);a(S.assess(partial,3).correct<8);console.log('Blank, complete, partial, nonpolar reversal, switch state and wrong battery order passed');

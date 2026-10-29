@@ -40,8 +40,8 @@ core files to each wrapper's manifest; referencing a sibling directory during
 development does not package that dependency automatically.
 
 Each teacher circuit workbench declares its runtime in its own `assets.json`.
-`npm run package:circuit-platform` synchronizes those three lists and the two DC
-activity manifests, rebuilds all five ZIPs, and checks packaged files against
+`npm run package:circuit-platform` synchronizes those three lists and the three DC
+activity manifests, rebuilds all six ZIPs, and checks packaged files against
 source and HTML/CSS dependencies. `npm run package:circuit` builds only the DC
 standalone ZIP. Standalone workbenches have no `imsmanifest.xml`;
 `npm run package:all` builds SCORM manifests only.
