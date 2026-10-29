@@ -462,4 +462,4 @@ source 與解壓 package 在 T0–T3 執行：五題、不同端子朝向／支�
 - `npm run check` 最後一輪通過，`git diff --check` 通過。
 - 初次 committed selection-preview：base `0fc1d30922de42aeb7a9ad3ec3efdd24972c89c5`、head `40599510035c927d5c0bb116fcb6cdd9ee9482dd`，結果 full／285 entries，包含本活動五個 Node entries 及 browser owner。原因為共用生產文件／基建與 catalogue／registry 範圍；最新完整分支範圍的輸出保存於 `output/wire-match-selection.json`。
 - 全套 `npm test` 的瀏覽器部分仍執行中，進度見 `output/wire-match-full-tests.log`；尚無全部通過結果或 GitHub run URL，不標 package-ready。上述部署矩陣未執行項目亦保持未勾選。
-- 本地試用 server：`http://127.0.0.1:8792/circuit-dc-wire-match/`（僅在目前電腦啟動期間可用）。
+- 本地試用 server：`http://127.0.0.1:10431/circuit-dc-wire-match/index.html`（僅在目前電腦啟動期間可用）。
