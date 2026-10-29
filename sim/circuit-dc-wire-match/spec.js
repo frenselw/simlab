@@ -17,7 +17,7 @@ const add=(id,type,x,y,angle=0)=>{const c=M.add(d,type,x,y,type==='switch'?{clos
 add('B','battery',420,440);add(q===4?'L3':'S',q===4?'lamp':'switch',160,440,180);
 if(q>=3)add('S1','switch',160,80);
 add('L1','lamp',q===1?200:360,80);if(q>0)add('L2','lamp',q===1?400:360,q===1?80:260);return d;}
-function config(q=0,v=0,panelContent){return{role:'student',initialDocument:initial(q,v),palette:[],wirePointLimit:3,wireResistance:false,components:{byType:{switch:{switch:true}}},ui:{header:false,palette:false,inspector:true,wireList:true,viewToggle:true,quickParameters:false,status:true},...(panelContent?{panelContent}:{})};}
-return{ACTIVITY,title,count,stocks,tasks,descriptions,groups,initial,config,transform};
+function config(q=0,v=0,panelContent){return{role:'student',initialDocument:initial(q,v),palette:[],wireResistance:false,components:{byType:{switch:{switch:true}}},ui:{header:false,palette:false,inspector:true,wireList:true,viewToggle:true,quickParameters:false,status:true},...(panelContent?{panelContent}:{})};}
+return{ACTIVITY,title,count,snapshotLimit:64000,stocks,tasks,descriptions,groups,initial,config,transform};
 
 });

@@ -266,3 +266,7 @@ A／V 接孔於 2026-10-05 內移，接孔變更使用 v5；2026-10-06 導線電
 本活動使用現有 `wirePointLimit:3`、1200 線長，五題庫存 4／5／7／8／8。SCORM 恢復保留 Float64 線形；目前最大合法 pending 為 3970 bytes，變更 schema 或庫存必須重測真正 pending 封套。不能在保存時另作量化。
 
 `package:circuit-platform` 現在包括第三個 DC SCORM，共三個 standalone 與三個 SCORM ZIP。新活動有自己的 browser owner；既有 assessed browser suite 仍只處理原本兩題，其特殊操作不能套用到固定元件接線題。真 Moodle／實體手機與完整部署手勢驗收仍以本活動計劃的實際證據為準。
+
+### Wire-match revision 2: native curves
+
+The three-point wire-match setting described historically above is superseded: revision 2 omits `wirePointLimit` and retains the Workbench default 96 points. It uses lossless JSON-safe Base85/Float64 and the explicit Moodle 64000-byte storage profile; all other activities still default to 4000 bytes. `CircuitActivityData.envelope` accepts the trusted limit as its fourth argument; `CircuitActivityRuntime.Controller` owns selection and pending checks. See [the revised plan](../plans/41-circuit-dc-wire-match.md). No routing, renderer, bend physics or teacher defaults change.

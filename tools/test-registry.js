@@ -5,6 +5,7 @@ const {groups:dcGroups}=require('./circuit-test-groups');
 const root=path.resolve(__dirname,'..');
 
 const registeredTests = [
+  'sim/circuit-dc-wire-match/native-wire.test.js',
   'sim/circuit-dc-wire-match/layouts.test.js',
   'sim/circuit-dc-wire-match/scoring.test.js',
   'sim/circuit-dc-wire-match/crossings.test.js',

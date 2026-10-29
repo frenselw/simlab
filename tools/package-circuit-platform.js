@@ -14,7 +14,7 @@ function syncAssets(){
   const shell=['shared/scorm.js','shared/activity-flow.js',...['circuit-activity-data.js','circuit-activity-runtime.js','circuit-activity-page.js','circuit-activity.css'].map(f=>'circuit-workbench/'+f)];
   for(const slug of slugs){
     const file=path.join(root,'sim/manifests',slug+'.xml'),source=fs.readFileSync(file,'utf8');
-    const own=['index.html','styles.css','main.js','spec.js','scoring.js','persistence.js',...(slug==='circuit-dc-wire-match'?['crossings.js',...Array.from({length:5},(_,i)=>'assets/circuit-0'+(i+1)+'.svg')]:[])];
+    const own=['index.html','styles.css','main.js','spec.js','scoring.js','persistence.js',...(slug==='circuit-dc-wire-match'?['crossings.js','DEPLOYMENT.md',...Array.from({length:5},(_,i)=>'assets/circuit-0'+(i+1)+'.svg')]:[])];
     const files=[...core,...shell.filter(f=>slug!=='circuit-dc-wire-match'||!f.endsWith('circuit-activity-page.js')&&!f.endsWith('circuit-activity.css')),...own.map(f=>slug+'/'+f)];
     assert.equal(new Set(files).size,files.length);
     const updated=source.replace(/\s*<file href="[^"]+"\/>/g,'').replace('</resource>',files.map(f=>'      <file href="'+f+'"/>').join('\n')+'\n</resource>');

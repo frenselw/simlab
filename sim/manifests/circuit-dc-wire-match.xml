@@ -35,6 +35,7 @@
       <file href="circuit-dc-wire-match/scoring.js"/>
       <file href="circuit-dc-wire-match/persistence.js"/>
       <file href="circuit-dc-wire-match/crossings.js"/>
+      <file href="circuit-dc-wire-match/DEPLOYMENT.md"/>
       <file href="circuit-dc-wire-match/assets/circuit-01.svg"/>
       <file href="circuit-dc-wire-match/assets/circuit-02.svg"/>
       <file href="circuit-dc-wire-match/assets/circuit-03.svg"/>

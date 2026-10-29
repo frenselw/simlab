@@ -1116,3 +1116,9 @@ its score and legal continuation. Outstanding Moodle/device gates remain explici
 Package readiness plus all [Moodle-ready checks](#moodle-ready-checks) pass in the
 real deployment. Browser scoring stays within the plan's accepted risk level;
 required trusted validation is operational. Local checks never establish this gate.
+
+## Explicit Moodle extended-capacity exception
+
+The default snapshot ceiling remains **4000 UTF-8 bytes**. A named activity may declare `spec.snapshotLimit:64000` only when its plan documents a Moodle extended SCORM 1.2 deployment, the user's accepted storage redesign, an exact worst-case pending-final budget, and strict-LMS failure tests. `CircuitActivityRuntime` selects the trusted limit through `SimScorm.setSnapshotLimit()` before initialization; answers cannot select it. Existing callers retain 4000.
+
+This uses the existing SCORM 1.2 API and shared lifecycle, not SCORM 2004. Moodle must allow the documented 64000-character extension (SCORM 1.2 standards mode disabled). Count UTF-8 bytes conservatively; JSON-safe ASCII avoids escaping expansion. An LMS rejection must retain current work and report unsaved state, never trim geometry or claim a recorded score. Without confirmed Moodle configuration and real deployment checks, do not mark Moodle-ready. See [official settings](https://docs.moodle.org/en/SCORM_settings#Other_Important_Settings) and [the native-wire activity plan](../plans/41-circuit-dc-wire-match.md).

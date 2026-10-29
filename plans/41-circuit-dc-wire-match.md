@@ -485,3 +485,39 @@ Sites 是 standalone 練習，刷新全新開始；不代替 Moodle SCORM 成績
 ### 全專案回歸更新
 
 先前背景 `npm test` 已完成：282／285 通過。本活動 browser 通過；失敗 entry 為 `tools/rocket-space-mission-browser-regression.js`、`tools/circuit-household-browser-regression.js`、`tools/free-fall-stroboscopic-browser-regression.js`，未在本次 Sites 部署範圍內修復。報告：`output/ci-tests/local-1793291018594-7752/report.json`。因此不能把此次部署或本活動專項通過說成完整專案 gate 已通過。
+
+## 修訂 2：恢復原生彎線與完整保存（2026-10-30，取代前述 3 點／4000-byte 方案）
+
+使用者指出尖角與原 Workbench 不同，並選擇「Sites 和 SCORM 的完整保存方案一併重做，再發布」。故撤銷每線 3 個中間點的設計；活動使用未修改的原生彎線及預設 96 點，不另作平滑、取樣、量化或存檔時變形。
+
+**新的交付範圍：SCORM 1.2 API + Moodle 擴充 suspend-data 容量（64000 bytes）。** 這不是可在嚴格 4096 字元 LMS 使用的通用包。部署前須由 Moodle 管理員確認 Site administration → Plugins → Activity modules → SCORM package 的「Enable SCORM 1.2 standard mode」關閉；沒有授權或工具連線修改真 Moodle。本項是具名的活動容量例外，其他活動仍以 4000 bytes 為上限。
+
+依據：[Moodle 官方設定文件](https://docs.moodle.org/en/SCORM_settings#Other_Important_Settings)、[Moodle 4.5 設定來源（scormstandard）](https://github.com/moodle/moodle/blob/MOODLE_405_STABLE/mod/scorm/settings.php)。原本用削減線形配合容量的做法不再保留。
+
+### 修訂 schema 與容量證明
+
+- answer revision 2；仍為 phase、question、五項 answers。各題二進位欄位、Float64 little endian、固定元件重建、端點索引關係保持；每線 viaCount 可到原核心 stroke 上限 96（auto 仍受核心 bends 24），不改已畫出的實際座標。
+- 二進位改用 JSON-safe Base85（85 個可列印 ASCII 字元，不含雙引號或反斜線），每 4 bytes 對應 5 字元。末組補零但解碼時按正式結構及 canonical 重編碼驗證，不接受多餘尾部、非法字元或 overflow。
+- 32 條線、64 個獨立自由端點、每線 96 個 Float64 中間點共 50,329 raw bytes；各題分組編碼後約 62,920 ASCII bytes，另加 draft／review／pending 封套仍低於 64,000 bytes。以正式 codec 與真 shared runtime 的最壞合法作答測試實際值。
+- revision 1 不自動改寫：舊 Moodle draft 保持 technical lock，舊 finished 僅可信摘要；新包應由 Moodle 新活動／新 attempt 開始。Sites refresh 本來即全新練習。
+- shared SCORM 增加受信任、僅初始化前可選 4000／64000 的容量設定；預設 4000。活動外層與 decoder 必須採同一上限；不能由作答資料自行加大。提交仍完全經現有 shared lifecycle。
+- 嚴格 LMS 拒絕大 payload 時，保留當頁答案、顯示未保存、禁止正式提交；不得縮短曲線或顯示保存成功。pending／review／retry 原樣與既有 trust contract 保持。
+
+### 必驗案例
+
+1. 同一核心拉線動作經 teacher profile 與本活動 profile 的文件、96 點及實際 route 完全一致；重複拉彎、端點固定、undo／redo、切題與恢復不變形。
+2. 自由曲線、曲線交叉／不交叉、自交、共同端點；score／crossings 在 encode/decode 後一致。
+3. 32 條原生 96 點線的真正最大 draft／review／pending ≤64000；所有浮點位元及端點關係無損。
+4. 模擬 64000 與嚴格 4096 上限的 LMS；大草稿、same-attempt reload、pending retry、submitted read-only、save error 與 standalone refresh。
+5. 原有 4000-byte SCORM 活動與 runtime 測試維持通過。重建引用 shared runtime 的套件並登記新測試。
+6. 先完成 source／extracted package 的可信拖線與上述保存測試，再更新同一私人 Sites project；不先發布僅外觀修正。
+
+### 修訂 2 執行結果
+
+- 已移除 `wirePointLimit:3`，使用原核心預設 96，沒有修改 routing、bend、renderer 或教師工作台。新 `native-wire.test.js` 驗證 40 佈局 × 4 次拉彎，活動／教師的線形完全相同，保存／恢復後 route、crossings 與分數一致。
+- Base85／Float64 codec revision 2 實測最壞 pending **63276 bytes**。非法字元、overflow、尾隨資料、canonical encoding、revision 拒絕及完整精度均驗證。
+- 真 shared SCORM runtime 的最大答案 draft／reload／pending／retry／review 通過；嚴格 4096 字元 mock 拒絕時保留當頁答案、顯示未保存且無法提交；舊 revision 1 草稿／已完成結果保持鎖定，不覆寫。
+- 來源及解壓 SCORM browser 通過：既有 110 個摘要案例，加桌面／390px 真觸控彎線、undo／redo、切題與 reload 線形逐值相同，以及最大答案凍結／retry／review、嚴格 LMS 拒絕；共 116 個摘要案例，0 個 runtime exception。圖：`output/playwright/wire-match/{source,package}-native-bend-{1280,390}.png`；完整證據 `output/playwright/wire-match/evidence.json`。
+- Shared `scorm.test.js` 預設 4000／明確 64000 邊界及初始化後禁止修改通過；兩個原有 DC SCORM 的 `assessed-activities.test.js` 通過。新增容量只由可信 spec 選取。
+- `check:tests` 通過（286 entries／247 Node／39 browser）；`npm run check`、`npm run package:all` 及六包 `package:circuit-platform` 均通過。ZIP 另包含教師 `DEPLOYMENT.md` 說明容量需求。
+- 完整全專案回歸未在此修訂重跑；先前其他三個活動的 browser 失敗仍未處理。真 Moodle、其容量設定、真手機 T4 仍需部署環境確認，不標 Moodle-ready。

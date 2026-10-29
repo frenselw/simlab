@@ -24,7 +24,11 @@
   let standaloneHasDurableCheckpoint = false;
   let standaloneDurabilityFailure = false;
   const localLog = [];
-  const SNAPSHOT_LIMIT = 4000;
+  let snapshotLimit = 4000;
+  function setSnapshotLimit(limit) {
+    if (initialized || ![4000, 64000].includes(limit)) throw new Error("Snapshot capacity must be selected before SCORM initialization");
+    snapshotLimit = limit;
+  }
   const FINISHED = ["completed", "passed", "failed"];
   const STANDALONE_FIELDS = ["cmi.suspend_data", "cmi.core.lesson_status", "cmi.core.score.raw", "cmi.core.score.min", "cmi.core.score.max", "cmi.core.exit"];
 
@@ -155,7 +159,7 @@
       snapshot.score = result.score;
       snapshot.passed = Boolean(result.passed);
     }
-    if (snapshotBytes(snapshot) > SNAPSHOT_LIMIT) throw new Error("SCORM snapshot exceeds 4000 bytes");
+    if (snapshotBytes(snapshot) > snapshotLimit) throw new Error(`SCORM snapshot exceeds ${snapshotLimit} bytes`);
     return snapshot;
   }
 
@@ -307,7 +311,7 @@
   }
 
   function saveDraft(snapshot) {
-    if (finalCommitted || pendingFinal || !snapshot || snapshot.kind !== "draft" || snapshotBytes(snapshot) > SNAPSHOT_LIMIT) return false;
+    if (finalCommitted || pendingFinal || !snapshot || snapshot.kind !== "draft" || snapshotBytes(snapshot) > snapshotLimit) return false;
     const checkpoint = JSON.stringify(snapshot);
     const saved = setValue("cmi.suspend_data", checkpoint) && setValue("cmi.core.lesson_status", "incomplete") &&
       setValue("cmi.core.exit", "suspend") && commit();
@@ -326,11 +330,11 @@
   function makePending(result, reviewState) {
     if (!reviewState || reviewState.kind !== "review") throw new Error("Final submission requires a review snapshot");
     const reviewJson = JSON.stringify(reviewState);
-    if (bytes(reviewJson) > SNAPSHOT_LIMIT) throw new Error("SCORM snapshot exceeds 4000 bytes");
+    if (bytes(reviewJson) > snapshotLimit) throw new Error(`SCORM snapshot exceeds ${snapshotLimit} bytes`);
     const payload = { reviewJson, score: Number(result.score), maxScore: Number(result.maxScore || 100), passed: Boolean(result.passed) };
     if (!Number.isFinite(payload.score) || !Number.isFinite(payload.maxScore)) throw new Error("Invalid SCORM result");
     const checkpoint = { version: 1, activity: reviewState.activity, kind: "pending-final", payload };
-    if (snapshotBytes(checkpoint) > SNAPSHOT_LIMIT) throw new Error("SCORM pending snapshot exceeds 4000 bytes");
+    if (snapshotBytes(checkpoint) > snapshotLimit) throw new Error(`SCORM pending snapshot exceeds ${snapshotLimit} bytes`);
     return { payload: Object.freeze(payload), checkpoint: JSON.stringify(checkpoint) };
   }
 
@@ -453,7 +457,7 @@
   }
 
   window.SimScorm = {
-    init, readValue, getValue, loadAttempt, enableStandalonePersistence, clearStandaloneAttempt,
+    setSnapshotLimit, init, readValue, getValue, loadAttempt, enableStandalonePersistence, clearStandaloneAttempt,
     getStandaloneStorageStatus: () => standaloneStorage,
     isStandalone: () => Boolean(initialized && !api),
     isAttemptFinished: () => FINISHED.includes(getValue("cmi.core.lesson_status")),
