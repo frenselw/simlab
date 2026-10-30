@@ -650,3 +650,4 @@ Sites 是 standalone 練習，刷新全新開始；不代替 Moodle SCORM 成績
 
 取線／復原通知、固定元件非法移動 error 及答案不變：390／1280 source＋SCORM 四個摘要案例通過；另兩個 source／SCORM 原生觸控端點拖接＋undo 流程通過，實際「端點已接好」訊息仍由原核心產生，但無視覺浮層。0 runtime exception。Evidence：`output/wire-notices-browser.log`、`output/playwright/wire-match-notices/evidence.json`。`check:tests`／六包 `package:circuit-platform` 通過；SCORM 與來源 byte-match，Sites 38 runtime 檔 byte-match。未跑不相關的全套 regression，未測真 Moodle／真手機。
 一般提示修訂已維持 owner-private 發布：Sites source `7571e34ab4d225c2e3b2c44267b60824f2cd3138`；saved version `appgprj_6ae3d4154a488191b9f9fca18a8b4900~appgver_400c563045408191bd16fdfb132c4fa3`；deployment `appgdep_6ae427295cec819189d0a95c36677660` 回傳 succeeded。URL：https://simlab-dc-wire-match.ieyp.chatgpt.site 。
+`8cb17ca` → `b48eb78` committed selection preview 已執行，證據 `output/wire-notices-selection.json`；本次只跑提示／錯誤及原生接線的 focused 驗證，未執行所選全套 regression。
