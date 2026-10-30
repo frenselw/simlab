@@ -667,3 +667,17 @@ Sites 是 standalone 練習，刷新全新開始；不代替 Moodle SCORM 成績
 執行範圍、最終回歸證據與部署限制見[完整審核紀錄](../docs/reviews/2026-10-30-circuit-dc-wire-match-review.md)。
 審核完成時改動仍在 working tree，當時 HEAD 的 selection preview 不代表已包含這次修正；
 尚未重新發布 Sites，真 Moodle／實體手機 gate 保持未驗證。
+
+### 合併 main 的驗證（2026-10-30）
+
+- 審核修正提交 `5b0cab9`；先納入遠端 main 的八個更新（`dbb3ad0`），再以 `2cb6d97` 合併。
+  唯一衝突在 `tools/test-registry.js`，保留 Pages 及接線活動兩邊的測試登記；沒有另改電路共用組件。
+- 合併後登記檢查通過：288 entries（248 Node／40 browser）。registry、selection、Pages、
+  fullscreen 的 Node 測試、文件連結及 diff 檢查通過；六包重新建立並通過同源檢查。
+- 合併後重跑接線活動完整來源／解壓 SCORM browser：146 個摘要案例、0 runtime exception，
+  包含新增的恢復／切題／清除歷史起點與既有手勢、提交、容量、舊版本恢復案例。
+  證據 `output/playwright/wire-match/evidence.json`。沒有重跑合併後全專案 Node／browser suite。
+- committed selection preview：base `dbb3ad033fd4435c3c6305611884d57b64cc248a`，
+  head `2cb6d97628e8a76b70c916b2406807cefd6f2c60`，結果 full／288 entries／all packages，
+  原因為 shared production guide／基建範圍；`output/wire-match-merged-selection.json`。
+  selection preview 不代表全部被選測試已執行，真 Moodle／實體手機驗收仍未完成。
