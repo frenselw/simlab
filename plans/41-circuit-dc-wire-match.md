@@ -725,8 +725,22 @@ Sites 是 standalone 練習，刷新全新開始；不代替 Moodle SCORM 成績
   最終來源／解壓套件全套通過：250 個摘要案例、0 runtime exception，包含 100 個新排列滿分恢復案例、
   4 個新位置可信拖線／切題／重進案例，以及原有七尺寸、歷史起點、彎線、容量、legacy 與 T1–T3 host 檢查。
   證據 `output/playwright/wire-match/evidence.json`；新佈局圖片 `source/package-shuffled-touch-q1/q5.png`。
-- 尚未發布 Sites，真 Moodle／實體手機及全專案回歸仍未執行，不宣稱完整 package-ready／Moodle-ready。
+- 上述開發驗證完成時尚未發布 Sites；真 Moodle／實體手機及全專案回歸仍未執行，不宣稱完整 package-ready／Moodle-ready。
 - committed selection preview：base `1c9fbc110bd341d9053be7b1674b49b2bd23b44f`，
   head `56327617eeffcc8c8ef003204fb6b859f57ac4e3`；結果 full／288 entries／all packages，包含本活動 browser owner。
   fallback 原因為 `DEPLOYMENT.md` 沒有完整 browser mapping；證據 `output/random-layouts/selection.json`。
   這是選擇範圍證據，不代表已執行全專案測試；本次實際執行範圍如上。
+
+### 新隨機佈局 Sites 發布（2026-10-30）
+
+依使用者要求更新既有私人站點，保留原網址與存取設定。38 個 manifest runtime 檔案及 root redirect
+共 39 個靜態檔案逐 byte 核對，與本分支已測試來源一致，沒有部署 fixture／參考解／測試。
+官方 source helper 推送的 source commit 為 `8238408601ebeabfcf7886de6f345a6aa743a5bb`。
+原生私人 save-and-deploy 成功：version
+`appgprj_6ae3d4154a488191b9f9fca18a8b4900~appgver_be68dc4b324c8191a0f627abd38e0798`，
+deployment `appgdep_6ae44aca4f488191b7b8c2b4eea46e1e` 回傳 `succeeded`。
+網址：https://simlab-dc-wire-match.ieyp.chatgpt.site 。
+
+部署證據 `output/sites/wire-random-layouts-deployment.json` 與
+`output/sites/wire-random-layouts-assets.json`，封裝 `output/sites/circuit-dc-wire-match-random-layouts.tar.gz`。
+沿用已通過的 250 個來源／解壓 SCORM browser 案例；發布後沒有另跑線上 browser、真 Moodle 或實體手機驗收。
