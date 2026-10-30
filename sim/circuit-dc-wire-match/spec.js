@@ -1,7 +1,7 @@
 (function(root,factory){const node=typeof module==='object'&&module.exports,api=factory(node?require('../circuit-workbench/circuit-model'):root.CircuitModel);if(node)module.exports=api;else root.CircuitTaskSpec=api;})(globalThis,function(M){
 'use strict';
 
-const ACTIVITY='circuit-dc-wire-match',title='電路接線挑戰',count=5,stocks=[4,5,7,8,8],wirePointLimit=64;
+const ACTIVITY='circuit-dc-wire-match',title='看圖接線：直流串並聯與開關',count=5,stocks=[4,5,7,8,8],wirePointLimit=64;
 const tasks=['單燈電路','兩燈串聯','兩燈並聯','總開關與分路開關','串、並聯混合'];
 const descriptions=['正極經開關 S 接燈泡 L₁，再回負極。','正極依次經 S、L₁、L₂，再回負極。','正極經總開關 S 後分成 L₁、L₂ 兩條支路，再回負極。','正極經總開關 S 後分流：一支經 S₁、L₁，另一支經 L₂，再回負極。','正極經 L₃ 後分流：一支經 S₁、L₁，另一支經 L₂，再回負極。'];
 const groups=[

@@ -619,3 +619,11 @@ Sites 是 standalone 練習，刷新全新開始；不代替 Moodle SCORM 成績
 - Node lifecycle／persistence、`check`、`check:tests`、六包 `package:circuit-platform` 通過；最新活動 SCORM 與來源 byte-match，Sites 38 runtime 檔案亦 byte-match。資料格式、64 點、評分與既有作答不變。未重跑全專案 regression，未測真 Moodle／真手機。
 階段面板已發布並維持 owner-private：Sites source `26341802776ac556bae776460dfff62e1a6119e2`；saved version `appgprj_6ae3d4154a488191b9f9fca18a8b4900~appgver_de4f9191e65c81919ff9055cf756d1b0`；deployment `appgdep_6ae408213d5c8191a7128dc2c34380d9` 回傳 succeeded。URL：https://simlab-dc-wire-match.ieyp.chatgpt.site 。
 `e6a6181` → `86d0497` committed selection preview 已執行，證據 `output/wire-phase-selection.json`；所選全專案測試未全部重跑。
+
+
+## 依內容命名（2026-10-30）
+
+使用者指出名稱過於空泛，日後會有更多電路接線活動。本活動改名「看圖接線：直流串並聯與開關」，按操作＋電路類型／學習內容區分；同步 HTML／spec／目錄／SCORM manifest／Sites 顯示名及 redirect title。手機允許標題換行，檢查 320／390／1280 的操作按鈕不被遮住。Slug、活動 ID、作答資料、評分及 lifecycle 不改。本次只做名稱及相關排版／打包檢查，不重跑不相關的全套接線回歸。
+
+本次 source／extracted SCORM 的 320／390／1280 共六個 focused 瀏覽器案例通過，0 runtime exception，包含完整標題、檢查階段按鈕不重疊、數學標示與零分提交；evidence `output/playwright/wire-match-name/evidence.json`、`output/wire-name-browser.log`。`check:tests` 與六包 `package:circuit-platform` 通過；38 個 Sites runtime 檔案 byte-match。未重跑全套接線 regression；未測真 Moodle／真手機。
+名稱修訂已維持 owner-private 發布：Sites source `544caec4d9f41e0ada19cce105a8ba0985481d69`；saved version `appgprj_6ae3d4154a488191b9f9fca18a8b4900~appgver_3e5e51ddb5808191865a2677dcd68845`；deployment `appgdep_6ae40963fcbc81919753fbadcc4eef54` 回傳 succeeded。URL：https://simlab-dc-wire-match.ieyp.chatgpt.site 。

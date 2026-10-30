@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <manifest identifier="circuit-dc-wire-match" version="1.0" xmlns="http://www.imsproject.org/xsd/imscp_rootv1p1p2" xmlns:adlcp="http://www.adlnet.org/xsd/adlcp_rootv1p2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.imsproject.org/xsd/imscp_rootv1p1p2 imscp_rootv1p1p2.xsd http://www.adlnet.org/xsd/adlcp_rootv1p2 adlcp_rootv1p2.xsd">
 <metadata><schema>ADL SCORM</schema><schemaversion>1.2</schemaversion></metadata>
-<organizations default="ORG-circuit-dc-wire-match"><organization identifier="ORG-circuit-dc-wire-match"><title>電路接線挑戰</title><item identifier="ITEM-circuit-dc-wire-match" identifierref="RES-circuit-dc-wire-match"><title>電路接線挑戰</title></item></organization></organizations>
+<organizations default="ORG-circuit-dc-wire-match"><organization identifier="ORG-circuit-dc-wire-match"><title>看圖接線：直流串並聯與開關</title><item identifier="ITEM-circuit-dc-wire-match" identifierref="RES-circuit-dc-wire-match"><title>看圖接線：直流串並聯與開關</title></item></organization></organizations>
 <resources><resource identifier="RES-circuit-dc-wire-match" type="webcontent" adlcp:scormtype="sco" href="circuit-dc-wire-match/index.html">
       <file href="circuit-workbench/circuit-editor.css"/>
       <file href="circuit-workbench/circuit-editor-ui.js"/>

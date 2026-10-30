@@ -7,7 +7,7 @@ const simulationList = [
   {title:'家庭電路工作台',folder:'circuit-household-workbench',categories:['Electricity'],description:'用小型電路探索火線、零線、地線、人體接觸與保護裝置。',tags:['physics','electricity','household','workbench'],status:'active'},
   {title:"交流電路工作台",folder:"circuit-ac-workbench",categories:["Electricity"],description:"搭建交流、電容電感與變壓器電路，觀察波形、有效值及能量交換。",tags:["physics","electricity","ac","capacitor","inductor","transformer","workbench"],status:"active"},
   {title: "兩燈串聯搭建", folder: "circuit-dc-series-build", categories: ["Electricity"], description: "指定工具箱接線活動，搭建串聯電路；保留部分分並以 SCORM 提交。", tags: ["physics", "electricity", "circuits", "series", "scorm"], status: "active"},
-  {title: "電路接線挑戰", folder: "circuit-dc-wire-match", categories: ["Electricity"], description: "按題圖連接固定元件，辨認接線次序並避免導線交叉。", tags: ["physics", "electricity", "circuits", "wiring", "scorm"], status: "planned"},
+  {title: "看圖接線：直流串並聯與開關", folder: "circuit-dc-wire-match", categories: ["Electricity"], description: "按題圖連接固定元件，辨認接線次序並避免導線交叉。", tags: ["physics", "electricity", "circuits", "wiring", "scorm"], status: "planned"},
   {title: "滑動變阻器調參", folder: "circuit-dc-rheostat-adjust", categories: ["Electricity"], description: "固定電路，只調滑片，達到指定電流及電壓並判斷電阻變化。", tags: ["physics", "electricity", "rheostat", "scorm"], status: "active"},
   {
     title: "電路工作台",
