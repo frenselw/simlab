@@ -642,3 +642,11 @@ Sites 是 standalone 練習，刷新全新開始；不代替 Moodle SCORM 成績
 - 標準瀏覽器 owner 已加入上述七尺寸空間／原命令斷言，沿用既有 circuit-family 登記。`check:tests`、六包 `package:circuit-platform` 通過；SCORM 與來源逐檔相同，Sites 38 runtime 檔 byte-match。僅活動 CSS 與測試變動；未跑全套接線／全專案 regression，未測真 Moodle／真手機。
 手機空間修訂已維持 owner-private 發布：Sites source `df09116b96c99d6cff94e6e2abd51bd706f5e656`；saved version `appgprj_6ae3d4154a488191b9f9fca18a8b4900~appgver_996ba4fc73c08191a7f0be36ebc287b6`；deployment `appgdep_6ae40ef9b64c81919bf1b589df82696e` 回傳 succeeded。URL：https://simlab-dc-wire-match.ieyp.chatgpt.site 。
 `ab06c95` → `c9ae288` committed selection preview 已執行，證據 `output/wire-mobile-space-selection.json`；本次按 responsive／原生控制及 host scrolling 範圍做 focused 驗證，未執行所選全套 regression。
+
+
+## 收起畫布一般操作提示（2026-10-30）
+
+使用者指出每次接線完成的左上角提示遮住 Canvas。本活動以 CSS 隱藏原生 canvasNotice 的非 error 視覺浮層，包含取線、接好、移線、復原等一般提示；原有 error 類訊息仍顯示，底部輔助狀態及原生操作／通知資料保留。只影響此活動，不改 Workbench 核心／其他活動、保存或評分。以原生取線及實際端點拖接驗證無浮層，並以固定元件非法移動驗證錯誤仍可見且答案不變，source／SCORM 都執行。
+
+取線／復原通知、固定元件非法移動 error 及答案不變：390／1280 source＋SCORM 四個摘要案例通過；另兩個 source／SCORM 原生觸控端點拖接＋undo 流程通過，實際「端點已接好」訊息仍由原核心產生，但無視覺浮層。0 runtime exception。Evidence：`output/wire-notices-browser.log`、`output/playwright/wire-match-notices/evidence.json`。`check:tests`／六包 `package:circuit-platform` 通過；SCORM 與來源 byte-match，Sites 38 runtime 檔 byte-match。未跑不相關的全套 regression，未測真 Moodle／真手機。
+一般提示修訂已維持 owner-private 發布：Sites source `7571e34ab4d225c2e3b2c44267b60824f2cd3138`；saved version `appgprj_6ae3d4154a488191b9f9fca18a8b4900~appgver_400c563045408191bd16fdfb132c4fa3`；deployment `appgdep_6ae427295cec819189d0a95c36677660` 回傳 succeeded。URL：https://simlab-dc-wire-match.ieyp.chatgpt.site 。

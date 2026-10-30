@@ -78,3 +78,5 @@ h1{font-size:1.25rem;margin:0;white-space:nowrap}
  #editor .camera-tools [data-circuit-id="quickWire"]{min-width:64px;padding:0 4px}
  #editor .camera-tools [data-circuit-id="quickWire"] span{display:none}
 }
+
+#editor [data-circuit-id="canvasNotice"]:not(.error){display:none}
