@@ -17,7 +17,8 @@
 - `node tools/pages-browser-regression.js` 通過：本地 `/pages/` 子路徑 × 四模擬 × 桌面 1280×900／原生觸控 320×500，共八個案例。四圖片 decode／alt／尺寸、標題、入口、無橫向溢出、原生全螢幕及狀態保持均通過；火箭 WebGL、合法組裝／待發射、重新整理回到空白工廠通過。證據為 `output/playwright/pages/local-*.png` 與 `local-report.json`。
 - Chrome 會額外探測專案路徑以外的 origin `/favicon.ico`；此未宣告的瀏覽器圖示探測不計入 runtime 依賴錯誤。其他 HTTP／載入錯誤及 JS exceptions 仍失敗。進行原生操作前等字體及兩幀 layout，沿用嚴格幾何與可信輸入斷言。
 - `npm run check`、`npm run check:tests`（281 entries：242 node／39 browser，沿用既有 owners）、文件連結、JS 語法與 diff 檢查通過。
-- Committed selection preview、部署及 HTTPS 證據待補。
+- Committed selection preview：base `a1497030988334e2196bfd9d150d47bca4967043` → implementation head `a64f170090e663c23b9b4aef5e0e9f7d4b7f9934`，`full`（workflow／共用基礎設施），選中全部 281 entries、39 browser entries 與全部 packages。輸出 `output/pages-rocket-selection.json`，僅為選取預覽，不代表全站測試已執行。
+- 部署及 HTTPS 證據待補。
 
 ## 範圍與決定（2026-10-30）
 
