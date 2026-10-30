@@ -603,3 +603,18 @@ Sites 是 standalone 練習，刷新全新開始；不代替 Moodle SCORM 成績
 - `npm run check`／`check:tests`／`package:circuit-platform` 通過，六包重建。最新 SCORM 與來源逐檔 byte-match；Sites 的 38 個 runtime 檔亦 byte-match。未執行全專案 regression，真 Moodle／真手機仍未驗證。
 `電路接線挑戰` 已維持原 owner-private audience 發布：Sites source `6a5860ddbdcb19e9e5c1fec19e0b8d375e39b255`；saved version `appgprj_6ae3d4154a488191b9f9fca18a8b4900~appgver_a893ba1a34b88191a7a3c19e3d89847d`；deployment `appgdep_6ae4021af8608191bbfb0e20c97650b6` 回傳 succeeded。URL：https://simlab-dc-wire-match.ieyp.chatgpt.site 。
 `6d7a689` → `55b6f09` committed selection preview 已執行，`output/wire-ui-selection.json` 為選擇證據；所選全專案測試並未全部重跑。
+
+
+## 同一按鈕與依階段切換面板（2026-10-30；實作前決定）
+
+- 右上只保留同一顆 `check` 主按鈕：edit 顯示「檢查與提交」，check 顯示「確認提交」，仍由 shared runtime 分兩次明確操作；另保留修改／保存重試／提交重試。零分與部分分提交不變。
+- edit 才顯示題圖、操作說明、工具箱、清線及 inspector／連線清單；check 只顯示五題摘要與確認說明，review／committed 顯示結果，frozen／technical／mismatch 顯示相應狀態及錯誤。模式／題號切換後控制面板捲回頂端，重建 editor 亦套用。
+- 只改活動外層 HTML／CSS／main 與現有瀏覽器 owner，不改共用核心、codec、題圖、配置、評分及 SCORM lifecycle。驗證先捲到面板底部再檢查、修改、提交、frozen retry、review reload 的面板內容與頂端位置；source／SCORM、desktop／mobile／short viewport，重建並更新同一 private Sites。
+
+### 同一按鈕與階段面板驗證
+
+- 同一 `check` DOM button 在 edit／check 分別顯示「檢查與提交」／「確認提交」；不再有獨立 submit button。確認仍經 shared runtime，空白得 0 分，提交後只讀。
+- 124 個 source／extracted SCORM 瀏覽器摘要案例、0 runtime exception：1280／390／320 先展開操作說明並捲到控制面板底部，再按檢查；面板捲動值精確 0、摘要 heading 在可見頂端、所有題圖／工具箱／inspector／連線清單收起。修改回作答，確認提交後結果同樣在頂端；frozen／review reload、nav、retry 亦驗證。Evidence：`output/wire-phase-browser-final-seeded.log`、`output/playwright/wire-match/evidence.json`；`source/package-check-panel-320/390/1280.png` 與 `result-panel-*`。
+- 外層依現有 `CircuitActivityPage` 模式，僅在 read-only 真正切換時呼叫 setter，避免保存重繪時無謂 cancel 原生手勢；未改核心。初期隨機佈局的端點拖線後 native undo click 有不穩定，該操作 fixture 固定為 layout 8，仍保留 80 佈局幾何／restore 矩陣及所有 trusted input 斷言，未放寬等待或改成程式 click。固定 fixture 的 focused source／package 及最終完整 run 通過。
+- Node lifecycle／persistence、`check`、`check:tests`、六包 `package:circuit-platform` 通過；最新活動 SCORM 與來源 byte-match，Sites 38 runtime 檔案亦 byte-match。資料格式、64 點、評分與既有作答不變。未重跑全專案 regression，未測真 Moodle／真手機。
+階段面板已發布並維持 owner-private：Sites source `26341802776ac556bae776460dfff62e1a6119e2`；saved version `appgprj_6ae3d4154a488191b9f9fca18a8b4900~appgver_de4f9191e65c81919ff9055cf756d1b0`；deployment `appgdep_6ae408213d5c8191a7128dc2c34380d9` 回傳 succeeded。URL：https://simlab-dc-wire-match.ieyp.chatgpt.site 。
