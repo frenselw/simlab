@@ -516,3 +516,11 @@ assert.equal(launch(null, "embedded").scorm.loadAttempt("activity").state, "read
   assert.ok(Object.keys(durableStorage.data).some(key => key.includes("activity-a")));
 }
 console.log("SCORM durable-session checks passed");
+
+// Extended Moodle capacity is an explicit pre-initialization opt-in.
+{
+  const standard=launch(null);assert.throws(()=>standard.scorm.makeSnapshot('standard','draft',{text:'a'.repeat(4001)}));
+  for(const limit of [0,4096,64001,Infinity,'64000'])assert.throws(()=>standard.scorm.setSnapshotLimit(limit));
+  const extended=launch(null);extended.scorm.setSnapshotLimit(64000);const draft=extended.scorm.makeSnapshot('extended','draft',{text:'a'.repeat(62000)});assert(extended.scorm.saveDraft(draft));assert.throws(()=>extended.scorm.setSnapshotLimit(4000));assert.throws(()=>extended.scorm.makeSnapshot('extended','draft',{text:'a'.repeat(64000)}));
+}
+console.log('SCORM default/extended capacity bounds and initialization lock passed');

@@ -1,0 +1,9 @@
+(function(root,factory){const node=typeof module==='object'&&module.exports,api=factory(node?require('./spec'):root.CircuitTaskSpec,node?require('./persistence'):root.CircuitTaskPersistence,node?require('../circuit-workbench/circuit-checks'):root.CircuitChecks,node?require('./crossings'):root.CircuitWireCrossings);if(node)module.exports=api;else root.CircuitTaskScoring=api;})(globalThis,function(Q,P,C,X){
+'use strict';
+
+function assess(d,q){const t=C.topology(d),flippable=d.components.filter(c=>c.type!=='battery').map(c=>c.id),actual=new Map();d.components.forEach(c=>['a','b'].forEach(k=>{const id=c.id+':'+k,n=t.net(id);if(!actual.has(n))actual.set(n,[]);actual.get(n).push(id);}));let best=0,m=0,bestMissing=[];for(let mask=0;mask<2**flippable.length;mask++){const map=id=>{const [c,k]=id.split(':'),i=flippable.indexOf(c);return c+':'+(i>=0&&(mask&(1<<i))?(k==='a'?'b':'a'):k);};let correct=0,total=0;const missing=[];for(const base of Q.groups[q]){const g=base.map(map);for(let i=0;i<g.length;i++)for(let j=i+1;j<g.length;j++){total++;if(t.net(g[i])===t.net(g[j])&&actual.get(t.net(g[i])).every(id=>g.includes(id)))correct++;else missing.push(base[i]+' ↔ '+base[j]);}}if(mask===0||correct>best){best=correct;m=total;bestMissing=missing;}}
+const crossings=X.events(d),penalty=Math.min(8,2*crossings.length),units=Math.max(0,3360*best/m-168*penalty);return{units,correct:best,total:m,crossings,penalty,missing:bestMissing};}
+function score(s){P.validate(s);const results=s.answers.map((a,q)=>assess(P.unpack(a,q),q)),n=Math.round(results.reduce((a,b)=>a+b.units,0)/168);return{score:n,maxScore:100,passed:n>=80,completed:true,detail:results.map((r,q)=>({label:'第 '+(q+1)+' 題：連接 '+r.correct+'/'+r.total+'；交叉扣 '+r.penalty+' 分',earned:r.units/168,max:20})),questions:results};}
+return{assess,score};
+
+});

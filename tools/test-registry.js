@@ -7,6 +7,14 @@ const root=path.resolve(__dirname,'..');
 const registeredTests = [
   'tools/pages.test.js',
   {file:'tools/pages-browser-regression.js',kind:'browser',scope:'shared-pages'},
+  'sim/circuit-dc-wire-match/native-wire.test.js',
+  'sim/circuit-dc-wire-match/layouts.test.js',
+  'sim/circuit-dc-wire-match/scoring.test.js',
+  'sim/circuit-dc-wire-match/crossings.test.js',
+  'sim/circuit-dc-wire-match/persistence.test.js',
+  'sim/circuit-dc-wire-match/lifecycle.test.js',
+  {file:'tools/circuit-wire-match-browser-regression.js',kind:'browser',scope:'circuit-family'},
+
   'sim/rocket-space-mission-lab/art.test.js',
   'sim/rocket-space-mission-lab/model.test.js',
   'sim/rocket-space-mission-lab/orbit.test.js',

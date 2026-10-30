@@ -68,3 +68,5 @@ for(const view of ['real','schematic'])for(const angle of [0,90,180,270])for(con
   }
 }
 console.log(`Meters and LaTeX: ${cases} signed/range/boundary fixtures, offset zero and calibrated negative ticks, mechanical travel, true signed values, restore/range continuation, actual self-contained TeX vector glyphs, wattmeter terminal glyph bounds and scientific notation passed.`);
+
+for(const [name,tex]of [['S','S'],['S₁','S_1'],['L₁','L_1'],['L₂','L_2'],['L₃','L_3']]){assert.equal(Q.componentName(name).tex,tex);assert(Q.html(Q.componentName(name)).includes('data-tex='));}for(const name of ['電源','constructor','<script>','R=1'])assert.deepEqual(Q.componentName(name),{text:name});

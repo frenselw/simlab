@@ -47,6 +47,8 @@ const editor = await CircuitEditor.mount(host, {
 });
 ```
 
+`ui.cableToolbox:true` 可在學生控制面板保留原生導線工具箱，按取及滑鼠／觸控筆拖出共用固定庫存；學生預設不顯示，教師預設保留。`ui.pickWire:false` 可移除重疊優先拿線切換，仍可正常接線。`ui.mathNames:true` 將受控元件名（S、S₁、L₁–L₃）以本地 TeX 顯示於畫布及檢視面板，其他名稱保持跳脫文字；預設關閉。
+
 學生預設不能搬動、旋轉、刪除、改名、開合或改元件參數；可以取線、接線、拔線、彎線及復原。導航、手機雙指拖移／捏合、讀錶及全螢幕沿用原功能。`wires:false` 在學生及教師配置都禁止線路變動，包含命令、鍵盤及載入；`undo:false` 可關閉復原／重做。
 
 旋轉每次45°（R順時針、Shift+R逆時針），文件接受八方向；元件中心仍吸
@@ -258,3 +260,15 @@ A／V 接孔於 2026-10-05 內移，接孔變更使用 v5；2026-10-06 導線電
 自動縮放先使用全寬畫布；只有實際端點的完整 44 px 觸控區碰到可見捲頁把手時，才縮至安全範圍。底部取線仍預留把手空間，避免為了下角把手而無條件縮小整個電路及電表量程字體。
 
 接點快捷加線優先沿所選／原有導線末段向前延伸，無既有線時沿端子外向。前方有導線、其他元件外框或畫布邊界阻擋時，才比較多個方向，選端子外側較疏離、線端留在畫布內的方向；外側沒有足夠可見空間時改選其他可見方向。連續新增會把上次的新線也納入避讓，形成分開的分支。既有導線、電路連接、庫存及線長不變；空間擠迫時選可用空間較大的方向。
+
+## 看圖接線五題活動（2026-10-30）
+
+`circuit-dc-wire-match` 直接使用現有 `CircuitEditor.mount`、student profile、panelContent 及 `CircuitActivityRuntime.Controller`；固定元件與空 palette 裁剪教師功能，沒有另一份 editor／routing／solver。題圖、帶極性的端子分組比對、交叉扣分及五題 codec 均留在活動外層。詳見[活動計劃](../plans/41-circuit-dc-wire-match.md)。
+
+本活動使用現有 `wirePointLimit:3`、1200 線長，五題庫存 4／5／7／8／8。SCORM 恢復保留 Float64 線形；目前最大合法 pending 為 3970 bytes，變更 schema 或庫存必須重測真正 pending 封套。不能在保存時另作量化。
+
+`package:circuit-platform` 現在包括第三個 DC SCORM，共三個 standalone 與三個 SCORM ZIP。新活動有自己的 browser owner；既有 assessed browser suite 仍只處理原本兩題，其特殊操作不能套用到固定元件接線題。真 Moodle／實體手機與完整部署手勢驗收仍以本活動計劃的實際證據為準。
+
+### Wire-match revision 2: native curves
+
+The three-point wire-match setting described historically above is superseded: revision 2 omits `wirePointLimit` and retains the Workbench default 96 points. It uses lossless JSON-safe Base85/Float64 and the explicit Moodle 64000-byte storage profile; all other activities still default to 4000 bytes. `CircuitActivityData.envelope` accepts the trusted limit as its fourth argument; `CircuitActivityRuntime.Controller` owns selection and pending checks. See [the revised plan](../plans/41-circuit-dc-wire-match.md). No routing, renderer, bend physics or teacher defaults change.

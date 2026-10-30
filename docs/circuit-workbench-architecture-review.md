@@ -94,3 +94,9 @@ DC穩態方程及v6文件語義保持自己的邊界；AC明確選時間後端�
 四種技術示例沒有成績、提交或 standalone 答案持久化。精準測試覆蓋拓撲／參數／滑片效果正反例、配置限制、合法部分答案恢復、source 與解壓 ZIP 的桌面／手機模擬操作、只讀、全螢幕、活動卸載／多 instance，以及教師原有關鍵操作。實際證據及範圍見[計劃第 48 節](../plans/28-circuit-workbench.md#48-可配置活動編輯器與檢查接口2026-10-04)；不把這些結果當作實機手機或真 Moodle 驗收。
 
 [三位 reviewer 的整合報告](circuit-workbench-audit-2026-10-04.md)對應其記錄的最終 runtime 指紋；其後微電流動畫及示例整理的精準證據見[計劃第 52 節](../plans/28-circuit-workbench.md#52-微電流動畫自適應及移除重複示例2026-10-04)。不能把歷史審核當作未來改動的自動通過。
+
+## 第三個 DC SCORM consumer（2026-10-30）
+
+新增 `sim/circuit-dc-wire-match/index.html`「看圖接線：五個基礎電路」。它直接掛載同一個 DC editor，透過固定元件、空 palette 與現有 profile 裁剪功能；五題佈局、題圖比對、幾何交叉扣分及無損 codec 由活動擁有，沒有修改共用物理或操作核心。詳見[計劃與驗證紀錄](../plans/41-circuit-dc-wire-match.md)。
+
+目前 `package:circuit-platform` 交付三個 standalone ZIP，加上 series-build、rheostat-adjust、wire-match 三個 SCORM ZIP，共六包。上文提及五包的歷史敘述對應新增此 consumer 之前的版本；不能視為最新版清單。

@@ -2,7 +2,7 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),{createHash}=require('node:crypto'),{spawnSync}=require('node:child_process'),AdmZip=require('adm-zip'),{XMLParser}=require('fast-xml-parser');
 const root=path.resolve(__dirname,'..'),core=require('../sim/circuit-workbench/runtime-assets.json');
-const slugs=['circuit-dc-series-build','circuit-dc-rheostat-adjust'];
+const slugs=['circuit-dc-series-build','circuit-dc-rheostat-adjust','circuit-dc-wire-match'];
 const acCore=require('../sim/circuit-workbench/ac-runtime-assets.json');
 const householdCore=['circuit-household-components.js','household-connections.js','household-model.js','circuit-household-ui.js'].map(f=>'circuit-workbench/'+f);
 function syncAssets(){
@@ -14,7 +14,8 @@ function syncAssets(){
   const shell=['shared/scorm.js','shared/activity-flow.js',...['circuit-activity-data.js','circuit-activity-runtime.js','circuit-activity-page.js','circuit-activity.css'].map(f=>'circuit-workbench/'+f)];
   for(const slug of slugs){
     const file=path.join(root,'sim/manifests',slug+'.xml'),source=fs.readFileSync(file,'utf8');
-    const files=[...core,...shell,...['index.html','styles.css','main.js','spec.js','scoring.js','persistence.js'].map(f=>slug+'/'+f)];
+    const own=['index.html','styles.css','main.js','spec.js','scoring.js','persistence.js',...(slug==='circuit-dc-wire-match'?['crossings.js','DEPLOYMENT.md',...Array.from({length:5},(_,i)=>'assets/circuit-0'+(i+1)+'.svg')]:[])];
+    const files=[...core,...shell.filter(f=>slug!=='circuit-dc-wire-match'||!f.endsWith('circuit-activity-page.js')&&!f.endsWith('circuit-activity.css')),...own.map(f=>slug+'/'+f)];
     assert.equal(new Set(files).size,files.length);
     const updated=source.replace(/\s*<file href="[^"]+"\/>/g,'').replace('</resource>',files.map(f=>'      <file href="'+f+'"/>').join('\n')+'\n</resource>');
     if(updated!==source)fs.writeFileSync(file,updated);
