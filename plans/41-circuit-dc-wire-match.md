@@ -602,3 +602,4 @@ Sites 是 standalone 練習，刷新全新開始；不代替 Moodle SCORM 成績
 - 原 Workbench activity profile source 的 1280／390 案例通過。初次較大 smoke 在舊檔匯入的固定 120ms 等待後失敗；isolated committed baseline source 及現行 source／package focused foundation 重跑均通過（後者 16 observations），未修改匯入邏輯或測試門檻。Evidence：`output/wire-ui-workbench-browser.log`、`output/wire-ui-baseline-foundation.log`、`output/wire-ui-foundation-recheck.log`。
 - `npm run check`／`check:tests`／`package:circuit-platform` 通過，六包重建。最新 SCORM 與來源逐檔 byte-match；Sites 的 38 個 runtime 檔亦 byte-match。未執行全專案 regression，真 Moodle／真手機仍未驗證。
 `電路接線挑戰` 已維持原 owner-private audience 發布：Sites source `6a5860ddbdcb19e9e5c1fec19e0b8d375e39b255`；saved version `appgprj_6ae3d4154a488191b9f9fca18a8b4900~appgver_a893ba1a34b88191a7a3c19e3d89847d`；deployment `appgdep_6ae4021af8608191bbfb0e20c97650b6` 回傳 succeeded。URL：https://simlab-dc-wire-match.ieyp.chatgpt.site 。
+`6d7a689` → `55b6f09` committed selection preview 已執行，`output/wire-ui-selection.json` 為選擇證據；所選全專案測試並未全部重跑。
