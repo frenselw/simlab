@@ -726,3 +726,7 @@ Sites 是 standalone 練習，刷新全新開始；不代替 Moodle SCORM 成績
   4 個新位置可信拖線／切題／重進案例，以及原有七尺寸、歷史起點、彎線、容量、legacy 與 T1–T3 host 檢查。
   證據 `output/playwright/wire-match/evidence.json`；新佈局圖片 `source/package-shuffled-touch-q1/q5.png`。
 - 尚未發布 Sites，真 Moodle／實體手機及全專案回歸仍未執行，不宣稱完整 package-ready／Moodle-ready。
+- committed selection preview：base `1c9fbc110bd341d9053be7b1674b49b2bd23b44f`，
+  head `56327617eeffcc8c8ef003204fb6b859f57ac4e3`；結果 full／288 entries／all packages，包含本活動 browser owner。
+  fallback 原因為 `DEPLOYMENT.md` 沒有完整 browser mapping；證據 `output/random-layouts/selection.json`。
+  這是選擇範圍證據，不代表已執行全專案測試；本次實際執行範圍如上。
