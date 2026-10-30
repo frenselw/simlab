@@ -627,3 +627,4 @@ Sites 是 standalone 練習，刷新全新開始；不代替 Moodle SCORM 成績
 
 本次 source／extracted SCORM 的 320／390／1280 共六個 focused 瀏覽器案例通過，0 runtime exception，包含完整標題、檢查階段按鈕不重疊、數學標示與零分提交；evidence `output/playwright/wire-match-name/evidence.json`、`output/wire-name-browser.log`。`check:tests` 與六包 `package:circuit-platform` 通過；38 個 Sites runtime 檔案 byte-match。未重跑全套接線 regression；未測真 Moodle／真手機。
 名稱修訂已維持 owner-private 發布：Sites source `544caec4d9f41e0ada19cce105a8ba0985481d69`；saved version `appgprj_6ae3d4154a488191b9f9fca18a8b4900~appgver_3e5e51ddb5808191865a2677dcd68845`；deployment `appgdep_6ae40963fcbc81919753fbadcc4eef54` 回傳 succeeded。URL：https://simlab-dc-wire-match.ieyp.chatgpt.site 。
+`c1637b8` → `bad8a3f` committed selection preview 已執行，證據 `output/wire-name-selection.json`；本次按名稱／排版範圍做 focused 驗證，未執行所選全套 regression。
