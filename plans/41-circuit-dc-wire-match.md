@@ -628,3 +628,16 @@ Sites 是 standalone 練習，刷新全新開始；不代替 Moodle SCORM 成績
 本次 source／extracted SCORM 的 320／390／1280 共六個 focused 瀏覽器案例通過，0 runtime exception，包含完整標題、檢查階段按鈕不重疊、數學標示與零分提交；evidence `output/playwright/wire-match-name/evidence.json`、`output/wire-name-browser.log`。`check:tests` 與六包 `package:circuit-platform` 通過；38 個 Sites runtime 檔案 byte-match。未重跑全套接線 regression；未測真 Moodle／真手機。
 名稱修訂已維持 owner-private 發布：Sites source `544caec4d9f41e0ada19cce105a8ba0985481d69`；saved version `appgprj_6ae3d4154a488191b9f9fca18a8b4900~appgver_3e5e51ddb5808191865a2677dcd68845`；deployment `appgdep_6ae40963fcbc81919753fbadcc4eef54` 回傳 succeeded。URL：https://simlab-dc-wire-match.ieyp.chatgpt.site 。
 `c1637b8` → `bad8a3f` committed selection preview 已執行，證據 `output/wire-name-selection.json`；本次按名稱／排版範圍做 focused 驗證，未執行所選全套 regression。
+
+
+## 手機 Canvas 空間修訂（2026-10-30；實作前決定）
+
+使用者指出定位按鈕獨佔一行及 Canvas 太矮。原 portrait stage／panel 為 1.2fr／1fr，並非電路圖自動撐高。只在此活動 CSS 覆寫手機排版：panel 改為 clamp(200px,30dvh,260px)，參考圖最大 170px；導線工具箱移除重複的可見 heading／note 並保留原按取／拖出及庫存。底部工具只用一個 44px 按鈕列，單一定位直接顯示，較多操作進原生 more menu；小於 360px 的 quick-wire 省略重複庫存顯示（panel 庫存保留）。不改共用核心、手勢、state、評分或保存。驗證 selected component／wire／junction、menu 原命令、畫布增高、170px 圖無變形、44px targets、phase panel／trusted strips／source+SCORM。
+
+### 手機空間實測與驗證
+
+- 390×844 同一題、同一選取狀態，直接切換上版 CSS 比較：Canvas surface **243.078125 → 373.8125 px**（+130.734375，約 +54%）；panel **335.921875 → 253.1875 px**；底部列 **105 → 57 px**（44px 操作＋padding／border）。參考圖維持比例、最大高 170px。
+- 320×568／360×740／390×844／430×932 portrait surface 分別約 **151／301／374／455 px**，底部定位均與縮放同一行，定位 target 44×44，無水平溢出。640×360／844×390 landscape 及 1024×768 窄 stage 同樣一行；1280 desktop 保持既有布局。
+- source／extracted SCORM focused 共 **32 摘要案例**、0 runtime exception：七尺寸 component 定位、wire more menu 原生定位／拉直／刪除入口、可信操作拉直實際 64 點曲線、junction more menu 定位／拆開入口、三尺寸 header／phase／零分提交，以及 T1–T3 × edit/check 的可信左右把手逐步捲動、正確 owner、答案不變。Evidence：`output/wire-mobile-space-browser-final.log`、`output/playwright/wire-match-mobile-space-final/evidence.json`；`source/package-more-canvas-*.png`。
+- 標準瀏覽器 owner 已加入上述七尺寸空間／原命令斷言，沿用既有 circuit-family 登記。`check:tests`、六包 `package:circuit-platform` 通過；SCORM 與來源逐檔相同，Sites 38 runtime 檔 byte-match。僅活動 CSS 與測試變動；未跑全套接線／全專案 regression，未測真 Moodle／真手機。
+手機空間修訂已維持 owner-private 發布：Sites source `df09116b96c99d6cff94e6e2abd51bd706f5e656`；saved version `appgprj_6ae3d4154a488191b9f9fca18a8b4900~appgver_996ba4fc73c08191a7f0be36ebc287b6`；deployment `appgdep_6ae40ef9b64c81919bf1b589df82696e` 回傳 succeeded。URL：https://simlab-dc-wire-match.ieyp.chatgpt.site 。
