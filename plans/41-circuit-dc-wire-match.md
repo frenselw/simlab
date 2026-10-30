@@ -618,3 +618,4 @@ Sites 是 standalone 練習，刷新全新開始；不代替 Moodle SCORM 成績
 - 外層依現有 `CircuitActivityPage` 模式，僅在 read-only 真正切換時呼叫 setter，避免保存重繪時無謂 cancel 原生手勢；未改核心。初期隨機佈局的端點拖線後 native undo click 有不穩定，該操作 fixture 固定為 layout 8，仍保留 80 佈局幾何／restore 矩陣及所有 trusted input 斷言，未放寬等待或改成程式 click。固定 fixture 的 focused source／package 及最終完整 run 通過。
 - Node lifecycle／persistence、`check`、`check:tests`、六包 `package:circuit-platform` 通過；最新活動 SCORM 與來源 byte-match，Sites 38 runtime 檔案亦 byte-match。資料格式、64 點、評分與既有作答不變。未重跑全專案 regression，未測真 Moodle／真手機。
 階段面板已發布並維持 owner-private：Sites source `26341802776ac556bae776460dfff62e1a6119e2`；saved version `appgprj_6ae3d4154a488191b9f9fca18a8b4900~appgver_de4f9191e65c81919ff9055cf756d1b0`；deployment `appgdep_6ae408213d5c8191a7128dc2c34380d9` 回傳 succeeded。URL：https://simlab-dc-wire-match.ieyp.chatgpt.site 。
+`e6a6181` → `86d0497` committed selection preview 已執行，證據 `output/wire-phase-selection.json`；所選全專案測試未全部重跑。
