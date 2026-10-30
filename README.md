@@ -116,6 +116,14 @@ Activity-specific physics, rubrics, persistence formats and verification records
 
 ## Packaging and deployment
 
+### Public circuit workbenches: GitHub Pages
+
+The public trial site at <https://frenselw.github.io/simlab/> contains the DC, AC and household workbenches. Build it with `npm run build:pages`; the generated site is in `output/pages/`. The builder reuses each workbench's `assets.json` and standalone packager, retaining shared dependencies and relative paths. It does not publish other activities or the complete repository.
+
+In repository **Settings → Pages**, select **GitHub Actions** as the source. To publish an update, open **Actions → Publish circuit workbenches → Run workflow** on `main`. Ordinary pushes do not update the site. The workflow validates the generated files before deploying with GitHub's Pages actions. For local verification, run `node tools/pages.test.js` and `node tools/pages-browser-regression.js`; set `SIMLAB_PAGES_URL=https://frenselw.github.io/simlab/` to check the deployed site instead.
+
+The workbenches are unscored and start fresh on refresh. Export JSON to retain a circuit and import it explicitly to reopen it. Deployment scope and actual verification evidence are recorded in the [Pages publication plan](plans/github-pages-circuit-workbenches.md).
+
 ### Student activities: SCORM 1.2
 
 Package one activity, for example:

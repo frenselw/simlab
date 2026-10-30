@@ -5,6 +5,8 @@ const {groups:dcGroups}=require('./circuit-test-groups');
 const root=path.resolve(__dirname,'..');
 
 const registeredTests = [
+  'tools/pages.test.js',
+  {file:'tools/pages-browser-regression.js',kind:'browser',scope:'shared-pages'},
   'sim/rocket-space-mission-lab/art.test.js',
   'sim/rocket-space-mission-lab/model.test.js',
   'sim/rocket-space-mission-lab/orbit.test.js',

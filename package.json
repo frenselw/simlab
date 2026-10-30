@@ -2,6 +2,7 @@
   "name": "simlab",
   "private": true,
   "scripts": {
+    "build:pages": "node tools/build-pages.js",
     "check": "node tools/check.js",
     "check:tests": "node tools/test-registry.js",
     "test": "node tools/run-tests.js",
