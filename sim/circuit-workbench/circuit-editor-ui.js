@@ -135,9 +135,10 @@
     if (!ui.palette) refs.palette.closest('.panel-section').remove();
     if (!ui.inspector) refs.properties.closest('.panel-section').remove();
     if (!ui.wireList) refs.wireList.closest('.panel-section').remove();
-    if (student || !profile.wires) refs.addWire.closest('.panel-section').remove();
+    if (!ui.cableToolbox || !profile.wires) refs.addWire.closest('.panel-section').remove();
+    if (!ui.pickWire) remove('pickWire');
     if (!profile.wires) remove('quickWire','pickWire','detachFrom','detachTo','straightenSelected');
-    if (!profile.panelContent && !(profile.analysis==='transient'&&(ui.waveform||ui.energy||ui.playback)) && !ui.palette && !ui.inspector && !ui.wireList && !ui.wireCurrents && !ui.potentialDirections && !ui.settings && (!ui.help || student)) {
+    if (!profile.panelContent && !(profile.analysis==='transient'&&(ui.waveform||ui.energy||ui.playback)) && !ui.cableToolbox && !ui.palette && !ui.inspector && !ui.wireList && !ui.wireCurrents && !ui.potentialDirections && !ui.settings && (!ui.help || student)) {
       remove('panel','panelToggle'); host.classList.add('no-panel','panel-hidden');
     }
     const heading=content.content.querySelector('.brand h1');

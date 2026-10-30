@@ -13,7 +13,7 @@
   function freeze(value) { if(value && typeof value === 'object'){Object.values(value).forEach(freeze);Object.freeze(value);}return value; }
   const paramLabel=(c,key)=>R.get(c.type).params[key].label||({model:'燈泡模型',closed:'開關狀態',polarity:'電源極性'})[key]||key;
   const ruleKeys = ['move', 'rotate', 'remove', 'label', 'switch', 'params', 'ranges'];
-  const uiKeys = ['header', 'palette', 'inspector', 'readings', 'presets', 'files', 'settings', 'probe', 'viewToggle', 'help', 'wireList', 'status', 'quickParameters', 'wireCurrents', 'potentialDirections', 'playback','waveform','field','energy','phase'];
+  const uiKeys = ['header', 'palette', 'inspector', 'readings', 'presets', 'files', 'settings', 'probe', 'viewToggle', 'help', 'wireList', 'status', 'quickParameters', 'wireCurrents', 'potentialDirections', 'playback','waveform','field','energy','phase','pickWire','cableToolbox','mathNames'];
   const teacherPalette = [
     {type:'battery'}, {type:'resistor'}, {type:'rheostat'}, {type:'switch'},
     {type:'lamp', key:'lamp', params:{model:'ideal'}, label:'恆阻燈'},
@@ -54,7 +54,7 @@
     }
     const ui = Object.fromEntries(uiKeys.map(k => [k,teacher]));
     // A student can have a small inspector without exposing teacher controls.
-    ui.header = true; ui.inspector = true; ui.viewToggle = true; ui.quickParameters = true;
+    ui.header = true; ui.inspector = true; ui.viewToggle = true; ui.quickParameters = true; ui.pickWire=true; ui.mathNames=false;
     for(const k of ['waveform','field','energy','phase'])ui[k]=analysis==='transient'&&teacher;
     keys(config.ui || {}, uiKeys, '介面');
     for (const [k,v] of Object.entries(config.ui || {})) { if (typeof v !== 'boolean') throw new Error('介面設定必須是布林值'); ui[k] = v; }

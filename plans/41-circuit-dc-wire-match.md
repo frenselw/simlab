@@ -584,3 +584,21 @@ Sites 是 standalone 練習，刷新全新開始；不代替 Moodle SCORM 成績
 - `npm run check`、`npm run check:tests`、`npm run package:circuit-platform` 通過；重建六包，最新活動包為 `output/circuit-dc-wire-match-scorm.zip`。未重跑全專案 regression，未測真 Moodle／真手機。
 - Sites 38 個 manifest runtime 檔案逐檔 byte-verified，維持原 owner-private audience。Site source `ee2162b690aebc778f1bc6107fa4435237bb4b48`；saved version `appgprj_6ae3d4154a488191b9f9fca18a8b4900~appgver_025448fc60a88191a3107a53f82f8378`；deployment `appgdep_6ae3fb22ddc081919dd09084ff68c827` 回傳 succeeded。URL：https://simlab-dc-wire-match.ieyp.chatgpt.site 。
 `15bf379` → `72c660b` committed selection preview 已執行，輸出 `output/wire64-selection.json`；這是測試選擇證據，不代表所選全套已執行。
+
+
+## 六項介面修訂（2026-10-30；實作前決定）
+
+- 模擬名改為「電路接線挑戰」，同步 HTML、spec、目錄與 manifest；題號及檢查／明確確認提交放在 header 右側。空白／部分答案仍可提交，保留 shared lifecycle。
+- 活動以共用 UI 配置移除重疊優先拿線按鈕，開啟原有導線工具箱；只開放固定庫存取線，不加元件。
+- 元件名稱及活動描述用既有本地 MathJax 路徑；受信任的數學符號白名單，其他名稱仍 escape。教師工作台預設顯示行為不改。
+- 新作答使用 layout IDs 8–15，元件位置仍隨機，燈泡方向固定 0°。0–7 的既有題面、96／64 點答案仍依原資料恢復，不改線端或分數。codec 二進位結構及 answer revision 不變；擴充可信 layout 範圍與驗證。
+- 重新驗證每題八款新佈局均有不交叉、長度足夠的完整解；測新舊作答恢復。瀏覽器驗證 header、零分提交、控制面板按取及拖出導線、數學標示、手機／desktop／短視窗、trusted touch、source／SCORM；重建六包並更新既有 private Sites。
+
+### 六項修訂驗證結果
+
+- 新／舊共 80 佈局通過完整解、無交叉、路徑 ≤800 與 codec／rubric round trip。新 layout 8–15 的所有燈泡角度都是 0°；每題仍有八款不同位置。新作答用新 layout，既有作答保持原位置與方向。64 點與 42796 bytes 最大預算保持。
+- 六個活動 Node 測試及 core `meters-and-math`、`labels`、`activity-core`、`assessed-activities` 通過；白名單元件名輸出真 MathJax 向量 glyph，任意／prototype 名稱不當作 TeX；原 Workbench mathNames 預設關閉、pickWire 預設保留、教師工具箱預設保留。
+- source／extracted SCORM 最終 124 個瀏覽器摘要案例、0 runtime exception。涵蓋 320／390／1280 緊湊 header、檢查階段按鈕與標題／fullscreen 不重疊、由提交按鈕進入摘要再確認的零分提交、控制面板可信觸控按取、滑鼠拖出導線、唯讀停用、數學畫布／選取面板／描述、新佈局燈泡方向，以及既有接線、restore、pending、host ownership 矩陣。Evidence：`output/wire-ui-browser-final.log`、`output/playwright/wire-match/evidence.json`；screenshots `source/package-compact-ui-320/390/1280.png`。
+- 原 Workbench activity profile source 的 1280／390 案例通過。初次較大 smoke 在舊檔匯入的固定 120ms 等待後失敗；isolated committed baseline source 及現行 source／package focused foundation 重跑均通過（後者 16 observations），未修改匯入邏輯或測試門檻。Evidence：`output/wire-ui-workbench-browser.log`、`output/wire-ui-baseline-foundation.log`、`output/wire-ui-foundation-recheck.log`。
+- `npm run check`／`check:tests`／`package:circuit-platform` 通過，六包重建。最新 SCORM 與來源逐檔 byte-match；Sites 的 38 個 runtime 檔亦 byte-match。未執行全專案 regression，真 Moodle／真手機仍未驗證。
+`電路接線挑戰` 已維持原 owner-private audience 發布：Sites source `6a5860ddbdcb19e9e5c1fec19e0b8d375e39b255`；saved version `appgprj_6ae3d4154a488191b9f9fca18a8b4900~appgver_a893ba1a34b88191a7a3c19e3d89847d`；deployment `appgdep_6ae4021af8608191bbfb0e20c97650b6` 回傳 succeeded。URL：https://simlab-dc-wire-match.ieyp.chatgpt.site 。

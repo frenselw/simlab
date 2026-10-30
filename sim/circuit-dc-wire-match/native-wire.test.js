@@ -1,7 +1,7 @@
 'use strict';
 const a=require('node:assert/strict'),M=require('../circuit-workbench/circuit-model'),G=require('../circuit-workbench/circuit-routing'),F=require('../circuit-workbench/circuit-profile'),Q=require('./spec'),P=require('./persistence'),S=require('./scoring'),X=require('./crossings');
 let maxDeviation=0;
-for(let q=0;q<5;q++)for(let v=0;v<8;v++){
+for(let q=0;q<5;q++)for(let v=0;v<16;v++){
 const activity=Q.initial(q,v);M.connect(activity,'B:a','L1:a',[],'free');activity.wires[0].length=1200;
 const tp=F.compile({role:'teacher',initialDocument:activity}),ap=F.compile(Q.config(q,v));a.equal(tp.wirePointLimit,96);a.equal(ap.wirePointLimit,64);
 for(let step=0;step<4;step++){
@@ -16,4 +16,6 @@ const old=F.compile(Q.config(q,v,null,2)),before=M.clone(teacher);old.prepare(te
 a(maxDeviation<2,'64-point curves must remain close to the native path');
 for(let n=0;n<100;n++){const b=Uint8Array.from({length:n},(_,i)=>(i*71+n)%256);const text=P.to85(b),decoded=P.from85(text);a.deepEqual(decoded.slice(0,n),b);a(decoded.slice(n).every(x=>x===0));a(!/["\\]/.test(text));}
 for(const text of ['#######','#####','~~~~~','0000"'])a.throws(()=>P.from85(text));
-console.log('40 layouts x repeated 64-point bends: native limiter, endpoints, lossless restore, crossings/scoring, legacy 96-point preservation and Base85 passed; maximum deviation '+maxDeviation+' world units');
+console.log('80 layouts x repeated 64-point bends: native limiter, endpoints, lossless restore, crossings/scoring, legacy 96-point preservation and Base85 passed; maximum deviation '+maxDeviation+' world units');
+
+const V=require('../circuit-workbench/circuit-renderer'),Solver=require('../circuit-workbench/circuit-solver');const upright=Q.initial(4,8),cfg=F.compile(Q.config(4,8));a.equal(cfg.ui.pickWire,false);a.equal(cfg.ui.cableToolbox,true);a.equal(cfg.ui.mathNames,true);const labels=V.labels(upright,Solver.solve(upright),1,{},null,{mathNames:true});a.equal(labels.find(p=>p.id==='L3').rows[0].tex,'L_3');a.equal(V.labels(upright,Solver.solve(upright),1).find(p=>p.id==='L3').rows[0].tex,undefined);const student=F.compile({role:'student'}),teacher=F.compile({role:'teacher'});a.equal(student.ui.pickWire,true);a.equal(student.ui.cableToolbox,false);a.equal(teacher.ui.cableToolbox,true);a.equal(teacher.ui.mathNames,false);a(P.fresh().answers.every(text=>P.layout(text)>=8));

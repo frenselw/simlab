@@ -185,7 +185,7 @@
     const items=[],details=[...(options?.exclusions||[])],font=M.fontSizes[M.fontSize(doc.display)],nameSize=font.name,valueSize=font.value;
     doc.components.forEach(c=>{
       const r=result.components[c.id],isMeter=R.isMeter(c),estimated=doc.display.values&&r?.meterStatus==='collecting'&&Number.isFinite(r?.estimatedReading),lines=[];
-      if(doc.display.names!==false)lines.push({kind:'name',text:c.label+(c.locked?' · 固定':'')+(estimated?' · 暫估':''),size:nameSize});
+      if(doc.display.names!==false)lines.push({kind:'name',...(options?.mathNames&&!c.locked&&!estimated?Q.componentName(c.label):{text:c.label+(c.locked?' · 固定':'')+(estimated?' · 暫估':'')}),size:nameSize});
       if(estimated&&doc.display.names===false)lines.push({kind:'note',text:'暫估',size:valueSize});
       if(doc.display.values){
         if(isMeter)lines.push({kind:'value',...Q.quantity(c.type==='galvanometer'&&Number.isFinite(r?.reading)?R.meterDisplayReading(c,r)*1e6:R.meterDisplayReading(c,r),c.type==='galvanometer'?'μA':r?.unit),size:valueSize});
