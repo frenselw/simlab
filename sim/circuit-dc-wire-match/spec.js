@@ -1,7 +1,7 @@
 (function(root,factory){const node=typeof module==='object'&&module.exports,api=factory(node?require('../circuit-workbench/circuit-model'):root.CircuitModel);if(node)module.exports=api;else root.CircuitTaskSpec=api;})(globalThis,function(M){
 'use strict';
 
-const ACTIVITY='circuit-dc-wire-match',title='看圖接線：五個基礎電路',count=5,stocks=[4,5,7,8,8];
+const ACTIVITY='circuit-dc-wire-match',title='看圖接線：五個基礎電路',count=5,stocks=[4,5,7,8,8],wirePointLimit=64;
 const tasks=['單燈電路','兩燈串聯','兩燈並聯','總開關與分路開關','串、並聯混合'];
 const descriptions=['正極經開關 S 接燈泡 L₁，再回負極。','正極依次經 S、L₁、L₂，再回負極。','正極經總開關 S 後分成 L₁、L₂ 兩條支路，再回負極。','正極經總開關 S 後分流：一支經 S₁、L₁，另一支經 L₂，再回負極。','正極經 L₃ 後分流：一支經 S₁、L₁，另一支經 L₂，再回負極。'];
 const groups=[
@@ -17,7 +17,7 @@ const add=(id,type,x,y,angle=0)=>{const c=M.add(d,type,x,y,type==='switch'?{clos
 add('B','battery',420,440);add(q===4?'L3':'S',q===4?'lamp':'switch',160,440,180);
 if(q>=3)add('S1','switch',160,80);
 add('L1','lamp',q===1?200:360,80);if(q>0)add('L2','lamp',q===1?400:360,q===1?80:260);return d;}
-function config(q=0,v=0,panelContent){return{role:'student',initialDocument:initial(q,v),palette:[],wireResistance:false,components:{byType:{switch:{switch:true}}},ui:{header:false,palette:false,inspector:true,wireList:true,viewToggle:true,quickParameters:false,status:true},...(panelContent?{panelContent}:{})};}
-return{ACTIVITY,title,count,snapshotLimit:64000,stocks,tasks,descriptions,groups,initial,config,transform};
+function config(q=0,v=0,panelContent,revision=3){return{role:'student',initialDocument:initial(q,v),palette:[],wireResistance:false,wirePointLimit:revision===2?96:wirePointLimit,components:{byType:{switch:{switch:true}}},ui:{header:false,palette:false,inspector:true,wireList:true,viewToggle:true,quickParameters:false,status:true},...(panelContent?{panelContent}:{})};}
+return{ACTIVITY,title,count,snapshotLimit:64000,wirePointLimit,stocks,tasks,descriptions,groups,initial,config,transform};
 
 });

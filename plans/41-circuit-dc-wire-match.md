@@ -17,7 +17,7 @@
 | 隨機性 | 每題先製作 8 款有無交叉解的固定佈局；新作答獨立抽選，切題及 Moodle 恢復不重抽 |
 | 交叉 | 不禁止畫出錯誤接線；提交時扣分。只計最終線形，修正後不追扣曾經出現的交叉 |
 | 待審閱評分建議 | 每題 20 分，五題共 100 分；按正確連接關係給部分分，每組交叉扣 2 分，每題交叉最多扣 8 分；合格 80 分 |
-| 待驗證容量／操作取捨 | 每線長度 1200；各題供應 4／5／7／8／8 條線。沿用核心已有的 `wirePointLimit:3`，每線最多 3 個中間點；首階段必須驗證彎線手感和五題無損保存容量 |
+| 已批准容量／操作取捨 | 每線長度 1200；各題供應 4／5／7／8／8 條線。新作答 revision 3 使用既有 `wirePointLimit:64`；舊 revision 2 保留 96 點。初版 3 點取捨已撤銷，歷史及最新驗證見文末 |
 | 本次交付界線 | 只建立分支、保存已確認圖稿、完成計劃；不改活動核心、目錄、manifest 或執行中的活動 |
 
 ## Scope
@@ -567,3 +567,19 @@ Sites 是 standalone 練習，刷新全新開始；不代替 Moodle SCORM 成績
 結論：目前原生 96 點＋無損 Float64＋固定庫存，已在 64000 內得到完整最壞界線，但很接近上限；不能再隨意增加庫存、點數或 snapshot 欄位。這不是說學生多拖幾次就會持續膨脹，也不能以再削線形點數當作無代價優化。
 
 驗證界線：使用正式拉線與 SCORM 核心，但 LMS 是 mock，沒有連到真 Moodle／手機；容量測試不等於實際站點資料庫保存與恢復已驗收。沒有更動 Moodle 設定、學生答案或線上 Site。
+
+
+## 使用者批准改為 64 點（2026-10-30；實作前決定）
+
+- 新作答 revision 3 透過既有 profile `wirePointLimit:64` 限制 preview 與正式 history；保持原生接線、彎線、renderer、Float64 codec，不在保存時另削點。只改此活動，不改 Workbench 的 96 點預設。
+- revision 2 的既有草稿、pending、review 保留 96 點與原版本；不重新取樣、不改分、不刪答案。revision 3 的可信驗證拒絕超過 64 點，revision 1 仍隔離。
+- 五題數量、庫存、題面、rubric、交叉判定及 64000 bytes 保存上限不變。新作答最壞預算由 63276 降為 42796 bytes（省 20480）。
+- 驗證：40 佈局重複彎線、點數及端點、實際 route 與 codec round trip、交叉／分數一致；新舊版本 lifecycle；source／extracted SCORM 的 desktop／mobile 可信拖線、undo／redo、reload、pending retry 及舊 96 點恢復。重建 SCORM 並更新既有 private Sites。
+
+### 64 點交付與實測結果
+
+- 6 個本活動 Node 測試通過；40 佈局 × 4 次原生彎線經既有 limiter 後均為 64 點，端點不變、路徑不超長、Float64 與實際 route 無損保存。這批案例相對限制前 native path 的最大點至線距離約 0.1022 世界單位；不是所有可能手繪形狀的誤差保證。教師預設仍是 96。
+- 40 個容量實驗重新執行：30 條正確接線全部拉彎的 pending 為 39066 bytes；32 條全彎再拔開兩端為 42794 bytes；保守最大封套精確為 42796 bytes，剩 21204 bytes，較 96 點節省 20480 bytes。Evidence：`output/wire64-capacity.log`、`output/wire-capacity-experiment/results.json`。
+- source／extracted SCORM 共 118 個瀏覽器摘要案例、0 runtime exception：桌面／手機可信拖線精確 64 點、undo／redo、切題、same-attempt reload、最大容量 pending retry、嚴格 LMS 拒絕、新舊版本恢復、舊 96 點 review，以及既有 host scroll-strip 矩陣。Evidence：`output/playwright/wire-match/evidence.json`、`output/wire64-browser.log`；彎線 screenshots 在同目錄。
+- `npm run check`、`npm run check:tests`、`npm run package:circuit-platform` 通過；重建六包，最新活動包為 `output/circuit-dc-wire-match-scorm.zip`。未重跑全專案 regression，未測真 Moodle／真手機。
+- Sites 38 個 manifest runtime 檔案逐檔 byte-verified，維持原 owner-private audience。Site source `ee2162b690aebc778f1bc6107fa4435237bb4b48`；saved version `appgprj_6ae3d4154a488191b9f9fca18a8b4900~appgver_025448fc60a88191a3107a53f82f8378`；deployment `appgdep_6ae3fb22ddc081919dd09084ff68c827` 回傳 succeeded。URL：https://simlab-dc-wire-match.ieyp.chatgpt.site 。
