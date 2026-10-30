@@ -1,5 +1,24 @@
 # 三個電路工作台的 GitHub Pages 公開試用
 
+## 擴充為互動模擬首頁（2026-10-30）
+
+- 使用者要求加入既有 `rocket-space-mission-lab`、首頁每個入口顯示實際截圖，並移除「電路工作台」作為全站名稱。新名稱為「SimLab · 互動模擬」，保留三個原入口及 URL。
+- 發布腳本沿用既有三個 standalone 清單，火箭沿用現有 SCORM packager／manifest 收集全部本地模組、材質及地形；公開輸出移除根目錄 imsmanifest.xml。不複製未選中的活動。
+- 火箭的 rubric、phase／variant、snapshot schema、獨立練習重新整理規則及 SCORM 接合完全沿用[原活動計劃](40-rocket-space-mission-lab.md)。本輪不修改活動 runtime／評分／保存，公開網址屬 standalone 試玩，不回傳 Moodle 成績。
+- 截圖為瀏覽器實際畫面，存於 tools/pages/previews，四個入口一對一；使用 alt、明確尺寸及手機響應式縮圖。桌面兩欄、手機一欄，圖片與文字共享完整連結。
+- 影響位置為 build-pages、首頁 HTML／CSS／四張圖片、Pages Node／browser owners、workflow 顯示名與 README；沿用既有 registry entries，不加入新依賴。
+- 驗證：精確發布清單及來源 bytes、圖片／四入口與依賴、過期輸出移除；本地與 HTTPS 的桌面／窄手機首頁圖片載入、四入口、原三台全螢幕／文件保持，以及火箭 WebGL 初始化、合法組裝／待發射、全螢幕／狀態保持與 standalone 刷新。重驗最小部署範圍，不重跑整套飛行／rubric／手勢或宣稱真機驗收。
+- 以下首次三工作台的證據為歷史版本；本輪新證據於完成後另列。
+
+### 本輪驗證
+
+- `node tools/pages.test.js` 通過：532 個發布檔案精確匹配工作台清單、rocket manifest 與四張首頁圖片；逐 byte 與原始來源／截圖一致，檢查標題、四入口、PNG 格式／真實尺寸、相對依賴及過期輸出清除。
+- 四張首頁預覽均為本輪瀏覽器實際截圖，1280×900；火箭截圖為合法單級組裝後的待發射場景。已目視桌面首頁、火箭及窄手機首頁／火箭畫面。
+- `node tools/pages-browser-regression.js` 通過：本地 `/pages/` 子路徑 × 四模擬 × 桌面 1280×900／原生觸控 320×500，共八個案例。四圖片 decode／alt／尺寸、標題、入口、無橫向溢出、原生全螢幕及狀態保持均通過；火箭 WebGL、合法組裝／待發射、重新整理回到空白工廠通過。證據為 `output/playwright/pages/local-*.png` 與 `local-report.json`。
+- Chrome 會額外探測專案路徑以外的 origin `/favicon.ico`；此未宣告的瀏覽器圖示探測不計入 runtime 依賴錯誤。其他 HTTP／載入錯誤及 JS exceptions 仍失敗。進行原生操作前等字體及兩幀 layout，沿用嚴格幾何與可信輸入斷言。
+- `npm run check`、`npm run check:tests`（281 entries：242 node／39 browser，沿用既有 owners）、文件連結、JS 語法與 diff 檢查通過。
+- Committed selection preview、部署及 HTTPS 證據待補。
+
 ## 範圍與決定（2026-10-30）
 
 - 使用者授權立即公開 DC、AC、家庭三個既有工作台；不加入 SCORM 學生活動。

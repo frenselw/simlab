@@ -1,14 +1,15 @@
 main { width: min(100%, 72rem); margin: 0 auto; padding: 2rem 1rem; }
 header { margin-bottom: 1.5rem; }
 h1 { margin: 0 0 .5rem; font-size: 1.5rem; }
-h2 { margin: 0; font-size: 1.25rem; }
+h2 { margin: 1rem 0 0; font-size: 1.25rem; }
 p { line-height: 1.7; color: var(--color-text-muted); }
 header p { margin: 0; }
 nav { display: grid; gap: 1rem; }
 nav a { display: flex; flex-direction: column; padding: 1.25rem; border: 1px solid var(--color-border); border-radius: var(--radius-panel); background: var(--color-canvas); color: var(--color-text); text-decoration: none; }
 nav a:hover { border-color: var(--color-accent); }
 nav a:focus-visible { outline: 3px solid var(--color-accent); outline-offset: 3px; }
+nav img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 10; object-fit: contain; border: 1px solid var(--color-border-light); border-radius: 4px; background: var(--color-app); }
 nav span { margin-top: auto; padding-top: .5rem; color: var(--color-accent); font-weight: 600; }
 footer { margin-top: 1.5rem; }
 footer p { font-size: .875rem; }
-@media (min-width: 48rem) { nav { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 48rem) { nav { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

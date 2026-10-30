@@ -116,13 +116,13 @@ Activity-specific physics, rubrics, persistence formats and verification records
 
 ## Packaging and deployment
 
-### Public circuit workbenches: GitHub Pages
+### Public simulations: GitHub Pages
 
-The public trial site at <https://frenselw.github.io/simlab/> contains the DC, AC and household workbenches. Build it with `npm run build:pages`; the generated site is in `output/pages/`. The builder reuses each workbench's `assets.json` and standalone packager, retaining shared dependencies and relative paths. It does not publish other activities or the complete repository.
+The public trial site at <https://frenselw.github.io/simlab/> contains the DC, AC and household workbenches plus Rocket Factory. Each entry has an actual simulation screenshot in `tools/pages/previews/`. Build it with `npm run build:pages`; the generated site is in `output/pages/`. The builder reuses the workbench asset lists and standalone packager, and the rocket's existing SCORM packager/manifest, retaining all shared dependencies and relative paths. The public site excludes the SCORM root manifest and unselected activities.
 
-In repository **Settings → Pages**, select **GitHub Actions** as the source. To publish an update, open **Actions → Publish circuit workbenches → Run workflow** on `main`. Ordinary pushes do not update the site. The workflow validates the generated files before deploying with GitHub's Pages actions. For local verification, run `node tools/pages.test.js` and `node tools/pages-browser-regression.js`; set `SIMLAB_PAGES_URL=https://frenselw.github.io/simlab/` to check the deployed site instead.
+In repository **Settings → Pages**, select **GitHub Actions** as the source. To publish an update, open **Actions → Publish SimLab simulations → Run workflow** on `main`. Ordinary pushes do not update the site. The workflow validates the generated files before deploying with GitHub's Pages actions. For local verification, run `node tools/pages.test.js` and `node tools/pages-browser-regression.js`; set `SIMLAB_PAGES_URL=https://frenselw.github.io/simlab/` to check the deployed site instead.
 
-The workbenches are unscored and start fresh on refresh. Export JSON to retain a circuit and import it explicitly to reopen it. Deployment scope and actual verification evidence are recorded in the [Pages publication plan](plans/github-pages-circuit-workbenches.md).
+All public simulations start fresh on refresh. Workbenches are unscored; export JSON to retain a circuit and import it explicitly to reopen it. Rocket Factory runs as standalone practice and does not report results to Moodle on this site. Deployment scope and actual verification evidence are recorded in the [Pages publication plan](plans/github-pages-circuit-workbenches.md).
 
 ### Student activities: SCORM 1.2
 

@@ -1,4 +1,4 @@
-name: Publish circuit workbenches
+name: Publish SimLab simulations
 on:
   workflow_dispatch:
 permissions:
