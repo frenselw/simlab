@@ -132,7 +132,7 @@ Package one activity, for example:
 npm run package -- horizontal-projectile-lab
 ```
 
-This writes `output/horizontal-projectile-lab-scorm.zip`. Add a **SCORM activity** in Moodle and upload the ZIP. Its root contains `imsmanifest.xml`, with the activity and shared runtime assets included according to the manifest.
+This writes `output/packages/horizontal-projectile-lab-scorm.zip`. Add a **SCORM activity** in Moodle and upload the ZIP. Its root contains `imsmanifest.xml`, with the activity and shared runtime assets included according to the manifest.
 
 Build and verify all SCORM packages:
 
@@ -140,17 +140,28 @@ Build and verify all SCORM packages:
 npm run package:all
 ```
 
-This command processes only SCORM packages declared in `sim/manifests/`. Rebuild after source changes. Generated ZIPs go into the Git-ignored `output/` directory; rebuilding does not update existing Moodle or Sites deployments.
+This command processes only SCORM packages declared in `sim/manifests/`. Rebuild after source changes. Generated ZIPs go into the Git-ignored `output/packages/` directory; rebuilding does not update existing Moodle or Sites deployments.
+
+ZIPs are kept separately from other generated files:
+
+| Directory | Contents |
+|---|---|
+| `output/packages/` | Current SCORM and standalone ZIPs only |
+| `output/reports/` | Build and retained verification reports |
+| `output/playwright/`, `output/ci-tests/` | Necessary test evidence |
+| `output/tmp/<task>/` | Temporary files, removed when the task finishes |
+
+See the [output and cleanup contract](docs/simulation-scorm-production-guide.md#generated-output-and-cleanup).
 
 ### Teacher workbenches: standalone ZIPs
 
-Rebuild all three workbenches and both assessed DC packages, checking source/ZIP file consistency:
+Rebuild all three workbenches and three assessed DC packages, checking source/ZIP file consistency:
 
 ```sh
 npm run package:circuit-platform
 ```
 
-| Workbench | Output ZIP in `output/` | Launch file / Moodle main file |
+| Workbench | Output ZIP in `output/packages/` | Launch file / Moodle main file |
 |---|---|---|
 | DC | `circuit-workbench-standalone.zip` | `circuit-workbench/index.html` |
 | AC, including high-voltage transmission | `circuit-ac-workbench-standalone.zip` | `circuit-ac-workbench/index.html` |
@@ -158,7 +169,7 @@ npm run package:circuit-platform
 
 These three standalone ZIPs have no `imsmanifest.xml`. Extract the complete archive for local use, or upload it as a Moodle **File resource**, unzip it and select the launch file above as the main file. Preserve all relative folder paths. AC and household packages also include shared code under `circuit-workbench/`.
 
-The same command produces `circuit-dc-series-build-scorm.zip`, `circuit-dc-rheostat-adjust-scorm.zip` and the consistency report `output/circuit-platform-build.json`. Use `npm run package:circuit` when only the DC teacher ZIP is needed; after a shared circuit-core change, use the complete `package:circuit-platform` command.
+The same command produces `circuit-dc-series-build-scorm.zip`, `circuit-dc-rheostat-adjust-scorm.zip`, `circuit-dc-wire-match-scorm.zip` and the consistency report `output/reports/circuit-platform-build.json`. Use `npm run package:circuit` when only the DC teacher ZIP is needed; after a shared circuit-core change, use the complete `package:circuit-platform` command.
 
 ## Development and verification
 
@@ -173,7 +184,7 @@ Run these from the repository root. Choose checks appropriate to the change; com
 | `npm run test:fast` | Run all registered non-browser tests |
 | `npm test` | Run the complete registered suite, including browser regressions |
 | `npm run package:all` | Rebuild and verify all SCORM ZIPs |
-| `npm run package:circuit-platform` | Rebuild and verify the three workbenches and both assessed DC ZIPs |
+| `npm run package:circuit-platform` | Rebuild and verify the three workbenches and three assessed DC ZIPs |
 | `node tools/check-docs.js README.md` | Check repository links and Markdown anchors in this README |
 | `git diff --check` | Check uncommitted changes for whitespace errors and conflict markers |
 
@@ -232,7 +243,7 @@ sim/
 plans/                         Activity decisions, rubrics, schemas and evidence
 docs/                          Production contracts, authoring guides and audits
 tools/                         Checks, test selection, browser runners and packaging
-output/                        Generated ZIPs, reports and temporary checks (ignored)
+output/                        Generated artifacts (ignored; see output organization above)
 ```
 
 ## Maintenance guides

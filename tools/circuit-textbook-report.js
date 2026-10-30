@@ -17,7 +17,7 @@ function generate(){
   const zip=new AdmZip();for(const c of cases){const text=D.encode(c.doc);fs.writeFileSync(path.join(caseFolder,c.id+'.json'),text);zip.addFile('cases/'+c.id+'.json',Buffer.from(text));}
   zip.addFile('README.txt',Buffer.from('人教版物理必修第三冊第十一、十二章電路測試\n\n在電路工作台按「開啟」，選取 cases/ 的 JSON 電路檔即可重播。這些檔案使用 production v4 文件，沒有新增元件。\n檔名含 equivalent 或在報告中標作「需等效替代」的電路只驗算等效直流工作點。測試條件、原圖對照及預期／實測值詳見 numeric-results.json 及測試報告。\n電源 a→b 電流採被動符號約定，電源向外供出電流為其相反值。\n'));
   zip.addFile('numeric-results.json',Buffer.from(JSON.stringify(unitReport,null,2)));zip.writeZip(path.join(output,'textbook-circuits.zip'));
-  const standalone=path.join(root,'output/circuit-workbench-standalone.zip'),packageReport={bytes:fs.statSync(standalone).size,sha256:hash(fs.readFileSync(standalone)),files:[]};
+  const standalone=path.join(root,'output/packages/circuit-workbench-standalone.zip'),packageReport={bytes:fs.statSync(standalone).size,sha256:hash(fs.readFileSync(standalone)),files:[]};
   for(const e of new AdmZip(standalone).getEntries().filter(e=>!e.isDirectory)){const original=fs.readFileSync(path.join(root,'sim',e.entryName)),packaged=e.getData();packageReport.files.push({file:e.entryName,bytes:packaged.length,sha256:hash(packaged),identical:original.equals(packaged)});}
   packageReport.identical=packageReport.files.every(e=>e.identical);fs.writeFileSync(path.join(output,'package-results.json'),JSON.stringify(packageReport,null,2));
   const browserFile=path.join(root,'output/playwright/circuit-workbench/textbook.json'),browser=fs.existsSync(browserFile)?JSON.parse(fs.readFileSync(browserFile)):null;

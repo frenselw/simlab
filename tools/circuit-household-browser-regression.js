@@ -80,7 +80,7 @@ async function main(){
       }
       checks.push(mode+'-short-heat-animation-pause-slow-reduced-fuse-rcd');console.log(mode+': Household short heat paths, trusted input, cut-off and motion passed');
     }
-    const directories=[['source',path.join(root,'sim')]];if(!sourceOnly){extracted=fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),'simlab-position-time-package-'));new AdmZip(path.join(root,'output/circuit-household-workbench-standalone.zip')).extractAllTo(extracted);directories.push(['package',extracted]);}
+    const directories=[['source',path.join(root,'sim')]];if(!sourceOnly){extracted=fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),'simlab-position-time-package-'));new AdmZip(path.join(root,'output/packages/circuit-household-workbench-standalone.zip')).extractAllTo(extracted);directories.push(['package',extracted]);}
     for(const [mode,directory]of directories){
       server=H.createServer(directory);await H.listenServer(server);await cdp.send('Emulation.setDeviceMetricsOverride',{width:1280,height:900,deviceScaleFactor:1,mobile:false});await load();
       if(process.argv.includes('--audit-followup-smoke')||!process.argv.slice(2).some(flag=>flag.endsWith('-smoke'))){await auditFollowup(mode);if(process.argv.includes('--audit-followup-smoke')){await H.closeServer(server);server=null;continue;}await load();}
@@ -626,7 +626,7 @@ async function main(){
       }
       await H.closeServer(server);server=null;
     }
-    const assets=require('../sim/circuit-household-workbench/assets.json').files,assetHashes=Object.fromEntries(assets.map(f=>[f,hash(fs.readFileSync(path.join(root,'sim',f)))]));assert.deepEqual(errors,[]);fs.writeFileSync(path.join(out,'results.json'),JSON.stringify({completed:true,checks,exampleChecks,errors,sourceOnly,assetHashes,sourceFingerprint:hash(JSON.stringify(assetHashes)),packageFingerprint:sourceOnly?null:hash(fs.readFileSync(path.join(root,'output/circuit-household-workbench-standalone.zip')))},null,2)+'\n');
+    const assets=require('../sim/circuit-household-workbench/assets.json').files,assetHashes=Object.fromEntries(assets.map(f=>[f,hash(fs.readFileSync(path.join(root,'sim',f)))]));assert.deepEqual(errors,[]);fs.writeFileSync(path.join(out,'results.json'),JSON.stringify({completed:true,checks,exampleChecks,errors,sourceOnly,assetHashes,sourceFingerprint:hash(JSON.stringify(assetHashes)),packageFingerprint:sourceOnly?null:hash(fs.readFileSync(path.join(root,'output/packages/circuit-household-workbench-standalone.zip')))},null,2)+'\n');
     console.log('Household source / ZIP browser checks passed: '+checks.length);
   }finally{if(server)await H.closeServer(server);await H.stopChrome(chrome,cdp);cdp?.close();if(profile)H.removeOwnedProfile(profile,fs.realpathSync(os.tmpdir()));if(extracted)H.removeOwnedPackage(extracted,fs.realpathSync(os.tmpdir()));}
 }

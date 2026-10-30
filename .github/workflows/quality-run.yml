@@ -97,7 +97,7 @@ jobs:
           name: quality-evidence-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.key }}
           path: |
             output/ci-tests/
-            output/circuit-platform-build.json
+            output/reports/circuit-platform-build.json
           retention-days: 14
   browser:
     name: ${{ matrix.key }}
@@ -141,7 +141,7 @@ jobs:
           path: |
             output/ci-tests/
             output/playwright/
-            output/circuit-platform-build.json
+            output/reports/circuit-platform-build.json
           retention-days: 14
   aggregate:
     if: always()

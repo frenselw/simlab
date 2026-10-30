@@ -211,7 +211,7 @@ D3／D4 已有兩個正式 consumer：[兩燈串聯計劃](../plans/30-circuit-d
 
 `wirePointLimit` 是可信 config 的可選容量（整數 1–96，預設 96）。活動需要較小線形時，編輯器在 preview／history commit 前把超限路徑取樣成折線；保持原頂點次序、兩端、接線關係、阻值，折線長度不增加。恢復則嚴格拒絕超限文件，不在 decoder 暗中改形狀。D3 設 8，Float64 base64 無損保存實際文件；教師維持 96。任何新活動採用此選項，均須證明自己的最壞 draft、review 和真實 pending-final 不超過 4000 UTF-8 bytes。
 
-`runtime-assets.json` 是共用核心依賴的唯一清單；`ac-runtime-assets.json` 是可選交流依賴的唯一清單，責任見[AC 維護指引](circuit-ac-workbench.md#依賴與檔案責任)。家庭附加模組由 `tools/package-circuit-platform.js` 的 `householdCore` 管理。`npm run package:circuit-platform` 將它們與各入口自己的依賴合併，更新 DC／AC／家庭的 `assets.json` 及兩份 DC SCORM manifest，重建三個 standalone 及兩個 SCORM 共五包。共用依賴新增／刪除只改其所屬清單，不在各入口手抄。工具逐檔比對 ZIP 和來源、核對 HTML／CSS 引用，並產生 `output/circuit-platform-build.json` 的 core／AC／household 擴展及套件指紋。發布時仍須把新版 ZIP 上載到各 Moodle 活動／File resource；已部署的 Moodle／Sites 不會自動更新。
+`runtime-assets.json` 是共用核心依賴的唯一清單；`ac-runtime-assets.json` 是可選交流依賴的唯一清單，責任見[AC 維護指引](circuit-ac-workbench.md#依賴與檔案責任)。家庭附加模組由 `tools/package-circuit-platform.js` 的 `householdCore` 管理。`npm run package:circuit-platform` 將它們與各入口自己的依賴合併，更新 DC／AC／家庭的 `assets.json` 及兩份 DC SCORM manifest，重建三個 standalone 及兩個 SCORM 共五包。共用依賴新增／刪除只改其所屬清單，不在各入口手抄。工具逐檔比對 ZIP 和來源、核對 HTML／CSS 引用，並產生 `output/reports/circuit-platform-build.json` 的 core／AC／household 擴展及套件指紋。發布時仍須把新版 ZIP 上載到各 Moodle 活動／File resource；已部署的 Moodle／Sites 不會自動更新。
 
 共用接線、手勢、權限或 renderer 修改須檢查 DC、AC、家庭及兩個 DC 評量 consumer；AC／家庭專用物理及狀態修改由各自 owner 驗證，按實際共用依賴補相鄰回歸。測試與 helper 登記在 `tools/test-registry.js`，`tools/run-tests.js` 執行與選取，避免另建一份測試清單。文件修訂核對來源、連結及 diff；不因純文件變動重跑全部 browser 或宣稱新的產品驗收。
 

@@ -847,11 +847,34 @@ artifact, not only against `sim/` source files.
 
 <a id="playwright-cli-on-this-windows-machine"></a>
 
+## Generated output and cleanup
+
+- Write deliverable SCORM and standalone ZIPs only to `output/packages/`.
+  Build reports belong in `output/reports/`, including
+  `circuit-platform-build.json`; do not mix reports or extracted copies with ZIPs.
+- Retain the latest necessary browser evidence in `output/playwright/<activity>/`
+  and CI evidence in `output/ci-tests/`. Replace superseded evidence for the same
+  check unless an activity plan or release explicitly requires retaining it.
+- Put one-off scripts, debugging output, extracted packages and disposable caches
+  in a task-owned directory under `output/tmp/` or an owned OS temporary directory.
+  Runners must close their server/browser and remove owned temporary resources in
+  `finally`/exit cleanup, including failure paths; preserve diagnostic evidence
+  separately before cleanup.
+- Before ending each task, remove its scratch files and obsolete generated copies.
+  Do not archive useless temporary files merely to retain them. Keep final
+  deliverables, necessary reproducible evidence, authored assets, deployment
+  records/source checkouts and backups. Do not delete Git worktrees as scratch.
+  Verify resolved cleanup targets stay inside the owned temporary directory and
+  do not follow symlinks/reparse points. State any cleanup blocked by open files.
+- Historical evidence paths may predate this layout; record relocations without
+  rewriting past test results. Rebuilding a ZIP does not update Moodle or Sites.
+
 ## Browser check tooling
 
 Use the available project browser runner or resolve the installed Playwright CLI
 wrapper from the current environment. Put temporary flows in ignored
-`output/playwright/` scripts; have each script start and stop its server/browser.
+`output/tmp/<task>/` scripts; retain their evidence in `output/playwright/` and
+follow the [cleanup contract](#generated-output-and-cleanup).
 On Windows, use Git Bash explicitly if plain `bash` invokes unconfigured WSL,
 and use `npm.cmd` if the shell cannot run `npm`. Do not copy another machine's
 user paths. Treat `### Error` in Playwright CLI output as failure even with exit 0.

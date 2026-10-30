@@ -70,6 +70,11 @@ govern any exceptions. Mark old implementation gaps and historical evidence clea
 - Use the production guide's separate package-ready and Moodle-ready gates.
   Report actual evidence; local browser checks do not establish real Moodle or
   real-phone readiness.
+- Follow the production guide's [generated-output and cleanup contract](docs/simulation-scorm-production-guide.md#generated-output-and-cleanup).
+  Deliverable ZIPs belong in `output/packages/`. Before finishing each task,
+  remove its temporary scripts, extracted copies and disposable caches; retain
+  only deliverables and necessary evidence. Never delete backups or Git worktrees
+  as temporary output.
 
 ## Layout
 
@@ -81,13 +86,16 @@ sim/manifests/  one SCORM manifest per activity
 sim/shared/     shared styles and runtime
 sim/<slug>/     independently runnable activity
 tools/          validation and packaging
-output/         generated packages, screenshots, temporary checks
+output/packages/ deliverable SCORM and standalone ZIPs only
+output/reports/  retained build and verification reports
+output/tmp/      task-owned scratch files; clean before finishing
+output/playwright/ retained browser evidence
 ```
 
 SCORM package roots contain `imsmanifest.xml`; shared files remain accessible by
 relative path. Each circuit workbench declares its standalone runtime in its own
 `assets.json`. `npm run package:circuit-platform` rebuilds all three standalone
-ZIPs and the two DC SCORM ZIPs, checking source/dependency consistency;
+ZIPs and the three DC SCORM ZIPs, checking source/dependency consistency;
 `npm run package:circuit` builds only the DC standalone ZIP. `package:all` builds
 SCORM packages only. Standalone ZIPs have no `imsmanifest.xml`.
 Browser tooling, including Windows-specific setup, is documented once in the

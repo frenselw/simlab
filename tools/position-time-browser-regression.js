@@ -246,7 +246,7 @@ function buildAndExtractPackage(tempRoot, options = {}) {
   const ownedPackagePattern = options.packageNamePattern || packageNamePattern;
   const packaged = spawnSync(process.execPath, [path.join(root, "tools/package-scorm.js"), activitySlug], { cwd: root, encoding: "utf8" });
   if (packaged.status !== 0) throw new Error(`SCORM packaging failed.\n${packaged.stdout || ""}${packaged.stderr || ""}`.trim());
-  const zipPath = path.join(root, "output", `${activitySlug}-scorm.zip`);
+  const zipPath = path.join(root, "output", "packages", `${activitySlug}-scorm.zip`);
   if (!fs.existsSync(zipPath)) throw new Error(`SCORM packager did not create ${zipPath}`);
   const packageDirectory = fs.mkdtempSync(path.join(tempRoot, packagePrefix));
   try {

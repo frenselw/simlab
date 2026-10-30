@@ -24,7 +24,7 @@ function build() {
   }
   const packaged = spawnSync(process.execPath, [path.join(__dirname, 'package-scorm.js'), 'rocket-space-mission-lab'], {cwd: root, encoding: 'utf8'});
   if (packaged.status !== 0) throw Error('Rocket packaging failed: ' + (packaged.stderr || packaged.stdout));
-  const rocket = new AdmZip(path.join(root, 'output', 'rocket-space-mission-lab-scorm.zip'));
+  const rocket = new AdmZip(path.join(root, 'output', 'packages', 'rocket-space-mission-lab-scorm.zip'));
   rocket.deleteFile('imsmanifest.xml');
   rocket.extractAllTo(directory, true);
   for (const file of ['index.html', 'styles.css']) fs.copyFileSync(path.join(__dirname, 'pages', file), path.join(directory, file));

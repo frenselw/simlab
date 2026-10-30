@@ -6,8 +6,8 @@ const AdmZip = require("adm-zip");
 
 const root = path.resolve(__dirname, "..");
 const slug = "force-orthogonal-decomposition";
-const zipPath = path.join(root, "output", `${slug}-scorm.zip`);
-const packageRoot = path.join(root, "output", `${slug}-scorm-extracted`);
+const zipPath = path.join(root, "output", "packages", `${slug}-scorm.zip`);
+const packageRoot = path.join(root, "output", "tmp", `${slug}-scorm-extracted`);
 
 if (!fs.existsSync(zipPath)) throw new Error(`Missing SCORM package: ${zipPath}`);
 fs.mkdirSync(packageRoot, { recursive: true });

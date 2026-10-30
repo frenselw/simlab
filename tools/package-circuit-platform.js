@@ -32,7 +32,7 @@ function build(){
     const manifest=fs.readFileSync(path.join(root,'sim/manifests',slug+'.xml'),'utf8');
     const files=new XMLParser({ignoreAttributes:false}).parse(manifest).manifest.resources.resource.file.map(f=>f['@_href']);
     for(const f of core)assert(files.includes(f),'Activity missing common asset '+f);
-    const run=spawnSync(process.execPath,['tools/package-scorm.js',slug],{cwd:root,encoding:'utf8'});if(run.status!==0)throw new Error(run.stderr||run.stdout);packages.push(path.join(root,'output',slug+'-scorm.zip'));
+    const run=spawnSync(process.execPath,['tools/package-scorm.js',slug],{cwd:root,encoding:'utf8'});if(run.status!==0)throw new Error(run.stderr||run.stdout);packages.push(path.join(root,'output','packages',slug+'-scorm.zip'));
   }
   for(const file of packages){const zip=new AdmZip(file);for(const asset of core)assert(zip.readFile(asset).equals(fs.readFileSync(path.join(root,'sim',asset))),'Stale shared source '+asset);
     for(const entry of zip.getEntries()){
@@ -44,7 +44,8 @@ function build(){
     }
   }
   const hash=data=>createHash('sha256').update(data).digest('hex');
-  fs.writeFileSync(path.join(root,'output/circuit-platform-build.json'),JSON.stringify({core:Object.fromEntries(core.map(f=>[f,hash(fs.readFileSync(path.join(root,'sim',f)))])),acCore:Object.fromEntries(acCore.map(f=>[f,hash(fs.readFileSync(path.join(root,'sim',f)))])),householdCore:Object.fromEntries(householdCore.map(f=>[f,hash(fs.readFileSync(path.join(root,'sim',f)))])),packages:packages.map(file=>({file:path.basename(file),files:new AdmZip(file).getEntries().length,sha256:hash(fs.readFileSync(file)),sharedFilesMatch:core.length}))},null,2)+'\n');
+  fs.mkdirSync(path.join(root,'output/reports'),{recursive:true});
+  fs.writeFileSync(path.join(root,'output/reports/circuit-platform-build.json'),JSON.stringify({core:Object.fromEntries(core.map(f=>[f,hash(fs.readFileSync(path.join(root,'sim',f)))])),acCore:Object.fromEntries(acCore.map(f=>[f,hash(fs.readFileSync(path.join(root,'sim',f)))])),householdCore:Object.fromEntries(householdCore.map(f=>[f,hash(fs.readFileSync(path.join(root,'sim',f)))])),packages:packages.map(file=>({file:path.basename(file),files:new AdmZip(file).getEntries().length,sha256:hash(fs.readFileSync(file)),sharedFilesMatch:core.length}))},null,2)+'\n');
   return packages;
 }
 module.exports={build,syncAssets,slugs,core};

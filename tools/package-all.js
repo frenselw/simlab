@@ -16,7 +16,7 @@ const slugs = fs.readdirSync(path.join(root, "sim", "manifests"))
 for (const slug of slugs) {
   const packaged = spawnSync(process.execPath, [path.join(__dirname, "package-scorm.js"), slug], { stdio: "inherit" });
   if (packaged.status !== 0) process.exit(packaged.status || 1);
-  const zip = path.join(root, "output", slug + "-scorm.zip");
+  const zip = path.join(root, "output", "packages", slug + "-scorm.zip");
   const entries = new AdmZip(zip).getEntries().map((entry) => entry.entryName);
   if (!entries.includes("imsmanifest.xml")) throw new Error(slug + ": imsmanifest.xml is not at ZIP root");
   if (entries.some((entry) => /(^|\/)(tests?|screenshots?|temp)(\/|$)|\.test\.js$|(^|\/)\.scorm-/.test(entry))) {

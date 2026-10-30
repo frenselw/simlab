@@ -14,7 +14,7 @@ async function main(){
   assert.equal(build.status,0,'Build all SCORM ZIPs: '+build.stderr);
   directory=fs.mkdtempSync(path.join(temp,'simlab-fullscreen-rollout-'));
   for(const slug of slugs){
-   const zip=new AdmZip(path.join(root,'output',slug+'-scorm.zip'));
+   const zip=new AdmZip(path.join(root,'output','packages',slug+'-scorm.zip'));
    for(const entry of zip.getEntries())if(!entry.isDirectory&&entry.entryName!=='imsmanifest.xml')assert.ok(entry.getData().equals(fs.readFileSync(path.join(root,'sim',entry.entryName))),slug+' package/source parity: '+entry.entryName);
    zip.extractAllTo(path.join(directory,slug));
   }

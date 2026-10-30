@@ -8,7 +8,7 @@ const { XMLParser } = require("fast-xml-parser");
 
 const root = path.resolve(__dirname, "..");
 const simRoot = path.join(root, "sim");
-const outputDir = path.join(root, "output");
+const outputDir = path.join(root, "output", "packages");
 const manifestDir = path.join(simRoot, "manifests");
 const slug = process.argv[2];
 

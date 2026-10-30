@@ -10,7 +10,7 @@ function build(manifest=assets,packageName='circuit-workbench-standalone.zip') {
   const html = fs.readFileSync(path.join(simRoot, manifest.entry), "utf8");
   const ids=new Set([...html.matchAll(/\bid="([^"\s]+)"/g)].map(m=>m[1]));
   for (const match of html.matchAll(/(?:src|href)="([^"]+)"/g)) { if (match[1].startsWith("data:")) continue; if(match[1].startsWith("#")){if(!ids.has(match[1].slice(1)))throw new Error("Unknown local SVG/anchor reference: "+match[1]);continue;} const ref = path.posix.normalize(path.posix.join(path.posix.dirname(manifest.entry), match[1])); if (!manifest.files.includes(ref)) throw new Error("Undeclared runtime reference: " + match[1]); }
-  const directory = path.join(root, "output"); fs.mkdirSync(directory, { recursive: true }); const file = path.join(directory, packageName); zip.writeZip(file);
+  const directory = path.join(root, "output", "packages"); fs.mkdirSync(directory, { recursive: true }); const file = path.join(directory, packageName); zip.writeZip(file);
   const actual = new AdmZip(file).getEntries().map((e) => e.entryName).sort(); if (JSON.stringify(actual) !== JSON.stringify([...manifest.files].sort())) throw new Error("ZIP does not match asset manifest");
   return file;
 }
