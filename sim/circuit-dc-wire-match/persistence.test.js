@@ -5,3 +5,16 @@ const max=P.fresh();max.phase='check';for(let q=0;q<5;q++){const d=Q.initial(q,0
 for(const mutate of [s=>s.revision=1,s=>s.question=5,s=>s.answers.pop(),s=>s.answers[0]+='AAAA',s=>s.extra=true]){const s=P.fresh();mutate(s);a.throws(()=>P.validate(s));}const d=solved(0,0);d.components[0].x++;a.throws(()=>P.encode(d,0,0));console.log('Phase round trips + legal continuation, invalid states, fixed positions and real maximum pending: '+P.bytes(pending)+' bytes passed');
 
 const legacy=M.clone(max);legacy.revision=2;legacy.answers=legacy.answers.map((_,q)=>{const d=P.unpack(max.answers[q],q);for(const w of d.wires)w.via=Array.from({length:96},(_,i)=>({x:210+i*1.7,y:800+Math.sin(i*.1)*4}));return P.encode(d,q,0);});a.deepEqual(P.validate(legacy),legacy);a.throws(()=>P.validate({...legacy,revision:3}));a.equal(P.fresh().revision,3);console.log('Revision 2 retains 96 points; revision 3 rejects over 64 without altering the saved answer');
+
+for(const phase of ['edit','check'])for(const kind of ['blank','partial','complete'])for(let v=16;v<Q.layoutCount;v++){
+ const s=P.fresh();s.phase=phase;s.answers=s.answers.map((_,q)=>{const d=kind==='blank'?Q.initial(q,v):solved(q,v);if(kind==='partial'){d.wires.pop();M.cleanup(d);}return P.encode(d,q,v);});
+ const restored=P.decode({version:1,activity:Q.ACTIVITY,kind:'draft',answer:s},'draft');a.deepEqual(S.score(restored),S.score(s));restored.phase='edit';restored.question=v%5;const d=P.document(restored);if(d.wires.length)d.wires.pop();else M.addWire(d,300,800);M.cleanup(d);a.doesNotThrow(()=>P.capture(d,restored));
+}
+const fs=require('node:fs'),vm=require('node:vm'),{createRequire}=require('node:module');let sample=0;
+const sandbox={module:{exports:{}},require:createRequire(__filename),crypto:{getRandomValues(ids){ids.fill(sample);return ids;}}};vm.runInNewContext(fs.readFileSync(require.resolve('./persistence'),'utf8'),sandbox);
+for(sample=0;sample<64;sample++){const s=sandbox.module.exports.fresh();s.answers.forEach((text,q)=>{a.equal(P.layout(text),16+sample);a.equal(P.unpack(text,q).wires.length,0);});a.equal(S.score(s).score,0);}
+for(const v of [80,255]){const bytes=P.from85(P.fresh().answers[0]);bytes[0]=v;const state=P.fresh();state.answers[0]=P.to85(bytes);a.throws(()=>P.validate(state));}
+console.log('All 64 new layout choices: deterministic fresh sampling, blank/partial/complete phase round trips and legal continuation; invalid layout IDs rejected');
+const shuffledMax=M.clone(max);shuffledMax.answers=shuffledMax.answers.map((_,q)=>{const d=Q.initial(q,79),old=P.unpack(max.answers[q],q);d.wires=old.wires;d.junctions=old.junctions;return P.encode(d,q,79);});
+const shuffledReview={...review,answer:shuffledMax},shuffledPending={...pending,payload:{...pending.payload,reviewJson:JSON.stringify(shuffledReview)}};a.equal(P.bytes(shuffledPending),42796);a.deepEqual(P.decode(shuffledReview,'review'),shuffledMax);
+console.log('New layout IDs preserve the exact 42796-byte maximum pending envelope');

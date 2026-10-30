@@ -6,4 +6,6 @@ Before deployment, a Moodle administrator must confirm **Site administration →
 
 New attempts use revision 3; existing revision-2 attempts resume unchanged. Old revision-1 answers are not silently migrated or erased. Validate same-attempt resume, a large answer, frozen retry, recorded read-only review, scores and real-device gestures in your Moodle player before formal use. If storage is rejected, answers remain in the current page but are not safely saved; do not close it until the configuration/save issue is resolved.
 
+New attempts select independently shuffled component layouts 16–79 (64 per question). Saved layouts 0–15 retain their exact positions, switches, wiring and scores. Layout IDs remain in the existing byte field; there is no snapshot size increase or redraw on resume, navigation or clearing wires.
+
 Sites uses the same lossless model in memory and starts fresh on refresh. Sites does not report Moodle grades.

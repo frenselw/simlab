@@ -681,3 +681,48 @@ Sites 是 standalone 練習，刷新全新開始；不代替 Moodle SCORM 成績
   head `2cb6d97628e8a76b70c916b2406807cefd6f2c60`，結果 full／288 entries／all packages，
   原因為 shared production guide／基建範圍；`output/wire-match-merged-selection.json`。
   selection preview 不代表全部被選測試已執行，真 Moodle／實體手機驗收仍未完成。
+
+## 增加元件位置隨機性（2026-10-30；實作前決定）
+
+使用者指出目前新作答只抽取八款整體鏡射／拉伸佈局，元件相對排列接近題圖，難度不足。
+在 `codex/circuit-wire-match-random-layouts` 只修改本活動題面與測試，不修改共用 Workbench。
+
+- 每題新增 64 款逐件打散位置的安全佈局，改變元件佔位、相對次序、水平／垂直位置與電源／開關方向；燈泡保持直立。
+  採緊湊、有間隔的擺放區域及獨立位置偏移，不能只用整圖鏡射／旋轉／等比縮放冒充新排列。
+- 產生器僅在開發階段尋找可行佈局並驗證參考線，正式程式只載入固定座標表及抽取 layout ID，
+  不新增執行時接線／路由引擎、不顯示參考解。每款必須有符合庫存、線長、無交叉、不穿元件的滿分解。
+- 新 layout ID 使用 16–79，舊 0–15 的座標及身份順序完全不改。沿用 revision 2／3 與既有一 byte layout 欄位，
+  不增加 snapshot 大小；新作答仍 revision 3、每線 64 點、Moodle 64000 bytes。layout ID 範圍須嚴格驗證。
+- 題圖、rubric、部分分、開關規則、五題獨立導航、清除與 undo 起點、既有 phase/state matrix 及 lifecycle 不改。
+  切題、清除、check 返回及 Moodle 恢復都不能重抽；舊 draft／pending／review 必須維持原位置與分數。
+- 影響範圍：`spec.js` 的固定佈局／抽樣範圍、`persistence.js` 的 profile 覆蓋／fresh、test-only 參考解、
+  既有 layouts／native-wire／persistence／lifecycle 測試與 browser owner；沿用 manifest／registry 的既有依賴。
+- 驗證所有新佈局的 body／端子間距、實際核心路徑、無交叉滿分、固定 profile、精確 round-trip 及合法續作；
+  驗證舊佈局指紋不變、抽樣確實涵蓋新 ID、非法 ID 拒絕。來源／解壓 SCORM 重跑手機與桌面、代表性新排列、
+  接線／彎線／切題／清除／提交／恢復及原有 host 手勢案例。重建六包，記錄實際結果；真 Moodle／實機另驗收。
+
+### 新排列的實作與實測
+
+- 正式表共 320 款新佈局：每題 64 款，粗略佔位次序分別有 50／61／61／60／62 種，
+  每個元件均涵蓋六個擺放區域。與任一舊 0–15 旋轉／鏡射版本比較，至少一半元件必須換區；
+  此條件由正式 layouts 測試逐款斷言，避免偶然仍接近題圖。燈泡保持直立。
+- 位置表內嵌 `spec.js`，沒有新增 runtime 依賴；參考接法只在 test-only `layout-solutions.json`，
+  已核對 ZIP 不包含 fixture、參考解或測試。開發產生器與過程證據在忽略的 `output/random-layouts/`。
+- 新表使用現有 64 點線形，滿分參考解最多 12 個中間點；最長路徑 1000／1200 世界單位。
+  這取代早期計劃對新題庫的「每線最多 3 點、目標 800」試作目標；舊參考解仍維持 ≤800。
+  全部新參考解經實際核心路由、無交叉／無本體穿越、庫存、profile、滿分及精確恢復驗證。
+- 舊 80 款的 `[id,x,y,angle]` SHA-256 保持
+  `502b1043ff289b90f43666e84e6cdc7a27d14d8a19962b87e2f0ee1fd8f94c1a`。
+  六項活動 Node 測試通過，覆蓋 400 款佈局、每款四次原生彎線、所有 64 個新抽樣值、
+  blank／partial／complete 的 edit/check round-trip 與續作、新題 15 個真 shared-runtime lifecycle 案例及舊版相容性。
+  新 ID 的最大 pending 仍精確為 42796 bytes。
+- `npm run check`、`check:tests`（288 entries／248 Node／40 browser）、六包
+  `package:circuit-platform`、修改檔案的最終 syntax／diff／文件檢查通過。
+  沒有改動 `sim/circuit-workbench/` 或 `sim/shared/`，沒有新增依賴。
+- Browser owner 保留原斷言，新增兩題新位置的可信端點拖接／切題／重進，以及每題十款新排列的滿分恢復。
+  新拖線與 host strip 的測試 touchMove 採 15 ms 逐幀輸入，沿用真實 pointer/click、owner、狀態及分數斷言；
+  初期零間隔事件曾出現漏 click／過快慣性捲動的測試失敗，沒有改成程式 click 或放寬結果斷言。
+  最終來源／解壓套件全套通過：250 個摘要案例、0 runtime exception，包含 100 個新排列滿分恢復案例、
+  4 個新位置可信拖線／切題／重進案例，以及原有七尺寸、歷史起點、彎線、容量、legacy 與 T1–T3 host 檢查。
+  證據 `output/playwright/wire-match/evidence.json`；新佈局圖片 `source/package-shuffled-touch-q1/q5.png`。
+- 尚未發布 Sites，真 Moodle／實體手機及全專案回歸仍未執行，不宣稱完整 package-ready／Moodle-ready。
