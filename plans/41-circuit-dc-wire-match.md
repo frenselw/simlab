@@ -782,3 +782,7 @@ deployment `appgdep_6ae44aca4f488191b7b8c2b4eea46e1e` 回傳 `succeeded`。
   `appgprj_6ae3d4154a488191b9f9fca18a8b4900~appgver_0163f6e05f548191be4fa61729acbc2c`，
   deployment `appgdep_6ae457224ec08191b68014355dff68b4`。
   網址：https://simlab-dc-wire-match.ieyp.chatgpt.site 。發布後未另跑線上 browser；網站仍 owner-private。
+- committed selection preview：base `be1bf09a01e8fabc62cdc24f07b428bb8a7eaaa4`，
+  head `910da604031d555513d64f5bc336a815bbaa5417`；結果 full／288 entries／all packages，包含本活動 browser owner。
+  fallback 原因為本活動 `styles.css` 沒有完整 browser mapping；證據 `output/desktop-controls/selection.json`。
+  此預覽不等於已執行全部被選測試，實際範圍及 Chrome 清理失敗如上記錄。
