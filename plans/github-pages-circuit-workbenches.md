@@ -25,4 +25,5 @@
 - `node tools/pages-browser-regression.js` 通過：本機生成網站在 `/pages/` 子路徑，1280×900 桌面／320×500 原生觸控共六個工作台案例。首頁三個連結、初始化、無橫向溢出、無網路／runtime 錯誤、原生全螢幕進出與文件保持均通過，已目視窄手機首頁及 AC。證據為 `output/playwright/pages/local-*.png` 與 `local-report.json`。
 - 首次 Chrome 啟動受 sandbox 限制，提權後可執行；初次 5 秒 CDP 預設在 AC 載入時逾時，runner 已沿用既有 AC owner 的 30 秒 CDP timeout，完整重跑通過。未修改工作台 runtime。
 - `npm run check` 通過（JavaScript 語法與 SCORM manifest profile）；Pages workflow 的 YAML 語法與 build／deploy jobs 檢查通過，`git diff --check` 通過。
-- Committed selection preview、正式部署與 HTTPS browser 證據待補。
+- Committed selection preview：base `943b7c0c6f75651e875381faf71925ffc4658605` → implementation head `264de7b7aa46dea7aac8563207bd4b32805edda9`，`node tools/run-tests.js --base=<base> --head=HEAD --plan` 為 `full`，因新增 workflow／共用基礎設施而選中全部 281 entries、39 browser entries 及全部 packages。完整輸出 `output/pages-selection.json`。本機執行上述精準檢查；selection preview 不代表本輪已執行全站測試或遠端 CI 通過。
+- 正式部署與 HTTPS browser 證據待補。
