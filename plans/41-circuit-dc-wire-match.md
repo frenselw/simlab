@@ -744,3 +744,41 @@ deployment `appgdep_6ae44aca4f488191b7b8c2b4eea46e1e` 回傳 `succeeded`。
 部署證據 `output/sites/wire-random-layouts-deployment.json` 與
 `output/sites/wire-random-layouts-assets.json`，封裝 `output/sites/circuit-dc-wire-match-random-layouts.tar.gz`。
 沿用已通過的 250 個來源／解壓 SCORM browser 案例；發布後沒有另跑線上 browser、真 Moodle 或實體手機驗收。
+
+## 桌面工具列及面板收合修正（2026-10-30；實作前決定）
+
+使用者截圖顯示桌面選中導線時底列分成兩行，且面板收合按鈕不生效。
+分支 `codex/circuit-wire-match-desktop-controls` 只修改本活動 CSS 及既有 browser owner。
+
+- 畫布寬 760–940px 時，活動未覆寫共用的雙行 breakpoint；恢復寬畫布的單行 grid，
+  保留直接操作及 44px targets。≤759px 畫布仍沿用本活動原有單行 more-menu 排版。
+- 活動的 `#editor .workspace` 與 `.panel` 規則蓋過共用 `panel-hidden`；補齊同一狀態的活動樣式，
+  收起時真正隱藏面板並把整個寬度交還畫布，展開時恢復原 320px 面板。
+- 沿用原 panelToggle 命令、ARIA、相機重算與只讀規則；不新增面板控制器，不改共用核心、
+  學生答案、隨機佈局、分數、snapshot 或 SCORM lifecycle。面板狀態仍為暫態，不寫入答案。
+- 在既有 browser owner 增加 1000／1240／1280／1440／1920 桌面尺寸，實際選取線端，
+  檢查底列單行、按鈕可達、不重疊、不溢出；edit/check/frozen/review 均以可信滑鼠收合／展開，
+  核對 ARIA、畫布擴展、答案及已保存資料不變。來源與解壓 SCORM 都執行，先確認舊版失敗。
+- 收起狀態若從桌面縮至手機，仍須顯示原生展開按鈕，避免面板及按鈕同時隱藏；
+  展開後手機仍使用原本面板布局。補上一個桌面收起→手機展開→回桌面的可信輸入恢復案例。
+- 重建六包、檢查 registry／來源一致性，維持手機原有幾何與手勢；驗證完成後更新既有私人 Sites。
+
+### 桌面修正的驗證與發布
+
+- 新增測試在修正前確實失敗：1240×800、畫布 920px 時底列為 105px，且 panelToggle 雖把
+  ARIA 改為收起，面板仍可見、畫布仍只有 920px。修正只涉及活動 CSS，並保留手機展開入口，未改共用核心。
+- 修正後底列 57px；收起面板時畫布為 1240px、panel 無 client rect；重新展開恢復 920px。
+  來源／解壓 SCORM 的五尺寸 × edit/check/frozen/review 共 40 個桌面案例，全部互動斷言通過，
+  包含桌面收起→手機展開→回桌面、ARIA、44px targets、無重疊／溢出、答案及 durable 資料不變。
+- 既有 owner 全部 290 個摘要案例及 0 runtime exception 已產生於 `output/playwright/wire-match/evidence.json`。
+  但 runner 最後在 Chrome 結束的 2000ms 清理界線超時，實際 exit code 1；不能說整次 runner 一次通過。
+  後以 `output/desktop-controls/run.cjs` 精準執行相同新增案例，40 個互動斷言再次全過，
+  仍遇相同 Chrome 清理逾時。精準證據：`output/playwright/wire-match-desktop-controls/evidence.json`，
+  `source/package-desktop-edit-*.png`。沒有放寬互動斷言或修改 shared browser helper。
+- `check:tests`、browser owner syntax、diff／文件檢查、六包重建與來源逐 byte 核對通過。
+  本次未重跑全專案 Node／browser、真 Moodle 或實體手機，不宣稱完整 package-ready／Moodle-ready。
+- 39 個 Sites 靜態檔案與本分支來源逐 byte 核對；官方 helper 推送 source
+  `ed719354f6e1e30c8791a5d88d767921e6908fa2`。原生私人發布回傳 succeeded：version
+  `appgprj_6ae3d4154a488191b9f9fca18a8b4900~appgver_0163f6e05f548191be4fa61729acbc2c`，
+  deployment `appgdep_6ae457224ec08191b68014355dff68b4`。
+  網址：https://simlab-dc-wire-match.ieyp.chatgpt.site 。發布後未另跑線上 browser；網站仍 owner-private。
