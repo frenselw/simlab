@@ -651,3 +651,19 @@ Sites 是 standalone 練習，刷新全新開始；不代替 Moodle SCORM 成績
 取線／復原通知、固定元件非法移動 error 及答案不變：390／1280 source＋SCORM 四個摘要案例通過；另兩個 source／SCORM 原生觸控端點拖接＋undo 流程通過，實際「端點已接好」訊息仍由原核心產生，但無視覺浮層。0 runtime exception。Evidence：`output/wire-notices-browser.log`、`output/playwright/wire-match-notices/evidence.json`。`check:tests`／六包 `package:circuit-platform` 通過；SCORM 與來源 byte-match，Sites 38 runtime 檔 byte-match。未跑不相關的全套 regression，未測真 Moodle／真手機。
 一般提示修訂已維持 owner-private 發布：Sites source `7571e34ab4d225c2e3b2c44267b60824f2cd3138`；saved version `appgprj_6ae3d4154a488191b9f9fca18a8b4900~appgver_400c563045408191bd16fdfb132c4fa3`；deployment `appgdep_6ae427295cec819189d0a95c36677660` 回傳 succeeded。URL：https://simlab-dc-wire-match.ieyp.chatgpt.site 。
 `8cb17ca` → `b48eb78` committed selection preview 已執行，證據 `output/wire-notices-selection.json`；本次只跑提示／錯誤及原生接線的 focused 驗證，未執行所選全套 regression。
+
+## GPT-6 Astra xhigh 分支審核（2026-10-30）
+
+依使用者要求，由 GPT-6 Astra（xhigh）連續兩輪審核整個分支及必要 connected code。
+第一輪確認切題／Moodle 恢復時的空白 mount＋loadDocument，會把空白留為可 undo 的
+上一個步驟；undo 可清空已存答案並保存。清除此題也未建立本計劃要求的新歷史起點。
+
+修正只在活動 `main.js`：經 canonical codec/profile 驗證的答案直接作 editor 的
+`initialDocument`；清除此題後重新 mount，包含只有開關歷史的空線題。既有 browser owner
+補充來源／解壓套件 × 390／1280 的恢復、切題、undo/redo、取消／確認清除及重進斷言，
+新增測試在修正前實際失敗。沒有修改 circuit workbench 共同組件或 shared runtime。
+
+第二輪整個分支複審沒有新增 findings；reviewer 獨立驗證 160 組版本／佈局及固定權限。
+執行範圍、最終回歸證據與部署限制見[完整審核紀錄](../docs/reviews/2026-10-30-circuit-dc-wire-match-review.md)。
+審核完成時改動仍在 working tree，當時 HEAD 的 selection preview 不代表已包含這次修正；
+尚未重新發布 Sites，真 Moodle／實體手機 gate 保持未驗證。
