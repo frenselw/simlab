@@ -21,6 +21,7 @@ Environment: macOS, Node `24.8.0`, Chrome `156.0.8078.76`. This is not the CI ba
 |---|---|
 | `npm run check:tests` | Pass: 288 entries (248 Node, 40 browser), 48 helpers, 2 manual gates |
 | `npm run check` | JavaScript and manifest checks pass |
+| `npm run test:fast` | Pass: all 248 registered Node entries; `output/ci-tests/local-1793355795346-49461/report.json` |
 | `node tools/fullscreen-rollout-browser-regression.js` | Pass after the CSS fix: 128 source/package cases, no runtime errors; `output/playwright/fullscreen-rollout/report.json` |
 | `node tools/rocket-space-mission-browser-regression.js --camera-warp-repairs-only` | Pass after the fixture fix: 4 source/package flows at desktop/phone sizes, no runtime errors; `output/playwright/rocket-space-mission-lab/report.json` |
 | `node tools/circuit-wire-match-browser-regression.js` | Diagnostic baseline passes locally: 290 evidence entries across source/package, no runtime errors. The process started before the changes and built its ZIP before them; this is not post-fix coverage. `output/playwright/wire-match/evidence.json` |
@@ -29,8 +30,10 @@ Environment: macOS, Node `24.8.0`, Chrome `156.0.8078.76`. This is not the CI ba
 | `node sim/circuit-dc-wire-match/lifecycle.test.js` | Shared-runtime resume, submission/retry, review, legacy versions and geometry preservation pass |
 | `git diff --check` | Pass |
 
-The fullscreen runner rebuilt all SCORM ZIPs under `output/packages/` and checked source/package parity. The navigation runner rebuilt the final wire-match ZIP. Browser profiles, extracted packages and task-owned diagnostic downloads/logs are cleaned after verification. The compact original touch-failure record is retained at `output/reports/ci-browser-failure-2026-10-30.json`.
+The fullscreen runner rebuilt all SCORM ZIPs under `output/packages/` and checked source/package parity. The navigation runner rebuilt the final wire-match ZIP. Browser profiles, extracted packages and task-owned diagnostic downloads/logs are cleaned after verification. A supplemental macOS diagnostic using the exact Chrome `154.0.8037.92` download timed out at `Page.navigate` before either original-CSS or fixed-CSS assertions ran; it provides no navigation verdict. Its prerequisite failures are recorded at `output/reports/ci-chrome154-startup.json`. The compact original touch-failure record is retained at `output/reports/ci-browser-failure-2026-10-30.json`.
 
 ## Outstanding verification
 
-Committed selection preview and GitHub verification are recorded below after the implementation commit. Local checks do not establish real-phone or Moodle readiness, and the local diagnostic success does not clear the pinned CI navigation failure.
+Committed selection preview: `375540b646a34f6c7355b7592d0dc4649ac783fe` → `87568dd81e37e2dcf0dcf9d3416d0e6342222a4f`; full mode, 288 entries, all packages. Reason: no complete browser mapping for the activity stylesheet, so the existing selector conservatively selects full coverage. Evidence: `output/reports/ci-browser-fixes-selection.json`.
+
+[Draft PR #16](https://github.com/frenselw/simlab/pull/16) has started [GitHub verification](https://github.com/frenselw/simlab/actions/runs/41040584416) for the implementation commit. Its final result is pending; a later evidence-only commit does not change the tested runtime. Local checks do not establish real-phone or Moodle readiness, and the local diagnostic success does not clear the pinned CI navigation failure.
