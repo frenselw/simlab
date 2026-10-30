@@ -1541,3 +1541,10 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 - 已commit／push實作9ec138c4bab88a08d39b7ce3c533ede2b6b9860d。committed selection-preview output/rocket/selection-p40.json：6408c4a900f0bdb86bf06720cb6ef25fe118e63e→9ec138c、affected／242 entries，全部修改映射rocket活動／owning browser，僅選取預覽，非242項全跑。
 - Sites helper來源dab0af6a583bd170cd16b7cd497bd5cf200ab2c0及output/rocket/rocket-true-scale-p40.tar.gz已推送／打包。版本appgprj_6adc62579ab88191aba299bcb282ce95~appgver_2de7baa901348191bdd592554f1d0272，deployment appgdep_6adecf2c65808191bef301109632319a，native status=succeeded，2026-10-26 11:55:33 UTC+08。原網址https://simlab-rocket-space-missions.ieyp.chatgpt.site，保留owner-only audience。
 - p40-live-verification.json completed=true：修改的main.js／scene.js／scene-art.js、兩份HTML及build-info共6份線上核對一致；非HTML逐byte，HTML僅扣除平台注入script，僅跟隨同origin canonical index redirect。build-info.sourceCommit=9ec138c4bab88a08d39b7ce3c533ede2b6b9860d、packageSha256=c5b3e0a739233a370c2499e97bb40bde3b2c94ea8faeae8b49692212c91be2ed。未變素材沿用既有逐檔證據，未重驗全部475檔；本輪來源／ZIP仍驗完整manifest閉包。網址已交Codex頁籤（queued），本輪Chrome／server／helper／核對程序均結束，既有附件未動。
+
+
+## 2026-10-30 CI camera fixture correction
+
+The camera pad fixture now starts with zero flight-height history instead of inheriting an 80 km maximum. Production validation remains strict; scoring, schema 4, phase matrix, dependencies and SCORM behavior are unchanged. The existing registered browser owner adds `--camera-warp-repairs-only`; full default coverage is retained.
+
+Actual failing runs, test decisions, executed source/package evidence and verification limits are recorded in the [CI review](../docs/reviews/2026-10-30-ci-browser-failures.md).

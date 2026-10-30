@@ -7,14 +7,14 @@ h1{font-size:1.25rem;margin:0;white-space:nowrap}
 .header-controls,#navigation,.actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .header-controls{justify-content:flex-end;margin-left:auto;gap:10px}
 #navigation{gap:4px;flex-wrap:nowrap}
-#navigation button{min-width:44px;padding:0 8px}
+#navigation button{min-width:44px;padding:0 8px;touch-action:manipulation}
 #navigation [aria-pressed=true]{background:#eaf2ff;border-color:#2563eb}
 .actions button{padding:0 12px;white-space:nowrap}
 #check{color:#fff;background:var(--color-accent);border-color:var(--color-accent)}
 #technicalNotice{width:100%;margin:0}
 #editor{min-height:0;height:100%}
 #editor .workspace{height:100%;grid-template-columns:minmax(0,1fr) 320px}
-#editor .panel{overscroll-behavior:contain;display:flex;flex-direction:column}
+#editor .panel{display:flex;flex-direction:column}
 #editor .stage-bottom{grid-template-columns:minmax(0,1fr) auto auto;grid-template-rows:44px;gap:8px}
 #editor .stage-bottom .context-actions{grid-area:1/2}
 #editor .stage-bottom .camera-tools{grid-area:1/3;width:auto}
