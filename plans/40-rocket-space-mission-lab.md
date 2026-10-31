@@ -1578,3 +1578,5 @@ Failure evidence, test decisions and actual verification are recorded in the [CI
 - Linux 390×460 的HUD bottom=179.09375px、圖例top=179px，原嚴格分隔驗收揭露0.09375px重疊。short-height media最後規則恢復圖例3px垂直padding（被後面通用4px覆寫），省2px高度，保留字級／內容／bottom inset／camera controls與原嚴格斷言。既有styles.css依賴不變；補原source/package遙測五尺寸及layout十尺寸。物理、評分及SCORM不變。
 
 - 兩輪Linux directCamera首個1280×800滑鼠case均因headless未提供fine/hover而出現32px側邊條；啟動旗標固定Chromium桌面pointer/hover能力（沿官方Playwright launcher），觸控仍用native CDP override，逐case先嚴格驗fine/coarse能力後保留所有側邊條／handle／可信操作斷言。正式三組全維持source/package；不改產品pointer CSS。
+
+- 0e60d71 PR的flightEffects資源比較間歇出現42/16/108→43/17/114。診斷已本機重現：是既有relief BoxGeometry首次GPU可見；global細節固定4塊、pending0、無失敗。manual live snapshot漏running:false使scene在controller暫停時推進camera動畫。改等背景請求完成、明確四個snapshot均paused並驗controller/scene pause，保留原8輪／2warm-up／所有GPU精確不增長與答案不變斷言、不改production。帶160ms原生幀間隔的source/package診斷穩定42幾何/8材質/16program/108buffers；完整`--flight-effects-only` source/package六尺寸共12 flows已通過，errors=[]，報告`output/reports/ci-followup-flight-effects-paused.json`；仍以最後提交的完整CI為必要閘門。
