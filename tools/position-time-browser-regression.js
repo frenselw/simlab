@@ -77,7 +77,7 @@ async function clickControl(cdp, selector, context = 'window', touch = false) {
   const p = await controlPoint(cdp, selector, context);
   const inside = code => evaluate(cdp, `(${context}).eval(${JSON.stringify(code)})`);
   await inside(`(()=>{const e=document.querySelector(${JSON.stringify(selector)}),events=[];
-    const record=event=>events.push({type:event.type,trusted:event.isTrusted,pointer:event.pointerType,matched:event.composedPath().includes(e)});
+    const record=event=>{const entry={type:event.type,trusted:event.isTrusted,pointer:event.pointerType,matched:event.composedPath().includes(e),time:event.timeStamp,x:event.clientX,y:event.clientY,target:event.target?.id||event.target?.tagName};events.push(entry);Promise.resolve().then(()=>{entry.defaultPrevented=Boolean(event.defaultPrevented);});};
     for(const type of ['pointerdown','pointerup','click'])document.addEventListener(type,record,true);
     window.__simlabControlInput={selector:${JSON.stringify(selector)},point:${JSON.stringify(p)},events,
       cleanup(){for(const type of ['pointerdown','pointerup','click'])document.removeEventListener(type,record,true);}};})()`);

@@ -822,7 +822,7 @@ async function gestureZoom(base,label){
   await wait(()=>call('return window.__pinchNativeIds.length===2&&app.diagnostics().interaction.touchCount===2;'),'two native pinch presses');
   const initial=await camera();
   for(let i=1;i<=6;i++){const f=1+(factor-1)*i/6;await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:p([{x:c.x-40*f,y:c.y,id},{x:c.x+40*f,y:c.y,id:id2}])});await H.delay(12);}
-  await wait(()=>call(`return window.__pinchNativeIds.every((id,i)=>{const p=window.__pinchNativePoints[id];return p&&Math.abs(p.x-(${c.x}+(i?1:-1)*40*${factor}))<1&&Math.abs(p.y-${c.y})<1;});`),'final native pinch moves');const changed=await camera();
+  await wait(()=>call(`return window.__pinchNativeIds.every((id,i)=>{const p=window.__pinchNativePoints[id];return p&&Math.abs(p.x-(${c.x}+(i?1:-1)*40*${factor}))<.05&&Math.abs(p.y-${c.y})<.05;});`),'final native pinch moves');await call('return new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));');const changed=await camera();
   if(ending==='one'){
    await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:p([{x:c.x-40*factor,y:c.y,id}])});const fixed=await camera();
    await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:p([{x:c.x-40*factor+20,y:c.y+12,id}])});await H.delay(40);assert.deepEqual(await camera(),fixed,'Remaining finger cannot rotate');
