@@ -85,6 +85,10 @@ async function clickControl(cdp, selector, context = 'window', touch = false) {
   try {
     if (touch) {
       await cdp.send('Input.dispatchTouchEvent', {type:'touchStart',touchPoints:[{...p,id:1,radiusX:2,radiusY:2,force:1}]});
+      // CDP can acknowledge touchStart before the renderer dispatches pointerdown.
+      // Hold one physical tap across frames; a zero-duration pair can lose click.
+      await waitForCondition(() => inside('__simlabControlInput.events.some(e=>e.type==="pointerdown")'), 'Native touch press ' + selector, 1000);
+      await delay(50);
       await cdp.send('Input.dispatchTouchEvent', {type:'touchEnd',touchPoints:[]});
     } else {
       await cdp.send('Input.dispatchMouseEvent', {type:'mousePressed',...p,button:'left',buttons:1,clickCount:1});

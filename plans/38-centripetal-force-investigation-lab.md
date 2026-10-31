@@ -1202,3 +1202,10 @@ rv2保留所有rv1欄位，另在每個task加入inquiry兩格。第一格合法
 - 主工作目錄原未追蹤計劃檔已移至output/backups/centripetal-untracked-plan-before-main-20261023.md；移動前後SHA-256均為56ef4035bccfbaf65319222c3fb5a49c7ec09f62ef71b345c2981933b53e00e8。使用者附件保留。
 - SCORM ZIP SHA-256 baf76d6f1c95cb736aeffdc5e1dddfc3d3d2a6fa682d5dca3d53e081df403c46；17檔中16個runtime與canonical sim及Site dist逐位元組一致。官方Sites helper推送source 9b7918628149cd908fc7fce78f8a3a891295f6cf，原私人Site v31（version appgprj_6ad9b25e7b4c8191987acc391bcc66de~appgver_ebef3fc2fe6081919aa3e999fbfe2e4f，deployment appgdep_6adb728a6bdc8191a67cf274a44ec18a）於2026-10-23T14:43:30Z succeeded，audience不變；臨時憑證已清除。
 - 本輪未作真手機及真Moodle驗證；CI與本機瀏覽器證據不代表這兩項已驗證。
+
+
+## 2026-10-31 CI submitted-reading baseline
+
+Freeze measurement through the production analysis button before capturing the submitted-answer baseline. Compare the complete readings array after submission; learner sampling and assessment behavior are unchanged. Rubric, dependencies, saveable phases, authoritative snapshots and SCORM contracts remain unchanged.
+
+Failure evidence, test decisions and actual verification are recorded in the [CI follow-up](../docs/reviews/2026-10-31-ci-browser-followup.md).

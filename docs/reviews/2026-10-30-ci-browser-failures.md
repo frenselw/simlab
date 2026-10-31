@@ -37,3 +37,6 @@ The fullscreen runner rebuilt all SCORM ZIPs under `output/packages/` and checke
 Committed selection preview: `375540b646a34f6c7355b7592d0dc4649ac783fe` → `87568dd81e37e2dcf0dcf9d3416d0e6342222a4f`; full mode, 288 entries, all packages. Reason: no complete browser mapping for the activity stylesheet, so the existing selector conservatively selects full coverage. Evidence: `output/reports/ci-browser-fixes-selection.json`.
 
 [Draft PR #16](https://github.com/frenselw/simlab/pull/16) has started [GitHub verification](https://github.com/frenselw/simlab/actions/runs/41040584416) for the implementation commit. Its final result is pending; a later evidence-only commit does not change the tested runtime. Local checks do not establish real-phone or Moodle readiness, and the local diagnostic success does not clear the pinned CI navigation failure.
+
+
+Follow-up: the final PR/push runs failed after this historical local verification. The fullscreen and pad-fixture checks passed; navigation and additional browser checks still needed work. See the [2026-10-31 follow-up](2026-10-31-ci-browser-followup.md).

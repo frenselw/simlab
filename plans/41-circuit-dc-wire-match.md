@@ -793,3 +793,10 @@ deployment `appgdep_6ae44aca4f488191b7b8c2b4eea46e1e` 回傳 `succeeded`。
 Remove the redundant panel overscroll override, declare question-button touch manipulation, and wait for actual question/editor transitions in the existing browser owner. Rubric, revision 3 codec, dependency set, saveable phases and SCORM policy are unchanged.
 
 Actual failing runs, test decisions, executed source/package evidence and verification limits are recorded in the [CI review](../docs/reviews/2026-10-30-ci-browser-failures.md).
+
+
+## 2026-10-31 CI native touch delivery
+
+The prior navigation touch-action change did not clear the Linux failure. The shared trusted-input helper now waits for native pointerdown and holds one tap before release; down/up/click trust assertions, answer preservation and full default coverage remain required. Rubric, dependencies, saveable phases, authoritative snapshots and SCORM contracts remain unchanged.
+
+Failure evidence, test decisions and actual verification are recorded in the [CI follow-up](../docs/reviews/2026-10-31-ci-browser-followup.md).

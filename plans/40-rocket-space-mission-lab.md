@@ -1548,3 +1548,10 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 The camera pad fixture now starts with zero flight-height history instead of inheriting an 80 km maximum. Production validation remains strict; scoring, schema 4, phase matrix, dependencies and SCORM behavior are unchanged. The existing registered browser owner adds `--camera-warp-repairs-only`; full default coverage is retained.
 
 Actual failing runs, test decisions, executed source/package evidence and verification limits are recorded in the [CI review](../docs/reviews/2026-10-30-ci-browser-failures.md).
+
+
+## 2026-10-31 CI renderer-event and ground-color verification
+
+Synchronize pinch checks with delivered native input. Exclude clouds only from the controlled ground-albedo comparison while retaining production altitude screenshots, original color tolerances and geometry budgets. Rubric, dependencies, saveable phases, authoritative snapshots and SCORM contracts remain unchanged.
+
+Failure evidence, test decisions and actual verification are recorded in the [CI follow-up](../docs/reviews/2026-10-31-ci-browser-followup.md).
