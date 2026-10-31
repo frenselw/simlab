@@ -1570,3 +1570,11 @@ Failure evidence, test decisions and actual verification are recorded in the [CI
 - 沿用本次 CI 修復範圍；rubric、風險、phase/variant、snapshot 與所有 runtime 依賴不變。測試中的 single-stage 必須經 capsule + production launch 成為真正 pad；orbit benchmark 必須經既有 reachOrbit 成為真實軌道，不能以已移除 action 留在 workshop。新增既有 Node audit 的 round-trip／合法點火／940400m 續做。
 - host 原生 swipe 保留速度／路徑與所有 owner／單調／答案不變斷言，按 production guide 在 release 後 20/100/400/1000ms 觀察，避免仍有慣性時重設下一手勢；source/package 全 focused host matrix 通過。
 - 隨機 UUID 選第一張材質的負向 repaint 注入不可靠：攔截 canvas fillRect/putImageData 並確認故障確實執行，再驗 paused/faulty、答案不變與 retry。分離動畫逐 eligible foreground frame 核對 wall time 並等待實際完成，保留精確 0.6s 終值與 paused 不變；不以固定750ms 的 Node delay 代表已渲染。完整分組 CI 仍須在最後 commit 全部通過；詳見 [follow-up review](../docs/reviews/2026-10-31-ci-browser-followup.md)。
+
+- 最後 CI 再揭示20× HUD仍用固定Node delay讀取；失敗截圖只實際前進3.1s（20×下0.155s），尚未達production 0.5s報告窗。改等真實flight前進30s；20/100/1000× slow-frame亦等至少0.6s等效真實推進後讀值。保留180ms阻塞、倍率精度、DOM mutation／wall-time界限及正常GPU rendering，失敗增加實際觀察值；完整CI以後續最後head為準。
+
+- artPerformance 還保留已在P56刪除的正弦示意河道避樹公式；改驗當前P54/P56批准設計：255個finite樹位、≥350m發射淨空及river=false。保留idle GPU/target不變、48/96MiB材質預算與品質降級；noRiver仍獨立驗shader/視覺，不恢復已刪河道、不移除任何case。
+
+- Linux 390×460 的HUD bottom=179.09375px、圖例top=179px，原嚴格分隔驗收揭露0.09375px重疊。short-height media最後規則恢復圖例3px垂直padding（被後面通用4px覆寫），省2px高度，保留字級／內容／bottom inset／camera controls與原嚴格斷言。既有styles.css依賴不變；補原source/package遙測五尺寸及layout十尺寸。物理、評分及SCORM不變。
+
+- 兩輪Linux directCamera首個1280×800滑鼠case均因headless未提供fine/hover而出現32px側邊條；啟動旗標固定Chromium桌面pointer/hover能力（沿官方Playwright launcher），觸控仍用native CDP override，逐case先嚴格驗fine/coarse能力後保留所有側邊條／handle／可信操作斷言。正式三組全維持source/package；不改產品pointer CSS。
