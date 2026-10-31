@@ -25,3 +25,7 @@ const summary=planSummary(full);
 assert(summary.includes(full.hash)&&summary.includes(full.sha)&&summary.includes('Scope: full'));
 for(const job of full.jobs)assert(summary.includes('| '+job.key+' | '+job.expected.length+' |'));
 console.log('Immutable CI plans preserve all entries, package/static gates and duration-balanced browser limits.');
+
+assert(full.jobs.every(job=>job.estimatedSeconds===undefined||Number.isFinite(job.estimatedSeconds)),'every planned duration is finite');
+const future=distribute([{id:'future-group',kind:'browser',file:'tools/future-browser-regression.js',args:['--group=future']}],1);
+assert(Number.isFinite(future[0].seconds),'unknown groups retain a finite fallback instead of NaN');

@@ -1555,3 +1555,12 @@ Actual failing runs, test decisions, executed source/package evidence and verifi
 Synchronize pinch checks with delivered native input. Exclude clouds only from the controlled ground-albedo comparison while retaining production altitude screenshots, original color tolerances and geometry budgets. Rubric, dependencies, saveable phases, authoritative snapshots and SCORM contracts remain unchanged.
 
 Failure evidence, test decisions and actual verification are recorded in the [CI follow-up](../docs/reviews/2026-10-31-ci-browser-followup.md).
+
+
+## 2026-10-31 完整 browser owner 分組
+
+既有 49 個案例按原順序保留；正式 CI 改為 `--group=interaction`（18）、`--group=terrain`（17）、`--group=flight`（14），每組均執行來源與解壓 SCORM。無參數直接執行仍跑全部 49 個案例。新增 `tools/rocket-space-mission-browser-regression.test.js` 核對原有清單、互斥分組、完整聯集及非法選擇；所有分組和 Node 審計均在 `tools/test-registry.js` 正式登記，沒有移至手動閘門。
+
+249 Node／42 browser 共 291 entries 的 registry、分組審計、immutable plan 與有限預估時間檢查通過；三個 rocket 分組在預設計劃分到不同 browser worker。每組 1200 秒為保守排程預估，非虛構實測耗時。評分風險、rubric、依賴、phase／variant、權威 snapshot 與 SCORM 契約不變；fixture 補返回艙、重設極端相機、按寬高隔離測試存檔，以及 P54 已批准設施數的核對均只改測試。
+
+實際 committed selection 的 base/head、完整分組與套件選擇保存在 `output/reports/ci-followup-selection.json`；[CI follow-up](../docs/reviews/2026-10-31-ci-browser-followup.md)及 PR #16 記錄實測與未通過的本機限制。最終 GitHub 完整驗證仍是必要閘門。
