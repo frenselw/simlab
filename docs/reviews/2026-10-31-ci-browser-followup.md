@@ -12,6 +12,12 @@ Inspected both the [PR run](https://github.com/frenselw/simlab/actions/runs/4104
 
 No production physics, scoring, persistence, phase matrix, rubric, runtime dependencies or manifest contents change in this follow-up. Activity assessment decisions remain in their existing plans. No new formal test files or registrations are needed; all changes stay in registered owners. New focused switches retain source and extracted-package checks and do not narrow default CI coverage.
 
+## Stopped-drag calibration and local full-owner limits
+
+The project already documents that a stopped drag must pause before release, while a flick keeps velocity (production guide, Browser check tooling). The assessed-circuit driver applies a 100 ms pre-release pause specifically because an emulated fling can consume the next tap. Apply that existing calibration to wire-match's three manipulation drags; keep its explicit host scroll swipes unchanged. Reset touch emulation on a new wire-match fixture using the existing assessed-circuit loader pattern. Source/package `--navigation-only` passes all four cases with exact answer preservation (`output/reports/ci-followup-wire-navigation-calibrated.json`).
+
+A subsequent complete local rocket attempt passed its zoom matrix and failed a T1/factory panel trace: after a midpoint setup, scroll samples initially moved 427→426→424→421 before moving in the requested direction. Diagnostic stopped-scroll variants did not resolve this on macOS Chrome 156. Retain the original host gesture and monotonicity assertions, adding the viewport/phase/sample trace to failure messages. Do not claim a full local rocket pass; the final complete Ubuntu Chrome 154 owner must pass. No quick-flick deployment acceptance is removed or claimed by this CI task.
+
 ## Validation plan and evidence
 
 Local environment: macOS, Node 24.8.0, Chrome 156.0.8078.76. GitHub's Ubuntu / Node 22.23.3 / Chrome 154.0.8037.92 remains the authoritative CI environment.
