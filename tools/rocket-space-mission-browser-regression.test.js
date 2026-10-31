@@ -65,3 +65,13 @@ assert.deepEqual(grouped.slice().sort(),original.slice().sort(),'CI groups joint
 assert.equal(rocketCases.length,49);
 for(const args of [['--group'],['--group=unknown'],['--group=flight','--group=terrain'],['--group=flight','--smoke']])assert.throws(()=>selectCases(args));
 console.log('Rocket CI groups preserve all 49 original cases exactly once and reject ambiguous selections.');
+
+const T=require('../sim/rocket-space-mission-lab/test-support'),M=require('../sim/rocket-space-mission-lab/model'),P=require('../sim/rocket-space-mission-lab/parts'),D=require('../sim/rocket-space-mission-lab/persistence');
+for(const engine of [0,1]){
+ const pad=T.singlePad(engine);assert.equal(pad.phase,'pad');assert(P.complete(pad.craft));assert.equal(pad.flight.status,'pad');assert.equal(pad.flight.fuel[1],null);
+ const restored=D.decode(T.snapshot(pad),'draft');assert.deepEqual(restored,pad);assert.equal(M.change(restored,{type:'ignite'}).flight.controls.lit,true);
+}
+let ascent=M.change(T.singlePad(0,0,2),{type:'ignite'});
+for(let i=0;i<20000&&ascent.phase!=='ended'&&require('../sim/rocket-space-mission-lab/orbit').elements(ascent.flight.state).height<940400;i++)M.advance(ascent,.5);
+assert(require('../sim/rocket-space-mission-lab/orbit').elements(ascent.flight.state).height>=940400,'complete single-stage fixture reaches the required Earth-style altitude through production physics');
+console.log('Rocket single-stage fixtures round-trip, ignite legally and reach the real ascent checkpoint.');

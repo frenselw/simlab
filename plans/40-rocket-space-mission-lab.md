@@ -1564,3 +1564,9 @@ Failure evidence, test decisions and actual verification are recorded in the [CI
 249 Node／42 browser 共 291 entries 的 registry、分組審計、immutable plan 與有限預估時間檢查通過；三個 rocket 分組在預設計劃分到不同 browser worker。每組 1200 秒為保守排程預估，非虛構實測耗時。評分風險、rubric、依賴、phase／variant、權威 snapshot 與 SCORM 契約不變；fixture 補返回艙、重設極端相機、按寬高隔離測試存檔，以及 P54 已批准設施數的核對均只改測試。
 
 實際 committed selection 的 base/head、完整分組與套件選擇保存在 `output/reports/ci-followup-selection.json`；[CI follow-up](../docs/reviews/2026-10-31-ci-browser-followup.md)及 PR #16 記錄實測與未通過的本機限制。最終 GitHub 完整驗證仍是必要閘門。
+
+## 2026-10-31 grouped CI 後續故障注入與合法 fixture
+
+- 沿用本次 CI 修復範圍；rubric、風險、phase/variant、snapshot 與所有 runtime 依賴不變。測試中的 single-stage 必須經 capsule + production launch 成為真正 pad；orbit benchmark 必須經既有 reachOrbit 成為真實軌道，不能以已移除 action 留在 workshop。新增既有 Node audit 的 round-trip／合法點火／940400m 續做。
+- host 原生 swipe 保留速度／路徑與所有 owner／單調／答案不變斷言，按 production guide 在 release 後 20/100/400/1000ms 觀察，避免仍有慣性時重設下一手勢；source/package 全 focused host matrix 通過。
+- 隨機 UUID 選第一張材質的負向 repaint 注入不可靠：攔截 canvas fillRect/putImageData 並確認故障確實執行，再驗 paused/faulty、答案不變與 retry。分離動畫逐 eligible foreground frame 核對 wall time 並等待實際完成，保留精確 0.6s 終值與 paused 不變；不以固定750ms 的 Node delay 代表已渲染。完整分組 CI 仍須在最後 commit 全部通過；詳見 [follow-up review](../docs/reviews/2026-10-31-ci-browser-followup.md)。
