@@ -1541,3 +1541,42 @@ saveDraft在裝配完成動作、點火／關機／分級、暫停、node確認�
 - 已commit／push實作9ec138c4bab88a08d39b7ce3c533ede2b6b9860d。committed selection-preview output/rocket/selection-p40.json：6408c4a900f0bdb86bf06720cb6ef25fe118e63e→9ec138c、affected／242 entries，全部修改映射rocket活動／owning browser，僅選取預覽，非242項全跑。
 - Sites helper來源dab0af6a583bd170cd16b7cd497bd5cf200ab2c0及output/rocket/rocket-true-scale-p40.tar.gz已推送／打包。版本appgprj_6adc62579ab88191aba299bcb282ce95~appgver_2de7baa901348191bdd592554f1d0272，deployment appgdep_6adecf2c65808191bef301109632319a，native status=succeeded，2026-10-26 11:55:33 UTC+08。原網址https://simlab-rocket-space-missions.ieyp.chatgpt.site，保留owner-only audience。
 - p40-live-verification.json completed=true：修改的main.js／scene.js／scene-art.js、兩份HTML及build-info共6份線上核對一致；非HTML逐byte，HTML僅扣除平台注入script，僅跟隨同origin canonical index redirect。build-info.sourceCommit=9ec138c4bab88a08d39b7ce3c533ede2b6b9860d、packageSha256=c5b3e0a739233a370c2499e97bb40bde3b2c94ea8faeae8b49692212c91be2ed。未變素材沿用既有逐檔證據，未重驗全部475檔；本輪來源／ZIP仍驗完整manifest閉包。網址已交Codex頁籤（queued），本輪Chrome／server／helper／核對程序均結束，既有附件未動。
+
+
+## 2026-10-30 CI camera fixture correction
+
+The camera pad fixture now starts with zero flight-height history instead of inheriting an 80 km maximum. Production validation remains strict; scoring, schema 4, phase matrix, dependencies and SCORM behavior are unchanged. The existing registered browser owner adds `--camera-warp-repairs-only`; full default coverage is retained.
+
+Actual failing runs, test decisions, executed source/package evidence and verification limits are recorded in the [CI review](../docs/reviews/2026-10-30-ci-browser-failures.md).
+
+
+## 2026-10-31 CI renderer-event and ground-color verification
+
+Synchronize pinch checks with delivered native input. Exclude clouds only from the controlled ground-albedo comparison while retaining production altitude screenshots, original color tolerances and geometry budgets. Rubric, dependencies, saveable phases, authoritative snapshots and SCORM contracts remain unchanged.
+
+Failure evidence, test decisions and actual verification are recorded in the [CI follow-up](../docs/reviews/2026-10-31-ci-browser-followup.md).
+
+
+## 2026-10-31 完整 browser owner 分組
+
+既有 49 個案例按原順序保留；正式 CI 改為 `--group=interaction`（18）、`--group=terrain`（17）、`--group=flight`（14），每組均執行來源與解壓 SCORM。無參數直接執行仍跑全部 49 個案例。新增 `tools/rocket-space-mission-browser-regression.test.js` 核對原有清單、互斥分組、完整聯集及非法選擇；所有分組和 Node 審計均在 `tools/test-registry.js` 正式登記，沒有移至手動閘門。
+
+249 Node／42 browser 共 291 entries 的 registry、分組審計、immutable plan 與有限預估時間檢查通過；三個 rocket 分組在預設計劃分到不同 browser worker。每組 1200 秒為保守排程預估，非虛構實測耗時。評分風險、rubric、依賴、phase／variant、權威 snapshot 與 SCORM 契約不變；fixture 補返回艙、重設極端相機、按寬高隔離測試存檔，以及 P54 已批准設施數的核對均只改測試。
+
+實際 committed selection 的 base/head、完整分組與套件選擇保存在 `output/reports/ci-followup-selection.json`；[CI follow-up](../docs/reviews/2026-10-31-ci-browser-followup.md)及 PR #16 記錄實測與未通過的本機限制。最終 GitHub 完整驗證仍是必要閘門。
+
+## 2026-10-31 grouped CI 後續故障注入與合法 fixture
+
+- 沿用本次 CI 修復範圍；rubric、風險、phase/variant、snapshot 與所有 runtime 依賴不變。測試中的 single-stage 必須經 capsule + production launch 成為真正 pad；orbit benchmark 必須經既有 reachOrbit 成為真實軌道，不能以已移除 action 留在 workshop。新增既有 Node audit 的 round-trip／合法點火／940400m 續做。
+- host 原生 swipe 保留速度／路徑與所有 owner／單調／答案不變斷言，按 production guide 在 release 後 20/100/400/1000ms 觀察，避免仍有慣性時重設下一手勢；source/package 全 focused host matrix 通過。
+- 隨機 UUID 選第一張材質的負向 repaint 注入不可靠：攔截 canvas fillRect/putImageData 並確認故障確實執行，再驗 paused/faulty、答案不變與 retry。分離動畫逐 eligible foreground frame 核對 wall time 並等待實際完成，保留精確 0.6s 終值與 paused 不變；不以固定750ms 的 Node delay 代表已渲染。完整分組 CI 仍須在最後 commit 全部通過；詳見 [follow-up review](../docs/reviews/2026-10-31-ci-browser-followup.md)。
+
+- 最後 CI 再揭示20× HUD仍用固定Node delay讀取；失敗截圖只實際前進3.1s（20×下0.155s），尚未達production 0.5s報告窗。改等真實flight前進30s；20/100/1000× slow-frame亦等至少0.6s等效真實推進後讀值。保留180ms阻塞、倍率精度、DOM mutation／wall-time界限及正常GPU rendering，失敗增加實際觀察值；完整CI以後續最後head為準。
+
+- artPerformance 還保留已在P56刪除的正弦示意河道避樹公式；改驗當前P54/P56批准設計：255個finite樹位、≥350m發射淨空及river=false。保留idle GPU/target不變、48/96MiB材質預算與品質降級；noRiver仍獨立驗shader/視覺，不恢復已刪河道、不移除任何case。
+
+- Linux 390×460 的HUD bottom=179.09375px、圖例top=179px，原嚴格分隔驗收揭露0.09375px重疊。short-height media最後規則恢復圖例3px垂直padding（被後面通用4px覆寫），省2px高度，保留字級／內容／bottom inset／camera controls與原嚴格斷言。既有styles.css依賴不變；補原source/package遙測五尺寸及layout十尺寸。物理、評分及SCORM不變。
+
+- 兩輪Linux directCamera首個1280×800滑鼠case均因headless未提供fine/hover而出現32px側邊條；啟動旗標固定Chromium桌面pointer/hover能力（沿官方Playwright launcher），觸控仍用native CDP override，逐case先嚴格驗fine/coarse能力後保留所有側邊條／handle／可信操作斷言。正式三組全維持source/package；不改產品pointer CSS。
+
+- 0e60d71 PR的flightEffects資源比較間歇出現42/16/108→43/17/114。診斷已本機重現：是既有relief BoxGeometry首次GPU可見；global細節固定4塊、pending0、無失敗。manual live snapshot漏running:false使scene在controller暫停時推進camera動畫。改等背景請求完成、明確四個snapshot均paused並驗controller/scene pause，保留原8輪／2warm-up／所有GPU精確不增長與答案不變斷言、不改production。帶160ms原生幀間隔的source/package診斷穩定42幾何/8材質/16program/108buffers；完整`--flight-effects-only` source/package六尺寸共12 flows已通過，errors=[]，報告`output/reports/ci-followup-flight-effects-paused.json`；仍以最後提交的完整CI為必要閘門。

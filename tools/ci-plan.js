@@ -16,7 +16,8 @@ function planSummary(plan){
 }
 function estimatedSeconds(entry){
  const group=entry.args.find(a=>a.startsWith('--group='))?.slice(8);
- if(group)return {editing:1200,instruments:1200,interruptions:240,hosts:360}[group];
+ if(group&&entry.file.endsWith('rocket-space-mission-browser-regression.js'))return 1200;
+ if(group)return {editing:1200,instruments:1200,interruptions:240,hosts:360}[group]||240;
  if(entry.kind==='node')return 2;
  if(entry.file.includes('circuit-ac-browser'))return 900;
  if(entry.file.includes('circuit-assessed'))return 300;

@@ -142,8 +142,9 @@ function controlFixture(options = {}) {
     if(method==='Runtime.evaluate'){const value=await vm.runInContext(params.expression,scope);return {result:{value:value===undefined?undefined:JSON.parse(JSON.stringify(value))}};}
     inputs.push({method,...params});if(options.transportError)throw options.transportError;
     const pointer=method==='Input.dispatchTouchEvent'?'touch':'mouse';
-    if(['touchStart','mousePressed'].includes(params.type))fire('pointerdown',pointer);
-    else {fire('pointerup',pointer);if(!options.noClick)fire('click',pointer);}
+    if(params.type==='touchStart'&&options.delayedTouch){setTimeout(()=>{options.pressDelivered=true;fire('pointerdown',pointer);},20);}
+    else if(['touchStart','mousePressed'].includes(params.type))fire('pointerdown',pointer);
+    else {fire('pointerup',pointer);if(!options.noClick&&(!options.delayedTouch||options.pressDelivered))fire('click',pointer);}
     return {};
   }};
   return {cdp,inputs,listeners,window,get frames(){return frames;},get scrolls(){return scrolls;}};
@@ -154,6 +155,9 @@ for(const touch of [false,true]){
   assert.equal(fixture.scrolls,1);assert(fixture.frames>=5);assert.equal(fixture.listeners.size,0);
   assert(fixture.window.__simlabControlInput.events.every(e=>e.trusted&&e.matched));
 }
+const delayedTouch=controlFixture({delayedTouch:true});await clickControl(delayedTouch.cdp,'#control','window',true);
+assert.equal(delayedTouch.inputs.length,2,'renderer-delayed touch uses one genuine tap after pointerdown, without retries');
+assert.equal(delayedTouch.listeners.size,0);
 const movingFrame=controlFixture({frame:true});assert.deepEqual(await controlPoint(movingFrame.cdp,'#control'),{x:142,y:113});
 assert(movingFrame.frames>=5,'ancestor frame movement settles before coordinates are returned');
 for(const options of [{missing:true},{hidden:true},{disabled:true},{obscured:true},{frame:true,coveredFrame:true}]){

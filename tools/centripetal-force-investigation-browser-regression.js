@@ -615,18 +615,20 @@ async function directionalCapacity(cdp, base, launch, label) {
   await reSpin(cdp,-1);await pause(100);
   assert.ok(await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[2].runs[0].q.some(q=>q<0)'),'hand reversal adds negative points after positive quota fills');
   await push(cdp,48);await brake(cdp,8500);
+  // Freeze production sampling before taking the answer-preservation baseline.
+  await click(cdp,'#analyseView');
   const both=await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[2].runs[0].q');
   assert.ok(both.length>96,'recording continues beyond the old total quota');assert.ok(both.filter(q=>q<0).length>48,'negative direction is not capped');assert.ok(first.every(q=>both.includes(q)));
   assert.notEqual(await H.evaluate(cdp,"document.getElementById('measurementHint').dataset.status"),'full');
   assert.match(await H.evaluate(cdp,"document.getElementById('collectStatus').title"),/正 48／負/);
-  await click(cdp,'#analyseView');await click(cdp,'#fitButton');
+  await click(cdp,'#fitButton');
   assert.equal(await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[2].runs[0].fit'),true);
   await visibleFit(cdp);
   fs.writeFileSync(path.join(root,'output/playwright',`centripetal-${label}-96-points-390x600.png`),Buffer.from((await cdp.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
   await click(cdp,'#checkButton');await click(cdp,'#submitButton');
   const submitted=await H.evaluate(cdp,"({score:document.getElementById('scorePanel').textContent,notice:document.getElementById('notice').textContent,view:window.__centripetalApp.getState().view,disabled:document.getElementById('submitButton').disabled})");
   assert.ok(submitted.score.includes('/ 100'),'96-point submission is verified: '+JSON.stringify(submitted));
-  assert.equal(await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[2].runs[0].q.length'),both.length,'submission preserves every reading');
+  assert.deepEqual(await H.evaluate(cdp,'window.__centripetalApp.getState().tasks[2].runs[0].q'),both,'submission preserves every reading');
 }
 async function signedMeasurements(cdp, base, launch, label) {
   await cdp.send('Emulation.setDeviceMetricsOverride', {width:1280,height:800,deviceScaleFactor:1,mobile:false});
@@ -906,6 +908,14 @@ async function main() {
     const errors = []; cdp.on("Runtime.exceptionThrown", event => errors.push(event.exceptionDetails?.exception?.description || event.exceptionDetails?.text));
     server = H.createServer(root); await H.listenServer(server);
     const sourceBase = `http://127.0.0.1:${server.address().port}`;
+    if (process.argv.includes('--directional-capacity-only')) {
+      await directionalCapacity(cdp,sourceBase,`/sim/${slug}/index.html`,"source");
+      await H.closeServer(server);
+      const extracted=H.buildAndExtractPackage(tempRoot,{slug});packageDirectory=extracted.packageDirectory;
+      server=H.createServer(packageDirectory);await H.listenServer(server);
+      await directionalCapacity(cdp,`http://127.0.0.1:${server.address().port}`,extracted.activityPath,"package");
+      assert.deepEqual(errors,[]);console.log('Directional capacity source/package regression passed');return;
+    }
     await feedbackPresentation(cdp,sourceBase,`/sim/${slug}/index.html`,"source");
     await mobileSetup(cdp,sourceBase,`/sim/${slug}/index.html`,"source");
     await graphPresentation(cdp,sourceBase,`/sim/${slug}/index.html`,"source");

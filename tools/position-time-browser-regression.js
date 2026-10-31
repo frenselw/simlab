@@ -77,7 +77,7 @@ async function clickControl(cdp, selector, context = 'window', touch = false) {
   const p = await controlPoint(cdp, selector, context);
   const inside = code => evaluate(cdp, `(${context}).eval(${JSON.stringify(code)})`);
   await inside(`(()=>{const e=document.querySelector(${JSON.stringify(selector)}),events=[];
-    const record=event=>events.push({type:event.type,trusted:event.isTrusted,pointer:event.pointerType,matched:event.composedPath().includes(e)});
+    const record=event=>{const entry={type:event.type,trusted:event.isTrusted,pointer:event.pointerType,matched:event.composedPath().includes(e),time:event.timeStamp,x:event.clientX,y:event.clientY,target:event.target?.id||event.target?.tagName};events.push(entry);Promise.resolve().then(()=>{entry.defaultPrevented=Boolean(event.defaultPrevented);});};
     for(const type of ['pointerdown','pointerup','click'])document.addEventListener(type,record,true);
     window.__simlabControlInput={selector:${JSON.stringify(selector)},point:${JSON.stringify(p)},events,
       cleanup(){for(const type of ['pointerdown','pointerup','click'])document.removeEventListener(type,record,true);}};})()`);
@@ -85,6 +85,10 @@ async function clickControl(cdp, selector, context = 'window', touch = false) {
   try {
     if (touch) {
       await cdp.send('Input.dispatchTouchEvent', {type:'touchStart',touchPoints:[{...p,id:1,radiusX:2,radiusY:2,force:1}]});
+      // CDP can acknowledge touchStart before the renderer dispatches pointerdown.
+      // Hold one physical tap across frames; a zero-duration pair can lose click.
+      await waitForCondition(() => inside('__simlabControlInput.events.some(e=>e.type==="pointerdown")'), 'Native touch press ' + selector, 1000);
+      await delay(50);
       await cdp.send('Input.dispatchTouchEvent', {type:'touchEnd',touchPoints:[]});
     } else {
       await cdp.send('Input.dispatchMouseEvent', {type:'mousePressed',...p,button:'left',buttons:1,clickCount:1});
