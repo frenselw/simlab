@@ -274,3 +274,7 @@ shared scorm.js／activity-flow.js及全部startup／success／committed／froze
 實測：新分離測試4尺寸（1280×800、390×844、320×500、844×390）加原compactDeck七尺寸，來源及解壓SCORM共22 flows通過，errors=[]。實際前景0.6秒過渡、左右速度／質心、輕微翻轉、10秒仍存在、主體狀態不被分離修改，以及核心續飛時兩枚獨立接地／各emit一次均有斷言。桌面底部跨全寬；手機列高不超過80px、44px操作目標、倍率固定位置、面板滑動不改答案及核心分級位置保留通過。桌面及320／390截圖已目視。
 
 新活動8組Node、browser audit（保留原49＋新增兩case，共51）、check／check:tests（303 entries）通過。套件475 entries逐byte對來源、原活動hash保持一致；最後runtime／package SHA與22-flow報告在output/reports/rocket-booster-repair.json及output/playwright/rocket-side-booster-lab/report.json。無權威schema／rubric／原活動變更；全庫／完整51-case owner／真手機／Moodle未驗。
+
+修正commit dc4cb6fb53f33459fc930cdaf3849e2dc0a9d3e5；正式selection base 8e195c1115ae28b11f36454d376425106bd98033 → 該head，affected／單一rocket-side-booster-lab包／261 entries（258 Node＋三個owning browser group），記錄output/reports/rocket-booster-repair-selection.json；只代表選取，不代表261項已執行。
+
+已更新原私人Sites網址，權限不變。Site來源commit c46280e6fa31176e815f6765d8bb9901e5e81b62，deployment appgdep_6aecaf8c6f8881918d293c735e693f37，native succeeded（2026-11-06 00:32:21 UTC+08），version appgprj_6aeca66555b481919803e437687c4fa8~appgver_e115e3063c08819195fdf9d5a46657f0；output/reports/rocket-booster-repair-sites.json保存來源與package hash。網址交Codex panel開啟，未冒稱線上手動操作／真機驗收。
