@@ -277,4 +277,14 @@ shared scorm.js／activity-flow.js及全部startup／success／committed／froze
 
 修正commit dc4cb6fb53f33459fc930cdaf3849e2dc0a9d3e5；正式selection base 8e195c1115ae28b11f36454d376425106bd98033 → 該head，affected／單一rocket-side-booster-lab包／261 entries（258 Node＋三個owning browser group），記錄output/reports/rocket-booster-repair-selection.json；只代表選取，不代表261項已執行。
 
+## 14. 取消分離收縮與桌面底部列（2026-11-06）
+
+使用者再次回報先收縮再掉落，以及桌面全寬底部列佔位。上一節的助推器0.6秒尺度過渡及桌面底部跨欄配置由本節取代：有pair的跟隨近景從發射開始固定1m=.001單位，分離不再切換鏡頭距離／比例；主火箭與離體物在分離前後同尺度。全景保留原示意模型，核心下級原有分離過渡不變。兩枚左右推出、繼承速度及重力／阻力／接地沿用上一修正。
+
+桌面取消workspace底部跨欄，操作列回到右側controls-pane頂部；手機仍為一行44px動作及獨立倍率位置，不新增大列。仍附著助推器時隱藏暫不可用的核心分離掣，先讓玩家處理側推器。
+
+既有boosterRepair增驗分離前、分離後與多個啟動中的animation frame，主體scale／兩枚scale均不變，鏡頭差值低於1e-9場景單位且作答狀態不變；保留推出／旋轉／>8秒／接地測試。compactDeck改回桌面右側上方的幾何驗收，保留手機可達及單行檢查。物理／schema／rubric／manifest依賴不改，只本活動視覺、控制顯示及回歸。
+
 已更新原私人Sites網址，權限不變。Site來源commit c46280e6fa31176e815f6765d8bb9901e5e81b62，deployment appgdep_6aecaf8c6f8881918d293c735e693f37，native succeeded（2026-11-06 00:32:21 UTC+08），version appgprj_6aeca66555b481919803e437687c4fa8~appgver_e115e3063c08819195fdf9d5a46657f0；output/reports/rocket-booster-repair-sites.json保存來源與package hash。網址交Codex panel開啟，未冒稱線上手動操作／真機驗收。
+
+本輪實測：來源＋解壓SCORM共22 flows、errors=[]；其中8組noShrink（4尺寸×source/package）驗固定主體／助推器尺度及鏡頭穩定，另保留14個compactDeck觸控／分級流程。新活動8組Node＋browser audit、check／check:tests、文件連結與diff檢查通過；桌面分離前後截圖目視。最新package／runtime hash及原版隔離核對為output/reports/rocket-booster-no-shrink.json；未跑全庫／完整51case或真手機／Moodle。

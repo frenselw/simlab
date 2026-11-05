@@ -105,7 +105,7 @@
 .time-warp-menu button[aria-pressed=true]{background:#dcece4;border-color:var(--teal)}
 .time-warp-menu p{grid-column:1/-1;margin:2px 0 0;font-size:12px;line-height:1.4;color:var(--muted)}
 
-/* Full-width desktop deck; one 44px action row on every screen. */
+/* Controls stay at the top of their own panel, with one 44px action row. */
 .flight-deck{display:grid;grid-template-columns:minmax(0,1fr) 56px;grid-template-rows:20px 44px;gap:3px 6px;padding:3px 8px}
 .deck-readouts{display:contents}
 .deck-readouts>.orbit-strip{grid-column:1;grid-row:1;display:flex;gap:12px;line-height:20px;margin:0;font-size:11px}
@@ -114,4 +114,3 @@
 .deck-readouts #timeWarp{width:56px;min-width:44px;min-height:44px;padding:4px;border:1px solid #799e95;border-radius:7px;background:#fffefa;font-size:13px}
 .flight-deck .flight-actions{grid-column:1;grid-row:2;flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none;gap:4px;margin:0;min-width:0}
 .flight-deck .flight-actions>button{flex:0 0 auto;white-space:nowrap;min-height:44px;padding:5px 8px;font-size:13px}
-@media(min-width:960px){.workspace{grid-template-rows:minmax(0,1fr) auto}.controls-pane{display:contents}.controls-pane>.control-panel{grid-column:2;grid-row:1;border-left:1px solid var(--line)}.simulation-pane{grid-column:1;grid-row:1;min-height:0}.flight-deck{grid-column:1/-1;grid-row:2}}
