@@ -261,3 +261,16 @@ shared scorm.js／activity-flow.js及全部startup／success／committed／froze
 - Sites helper來源commit：`45f6cec0c4545a555d61c6977672b8745a0d8f2e`；474份runtime逐byte從已驗SCORM複製，根入口只加入相對base，build-info記錄SimLab commit及package hash。來源checkout保留於output/sites/rocket-side-booster，發布archive保留於output/sites/rocket-side-booster-deploy.tar.gz。
 - Native部署`appgdep_6aeca7a9d2308191a480e0a3771d1768`確認succeeded，2026-11-05 23:58:49 UTC+08；version=`appgprj_6aeca66555b481919803e437687c4fa8~appgver_071cc2bc64d88191a0c52335b38fe978`。詳見output/reports/rocket-side-booster-sites-deployment.json；網址已交Codex browser panel開啟。
 - 本輪沒有宣稱線上逐頁瀏覽／真手機／Moodle驗收或完整CI通過；發布成功由Sites native結果確認。
+
+## 13. 分離效果與操作列修正（2026-11-06，實作前決策）
+
+使用者要求助推器像下級分離般自然掉落，先向兩側推開、再滑行接地；桌面操作列不可意外換行，手機亦須減少固定佔高。只改本活動scene／styles／必要HTML定位及既有browser owner，原活動及權威飛行物理、rubric、schema5、manifest依賴不變。
+
+- 分離物以實際掛點／質心與主體速度初始化，左右對稱推出，加入輕微反向翻轉；沿用M.step的重力／阻力／地形接觸。移除8秒消失及每幀100子步造成的追時落差；以每次有界時間預算同步，無進度時停止迴圈，不延長主體模擬時間。
+- 跟隨近景沿用核心分離的0.6秒前景視覺過渡及1m=.001場景尺度；掉落位置與模型大小同尺度，禁止再用主火箭隨高度的放大比例乘物理位移。地面emit一次impact，重建／工廠／review清除所有離體物件；最多兩枚，不持續新增mesh。
+- 倍率按鈕移到軌道／時間讀數列，飛行動作固定一列；手機按鈕保留44px高，窄屏動作列可側滑，不換成多行。收短關機文案及清楚accessible label；不改倍率選項、油門或實際飛行狀態。
+- 沿用flight組expandedParts增驗分離0／.5／2／10秒的初始連續、左右外推、角度變化、位置／尺寸尺度及>8秒仍存在；低高度合法spent fixture續飛至落地，確認impact及無瞬移主體。source／extracted ZIP，桌面／320／390／短橫向，檢查deck高度、倍率列、44px目標／橫向可達及按鍵狀態。既有Node／check／registry與package閉包另驗，真機／Moodle不冒稱完成。
+
+實測：新分離測試4尺寸（1280×800、390×844、320×500、844×390）加原compactDeck七尺寸，來源及解壓SCORM共22 flows通過，errors=[]。實際前景0.6秒過渡、左右速度／質心、輕微翻轉、10秒仍存在、主體狀態不被分離修改，以及核心續飛時兩枚獨立接地／各emit一次均有斷言。桌面底部跨全寬；手機列高不超過80px、44px操作目標、倍率固定位置、面板滑動不改答案及核心分級位置保留通過。桌面及320／390截圖已目視。
+
+新活動8組Node、browser audit（保留原49＋新增兩case，共51）、check／check:tests（303 entries）通過。套件475 entries逐byte對來源、原活動hash保持一致；最後runtime／package SHA與22-flow報告在output/reports/rocket-booster-repair.json及output/playwright/rocket-side-booster-lab/report.json。無權威schema／rubric／原活動變更；全庫／完整51-case owner／真手機／Moodle未驗。

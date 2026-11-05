@@ -40,6 +40,7 @@ export class RocketScene{
   setZoom(value){if(Number.isFinite(value)){const next=Math.max(.4,Math.min(2.5,value));if(next!==this.zoom){this.zoom=next;this.cameraDirty=true;}}return this.zoom;}
   rotate(dx,dy,draw=true){this.yaw+=dx*.008;this.pitch=Math.max(-1.5,Math.min(1.5,this.pitch+dy*.006));this.cameraDirty=true;if(draw)this.draw();}
   clearSeparation(){if(this.separation){this.scene.remove(this.separation.body);dispose(this.separation.body);this.separation=null;}}
+  clearBoosterDrop(){if(this.boosterDrop){this.scene.remove(this.boosterDrop.body);dispose(this.boosterDrop.body);this.boosterDrop=null;}}
   setData(data){
     const previous=this.data?.flight,f=data.flight,craft=JSON.stringify(data.craft),key=JSON.stringify([data.craft,f?.separated]);
     if(!data.live||!this.data?.live||!f||f.t<(this.effectPose?.t||0)||craft!==this.effectCraft||previous?.source!==f.source){this.clearSeparation();this.effectPose=null;this.rcsUntil=0;}
@@ -55,11 +56,37 @@ export class RocketScene{
       }
       this.rocket=buildRocket(data.craft,Boolean(f?.separated));this.scene.add(this.rocket);this.craftKey=key;
     }
-    if(data.live&&f?.boosters?.status==='jettisoned'&&this.lastBoosterStatus==='spent'&&this.rocket){if(this.boosterDrop){this.scene.remove(this.boosterDrop.body);dispose(this.boosterDrop.body);}const body=new THREE.Group(),pieces=[];for(const side of [-1,1]){const piece=this.rocket.userData.boosters.clone(true);for(const child of [...piece.children])if(Math.sign(child.position.x)!==side)piece.remove(child);piece.traverse(o=>{if(o.isMesh){o.geometry=o.geometry.clone();o.material=o.material.clone();}});const coast=P.clone(f);coast.controls.lit=false;coast.boosters=null;coast.state[3]-=side*1.5*Math.sin(f.attitude);coast.state[4]+=side*1.5*Math.cos(f.attitude);body.add(piece);pieces.push({body:piece,coast});}this.scene.add(body);this.boosterDrop={body,pieces,start:f.t,attitude:f.attitude};}if(this.boosterDrop&&(!data.live||!f||f.t<this.boosterDrop.start||f.t-this.boosterDrop.start>8)){this.scene.remove(this.boosterDrop.body);dispose(this.boosterDrop.body);this.boosterDrop=null;}this.lastBoosterStatus=f?.boosters?.status;
+    if(this.boosterDrop&&(!data.live||!f||f.t<this.boosterDrop.start||craft!==this.effectCraft))this.clearBoosterDrop();
+    if(data.live&&f?.boosters?.status==='jettisoned'&&this.lastBoosterStatus==='spent'&&this.rocket){
+      this.clearBoosterDrop();const body=new THREE.Group(),pieces=[];
+      for(const side of [-1,1]){
+        const piece=this.rocket.userData.boosters.clone(true);for(const child of [...piece.children])if(Math.sign(child.position.x)!==side)piece.remove(child);
+        piece.traverse(o=>{if(o.isMesh){o.geometry=o.geometry.clone();o.material=o.material.clone();}});
+        const center=new THREE.Box3().setFromObject(piece).getCenter(new THREE.Vector3());for(const child of piece.children)child.position.sub(center);
+        const coast=P.clone(f),a=f.attitude;coast.controls.lit=false;coast.boosters=null;
+        coast.state[0]+=center.y*Math.cos(a)-center.x*Math.sin(a);coast.state[1]+=center.y*Math.sin(a)+center.x*Math.cos(a);
+        coast.state[3]+=-side*2*Math.sin(a)-.5*Math.cos(a);coast.state[4]+=side*2*Math.cos(a)-.5*Math.sin(a);
+        coast.maxHeight=Math.max(coast.maxHeight,O.elements(coast.state).height);
+        body.add(piece);pieces.push({body:piece,coast,center,side,impact:false});
+      }
+      this.scene.add(body);this.boosterDrop={body,pieces,start:f.t,attitude:f.attitude,visualAge:0};
+    }
+    this.lastBoosterStatus=f?.boosters?.status;
+
     this.data=data;this.effectCraft=craft;this.lastFlightStatus=f?.status;this.lastFlightTime=f?.t||0;this.draw();
   }
   drawEffects(f,space,theta){
-    if(this.boosterDrop&&f){const drop=this.boosterDrop,angle=space?0:theta;for(const piece of drop.pieces){for(let i=0;i<100&&piece.coast.t<f.t-1e-8&&piece.coast.status==='flying';i++)M.step(piece.coast,Math.min(.1,f.t-piece.coast.t),{mass:P.BOOSTER.dry});const dx=piece.coast.state[0]-f.state[0],dy=piece.coast.state[1]-f.state[1],offset=new THREE.Vector3(dy*Math.cos(angle)-dx*Math.sin(angle),dx*Math.cos(angle)+dy*Math.sin(angle),0);piece.body.position.copy(this.rocket.position).addScaledVector(offset,this.rocket.scale.y);piece.body.scale.copy(this.rocket.scale);piece.body.rotation.z=angle-drop.attitude;piece.body.visible=piece.coast.status==='flying';}}
+    if(this.boosterDrop&&f){
+      const drop=this.boosterDrop,angle=space?0:theta,units=space?3/P.R:.001,blend=THREE.MathUtils.smoothstep(drop.visualAge,0,.6),scale=THREE.MathUtils.lerp(this.rocket.scale.y,units,blend);
+      for(const piece of drop.pieces){
+        const started=performance.now();while(piece.coast.t<f.t-1e-8&&piece.coast.status==='flying'&&performance.now()-started<4){const t=piece.coast.t;M.step(piece.coast,Math.min(O.elements(piece.coast.state).height<120000?.1:2,f.t-t),{mass:P.BOOSTER.dry});if(piece.coast.t<=t)break;}
+        const dx=piece.coast.state[0]-f.state[0],dy=piece.coast.state[1]-f.state[1],offset=new THREE.Vector3(dy*Math.cos(angle)-dx*Math.sin(angle),dx*Math.cos(angle)+dy*Math.sin(angle),0);
+        piece.body.position.copy(this.rocket.position).addScaledVector(offset,scale);piece.body.scale.setScalar(scale);
+        const age=piece.coast.t-drop.start;piece.body.rotation.z=angle-drop.attitude+piece.side*.16*age;
+        piece.body.visible=piece.coast.status==='flying';
+        if(piece.coast.status==='impact'&&!piece.impact){piece.impact=true;this.impacts.emit(piece.coast.state,piece.coast.t,Math.max(.006,scale*6.6));}
+      }
+    }
 
     const pose=this.effectPose,dt=f&&pose?f.t-pose.t:0,turn=f&&pose?Math.atan2(Math.sin(f.attitude-pose.attitude),Math.cos(f.attitude-pose.attitude)):0;
     if(dt>0){
@@ -88,7 +115,7 @@ export class RocketScene{
     const agl=f?S.clearance(f.state,f.t):0,altitude=f?Math.max(0,O.elements(f.state).height):0,theta=f?Math.atan2(f.state[1],f.state[0]):0;
     this.earth.geometry=f&&!space&&altitude<120000?this.earth.userData.nearGeometry:this.earth.userData.farGeometry;
     const drop=this.separation;if(drop&&f)for(let i=0;i<20000&&drop.coast.t<f.t-1e-8&&!['impact','escaped'].includes(drop.coast.status);i++)M.step(drop.coast,Math.min(O.elements(drop.coast.state).height<120000?.1:2,f.t-drop.coast.t),{mass:drop.mass});
-    const separation=this.separation,blend=separation?THREE.MathUtils.smoothstep(separation.visualAge,0,.6):1,displayHeight=separation?THREE.MathUtils.lerp(separation.height,height,blend):height;
+    const separation=this.separation,scaleTransition=separation||this.boosterDrop,blend=scaleTransition?THREE.MathUtils.smoothstep(scaleTransition.visualAge,0,.6):1,displayHeight=separation?THREE.MathUtils.lerp(separation.height,height,blend):height;
     const localOpacity=(1-THREE.MathUtils.smoothstep(altitude,20000,60000))*(1-THREE.MathUtils.smoothstep(Math.abs(theta)*P.R,300000,600000)),local=Boolean(f&&!space&&localOpacity>0);
     this.environmentOpacity=localOpacity;this.planetOpacity.value=space?1:1-localOpacity;
     this.studio.visible=factory||local;this.landscape.visible=local;this.earth.visible=space||Boolean(f&&!factory);this.clouds.visible=this.halo.visible=this.earth.visible&&this.planetOpacity.value>0;Object.values(this.lines).forEach(l=>l.visible=space);
@@ -105,7 +132,7 @@ export class RocketScene{
       const r=Math.hypot(f.state[0],f.state[1]);this.earth.position.set(0,-r/1000,0);this.earth.scale.setScalar((P.R-5)/1000);this.halo.position.copy(this.earth.position);this.halo.scale.setScalar((P.R+80000)/1000);
       distance=Math.max(.035,displayHeight*(this.host.clientHeight<240?.007:.0038),Math.max(0,agl)/1000*3+.035);
       // Keep the upper stage framing independent of the falling stage's distance.
-      if(f.separated){const close=Math.max(.035,displayHeight*.0038);distance*=Math.pow(Math.min(1,close/distance),blend);}
+      if(f.separated||f.boosters?.status==='jettisoned'){const close=Math.max(.035,displayHeight*.0038);distance*=Math.pow(Math.min(1,close/distance),blend);}
       this.rocket.scale.setScalar(Math.max(.001,distance*.16/displayHeight));this.rocket.position.set(0,0,0);this.rocket.rotation.z=theta-f.attitude;
       for(const environment of [this.studio,this.landscape,this.relief]){environment.scale.setScalar(.001);environment.position.set(-P.R*Math.sin(theta)/1000,(P.R*Math.cos(theta)-r)/1000,0);environment.rotation.z=theta;}
     }
@@ -162,7 +189,7 @@ export class RocketScene{
     this.launchEffects.update(this.camera);
     try{this.renderer.render(this.scene,this.camera);this.renderCount++;}catch(_){this.lost=true;this.onFault('render');}
   }
-  animateEffects(now){const elapsed=this.effectClock?Math.max(0,(now-this.effectClock)/1000):0,delta=Math.min(.05,elapsed);this.effectClock=now;if(this.lost||document.hidden||!this.data?.live||(this.data.running===false&&this.data.flight?.status!=='impact'))return false;const separating=this.separation&&this.data.running!==false&&this.separation.visualAge<.6;if(separating)this.separation.visualAge=Math.min(.6,this.separation.visualAge+elapsed);const releasing=this.launchStarted&&this.launchArmAge<(this.reducedMotion?.25:1.1);if(releasing)this.launchArmAge+=delta;const vapour=this.launchEffects.advance(delta);if(this.impacts.advance(delta)||separating||releasing||vapour){this.draw();return true;}return false;}
+  animateEffects(now){const elapsed=this.effectClock?Math.max(0,(now-this.effectClock)/1000):0,delta=Math.min(.05,elapsed);this.effectClock=now;if(this.lost||document.hidden||!this.data?.live||(this.data.running===false&&this.data.flight?.status!=='impact'))return false;const transition=this.separation||this.boosterDrop,separating=transition&&this.data.running!==false&&transition.visualAge<.6;if(separating)transition.visualAge=Math.min(.6,transition.visualAge+elapsed);const releasing=this.launchStarted&&this.launchArmAge<(this.reducedMotion?.25:1.1);if(releasing)this.launchArmAge+=delta;const vapour=this.launchEffects.advance(delta);if(this.impacts.advance(delta)||separating||releasing||vapour){this.draw();return true;}return false;}
   project(position){const p=position.clone().project(this.camera);const r=this.host.getBoundingClientRect();return {x:(p.x+1)*r.width/2,y:(1-p.y)*r.height/2,visible:p.z>=-1&&p.z<=1&&Math.abs(p.x)<.98&&Math.abs(p.y)<.98};}
   slotPoints(part=null,source=null){
     if(!this.rocket)return [];this.rocket.updateMatrixWorld();const engine=part?.startsWith('engine-'),tank=['small','medium','large'].includes(part);
