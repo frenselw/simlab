@@ -253,3 +253,11 @@ shared scorm.js／activity-flow.js及全部startup／success／committed／froze
 - 最後browser證據：output/playwright/rocket-side-booster-lab/report.json；桌面／手機裝配與固體燃燒截圖目視。475份ZIP entries逐byte等於來源並核對依賴，完整hash／檔案大小／舊版隔離記錄在output/reports/rocket-side-booster-expansion.json；正式ZIP為output/packages/rocket-side-booster-lab-scorm.zip，已更新為本次功能。
 - 原活動477檔、manifest、browser owner／audit及原plan全部對複製前SHA-256保持一致。本輪沒有部署Moodle／Sites或commit／push，沒有正式committed selection。全50-case owner、完整T0–T3／新target可信手勢、200% zoom／真手機／iPad／Moodle、全庫npm test／package:all／GitHub CI均未完成，尚不宣稱完整package-ready或Moodle-ready。
 - 只保留正式ZIP、必要報告及browser證據；本輪scratch scripts清除。前次未擴充clone報告屬歷史，不能用其舊ZIP hash驗本次套件。
+
+## 12. 提交及Sites發布（2026-11-05）
+
+- 實作commit：`6d2a9452cce5b397b62a67214c8e951e1052984c`。正式committed selection以base `28e57a93330d3aa248d2a55886a8a952084d9272` → 該head執行，full／packages=all／303 entries；記錄output/reports/rocket-side-booster-committed-selection.json。這是選取預覽，不是全庫或GitHub CI已跑。
+- 新建獨立owner-private Sites：[火箭工廠：側助推器實驗版](https://simlab-rocket-side-booster.ieyp.chatgpt.site)。project_id=`appgprj_6aeca66555b481919803e437687c4fa8`；保留原活動／原Sites，沒有改觀眾權限。
+- Sites helper來源commit：`45f6cec0c4545a555d61c6977672b8745a0d8f2e`；474份runtime逐byte從已驗SCORM複製，根入口只加入相對base，build-info記錄SimLab commit及package hash。來源checkout保留於output/sites/rocket-side-booster，發布archive保留於output/sites/rocket-side-booster-deploy.tar.gz。
+- Native部署`appgdep_6aeca7a9d2308191a480e0a3771d1768`確認succeeded，2026-11-05 23:58:49 UTC+08；version=`appgprj_6aeca66555b481919803e437687c4fa8~appgver_071cc2bc64d88191a0c52335b38fe978`。詳見output/reports/rocket-side-booster-sites-deployment.json；網址已交Codex browser panel開啟。
+- 本輪沒有宣稱線上逐頁瀏覽／真手機／Moodle驗收或完整CI通過；發布成功由Sites native結果確認。
