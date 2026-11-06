@@ -66,11 +66,12 @@ function syncSound(){
   const pieces=f&&scene?.boosterDrop?.pieces.map((p,i)=>{const distance=Math.hypot(...p.coast.state.slice(0,3).map((v,j)=>v-f.state[j]));let pan=0;if(sound.enabled&&live&&controller.running){const x=scene.project(p.body.position).x,center=scene.project(scene.rocket.position).x;pan=Math.max(-.95,Math.min(.95,(x-center)/Math.max(1,d.stage.clientWidth*.3)));}return {id:p.coast.start+':'+i,coast:p.coast,distance,pan};})||[];
   sound.update({flight:f,live,running:controller.running,workshop:controller.state?.phase==='workshop',pieces});
 }
-function soundUI(){const on=sound.enabled&&sound.volume>0,label=on?'音效已開啟，音量 '+Math.round(sound.volume*100)+'%；音量設定':'開啟音效與音量設定';d.soundButton.dataset.enabled=String(on);d.soundButton.setAttribute('aria-label',label);d.soundButton.title=label;d.soundMute.textContent=sound.enabled?'靜音':'開啟音效';d.soundNotice.hidden=!sound.failed;d.soundVolumeValue.textContent=Math.round(sound.volume*100)+'%';}
+function soundUI(){const on=sound.enabled&&sound.volume>0,label=on?'音效已開啟，音量 '+Math.round(sound.volume*100)+'%；音量設定':'開啟音效與音量設定';d.soundButton.dataset.enabled=String(on);d.soundButton.setAttribute('aria-label',label);d.soundButton.title=label;d.soundMute.textContent=sound.enabled?'靜音':'開啟音效';d.soundNotice.hidden=!sound.failed;d.soundVolumeValue.textContent=Math.round(sound.volume*100)+'%';d.spaceMusic.textContent='太空音樂：'+(sound.musicEnabled?'開':'關');d.spaceMusic.setAttribute('aria-pressed',String(sound.musicEnabled));}
 function closeSound(focus=false){d.soundMenu.hidden=true;d.soundButton.setAttribute('aria-expanded','false');if(focus)d.soundButton.focus({preventScroll:true});}
 function openSound(){d.soundMenu.hidden=false;d.soundButton.setAttribute('aria-expanded','true');const r=d.soundButton.getBoundingClientRect(),menu=d.soundMenu.getBoundingClientRect();d.soundMenu.style.left=Math.max(8,Math.min(innerWidth-menu.width-8,r.right-menu.width))+'px';d.soundMenu.style.top=Math.min(innerHeight-menu.height-8,r.bottom+4)+'px';}
 d.soundButton.addEventListener('click',async()=>{if(!d.soundMenu.hidden){closeSound();return;}if(!sound.enabled)await sound.enable();soundUI();syncSound();openSound();});
 d.soundMute.addEventListener('click',async()=>{if(sound.enabled)sound.disable();else await sound.enable();soundUI();syncSound();});
+d.spaceMusic.addEventListener('click',()=>{sound.setMusicEnabled(!sound.musicEnabled);soundUI();});
 d.soundVolume.addEventListener('input',()=>{sound.setVolume(Number(d.soundVolume.value)/100);soundUI();});
 for(const event of ['pointerdown','keydown'])document.addEventListener(event,e=>{if(e.isTrusted&&sound.enabled)sound.wake();},true);
 document.addEventListener('pointerdown',e=>{if(!d.soundControl.contains(e.target))closeSound();});

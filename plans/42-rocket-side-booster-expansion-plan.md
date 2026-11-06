@@ -371,3 +371,21 @@ Parent實際把兩個反例先加測試，舊碼分別失敗pad!=flying／ignite
 修正commit 1e9c51a14919e3a0bdbd61b220175e9fe236e618；正式committed selection base 3e410ad33f4eb934da44f54ba1dd4850d29903a3 → 該head為affected／單一rocket-side-booster-lab包／262 entries，output/reports/rocket-review-selection.json僅是選取而非全套實跑。最終runtime 1733c3d4137fe97faffab1f58e2449da702d6e0960e7c0822d8c0e91ce4aedc9；476-entry ZIP SHA256 d967d2f3670ebbe112b76ed10a4aac938855dab1b57d0868fb53470916322a1e，481個原版檔案不變。
 
 審查修正版已發布原私人Sites，權限不變。Site來源9e5cb20a04620cb51859d4a97c20679a3b489872；deployment appgdep_6aeddbf80e188191aa227d65e51d3b19於2026-11-06 21:54:07 UTC+08 native succeeded。發布證據output/reports/rocket-review-sites.json，預覽panel已排隊開啟；未宣稱真機／線上手動或Moodle驗收。
+
+## 20. 太空靜音與入軌配樂（2026-11-06，實作前決定）
+
+使用者明確要求按上一輪設計實施、commit並更新原私人Sites。此節取代第18節的真空仍保留機體轟鳴設定：飛行連續音與點火／關機／分離等實體短音，80–100 km按平滑高度曲線收細；海拔>=100 km為零。工廠接合聲仍保留；物理、火焰、scoring及所有權威snapshot保持schema6／model4不變，舊活動不改。
+
+配樂採本地原創合成，沒有外部音檔、版權素材或新依賴：緩慢空靈和弦、少量泛音與短延遲空間感。兩組四音聲源輪流作長交叉淡入，每18個真實秒換和弦；固定最多8個音樂oscillator，首次需要時才建立並重用，不按幀新增聲源。混入現有壓縮／限幅／總音量。現有7個飛行聲源與已修復的過期點火取消機制保留。
+
+入軌條件沿用O.safe：飛行中、近地點>=150 km、主引擎關閉且無附著燃燒固體，連續3個真實秒後確認。高度／候選判斷可在靜音時追蹤，音樂必須全域開聲且「太空音樂」已開才發聲。確認後初次6–8秒淡入，重新點火只把配樂壓至25%，關機回復，不重播；軌道仍bound且高度>=100 km可繼續，跌回100 km以下／逃逸／撞毀則約2秒淡出，低空飛行聲隨高度恢復。新試飛重置配樂；暫停／背景／check／review／pending沿用快速淡出與context suspend，保留樂段位置供同一次飛行繼續，未確認的3秒候選計時暫停即取消。倍速不改音樂節奏／音調。
+
+現有音量浮層只加44px「太空音樂：開／關」切換；預設開（但全域仍預設靜音），總音量／靜音一併控制所有聲音。音樂偏好及音樂播放狀態只存當頁記憶體，不寫LMS或localStorage。修改audio.js／audio.test.js、main.js、index.html及必要局部styles，沿用manifest依賴；browser owner新增spaceMusic歸flight，inventory audit更新55 cases，無新test入口，registry仍304 entries。
+
+必要驗證：79／80／90／99.9／100／120 km連續聲與短音靜音、再入恢復；直上越100 km不當成入軌，安全軌道關機3秒真實時間確認、倍速無影響、點火壓低／關機回復不重設、退出／新試飛／暫停／mute／背景／review的取消或保留；音樂開關及有限聲源、答案完全不變。Node使用可控真實時鐘，browser以實際Web Audio渲染比對高空靜音與入軌配樂非零訊號、限幅／立體聲，source及解壓SCORM皆測桌面與手機trusted touch。跑九組活動Node、browser audit、check／check:tests、manifest逐byte閉包及原版hash。保留正式ZIP／報告、commit selection，成功發布才記錄；真機／Moodle／喇叭聆聽校準未做不得聲稱通過。
+
+本輪實測：九組Node、browser audit（55 cases保留既有54）、check／check:tests（304 entries）通過。space-music-only在source及extracted SCORM共10 flows：4條新spaceMusic（桌面原生滑鼠／手機trusted touch）、4條既有音效（含延後resume取消及背景）、2條完整lifecycle。實測安全軌道持續3秒後入樂、1000×不改音樂時間／音調、點火壓低與關機恢復、check／返回／暫停保持樂段、音樂獨立開關不改答案、再入／新試飛重置、成果仍100分及review靜音。
+
+16次新OfflineAudioContext渲染（80／90／100km／安全軌道各4次）中100km RMS精確0，90km比80km更輕，配樂RMS約0.0475、峰值約0.127（100%音量），低於同測試80km主引擎RMS約0.086–0.088，且固定8個音樂oscillators不累增；延遲與柔和和弦皆為原創本地合成。手機音量浮層／太空音樂開關截圖已目視；context suspend以實際完成狀態等待，避免把非同步暫停誤判為固定150ms已完成。
+
+原版481個檔案hash不變；runtime／manifest／正式476-entry ZIP逐byte閉包核對，套件output/packages/rocket-side-booster-lab-scorm.zip。最後來源commit、hash與證據分別output/reports/rocket-space-music.json及rocket-space-music-browser.json。未跑全庫／完整55-case owner／真手機／真Moodle／實際喇叭試聽校準，不能當成完整裝置驗收。
