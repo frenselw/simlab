@@ -11,7 +11,7 @@
     return voices;
   }
   class Sound{
-    constructor(){this.enabled=false;this.volume=.3;this.context=null;this.pending=null;this.failed=false;this.effects=new Set();this.cues={};this.last=null;this.pieces=new Map();this.hold=0;this.masterTarget=0;this.targets=Array.from({length:7},silent);}
+    constructor(){this.ignition=0;this.enabled=false;this.volume=.3;this.context=null;this.pending=null;this.failed=false;this.effects=new Set();this.cues={};this.last=null;this.pieces=new Map();this.hold=0;this.masterTarget=0;this.targets=Array.from({length:7},silent);}
     createGraph(context){
       this.context=context;const c=context;this.noise=c.createBuffer(1,c.sampleRate*2,c.sampleRate);const data=this.noise.getChannelData(0);for(let i=0;i<data.length;i++)data[i]=Math.random()*2-1;
       this.bus=c.createDynamicsCompressor();for(const [k,v]of Object.entries({threshold:-18,knee:18,ratio:8,attack:.005,release:.12}))this.bus[k].value=v;
@@ -25,7 +25,7 @@
     wake(){if(!this.enabled||!this.context)return Promise.resolve(false);clearTimeout(this.suspendTimer);this.suspendTimer=null;try{return this.context.resume().then(()=>true).catch(()=>{this.enabled=false;this.failed=true;this.silence();return false;});}catch(_){this.enabled=false;this.failed=true;return Promise.resolve(false);}}
     ramp(param,value,tau=.06){const t=this.context.currentTime;param.cancelScheduledValues(t);param.setTargetAtTime(value,t,tau);}
     setVolume(value){if(Number.isFinite(value))this.volume=clamp(value);if(this.input)this.update(this.input);}
-    disable(){this.enabled=false;this.hold=0;this.silence();}
+    disable(){this.ignition++;this.enabled=false;this.hold=0;this.silence();}
     silence(){
       if(!this.context||!this.master)return;this.masterTarget=0;this.ramp(this.master.gain,0,.012);this.clearEffects();clearTimeout(this.suspendTimer);this.suspendTimer=setTimeout(()=>{this.suspendTimer=null;try{this.context.suspend().catch(()=>{});}catch(_){}},70);
     }
@@ -39,12 +39,12 @@
     }
     action(action,before,after){
       if(before.phase==='workshop'&&JSON.stringify(before.craft)!==JSON.stringify(after.craft)){this.cue('snap');return;}
-      if(action.type==='ignite')this.wake().then(ok=>{if(ok&&this.enabled&&this.input?.live&&this.input.running)this.cue('ignite');});
+      if(action.type==='ignite'){const ignition=++this.ignition;this.wake().then(ok=>{if(ok&&ignition===this.ignition&&this.enabled&&this.input?.live&&this.input.running)this.cue('ignite');});}
       if(action.type==='stop'&&before.flight?.controls.lit&&before.flight.controls.throttle>0)this.cue('cutoff');
       if(['separate','jettison'].includes(action.type))this.cue('separate');
     }
     update(input){
-      this.input=input;const {flight:f,pieces=[],live,running,workshop}=input,previous=this.last,newImpact=Boolean(live&&previous?.live&&previous.running&&f&&f.t>previous.t&&previous.status==='flying'&&f.status==='impact');
+      this.input=input;const {flight:f,pieces=[],live,running,workshop}=input;if(!this.enabled||!live||!running||!f?.controls.lit)this.ignition++;const previous=this.last,newImpact=Boolean(live&&previous?.live&&previous.running&&f&&f.t>previous.t&&previous.status==='flying'&&f.status==='impact');
       if(!f||previous&&f.t<previous.t)this.pieces.clear();
       if(live&&previous?.live&&f&&f.t>previous.t&&previous.lit&&!f.controls.lit&&f.fuel[f.active]===0)this.cue('cutoff');
       if(newImpact&&this.enabled){this.hold=this.context.currentTime+.8;this.cue('impact',0,clamp(Math.hypot(...f.state.slice(3,6))/150,.25,1),true);}

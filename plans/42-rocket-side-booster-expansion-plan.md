@@ -353,3 +353,17 @@ shared scorm.js／activity-flow.js及全部startup／success／committed／froze
 實作commit 9a6603edf50cc1c3f91069247a4dbc97c83be979；正式committed selection base c4a73bccd4367b222ba597ee5a95099d9ef87b45 → 該head，因registry新增測試而為full／all packages／304 entries。output/reports/rocket-audio-selection.json僅是選取證據，非全庫實跑。最終runtime d798ba2e11bb44e34f742882a9be4daaf43e4b3f676a185171b19d5915fc14dd；476-entry ZIP SHA256 51c3794388c0f8a4b965e06283fce6463a14025b5a10740fbe42180426bbdb4b。
 
 原私人Sites音效版發布成功，Site來源413a6fce6259f6c0e64b15f23859c4c675cf053d，deployment appgdep_6aedd399c5088191b17232ac95ebf898於2026-11-06 21:18:24 UTC+08 native succeeded；網址及權限不變。發布證據在output/reports/rocket-audio-sites.json，預覽panel已排隊開啟。未宣稱線上手動／真手機／Moodle音效驗收。
+
+## 19. 限定本模擬的獨立審查及跟進（2026-11-06）
+
+使用者要求一個sub-agent，只審查本火箭實驗版並由主agent跟進。審查假設是一位學習者在單一瀏覽器內操作靜態形成性活動；不擴至其他模擬，不回寫原版，已標示的模型簡化不當作缺陷。主agent先跑九組Node及browser audit為基線，全部通過，再獨立重現新問題；sub-agent只讀審查。
+
+已確認起飛bug：高效率引擎＋四個小箱（150 kg太空艙），同樣燃燒10s，以1/60s逐幀推進仍在pad、高度／速度零；1/30s與0.1s則高112.8335 m、v23.2155 m/s，耗油一樣。原因是step把每幀小於1 mm的正向位移也視為壓在發射台，清零全部速度。修正只在積分結果真正不高於發射台時維持pad接觸；保留推重比不足時燃燒但不離台，加入60／30fps及粗步結果一致的反例測試。現有snapshot形狀、schema6／model4、質量／推力參數及評分不變，舊record／pending canonical不重算；修正影響可編輯飛行的後續積分，不回寫既有成果。
+
+Sub-agent亦重現音效P2時序bug：AudioContext.resume尚未完成時，使用者點火後關主引擎；stop保留running=true，舊wake callback只查running/live，因此仍播ignite。採最小事件序號取消：新點火捕捉自身序號，關音效／非live／暫停／無有效點火時使序號失效，resume完成後必須仍是該次有效事件。不能用flight object identity，因正常改油門會clone flight。補deferred resume→stop、→workshop→新點火只播新一次；不改任何飛行／評分／存檔資料。
+
+回歸決定：在既有browser owner新增launchPadFrames（flight，完整inventory54 cases），以實際Controller.tick的60／30fps／粗步各推進10秒、草稿round-trip及HUD核對；soundEffects加入原生滑鼠／觸控下延後resume→關機→完成resume不得播舊ignite，再點火只播一次。review-only執行兩者及既有lifecycle，source與解壓SCORM均需通過；Node的stop及跨試飛取消亦保留。registry入口不新增，仍304 entries。
+
+獨立審查完成：sub-agent只讀確認以上P1起飛、P2延遲點火兩項，並覆核兩個patch；另外執行model／audio／persistence／lifecycle四組及7,195個合法狀態validate→encode→decode深比較，回報全部通過且沒有診斷檔需清理。未找到其他有具體反例的高影響問題；未把已標示的簡化模型、寫法喜好或未確認的效能疑慮列為缺陷。
+
+Parent實際把兩個反例先加測試，舊碼分別失敗pad!=flying／ignite 1!=0，修後九組Node、browser audit（54 cases保留原49）及check／check:tests（304 entries）通過。review-only在來源＋解壓SCORM共8條完整流程：兩個target各有60／30fps／粗步Controller.tick＋draft round-trip、桌面滑鼠／手機trusted touch音效及延後resume取消、既有lifecycle（100／0分、review、pending／finish retry、standalone fresh、renderer恢復）。errors=[]；低推力手機畫面已目視112.8 m／23.2 m/s。完整browser證據output/reports/rocket-review-browser.json；審查與來源／套件hash記錄output/reports/rocket-review.json。未跑全庫／完整54-case owner／真手機／真Moodle／喇叭聆聽校準，不能當作完整裝置或Moodle-ready驗收。

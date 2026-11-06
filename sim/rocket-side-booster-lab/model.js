@@ -27,7 +27,7 @@
     const F=thrust(f),engine=P.ENGINES[f.craft.stages[f.active].engine],mdot=coreThrust(f)/(engine.isp*P.G0),bdot=P.burning(f)?P.BOOSTER.thrust/(P.BOOSTER.isp*P.G0):0,dt=Math.min(requested,mdot>0?f.fuel[f.active]/mdot:Infinity,bdot>0?f.boosters.fuel/bdot:Infinity),old=f.state.slice(),oldFuel=f.fuel[f.active],m0=P.mass(f),oldAttitude=f.attitude;
     const delta=Math.atan2(Math.sin(targetAttitude(f)-oldAttitude),Math.cos(targetAttitude(f)-oldAttitude)),turn=Math.max(-12*Math.PI/180*dt,Math.min(12*Math.PI/180*dt,delta));
     f.attitude=O.wrap(oldAttitude+turn);const angle=oldAttitude+turn/2,y=[...old,oldFuel,...(f.boosters?[f.boosters.fuel]:[])];let next=rk4(y,dt,f,angle,options),usedDt=dt;
-    if(f.status==='pad'&&Math.hypot(next[0],next[1])<=P.R+.001){next=[P.R,0,0,0,0,0,...next.slice(6)];}
+    if(f.status==='pad'&&Math.hypot(next[0],next[1])<=P.R){next=[P.R,0,0,0,0,0,...next.slice(6)];}
     else{const interval=contactInterval(y,next,dt,f,angle,options);if(interval){
       let [lo,hi]=interval;for(let i=0;i<32;i++){const mid=(lo+hi)/2,q=rk4(y,mid,f,angle,options);if(clearance(q,f.t+mid)>0)lo=mid;else hi=mid;}usedDt=hi;next=rk4(y,hi,f,angle,options);const r=Math.hypot(next[0],next[1]),ground=S.radius(next,f.t+hi);next[0]*=ground/r;next[1]*=ground/r;f.status='impact';f.controls.lit=false;
     }else f.status='flying';}

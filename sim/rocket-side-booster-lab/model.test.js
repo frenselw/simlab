@@ -75,3 +75,11 @@ console.log('rocket terrain collision: remote hill contact, signed clearance, re
 console.log('rocket swept contact: positive-endpoint ridge pass and already-underground legacy flight stop at first surface contact');
 
 const manual=T.manualOrbit();assert.equal(require('./scoring').score(manual).score,100);const manualOrbit=O.elements(manual.flight.state);M.advance(manual,manualOrbit.period+1);assert(O.safe(manual.flight.state));assert(Math.abs(O.elements(manual.flight.state).hp-manualOrbit.hp)<.1);assert.equal(P.PAYLOADS[manual.craft.payload],150);console.log('rocket manual recipe: two large lower tanks plus one large upper, preset turns and throttle trim reach 100 and coast one full orbit');
+
+// Positive liftoff must accumulate even when each frame climbs less than a millimetre.
+{
+ const states=[1/60,1/30,.1].map(dt=>{const s=M.change(T.singlePad(1,4,0),{type:'ignite'});for(let i=0;i<Math.round(10/dt);i++)M.advance(s,dt);assert.equal(s.flight.status,'flying');return s.flight;});
+ for(const f of states){assert(Math.abs(f.state[0]-states[0].state[0])<.001);assert(Math.abs(f.state[3]-states[0].state[3])<.00001);assert(Math.abs(f.fuel[0]-states[0].fuel[0])<.00001);}
+ for(const dt of [1/60,1/30,.1]){let s=M.change(T.singlePad(1,4,0),{type:'control',key:'throttle',value:.5});s=M.change(s,{type:'ignite'});for(let i=0;i<Math.round(10/dt);i++)M.advance(s,dt);assert.equal(s.flight.status,'pad');assert.deepEqual(s.flight.state,[P.R,0,0,0,0,0]);assert(s.flight.fuel[0]<6000);}
+}
+console.log('rocket launch pad: low positive acceleration lifts off consistently at 60/30fps and coarse steps; underpowered motors remain supported.');
