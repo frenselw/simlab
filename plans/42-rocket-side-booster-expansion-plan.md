@@ -389,3 +389,7 @@ Parent實際把兩個反例先加測試，舊碼分別失敗pad!=flying／ignite
 16次新OfflineAudioContext渲染（80／90／100km／安全軌道各4次）中100km RMS精確0，90km比80km更輕，配樂RMS約0.0475、峰值約0.127（100%音量），低於同測試80km主引擎RMS約0.086–0.088，且固定8個音樂oscillators不累增；延遲與柔和和弦皆為原創本地合成。手機音量浮層／太空音樂開關截圖已目視；context suspend以實際完成狀態等待，避免把非同步暫停誤判為固定150ms已完成。
 
 原版481個檔案hash不變；runtime／manifest／正式476-entry ZIP逐byte閉包核對，套件output/packages/rocket-side-booster-lab-scorm.zip。最後來源commit、hash與證據分別output/reports/rocket-space-music.json及rocket-space-music-browser.json。未跑全庫／完整55-case owner／真手機／真Moodle／實際喇叭試聽校準，不能當成完整裝置驗收。
+
+實作commit c9f505b319822ab94a040e62a3ec9ad70334c976；正式committed selection base 89db367792bc1f125edfa189ab9d3acf283e2350 → 該head為affected／單一rocket-side-booster-lab包／262 entries，output/reports/rocket-space-music-selection.json僅選取而非全套實跑。最終runtime b30ab72d9ecf820412f85f8366f74623f13b61548618e6177eaeeadeabd09eb6；476-entry ZIP SHA256 6eccc81b296eedd7d0c3d1268b5ecd220a1761fcdd21574c34cf4acdb1059f0c。
+
+太空配樂版發布原私人Sites成功，權限不變，Site來源06adacde28e167a2ab14cce1d3183b8397815244；deployment appgdep_6aeded3290d881919c43f58eff79b8bb於2026-11-06 23:07:39 UTC+08 native succeeded。發布證據output/reports/rocket-space-music-sites.json；預覽panel已排隊開啟，未宣稱線上手動／真機或Moodle驗收。
