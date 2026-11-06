@@ -423,3 +423,7 @@ terrainColorSeams新增20／96.1／300 km、quality0／2、桌面／手機的實
 最終實測：九組活動Node、browser inventory audit（沿用55 cases）、check／check:tests（304 entries）全部通過。space-music-only在source＋extracted SCORM共10 flows，4條配樂（桌面原生滑鼠／手機trusted touch）證實120 km未入軌即播放漂浮、190×190 km在lit=true／throttle=0下約3個真實秒轉深空、1000×保持樂速、重新點火不壓至25%、暫停／背景／mute／check／再入／新飛行正常。另4條既有音效及2條lifecycle含延遲resume取消、原生背景、成果100分與review靜音全部通過，errors=[]。
 
 44次新增OfflineAudioContext渲染含預設30%／100%兩段樂、80／90／100km飛行效果及4次真正於6 s入安全軌道、9.25 s確認的24 s交叉淡化。100km只開飛行音效RMS精確0；30%漂浮／深空的穩態RMS約0.0323／0.0342、峰值0.0839／0.0909；100%峰值約0.280／0.303。漂浮首0.5 s RMS只有穩態約11%，確認柔和淡入；交接期間無斷聲、最大逐sample跳幅約0.00618，固定8個樂音oscillator。55Hz低音及131Hz基音投影明確區分兩種音域。桌面漂浮及手機190 km／0%油門、深空樂段狀態截圖已目視；完整證據output/reports/rocket-two-stage-music-browser.json。481個原版hash不變。未跑全庫／完整55-case owner／真手機／Moodle／喇叭聆聽校準。
+
+實作commit 6df0a20d26eb25efb721920db037381326355e1d；committed selection base e44258195877d9383a5adfda201c24fa5ac379f9 → 該head為affected／單一rocket-side-booster-lab包／262 entries，output/reports/rocket-two-stage-music-selection.json僅選取證據。來源／browser／476-entry正式ZIP／Site dist逐byte核對一致；runtime 1e6096c44aaa696ef84c06989f8f0b695b42fa191c8730d813919d5823ee4ebd，ZIP SHA256 f6dbe0eb27ce0590576330b67e398e0af77c0fcdd8c466ddc99a169c35266912，詳output/reports/rocket-two-stage-music.json。
+
+兩段配樂已發布原私人Sites，權限不變；Site來源55d1405040a90ef35ac4af024c4e03730754d83d，deployment appgdep_6aedf86683408191b91667671f732a2a於2026-11-06 23:55:26 UTC+08 native succeeded，網址 https://simlab-rocket-side-booster.ieyp.chatgpt.site 。證據output/reports/rocket-two-stage-music-sites.json；未宣稱線上手動／真機／Moodle或喇叭聆聽驗收。
