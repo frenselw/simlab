@@ -302,3 +302,5 @@ shared scorm.js／activity-flow.js及全部startup／success／committed／froze
 驗收在既有browser owner新增brace case，覆蓋三種引擎、三種首箱及混箱順序，測實際幾何bounds與箱身／助推器重疊，並目視桌面與手機、source及解壓SCORM。保留分離續做，更新原私人Sites，舊活動不改。
 
 本輪實測：18種幾何組合在source及extracted SCORM均通過，桌面1280×800／手機390×844組裝＋分離共4 flows、errors=[]。正面放大截圖目視，上下桿接到首箱上下環帶；分離後每枚保留兩根桿。art Node、browser audit（52 cases保留原49）、check／check:tests及diff通過。最新artifact hash與原版不變核對見output/reports/rocket-booster-brace.json；未跑全庫／完整owner／真機Moodle。
+
+實作commit 6d9c1f429a7b116796a1d4bf53f1b47982cbd1b7；committed selection base e1ac7c4b261ae983e6f4696475ef571b123c9c4a → 該head，affected／單一rocket-side-booster-lab包／261 entries，output/reports/rocket-booster-brace-selection.json（非全套實跑）。原私人Sites已更新，Site來源10b96327d06bad24a46f65f124ce70d5ae9c0d52；deployment appgdep_6aed8a0ec81081919c696729e2e6c4f7在2026-11-06 16:04:37 UTC+08 native succeeded，output/reports/rocket-booster-brace-sites.json保存發布紀錄，未宣稱線上手動／真機驗收。
