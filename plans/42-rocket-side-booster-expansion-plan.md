@@ -367,3 +367,7 @@ Sub-agent亦重現音效P2時序bug：AudioContext.resume尚未完成時，使�
 獨立審查完成：sub-agent只讀確認以上P1起飛、P2延遲點火兩項，並覆核兩個patch；另外執行model／audio／persistence／lifecycle四組及7,195個合法狀態validate→encode→decode深比較，回報全部通過且沒有診斷檔需清理。未找到其他有具體反例的高影響問題；未把已標示的簡化模型、寫法喜好或未確認的效能疑慮列為缺陷。
 
 Parent實際把兩個反例先加測試，舊碼分別失敗pad!=flying／ignite 1!=0，修後九組Node、browser audit（54 cases保留原49）及check／check:tests（304 entries）通過。review-only在來源＋解壓SCORM共8條完整流程：兩個target各有60／30fps／粗步Controller.tick＋draft round-trip、桌面滑鼠／手機trusted touch音效及延後resume取消、既有lifecycle（100／0分、review、pending／finish retry、standalone fresh、renderer恢復）。errors=[]；低推力手機畫面已目視112.8 m／23.2 m/s。完整browser證據output/reports/rocket-review-browser.json；審查與來源／套件hash記錄output/reports/rocket-review.json。未跑全庫／完整54-case owner／真手機／真Moodle／喇叭聆聽校準，不能當作完整裝置或Moodle-ready驗收。
+
+修正commit 1e9c51a14919e3a0bdbd61b220175e9fe236e618；正式committed selection base 3e410ad33f4eb934da44f54ba1dd4850d29903a3 → 該head為affected／單一rocket-side-booster-lab包／262 entries，output/reports/rocket-review-selection.json僅是選取而非全套實跑。最終runtime 1733c3d4137fe97faffab1f58e2449da702d6e0960e7c0822d8c0e91ce4aedc9；476-entry ZIP SHA256 d967d2f3670ebbe112b76ed10a4aac938855dab1b57d0868fb53470916322a1e，481個原版檔案不變。
+
+審查修正版已發布原私人Sites，權限不變。Site來源9e5cb20a04620cb51859d4a97c20679a3b489872；deployment appgdep_6aeddbf80e188191aa227d65e51d3b19於2026-11-06 21:54:07 UTC+08 native succeeded。發布證據output/reports/rocket-review-sites.json，預覽panel已排隊開啟；未宣稱真機／線上手動或Moodle驗收。
