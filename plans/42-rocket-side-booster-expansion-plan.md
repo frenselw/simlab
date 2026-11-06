@@ -327,3 +327,7 @@ shared scorm.js／activity-flow.js及全部startup／success／committed／froze
 最後runtime的來源＋解壓SCORM共34 flows：帶火分離8（桌面原生滑鼠／手機trusted touch，0.25／1／2秒姿態與推力方向、加速、耗油及熄火、提交）、燃盡分離／緊湊控制／支架26（四尺寸分離、七尺寸controls、36種支架組合每target）。四枚同步推出／尺度及鏡頭無收縮、各自接地且剛好4次impact、暫停不改作答均通過；errors=[]。帶火分離最高99 calls／73337 triangles。手機與桌面的四向張開截圖已目視。
 
 來源／套件依賴閉包逐byte核對，正式ZIP保留output/packages/rocket-side-booster-lab-scorm.zip。最終hash、來源commit及481個原版檔案不變的核對保留在output/reports/rocket-four-boosters.json；兩份browser報告為rocket-four-boosters-early-browser.json／rocket-four-boosters-repair-browser.json。僅本活動變更；未跑全庫／package:all／完整52-case owner／真手機／真Moodle，不能視為Moodle-ready。
+
+實作commit e9c637e58e7ada582c61f5f2c040d51cd4b41e7c；正式committed selection base 7d4607aba021ced4442343d2ad064b01dbcb8965 → 該head為affected／單一rocket-side-booster-lab包／261 entries，output/reports/rocket-four-boosters-selection.json僅是選取證據，非全套實跑。最終runtime 5dc46844aee15070aafbf1ec2fbb2b9f58ff553f5c732d2d6d8d5cc7727d6ef4，ZIP SHA256 d5a604c3aa0e371a43290641701db5db14cce3a483da7982dbaddd3daa1c3d5d，475 entries。
+
+原私人Sites已更新，權限不變，網址 https://simlab-rocket-side-booster.ieyp.chatgpt.site 。Site來源commit 6da857d4dd3421db8fdaee7b5425449b9ba63ddf；deployment appgdep_6aed9b323aec8191a5fdb191681229b5於2026-11-06 17:17:46 UTC+08 native succeeded，發布證據保留output/reports/rocket-four-boosters-sites.json。預覽panel已排隊開啟，未宣稱線上手動／真手機／Moodle驗收。
