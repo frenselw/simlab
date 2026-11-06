@@ -349,3 +349,7 @@ shared scorm.js／activity-flow.js及全部startup／success／committed／froze
 實際AudioContext點按開聲、原生音量輸入不改作答、六次裝配接合／一次點火／一次四枚分離、主油門0下固體續聲、5× playbackRate仍1、帶火離體距離與左右聲像／燃料耗盡熄聲、暫停70ms後context suspend與短聲源回收、原生分頁背景（四flow nativeHidden=true）、mute／重新開聲不重播、check／submitted review靜音與重載保持唯讀皆通過。8次OfflineAudioContext真實訊號渲染（主體／分離各四次）在100%音量RMS非零，最高峰值約0.372；分離左右相關係數約0.50–0.54，確認獨立聲場。errors=[]，手機音量掣及主畫面截圖已目視；未作真手機／真Moodle／喇叭聆聽校準，亦未跑全庫或完整53-case owner。
 
 原版481個受保護檔案hash不變。正式套件保留output/packages/rocket-side-booster-lab-scorm.zip，476 entries，音效只有新增本地audio.js依賴；來源／manifest／解壓套件逐byte一致。最終runtime與ZIP hash、commit及核對見output/reports/rocket-audio.json；完整browser證據為output/reports/rocket-audio-browser.json。
+
+實作commit 9a6603edf50cc1c3f91069247a4dbc97c83be979；正式committed selection base c4a73bccd4367b222ba597ee5a95099d9ef87b45 → 該head，因registry新增測試而為full／all packages／304 entries。output/reports/rocket-audio-selection.json僅是選取證據，非全庫實跑。最終runtime d798ba2e11bb44e34f742882a9be4daaf43e4b3f676a185171b19d5915fc14dd；476-entry ZIP SHA256 51c3794388c0f8a4b965e06283fce6463a14025b5a10740fbe42180426bbdb4b。
+
+原私人Sites音效版發布成功，Site來源413a6fce6259f6c0e64b15f23859c4c675cf053d，deployment appgdep_6aedd399c5088191b17232ac95ebf898於2026-11-06 21:18:24 UTC+08 native succeeded；網址及權限不變。發布證據在output/reports/rocket-audio-sites.json，預覽panel已排隊開啟。未宣稱線上手動／真手機／Moodle音效驗收。
