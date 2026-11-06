@@ -1,14 +1,14 @@
 (function(root,factory){const node=typeof module==='object'&&module.exports,api=factory(node?require('./parts.js'):root.RocketParts,node?require('./orbit.js'):root.RocketOrbit,node?require('./surface.js'):root.RocketSurface);if(node)module.exports=api;root.RocketModel=api;})(typeof window==='undefined'?globalThis:window,function(P,O,S){
   'use strict';
   const clone=P.clone,PHASES=['workshop','pad','ascent','coast','ended','check'];
-  function fresh(){return {schema:5,modelVersion:3,variant:0,phase:'workshop',backPhase:null,craft:P.emptyCraft(0),flight:null,records:[null]};}
+  function fresh(){return {schema:6,modelVersion:4,variant:0,phase:'workshop',backPhase:null,craft:P.emptyCraft(0),flight:null,records:[null]};}
   function flight(craft,source='own',q=[P.R,0,0,0,0,0]){return {boosters:craft.boosters?{status:'ready',fuel:P.BOOSTER.fuel}:null,source,craft:clone(craft),t:0,state:q.slice(),fuel:[P.capacity(craft.stages[0]),craft.stages[1]?P.capacity(craft.stages[1]):null],active:0,separated:false,attitude:0,controls:{mode:'tilt',angle:0,throttle:1,lit:false},status:source==='practice'?'flying':'pad',maxHeight:Math.max(0,O.elements(q).height)};}
   function atmosphere(h){if(h>=120000)return 0;const t=Math.max(0,Math.min(1,(h-80000)/40000));return 1.225*Math.exp(-Math.max(0,h)/8500)*(1-t*t*(3-2*t));}
   function targetAttitude(f){const q=f.state,c=f.controls;if(c.mode==='tilt')return Math.atan2(q[1],q[0])+Math.sign(q[0]*q[4]-q[1]*q[3]||1)*c.angle*Math.PI/180;return Math.atan2(q[4],q[3])+(c.mode==='retrograde'?Math.PI:0);}
   function coreThrust(f){return f.controls.lit&&f.fuel[f.active]>0?P.ENGINES[f.craft.stages[f.active].engine].thrust*f.controls.throttle:0;}
-  function thrust(f){return coreThrust(f)+(P.burning(f)?2*P.BOOSTER.thrust:0);}
+  function thrust(f){return coreThrust(f)+(P.burning(f)?f.craft.boosters*P.BOOSTER.thrust:0);}
   function derivative(y,f,attitude,vacuum=false,noGravity=false,mass){
-    const [x,yy,,vx,vy,,p]=y,r=Math.hypot(x,yy),v=Math.hypot(vx,vy),fuel=f.fuel.slice();fuel[f.active]=Math.max(0,p);const sample={...f,boosters:f.boosters?{...f.boosters,fuel:Math.max(0,y[7]??f.boosters.fuel)}:null},m=mass??P.mass(sample,fuel),F=thrust(f),drag=vacuum?0:.5*atmosphere(r-P.R)*.35*(3.14+(P.attached(f)?2*Math.PI*.65**2:0))*v,g=noGravity?0:P.MU/r**3;
+    const [x,yy,,vx,vy,,p]=y,r=Math.hypot(x,yy),v=Math.hypot(vx,vy),fuel=f.fuel.slice();fuel[f.active]=Math.max(0,p);const sample={...f,boosters:f.boosters?{...f.boosters,fuel:Math.max(0,y[7]??f.boosters.fuel)}:null},m=mass??P.mass(sample,fuel),F=thrust(f),drag=vacuum?0:.5*atmosphere(r-P.R)*.35*(3.14+(P.attached(f)?f.craft.boosters*Math.PI*.65**2:0))*v,g=noGravity?0:P.MU/r**3;
     return [vx,vy,0,-g*x+(F*Math.cos(attitude)-drag*vx)/m,-g*yy+(F*Math.sin(attitude)-drag*vy)/m,0,-coreThrust(f)/(P.ENGINES[f.craft.stages[f.active].engine].isp*P.G0),...(y.length>7?[-(P.burning(f)?P.BOOSTER.thrust/(P.BOOSTER.isp*P.G0):0)]:[])];
   }
   function rk4(y,dt,f,angle,options){const d=(q)=>derivative(q,f,angle,options?.vacuum,options?.noGravity,options?.mass),add=(a,b,k)=>a.map((v,i)=>v+k*b[i]),k1=d(y),k2=d(add(y,k1,dt/2)),k3=d(add(y,k2,dt/2)),k4=d(add(y,k3,dt));return y.map((v,i)=>v+dt/6*(k1[i]+2*k2[i]+2*k3[i]+k4[i]));}
@@ -35,7 +35,28 @@
     f.state=next.slice(0,6);f.fuel[f.active]=Math.max(0,next[6]);if(f.boosters){f.boosters.fuel=Math.max(0,next[7]);if(f.boosters.status==='burning'&&f.boosters.fuel<1e-8){f.boosters.fuel=0;f.boosters.status='spent';}}f.t+=usedDt;f.maxHeight=Math.max(f.maxHeight||0,O.elements(f.state).height);
     if(f.fuel[f.active]<1e-8){f.fuel[f.active]=0;f.controls.lit=false;}
     const o=O.elements(f.state);if(o.energy>=0&&o.radial>0&&o.height>=1e8-.01){f.status='escaped';f.controls.lit=false;}
-    return F>0?(bdot?F/(mdot+2*bdot)*Math.log(m0/P.mass(f)):engine.isp*P.G0*Math.log(m0/P.mass(f))):0;
+    return F>0?(bdot?F/(mdot+f.craft.boosters*bdot)*Math.log(m0/P.mass(f)):engine.isp*P.G0*Math.log(m0/P.mass(f))):0;
+  }
+  const boosterTilt=age=>.525*(1-Math.exp(-Math.max(0,age)/1.5));
+  function boosterDirection(b,t=b.t){const a=boosterTilt(t-b.start);return b.axis.map((v,i)=>v*Math.cos(a)+b.out[i]*Math.sin(a));}
+  function boosterFlight(f,mount,center=[mount[0]*2.4,3.6,mount[1]*2.4]){
+    const a=f.attitude,axis=[Math.cos(a),Math.sin(a),0],out=[-mount[0]*Math.sin(a),mount[0]*Math.cos(a),mount[1]],state=f.state.slice();
+    const offset=[center[1]*axis[0]-center[0]*Math.sin(a),center[1]*axis[1]+center[0]*Math.cos(a),center[2]];
+    for(let i=0;i<3;i++){state[i]+=offset[i];state[i+3]+=2*out[i];}
+    return {t:f.t,start:f.t,state,axis,out,fuel:f.boosters.fuel,status:'flying'};
+  }
+  function boosterClearance(q,t,b){const r=Math.hypot(...q.slice(0,3)),dir=boosterDirection(b,t),cos=q.slice(0,3).reduce((v,x,i)=>v+x*dir[i],0)/r,extent=3.6*Math.abs(cos)+.65*Math.sqrt(Math.max(0,1-cos*cos));return S.clearance(q,t)-extent;}
+  function stepBooster(b,requested,options={}){
+    if(b.status!=='flying'||requested<=0)return 0;
+    const lit=b.fuel>0,flow=lit?P.BOOSTER.thrust/(P.BOOSTER.isp*P.G0):0,dt=Math.min(requested,flow?b.fuel/flow:Infinity),y=[...b.state,b.fuel];
+    // shortcut: damped outward rotation represents separation hardware; add rigid-body torques only for a six-DOF activity.
+    const d=(q,t)=>{const r=Math.hypot(...q.slice(0,3)),v=Math.hypot(...q.slice(3,6)),m=P.BOOSTER.dry+Math.max(0,q[6]),dir=boosterDirection(b,t),along=v?q.slice(3,6).reduce((sum,w,i)=>sum+w*dir[i],0)/v:1,area=Math.PI*.65**2+2*.65*6.6*Math.sqrt(Math.max(0,1-along*along)),drag=options.vacuum?0:.5*atmosphere(r-P.R)*.35*area*v,g=options.noGravity?0:P.MU/r**3;return [...q.slice(3,6),...dir.map((u,i)=>-g*q[i]+((lit?P.BOOSTER.thrust:0)*u-drag*q[i+3])/m),-flow];};
+    const add=(a,k,h)=>a.map((v,i)=>v+k[i]*h),integrate=h=>{const k1=d(y,b.t),k2=d(add(y,k1,h/2),b.t+h/2),k3=d(add(y,k2,h/2),b.t+h/2),k4=d(add(y,k3,h),b.t+h);return y.map((v,i)=>v+h/6*(k1[i]+2*k2[i]+2*k3[i]+k4[i]));};
+    let used=dt,next=integrate(dt);const distance=Math.hypot(...next.slice(0,3).map((v,i)=>v-y[i]));
+    if(!options.noGravity&&Math.min(Math.hypot(...y.slice(0,3)),Math.hypot(...next.slice(0,3)))<P.R+S.MAX_HEIGHT+distance){
+      const count=Math.max(1,Math.ceil(distance/250));for(let i=1;i<=count;i++){const hi=dt*i/count;if(boosterClearance(integrate(hi),b.t+hi,b)<=0){let lo=dt*(i-1)/count,end=hi;for(let j=0;j<28;j++){const mid=(lo+end)/2;if(boosterClearance(integrate(mid),b.t+mid,b)>0)lo=mid;else end=mid;}used=end;next=integrate(used);b.status='impact';break;}}
+    }
+    b.state=next.slice(0,6);b.fuel=Math.max(0,next[6]);if(b.fuel<1e-8)b.fuel=0;b.t+=used;return used;
   }
   function ignite(s){if(!s.flight||s.flight.fuel[s.flight.active]<=0||['ended','workshop','check'].includes(s.phase))return;s.flight.controls.lit=true;if(s.flight.boosters?.status==='ready')s.flight.boosters.status='burning';s.phase='ascent';}
   function stop(s){if(s.flight)s.flight.controls.lit=false;if(s.flight&&s.flight.status==='flying')s.phase=P.burning(s.flight)?'ascent':'coast';}
@@ -53,8 +74,8 @@
   function change(s,action){
     const n=clone(s),f=n.flight;if(n.phase==='check'&&action.type!=='return')return n;
     switch(action.type){
-      case 'boosters':if(n.phase==='workshop'&&P.canFit(n.craft,0,'boosters'))n.craft.boosters=2;break;
-      case 'jettison':if(f?.boosters?.status==='spent'&&f.status==='flying')f.boosters.status='jettisoned';break;
+      case 'boosters':if(n.phase==='workshop'&&P.canFit(n.craft,0,'boosters'))n.craft.boosters=(n.craft.boosters||0)+2;break;
+      case 'jettison':if(['burning','spent'].includes(f?.boosters?.status)&&f.status==='flying')f.boosters.status='jettisoned';break;
       case 'clear-craft':if(n.phase==='workshop')n.craft=P.emptyCraft(n.variant);break;
       case 'part':{if(n.phase!=='workshop')break;const st=n.craft.stages[action.stage];if(!st)break;if(action.part==='engine'){if([null,0,1,2].includes(action.value))st.engine=action.value;}else if(['small','medium','large'].includes(action.part)&&Number.isInteger(action.value)&&action.value>=0&&action.value<=4&&P.tanks(st).filter(k=>k!==action.part).length+action.value<=4&&(action.value<=(st[action.part]||0)||P.canFit(n.craft,action.stage,action.part))){const list=P.tanks(st);while(list.filter(k=>k===action.part).length>action.value)list.splice(list.lastIndexOf(action.part),1);while(list.filter(k=>k===action.part).length<action.value)list.push(action.part);P.setTanks(st,list);}break;}
       case 'insert':{
@@ -90,5 +111,5 @@
     if(n.phase==='workshop'&&n.craft.boosters&&!P.stageComplete(n.craft.stages[0]))return clone(s);
     return n;
   }
-  return Object.freeze({ACTIVITY:P.ACTIVITY,PHASES,clone,fresh,flight,atmosphere,targetAttitude,coreThrust,thrust,derivative,rk4,step,advance,change});
+  return Object.freeze({ACTIVITY:P.ACTIVITY,PHASES,clone,fresh,flight,atmosphere,targetAttitude,coreThrust,thrust,derivative,rk4,step,boosterTilt,boosterDirection,boosterFlight,boosterClearance,stepBooster,advance,change});
 });

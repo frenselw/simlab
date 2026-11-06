@@ -12,7 +12,7 @@
   if(land)return isLand;if(!isLand)return 0;
   const nearby=nearLand?sample(local,data.localSize,data.localSize,lx,ly):0,weight=1-smooth(211200,239500,extent);return global*(1-weight)+nearby*weight;
  }
- function direction(q,t=0){const theta=Math.atan2(q[1],q[0]),spin=t%EARTH_DAY/EARTH_DAY*Math.PI*2,s=Math.sin(theta);return [s*Math.cos(spin),Math.cos(theta),s*Math.sin(spin)];}
- const heightAt=(e,u,n)=>sampleAt(e,u,n),waterAt=(e,u,n)=>!sampleAt(e,u,n,true),height=(q,t=0)=>heightAt(...direction(q,t)),radius=(q,t=0)=>P.R+height(q,t),clearance=(q,t=0)=>Math.hypot(q[0],q[1])-radius(q,t),isWater=(q,t=0)=>waterAt(...direction(q,t));
+ function direction(q,t=0){if(q[2]){const r=Math.hypot(...q.slice(0,3)),e=q[1]/r,n=q[2]/r,a=t%EARTH_DAY/EARTH_DAY*Math.PI*2;return [e*Math.cos(a)-n*Math.sin(a),q[0]/r,e*Math.sin(a)+n*Math.cos(a)];}const theta=Math.atan2(q[1],q[0]),spin=t%EARTH_DAY/EARTH_DAY*Math.PI*2,s=Math.sin(theta);return [s*Math.cos(spin),Math.cos(theta),s*Math.sin(spin)];}
+ const heightAt=(e,u,n)=>sampleAt(e,u,n),waterAt=(e,u,n)=>!sampleAt(e,u,n,true),height=(q,t=0)=>heightAt(...direction(q,t)),radius=(q,t=0)=>P.R+height(q,t),clearance=(q,t=0)=>Math.hypot(q[0],q[1],q[2]||0)-radius(q,t),isWater=(q,t=0)=>waterAt(...direction(q,t));
  return Object.freeze({EARTH_DAY,MAX_HEIGHT,direction,geographic,heightAt,waterAt,height,radius,clearance,isWater});
 });

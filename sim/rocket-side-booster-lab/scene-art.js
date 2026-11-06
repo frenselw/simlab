@@ -188,7 +188,14 @@ export function buildRocket(c,separated){
     partParent=group;
     slots[i]=(base+y)/2;ranges[i]={base,engine:s.engine===null?0:2,large:s.large,medium:s.medium||0,small:s.small,joins};
   });
-  const bodyTop=y;const boosters=new THREE.Group();boosters.userData.part={stage:0,part:'boosters',ordinal:0,index:null};const boosterFlames=[];if(c.boosters&&!separated){for(const side of [-1,1]){const x=side*2.4;mesh(new THREE.CylinderGeometry(.65,.65,5.6,20),white,x,3.4,0,boosters);mesh(new THREE.ConeGeometry(.65,1,20),orange,x,6.7,0,boosters);mesh(new THREE.CylinderGeometry(.35,.5,.6,16),dark,x,.3,0,boosters);for(const h of [ranges[0].joins[0]+.2,Math.min(ranges[0].joins[1]-.2,5.9)]){const brace=mesh(new THREE.BoxGeometry(1.1,.15,.2),metal,side*1.9,h,0,boosters);brace.name='booster-brace';}const flame=new THREE.Mesh(new THREE.ConeGeometry(.45,4,16).rotateZ(Math.PI),new THREE.MeshBasicMaterial({color:'#ffc270',transparent:true,opacity:.8,depthWrite:false}));flame.position.set(x,-2,0);flame.visible=false;group.add(flame);boosterFlames.push(flame);}group.add(boosters);parts.push(boosters);}
+  const bodyTop=y,boosters=new THREE.Group(),boosterFlames=[];boosters.userData.part={stage:0,part:'boosters',ordinal:0,index:null};
+  if(c.boosters&&!separated){for(const [i,[x,z]]of P.boosterMounts(c.boosters).entries()){
+    const start=boosters.children.length;
+    mesh(new THREE.CylinderGeometry(.65,.65,5.6,20),white,x*2.4,3.4,z*2.4,boosters);mesh(new THREE.ConeGeometry(.65,1,20),orange,x*2.4,6.7,z*2.4,boosters);mesh(new THREE.CylinderGeometry(.35,.5,.6,16),dark,x*2.4,.3,z*2.4,boosters);
+    const braces=instances(boosters,new THREE.BoxGeometry(1.1,.15,.2),metal,[ranges[0].joins[0]+.2,Math.min(ranges[0].joins[1]-.2,5.9)].map(h=>[x*1.9,h,z*1.9,1,1,1,0,z?Math.PI/2:0,0]));braces.name='booster-brace';
+    for(const child of boosters.children.slice(start))child.userData.booster=i;
+    const flame=new THREE.Mesh(new THREE.ConeGeometry(.45,4,16).rotateZ(Math.PI),new THREE.MeshBasicMaterial({color:'#ffc270',transparent:true,opacity:.8,depthWrite:false}));flame.position.set(x*2.4,-2,z*2.4);flame.visible=false;flame.name='booster-flame';group.add(flame);boosterFlames.push(flame);
+  }group.add(boosters);parts.push(boosters);}
   if(P.hasCapsule(c)){partParent=new THREE.Group();partParent.userData.part={stage:c.stages.length-1,part:'capsule',ordinal:0,index:null};group.add(partParent);parts.push(partParent);
   mesh(new THREE.CylinderGeometry(1.25,1.4,2,32),skin,0,y+1,0);mesh(new THREE.SphereGeometry(1.25,32,20,0,Math.PI*2,0,Math.PI/2),white,0,y+2,0);const faceY=y+1.1;
   batch(new THREE.SphereGeometry(1,12,8),dark,[-1,1].map(side=>[side*.4,faceY,1.24,.16,.16,.16]));batch(new THREE.SphereGeometry(1,8,6),material('#ffffff'),[-1,1].map(side=>[side*.4-.03,faceY+.05,1.37,.07,.07,.07]));

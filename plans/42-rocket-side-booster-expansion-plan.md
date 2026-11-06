@@ -1,6 +1,6 @@
 # 火箭工廠實驗版：固體側助推器與新增零件實施計劃
 
-狀態：**已實作並完成下方列出的本機驗證；完整裝置／Moodle閘門未完成。** 日期：2026-11-05。下方規格已用於本次版本，完整配搭仍未逐一實飛。
+狀態：**已實作並完成下方列出的本機驗證；完整裝置／Moodle閘門未完成。** 日期：2026-11-06。現行兩對／提早分離決定見第17節；早期規格及驗收按日期保留。下方規格已用於本次版本，完整配搭仍未逐一實飛。
 
 依[活動基準計劃](42-rocket-side-booster-lab.md)、[新活動模板](NEW-SIMULATION-PLAN-TEMPLATE.md)、[共用設計](00-shared-platform-and-style.md)及[生產契約](../docs/simulation-scorm-production-guide.md)。本文件擁有後續擴充決策；基準計劃的既有測試／ZIP證據只適用未擴充副本。
 
@@ -304,3 +304,26 @@ shared scorm.js／activity-flow.js及全部startup／success／committed／froze
 本輪實測：18種幾何組合在source及extracted SCORM均通過，桌面1280×800／手機390×844組裝＋分離共4 flows、errors=[]。正面放大截圖目視，上下桿接到首箱上下環帶；分離後每枚保留兩根桿。art Node、browser audit（52 cases保留原49）、check／check:tests及diff通過。最新artifact hash與原版不變核對見output/reports/rocket-booster-brace.json；未跑全庫／完整owner／真機Moodle。
 
 實作commit 6d9c1f429a7b116796a1d4bf53f1b47982cbd1b7；committed selection base e1ac7c4b261ae983e6f4696475ef571b123c9c4a → 該head，affected／單一rocket-side-booster-lab包／261 entries，output/reports/rocket-booster-brace-selection.json（非全套實跑）。原私人Sites已更新，Site來源10b96327d06bad24a46f65f124ce70d5ae9c0d52；deployment appgdep_6aed8a0ec81081919c696729e2e6c4f7在2026-11-06 16:04:37 UTC+08 native succeeded，output/reports/rocket-booster-brace-sites.json保存發布紀錄，未宣稱線上手動／真機驗收。
+
+## 17. 兩對助推器與帶火分離（2026-11-06，實作前決定）
+
+本節取代早期「最多一對、燃盡才可分離」限制。保留所有核心零件、評分10／15／45／30與70合格、原活動及私人Sites權限。
+
+- 每次加入一對，最多兩對（craft.boosters=2或4）；兩對沿下級的左右／前後四方向排列，底部高度一致，任何上級都沒有助推器。選取已裝助推器取下時移除整組；飛行中一次分離全部，禁止在發射台及結束後分離。主火箭位置、速度、油門及播放狀態不因分離跳變。
+- 附著時每枚沿用120 kN、3000 kg燃料、300 kg乾重、250 s比衝；總推力、質量、阻力及耗油依實際枚數計算。燃料表顯示一對／兩對，共用百分比（同時點燃且相同規格）。
+- ready／burning／spent／jettisoned狀態保留；飛行中的burning與spent均可分離。jettisoned.fuel保存分離當刻的每枚剩餘燃料，只作釋放條件，不再算入主火箭。核心關機且沒有附著燃燒助推器即可計關機，離體引擎不影響評分。
+- 離體物件繼承火箭的慣性速度，在各自徑向得到2 m/s向外的分離衝量；對稱推出的總橫向動量為零，軸向速度完全繼承，不額外向下推。每枚獨立三維積分位置、速度、剩餘燃料；固定推力沿自身向外張開的軸向施加，質量隨燃燒下降，重力為中心引力，阻力依空氣密度及速度計算。燃料事件精確截步，歸零才熄火。張開角使用簡化的阻尼轉動（初始角速度0.35 rad/s、1.5 s衰減時間），不宣稱完整六自由度Soyuz力矩模型。
+- 視覺姿態與推力方向使用同一轉角；四枚向四方向張開，火焰隨燃料顯示，無強制向下的動畫。保留從發射開始的真實近景尺度及緊湊右側頂部操作列。離體位置屬暫態畫面，重載不重播；權威存檔保留主火箭及釋放時燃料，分離後續作／check／提交均合法。
+- schema6／model4沿用compact tuple形狀，擴充枚數及帶燃料的jettisoned。schema5／model3須先按原限制驗證；可編輯draft轉6，舊review／pending保留原schema及canonical bytes。schema2–4策略不變。所有信任邊界仍嚴格驗證、上限4000 bytes，不新增runtime依賴。
+
+必要覆蓋：0／2／4枚、三引擎與三箱、第二對加入／第三對拒絕／全部取下、上級禁止側掛；兩對推力／濕重／乾重／阻力，提早／燃盡分離、主體速度連續、附著與離體各自耗油／燃料歸零，真空加速與能量方向、四向對稱及接地一次、暫停無變化／無收縮；新狀態draft與review round-trip＋合法續做，schema5 draft migration及已提交canonical不變、非法枚數／燃料／狀態拒絕；既有無助推器100分航線與新配搭100分航線保持。
+
+沿用expansion.test.js及browser owner的expandedParts／boosterRepair／braceMount，更新原「提早分離拒絕」斷言。source及解壓SCORM在桌面與手機模擬驗裝配、兩對帶火／燃盡分離、四向姿態／火焰／尺度與緊湊控制列；執行Node、registry、靜態檢查及正式套件來源閉包，commit後記錄selection。真手機／Moodle未執行不得聲稱通過。
+
+效能校正：四枚分離的首輪畫面超過原100 draw-call預算。沿用既有instances helper，將每枚兩根相同支架合為一次繪製，保留兩根的幾何與獨立離體物件；browser明確斷言帶火分離仍在100 calls／100000 triangles內，並檢查各支架instance的實際接合。
+
+本輪驗證：活動八組Node與browser inventory audit通過；新增兩對ready／burning／spent／帶燃料jettisoned與check round-trip及合法續作、舊schema5 draft升級／review canonical／pending retry維持。無助推器原100分航線保留；一對366.75 s及兩對344.75 s新配搭實際達100分。check及check:tests（303 entries）通過，最後支架改用instances後重跑art Node及syntax檢查。
+
+最後runtime的來源＋解壓SCORM共34 flows：帶火分離8（桌面原生滑鼠／手機trusted touch，0.25／1／2秒姿態與推力方向、加速、耗油及熄火、提交）、燃盡分離／緊湊控制／支架26（四尺寸分離、七尺寸controls、36種支架組合每target）。四枚同步推出／尺度及鏡頭無收縮、各自接地且剛好4次impact、暫停不改作答均通過；errors=[]。帶火分離最高99 calls／73337 triangles。手機與桌面的四向張開截圖已目視。
+
+來源／套件依賴閉包逐byte核對，正式ZIP保留output/packages/rocket-side-booster-lab-scorm.zip。最終hash、來源commit及481個原版檔案不變的核對保留在output/reports/rocket-four-boosters.json；兩份browser報告為rocket-four-boosters-early-browser.json／rocket-four-boosters-repair-browser.json。僅本活動變更；未跑全庫／package:all／完整52-case owner／真手機／真Moodle，不能視為Moodle-ready。

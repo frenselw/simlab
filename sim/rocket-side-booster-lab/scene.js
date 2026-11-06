@@ -57,17 +57,15 @@ export class RocketScene{
       this.rocket=buildRocket(data.craft,Boolean(f?.separated));this.scene.add(this.rocket);this.craftKey=key;
     }
     if(this.boosterDrop&&(!data.live||!f||f.t<this.boosterDrop.start||craft!==this.effectCraft))this.clearBoosterDrop();
-    if(data.live&&f?.boosters?.status==='jettisoned'&&this.lastBoosterStatus==='spent'&&this.rocket){
+    if(data.live&&this.data?.live&&f?.boosters?.status==='jettisoned'&&['burning','spent'].includes(this.lastBoosterStatus)&&this.rocket){
       this.clearBoosterDrop();const body=new THREE.Group(),pieces=[];
-      for(const side of [-1,1]){
-        const piece=this.rocket.userData.boosters.clone(true);for(const child of [...piece.children])if(Math.sign(child.position.x)!==side)piece.remove(child);
+      for(const [i,mount]of P.boosterMounts(f.craft.boosters).entries()){
+        const piece=this.rocket.userData.boosters.clone(true);for(const child of [...piece.children])if(child.userData.booster!==i)piece.remove(child);
+        const center=new THREE.Box3().setFromObject(piece).getCenter(new THREE.Vector3());
+        const flame=this.rocket.userData.boosterFlames[i].clone();piece.add(flame);
         piece.traverse(o=>{if(o.isMesh){o.geometry=o.geometry.clone();o.material=o.material.clone();}});
-        const center=new THREE.Box3().setFromObject(piece).getCenter(new THREE.Vector3());for(const child of piece.children)child.position.sub(center);
-        const coast=P.clone(f),a=f.attitude;coast.controls.lit=false;coast.boosters=null;
-        coast.state[0]+=center.y*Math.cos(a)-center.x*Math.sin(a);coast.state[1]+=center.y*Math.sin(a)+center.x*Math.cos(a);
-        coast.state[3]+=-side*2*Math.sin(a)-.5*Math.cos(a);coast.state[4]+=side*2*Math.cos(a)-.5*Math.sin(a);
-        coast.maxHeight=Math.max(coast.maxHeight,O.elements(coast.state).height);
-        body.add(piece);pieces.push({body:piece,coast,center,side,impact:false});
+        for(const child of piece.children)child.position.sub(center);
+        const coast=M.boosterFlight(f,mount,center.toArray());body.add(piece);pieces.push({body:piece,coast,center,mount,side:mount[0],flame,impact:false});
       }
       this.scene.add(body);this.boosterDrop={body,pieces,start:f.t,attitude:f.attitude};
     }
@@ -79,10 +77,10 @@ export class RocketScene{
     if(this.boosterDrop&&f){
       const drop=this.boosterDrop,angle=space?0:theta,units=space?3/P.R:.001,scale=space?this.rocket.scale.y:.001;
       for(const piece of drop.pieces){
-        const started=performance.now();while(piece.coast.t<f.t-1e-8&&piece.coast.status==='flying'&&performance.now()-started<4){const t=piece.coast.t;M.step(piece.coast,Math.min(O.elements(piece.coast.state).height<120000?.1:2,f.t-t),{mass:P.BOOSTER.dry});if(piece.coast.t<=t)break;}
-        const dx=piece.coast.state[0]-f.state[0],dy=piece.coast.state[1]-f.state[1],offset=new THREE.Vector3(dy*Math.cos(angle)-dx*Math.sin(angle),dx*Math.cos(angle)+dy*Math.sin(angle),0);
+        const started=performance.now();while(piece.coast.t<f.t-1e-8&&piece.coast.status==='flying'&&performance.now()-started<4){const t=piece.coast.t;M.stepBooster(piece.coast,Math.min(piece.coast.fuel>0||Math.hypot(...piece.coast.state.slice(0,3))-P.R<120000?.1:2,f.t-t));if(piece.coast.t<=t)break;}
+        const dx=piece.coast.state[0]-f.state[0],dy=piece.coast.state[1]-f.state[1],offset=new THREE.Vector3(dy*Math.cos(angle)-dx*Math.sin(angle),dx*Math.cos(angle)+dy*Math.sin(angle),piece.coast.state[2]-f.state[2]);
         piece.body.position.copy(this.rocket.position).addScaledVector(offset,units);piece.body.scale.setScalar(scale);
-        const age=piece.coast.t-drop.start;piece.body.rotation.z=angle-drop.attitude+piece.side*.16*age;
+        const age=piece.coast.t-drop.start,base=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,0,1),angle-drop.attitude),tilt=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(piece.mount[1],0,-piece.mount[0]),M.boosterTilt(age));piece.body.quaternion.copy(base.multiply(tilt));piece.flame.visible=piece.coast.fuel>0&&piece.coast.status==='flying';
         piece.body.visible=piece.coast.status==='flying';
         if(piece.coast.status==='impact'&&!piece.impact){piece.impact=true;this.impacts.emit(piece.coast.state,piece.coast.t,Math.max(.006,scale*6.6));}
       }
