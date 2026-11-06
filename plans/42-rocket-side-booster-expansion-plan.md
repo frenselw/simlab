@@ -331,3 +331,21 @@ shared scorm.js／activity-flow.js及全部startup／success／committed／froze
 實作commit e9c637e58e7ada582c61f5f2c040d51cd4b41e7c；正式committed selection base 7d4607aba021ced4442343d2ad064b01dbcb8965 → 該head為affected／單一rocket-side-booster-lab包／261 entries，output/reports/rocket-four-boosters-selection.json僅是選取證據，非全套實跑。最終runtime 5dc46844aee15070aafbf1ec2fbb2b9f58ff553f5c732d2d6d8d5cc7727d6ef4，ZIP SHA256 d5a604c3aa0e371a43290641701db5db14cce3a483da7982dbaddd3daa1c3d5d，475 entries。
 
 原私人Sites已更新，權限不變，網址 https://simlab-rocket-side-booster.ieyp.chatgpt.site 。Site來源commit 6da857d4dd3421db8fdaee7b5425449b9ba63ddf；deployment appgdep_6aed9b323aec8191a5fdb191681229b5於2026-11-06 17:17:46 UTC+08 native succeeded，發布證據保留output/reports/rocket-four-boosters-sites.json。預覽panel已排隊開啟，未宣稱線上手動／真手機／Moodle驗收。
+
+## 18. 火箭聲音實施決定（2026-11-06，實作前）
+
+使用者已要求實施上一輪聲音設計。只改新實驗版，沿用原私人Sites。第一版使用本地原生Web Audio合成音效：裝配接合、點火、主引擎與油門／關機、獨立固體燃燒、核心／全組助推器分離、距離衰減與左右聲像、風聲及撞地；不加入背景音樂或語音倒數。
+
+聲音不屬答案；schema6／model4、評分、SCORM lifecycle及舊pending canonical完全不改。預設靜音與30%音量，偏好僅在當頁記憶體，不寫localStorage或suspend_data。使用者點按後才建立／resume AudioContext；不支援或播放失敗只影響音效，仍可飛行及提交。單一44px圖示放現有header工具區，點開浮層調音量／靜音；保留窄屏標題、fullscreen及44px導航，不擴大控制面板。
+
+聲音採機載聽感：主引擎音量與濾波跟主油門平滑變化，固體音量跟實際附著枚數、固定燃燒狀態而不跟主油門；機體低鳴可在真空保留，風聲與離體引擎外部聲隨大氣變稀而消失。帶火離體音讀現有四枚coast物理狀態，仍有燃料就保持推進聲，距離漸弱及按畫面左右定位，燃盡／接地才停。一次分離播放一個機械聲，各次接地只觸發一次，總混音限幅。
+
+音調與播放速度使用真實時鐘，倍速只更新飛行狀態，不能把引擎升成尖叫；連續聲源數固定，短音效數有限且播完斷開。暫停、背景、check／review／pending、renderer故障時淡出並暫停audio context；主體撞地允許短撞擊尾聲，背景仍立即淡出。恢復／開聲先同步當前狀態，不重播過往點火、分離及撞擊。
+
+修改範圍：audio.js（純mix與有限Web Audio圖）、main.js事件／render／frame及既有離體位置讀取、index.html／styles.css小音量控制、manifest新增本地runtime；audio.test.js登記至registry，既有browser owner新增soundEffects歸flight並更新完整inventory audit。測純mix的0／2／4枚與油門、距離／聲像／稀薄空氣、無副作用；mock context的懶載入、獨立gain、限幅、一次事件、暫停／失敗降級與源數回收。Browser在source＋extracted SCORM以桌面滑鼠／手機trusted touch驗開聲、音量／mute、倍速音調、獨立固體、帶火分離／耗盡、暫停／背景／成果、readonly resume與沒有作答變更，並用實際Web Audio渲染驗非零訊號及峰值。再跑活動Node、check／check:tests、manifest閉包及原版hash；commit後保留selection，部署成功才記錄。真手機／真Moodle／喇叭聆聽品質未驗不得聲稱通過。
+
+本輪實測：九組活動Node（新增audio.test.js）與browser inventory audit通過，完整owner保留原49＋既有3＋soundEffects共53 cases；check／check:tests通過（304 entries）。最後音源去相關相位修正後重跑audio Node、source＋extracted SCORM的sound-only；4條完整流程採桌面1280×800原生滑鼠及手機390×844 trusted touch，另每個target執行320×500／390×844／844×390／768×1024／1280×800／1920×1080六種header幾何，44px控制、音量浮層、無重疊及無root溢出。
+
+實際AudioContext點按開聲、原生音量輸入不改作答、六次裝配接合／一次點火／一次四枚分離、主油門0下固體續聲、5× playbackRate仍1、帶火離體距離與左右聲像／燃料耗盡熄聲、暫停70ms後context suspend與短聲源回收、原生分頁背景（四flow nativeHidden=true）、mute／重新開聲不重播、check／submitted review靜音與重載保持唯讀皆通過。8次OfflineAudioContext真實訊號渲染（主體／分離各四次）在100%音量RMS非零，最高峰值約0.372；分離左右相關係數約0.50–0.54，確認獨立聲場。errors=[]，手機音量掣及主畫面截圖已目視；未作真手機／真Moodle／喇叭聆聽校準，亦未跑全庫或完整53-case owner。
+
+原版481個受保護檔案hash不變。正式套件保留output/packages/rocket-side-booster-lab-scorm.zip，476 entries，音效只有新增本地audio.js依賴；來源／manifest／解壓套件逐byte一致。最終runtime與ZIP hash、commit及核對見output/reports/rocket-audio.json；完整browser證據為output/reports/rocket-audio-browser.json。

@@ -114,3 +114,8 @@
 .deck-readouts #timeWarp{width:56px;min-width:44px;min-height:44px;padding:4px;border:1px solid #799e95;border-radius:7px;background:#fffefa;font-size:13px}
 .flight-deck .flight-actions{grid-column:1;grid-row:2;flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none;gap:4px;margin:0;min-width:0}
 .flight-deck .flight-actions>button{flex:0 0 auto;white-space:nowrap;min-height:44px;padding:5px 8px;font-size:13px}
+
+/* Sound settings share the header tools, without adding a control-panel row. */
+.sim-header{padding-right:104px}.sound-control{position:absolute;right:54px;top:4px;z-index:40}#soundButton{display:grid;place-items:center;width:44px;height:44px;padding:9px;border:0;background:transparent}#soundButton svg{width:24px;height:24px}#soundButton[data-enabled=false] .sound-waves,#soundButton[data-enabled=true] .sound-off{display:none}.sound-menu{position:fixed;z-index:70;width:min(248px,calc(100vw - 16px));padding:12px;background:var(--paper);border:1px solid var(--line);border-radius:12px;box-shadow:0 6px 22px #163d4526;color:var(--ink);font-size:14px}.sound-menu label{display:flex;justify-content:space-between;font-weight:650}.sound-menu input{display:block;width:100%;height:44px;margin:0;accent-color:var(--teal);touch-action:pan-x}.sound-menu button{width:100%;min-height:44px}.sound-menu p{font-size:12px;margin:8px 0 0;line-height:1.5}
+
+.sim-header.sim-fullscreen-header.sim-fullscreen-header-row{padding-right:104px!important}
