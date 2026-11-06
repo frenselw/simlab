@@ -65,6 +65,8 @@ function syncSound(){
   const f=controller.state?.flight,live=controller.mode==='edit'&&tab==='A'&&!renderLost&&!document.hidden;
   const pieces=f&&scene?.boosterDrop?.pieces.map((p,i)=>{const distance=Math.hypot(...p.coast.state.slice(0,3).map((v,j)=>v-f.state[j]));let pan=0;if(sound.enabled&&live&&controller.running){const x=scene.project(p.body.position).x,center=scene.project(scene.rocket.position).x;pan=Math.max(-.95,Math.min(.95,(x-center)/Math.max(1,d.stage.clientWidth*.3)));}return {id:p.coast.start+':'+i,coast:p.coast,distance,pan};})||[];
   sound.update({flight:f,live,running:controller.running,workshop:controller.state?.phase==='workshop',pieces});
+  const status=!sound.enabled||sound.volume===0?'聲音已靜音':!sound.musicEnabled?'太空音樂已關閉':!live||!controller.running?'音樂已暫停':!sound.musicMood?'升至 100 km 後漸入音樂':sound.musicMood==='orbit'?'正在播放：深空軌道':'正在播放：太空漂浮';
+  if(d.musicStatus.textContent!==status)d.musicStatus.textContent=status;
 }
 function soundUI(){const on=sound.enabled&&sound.volume>0,label=on?'音效已開啟，音量 '+Math.round(sound.volume*100)+'%；音量設定':'開啟音效與音量設定';d.soundButton.dataset.enabled=String(on);d.soundButton.setAttribute('aria-label',label);d.soundButton.title=label;d.soundMute.textContent=sound.enabled?'靜音':'開啟音效';d.soundNotice.hidden=!sound.failed;d.soundVolumeValue.textContent=Math.round(sound.volume*100)+'%';d.spaceMusic.textContent='太空音樂：'+(sound.musicEnabled?'開':'關');d.spaceMusic.setAttribute('aria-pressed',String(sound.musicEnabled));}
 function closeSound(focus=false){d.soundMenu.hidden=true;d.soundButton.setAttribute('aria-expanded','false');if(focus)d.soundButton.focus({preventScroll:true});}

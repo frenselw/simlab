@@ -409,3 +409,17 @@ terrainColorSeams新增20／96.1／300 km、quality0／2、桌面／手機的實
 實作commit b1bc9fb53a87f62ee74578b9e697dc90bb3d1551；committed selection base bfa5206c956770d222982b1015328f63de17a78c → 該head為affected／單一rocket-side-booster-lab包／262 entries，output/reports/rocket-cloud-seam-selection.json僅選取證據。476-entry正式ZIP逐byte符合manifest／來源／Site dist，runtime c381bbb17a1ab36e7ff50ef7623222691109825fce350386dce293c30230058c，ZIP SHA256 a213177063da2fc29f37d28f081efac52949d0d05b3d483b5fd358267f55eb85；詳output/reports/rocket-cloud-seam.json。
 
 同一私人Sites發布成功，權限及網址不變：Site來源8bd37c1669345a770bf06789ead75156d906dcc5，deployment appgdep_6aedf31746348191a822624c8620ccf5於2026-11-06 23:32:48 UTC+08 native succeeded，網址 https://simlab-rocket-side-booster.ieyp.chatgpt.site 。證據output/reports/rocket-cloud-seam-sites.json，未宣稱線上手動／真機或Moodle驗收。
+
+## 22. 太空漂浮與深空軌道兩段配樂（2026-11-06，實作前）
+
+使用者回報190×190 km沒有配樂，要求上太空已開始柔和音樂，穩定入軌再轉深邃、神秘、稍帶激動／不安的柔和音樂。已重現：O.circular(190000)、controls.lit=true而throttle=0，實際推力為0且O.safe=true，舊updateMusic仍拒絕開始orbitSince，4秒後musicReady仍false。這是已確認的觸發缺陷，不能斷言是使用者當時唯一原因；全域靜音／音樂開關／暫停仍須尊重。
+
+修改僅限新實驗版audio.js、audio.test.js、main.js與現有音量浮層的短狀態文字、既有spaceMusic browser case。100 km以上實體飛行音效維持精確靜音；飛行中到達100 km即約6–8秒淡入「太空漂浮」，不要求bound／近地點安全／關機。安全軌道且實際M.thrust為0持續3個真實秒，交叉淡化成「深空軌道」；190×190 km、油門0及無燃料均可進入，不按lit旗標阻擋。重新點火不再把太空配樂壓到25%，因高空已無飛行聲遮蓋；安全軌道失效退回漂浮，低於100 km淡出。保留暫停／背景／review／mute、當頁記憶體與新試飛重置、時間倍率不改樂速的合約。
+
+沿用原生Web Audio、兩組各四音、最多8個音樂oscillator：漂浮用較明亮開放和弦、較高音域；深空用低音及小調add9和弦、微量失諧及較暗濾波，換和弦更慢。兩段以長交叉淡化銜接，無突發巨響、外部音檔或新依賴；提高合成樂段增益使預設30%音量亦有可測訊號。全域仍預設關音、音樂開關預設開，音量浮層顯示靜音／等待100km／暫停／正在播放的樂段，避免「太空音樂：開」被誤認為已發聲。不新增常駐面板或更改飛行／schema6／model4／評分／SCORM狀態。
+
+驗證：Node覆蓋未入軌／逃逸方向的100km高空、190km零油門、實際推力阻擋穩定確認、兩段切換與不累加聲源、真實計時、暫停／mute／背景／再入／新飛行。既有spaceMusic case在source＋extracted SCORM、桌面滑鼠＋手機trusted touch驗兩段、狀態／開關、1000×及review。OfflineAudioContext在預設30%及100%渲染兩段、淡入／交叉淡化，量RMS／峰值與音域差異；飛行音效靜音另行驗，不能再把100km的總音訊要求為零。九組Node、browser audit、check／check:tests、manifest閉包及原版481個hash不變後commit並更新原私人Sites。未做真手機／Moodle／實際喇叭聆聽，不宣稱音響校準。
+
+最終實測：九組活動Node、browser inventory audit（沿用55 cases）、check／check:tests（304 entries）全部通過。space-music-only在source＋extracted SCORM共10 flows，4條配樂（桌面原生滑鼠／手機trusted touch）證實120 km未入軌即播放漂浮、190×190 km在lit=true／throttle=0下約3個真實秒轉深空、1000×保持樂速、重新點火不壓至25%、暫停／背景／mute／check／再入／新飛行正常。另4條既有音效及2條lifecycle含延遲resume取消、原生背景、成果100分與review靜音全部通過，errors=[]。
+
+44次新增OfflineAudioContext渲染含預設30%／100%兩段樂、80／90／100km飛行效果及4次真正於6 s入安全軌道、9.25 s確認的24 s交叉淡化。100km只開飛行音效RMS精確0；30%漂浮／深空的穩態RMS約0.0323／0.0342、峰值0.0839／0.0909；100%峰值約0.280／0.303。漂浮首0.5 s RMS只有穩態約11%，確認柔和淡入；交接期間無斷聲、最大逐sample跳幅約0.00618，固定8個樂音oscillator。55Hz低音及131Hz基音投影明確區分兩種音域。桌面漂浮及手機190 km／0%油門、深空樂段狀態截圖已目視；完整證據output/reports/rocket-two-stage-music-browser.json。481個原版hash不變。未跑全庫／完整55-case owner／真手機／Moodle／喇叭聆聽校準。

@@ -2,7 +2,7 @@
   'use strict';
   const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v)),silent=()=>({gain:0,hz:500,bass:55,pan:0});
   function flightGain(f){if(!f)return 1;const t=clamp((Math.hypot(...f.state.slice(0,3))-P.R-80000)/20000);return 1-t*t*(3-2*t);}
-  const CHORDS=[[48,55,62,64],[45,52,59,60],[41,48,55,57],[43,50,57,60]];
+  const CHORDS={space:[[48,55,62,64],[45,52,59,60],[41,48,55,57],[43,50,57,60]],orbit:[[33,52,59,60],[29,48,55,57],[32,51,58,59],[31,50,57,58]]};
   function mix(f,pieces=[]){
     const voices=Array.from({length:7},silent);if(!f)return voices;
     const air=clamp(M.atmosphere(Math.hypot(...f.state.slice(0,3))-P.R)/1.225),engine=f.craft.stages[f.active].engine,throttle=f.controls.lit&&f.fuel[f.active]>0?f.controls.throttle:0;
@@ -13,7 +13,7 @@
     const fade=flightGain(f);for(const v of voices)v.gain*=fade;return voices;
   }
   class Sound{
-    constructor(){this.musicEnabled=true;this.musicReady=false;this.orbitSince=null;this.musicTime=0;this.musicClock=null;this.musicChord=-1;this.musicLevel=0;this.musicGraph=null;this.ignition=0;this.enabled=false;this.volume=.3;this.context=null;this.pending=null;this.failed=false;this.effects=new Set();this.cues={};this.last=null;this.pieces=new Map();this.hold=0;this.masterTarget=0;this.targets=Array.from({length:7},silent);}
+    constructor(){this.musicEnabled=true;this.musicReady=false;this.musicMood=null;this.orbitSince=null;this.musicTime=0;this.musicClock=null;this.musicChord=-1;this.musicLevel=0;this.musicGraph=null;this.ignition=0;this.enabled=false;this.volume=.3;this.context=null;this.pending=null;this.failed=false;this.effects=new Set();this.cues={};this.last=null;this.pieces=new Map();this.hold=0;this.masterTarget=0;this.targets=Array.from({length:7},silent);}
     createGraph(context){
       this.context=context;this.musicGraph=null;this.musicLevel=0;this.musicChord=-1;const c=context;this.noise=c.createBuffer(1,c.sampleRate*2,c.sampleRate);const data=this.noise.getChannelData(0);for(let i=0;i<data.length;i++)data[i]=Math.random()*2-1;
       this.bus=c.createDynamicsCompressor();for(const [k,v]of Object.entries({threshold:-18,knee:18,ratio:8,attack:.005,release:.12}))this.bus[k].value=v;
@@ -23,21 +23,28 @@
     createMusic(){
       const c=this.context,output=c.createGain(),filter=c.createBiquadFilter(),delay=c.createDelay(1),feedback=c.createGain(),wet=c.createGain();output.gain.value=0;filter.type='lowpass';filter.frequency.value=1200;filter.Q.value=.3;delay.delayTime.value=.43;feedback.gain.value=.22;wet.gain.value=.25;filter.connect(output);filter.connect(delay);delay.connect(feedback);feedback.connect(delay);delay.connect(wet);wet.connect(output);output.connect(this.bus);
       const banks=Array.from({length:2},()=>{const gain=c.createGain();gain.gain.value=0;gain.connect(filter);const notes=Array.from({length:4},(_,i)=>{const tone=c.createOscillator(),pan=c.createStereoPanner();tone.type=i%2?'triangle':'sine';pan.pan.value=[-.65,-.2,.2,.65][i];tone.connect(pan);pan.connect(gain);tone.start();return tone;});return {gain,notes};});
-      this.musicGraph={output,banks};this.musicChord=-1;
+      this.musicGraph={output,banks,filter,mood:null,bank:0};this.musicChord=-1;
     }
     setMusicEnabled(value){this.musicEnabled=Boolean(value);if(this.input)this.update(this.input);}
     updateMusic(input,now){
       const {flight:f,live,running}=input;
       if(!f||this.last&&f.t<this.last.t){this.musicReady=false;this.orbitSince=null;this.musicTime=0;this.musicClock=null;this.musicChord=-1;}
-      const orbital=Boolean(f&&f.status==='flying'&&Math.hypot(...f.state.slice(0,3))-P.R>=100000&&O.elements(f.state).bound);
-      if(!orbital){this.musicReady=false;this.orbitSince=null;}
-      if(!this.musicReady){if(orbital&&live&&running&&O.safe(f.state)&&!f.controls.lit&&!P.burning(f)){if(this.orbitSince===null)this.orbitSince=now;if(now-this.orbitSince>=3)this.musicReady=true;}else this.orbitSince=null;}
-      const playing=Boolean(this.enabled&&this.musicEnabled&&live&&running&&this.musicReady&&this.context);
+      const space=Boolean(f&&f.status==='flying'&&Math.hypot(...f.state.slice(0,3))-P.R>=100000),safe=space&&O.safe(f.state);
+      if(!safe){this.musicReady=false;this.orbitSince=null;}
+      // Zero throttle and exhausted fuel are silent coast even when the ignition flag remains set.
+      if(!this.musicReady){if(safe&&live&&running&&M.thrust(f)===0){if(this.orbitSince===null)this.orbitSince=now;if(now-this.orbitSince>=3)this.musicReady=true;}else this.orbitSince=null;}
+      this.musicMood=space?(this.musicReady?'orbit':'space'):null;
+      const playing=Boolean(this.enabled&&this.musicEnabled&&live&&running&&space&&this.context);
       if(playing&&this.context.state==='running'){if(this.musicClock!==null)this.musicTime+=Math.max(0,now-this.musicClock);this.musicClock=now;}else this.musicClock=null;
-      const target=playing?((f.controls.lit||P.burning(f)) ? .25 : 1):0;
+      const target=playing?1:0;
       if(playing&&!this.musicGraph)this.createMusic();
       if(this.musicGraph){
-        const chord=Math.floor(this.musicTime/18);if(playing&&chord!==this.musicChord){const first=this.musicChord===-1,bank=chord%2;this.musicGraph.banks.forEach((b,i)=>{if(i===bank)b.notes.forEach((n,j)=>n.frequency.setValueAtTime(440*2**((CHORDS[chord%CHORDS.length][j]-69)/12),this.context.currentTime));if(first)b.gain.gain.setValueAtTime(i===bank ? .024 : 0,this.context.currentTime);else this.ramp(b.gain.gain,i===bank ? .024 : 0,1.6);});this.musicChord=chord;}
+        const graph=this.musicGraph,deep=this.musicMood==='orbit',chord=Math.floor(this.musicTime/(deep?24:18));
+        if(playing&&(chord!==this.musicChord||graph.mood!==this.musicMood)){
+          const first=this.musicChord===-1,bank=first?0:1-graph.bank,notes=CHORDS[this.musicMood][chord%4];
+          graph.banks.forEach((b,i)=>{if(i===bank)b.notes.forEach((n,j)=>{n.frequency.setValueAtTime(440*2**((notes[j]-69)/12),this.context.currentTime);n.detune.setValueAtTime((deep?5:3)*[-1,.6,-.6,1][j],this.context.currentTime);});const gain=i===bank?(deep?.055:.05):0;if(first)b.gain.gain.setValueAtTime(gain,this.context.currentTime);else this.ramp(b.gain.gain,gain,1.8);});
+          this.ramp(graph.filter.frequency,deep?900:1400,1.8);graph.bank=bank;graph.mood=this.musicMood;this.musicChord=chord;
+        }
         if(target!==this.musicLevel){const tau=(!live||!running) ? .012 : target>this.musicLevel?(this.musicLevel===0?2.2:.6):.65;this.ramp(this.musicGraph.output.gain,target,tau);}
       }
       this.musicLevel=target;
@@ -81,7 +88,7 @@
       if(target!==this.masterTarget){this.masterTarget=target;this.ramp(this.master.gain,target,.018);}if(active){clearTimeout(this.suspendTimer);this.suspendTimer=null;}else if(this.context.state==='running'&&!this.suspendTimer)this.silence();
       this.voices.forEach((voice,i)=>{const value=this.targets[i],gain=running&&live?value.gain:0;if(!voice.target||voice.target.gain!==gain)this.ramp(voice.gain.gain,gain);if(!voice.target||voice.target.hz!==value.hz)this.ramp(voice.filter.frequency,value.hz,.1);if(!voice.target||voice.target.bass!==value.bass){this.ramp(voice.tone.frequency,value.bass||55,.1);this.ramp(voice.bass.gain,value.bass?.13:0);}if(!voice.target||voice.target.pan!==value.pan)this.ramp(voice.pan.pan,value.pan);voice.target={...value,gain:running&&live?value.gain:0};});
     }
-    diagnostics(){return {enabled:this.enabled,volume:this.volume,failed:this.failed,music:{enabled:this.musicEnabled,ready:this.musicReady,level:this.musicLevel,time:this.musicTime,chord:this.musicChord,voices:this.musicGraph?8:0},context:this.context?.state||'uninitialized',master:this.masterTarget,voices:this.voices?.length||0,effects:this.effects.size,gains:this.voices?.map(v=>v.target?.gain||0)||[],cues:{...this.cues},targets:this.targets.map(v=>({...v})),playbackRates:this.voices?.map(v=>v.noise.playbackRate.value)||[]};}
+    diagnostics(){return {enabled:this.enabled,volume:this.volume,failed:this.failed,music:{enabled:this.musicEnabled,ready:this.musicReady,mood:this.musicMood,level:this.musicLevel,time:this.musicTime,chord:this.musicChord,voices:this.musicGraph?8:0},context:this.context?.state||'uninitialized',master:this.masterTarget,voices:this.voices?.length||0,effects:this.effects.size,gains:this.voices?.map(v=>v.target?.gain||0)||[],cues:{...this.cues},targets:this.targets.map(v=>({...v})),playbackRates:this.voices?.map(v=>v.noise.playbackRate.value)||[]};}
   }
   return Object.freeze({Sound,mix,flightGain});
 });
