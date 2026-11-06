@@ -290,3 +290,7 @@ shared scorm.js／activity-flow.js及全部startup／success／committed／froze
 本輪實測：來源＋解壓SCORM共22 flows、errors=[]；其中8組noShrink（4尺寸×source/package）驗固定主體／助推器尺度及鏡頭穩定，另保留14個compactDeck觸控／分級流程。新活動8組Node＋browser audit、check／check:tests、文件連結與diff檢查通過；桌面分離前後截圖目視。最新package／runtime hash及原版隔離核對為output/reports/rocket-booster-no-shrink.json；未跑全庫／完整51case或真手機／Moodle。
 
 本修正commit 63440b8c295d30d5550ea467d3f547e573b9df24；正式selection base b9f9ae3999b0eeb595c3f166f3e018dd4e513d6a → 該head，affected／單一rocket-side-booster-lab包／261 entries，output/reports/rocket-booster-no-shrink-selection.json；不等於全套執行。Site來源commit 9cebf5504b0c42b6bd27500afde7282d215f9bd2，native部署appgdep_6aecb2844420819197a22f4ed9db4b40於2026-11-06 00:45:03 UTC+08確認succeeded，保留原私人網址／權限。來源及package hash記錄output/reports/rocket-booster-no-shrink-sites.json；已交帶v=63440b8的網址給Codex panel以載入新版，未宣稱真機／線上手動驗收。
+
+## 15. 引擎卡片文案簡化（2026-11-06）
+
+按使用者要求，三款核心引擎卡片只顯示推力及乾重：大推力600 kN／500 kg、高效率80 kN／150 kg、均衡250 kN／250 kg，移除比衝及用途短句。只改本活動index.html文案，不改參數、物理、存檔或舊活動。重建SCORM並逐檔核對來源，三組文字對照parts元資料；本輪不重跑browser流程。
