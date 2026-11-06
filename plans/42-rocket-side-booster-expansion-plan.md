@@ -405,3 +405,7 @@ Parent實際把兩個反例先加測試，舊碼分別失敗pad!=flying／ignite
 terrainColorSeams新增20／96.1／300 km、quality0／2、桌面／手機的實際offscreen像素比對：同一組地球／global／regional／雲的一次render，對照先畫地面再單獨合成雲的參考。原碼在96.1 km像素最大誤差50、平均12.22／255，測試按預期失敗；低空雲尚未出現允許零覆蓋，高空必須有非零雲覆蓋以防空測。原有地形顏色日夜比較及100draw／100k triangles預算保留，55-case inventory不增入口。
 
 最終實測：九組活動Node、browser inventory audit、check／check:tests（304 entries）通過。source及extracted SCORM各測1280×800／390×664的terrainColorSeams，新增24組像素比較（近景使用已分離上級），與明確最後畫雲的參考最大／平均誤差皆0；高空每組16,384個像素都有雲覆蓋。既有地面日夜顏色比較、繪製預算全部通過，桌面／手機96.1 km截圖目視已無方形邊界。另source＋package的cloudVisuals共4 flows驗1280×800／390×844、日／夜／terminator／horizon、暗面雲亮度及繪製預算，errors=[]。保留output/reports/rocket-cloud-seam-browser.json、rocket-cloud-visuals-browser.json及原碼失敗報告rocket-cloud-seam-before.json。481個原版hash不變；未跑全庫／完整55-case owner／真手機／Moodle。
+
+實作commit b1bc9fb53a87f62ee74578b9e697dc90bb3d1551；committed selection base bfa5206c956770d222982b1015328f63de17a78c → 該head為affected／單一rocket-side-booster-lab包／262 entries，output/reports/rocket-cloud-seam-selection.json僅選取證據。476-entry正式ZIP逐byte符合manifest／來源／Site dist，runtime c381bbb17a1ab36e7ff50ef7623222691109825fce350386dce293c30230058c，ZIP SHA256 a213177063da2fc29f37d28f081efac52949d0d05b3d483b5fd358267f55eb85；詳output/reports/rocket-cloud-seam.json。
+
+同一私人Sites發布成功，權限及網址不變：Site來源8bd37c1669345a770bf06789ead75156d906dcc5，deployment appgdep_6aedf31746348191a822624c8620ccf5於2026-11-06 23:32:48 UTC+08 native succeeded，網址 https://simlab-rocket-side-booster.ieyp.chatgpt.site 。證據output/reports/rocket-cloud-seam-sites.json，未宣稱線上手動／真機或Moodle驗收。
