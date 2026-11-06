@@ -294,3 +294,11 @@ shared scorm.js／activity-flow.js及全部startup／success／committed／froze
 ## 15. 引擎卡片文案簡化（2026-11-06）
 
 按使用者要求，三款核心引擎卡片只顯示推力及乾重：大推力600 kN／500 kg、高效率80 kN／150 kg、均衡250 kN／250 kg，移除比衝及用途短句。只改本活動index.html文案，不改參數、物理、存檔或舊活動。重建SCORM並逐檔核對來源，三組文字對照parts元資料；本輪不重跑browser流程。
+
+## 16. 助推器連桿接合修正（2026-11-06）
+
+使用者截圖指出下方桿懸空。根因：桿固定在y=1.6m，位於核心引擎而非從y=2m開始的燃料箱；長度亦只剛到箱身半徑。只改新活動buildRocket的兩側支架：上下桿依下級第一個燃料箱的上下環帶定位（距端0.2m），上桿不高於助推器圓筒，橫桿稍微嵌入兩側外殼以免透視角度出現縫隙。沿用原mesh／材質／掛點及分離時整對拆出，不改推力、質量、schema或評分。
+
+驗收在既有browser owner新增brace case，覆蓋三種引擎、三種首箱及混箱順序，測實際幾何bounds與箱身／助推器重疊，並目視桌面與手機、source及解壓SCORM。保留分離續做，更新原私人Sites，舊活動不改。
+
+本輪實測：18種幾何組合在source及extracted SCORM均通過，桌面1280×800／手機390×844組裝＋分離共4 flows、errors=[]。正面放大截圖目視，上下桿接到首箱上下環帶；分離後每枚保留兩根桿。art Node、browser audit（52 cases保留原49）、check／check:tests及diff通過。最新artifact hash與原版不變核對見output/reports/rocket-booster-brace.json；未跑全庫／完整owner／真機Moodle。

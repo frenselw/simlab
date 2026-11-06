@@ -3,6 +3,7 @@ const assert=require('node:assert/strict');
 const {groupNames,rocketCases,selectCases}=require('./rocket-side-booster-browser-regression');
 // Audit the original complete owner inventory when changing CI registration.
 const original=[
+  "braceMount",
   "boosterRepair",
   "expandedParts",
   "noRiver",
@@ -64,7 +65,7 @@ const grouped=groupNames.flatMap(group=>{
 assert.equal(grouped.length,original.length,'no original case is duplicated across CI groups');
 assert.equal(new Set(grouped).size,original.length);
 assert.deepEqual(grouped.slice().sort(),original.slice().sort(),'CI groups jointly retain the full owner coverage');
-assert.equal(rocketCases.length,51);
+assert.equal(rocketCases.length,52);
 for(const args of [['--group'],['--group=unknown'],['--group=flight','--group=terrain'],['--group=flight','--smoke']])assert.throws(()=>selectCases(args));
 console.log('Rocket CI groups preserve all 49 original cases exactly once and reject ambiguous selections.');
 
