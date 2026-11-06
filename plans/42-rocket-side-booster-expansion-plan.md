@@ -393,3 +393,15 @@ Parent實際把兩個反例先加測試，舊碼分別失敗pad!=flying／ignite
 實作commit c9f505b319822ab94a040e62a3ec9ad70334c976；正式committed selection base 89db367792bc1f125edfa189ab9d3acf283e2350 → 該head為affected／單一rocket-side-booster-lab包／262 entries，output/reports/rocket-space-music-selection.json僅選取而非全套實跑。最終runtime b30ab72d9ecf820412f85f8366f74623f13b61548618e6177eaeeadeabd09eb6；476-entry ZIP SHA256 6eccc81b296eedd7d0c3d1268b5ecd220a1761fcdd21574c34cf4acdb1059f0c。
 
 太空配樂版發布原私人Sites成功，權限不變，Site來源06adacde28e167a2ab14cce1d3183b8397815244；deployment appgdep_6aeded3290d881919c43f58eff79b8bb於2026-11-06 23:07:39 UTC+08 native succeeded。發布證據output/reports/rocket-space-music-sites.json；預覽panel已排隊開啟，未宣稱線上手動／真機或Moodle驗收。
+
+## 21. 高空地形正方形交界（2026-11-06，實作前）
+
+使用者截圖在離地96.1 km、水平飛行時出現有直角的淺色地面。先用實際WebGL分層重現，檢查regional／global terrain的裁切、顏色與繪製次序；只修新實驗版的根因，不改原版資產、飛行物理、schema6／model4、作答或SCORM lifecycle，也不新增設定或依賴。所有createTerrain／createGlobalTerrain caller及既有地形回歸均納入範圍。
+
+沿用terrainColorSeams browser owner，加入約96 km及離開發射場的邊界姿態，source與解壓SCORM各驗桌面／手機寬度、實際像素及原有繪製預算；必要時測日夜與不同細節級別。修後跑活動Node、browser inventory audit、check／check:tests、manifest逐byte閉包及481個原版hash，保留套件及證據。按既有授權commit並更新同一私人Sites，記錄實際發布結果；未做真機／Moodle不得聲稱通過。
+
+已分層重現：t=179.4 s、高96.1 km、theta=.01、向下跟隨鏡頭時出現相同淺色直線邊；隱藏clouds後邊界消失，隱藏global不消失。根因是clouds.renderOrder=-1，早於renderOrder=0的半透明regional外圈／漸淡內圈；雲已覆蓋不透明內圈，但外圈後畫覆蓋雲，露出地形方格。最終只把regional外圈renderOrder改為-2，讓所有地面早於雲(-1)，火焰／煙等前景特效(0)仍在雲之後；不透明內圈仍-3。維持原有深度測試／不寫深度，不更改地理／mesh／shader／資產。
+
+terrainColorSeams新增20／96.1／300 km、quality0／2、桌面／手機的實際offscreen像素比對：同一組地球／global／regional／雲的一次render，對照先畫地面再單獨合成雲的參考。原碼在96.1 km像素最大誤差50、平均12.22／255，測試按預期失敗；低空雲尚未出現允許零覆蓋，高空必須有非零雲覆蓋以防空測。原有地形顏色日夜比較及100draw／100k triangles預算保留，55-case inventory不增入口。
+
+最終實測：九組活動Node、browser inventory audit、check／check:tests（304 entries）通過。source及extracted SCORM各測1280×800／390×664的terrainColorSeams，新增24組像素比較（近景使用已分離上級），與明確最後畫雲的參考最大／平均誤差皆0；高空每組16,384個像素都有雲覆蓋。既有地面日夜顏色比較、繪製預算全部通過，桌面／手機96.1 km截圖目視已無方形邊界。另source＋package的cloudVisuals共4 flows驗1280×800／390×844、日／夜／terminator／horizon、暗面雲亮度及繪製預算，errors=[]。保留output/reports/rocket-cloud-seam-browser.json、rocket-cloud-visuals-browser.json及原碼失敗報告rocket-cloud-seam-before.json。481個原版hash不變；未跑全庫／完整55-case owner／真手機／Moodle。

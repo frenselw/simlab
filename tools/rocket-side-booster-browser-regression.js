@@ -550,7 +550,28 @@ async function terrainColorSeams(base,label){
   for(const altitude of [20000,300000,637600,940400,1500000]){await call(`const s=app.getScene(),f=app.controller.state.flight;f.t=179.4;f.state=[RocketParts.R+${altitude},0,0,5030,0,0];f.controls.lit=false;app.controller.emit();s.setView('follow');s.pitch=.65;s.draw();`);await wait(()=>call('return app.getScene().globalTerrain.userData.pending===0;'),'seam details settled');const r=await call('return app.getScene().diagnostics();');assert(r.drawCalls<=100&&r.triangles<=100000,JSON.stringify(r));frames.push({altitude,...r});if(altitude===637600)await screenshot(label+'-fixed-color-seam-'+width);}
   // Compare ground colors without cloud occlusion; the production frames above retain clouds.
   const pixels=await H.evaluate(cdp,`(async()=>{const THREE=await import('./vendor/three-0.185.1/three.module.min.js'),s=window.__rocketApp.getScene(),f=window.__rocketApp.controller.state.flight;f.state=[RocketParts.R+300000,0,0,5030,0,0];window.__rocketApp.controller.emit();s.draw();const target=new THREE.WebGLRenderTarget(128,128),world=new THREE.Scene(),land=s.relief.clone(),white=new THREE.MeshBasicMaterial({color:0xffffff,toneMapped:false}),previous=s.renderer.getRenderTarget(),clear=s.renderer.getClearColor(new THREE.Color()),alpha=s.renderer.getClearAlpha(),results=[];land.visible=true;land.traverse(o=>{if(o.isMesh)o.material=white;});world.add(land);try{s.renderer.setRenderTarget(target);s.renderer.setClearColor(0,0);s.renderer.render(world,s.camera);const mask=new Uint8Array(128*128*4);s.renderer.readRenderTargetPixels(target,0,0,128,128,mask);for(const direction of [1,-1]){s.draw();s.clouds.visible=false;s.planetSun.multiplyScalar(direction);s.renderer.setRenderTarget(target);s.renderer.render(s.scene,s.camera);const a=new Uint8Array(mask.length),b=new Uint8Array(mask.length);s.renderer.readRenderTargetPixels(target,0,0,128,128,a);s.relief.visible=false;s.globalTerrain.updateDetail(s.camera,s.host.clientHeight/(2*Math.tan(THREE.MathUtils.degToRad(s.camera.fov)/2)),s.quality,true,false,true);s.renderer.render(s.scene,s.camera);s.renderer.readRenderTargetPixels(target,0,0,128,128,b);const differences=[];for(let y=2;y<126;y++)for(let x=2;x<126;x++){const i=(y*128+x)*4;if([i,i-8,i+8,i-1024,i+1024].every(j=>mask[j]>250&&mask[j+3]>250))differences.push((Math.abs(a[i]-b[i])+Math.abs(a[i+1]-b[i+1])+Math.abs(a[i+2]-b[i+2]))/3);}differences.sort((a,b)=>a-b);results.push({direction,samples:differences.length,mean:differences.reduce((a,b)=>a+b,0)/differences.length,p95:differences[Math.floor(differences.length*.95)]});}return results;}finally{s.renderer.setRenderTarget(previous);s.renderer.setClearColor(clear,alpha);target.dispose();white.dispose();s.draw();}})()`);
-  assert(pixels.every(p=>p.samples>40&&p.mean<8&&p.p95<18),JSON.stringify(pixels));report.flows.push({label,width,height,terrainColorSeams:true,frames,pixels});
+  assert(pixels.every(p=>p.samples>40&&p.mean<8&&p.p95<18),JSON.stringify(pixels));
+  await open(base,T.reachOrbit());const cloudSeams=[];
+  for(const quality of [0,2])for(const altitude of [20000,96100,300000]){
+   await call(`const s=app.getScene(),f=app.controller.state.flight,r=RocketParts.R+${altitude};f.t=179.4;f.state=[r*Math.cos(.01),r*Math.sin(.01),0,2330,0,0];app.controller.emit();s.setView('follow');s.quality=${quality};s.pitch=1.3;s.yaw=3.7;s.draw();`);
+   await wait(()=>call('return app.getScene().globalTerrain.userData.pending===0;'),'cloud seam detail settles');
+   const stats=await call('return app.getScene().diagnostics();');assert(stats.drawCalls<=100&&stats.triangles<=100000,JSON.stringify(stats));
+   // A separate final cloud pass is the reference for both opaque and fading ground tiles.
+   const row=await H.evaluate(cdp,`(async()=>{
+    const THREE=await import('./vendor/three-0.185.1/three.module.min.js'),s=__rocketApp.getScene(),renderer=s.renderer,world=new THREE.Scene(),ground=[s.earth,s.globalTerrain,s.relief].map(o=>o.clone()),cloud=s.clouds.clone(),target=new THREE.WebGLRenderTarget(128,128),old=renderer.getRenderTarget(),clear=renderer.getClearColor(new THREE.Color()),alpha=renderer.getClearAlpha(),autoClear=renderer.autoClear;
+    world.add(...ground,cloud);const read=()=>{const p=new Uint8Array(128*128*4);renderer.readRenderTargetPixels(target,0,0,128,128,p);return p;};
+    try{
+     renderer.setRenderTarget(target);renderer.setClearColor(0,1);renderer.autoClear=true;renderer.render(world,s.camera);const actual=read();
+     cloud.visible=false;renderer.render(world,s.camera);const bare=read();
+     ground.forEach(o=>o.visible=false);cloud.visible=true;renderer.autoClear=false;renderer.render(world,s.camera);const reference=read();
+     let maxError=0,changed=0,total=0;for(let i=0;i<reference.length;i+=4){let effect=0;for(let k=0;k<3;k++){const error=Math.abs(actual[i+k]-reference[i+k]);maxError=Math.max(maxError,error);total+=error;effect+=Math.abs(reference[i+k]-bare[i+k]);}if(effect>6)changed++;}
+     return {altitude:${altitude},quality:${quality},maxError,meanError:total/(128*128*3),cloudPixels:changed,opaqueTiles:s.relief.children.filter(o=>o.visible&&o.geometry?.attributes.landFade&&!o.material.transparent).length,fadingTiles:s.relief.children.filter(o=>o.visible&&o.geometry?.attributes.landFade&&o.material.transparent).length};
+    }finally{renderer.autoClear=autoClear;renderer.setRenderTarget(old);renderer.setClearColor(clear,alpha);target.dispose();s.draw();}
+   })()`);
+   cloudSeams.push(row);assert((altitude===20000||row.cloudPixels>20)&&row.maxError<=1,JSON.stringify(row));
+   if(altitude===96100&&quality===0)await screenshot(label+'-cloud-ground-boundary-'+width);
+  }
+  assert(cloudSeams.some(r=>r.opaqueTiles>0&&r.fadingTiles>0));report.flows.push({label,width,height,terrainColorSeams:true,frames,pixels,cloudSeams});
  }
 }
 async function vacuumSeparation(base,label){
