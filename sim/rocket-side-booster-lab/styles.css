@@ -106,12 +106,12 @@
 .time-warp-menu p{grid-column:1/-1;margin:2px 0 0;font-size:12px;line-height:1.4;color:var(--muted)}
 
 /* Controls stay at the top of their own panel, with one 44px action row. */
-.flight-deck{display:grid;grid-template-columns:minmax(0,1fr) 56px;grid-template-rows:20px 44px;gap:3px 6px;padding:3px 8px}
+.flight-deck{display:grid;grid-template-columns:minmax(0,1fr) max-content;grid-template-rows:minmax(26px,auto) 44px;gap:3px 6px;padding:3px 8px}
 .deck-readouts{display:contents}
-.deck-readouts>.orbit-strip{grid-column:1;grid-row:1;display:flex;gap:12px;line-height:20px;margin:0;font-size:11px}
-.deck-readouts .flight-clock{grid-column:2;grid-row:1;min-width:0;padding:0 3px}
+.deck-readouts>.orbit-strip{grid-column:1;grid-row:1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;line-height:10px;margin:0;font-size:9px;min-width:0}.deck-readouts .orbit-strip>span{display:flex;flex-direction:column;align-items:flex-start;gap:0;min-width:0;padding:0 4px;border:1px solid #a3cbc3;border-radius:5px;background:#e8f3ef;color:#386e67;white-space:normal}.deck-readouts .orbit-strip>span+span{border-color:#dec29c;background:#fff2e1;color:#865c32}.deck-readouts .orbit-strip b{font-size:12px;line-height:14px;max-width:100%;overflow-wrap:anywhere;white-space:normal;letter-spacing:0}.deck-readouts .orbit-strip>span+span b{color:#795124}
+.deck-readouts .flight-clock{grid-column:2;grid-row:1;min-width:0;padding:0 4px;width:100%;align-self:center}
 .deck-readouts .time-warp-control{grid-column:2;grid-row:2;margin:0}
-.deck-readouts #timeWarp{width:56px;min-width:44px;min-height:44px;padding:4px;border:1px solid #799e95;border-radius:7px;background:#fffefa;font-size:13px}
+.deck-readouts #timeWarp{width:100%;min-width:44px;min-height:44px;padding:4px;border:1px solid #799e95;border-radius:7px;background:#fffefa;font-size:13px}
 .flight-deck .flight-actions{grid-column:1;grid-row:2;flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none;gap:4px;margin:0;min-width:0}
 .flight-deck .flight-actions>button{flex:0 0 auto;white-space:nowrap;min-height:44px;padding:5px 8px;font-size:13px}
 

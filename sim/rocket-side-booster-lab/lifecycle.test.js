@@ -29,10 +29,10 @@ console.log('rocket controls: angle, throttle and attitude preserve running thro
 const legacyReview=P.clone(review);legacyReview.activity='rocket-space-mission-lab';h=harness({state:'finished',snapshot:legacyReview,score:'60',status:'passed'});assert.equal(h.controller.mode,'mismatch');assert(!h.controller.editable);assert.equal(h.controller.result.score,60);
 const {warpLimit,advanceFrame}=require('./ui-runtime');
 h=harness({state:'draft',snapshot:T.snapshot(T.launched())});let f=h.controller.state.flight;
-assert.equal(warpLimit(f),5);f.controls.lit=false;assert.equal(warpLimit(f),5);f.state=[P.R+200000,0,0,0,7800,0];assert.equal(warpLimit(f),1000);f.controls.lit=true;assert.equal(warpLimit(f),5);
+assert.equal(warpLimit(f),20);f.controls.lit=false;assert.equal(warpLimit(f),20);f.state=[P.R+200000,0,0,0,7800,0];assert.equal(warpLimit(f),1000);f.controls.lit=true;assert.equal(warpLimit(f),20);
 f.controls.lit=false;h.controller.play();for(const [seconds,warp]of [[.2,20],[.3,100],[.2,1000]]){const before=f.t;assert(Math.abs(advanceFrame(h.controller,seconds,warp)-warp)<1e-7);assert(Math.abs(f.t-before-seconds*warp)<1e-7,'Slow frames must preserve real elapsed time');}
 assert.equal(advanceFrame(h.controller,0,20),0);h.controller.pause();const frozen=f.t;assert.equal(advanceFrame(h.controller,.5,100),0);assert.equal(f.t,frozen);h.controller.play();const before=f.t,actual=advanceFrame(h.controller,10,1000);assert(actual>0&&actual<1000);assert(Math.abs(actual-(f.t-before)/10)<1e-7,'Budget-limited actual warp uses full wall time');
-f.controls.lit=true;assert(advanceFrame(h.controller,.2,100)<=5+1e-7);
+f.controls.lit=true;assert(advanceFrame(h.controller,.2,100)<=20+1e-7);
 console.log('rocket frame timing: real slow-frame time, warp eligibility, paused state, work budget and honest actual rate passed');
 
 let oldState=T.reachOrbit();oldState.schema=2;oldState.records[0].state=[P.R+140000,0,0,0,Math.sqrt(P.MU/(P.R+140000)),0];const oldResult=S.score(oldState);assert.equal(oldResult.score,25);const oldSnapshot=T.snapshot(oldState,'review',oldResult),oldPending={version:1,activity:P.ACTIVITY,kind:'pending-final',payload:{reviewJson:JSON.stringify(oldSnapshot),score:25,maxScore:100,passed:false}};
@@ -46,7 +46,16 @@ console.log('rocket schema3/5 frozen submissions retain exact pending payload an
 
 {
  const O=require('./orbit');let descent=T.launched();while(O.elements(descent.flight.state).height<200000)M.advance(descent,.1);descent=M.change(descent,{type:'stop'});while(O.elements(descent.flight.state).radial>0)M.advance(descent,2);while(O.elements(descent.flight.state).height>120500)M.advance(descent,.1);D.validate(descent);
- const crossing=harness({state:'draft',snapshot:T.snapshot(descent)}).controller;crossing.play();const start=crossing.state.flight.t,tick=crossing.tick.bind(crossing);let steps=0;crossing.tick=(seconds,budget)=>{assert.equal(budget,1);const result=tick(seconds,budget);steps+=result?.steps||0;return result;};const actual=advanceFrame(crossing,.2,1000),elapsed=crossing.state.flight.t-start;D.validate(crossing.state);assert(elapsed>0&&elapsed<2);assert.equal(crossing.state.flight.status,'flying');assert(O.elements(crossing.state.flight.state).height>115000);assert.equal(warpLimit(crossing.state.flight),5);assert(Math.abs(actual-elapsed/.2)<1e-7);assert(steps<=800);
+ const crossing=harness({state:'draft',snapshot:T.snapshot(descent)}).controller;crossing.play();const start=crossing.state.flight.t,tick=crossing.tick.bind(crossing);let steps=0;crossing.tick=(seconds,budget)=>{assert.equal(budget,1);const result=tick(seconds,budget);steps+=result?.steps||0;return result;};const actual=advanceFrame(crossing,.2,1000),elapsed=crossing.state.flight.t-start;D.validate(crossing.state);assert(elapsed>0&&elapsed<5);assert.equal(crossing.state.flight.status,'flying');assert(O.elements(crossing.state.flight.state).height>100000);assert.equal(warpLimit(crossing.state.flight),20);assert(Math.abs(actual-elapsed/.2)<1e-7);assert(steps<=800);
  const orbit=harness({state:'draft',snapshot:T.snapshot(T.reachOrbit())}).controller;orbit.play();const orbitTick=orbit.tick.bind(orbit);let total=0;orbit.tick=(seconds,budget)=>{const r=orbitTick(seconds,budget);total+=r?.steps||0;return r;};advanceFrame(orbit,10,1000);assert.equal(total,800,'Frame budget must be shared across all rate rechecks');
  console.log('rocket frame boundary: production descent slows during the frame, stays airborne and shares the 800-step budget');
+}
+
+{
+ const chute=M.change(T.reachOrbit(),{type:'capsule-separate'});chute.flight.state=[P.R+4000,0,0,-20,0,0];chute.flight.controls.lit=false;chute.flight.capsule.chute={armed:true,phase:'main',since:chute.flight.t-5};chute.flight.upperStage.auto.mode='manual';D.validate(chute);
+ for(const fixture of [T.launched(),chute])for(const rate of [10,20]){
+  const fast=harness({state:'draft',snapshot:T.snapshot(fixture)}).controller,normal=harness({state:'draft',snapshot:T.snapshot(fixture)}).controller;fast.play();normal.play();const start=fast.state.flight.t;assert(Math.abs(advanceFrame(fast,.1,rate)-rate)<1e-7);for(let i=0;i<rate;i++)advanceFrame(normal,.1,1);assert(Math.abs(fast.state.flight.t-start-.1*rate)<1e-7);D.validate(fast.state);for(let i=0;i<6;i++)assert(Math.abs(fast.state.flight.state[i]-normal.state.flight.state[i])<1e-5,'Ordinary warp retains the same fine-step trajectory');assert(Math.abs(fast.state.flight.capsule.fuel-normal.state.flight.capsule.fuel)<1e-7);
+ }
+ const upper=chute.flight.upperStage;upper.state=[P.R+200000,0,0,0,7800,0];upper.controls.lit=false;assert.equal(warpLimit(upper),1000);assert.equal(warpLimit(chute.flight),20,'A low capsule restricts the whole mission even when the selected upper stage is coasting in vacuum');
+ console.log('rocket normal warp: burning and open-chute 10x/20x match 1x trajectories; both-body eligibility stays authoritative');
 }

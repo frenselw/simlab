@@ -471,3 +471,17 @@ source＋extracted SCORM、1280×800／390×844共4條完整返航flows、errors
 既有兩階段展傘、擺動、著陸塌傘／背景凍結／30及60 FPS比較、snapshot還原與review鎖定亦通過。證據output/reports/rocket-mission-controls-all-node.txt、rocket-mission-controls-browser.json及同前綴check／registry／closure報告、control-body-menu／wrong-entry-plasma／airborne-burnup截圖。仍58 cases／305 registry entries，無新依賴、schema欄位或評分規則；原481檔未改。未做真手機原生環境／真Moodle、真實等離子流體／材料失效或持久碎片動力學驗證；動畫與熱劑量仍屬教學近似。
 
 最終runtime `7cf1dd3f717d555246874cfa078eca9e98b280748fd7035ef6da64b8f77eb641`，來源、477-entry SCORM ZIP及Site dist全476 runtime檔逐byte一致，原481檔不變。實作commit `a91884a6ed3c53e004d45a202512d314f754b260`；committed selection-preview見output/reports/rocket-mission-controls-selection.json，只記錄選取，實際執行為上述focused checks。Site來源 `e1a32a76fe7ee6bba8f5662d59a61d337a6412df`；deployment `appgdep_6aef1a15ef608191b5268ef675b19c5e` 於2026-11-07 20:31:25 UTC+08 native succeeded。原owner-private權限及網址 https://simlab-rocket-side-booster.ieyp.chatgpt.site 維持，證據output/reports/rocket-mission-controls-sites.json。成功保存／部署後清理本次tar、中途失敗截圖及重複Node報告，保留Site checkout、最終驗證證據及使用者附件。
+
+## 25. 普通20倍速與緊湊軌道／時間排版（2026-11-07，實作前決策）
+
+使用者指定1／5／10／20×在燃燒、再入與降落傘下降等一般飛行均可選；100／1000×才限真空關機滑行。新增10×選項，將普通warpLimit由5改20，高倍率邊界重檢亦改為>20，不能因舊>5判斷令低空10／20×每次只推進0.001秒。UI、選項按下與advanceFrame都以同一個完整任務狀態（兩主體及二級自動模式）計算資格，避免切換上級時顯示可用但按下被另一個上限拒絕。保留每幀800個工作步預算、實際倍率顯示、原積分小步及暫停／終止／7日界線，不以加大物理步長冒充快轉。
+
+近／遠地點並排為兩個相鄰的小卡，青／橙邊框與淺底，名稱及數值分兩短行，數字保留12px，避免被時間擠出。時間欄按內容寬度預留，不再鎖56px；倍率仍放時間下方，繼續／點火／分離同一行。正常固定列預期約81px（先前≤80px由本節取代；驗收≤96px），可用少量高度換完整可讀值，不加新一排主按鈕。極長軌道值容許卡內換行，不裁切結果。
+
+範圍：ui-runtime速率與120km交界、main說明／共同資格、index選項、styles固定列、既有lifecycle／expansion Node及compactDeck／warpFullscreenControls／warpControls／capsuleReturn browser owner。評分、physics/model5、snapshot schema7欄位及SCORM依賴不變，無新選項頁或依賴，原活動不改。驗證燃燒／兩主體／開傘可10與20、100／1000受限、跨120km在同一幀降至20、20×與同模擬時間1×結果相符、原800步及暫停／review鎖定；源碼與SCORM桌面／手機觸控倍率與fullscreen、320／375／390短屏／844橫屏／1280排版，含−6371km及接近7日的大時間，時間與讀數不重疊、按鈕≥44px且不換行。沿用既有registry owner並記錄實際focused選取。
+
+實際驗證：活動10組Node與browser inventory共11組通過；check、check:tests（305 entries／58 activity cases）及diff whitespace通過。新增燃燒及已開主傘10／20×與同模擬時間1×細步結果對比，兩主體上限、低空下降舊>5邊界及800步預算通過。修正compactDeck過時的兩掣替換測試：現在驗證分離後點火保留自己原有固定位置，不再要求移到分離掣位置。
+
+`--warp-deck-only` 在source及解壓SCORM完成28 flows／errors=[]：compactDeck 14、warpFullscreenControls 8、warpControls 2、capsuleReturn 4。320／375／390短屏與844橫屏、1280桌面皆無根捲動／讀數重疊；兩色相鄰卡及接近7日時間604,799.9 s、長遠地點19,999,999.9 km均留在各自框內，三個主掣≥44px且同行，固定列≤96px。native fullscreen trusted touch／mouse、空relatedTarget焦點、鍵盤／resize／外點關閉、paused選速不改答案／LMS、review及pending鎖定通過。真空10／20／100／1000×均按實際前景幀運行；重新點火由1000降至20，低空100／1000禁用。四次完整返航開主傘後分別實際選10／20並繼續下降，量得actual≈10／20，保存還原與安全著陸仍通過。
+
+證據：output/reports/rocket-warp-deck-node.txt、rocket-warp-deck-browser.json、rocket-warp-deck-check.txt、rocket-warp-deck-registry.txt、rocket-warp-deck-closure.json，以及source／package的warp-deck-long及warp-fullscreen截圖。runtime `4e703268eebc42b6cf9642e589bfb50079f4d10301c2115b2dedae5260492c01`；477-entry SCORM ZIP全476 runtime檔與source逐byte一致，原481檔hash未變。未驗證真手機／真Moodle；物理、布料與熱效應仍沿用原有教學近似，高負載裝置仍以實際倍率顯示每幀預算限制。
