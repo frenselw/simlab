@@ -25,3 +25,13 @@
 - 最後標題置中及刪除舊計分說明後，額外重新跑 source／standalone 各六 viewport layout；API／Storage trap 零讀寫。純網頁 refresh fresh、保留設計重新試飛、無舊評核 DOM／scripts。
 - 瀏覽器報告：`output/playwright/rocket-side-booster-lab/explorer-full-report.json`（完整流程）及 `explorer-report.json`（最後 layout）。Node／registry／layout console 在 `output/reports/rocket-explorer-*.txt`。
 - 原活動 481 個 protected files SHA-256 全部一致。實體手機尚未驗證；本工具無 Moodle readiness gate。
+
+## 本次交付
+
+- Runtime commit：`cc4dc9d3908db08f5fa1c6ee7c93fe810d3e28fd`。Committed selection-preview：`output/reports/rocket-explorer-selection.json`（base `f7bef6047641f8193253db1528699dfbdb08885c`）；此為選測預覽，不宣稱全庫套件已執行。
+- 手機及桌面六種尺寸最終 header 實測52px；主題及音效／fullscreen同一行。
+- Standalone ZIP：`output/packages/rocket-explorer-standalone.zip`，471 entries、15,980,471 bytes；無 imsmanifest.xml、scoring／persistence／shared SCORM runtime。SHA-256 `d4155347b08038b482c918ecaab4328b845f02ae330d96485bcee600bc10965f`。
+- Final ordered runtime SHA-256：`920c639e8e2b1e1195a2b1f4282470910506db8df2504a29e277ef30d31ff495`；source／解壓standalone與Site dist 471檔一致；Site另有root entry及build-info，共473靜態檔。
+- 同一private Site：`appgprj_6aeca66555b481919803e437687c4fa8`；網址 https://simlab-rocket-side-booster.ieyp.chatgpt.site 。Owner-private audience保持，Site顯示標題已更新。
+- 官方helper將目前新檔建立並推送 Site commit `885c82d53d564d3f841382ff37b1376756d5dfb4`；其後部署該SHA之archive。Version `appgprj_6aeca66555b481919803e437687c4fa8~appgver_1bb256bdf8dc8191a104480bab71204f`；deployment `appgdep_6aef50aa080081919338f94c53557513`，server回傳 succeeded（2026-11-08 00:24 +08）。
+- 部署前自動審核曾因opening receipt為舊SHA而拒絕helper input；核對helper先commit／push current source的流程與471檔一致證據後，同一官方helper重試通過。沒有部署舊SHA或回退。
