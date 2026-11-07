@@ -501,3 +501,17 @@ source＋extracted SCORM、1280×800／390×844共4條完整返航flows、errors
 證據output/reports/rocket-upper-impact-node.txt、rocket-upper-impact-inventory.txt、rocket-upper-impact-browser.json、rocket-upper-impact-check.txt、rocket-upper-impact-registry.txt、rocket-upper-impact-closure.json及upper-rcs／upper-ground-impact截圖。runtime `870fd3cf0fb633ce7f2dad7681b2c7b4c30809472898d60a0fdf54a21189e064`；477-entry SCORM全476 runtime檔與source逐byte一致，原481檔hash不變。未做真手機／真Moodle；RCS仍沿用教學用12°/s轉向與程序噴流，沒有新增角動量／姿控燃料模型。
 
 交付：實作commit `19b542f6cb421697a80cdff4e73db7fef2734e56`；committed selection-preview見output/reports/rocket-upper-impact-selection.json（只記選取，實際執行為上述focused checks）。Site dist全476 runtime檔與source／SCORM一致；Site source `37afed4488e80b077f5a35dd5a2bef6374514f2b`，deployment `appgdep_6aef2a46f71c819190be17f1b84f39de` 於2026-11-07 21:40:30 UTC+08 native succeeded，維持原owner-private及 https://simlab-rocket-side-booster.ieyp.chatgpt.site 。證據output/reports/rocket-upper-impact-sites.json；成功後清理task tar、重複Node及中途失敗截圖，保留checkout、套件、最終QA及使用者附件。
+
+## 27. 方向轉盤與油門推桿（2026-11-07，實作前）
+
+使用者要求以可按整圈的方向轉盤取代逐個角度預設掣，改善油門排列。採單一SVG圓形dial（上0／右90／下180／左270、1°精度、完整0–359循環）及原生直式range油門（下0／上100、1%精度），保留各一對±2°／±5%微調掣；兩欄並排、少量標尺、既有色系，不新增設定頁或依賴。dial為有標籤／aria-valuenow／valuetext的鍵盤slider，方向鍵±1、Page±10、Home0、End359。range沿用原生鍵盤。全活動、分離太空艙及二級共用所選主體的controls，保留12°/s真實轉向、RCS及pause狀態。
+
+dial可點選或拖動，觸控按下／移動先預覽指針／角度，放手才提交單一command；中心小死區避免不定角。pointercancel、失去capture、第二指、滾動／blur／hidden、切換主體或非editable時取消預覽，不得偷偷儲存。圓形可見範圍以clip-path及半徑hit-test一致，僅dial擁有touch-action:none；油門是44px寬直式實體拖動目標。外側控制面板及空白保留pan-y捲動，不擴大透明拖動面。每組尺寸及fine buttons≥44px，手機320px不水平溢出，短屏仍可捲至全部設定。
+
+range input按既有control更新即時油門，change時保存，主體切換／review／frozen／ended／失效及開傘自動姿態限制依舊。dial預覽不是snapshot；新UI沿用schema7／model5／rubric與原controls，不新增持久欄位。範圍index／styles／main及受影響browser callers；改掉測試對舊preset元素的依賴，不留隱藏假按鈕。現有flightControls owner加入trusted mouse/touch的全圈、拖動、取消、多指、鍵盤、推桿、fine、兩主體、開傘／終止／read-only鎖定、snapshot合法續行及面板捲動不改答案；source／SCORM兩套測試，registry owner保留，原481檔hash不變。
+
+實際驗證：活動10組Node及browser inventory共11組通過；check、check:tests（305 entries／58 activity browser cases）與diff whitespace通過。`--dial-controls-only`在source與解壓SCORM各執行320×568、390×844、390×460、844×390、1280×800及雙主體延續，共12 flows／errors=[]。各尺寸實際trusted mouse／touch點0／45／90／180／270／359，油門原生拖0／25／50／75／100，讀數、模型及指針一致，四個fine buttons≥44px、range寬44px、無頁面溢出。鍵盤Home／End／Page／箭頭跨0循環、原生range向上增加、±fine、按住預覽不改state或LMS、取消／第二指不提交、面板滑動不發指令皆通過。運行中改設定仍繼續，暫停操作不自動恢復；snapshot round-trip保留設定，review及實際pending frozen皆鎖定。開傘後dial鎖定、切換upper只修改upper、切換主體取消預覽、terminal／ended鎖定及雙物件合法續行通過。
+
+所有舊preset測試呼叫改用新dial／range的trusted原生輸入或既有fine buttons，不留假DOM。mobileCockpit沿用既有三掣固定列，舊兩掣替換的過時位置斷言改成點火保留自己的固定位置。本次focused不代表整套browser suite；先前高度／轉向／音效／組裝測試owner及registry維持。截圖已檢視320窄屏及1280桌面，垂直推桿與圓盤同組、只有四個fine buttons；推桿thumb已與track對齊。
+
+證據output/reports/rocket-dial-fader-node.txt、rocket-dial-fader-browser.json、rocket-dial-fader-check.txt、rocket-dial-fader-registry.txt、rocket-dial-fader-closure.json及dial-fader尺寸截圖。runtime `cc6cc7b78865b1dab774539c39a5cee5fce49a15f50210cd97b7f0419e229162`，477-entry SCORM全部476 runtime檔與source逐byte一致，原481檔hash不變。無新增依賴、答案欄位或評分規則；未驗證真手機Safari／真Moodle，垂直range使用現代瀏覽器writing-mode支援，教學物理模型保持不變。
