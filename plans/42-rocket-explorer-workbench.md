@@ -48,3 +48,7 @@ Subagent確認兩項P2，均已修正：
 修正前regression已失敗；修正後Node/package九檔通過。Chrome在source及解壓standalone各執行雙飛船控制、沿軸分離、RCS和兩種終止太空艙＋存活二級1000×操作；均通過、無runtime／HTTP errors。證據`output/reports/rocket-explorer-audit-node.txt`、`rocket-explorer-audit-browser.txt`及browser report。
 
 另以真實Web Audio native-click啟動，確認穩定軌道音樂有非零RMS訊號，真空飛行音效為零；暫停、實際繼續按鈕恢復及靜音通過。證據`output/reports/rocket-explorer-audit-audio.json`（驗證音訊圖訊號，沒有量測揚聲器）。Subagent未再重現組裝、分離動量、自動離軌、開傘、熱防護或套件重大缺陷；不宣稱無bug。原二維及簡化姿控／熱劑量限制保留；實體手機仍未驗證。
+
+審查修正交付：runtime commit `a00456f760694f112cb08901100515f0917d48ab`，Site新source commit `1561a7a20ef302cd82bfd1c5c320338682ddc5b8`。部署 `appgdep_6aef52fb41e48191ad73d187f6e5532d`／version `appgprj_6aeca66555b481919803e437687c4fa8~appgver_0c9aacf4c7348191b8c9066a8559b25c`，server回傳 succeeded（2026-11-08 00:34 +08），同一owner-private網址。
+
+`npm run check`／`check:tests`通過，registry仍301 entries；committed selection-preview `output/reports/rocket-explorer-audit-selection.json`（base `8b0dbb64ace3b746d4fb491b714382097577e200`），不宣稱全庫測試執行。審查browser報告 `output/playwright/rocket-side-booster-lab/explorer-audit-report.json`。本次ordered runtime SHA-256 `dc58f21698ef8366bae97ec1cf58fe1b6f2aab541691e126f2c6b65e186cb50b`；ZIP471 entries／15,980,482 bytes，SHA-256 `268223e281b06cd62cb74e7980ed5f2c518743e5bc5c1f0a25e041f106e30ab5`，source／解壓standalone／Site471檔一致。原481檔hash不變。
