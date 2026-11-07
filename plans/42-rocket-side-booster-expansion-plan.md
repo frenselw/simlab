@@ -1,5 +1,7 @@
 # 火箭工廠實驗版：固體側助推器與新增零件實施計劃
 
+> 評核／SCORM／提交內容現為歷史紀錄。本工具已改為純探索式模擬；現行產品、狀態與交付契約見[小小航天家計劃](42-rocket-explorer-workbench.md)。本頁其餘物理與畫面設計及驗證紀錄保留供追溯。
+
 狀態：**已實作並完成下方列出的本機驗證；完整裝置／Moodle閘門未完成。** 日期：2026-11-06。現行兩對／提早分離決定見第17節；早期規格及驗收按日期保留。下方規格已用於本次版本，完整配搭仍未逐一實飛。
 
 依[活動基準計劃](42-rocket-side-booster-lab.md)、[新活動模板](NEW-SIMULATION-PLAN-TEMPLATE.md)、[共用設計](00-shared-platform-and-style.md)及[生產契約](../docs/simulation-scorm-production-guide.md)。本文件擁有既有擴充決策；太空艙分離、返航、兩階段降落傘及相關聲音的新規格由[單一太空艙返航計劃](42-rocket-capsule-return-plan.md)擁有（2026-11-07，已實作；驗證與發佈見該計劃第13節）。基準計劃的既有測試／ZIP證據只適用未擴充副本。

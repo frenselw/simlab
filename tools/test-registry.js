@@ -25,18 +25,16 @@ const registeredTests = [
   {file:'tools/rocket-space-mission-browser-regression.test.js',kind:'node',scope:'rocket-space-mission-lab'},
   ...['interaction','terrain','flight'].map(group=>({file:'tools/rocket-space-mission-browser-regression.js',kind:'browser',scope:'rocket-space-mission-lab',args:['--group='+group]})),
 
+  'sim/rocket-side-booster-lab/runtime.test.js',
   'sim/rocket-side-booster-lab/recovery.test.js',
   'sim/rocket-side-booster-lab/art.test.js',
   'sim/rocket-side-booster-lab/expansion.test.js',
   'sim/rocket-side-booster-lab/audio.test.js',
   'sim/rocket-side-booster-lab/model.test.js',
   'sim/rocket-side-booster-lab/orbit.test.js',
-  'sim/rocket-side-booster-lab/scoring.test.js',
-  'sim/rocket-side-booster-lab/persistence.test.js',
   'sim/rocket-side-booster-lab/interaction.test.js',
-  'sim/rocket-side-booster-lab/lifecycle.test.js',
   {file:'tools/rocket-side-booster-browser-regression.test.js',kind:'node',scope:'rocket-side-booster-lab'},
-  ...['interaction','terrain','flight'].map(group=>({file:'tools/rocket-side-booster-browser-regression.js',kind:'browser',scope:'rocket-side-booster-lab',args:['--group='+group]})),
+  {file:'tools/rocket-side-booster-browser-regression.js',kind:'browser',scope:'rocket-side-booster-lab'},
   'sim/centripetal-force-investigation-lab/model.test.js',
   'sim/centripetal-force-investigation-lab/scoring.test.js',
   'sim/centripetal-force-investigation-lab/persistence.test.js',
@@ -368,6 +366,7 @@ const manualBrowserTests = [
 ];
 
 const assetLists = [
+  {scope:'rocket-side-booster-lab',file:'sim/rocket-side-booster-lab/assets.json'},
   {scope:'circuit-workbench',file:'sim/circuit-workbench/assets.json'},
   {scope:'circuit-ac-workbench',file:'sim/circuit-ac-workbench/assets.json'},
   {scope:'circuit-household-workbench',file:'sim/circuit-household-workbench/assets.json'}

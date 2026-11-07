@@ -1,6 +1,6 @@
 'use strict';
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
-const root=path.resolve(__dirname,'../..'),dir=path.join(__dirname,'assets'),g=require('./assets/geography.json'),manifest=fs.readFileSync(path.join(root,'sim/manifests/rocket-side-booster-lab.xml'),'utf8');
+const root=path.resolve(__dirname,'../..'),dir=path.join(__dirname,'assets'),g=require('./assets/geography.json'),manifest=JSON.stringify(require('./assets.json'));
 const hash=b=>crypto.createHash('sha256').update(b).digest('hex');
 let bytes=0;
 for(const [name,a]of Object.entries(g.assets)){

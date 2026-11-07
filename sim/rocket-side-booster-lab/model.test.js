@@ -12,11 +12,11 @@ console.log('rocket model: mass, launch variants, staging, pad, impact, rocket e
 
 let assembly=M.change(M.fresh(()=>.5),{type:'stages',count:2});assembly=M.change(assembly,{type:'part',stage:0,part:'engine',value:0});assembly=M.change(assembly,{type:'part',stage:0,part:'large',value:2});assert(!P.canFit(assembly.craft,0,'engine-1'));assert(P.canFit(assembly.craft,1,'engine-0'));assert(!P.canFit(assembly.craft,2,'small'));assert(!P.canFit(assembly.craft,1,'other'));
 let moved=M.change(assembly,{type:'transfer',from:0,to:1,part:'engine-0'});assert.equal(moved.craft.stages[0].engine,null);assert.equal(moved.craft.stages[1].engine,0);assert.equal(assembly.craft.stages[0].engine,0);
-moved=M.change(moved,{type:'transfer',from:0,to:1,part:'large'});assert.equal(moved.craft.stages[0].large,1);assert.equal(moved.craft.stages[1].large,1);let removed=M.change(moved,{type:'transfer',from:1,to:null,part:'large'});assert.equal(removed.craft.stages[1].large,0);assert.deepEqual(removed.records,assembly.records);
+moved=M.change(moved,{type:'transfer',from:0,to:1,part:'large'});assert.equal(moved.craft.stages[0].large,1);assert.equal(moved.craft.stages[1].large,1);let removed=M.change(moved,{type:'transfer',from:1,to:null,part:'large'});assert.equal(removed.craft.stages[1].large,0);
 for(const action of [{from:1,to:0,part:'large'},{from:1,to:0,part:'engine-1'},{from:1,to:3,part:'engine-0'},{from:1,to:1,part:'engine-0'},{from:1,to:undefined,part:'engine-0'},{from:1,to:null,part:'other'}])assert.deepEqual(M.change(removed,{type:'transfer',...action}),removed);
-let full=M.change(moved,{type:'part',stage:1,part:'large',value:4});assert(!P.canFit(full.craft,1,'small'));assert.deepEqual(M.change(full,{type:'transfer',from:0,to:1,part:'large'}),full);let checkedAssembly=M.change(moved,{type:'check'});assert.deepEqual(M.change(checkedAssembly,{type:'transfer',from:0,to:null,part:'large'}),checkedAssembly);
+let full=M.change(moved,{type:'part',stage:1,part:'large',value:4});assert(!P.canFit(full.craft,1,'small'));assert.deepEqual(M.change(full,{type:'transfer',from:0,to:1,part:'large'}),full);
 
-const withRecord=M.change(T.reachOrbit(1),{type:'workshop'}),storedRecord=P.clone(withRecord.records),afterRemoval=M.change(withRecord,{type:'transfer',from:0,to:null,part:'large'});assert.deepEqual(afterRemoval.records,storedRecord);assert.equal(afterRemoval.craft.stages[0].large,withRecord.craft.stages[0].large-1);
+const returned=M.change(T.reachOrbit(1),{type:'workshop'}),afterRemoval=M.change(returned,{type:'transfer',from:0,to:null,part:'large'});assert.equal(afterRemoval.craft.stages[0].large,returned.craft.stages[0].large-1);
 
 
 let ordered=M.change(M.change(M.fresh(()=>.5),{type:'part',stage:0,part:'engine',value:0}),{type:'part',stage:0,part:'large',value:2});
@@ -29,7 +29,7 @@ let four=M.change(ordered,{type:'insert',stage:0,part:'small',at:0});assert.deep
 for(const at of [-1,4,.5,null,NaN])assert.deepEqual(M.change(ordered,{type:'insert',stage:0,part:'small',at}),ordered);
 for(const ordinal of [-1,2,.5,NaN])assert.deepEqual(M.change(ordered,{type:'transfer',from:0,to:null,part:'large',ordinal}),ordered);
 for(const action of [{type:'insert',stage:0,part:'engine-0',at:1},{type:'insert',stage:4,part:'small',at:0},{type:'transfer',from:0,to:0,part:'small',ordinal:0,at:8}])assert.deepEqual(M.change(ordered,action),ordered);
-const lockedOrder=M.change(ordered,{type:'check'});assert.deepEqual(M.change(lockedOrder,{type:'insert',stage:0,part:'small',at:1}),lockedOrder);assert.deepEqual(M.change(lockedOrder,{type:'transfer',from:0,to:0,part:'large',at:1}),lockedOrder);
+const lockedOrder=M.change(M.change(ordered,{type:'capsule'}),{type:'launch'});assert.deepEqual(M.change(lockedOrder,{type:'insert',stage:0,part:'small',at:1}),lockedOrder);assert.deepEqual(M.change(lockedOrder,{type:'transfer',from:0,to:0,part:'large',at:1}),lockedOrder);
 console.log('rocket insertion: ordered middle insertion, same-stage reorder, exact removal, atomic transfer, limits and locking passed');
 
 for(let variant=0;variant<3;variant++){
@@ -74,7 +74,7 @@ console.log('rocket terrain collision: remote hill contact, signed clearance, re
 }
 console.log('rocket swept contact: positive-endpoint ridge pass and already-underground legacy flight stop at first surface contact');
 
-const manual=T.manualOrbit();assert.equal(require('./scoring').score(manual).score,100);const manualOrbit=O.elements(manual.flight.state);M.advance(manual,manualOrbit.period+1);assert(O.safe(manual.flight.state));assert(Math.abs(O.elements(manual.flight.state).hp-manualOrbit.hp)<.1);assert.equal(P.PAYLOADS[manual.craft.payload],150);console.log('rocket manual recipe: two large lower tanks plus one large upper, preset turns and throttle trim reach 100 and coast one full orbit');
+const manual=T.manualOrbit();assert(O.safe(manual.flight.state));const manualOrbit=O.elements(manual.flight.state);M.advance(manual,manualOrbit.period+1);assert(O.safe(manual.flight.state));assert(Math.abs(O.elements(manual.flight.state).hp-manualOrbit.hp)<.1);assert.equal(P.PAYLOADS[manual.craft.payload],150);console.log('rocket manual recipe: two large lower tanks plus one large upper, preset turns and throttle trim reach orbit and coast one full orbit');
 
 // Positive liftoff must accumulate even when each frame climbs less than a millimetre.
 {

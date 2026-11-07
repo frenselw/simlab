@@ -1,7 +1,7 @@
 (function(root,factory){const node=typeof module==='object'&&module.exports,api=factory(node?require('./parts.js'):root.RocketParts,node?require('./orbit.js'):root.RocketOrbit,node?require('./surface.js'):root.RocketSurface,node?require('./recovery.js'):root.RocketRecovery);if(node)module.exports=api;root.RocketModel=api;})(typeof window==='undefined'?globalThis:window,function(P,O,S,R){
   'use strict';
-  const clone=P.clone,PHASES=['workshop','pad','ascent','coast','ended','check'];
-  function fresh(){return {schema:7,modelVersion:5,variant:0,phase:'workshop',backPhase:null,craft:P.emptyCraft(0),flight:null,records:[null]};}
+  const clone=P.clone,PHASES=['workshop','pad','ascent','coast','ended'];
+  function fresh(){return {variant:0,phase:'workshop',craft:P.emptyCraft(0),flight:null};}
   function flight(craft,source='own',q=[P.R,0,0,0,0,0]){return {capsule:R.fresh(),upperStage:null,controlled:'main',boosters:craft.boosters?{status:'ready',fuel:P.BOOSTER.fuel}:null,source,craft:clone(craft),t:0,state:q.slice(),fuel:[P.capacity(craft.stages[0]),craft.stages[1]?P.capacity(craft.stages[1]):null],active:0,separated:false,attitude:0,controls:{mode:'tilt',angle:0,throttle:1,lit:false},status:source==='practice'?'flying':'pad',maxHeight:Math.max(0,O.elements(q).height)};}
   function atmosphere(h){if(h>=120000)return 0;const t=Math.max(0,Math.min(1,(h-80000)/40000));return 1.225*Math.exp(-Math.max(0,h)/8500)*(1-t*t*(3-2*t));}
   function targetAttitude(f){const q=f.state,c=f.controls;if(c.mode==='hold')return f.attitude;if(c.mode==='tilt')return Math.atan2(q[1],q[0])+c.angle*Math.PI/180;return Math.atan2(q[4],q[3])+(c.mode==='retrograde'?Math.PI:0);}
@@ -58,7 +58,7 @@
     }
     b.state=next.slice(0,6);b.fuel=Math.max(0,next[6]);if(b.fuel<1e-8)b.fuel=0;b.t+=used;return used;
   }
-  function ignite(s){if(!s.flight||s.flight.fuel[s.flight.active]<=0||['ended','workshop','check'].includes(s.phase))return;s.flight.controls.lit=true;if(s.flight.boosters?.status==='ready')s.flight.boosters.status='burning';s.phase='ascent';}
+  function ignite(s){if(!s.flight||s.flight.fuel[s.flight.active]<=0||['ended','workshop'].includes(s.phase))return;s.flight.controls.lit=true;if(s.flight.boosters?.status==='ready')s.flight.boosters.status='burning';s.phase='ascent';}
   function stop(s){if(s.flight)s.flight.controls.lit=false;if(s.flight&&s.flight.status==='flying')s.phase=P.burning(s.flight)?'ascent':'coast';}
   function advance(s,seconds,budget=20000){
     const f=s.flight;if(f?.capsule?.detached&&['ascent','coast'].includes(s.phase))return R.advance(s,seconds,budget,step,atmosphere);if(!f||!['pad','ascent','coast'].includes(s.phase)||['impact','escaped'].includes(f.status))return {elapsed:0,steps:0,limited:false};
@@ -72,7 +72,7 @@
     return {elapsed:f.t-start,steps,limited:f.t<target-1e-7};
   }
   function change(s,action){
-    const n=clone(s),f=n.flight;const target=R.selected(f);if(n.phase==='check'&&action.type!=='return')return n;
+    const n=clone(s),f=n.flight;const target=R.selected(f);
     if(f?.controlled==='upper'&&['control','ignite','stop'].includes(action.type))f.upperStage.auto.mode='manual';
     switch(action.type){
       case 'capsule-separate':if(R.separate(f,flight))n.phase='coast';break;
@@ -102,19 +102,16 @@
       case 'separator':if(n.phase==='workshop'&&P.canFit(n.craft,0,'separator')){n.craft.stages.push(P.emptyStage());n.craft.separator=true;}break;
       case 'stages':if(n.phase==='workshop'&&[1,2].includes(action.count)&&!P.hasCapsule(n.craft)){n.craft.stages=action.count===1?[n.craft.stages[0]]:[n.craft.stages[0],n.craft.stages[1]||P.emptyStage()];n.craft.separator=action.count===2;}break;
       case 'capsule':if(n.phase==='workshop'&&P.canFit(n.craft,n.craft.stages.length-1,'capsule'))delete n.craft.capsule;break;
-      case 'launch':if(n.phase==='workshop'&&P.complete(n.craft)){n.schema=7;n.modelVersion=5;n.flight=flight(n.craft);n.phase='pad';}break;
-      case 'workshop':n.phase='workshop';n.flight=null;n.schema=7;n.modelVersion=5;break;
+      case 'launch':if(n.phase==='workshop'&&P.complete(n.craft)){n.flight=flight(n.craft);n.phase='pad';}break;
+      case 'workshop':n.phase='workshop';n.flight=null;break;
       case 'control':if(f&&['pad','ascent','coast'].includes(n.phase)){if(action.key==='throttle'&&Number.isFinite(action.value)&&action.value>=0&&action.value<=1)target.controls.throttle=action.value;if(action.key==='angle'&&Number.isFinite(action.value)&&action.value>=0&&action.value<360){target.controls.angle=action.value;target.controls.mode='tilt';}if(action.key==='mode'&&['tilt','prograde','retrograde'].includes(action.value))target.controls.mode=action.value;}break;
       case 'ignite':if(f?.capsule?.detached){if(!R.terminal(target)&&((target.capsule&&target.capsule.chute.phase==='stowed'&&target.capsule.fuel>0)||(!target.capsule&&target.fuel[0]>0)))target.controls.lit=true;}else ignite(n);break;
       case 'stop':if(target)target.controls.lit=false;if(!f?.capsule?.detached&&f)stop(n);break;
       case 'separate':if(!P.attached(f||{})&&f?.craft.stages.length===2&&!f.separated&&!['impact','escaped'].includes(f.status)){stop(n);f.active=1;f.separated=true;f.fuel[0]=0;n.phase=f.status==='pad'?'pad':'coast';}break;
-      case 'record-stop':case 'record':if(f&&f.t>0&&f.status!=='pad'){if(action.type==='record-stop')stop(n);n.records[0]={craft:clone(f.craft),state:f.state.slice(),fuel:f.fuel.slice(),active:f.active,separated:f.separated,t:f.t,status:f.status,maxHeight:f.maxHeight,mainLit:f.capsule?thrust(f)>0:f.controls.lit,boosters:clone(f.boosters),...(f.capsule?{capsule:clone(f.capsule),physicsVersion:5}:{}),engineOff:f.capsule?thrust(f)===0:!f.controls.lit&&!P.burning(f)};}break;
-      case 'clear-record':if(action.index===0)n.records[0]=null;break;
-      case 'check':n.backPhase=n.phase;n.phase='check';break;
-      case 'return':if(n.phase==='check'){n.phase=n.backPhase;n.backPhase=null;}break;
+
     }
     if(n.phase==='workshop'&&n.craft.boosters&&!P.stageComplete(n.craft.stages[0]))return clone(s);
     return n;
   }
-  return Object.freeze({ACTIVITY:P.ACTIVITY,PHASES,clone,fresh,flight,atmosphere,targetAttitude,coreThrust,thrust,derivative,rk4,step,boosterTilt,boosterDirection,boosterFlight,boosterClearance,stepBooster,advance,change});
+  return Object.freeze({PHASES,clone,fresh,flight,atmosphere,targetAttitude,coreThrust,thrust,derivative,rk4,step,boosterTilt,boosterDirection,boosterFlight,boosterClearance,stepBooster,advance,change});
 });

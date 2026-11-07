@@ -1,5 +1,7 @@
 # 火箭工廠：側助推器實驗版
 
+> 評核／SCORM／提交內容現為歷史紀錄。本工具已改為純探索式模擬；現行產品、狀態與交付契約見[小小航天家計劃](42-rocket-explorer-workbench.md)。本頁其餘物理與畫面設計及驗證紀錄保留供追溯。
+
 依 [新活動模板](NEW-SIMULATION-PLAN-TEMPLATE.md) 建立，遵守[共用設計](00-shared-platform-and-style.md)及[生產契約](../docs/simulation-scorm-production-guide.md)。來源歷史證據見[原活動計劃](40-rocket-space-mission-lab.md)，不當成本副本已通過。
 
 本頁記錄未擴充副本的歷史實作及證據；固體助推器、中燃料箱與均衡型引擎已實作，現行規格／操作／schema5／測試及最新ZIP證據以[擴充實施計劃](42-rocket-side-booster-expansion-plan.md)為準。

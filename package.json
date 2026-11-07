@@ -30,7 +30,8 @@
     "test:browser:circuit": "node tools/circuit-workbench-browser-regression.js",
     "package:circuit-platform": "node tools/package-circuit-platform.js",
     "test:circuit-ac": "node sim/circuit-workbench/transient.test.js && node sim/circuit-workbench/ac-platform.test.js && node tools/circuit-ac-browser-regression.js",
-    "test:circuit-activities": "node sim/circuit-workbench/assessed-activities.test.js && node tools/circuit-assessed-browser-regression.js"
+    "test:circuit-activities": "node sim/circuit-workbench/assessed-activities.test.js && node tools/circuit-assessed-browser-regression.js",
+    "package:rocket-explorer": "node tools/package-rocket-explorer.js"
   },
   "devDependencies": {
     "adm-zip": "^0.6.0",

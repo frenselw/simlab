@@ -1,5 +1,7 @@
 # 火箭工廠實驗版：單一太空艙分離、返航與降落計劃
 
+> 評核／SCORM／提交內容現為歷史紀錄。本工具已改為純探索式模擬；現行產品、狀態與交付契約見[小小航天家計劃](42-rocket-explorer-workbench.md)。本頁其餘物理與畫面設計及驗證紀錄保留供追溯。
+
 狀態：**已實作；本機驗證與發佈紀錄見第13–15節。** 日期：2026-11-07。前12節保留設計及驗收範圍，未勾選項不代表已通過。
 
 依[現行擴充計劃](42-rocket-side-booster-expansion-plan.md)、[活動基準](42-rocket-side-booster-lab.md)、[共用設計](00-shared-platform-and-style.md)、[生產契約](../docs/simulation-scorm-production-guide.md)及[計劃模板](NEW-SIMULATION-PLAN-TEMPLATE.md)。本文件擁有太空艙返航擴充的規格；未涉及的組裝、助推器、入軌及提交規則沿用現行活動。先前研究中的「普通／返航兩款太空艙」方案取消。
