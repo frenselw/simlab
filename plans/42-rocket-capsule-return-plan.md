@@ -417,3 +417,5 @@ baseline `0a4f96d` 以同一貼合狀態再運行4秒仍維持兩底部約6.101m
 source＋extracted SCORM、1280×800／390×844共4條完整返航flows、errors=[]。實際trusted mouse／touch操作兩主體的角度掣、0↔358↔0、180→182與270→268；其後由測試駕駛逐秒發出既有angle command追隨顯示的迎風目標，不是產品新增自動駕駛。再入取樣γ約−0.72至−0.80°、盾面偏角<0.014°，等離子尾流世界向量與反速度方向dot=1；主／副操控視角都有熱盾及光效，冷太空、開傘及著陸時停止發光。目視桌面／手機傘面及熱盾／漸淡尾流；保留開傘中存檔還原、紅白傘及提交鎖定，接地法向速度5.13–5.16m/s。
 
 證據output/reports/rocket-full-turn-all-node.txt、rocket-full-turn-browser.json及同前綴check／registry／closure報告、reentry-heat截圖。最終runtime `366a5608913d6e527fa82fe87231f6a79c6b205541fdde77e0db6b7dbd157ae2`；來源與477-entry SCORM ZIP逐byte一致，原481檔不變。沿用58 cases／305 registry entries，無新資產依賴。熱模型仍屬教學近似，不是材料溫度／高超音速飛行安全驗證；未做真手機／真Moodle實測。
+
+實作commit `629527564aa2aaa387a5a1cb605ab476387b108d`；committed selection-preview見output/reports/rocket-full-turn-selection.json，只記錄選取，實際執行為上述focused checks。Site dist全476 runtime檔與來源一致，Site來源 `68908371c396ec65f59af98b125e3b309b8501d0`；deployment `appgdep_6aeeea812b7881918b5c144cad1c56f4` 於2026-11-07 17:08:23 UTC+08 native succeeded。原owner-private權限及網址 https://simlab-rocket-side-booster.ieyp.chatgpt.site 維持，證據output/reports/rocket-full-turn-sites.json。成功保存／部署後清理本次tar與中途失敗截圖，保留Site checkout、最終驗證證據及使用者附件。
