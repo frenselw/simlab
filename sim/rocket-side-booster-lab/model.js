@@ -4,7 +4,7 @@
   function fresh(){return {schema:7,modelVersion:5,variant:0,phase:'workshop',backPhase:null,craft:P.emptyCraft(0),flight:null,records:[null]};}
   function flight(craft,source='own',q=[P.R,0,0,0,0,0]){return {capsule:R.fresh(),upperStage:null,controlled:'main',boosters:craft.boosters?{status:'ready',fuel:P.BOOSTER.fuel}:null,source,craft:clone(craft),t:0,state:q.slice(),fuel:[P.capacity(craft.stages[0]),craft.stages[1]?P.capacity(craft.stages[1]):null],active:0,separated:false,attitude:0,controls:{mode:'tilt',angle:0,throttle:1,lit:false},status:source==='practice'?'flying':'pad',maxHeight:Math.max(0,O.elements(q).height)};}
   function atmosphere(h){if(h>=120000)return 0;const t=Math.max(0,Math.min(1,(h-80000)/40000));return 1.225*Math.exp(-Math.max(0,h)/8500)*(1-t*t*(3-2*t));}
-  function targetAttitude(f){const q=f.state,c=f.controls;if(c.mode==='hold')return f.attitude;if(c.mode==='tilt')return Math.atan2(q[1],q[0])+Math.sign(q[0]*q[4]-q[1]*q[3]||1)*c.angle*Math.PI/180;return Math.atan2(q[4],q[3])+(c.mode==='retrograde'?Math.PI:0);}
+  function targetAttitude(f){const q=f.state,c=f.controls;if(c.mode==='hold')return f.attitude;if(c.mode==='tilt')return Math.atan2(q[1],q[0])+c.angle*Math.PI/180;return Math.atan2(q[4],q[3])+(c.mode==='retrograde'?Math.PI:0);}
   function coreThrust(f){if(f.capsule?.detached)return R.thrust(f);return f.controls.lit&&f.fuel[f.active]>0?P.ENGINES[f.craft.stages[f.active].engine].thrust*f.controls.throttle:0;}
   function thrust(f){return coreThrust(f)+(P.burning(f)?f.craft.boosters*P.BOOSTER.thrust:0);}
   function derivative(y,f,attitude,vacuum=false,noGravity=false,mass){
@@ -104,7 +104,7 @@
       case 'capsule':if(n.phase==='workshop'&&P.canFit(n.craft,n.craft.stages.length-1,'capsule'))delete n.craft.capsule;break;
       case 'launch':if(n.phase==='workshop'&&P.complete(n.craft)){n.schema=7;n.modelVersion=5;n.flight=flight(n.craft);n.phase='pad';}break;
       case 'workshop':n.phase='workshop';n.flight=null;n.schema=7;n.modelVersion=5;break;
-      case 'control':if(f&&['pad','ascent','coast'].includes(n.phase)){if(action.key==='throttle'&&Number.isFinite(action.value)&&action.value>=0&&action.value<=1)target.controls.throttle=action.value;if(action.key==='angle'&&Number.isFinite(action.value)&&action.value>=0&&action.value<=180){target.controls.angle=action.value;target.controls.mode='tilt';}if(action.key==='mode'&&['tilt','prograde','retrograde'].includes(action.value))target.controls.mode=action.value;}break;
+      case 'control':if(f&&['pad','ascent','coast'].includes(n.phase)){if(action.key==='throttle'&&Number.isFinite(action.value)&&action.value>=0&&action.value<=1)target.controls.throttle=action.value;if(action.key==='angle'&&Number.isFinite(action.value)&&action.value>=0&&action.value<360){target.controls.angle=action.value;target.controls.mode='tilt';}if(action.key==='mode'&&['tilt','prograde','retrograde'].includes(action.value))target.controls.mode=action.value;}break;
       case 'ignite':if(f?.capsule?.detached){if(!R.terminal(target)&&((target.capsule&&target.capsule.chute.phase==='stowed'&&target.capsule.fuel>0)||(!target.capsule&&target.fuel[0]>0)))target.controls.lit=true;}else ignite(n);break;
       case 'stop':if(target)target.controls.lit=false;if(!f?.capsule?.detached&&f)stop(n);break;
       case 'separate':if(!P.attached(f||{})&&f?.craft.stages.length===2&&!f.separated&&!['impact','escaped'].includes(f.status)){stop(n);f.active=1;f.separated=true;f.fuel[0]=0;n.phase=f.status==='pad'?'pad':'coast';}break;

@@ -132,3 +132,4 @@
 .command-status{font-size:12px;line-height:1.5;margin:4px 0 8px}.flight-actions #separateButton{background:#fff9ef;border-color:#dfc5a4;color:#75491f}.recovery-controls{margin:0 0 12px;padding-top:6px;border-top:1px solid var(--line)}.recovery-controls h3{flex-basis:100%;font-size:14px;margin:0 0 6px;line-height:20px}
 
 .direction-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+#reentryHint{white-space:pre-line;line-height:1.6;color:var(--muted)}

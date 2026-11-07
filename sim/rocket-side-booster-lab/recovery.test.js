@@ -81,3 +81,22 @@ for(const remaining of [0,6000])for(const attitude of [.7,1.1,Math.PI/2]){
  let s=T.singlePad(0,0,1);Object.assign(s.flight,{state:[P.R+4163.4,0,0,277.5,0,0],status:'flying',t:40,maxHeight:4163.4,fuel:[remaining,null],attitude});s.phase='coast';s=M.change(s,{type:'capsule-separate'});const axis=[Math.cos(attitude),Math.sin(attitude)];let last=.3;for(let i=0;i<80;i++){M.advance(s,.05);const f=s.flight,u=f.upperStage,dx=f.state[0]-u.state[0],dy=f.state[1]-u.state[1],gap=dx*axis[0]+dy*axis[1]-R.stageHeight(u),cross=-(f.state[3]-u.state[3])*axis[1]+(f.state[4]-u.state[4])*axis[0];assert(gap>=last-1e-5);assert(Math.abs(cross)<.5);assert(Math.abs(f.attitude-attitude)<1e-12&&Math.abs(u.attitude-attitude)<1e-12);last=gap;}assert(last>2);round(s);
 }
 console.log('Gentle forward release also holds during 40/63/90-degree steering, with empty/full cores and no imposed side impulse.');
+
+// Full-circle commands retain one local frame even when tangential motion reverses.
+for(const body of ['main','upper'])for(const value of [0,2,180,182,270,358,359.99]){
+ let a=M.change(orbit(),{type:'capsule-separate'});a=M.change(a,{type:'select-body',value:body});a=M.change(a,{type:'control',key:'angle',value});assert.equal(R.selected(a.flight).controls.angle,value);assert.equal(R.selected(a.flight).controls.mode,'tilt');round(a);
+ const review={version:1,activity:P.ACTIVITY,kind:'review',answer:D.review(a)};assert.deepEqual(D.decode(review,'review').flight,a.flight);
+}
+for(const value of [-1,360,361,NaN,Infinity]){
+ const a=M.change(orbit(),{type:'capsule-separate'}),changed=M.change(a,{type:'control',key:'angle',value});assert.equal(changed.flight.controls.angle,a.flight.controls.angle);const bad=P.clone(a);bad.flight.controls.angle=value;assert.throws(()=>D.validate(bad));
+}
+for(const tangent of [-100,100]){
+ const a=M.change(orbit(),{type:'capsule-separate'}),f=a.flight;f.state=[P.R+200000,0,0,0,tangent,0];f.attitude=3*Math.PI/2;f.controls={mode:'tilt',angle:270,throttle:0,lit:false};R.stepCapsule(f,.1,M.atmosphere);assert(Math.abs(Math.atan2(Math.sin(f.attitude-3*Math.PI/2),Math.cos(f.attitude-3*Math.PI/2)))<1e-9);
+}
+const hot=M.change(orbit(),{type:'capsule-separate'}).flight;hot.state=[P.R+65000,0,0,-600,7400,0];hot.attitude=Math.atan2(7400,-600)+Math.PI;hot.controls.mode='hold';const safeEntry=R.reentry(hot,M.atmosphere);assert(safeEntry.protected&&safeEntry.shieldAngle<1e-5&&safeEntry.pathAngle<0&&safeEntry.flux>.001);const protectedFlight=P.clone(hot),exposed=P.clone(hot);exposed.attitude=O.wrap(hot.attitude+Math.PI);R.stepCapsule(protectedFlight,.1,M.atmosphere);R.stepCapsule(exposed,.1,M.atmosphere);assert(exposed.capsule.heat>protectedFlight.capsule.heat*9);assert(!R.reentry(exposed,M.atmosphere).protected);
+console.log('360-degree local attitude: both bodies, reverse tangential velocity, invalid boundary rejection, draft/review continuation and shared reentry angles/thermal protection passed.');
+
+legacy=M.change(legacy,{type:'control',key:'angle',value:270});assert.equal(legacy.flight.controls.angle,270);round(legacy);console.log('Existing model4 drafts can use and resume the new full-circle controls without losing their recorded result.');
+
+for(const [angle,sign]of [[358,-1],[2,1]]){const a=M.change(orbit(),{type:'capsule-separate'}).flight;a.state=[P.R+200000,0,0,100,0,0];a.attitude=0;a.controls={mode:'tilt',angle,throttle:0,lit:false};const fuel=a.capsule.fuel;R.stepCapsule(a,.1,M.atmosphere);const turn=Math.atan2(Math.sin(a.attitude),Math.cos(a.attitude));assert.equal(Math.sign(turn),sign);assert(Math.abs(turn)<=12*Math.PI/180*.1+1e-9);assert(a.capsule.fuel<fuel);}
+console.log('Cross-zero steering turns in each requested direction at the finite RCS rate and consumes fuel.');

@@ -32,6 +32,14 @@ export function createParachute(){
  for(const t of [0,4/12,5/12,9/12,1])for(let i=0;i<96;i++)stitch(point(i*Math.PI/48,t),point((i+1)*Math.PI/48,t));
  const seamsMesh=new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(seams),new THREE.LineBasicMaterial({color:'#b6b9b3',transparent:true,opacity:.65})),lines=new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(ropes),new THREE.LineBasicMaterial({color:'#eee9db',transparent:true,opacity:.85}));seamsMesh.name='parachute-seams';lines.name='parachute-lines';group.add(seamsMesh,lines);return group;
 }
+export function createReentryEffects(){
+ const group=new THREE.Group();group.position.y=1.4;group.userData.recoveryDecoration=true;
+ const glow=new THREE.Mesh(new THREE.SphereGeometry(1.7,32,12,0,Math.PI*2,Math.PI/2,Math.PI/2),new THREE.MeshBasicMaterial({color:'#ff8b42',transparent:true,opacity:0,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false}));glow.scale.y=.35;glow.position.y=-1.45;glow.name='reentry-bow';
+ const wake=new THREE.Mesh(new THREE.CylinderGeometry(2.3,1.7,4.8,32,1,true),new THREE.MeshBasicMaterial({color:'#ec6035',transparent:true,opacity:0,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false}));wake.position.y=.95;wake.name='reentry-wake';
+ wake.material.onBeforeCompile=shader=>{shader.vertexShader='varying float vTrail;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvTrail=uv.y;');shader.fragmentShader='varying float vTrail;\n'+shader.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\ndiffuseColor.a*=pow(1.0-vTrail,2.0);');};
+ const points=[];for(let i=0;i<12;i++){const a=i*Math.PI/6;for(let j=0;j<4;j++){const p=t=>new THREE.Vector3((1.7+.6*t)*Math.cos(a),-1.45+4.8*t,(1.7+.6*t)*Math.sin(a));points.push(p(j/4),p((j+1)/4));}}
+ const trails=new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(points),new THREE.LineBasicMaterial({color:'#ffbb73',transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false}));trails.name='reentry-trails';group.add(glow,wake,trails);return group;
+}
 export function fadeEnvironment(group,opacity){
  if(group.artOpacity===opacity)return;group.artOpacity=opacity;
  group.traverse(o=>{for(const m of o.material?(Array.isArray(o.material)?o.material:[o.material]):[]){const base=m.userData.environmentBase??={opacity:m.opacity,transparent:m.transparent,depthWrite:m.depthWrite},transparent=base.transparent||opacity<1;if(m.transparent!==transparent){m.transparent=transparent;m.needsUpdate=true;}m.opacity=base.opacity*opacity;m.depthWrite=base.depthWrite&&opacity===1;}});
@@ -216,7 +224,7 @@ export function buildRocket(c,separated,capsuleOnly=false){
   mesh(new THREE.CylinderGeometry(.04,.04,1.1,8),metal,0,y+3.6,0);mesh(new THREE.SphereGeometry(.17,10,8),orange,0,y+4.15,0);
   }
   partParent=group;
-  if(capsuleOnly){const underside=parts.find(p=>p.userData.part.part==='capsule');mesh(new THREE.CylinderGeometry(1.4,1.3,.25,32),dark,0,.05,0,underside);for(const x of [-.42,.42]){const bell=mesh(new THREE.CylinderGeometry(.07,.13,.16,16,1,true),dark,x,-.155,0,underside);bell.name='capsule-return-engine';const rim=mesh(new THREE.TorusGeometry(.13,.012,6,20),metal,x,-.235,0,underside);rim.rotation.x=Math.PI/2;}}
+  if(capsuleOnly){const underside=parts.find(p=>p.userData.part.part==='capsule'),shield=mesh(new THREE.CylinderGeometry(1.4,1.3,.25,48),material('#40382f',{roughness:.96,metalness:0,emissive:'#ff6622',emissiveIntensity:0}),0,.05,0,underside);shield.name='capsule-heat-shield';group.userData.heatShield=shield;for(const x of [-.42,.42]){const bell=mesh(new THREE.CylinderGeometry(.07,.13,.16,16,1,true),dark,x,-.155,0,underside);bell.name='capsule-return-engine';const rim=mesh(new THREE.TorusGeometry(.13,.012,6,20),metal,x,-.235,0,underside);rim.rotation.x=Math.PI/2;}}
   const rcs=[new THREE.Group(),new THREE.Group()],nozzles=[];
   if(P.hasCapsule(c))for(const [index,direction]of [-1,1].entries())for(const [level,side]of [[y+.25,-direction],[1.8,direction]]){
     nozzles.push([side*1.53,level,0,.13,.24,.13,0,0,-side*Math.PI/2]);
@@ -231,5 +239,5 @@ export function buildRocket(c,separated,capsuleOnly=false){
     // Keep full-width bounds while throttle only narrows the individual plumes.
     plume.computeBoundingSphere();
   }
-  flame.visible=false;group.add(flame);group.microDetails=microDetails;group.userData={slots,parts,ranges,separatorY,bodyTop,height:Math.max(y+(P.hasCapsule(c)?4.4:0),c.boosters&&!separated?7.2:0),flame,rcs,boosters,boosterFlames};group.updateMatrixWorld(true);const bounds=new THREE.Box3();for(const part of parts)bounds.union(new THREE.Box3().setFromObject(part));group.userData.partBounds=bounds;return group;
+  flame.visible=false;group.add(flame);group.microDetails=microDetails;group.userData={...group.userData,slots,parts,ranges,separatorY,bodyTop,height:Math.max(y+(P.hasCapsule(c)?4.4:0),c.boosters&&!separated?7.2:0),flame,rcs,boosters,boosterFlames};group.updateMatrixWorld(true);const bounds=new THREE.Box3();for(const part of parts)bounds.union(new THREE.Box3().setFromObject(part));group.userData.partBounds=bounds;return group;
 }

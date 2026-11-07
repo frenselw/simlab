@@ -401,3 +401,19 @@ baseline `0a4f96d` 以同一貼合狀態再運行4秒仍維持兩底部約6.101m
 證據output/reports/rocket-red-white-chute-browser.json、同前綴node／check／registry／closure報告及red-white-chute截圖。最終runtime `4284f067aca86add97ea31b14bcaf2406318de07673668e8acbbdf242c14fbdb`；來源及477-entry SCORM ZIP逐byte一致，原481檔不變。沿用58 cases／305 registry entries；未做真手機／真Moodle驗證。
 
 實作commit `1ca2c26a0a880dc35874f3784b9e46906cacd062`；committed selection-preview見output/reports/rocket-red-white-chute-selection.json，只記錄選取，實際執行為上述focused checks。Site dist全476 runtime檔與來源一致，Site來源 `12798fc36f1d4ae8452fc8fa301e6324fa9a406f`；deployment `appgdep_6aeee6e27be0819185720b739fc075a5` 於2026-11-07 16:52:56 UTC+08 native succeeded。原owner-private權限及網址 https://simlab-rocket-side-booster.ieyp.chatgpt.site 維持，證據output/reports/rocket-red-white-chute-sites.json。成功保存／部署後清理本次tar，保留Site checkout、驗證證據及使用者附件。
+
+## 21. 全周角度操控與再入隔熱盾（2026-11-07，實作前決策）
+
+使用者要求太空艙沿用原火箭角度掣，不再另設順行／逆行按鈕，並能向兩邊完整360°轉向。角度統一以當地鉛直為0°，90°／270°為兩邊水平、180°向下；目標角0至小於360°，微調跨界循環，不按角動量方向鏡射。轉向仍有限速／燃料消耗，分艙保持實際朝向；首次微調從實際角開始，不跳回舊設定。保留舊snapshot的順／逆行模式解碼，舊紀錄不改寫；schema7現有angle欄位容許新範圍，其他snapshot欄位／評分不變。
+
+再入要區分路徑角γ（速度對當地水平）與隔熱盾迎風偏角。顯示兩者及所需艙身角，提示關機、隔熱盾朝前、適時微調；不承諾固定入射角能安全，也不新增升力／再入走廊或自動駕駛。參考NASA https://ntrs.nasa.gov/archive/nasa/casi.ntrs.nasa.gov/20100005142.pdf 與 https://ntrs.nasa.gov/api/citations/20160004036/downloads/20160004036.pdf 。沿用現有熱劑量與迎風保護判定，並標明熱防護餘量而非真實攝氏溫度。
+
+補足可見深色隔熱盾、受熱橙紅光及沿相對氣流拖後的透明等離子光效；強度由當前密度／速度決定，熱盾變色由既有熱劑量決定，冷卻後停止發光，太空／著陸／開傘不殘留火焰。非主引擎噴流，不新增聲音／選項／依賴。主／副操控對象皆需一致呈現，保留紅白傘。
+
+範圍：model與recovery目標角、persistence7範圍、index／main既有角度控制及提示、scene-art／scene隔熱視覺、既有Node及capsuleReturn browser owner。評分風險／rubric／提交與resume契約不變；原火箭活動不改。驗證雙向跨0／180／360、非法角拒絕、雙飛行器draft／review round-trip與合法續作、姿態與熱損耗對應、source／SCORM桌面與trusted touch操控／再入／降落／提交，以及圖形冷熱切換和鏡頭切換。沿用既有測試註冊。
+
+實際驗證：活動十組Node、browser inventory、check:tests、check及diff whitespace通過。主／副飛行器270°、182°、358°等目標均可draft／review round-trip及合法續作；±2°跨0時向兩邊轉、保留12°/s上限及姿控耗油；非法角度（含360／NaN／Infinity）拒絕。舊model4 draft亦可270°續作，原紀錄仍保留。共用再入讀數與原熱劑量判斷一致，同狀態艙頭迎風的防護耗損約為盾面迎風的10倍；未增加升力／自動返航或改寫評分。
+
+source＋extracted SCORM、1280×800／390×844共4條完整返航flows、errors=[]。實際trusted mouse／touch操作兩主體的角度掣、0↔358↔0、180→182與270→268；其後由測試駕駛逐秒發出既有angle command追隨顯示的迎風目標，不是產品新增自動駕駛。再入取樣γ約−0.72至−0.80°、盾面偏角<0.014°，等離子尾流世界向量與反速度方向dot=1；主／副操控視角都有熱盾及光效，冷太空、開傘及著陸時停止發光。目視桌面／手機傘面及熱盾／漸淡尾流；保留開傘中存檔還原、紅白傘及提交鎖定，接地法向速度5.13–5.16m/s。
+
+證據output/reports/rocket-full-turn-all-node.txt、rocket-full-turn-browser.json及同前綴check／registry／closure報告、reentry-heat截圖。最終runtime `366a5608913d6e527fa82fe87231f6a79c6b205541fdde77e0db6b7dbd157ae2`；來源與477-entry SCORM ZIP逐byte一致，原481檔不變。沿用58 cases／305 registry entries，無新資產依賴。熱模型仍屬教學近似，不是材料溫度／高超音速飛行安全驗證；未做真手機／真Moodle實測。

@@ -15,7 +15,9 @@
     f.maxHeight=Math.max(f.maxHeight,O.elements(f.state).height);u.maxHeight=Math.max(u.maxHeight,O.elements(u.state).height);
   }
   const thrust=f=>!terminal(f)&&f.controls.lit&&f.capsule.fuel>0&&f.capsule.chute.phase==='stowed'?3000*f.controls.throttle:0;
-  const angle=f=>f.controls.mode==='hold'?f.attitude:f.controls.mode==='tilt'?Math.atan2(f.state[1],f.state[0])+Math.sign(f.state[0]*f.state[4]-f.state[1]*f.state[3]||1)*f.controls.angle*Math.PI/180:Math.atan2(f.state[4],f.state[3])+(f.controls.mode==='retrograde'?Math.PI:0);
+  const angle=f=>f.controls.mode==='hold'?f.attitude:f.controls.mode==='tilt'?Math.atan2(f.state[1],f.state[0])+f.controls.angle*Math.PI/180:Math.atan2(f.state[4],f.state[3])+(f.controls.mode==='retrograde'?Math.PI:0);
+  const localAngle=f=>O.wrap(f.attitude-Math.atan2(f.state[1],f.state[0]))*180/Math.PI;
+  function reentry(f,atmosphere){const o=O.elements(f.state),heading=Math.atan2(f.state[4],f.state[3]),facing=-Math.cos(f.attitude-heading);return {pathAngle:Math.atan2(o.radial,Math.abs(o.tangential))*180/Math.PI,shieldAngle:Math.acos(Math.max(-1,Math.min(1,facing)))*180/Math.PI,targetAngle:O.wrap(heading+Math.PI-Math.atan2(f.state[1],f.state[0]))*180/Math.PI,flux:Math.sqrt(atmosphere(o.height))*(o.speed/7800)**3,protected:facing>.8};}
   function area(f){const c=f.capsule.chute;
     if(c.phase==='stowed'){
       const o=O.elements(f.state),forward=(Math.cos(f.attitude)*f.state[3]+Math.sin(f.attitude)*f.state[4])/Math.max(1,o.speed);
@@ -51,9 +53,9 @@
     if(Math.min(Math.hypot(...start.slice(0,2)),Math.hypot(...next.slice(0,2)))<P.R+S.MAX_HEIGHT+1000){for(let i=1;i<=samples;i++){if(S.clearance(integrate(h*i/samples),f.t+h*i/samples)<=0){let lo=h*(i-1)/samples,hi=h*i/samples;for(let j=0;j<30;j++){const mid=(lo+hi)/2;if(S.clearance(integrate(mid),f.t+mid)>0)lo=mid;else hi=mid;}used=hi;next=integrate(used);c.touchdown=contactVelocity(next,f.t+used);f.status=c.touchdown.normal<=6&&c.touchdown.tangent<=5?'landed':'impact';const r=Math.hypot(next[0],next[1]),ground=S.radius(next,f.t+used);next[0]*=ground/r;next[1]*=ground/r;next[3]=next[4]=0;break;}}}
     if(Math.hypot(next[0],next[1])>P.R+1e8){let lo=0,hi=h;for(let j=0;j<32;j++){const mid=(lo+hi)/2;if(Math.hypot(...integrate(mid).slice(0,2))<=P.R+1e8)lo=mid;else hi=mid;}used=lo;next=integrate(lo);f.status='escaped';}
     f.state=next;f.t+=dt;c.fuel=Math.max(0,c.fuel-flow*used);
-    const end=O.elements(next),facing=Math.cos(f.attitude-Math.atan2(next[4],next[3])-Math.PI);
+    const end=O.elements(next),entry=reentry(f,atmosphere);
     // shortcut: normalized thermal dose, not material temperature; recalibrate for lifting reentry.
-    c.heat=Math.min(1,c.heat+Math.sqrt(atmosphere(end.height))*(end.speed/7800)**3*used*(facing>.8?.15:1.5));
+    c.heat=Math.min(1,c.heat+entry.flux*used*(entry.protected?.15:1.5));
     if(c.heat>=1)f.status='destroyed';if(end.height>=1e8){f.status='escaped';}
     if(terminal(f)||c.fuel<=1e-8)f.controls.lit=false;
     settle(f);f.maxHeight=Math.max(f.maxHeight,end.height);chute(f,atmosphere(end.height));
@@ -76,5 +78,5 @@
     return {elapsed:f.t-start,steps,limited:f.t<target-1e-7};
   }
   const selected=f=>f?.controlled==='upper'&&f.upperStage?f.upperStage:f;
-  return Object.freeze({fresh,mass,thrust,area,stageHeight,contact,resolveContact,contactVelocity,terminal,canSeparate,separate,advance,selected,stepCapsule});
+  return Object.freeze({fresh,mass,thrust,localAngle,reentry,area,stageHeight,contact,resolveContact,contactVelocity,terminal,canSeparate,separate,advance,selected,stepCapsule});
 });
