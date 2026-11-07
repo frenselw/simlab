@@ -433,3 +433,19 @@ source＋extracted SCORM、1280×800／390×844共4條完整返航flows、errors
 既有溫和分離0至4秒逐格距離、無側移、還原續作、360°手動返航、主／副視角再入光效、紅白傘、著陸／提交鎖定亦通過。證據output/reports/rocket-side-pods-browser.json及同前綴node／check／registry／closure報告、capsule-side-pod-detail及capsule-side-pods-attached截圖；仍58 cases／305 registry entries。無物理、snapshot、評分或新依賴變更，原481檔未改；未做真手機／真Moodle或獨立噴嘴熱流／推力校準。
 
 最終runtime `bfa5efc43be952e5866af80a6458a988b4874e669e988129bfd18c28f9c1dfb9`，來源、477-entry SCORM ZIP及Site dist全476 runtime檔逐byte一致。實作commit `9c7e00dadea9377ab490bb629b4a32016df58813`；committed selection-preview見output/reports/rocket-side-pods-selection.json，只記錄選取，實際執行為上述focused checks。Site來源 `bfc0785b98d8e99be598bf4e86a2aede649fa4d2`；deployment `appgdep_6aeef730426c8191a08ecee5d2754c79` 於2026-11-07 18:02:30 UTC+08 native succeeded。原owner-private權限及網址 https://simlab-rocket-side-booster.ieyp.chatgpt.site 維持，證據output/reports/rocket-side-pods-sites.json。成功保存／部署後清理本次tar，保留Site checkout、驗證證據及使用者附件。
+
+## 23. 分段充氣、氣流擺動與著陸塌傘（2026-11-07，實作前決策）
+
+使用者要求展傘有拉出／張繩／充氣過程、氣流感、上升與下降的區別，並在著地後失壓塌落。取消整個降落傘group一齊縮放；以原減速傘2秒／主傘4秒時序驅動繩長與傘面半徑／拱高，先拉長繩索、再分段充氣（reefing的教學呈現），保留紅白花紋。參考NASA https://www.nasa.gov/podcasts/houston-we-have-a-podcast/orion-parachutes/ 。滿傘有輕微呼吸、傘邊波動及偏擺，繩根固定艙頂，傘布與繩端共用相同幾何，避免假伸縮或穿離。
+
+開傘安全閘保持：待命不是立即展傘；上升／無大氣／超速仍不新展開，並明示上升待命。若已展開後再次上升，氣流承載逐漸下降，傘布收窄、偏向側下方、繩索鬆弛；下降恢復承載時再充氣，不能瞬間翻轉或仍保留滿傘阻力。既有area增量按下降承載連續變化（0至3m/s下降漸增），正常終端下降約5m/s的滿傘面積不變。傘繩張緊後以有限角速度穩定實際艙身姿態，不再由renderer一幀強制轉正；不耗姿控燃料，不新增風力側移／完整布料或流體模擬。
+
+觸地後約3秒內洩氣、降低傘頂、向艙旁倒下，繩索變成有垂度的曲線；落在地形面或水面附近，不維持空中直立或穿地。即使模擬因著陸自動暫停，這段短暫收尾仍能完成；手動飛行暫停凍結展傘／擺動，切頁／背景停止動畫。從已著陸draft或review還原直接顯示最終塌傘，不重播，無須新增snapshot欄位；新試飛／倒帶／切換操控對象不得沿用舊動畫。
+
+範圍：scene-art既有傘面／接縫／24繩幾何、scene生命週期與animateEffects、recovery承載／姿態，以及main提示／展傘後角度顯示。保留rubric／評分、schema7/model5欄位與提交契約；無新依賴或manifest項目，原活動不改。沿用art／recovery Node及capsuleReturn browser owner，測試上升待命、已開傘上升失壓、張繩／分段充氣／鬆繩、幀率／暫停／背景／倒帶、源碼與SCORM桌面／trusted touch返航、開傘還原與著陸塌傘／review。教學近似不宣稱是真實傘具載荷或風場校準。
+
+實際驗證：活動十組Node（含新的承載／姿態與RCS音效斷言）、browser inventory、check:tests、check及diff whitespace通過。source＋extracted SCORM在1280×800／390×844共4條完整返航flows、errors=[]。每條另取樣11個張繩／減速傘及主傘分段充氣形狀，核對24繩固定錨點、傘邊接點、有限座標；上升待命訊息／無滿傘、已開傘上升失壓（含艙頭朝上／朝下）、近頂點恢復承載、兩時刻傘面擺動皆通過。11階段由render-only fixture取樣，未改寫學員狀態；實際飛行仍由原安全閘觸發。
+
+手動暫停時幾何保持不變，主傘開啟中production draft encode／decode／restore形狀一致，切換操控二級仍可看到太空艙的傘。落地後飛行時間保持凍結，但收尾動畫完成；背景檢查在同一幀核對，避免把前景正常推進誤判為背景仍運行。30及60 FPS推進一秒的塌傘形狀一致；最後傘布有不規則皺摺、落在艙旁，布／繩均不低於當地近似地面，review及已著陸draft還原直接顯示最終形狀。目視桌面／手機的張繩、充氣、上升失壓及地面塌傘截圖，保留紅白花紋與提交鎖定。
+
+覆核一併排除傘繩穩定艙身時的舊RCS噴氣／嘶聲，避免無姿控耗油卻顯示噴射；既有開傘及著陸聲沿用。證據output/reports/rocket-chute-motion-all-node.txt、rocket-chute-motion-browser.json及同前綴check／registry／closure報告、chute-deploy／chute-inflating／chute-upward-unloaded／chute-collapsed截圖。沿用58 cases／305 registry entries，無新依賴／snapshot欄位／評分變更；風感採程序變形，未建模側風漂移、完整布料／流體或實際傘具載荷，未做真手機／真Moodle實測。

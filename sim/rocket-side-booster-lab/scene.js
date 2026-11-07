@@ -96,7 +96,7 @@ export class RocketScene{
       if(this.data.live&&Math.abs(turn)/dt>Math.PI/360){this.rcsDirection=Math.sign(turn);const target=M.targetAttitude(f)-f.attitude,aligned=Math.abs(Math.atan2(Math.sin(target),Math.cos(target)))<1e-5;this.rcsUntil=dt>.25&&aligned?f.t:f.t+.08;}
     }
     if(f)this.effectPose={t:f.t,attitude:f.attitude};
-    for(const [i,jets]of this.rocket.userData.rcs.entries()){jets.visible=Boolean(this.data.live&&f&&!['impact','escaped'].includes(f.status)&&f.t<this.rcsUntil&&this.rcsDirection===[-1,1][i]);for(const plume of jets.children)plume.material.opacity=plume.userData.baseOpacity*(this.reducedMotion?1:.85+.15*Math.sin(f?.t*70||0));}
+    for(const [i,jets]of this.rocket.userData.rcs.entries()){jets.visible=Boolean(this.data.live&&f&&(!f.capsule?.detached||f.capsule.chute.phase==='stowed')&&!['impact','escaped'].includes(f.status)&&f.t<this.rcsUntil&&this.rcsDirection===[-1,1][i]);for(const plume of jets.children)plume.material.opacity=plume.userData.baseOpacity*(this.reducedMotion?1:.85+.15*Math.sin(f?.t*70||0));}
     const drop=this.separation;if(!drop||!f)return;
     if(drop.coast.status==='impact'){this.impacts.emit(drop.coast.state,drop.coast.t,Math.max(.015,this.rocket.scale.y*this.rocket.userData.height*.6));this.clearSeparation();return;}
     const angle=space?0:theta,dx=drop.coast.state[0]-f.state[0],dy=drop.coast.state[1]-f.state[1],axis=new THREE.Vector3(Math.sin(drop.attitude-angle),Math.cos(drop.attitude-angle),0),offset=new THREE.Vector3(dy*Math.cos(angle)-dx*Math.sin(angle),dx*Math.cos(angle)+dy*Math.sin(angle),0);
@@ -122,13 +122,15 @@ export class RocketScene{
     effects.children.forEach((mesh,i)=>mesh.material.opacity=level*[.45,.085,.3][i]);
     if(shield){const remaining=1-f.capsule.heat;shield.material.color.setRGB(.035+.045*remaining,.025+.025*remaining,.02+.015*remaining);shield.material.emissiveIntensity=level*(.15+.85*Math.max(0,Math.cos(e.shieldAngle*Math.PI/180)));}
   }
+  drawParachute(rocket,f,space){
+    if(!rocket||!f?.capsule?.detached)return;let canopy=rocket.userData.parachute;if(!canopy){canopy=createParachute();rocket.userData.parachute=canopy;rocket.add(canopy);}if(rocket===this.rocket)this.canopy=canopy;if(f.status==='landed')rocket.rotation.z=(space?0:Math.atan2(this.data.flight.state[1],this.data.flight.state[0]))-Math.atan2(f.state[1],f.state[0]);canopy.update(f,this.reducedMotion,this.data.live);
+  }
   drawRecovery(space,f){
     if(!f)return;const other=this.data.other;if(other?.status==='impact'&&this.lastOtherStatus==='flying')this.impacts.emit(other.state,other.t,.012);this.lastOtherStatus=other?.status;
     if(this.otherRocket&&other){const theta=space?0:Math.atan2(f.state[1],f.state[0]),dx=other.state[0]-f.state[0],dy=other.state[1]-f.state[1],unit=space?3/P.R:.001;this.otherRocket.position.copy(this.rocket.position).add(new THREE.Vector3(-Math.sin(theta)*dx+Math.cos(theta)*dy,Math.cos(theta)*dx+Math.sin(theta)*dy,0).multiplyScalar(unit));this.otherRocket.scale.setScalar(space?.18/this.otherRocket.userData.height:.001);this.otherRocket.rotation.z=theta-other.attitude;this.otherRocket.visible=!['destroyed','impact'].includes(other.status);this.drawEngine(this.otherRocket,other);}
-    this.drawThermal(this.rocket,f);this.drawThermal(this.otherRocket,other);
+    this.drawThermal(this.rocket,f);this.drawThermal(this.otherRocket,other);this.drawParachute(this.rocket,f,space);this.drawParachute(this.otherRocket,other,space);
     if(f.capsule?.detached){const c=f.capsule.chute;
-      if(!this.canopy){this.canopy=createParachute();this.rocket.add(this.canopy);}
-      const scale=c.phase==='stowed'?0:c.phase==='drogue-opening'?Math.min(1,(f.t-c.since)/2)*.3:c.phase==='drogue'?.3:c.phase==='main-opening'?.3+.7*Math.min(1,(f.t-c.since)/4):1;this.canopy.visible=scale>0&&!['destroyed','impact'].includes(f.status);this.canopy.scale.setScalar(Math.max(.001,scale));if(c.phase!=='stowed'&&f.status==='flying')this.rocket.rotation.z=(space?0:Math.atan2(f.state[1],f.state[0]))-Math.atan2(f.state[4],f.state[3])-Math.PI;
+
       this.rocket.visible=!['destroyed','impact'].includes(f.status);if(f.status==='landed'&&!this.rocket.userData.landingRipple){const ripple=new THREE.Mesh(new THREE.TorusGeometry(3,.06,8,48),new THREE.MeshBasicMaterial({color:S.isWater(f.state,f.t)?'#83bfcc':'#b5a276',transparent:true,opacity:.65}));ripple.rotation.x=Math.PI/2;ripple.position.y=.02;ripple.userData.recoveryDecoration=true;this.rocket.add(ripple);this.rocket.userData.landingRipple=ripple;}
     }
   }
@@ -213,7 +215,7 @@ export class RocketScene{
     this.launchEffects.update(this.camera);
     try{this.drawRecovery(space,f);this.renderer.render(this.scene,this.camera);this.renderCount++;}catch(_){this.lost=true;this.onFault('render');}
   }
-  animateEffects(now){const elapsed=this.effectClock?Math.max(0,(now-this.effectClock)/1000):0,delta=Math.min(.05,elapsed);this.effectClock=now;if(this.lost||document.hidden||!this.data?.live||(this.data.running===false&&this.data.flight?.status!=='impact'))return false;const transition=this.separation,separating=transition&&this.data.running!==false&&transition.visualAge<.6;if(separating)transition.visualAge=Math.min(.6,transition.visualAge+elapsed);const releasing=this.launchStarted&&this.launchArmAge<(this.reducedMotion?.25:1.1);if(releasing)this.launchArmAge+=delta;const vapour=this.launchEffects.advance(delta);if(this.impacts.advance(delta)||separating||releasing||vapour){this.draw();return true;}return false;}
+  animateEffects(now){const elapsed=this.effectClock?Math.max(0,(now-this.effectClock)/1000):0,delta=Math.min(.05,elapsed);this.effectClock=now;if(this.lost||document.hidden||!this.data?.live)return false;let settling=false;for(const rocket of [this.rocket,this.otherRocket])if(rocket?.userData.parachute?.advance(delta))settling=true;if(settling)this.draw();if(this.data.running===false&&this.data.flight?.status!=='impact')return Boolean(settling);const transition=this.separation,separating=transition&&this.data.running!==false&&transition.visualAge<.6;if(separating)transition.visualAge=Math.min(.6,transition.visualAge+elapsed);const releasing=this.launchStarted&&this.launchArmAge<(this.reducedMotion?.25:1.1);if(releasing)this.launchArmAge+=delta;const vapour=this.launchEffects.advance(delta);if(this.impacts.advance(delta)||separating||releasing||vapour){this.draw();return true;}return false;}
   project(position){const p=position.clone().project(this.camera);const r=this.host.getBoundingClientRect();return {x:(p.x+1)*r.width/2,y:(1-p.y)*r.height/2,visible:p.z>=-1&&p.z<=1&&Math.abs(p.x)<.98&&Math.abs(p.y)<.98};}
   slotPoints(part=null,source=null){
     if(!this.rocket)return [];this.rocket.updateMatrixWorld();const engine=part?.startsWith('engine-'),tank=['small','medium','large'].includes(part);

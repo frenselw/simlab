@@ -18,13 +18,14 @@
   const angle=f=>f.controls.mode==='hold'?f.attitude:f.controls.mode==='tilt'?Math.atan2(f.state[1],f.state[0])+f.controls.angle*Math.PI/180:Math.atan2(f.state[4],f.state[3])+(f.controls.mode==='retrograde'?Math.PI:0);
   const localAngle=f=>O.wrap(f.attitude-Math.atan2(f.state[1],f.state[0]))*180/Math.PI;
   function reentry(f,atmosphere){const o=O.elements(f.state),heading=Math.atan2(f.state[4],f.state[3]),facing=-Math.cos(f.attitude-heading);return {pathAngle:Math.atan2(o.radial,Math.abs(o.tangential))*180/Math.PI,shieldAngle:Math.acos(Math.max(-1,Math.min(1,facing)))*180/Math.PI,targetAngle:O.wrap(heading+Math.PI-Math.atan2(f.state[1],f.state[0]))*180/Math.PI,flux:Math.sqrt(atmosphere(o.height))*(o.speed/7800)**3,protected:facing>.8};}
+  function chuteLoad(f){const x=Math.max(0,Math.min(1,-O.elements(f.state).radial/3));return x*x*(3-2*x);}
   function area(f){const c=f.capsule.chute;
     if(c.phase==='stowed'){
       const o=O.elements(f.state),forward=(Math.cos(f.attitude)*f.state[3]+Math.sin(f.attitude)*f.state[4])/Math.max(1,o.speed);
       // shortcut: nose-first ascent shares a ballistic-coefficient reference for gentle release; calibrate independent aerodynamics for CFD fidelity.
       return f.upperStage&&o.radial>0&&forward>=0?Math.min(1.5,mass(f)*P.CORE_DRAG_AREA/P.mass(f.upperStage)):1.5;
     }
-    const age=Math.max(0,f.t-(c.since??f.t)),smooth=x=>{x=Math.min(1,x);return x*x*(3-2*x);};return c.phase==='drogue-opening'?1.5+8*smooth(age/2):c.phase==='drogue'?9.5:c.phase==='main-opening'?9.5+110.5*smooth(age/4):120;
+    const age=Math.max(0,f.t-(c.since??f.t)),smooth=x=>{x=Math.min(1,x);return x*x*(3-2*x);},opened=c.phase==='drogue-opening'?8*smooth(age/2):c.phase==='drogue'?8:c.phase==='main-opening'?8+110.5*smooth(age/4):118.5;return 1.5+opened*chuteLoad(f);
   }
 
   function chute(f,rho){const c=f.capsule.chute,o=O.elements(f.state),h=S.clearance(f.state,f.t),q=.5*rho*o.speed**2;if(!c.armed||terminal(f)||o.radial>=0||thrust(f)>0||rho<=0)return;
@@ -42,8 +43,8 @@
   function stepCapsule(f,dt,atmosphere){
     if(terminal(f)){f.t+=dt;settle(f);return;}
     const c=f.capsule,o=O.elements(f.state);chute(f,atmosphere(o.height));
-    const delta=Math.atan2(Math.sin(angle(f)-f.attitude),Math.cos(angle(f)-f.attitude)),turn=Math.sign(delta)*Math.min(Math.abs(delta),12*Math.PI/180*dt,c.fuel/.0005*Math.PI/180);
-    c.fuel=Math.max(0,c.fuel-Math.abs(turn)*180/Math.PI*.0005);f.attitude=O.wrap(f.attitude+turn);
+    const underChute=c.chute.phase!=='stowed',load=underChute&&atmosphere(o.height)>1e-5?chuteLoad(f)*Math.min(1,(area(f)-1.5)/8):0,target=underChute?Math.atan2(f.state[4],f.state[3])+Math.PI:angle(f),delta=Math.atan2(Math.sin(target-f.attitude),Math.cos(target-f.attitude)),turn=Math.sign(delta)*Math.min(Math.abs(delta),12*Math.PI/180*dt*(underChute?load:1),underChute?Infinity:c.fuel/.0005*Math.PI/180);
+    if(!underChute)c.fuel=Math.max(0,c.fuel-Math.abs(turn)*180/Math.PI*.0005);f.attitude=O.wrap(f.attitude+turn);
     const force=thrust(f),flow=force/(300*P.G0),h=Math.min(dt,flow?c.fuel/flow:dt),a=f.attitude,cd=area(f),start=f.state.slice(),m=mass(f);
     const derivative=q=>{const r=Math.hypot(q[0],q[1]),v=Math.hypot(q[3],q[4]),drag=.5*atmosphere(r-P.R)*cd*v,g=P.MU/r**3;return [q[3],q[4],0,-g*q[0]+(force*Math.cos(a)-drag*q[3])/m,-g*q[1]+(force*Math.sin(a)-drag*q[4])/m,0];};
     const integrate=t=>{const add=(q,k,s)=>q.map((v,i)=>v+k[i]*s),k1=derivative(start),k2=derivative(add(start,k1,t/2)),k3=derivative(add(start,k2,t/2)),k4=derivative(add(start,k3,t));return start.map((v,i)=>v+t/6*(k1[i]+2*k2[i]+2*k3[i]+k4[i]));};
@@ -78,5 +79,5 @@
     return {elapsed:f.t-start,steps,limited:f.t<target-1e-7};
   }
   const selected=f=>f?.controlled==='upper'&&f.upperStage?f.upperStage:f;
-  return Object.freeze({fresh,mass,thrust,localAngle,reentry,area,stageHeight,contact,resolveContact,contactVelocity,terminal,canSeparate,separate,advance,selected,stepCapsule});
+  return Object.freeze({fresh,mass,thrust,localAngle,reentry,chuteLoad,area,stageHeight,contact,resolveContact,contactVelocity,terminal,canSeparate,separate,advance,selected,stepCapsule});
 });
