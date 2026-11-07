@@ -529,3 +529,17 @@ range input按既有control更新即時油門，change時保存，主體切換�
 已檢視最終斜／俯視截圖：固定座四點對稱坐在實心台面，沒有一座懸在槽上；保留source舊版／隱藏渠壁對照作定位證據。證據output/reports/rocket-pad-opening-node.txt、rocket-pad-opening-inventory.txt、rocket-pad-opening-browser.json、rocket-pad-opening-check.txt、rocket-pad-opening-registry.txt、rocket-pad-opening-closure.json及pad-opening-oblique／overhead截圖。runtime `7d0d7871629d7c821c4d3777c83477a89ea71efa48cb096ba90c26b42c57712b`，477-entry SCORM全476 runtime檔與source逐byte一致，原481檔hash不變。未做真手機／真Moodle；本次未改物理或操控，未重跑不相關飛行整組。
 
 交付：實作commit `5bd450ed0bd194885d9f393f74e0a602957eeb3b`；committed selection-preview見output/reports/rocket-pad-opening-selection.json（只記選取，實際執行為上述focused checks）。Site dist全476 runtime檔與source／SCORM一致；Site source `42387929e613461e01378a73eabebcb7299b4609`，deployment `appgdep_6aef3b40b7c88191903baecc5cbe1a03` 於2026-11-07 22:52:55 UTC+08 native succeeded，維持原owner-private及 https://simlab-rocket-side-booster.ieyp.chatgpt.site 。證據output/reports/rocket-pad-opening-sites.json；成功後清理本次tar、中途probe文字與package重複對照圖，保留source定位對照、最終截圖、checkout、SCORM、QA及使用者附件。
+
+## 29. 開傘平滑取景及十格操控（2026-11-07，實作前）
+
+使用者指定先修正兩項：開傘瞬間鏡頭跳遠；dial每10°、油門推桿每10%，油門fine改±1%。dial指向最近10°、鍵盤移至相鄰10°，跨350／0循環，End350；原角度±2°fine保留。推桿原生step仍為1，input吸附最近10%，鍵盤往相鄰10%（Home0、End100）；因此fine的51%等值能由原生thumb／accessible value精確表示，而不被HTML step=10自動改回50。舊snapshot值不因畫面更新而改寫，fine仍能細調，主體／phase／pending鎖定維持。
+
+鏡頭根因為chute phase離開stowed便將framing height直接變16m。只為同一主體首次展傘加1.2秒real-time smoothstep的取景高度過渡（reduced-motion .25秒），沿用effectClock／delta；不改使用者zoom／yaw／pitch或物理／相機其他模式。已開傘還原或切換回太空艙直接以完整傘幅取景，不重播；main-opening不會重啟過渡。相機過渡可在paused時完成，避免暫停後傘出框；背景頁凍結，不消耗physics time或更動答案。只有renderer暫態，不新增schema7／model5欄位、依賴、評分或SCORM處理。
+
+修改scene／main／index與既有flightControls、capsuleReturn browser callers，所有舊25%／45°等UI測試改用新detents或明確驗證吸附，±1%需驗證thumb保持細值。沿用現有owners／58 cases／305 registry entries。source與SCORM驗證首次展傘同幀相機不跳、途中單調拉遠、結束完整取景，20×也按real clock，主傘不重啟、zoom保持、背景／暫停／還原與切主體；全部窄屏與鍵盤／觸控preview、fine及持久續行依舊。原481檔維持hash；實機／Moodle未驗證另記。
+
+實際驗證：recovery、lifecycle及browser inventory共3組Node通過；check、check:tests（305 entries／58 activity browser cases）及diff whitespace通過。`--chute-controls-only`在source／解壓SCORM共16 flows／errors=[]：4個chuteFraming fixtures（390／1280）及原flightControls 12個手機／桌面／雙主體flows。初次展傘的模型已變、HUD尚未emit時直接draw也不跳（取景依renderer儲存的lastChutePhase，而不讀可被模型原地改寫的phase）；emit後age=0，相機位置仍與展傘前一致。額外推進20模擬秒不會偷快camera age；24個50ms真實效果步取景單調拉遠，有中間距離且完成完整傘幅，30／60fps的0.6秒取景一致。過渡在暫停時完成但snapshot不變，background凍結；用戶zoom／yaw／pitch不被覆蓋，main-opening不重啟，還原／切回太空艙不重播。已檢視390開傘前／後截圖。
+
+UI原生trusted pointer及keyboard驗證10°各方向與350／0循環、47°吸附50°、20／50／80%等油門刻度及23%吸附20%。同一20%區間內重複拖至23%，即使command因值未改而不emit，DOM thumb／填色／模型仍主動同步20%；fine從20加到21%時native value確為21，鍵盤回到下一個30／20刻度。油門±1%及原角度±2°fine、preview取消／多指／捲動、運行／暫停、schema round-trip、pending／review／ended／開傘鎖定及雙主體互不改錯亦通過。舊UI callers已改用新刻度；未改snapshot值或物理。
+
+證據output/reports/rocket-chute-controls-node.txt、rocket-chute-controls-browser.json、rocket-chute-controls-check.txt、rocket-chute-controls-registry.txt、rocket-chute-controls-closure.json及chute-frame-start／complete、dial-fader截圖。runtime `5a982b5e8ea8fb9fc00f2215c68cfcf5464d106049899f23a868626fd05e5dd8`，477-entry SCORM全476 runtime檔與source逐byte一致，原481檔hash不變。未做真手機／真Moodle；相機為renderer暫態，窄屏與背景行為屬本機Chrome驗證，未重跑不相關飛行整組。
