@@ -4,7 +4,7 @@
   function fresh(){return {schema:7,modelVersion:5,variant:0,phase:'workshop',backPhase:null,craft:P.emptyCraft(0),flight:null,records:[null]};}
   function flight(craft,source='own',q=[P.R,0,0,0,0,0]){return {capsule:R.fresh(),upperStage:null,controlled:'main',boosters:craft.boosters?{status:'ready',fuel:P.BOOSTER.fuel}:null,source,craft:clone(craft),t:0,state:q.slice(),fuel:[P.capacity(craft.stages[0]),craft.stages[1]?P.capacity(craft.stages[1]):null],active:0,separated:false,attitude:0,controls:{mode:'tilt',angle:0,throttle:1,lit:false},status:source==='practice'?'flying':'pad',maxHeight:Math.max(0,O.elements(q).height)};}
   function atmosphere(h){if(h>=120000)return 0;const t=Math.max(0,Math.min(1,(h-80000)/40000));return 1.225*Math.exp(-Math.max(0,h)/8500)*(1-t*t*(3-2*t));}
-  function targetAttitude(f){const q=f.state,c=f.controls;if(c.mode==='tilt')return Math.atan2(q[1],q[0])+Math.sign(q[0]*q[4]-q[1]*q[3]||1)*c.angle*Math.PI/180;return Math.atan2(q[4],q[3])+(c.mode==='retrograde'?Math.PI:0);}
+  function targetAttitude(f){const q=f.state,c=f.controls;if(c.mode==='hold')return f.attitude;if(c.mode==='tilt')return Math.atan2(q[1],q[0])+Math.sign(q[0]*q[4]-q[1]*q[3]||1)*c.angle*Math.PI/180;return Math.atan2(q[4],q[3])+(c.mode==='retrograde'?Math.PI:0);}
   function coreThrust(f){if(f.capsule?.detached)return R.thrust(f);return f.controls.lit&&f.fuel[f.active]>0?P.ENGINES[f.craft.stages[f.active].engine].thrust*f.controls.throttle:0;}
   function thrust(f){return coreThrust(f)+(P.burning(f)?f.craft.boosters*P.BOOSTER.thrust:0);}
   function derivative(y,f,attitude,vacuum=false,noGravity=false,mass){

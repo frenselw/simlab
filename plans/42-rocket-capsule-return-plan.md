@@ -333,3 +333,13 @@ model5 recordData = [C, V, coreFuel, active, separated, t, status,
 實作驗證：十組活動Node通過；recovery測12個高度／姿態組合、每0.01秒取樣、接觸前後動量與存檔合法延續。source＋extracted SCORM在1280×800滑鼠、390×844 trusted touch共12 flows通過：27 km與200 km各逐格分離／保存還原，另四條既有完整返航／提交流程；errors=[]。27 km測試8秒後相對速率約0.21 m/s且不重疊；200 km初始約1.118 m/s，8秒後約1.118 m/s、底部相距約14.94 m，沒有突然加速穿越。browser inventory增為58 cases，registry仍305 entries。證據output/reports/rocket-capsule-contact-node.txt、rocket-capsule-contact-physics.txt、rocket-capsule-contact-browser.json及同任務capsule-separation截圖。真手機／Moodle／完整六自由度碰撞仍未驗證。
 
 實作commit `eed4650ea49fa8e554633cd3fad351597aea8ff7`；runtime `9329a47e050209887f53683889039f7d77e2ca73d8eb3998e0e0d900377c5762` 的來源、477-entry SCORM ZIP及Site dist逐byte一致，原481檔不變。check／check:tests及diff whitespace通過；committed selection見output/reports/rocket-capsule-contact-selection.json，僅為選取證據。最新部署仍維持私人權限：Site來源 `97895cdc6c37f9a87ffcee3afde412a10d9269b6`，deployment `appgdep_6aeeb57108588191bef3083866bf681f` 於2026-11-07 13:21:59 UTC+08 native succeeded；網址 https://simlab-rocket-side-booster.ieyp.chatgpt.site 。紀錄output/reports/rocket-capsule-contact-sites.json；部署tar保存成功後移除，保留Site來源checkout及原有附件。
+
+## 16. 單一情境按鈕與正前方分離（2026-11-07，實作前）
+
+使用者明確修正第14–15節：引擎區只有一個點火／關機切換按鈕；分離區只有一個按鈕，依助推器→下級→太空艙順序顯示當前對象，一次按下只執行一個動作。移除其餘三個獨立動作按鈕，油門／方向回到下方並排設定，維持兩個主按鈕固定位置與44px觸控。
+
+移除0.5 m/s側向分離衝量，只沿分離前艙軸加入約1 m/s相對速度、質量加權分配，保留防穿透與同一比例。分離後兩件先以hold模式保持各自原本實際慣性朝向，不延續未完成的轉向目標；玩家操作方向或二級安全距離後的自動離軌才可轉向。hold只擴充schema7既有controls.mode枚舉，不新增欄位或改舊提交；原模式繼續兼容。測直上未分離／已分離無橫向速度、朝向保持、低空接觸、高空慢漂離、情境切換只執行一次及完整返航／還原。先前側向推開決定由本節取代。
+
+實作驗證：活動十組Node、browser inventory、check與check:tests通過。source＋extracted SCORM的兩個focused selections各12 flows通過、errors=[]：情境按鈕在1280×800、390×844、320×500、844×390維持固定位置，實際點火／關機切換及逐組分離不會連續跳級；另27 km／200 km逐格驗證與既有完整返航／提交。200 km初始相對速率1 m/s、8秒後0.999883 m/s，底部距離6.4→14.3996 m；兩件朝向保持，直上橫向速度為0。27 km高速受阻力後會再次接觸，但沒有穿透、側向衝量或姿態打側。現有二級自動離軌仍在安全距離後轉向。
+
+證據output/reports/rocket-context-controls-node.txt、rocket-context-controls-browser.json、rocket-axial-release-browser.json及同名check／registry／closure報告；desktop及trusted-touch截圖已視覺檢查。runtime `782fdc313649aa22a42e8bf0b94f32fe0c4e27d6d90e97951dac2851f909d6a6` 的來源與477-entry SCORM ZIP逐byte一致；原481檔不變。沿用58 browser cases／305 registry entries，不新增依賴或評分欄位。未做真手機或真Moodle驗證。

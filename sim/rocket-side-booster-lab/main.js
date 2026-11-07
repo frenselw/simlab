@@ -64,24 +64,26 @@ function renderRecovery(){const f=controller.state?.flight,c=f?.capsule,detached
   renderCommandZones(f,body);
 }
 
+function separationAction(f){
+  const flying=f.status==='flying',base=flying?'可分離，餘油不限':f.status==='pad'?'先點火升空':'試飛已結束';
+  if(P.attached(f))return {type:'jettison',label:'分離助推器',enabled:flying&&['burning','spent'].includes(f.boosters.status),reason:flying?'全部助推器一齊分離':base};
+  if(f.craft.stages.length===2&&!f.separated)return {type:'separate',label:'分離下級',enabled:flying,reason:base};
+  if(f.capsule&&!f.capsule.detached)return {type:'capsule-separate',label:'分離太空艙',enabled:RocketRecovery.canSeparate(f),reason:!flying?base:RocketRecovery.canSeparate(f)?'可分離，毋須入軌':'先關閉引擎'};
+  return {type:null,label:'分離完成',enabled:false,reason:f.capsule?'已完成所有分離':'舊版試飛；重新試飛可使用新版太空艙'};
+}
 function renderCommandZones(f,body){if(!f)return;const phase=EDIT_PHASE(),dead=RocketRecovery.terminal(body),detached=f.capsule?.detached,fuel=body.capsule?.detached?body.capsule.fuel:body.fuel[body.active],mainName=detached?'太空艙':f.craft.stages.length===1?'主級':f.active?'上級':'下級';
   d.bodyControl.hidden=false;d.bodySelect.options[0].textContent=mainName;d.bodySelect.options[1].hidden=!f.upperStage;d.bodySelect.disabled=!f.upperStage;
   d.recoveryControls.hidden=controller.mode!=='edit'||tab!=='A'||!detached;
-  d.igniteButton.hidden=d.stopButton.hidden=d.separateButton.hidden=d.jettisonButton.hidden=d.capsuleSeparate.hidden=false;
-  d.igniteButton.textContent='點火';d.stopButton.textContent='關機';d.separateButton.textContent='分離下級';d.jettisonButton.textContent='分離助推器';d.capsuleSeparate.textContent='分離太空艙';
-  d.igniteButton.disabled=dead||fuel<=0||body.controls.lit||Boolean(body.capsule?.detached&&body.capsule.chute.phase!=='stowed')||renderLost;d.stopButton.disabled=dead||!body.controls.lit||renderLost;
-  const bodyName=f.controlled==='upper'?'二級／核心級':mainName;d.igniteButton.setAttribute('aria-label',bodyName+'點火');d.stopButton.setAttribute('aria-label',bodyName+'關機');
+  d.igniteButton.hidden=d.separateButton.hidden=false;
+  const bodyName=f.controlled==='upper'?'二級／核心級':mainName;d.igniteButton.textContent=body.controls.lit?'關機':'點火';d.igniteButton.setAttribute('aria-label',bodyName+d.igniteButton.textContent);
+  d.igniteButton.disabled=dead||(!body.controls.lit&&(fuel<=0||Boolean(body.capsule?.detached&&body.capsule.chute.phase!=='stowed')))||renderLost;
   const text=dead?'引擎已停止':fuel<=0?'燃料已用盡':body.controls.lit?'引擎已點火 · 油門 '+fmt(body.controls.throttle*100,0)+'%':P.burning(body)?'主引擎已關閉，固體繼續燃燒':'引擎已關閉';if(d.engineStatus.textContent!==text)d.engineStatus.textContent=text;
-  d.separateButton.disabled=detached||P.attached(f)||f.craft.stages.length!==2||f.separated||phase==='ended'||renderLost;
-  d.jettisonButton.disabled=!(['burning','spent'].includes(f.boosters?.status)&&f.status==='flying')||phase==='ended'||renderLost;
-  d.capsuleSeparate.disabled=!RocketRecovery.canSeparate(f)||renderLost;
-  const reasons={booster:!f.boosters?'未安裝':f.boosters.status==='jettisoned'?'已分離':!d.jettisonButton.disabled?'可全部分離':f.status==='pad'?'點火升空後可分離':'目前無法分離',lower:f.craft.stages.length===1?'單級火箭，無下級':f.separated?'已分離':P.attached(f)?'先分離助推器':!d.separateButton.disabled?'可分離，餘油不限':'目前無法分離',capsule:!f.capsule?'舊版；請重新試飛':detached?'已分離':f.status==='pad'?'升空後可分離':RocketRecovery.terminal(f)?'試飛已結束':P.attached(f)?'先分離助推器':f.craft.stages.length===2&&!f.separated?'先分離下級':d.capsuleSeparate.disabled?'先關閉引擎':'可分離，毋須入軌'};
-  for(const [key,button]of [['booster',d.jettisonButton],['lower',d.separateButton],['capsule',d.capsuleSeparate]]){const reason=d[key+'Reason'];if(reason.textContent!==reasons[key])reason.textContent=reasons[key];button.setAttribute('aria-describedby',reason.id);button.title=reasons[key];}
+  const action=separationAction(f);d.separateButton.textContent=action.label;d.separateButton.disabled=!action.enabled||phase==='ended'||renderLost;d.separationReason.textContent=action.reason;d.separateButton.setAttribute('aria-describedby','separationReason');d.separateButton.title=action.reason;
   d.playButton.hidden=false;d.playButton.disabled=phase==='pad'||phase==='ended'||renderLost;
 }
 
 function recoveryHUD(){const f=selectedFlight();if(!f?.capsule?.detached)return;d.fuelStage0.dataset.active='true';if(f.status==='landed'){d.periapsisValue.textContent='已着陸';d.apoapsisValue.textContent='—';d.orbitStatus.textContent='返航完成';}d.fuelStage1.hidden=true;d.boosterFuelStage.hidden=true;d.fuelLabel0.textContent='太空艙';d.fuelValue.textContent=fmt(f.capsule.fuel,1)+' kg';d.fuelBar.style.width=(100*f.capsule.fuel/30)+'%';const c=f.capsule.chute;d.flightHint.textContent=f.status==='landed'?'安全着陸！入軌成果保持原樣，可前往檢查及提交。':f.status==='destroyed'?'隔熱防護已耗盡。':f.status==='impact'?'硬着陸／撞毀。':c.phase!=='stowed'?({'drogue-opening':'小減速傘展開中',drogue:'小減速傘已開，等待主傘條件','main-opening':'主降落傘展開中',main:'主降落傘已開，正在下降'})[c.phase]:c.armed?'降落傘已待命；下降至離地8 km、速度≤250 m/s且動壓合適時開小傘。':'返航：逆行減速，把近地點降至50–70 km後關機，並按降落傘待命。';}
-d.capsuleSeparate.addEventListener('click',()=>command({type:'capsule-separate'}));d.chuteArm.addEventListener('click',()=>command({type:'chute-arm'}));d.bodySelect.addEventListener('change',()=>{command({type:'select-body',value:d.bodySelect.value});lastPaths=-Infinity;});d.autoDispose.addEventListener('click',()=>command({type:'auto-dispose'}));d.prograde.addEventListener('click',()=>controls('mode','prograde'));d.retrograde.addEventListener('click',()=>controls('mode','retrograde'));
+d.chuteArm.addEventListener('click',()=>command({type:'chute-arm'}));d.bodySelect.addEventListener('change',()=>{command({type:'select-body',value:d.bodySelect.value});lastPaths=-Infinity;});d.autoDispose.addEventListener('click',()=>command({type:'auto-dispose'}));d.prograde.addEventListener('click',()=>controls('mode','prograde'));d.retrograde.addEventListener('click',()=>controls('mode','retrograde'));
 
 function displayMission(){return Boolean(controller.state?.flight?.upperStage&&((controller.editable&&tab==='A')||showReturn));}
 function renderScene(){
@@ -141,7 +143,7 @@ d.partRemove.addEventListener('click',removeInstalled);
 [d.partDown,d.partUp].forEach((b,i)=>b.addEventListener('click',()=>{const p=selectedInstalled;if(p&&['small','medium','large'].includes(p.part)){transfer(p,p.stage,p.index+(i?2:-1));d.rocketGrip.focus();}}));
 d.stage.addEventListener('click',e=>{if(e.target===d.cameraSurface||e.target===d.sceneHost||e.target===d.sceneHost.firstElementChild){selectedInstalled=null;renderScene();}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){selectedInstalled=null;renderScene();}});
-d.igniteButton.addEventListener('click',()=>{if(command({type:'ignite'}))controller.play();});d.stopButton.addEventListener('click',()=>command({type:'stop'}));d.separateButton.addEventListener('click',()=>{if(command({type:'separate'}))d.igniteButton.focus({preventScroll:true});});d.playButton.addEventListener('click',togglePlay);d.jettisonButton.addEventListener('click',()=>command({type:'jettison'}));
+d.igniteButton.addEventListener('click',()=>{const f=RocketRecovery.selected(controller.state.flight);if(f.controls.lit)command({type:'stop'});else if(command({type:'ignite'}))controller.play();});d.separateButton.addEventListener('click',()=>{const action=separationAction(controller.state.flight);if(action.enabled)command({type:action.type});});d.playButton.addEventListener('click',togglePlay);
 document.querySelectorAll('[data-throttle],[data-set-throttle]').forEach(b=>b.addEventListener('click',()=>controls('throttle',b.dataset.setThrottle!==undefined?Number(b.dataset.setThrottle)/100:Math.max(0,Math.min(1,Math.round(RocketRecovery.selected(controller.state.flight).controls.throttle*100+Number(b.dataset.throttle))/100)))));
 document.querySelectorAll('[data-pitch],[data-set-pitch]').forEach(b=>b.addEventListener('click',()=>{if(RocketRecovery.selected(controller.state.flight).controls.mode!=='tilt')controls('mode','tilt');controls('angle',b.dataset.setPitch!==undefined?Number(b.dataset.setPitch):Math.max(0,Math.min(180,RocketRecovery.selected(controller.state.flight).controls.angle+Number(b.dataset.pitch))));}));
 function closeWarpMenu(focus=false){if(d.timeWarpMenu.hidden)return;d.timeWarpMenu.hidden=true;d.timeWarp.setAttribute('aria-expanded','false');if(focus&&!d.timeWarp.disabled&&!d.flightDeck.hidden)d.timeWarp.focus({preventScroll:true});}
