@@ -55,6 +55,14 @@ Subagent確認兩項P2，均已修正：
 
 ## 飛行操作重新分區
 
-依使用者要求：油門與360°轉向盤必須是flightPanel第一個可見內容；將操控對象、繼續／暫停、點火、分離、降落傘待命與時間倍率移至header同一固定toolbar。Desktop至少960px採一行，較窄屏幕將主題行保留，toolbar用三欄兩行：操控／繼續／倍速，以及點火／分離／降落傘；44px目標、不橫向藏掣。降落傘位置固定，分艙前／操控二級時禁用，維持原有待命及安全自動開傘物理。近／遠地點及T+保留成controls-pane頂部的小型讀數列，狀態說明與返航細節移至主操控之後。
+依使用者要求：油門與360°轉向盤必須是flightPanel第一個可見內容；將操控對象、繼續／暫停、點火、分離、降落傘待命與時間倍率移至header同一固定toolbar。至少960px的主題及toolbar採一行；720–959px將主題行保留、toolbar另排一行；低於720px的toolbar用三欄兩行：操控／繼續／倍速，以及點火／分離／降落傘；44px目標、不橫向藏掣。降落傘位置固定，分艙前／操控二級時禁用，維持原有待命及安全自動開傘物理。近／遠地點及T+保留成controls-pane頂部的小型讀數列，狀態說明與返航細節移至主操控之後。
 
 本次不改物理、聲音、倍速規則或探索狀態；評分／SCORM仍N/A。驗證source與standalone的workshop／flight／detached／ended header排版、六viewport無重疊及所有按鈕可見、panel首項位置與捲動、trusted touch／fullscreen兩個popup、native點火分離及開傘流程。既有Node／package、registry及原481檔hash需保持。
+
+操作列重排驗證：9個Node／package測試檔通過；`npm run check`及`check:tests`通過，registry仍301 entries。source及解壓standalone完整瀏覽器共40 flows通過（每邊12個workshop／detached layout、native assembly、4尺寸controls／fullscreen、兩飛船／終止狀態、完整返航與effects）；runtime／HTTP錯誤零。24 layout flows確認六尺寸全部8個header按鈕（6飛行操作＋聲音／fullscreen）至少44px且無重疊、toolbar在panel捲動時不移動、flightControls是flightPanel第一項、native切換操控與降落傘待命成功。Pad／ended亦由真實發射與安全着陸流程覆蓋。
+
+Header實測：workshop各尺寸52px；flight桌面1280為52px、844橫屏99px、320／375／390手機147px。手機兩排操作列沒有橫向藏掣；390×460短屏仍有167px場景及109px可捲控制面板，390×844有373px場景及288px面板。報告`output/playwright/rocket-side-booster-lab/explorer-toolbar-report.json`，console／build／selection在`output/reports/rocket-explorer-toolbar-*`。Committed選測預覽 base `a0d51df39611bba0e79230e7b4058e49627aeca8` → runtime commit `331f315c371d34936592c10eed0ac710d45501f6`；這是選測預覽，不是全庫測試執行。
+
+Runtime ordered SHA-256 `d8cbb2964a17b0bc8d3d3a75da4a9cc627e1ed9b5d82085a3e9df5777addc3dd`；standalone ZIP471 entries／15,980,584 bytes、SHA-256 `af5a155f37b9f2119e3c53a3de2b129faca482bf9b3ce0f9c30d157d1994226e`；source／解壓ZIP／Site471檔一致。舊火箭活動481個hash不變。實體手機仍未驗證。
+
+重排版本已發佈至同一owner-private Site，官方helper新source commit `1c65ee5a0e14f633d071e7109d5fafb5facd844c`；deployment `appgdep_6aef56db6a4c8191a024490501890ab8`／version `appgprj_6aeca66555b481919803e437687c4fa8~appgver_4a3475379e748191ae0adf395de2013b`，server回傳 succeeded（2026-11-08 00:50 +08）。原網址 https://simlab-rocket-side-booster.ieyp.chatgpt.site 。
