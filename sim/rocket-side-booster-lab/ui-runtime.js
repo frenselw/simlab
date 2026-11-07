@@ -23,8 +23,8 @@
     }
     resetInvalidDraft(){if(!this.canResetDraft||this.mode!=='technical')return;this.state=M.fresh();this.mode='edit';this.canResetDraft=false;this.save();this.emit();}
     validateFinal(snapshot,payload){const answer=D.decode(snapshot,'review'),result=S.score(answer);if(snapshot.score!==result.score||snapshot.passed!==result.passed)throw Error('Review mismatch');if(payload&&(payload.score!==result.score||payload.maxScore!==100||payload.passed!==result.passed))throw Error('Pending mismatch');if(this.frozenCanonical&&this.frozenCanonical!==JSON.stringify(answer))throw Error('Frozen answer changed');return {answer,result};}
-    command(action,options={}){if(this.mode!=='edit')return false;try{const next=M.change(this.state,action);D.validate(next);if(JSON.stringify(next)===JSON.stringify(this.state))return false;this.state=next;if(!['control','stop','separate','jettison'].includes(action.type))this.running=false;if(options.save!==false)this.save();this.emit();return true;}catch(_){this.notice='這個操作未能安全記錄，原有進度保持不變。';this.emit();return false;}}
-    tick(seconds,budget){if(!this.running||this.mode!=='edit')return null;const result=M.advance(this.state,seconds,budget);if(this.state.phase==='ended'||this.state.flight.t>=604800||Math.hypot(...this.state.flight.state.slice(0,2))>=P.R+1e8-.01)this.running=false;return result;}
+    command(action,options={}){if(this.mode!=='edit')return false;try{const next=M.change(this.state,action);D.validate(next);if(JSON.stringify(next)===JSON.stringify(this.state))return false;this.state=next;if(!['control','stop','separate','jettison','capsule-separate','chute-arm','select-body','auto-dispose'].includes(action.type))this.running=false;if(options.save!==false)this.save();this.emit();return true;}catch(_){this.notice='這個操作未能安全記錄，原有進度保持不變。';this.emit();return false;}}
+    tick(seconds,budget){if(!this.running||this.mode!=='edit')return null;const before=this.state.flight?.status,result=M.advance(this.state,seconds,budget);if(before==='flying'&&this.state.flight.status==='landed')this.running=false;if(this.state.phase==='ended'||this.state.flight.t>=604800||Math.hypot(...this.state.flight.state.slice(0,2))>=P.R+1e8-.01)this.running=false;return result;}
     pause(){this.running=false;if(this.editable)this.save();this.emit();}
     play(){if(this.mode==='edit'&&this.state.flight&&!['ended','workshop'].includes(this.state.phase)){this.running=true;this.emit();}}
     check(){if(!this.editable)return;this.running=false;if(this.state.phase!=='check')this.state=M.change(this.state,{type:'check'});this.mode='check';this.save();this.emit();}
@@ -37,7 +37,7 @@
     }
     retryFinal(){if(!['frozen','committed'].includes(this.mode))return;try{this.validateFinal(this.finalSnapshot);this.handleOutcome(this.mode==='committed'?this.scorm.retryFinish():this.scorm.retryPending());}catch(_){this.scorm.quarantinePending();this.technical('提交資料未能核對，已停止重試。請聯絡教師。');}}
   }
-  function warpLimit(flight){return flight.controls.lit||P.burning(flight)||O.elements(flight.state).height<120000?5:1000;}
+  function warpLimit(flight){if(flight.capsule?.detached){const bodies=[flight,flight.upperStage].filter(f=>f&&!['landed','impact','destroyed','escaped'].includes(f.status));return bodies.some(f=>f.controls.lit||O.elements(f.state).height<120000)||['waiting','turning','burning'].includes(flight.upperStage?.auto.mode)?5:1000;}return flight.controls.lit||P.burning(flight)||O.elements(flight.state).height<120000?5:1000;}
   function advanceFrame(controller,seconds,warp){
     let remaining=seconds,elapsed=0,steps=0;
     while(remaining>1e-9&&steps<800){

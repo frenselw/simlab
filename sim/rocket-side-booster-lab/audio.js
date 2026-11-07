@@ -5,9 +5,10 @@
   const CHORDS={space:[[48,55,62,64],[45,52,59,60],[41,48,55,57],[43,50,57,60]],orbit:[[33,52,59,60],[29,48,55,57],[32,51,58,59],[31,50,57,58]]};
   function mix(f,pieces=[]){
     const voices=Array.from({length:7},silent);if(!f)return voices;
-    const air=clamp(M.atmosphere(Math.hypot(...f.state.slice(0,3))-P.R)/1.225),engine=f.craft.stages[f.active].engine,throttle=f.controls.lit&&f.fuel[f.active]>0?f.controls.throttle:0;
-    voices[0]={gain:.32*Math.sqrt(throttle),hz:150+[700,430,560][engine]*throttle,bass:[48,72,60][engine],pan:0};
+    const air=clamp(M.atmosphere(Math.hypot(...f.state.slice(0,3))-P.R)/1.225),engine=f.craft.stages[f.active].engine,throttle=M.coreThrust(f)>0?f.controls.throttle:0;
+    voices[0]={gain:(f.capsule?.detached?.12:.32)*Math.sqrt(throttle),hz:150+[700,430,560][engine]*throttle,bass:[48,72,60][engine],pan:0};
     voices[1]={gain:P.burning(f)?.21*Math.sqrt(f.craft.boosters/2):0,hz:650,bass:58,pan:0};
+    if(f.capsule?.detached&&f.capsule.fuel>0&&Math.abs(Math.atan2(Math.sin(M.targetAttitude(f)-f.attitude),Math.cos(M.targetAttitude(f)-f.attitude)))>.01)voices[1]={gain:.025*Math.sqrt(air),hz:1200,bass:0,pan:0};
     voices[2]={gain:.085*Math.sqrt(air)*clamp(Math.hypot(...f.state.slice(3,6))/500),hz:2400,bass:0,pan:0};
     pieces.slice(0,4).forEach((p,i)=>{const distance=Math.hypot(...p.coast.state.slice(0,3).map((v,j)=>v-f.state[j]));voices[i+3]={gain:p.coast.fuel>0&&p.coast.status==='flying'?.13*Math.sqrt(air)/(1+(distance/35)**2):0,hz:650,bass:58,pan:clamp(p.pan||0,-.95,.95)};});
     const fade=flightGain(f);for(const v of voices)v.gain*=fade;return voices;
@@ -64,7 +65,7 @@
     cue(name,pan=0,strength=1,force=false){
       if(!this.enabled||!this.input?.live||this.context?.state!=='running'||this.effects.size>=8||!force&&name!=='ignite'&&!this.input.running&&!this.input.workshop)return;
       if(name!=='snap')strength*=flightGain(this.input.flight);if(strength<=0)return;
-      const specs={snap:[.07,1800,.18,360],ignite:[.45,850,.45,48],cutoff:[.22,400,.2,45],separate:[.18,1300,.28,260],impact:[.65,500,.5,60]},spec=specs[name];if(!spec)return;
+      const specs={snap:[.07,1800,.18,360],ignite:[.45,850,.45,48],cutoff:[.22,400,.2,45],separate:[.18,1300,.28,260],impact:[.65,500,.5,60],chute:[.8,1700,.2,110],landing:[.25,500,.15,65]},spec=specs[name];if(!spec)return;
       const c=this.context,t=c.currentTime,[duration,hz,level,pitch]=spec,noise=c.createBufferSource(),filter=c.createBiquadFilter(),tone=c.createOscillator(),blend=c.createGain(),gain=c.createGain(),panner=c.createStereoPanner();
       noise.buffer=this.noise;filter.type=name==='separate'?'bandpass':'lowpass';filter.frequency.value=hz;filter.Q.value=.6;tone.type=name==='snap'?'triangle':'sine';tone.frequency.setValueAtTime(pitch,t);tone.frequency.exponentialRampToValueAtTime(Math.max(25,pitch*.45),t+duration);blend.gain.value=.35;panner.pan.value=clamp(pan,-.95,.95);gain.gain.setValueAtTime(0,t);gain.gain.linearRampToValueAtTime(level*clamp(strength),t+.008);gain.gain.exponentialRampToValueAtTime(.0001,t+duration);
       noise.connect(filter);filter.connect(gain);tone.connect(blend);blend.connect(gain);gain.connect(panner);panner.connect(this.bus);const effect={sources:[noise,tone],nodes:[noise,filter,tone,blend,gain,panner]};this.effects.add(effect);noise.onended=()=>{for(const node of effect.nodes)node.disconnect();this.effects.delete(effect);};noise.start(t);tone.start(t);noise.stop(t+duration);tone.stop(t+duration);this.cues[name]=(this.cues[name]||0)+1;
@@ -73,7 +74,7 @@
       if(before.phase==='workshop'&&JSON.stringify(before.craft)!==JSON.stringify(after.craft)){this.cue('snap');return;}
       if(action.type==='ignite'){const ignition=++this.ignition;this.wake().then(ok=>{if(ok&&ignition===this.ignition&&this.enabled&&this.input?.live&&this.input.running)this.cue('ignite');});}
       if(action.type==='stop'&&before.flight?.controls.lit&&before.flight.controls.throttle>0)this.cue('cutoff');
-      if(['separate','jettison'].includes(action.type))this.cue('separate');
+      if(['separate','jettison','capsule-separate'].includes(action.type))this.cue('separate');
     }
     update(input,now=(root.performance?.now()||0)/1000){
       this.input=input;const {flight:f,pieces=[],live,running,workshop}=input;if(!this.enabled||!live||!running||!f?.controls.lit)this.ignition++;const previous=this.last,newImpact=Boolean(live&&previous?.live&&previous.running&&f&&f.t>previous.t&&previous.status==='flying'&&f.status==='impact');
@@ -81,8 +82,10 @@
       if(live&&previous?.live&&f&&f.t>previous.t&&previous.lit&&!f.controls.lit&&f.fuel[f.active]===0)this.cue('cutoff');
       if(newImpact&&this.enabled){this.hold=this.context.currentTime+.8;this.cue('impact',0,clamp(Math.hypot(...f.state.slice(3,6))/150,.25,1),true);}
       for(const p of pieces){if(live&&running&&this.pieces.get(p.id)==='flying'&&p.coast.status==='impact')this.cue('impact',p.pan,.45/(1+(p.distance/35)**2));this.pieces.set(p.id,p.coast.status);}
+      if(live&&running&&previous?.running&&f&&f.t>previous.t){if(f.capsule?.chute.phase!==previous.chute&&previous.chute&&['drogue-opening','main-opening'].includes(f.capsule?.chute.phase))this.cue('chute');}
+      if(live&&previous?.live&&previous.running&&f&&f.t>previous.t&&f.status==='landed'&&previous.status==='flying'&&this.enabled&&this.context){this.hold=this.context.currentTime+.4;this.cue('landing',0,1,true);}
       this.updateMusic(input,now);
-      this.last=f?{t:f.t,lit:f.controls.lit,status:f.status,live,running}:null;this.targets=mix(f,pieces);
+      this.last=f?{chute:f.capsule?.chute.phase,t:f.t,lit:f.controls.lit,status:f.status,live,running}:null;this.targets=mix(f,pieces);
       if(!this.context)return;
       const active=this.enabled&&live&&(running||workshop||this.context.currentTime<this.hold),target=active?this.volume*.65:0;
       if(target!==this.masterTarget){this.masterTarget=target;this.ramp(this.master.gain,target,.018);}if(active){clearTimeout(this.suspendTimer);this.suspendTimer=null;}else if(this.context.state==='running'&&!this.suspendTimer)this.silence();

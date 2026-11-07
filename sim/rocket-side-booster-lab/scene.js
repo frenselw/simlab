@@ -42,7 +42,7 @@ export class RocketScene{
   clearSeparation(){if(this.separation){this.scene.remove(this.separation.body);dispose(this.separation.body);this.separation=null;}}
   clearBoosterDrop(){if(this.boosterDrop){this.scene.remove(this.boosterDrop.body);dispose(this.boosterDrop.body);this.boosterDrop=null;}}
   setData(data){
-    const previous=this.data?.flight,f=data.flight,craft=JSON.stringify(data.craft),key=JSON.stringify([data.craft,f?.separated]);
+    const previous=this.data?.flight,f=data.flight,craft=JSON.stringify(data.craft),key=JSON.stringify([data.craft,f?.separated,f?.capsule?.detached]);
     if(!data.live||!this.data?.live||!f||f.t<(this.effectPose?.t||0)||craft!==this.effectCraft||previous?.source!==f.source){this.clearSeparation();this.effectPose=null;this.rcsUntil=0;}
     if(!data.live||!this.data?.live||!f||f.t<(this.lastFlightTime||0)||craft!==this.effectCraft){this.launchEffects.clear();this.launchStarted=Boolean(f&&(f.t>0||f.status!=='pad'));this.launchArmAge=this.launchStarted?1.1:0;this.impacts.clear();this.impacted=false;this.pendingImpact=false;}
     if(data.live&&this.data?.live&&f?.status==='impact'&&this.lastFlightStatus==='flying')this.pendingImpact=true;
@@ -54,7 +54,7 @@ export class RocketScene{
           for(const child of this.rocket.children)child.visible=Boolean(child.userData.part&&child.userData.part.part!=='boosters'&&(child.userData.part.stage===0||child.userData.part.part==='separator'));
         }else{this.scene.remove(this.rocket);dispose(this.rocket);}
       }
-      this.rocket=buildRocket(data.craft,Boolean(f?.separated));this.scene.add(this.rocket);this.craftKey=key;
+      this.canopy=null;this.rocket=buildRocket(data.craft,Boolean(f?.separated),Boolean(f?.capsule?.detached));this.scene.add(this.rocket);this.craftKey=key;
     }
     if(this.boosterDrop&&(!data.live||!f||f.t<this.boosterDrop.start||craft!==this.effectCraft))this.clearBoosterDrop();
     if(data.live&&this.data?.live&&f?.boosters?.status==='jettisoned'&&['burning','spent'].includes(this.lastBoosterStatus)&&this.rocket){
@@ -71,6 +71,8 @@ export class RocketScene{
     }
     this.lastBoosterStatus=f?.boosters?.status;
 
+    const other=data.other,otherKey=other?JSON.stringify([other.craft,other.capsule?.detached]):'';
+    if(otherKey!==this.otherKey){if(this.otherRocket){this.scene.remove(this.otherRocket);dispose(this.otherRocket);}this.otherRocket=other?buildRocket(other.craft,Boolean(other.separated),Boolean(other.capsule?.detached)):null;if(this.otherRocket)this.scene.add(this.otherRocket);this.otherKey=otherKey;}
     this.data=data;this.effectCraft=craft;this.lastFlightStatus=f?.status;this.lastFlightTime=f?.t||0;this.draw();
   }
   drawEffects(f,space,theta){
@@ -106,9 +108,18 @@ export class RocketScene{
     const old=this.lines[name];if(old){this.scene.remove(old);old.geometry.dispose();old.material.dispose();delete this.lines[name];}if(points.length<2)return;
     const geometry=new THREE.BufferGeometry().setFromPoints(points.map(q=>new THREE.Vector3(q[1]*3/P.R,q[0]*3/P.R,q[2]*3/P.R))),mat=dashed?new THREE.LineDashedMaterial({color,dashSize:.035,gapSize:.025,transparent:true,opacity:.9}):new THREE.LineBasicMaterial({color,transparent:true,opacity:.9}),line=new THREE.Line(geometry,mat);if(dashed)line.computeLineDistances();this.scene.add(line);this.lines[name]=line;
   }
+  drawRecovery(space,f){
+    if(!f)return;const other=this.data.other;
+    if(this.otherRocket&&other){const theta=space?0:Math.atan2(f.state[1],f.state[0]),dx=other.state[0]-f.state[0],dy=other.state[1]-f.state[1],unit=space?3/P.R:.001;this.otherRocket.position.copy(this.rocket.position).add(new THREE.Vector3(-Math.sin(theta)*dx+Math.cos(theta)*dy,Math.cos(theta)*dx+Math.sin(theta)*dy,0).multiplyScalar(unit));this.otherRocket.scale.setScalar(space?.18/this.otherRocket.userData.height:.001);this.otherRocket.rotation.z=theta-other.attitude;this.otherRocket.visible=!['destroyed','impact'].includes(other.status);this.otherRocket.userData.flame.visible=M.thrust(other)>0;}
+    if(f.capsule?.detached){const density=M.atmosphere(O.elements(f.state).height),level=Math.min(.7,Math.sqrt(density)*(O.elements(f.state).speed/7800)**3*30);if(!this.rocket.userData.heatGlow){const glow=new THREE.Mesh(new THREE.TorusGeometry(1.4,.12,8,32),new THREE.MeshBasicMaterial({color:'#f18a57',transparent:true,opacity:0,depthWrite:false}));glow.rotation.x=Math.PI/2;glow.position.y=.05;glow.userData.recoveryDecoration=true;this.rocket.add(glow);this.rocket.userData.heatGlow=glow;}this.rocket.userData.heatGlow.material.opacity=level;this.rocket.userData.heatGlow.visible=f.status==='flying'&&level>.005;const c=f.capsule.chute;
+      if(!this.canopy){this.canopy=new THREE.Group();this.canopy.userData.recoveryDecoration=true;const cloth=new THREE.Mesh(new THREE.SphereGeometry(1,24,12,0,Math.PI*2,0,Math.PI/2),material('#e9a56b',{side:THREE.DoubleSide}));cloth.position.y=10;cloth.scale.set(6,3,6);this.canopy.add(cloth);for(let i=0;i<8;i++){const a=i*Math.PI/4,line=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,3,0),new THREE.Vector3(6*Math.cos(a),10,6*Math.sin(a))]),new THREE.LineBasicMaterial({color:'#f2e9d8'}));this.canopy.add(line);}this.rocket.add(this.canopy);}
+      const scale=c.phase==='stowed'?0:c.phase==='drogue-opening'?Math.min(1,(f.t-c.since)/2)*.3:c.phase==='drogue'?.3:c.phase==='main-opening'?.3+.7*Math.min(1,(f.t-c.since)/4):1;this.canopy.visible=scale>0&&!['destroyed','impact'].includes(f.status);this.canopy.scale.setScalar(Math.max(.001,scale));if(c.phase!=='stowed'&&f.status==='flying')this.rocket.rotation.z=(space?0:Math.atan2(f.state[1],f.state[0]))-Math.atan2(f.state[4],f.state[3])-Math.PI;
+      this.rocket.visible=!['destroyed','impact'].includes(f.status);if(f.status==='landed'&&!this.rocket.userData.landingRipple){const ripple=new THREE.Mesh(new THREE.TorusGeometry(3,.06,8,48),new THREE.MeshBasicMaterial({color:S.isWater(f.state,f.t)?'#83bfcc':'#b5a276',transparent:true,opacity:.65}));ripple.rotation.x=Math.PI/2;ripple.position.y=.02;ripple.userData.recoveryDecoration=true;this.rocket.add(ripple);this.rocket.userData.landingRipple=ripple;}
+    }
+  }
   setPaths(actual,predicted,planned){this.line('actual',actual,'#ee9674');this.line('predicted',predicted,'#b0e3d4',true);this.line('planned',planned,'#f6ca74',true);}
   draw(){
-    if(!this.data||!this.rocket||this.lost)return;this.cameraDirty=false;const {flight:f,workshop}=this.data,space=['orbit','plane'].includes(this.view),factory=workshop&&this.view==='factory',height=Math.max(.1,this.rocket.userData.height);
+    if(!this.data||!this.rocket||this.lost)return;this.cameraDirty=false;const {flight:f,workshop}=this.data,space=['orbit','plane'].includes(this.view),factory=workshop&&this.view==='factory',height=Math.max(.1,this.rocket.userData.height,f?.capsule?.chute.phase&&f.capsule.chute.phase!=='stowed'?16:0);
     this.rocket.userData.boosters.visible=Boolean(this.data.craft.boosters&&(!f||P.attached(f)));if(f?.boosters?.status==='jettisoned'&&!this.rocket.boosterBoundsRemoved){this.rocket.updateMatrixWorld(true);const inverse=this.rocket.matrixWorld.clone().invert(),bounds=new THREE.Box3();for(const part of this.rocket.userData.parts)if(part!==this.rocket.userData.boosters)bounds.union(new THREE.Box3().setFromObject(part).applyMatrix4(inverse));this.rocket.userData.partBounds=bounds;this.rocket.hullPoints=null;this.rocket.boosterBoundsRemoved=true;}
     const agl=f?S.clearance(f.state,f.t):0,altitude=f?Math.max(0,O.elements(f.state).height):0,theta=f?Math.atan2(f.state[1],f.state[0]):0;
     this.earth.geometry=f&&!space&&altitude<120000?this.earth.userData.nearGeometry:this.earth.userData.farGeometry;
@@ -130,7 +141,7 @@ export class RocketScene{
       const r=Math.hypot(f.state[0],f.state[1]);this.earth.position.set(0,-r/1000,0);this.earth.scale.setScalar((P.R-5)/1000);this.halo.position.copy(this.earth.position);this.halo.scale.setScalar((P.R+80000)/1000);
       distance=Math.max(.035,displayHeight*(this.host.clientHeight<240?.007:.0038),Math.max(0,agl)/1000*3+.035);
       // Keep the upper stage framing independent of the falling stage's distance.
-      if(f.separated||f.craft.boosters){const close=Math.max(.035,displayHeight*.0038);distance*=Math.pow(Math.min(1,close/distance),blend);}
+      if(f.separated||f.craft.boosters||this.data.other){const close=Math.max(.035,displayHeight*.0038);distance*=Math.pow(Math.min(1,close/distance),blend);}
       this.rocket.scale.setScalar(Math.max(.001,distance*.16/displayHeight));this.rocket.position.set(0,0,0);this.rocket.rotation.z=theta-f.attitude;
       for(const environment of [this.studio,this.landscape,this.relief]){environment.scale.setScalar(.001);environment.position.set(-P.R*Math.sin(theta)/1000,(P.R*Math.cos(theta)-r)/1000,0);environment.rotation.z=theta;}
     }
@@ -171,7 +182,7 @@ export class RocketScene{
     this.contactGround.position.copy(this.globalTerrain.position);this.contactGround.rotation.copy(this.globalTerrain.rotation);this.contactGround.scale.copy(this.globalTerrain.scale).multiplyScalar(space?1:P.R/(P.R-5));this.contactGround.update(f,Boolean(f&&!factory&&!space),this.quality);this.contactGround.updateMatrixWorld(true);
     this.starOcclusion.uPlanetRadius.value=this.earth.visible?this.earth.scale.x:0;this.stars.visible=space||Boolean(f&&altitude>25000);this.stars.material.transparent=true;this.stars.material.opacity=space?1:THREE.MathUtils.smoothstep(altitude,25000,120000);this.stars.material.depthWrite=false;this.stars.position.copy(this.camera.position);this.stars.scale.setScalar(this.camera.far/140);
     this.rocket.visible=(!space||Boolean(f))&&!this.assemblyPreview?.visible;
-    if(this.assemblyPreview?.visible){this.assemblyPreview.position.copy(this.rocket.position);this.assemblyPreview.quaternion.copy(this.rocket.quaternion);this.assemblyPreview.scale.copy(this.rocket.scale);}for(const flame of this.rocket.userData.boosterFlames)flame.visible=Boolean(f&&P.burning(f));const lit=f?.controls.lit&&f.controls.throttle>0&&f.fuel[f.active]>0;this.rocket.userData.flame.visible=Boolean(lit);if(lit){this.rocket.userData.flame.scale.y=(.4+.7*f.controls.throttle)*(this.reducedMotion?.9:.9+.08*Math.sin(f.t*9));const flame=this.rocket.userData.flame,width=.65+.35*f.controls.throttle;if(flame.userData.width!==width){const matrix=new THREE.Matrix4();for(const plume of flame.children){for(let i=0;i<plume.count;i++){plume.getMatrixAt(i,matrix);matrix.elements[0]=matrix.elements[10]=width;plume.setMatrixAt(i,matrix);}plume.instanceMatrix.needsUpdate=true;}flame.userData.width=width;}}
+    if(this.assemblyPreview?.visible){this.assemblyPreview.position.copy(this.rocket.position);this.assemblyPreview.quaternion.copy(this.rocket.quaternion);this.assemblyPreview.scale.copy(this.rocket.scale);}for(const flame of this.rocket.userData.boosterFlames)flame.visible=Boolean(f&&P.burning(f));const lit=f&&M.coreThrust(f)>0;this.rocket.userData.flame.visible=Boolean(lit);if(lit){this.rocket.userData.flame.scale.y=(.4+.7*f.controls.throttle)*(this.reducedMotion?.9:.9+.08*Math.sin(f.t*9));const flame=this.rocket.userData.flame,width=.65+.35*f.controls.throttle;if(flame.userData.width!==width){const matrix=new THREE.Matrix4();for(const plume of flame.children){for(let i=0;i<plume.count;i++){plume.getMatrixAt(i,matrix);matrix.elements[0]=matrix.elements[10]=width;plume.setMatrixAt(i,matrix);}plume.instanceMatrix.needsUpdate=true;}flame.userData.width=width;}}
     this.drawEffects(f,space,theta);
     if(this.pendingImpact){this.impacts.emit(f.state,f.t,Math.max(.015,displayHeight*this.rocket.scale.y*.8),true);this.pendingImpact=false;this.impacted=true;this.effectClock=performance.now();}
     this.impacts.update(this.contactGround.visible?this.contactGround:this.globalTerrain,this.reducedMotion);if(this.impacted&&f?.status==='impact'&&this.impacts.mainHidden())this.rocket.visible=false;else if(this.impacted&&f?.status==='impact'&&!this.impacts.userData.active)this.rocket.visible=false;
@@ -185,7 +196,7 @@ export class RocketScene{
       }
     }
     this.launchEffects.update(this.camera);
-    try{this.renderer.render(this.scene,this.camera);this.renderCount++;}catch(_){this.lost=true;this.onFault('render');}
+    try{this.drawRecovery(space,f);this.renderer.render(this.scene,this.camera);this.renderCount++;}catch(_){this.lost=true;this.onFault('render');}
   }
   animateEffects(now){const elapsed=this.effectClock?Math.max(0,(now-this.effectClock)/1000):0,delta=Math.min(.05,elapsed);this.effectClock=now;if(this.lost||document.hidden||!this.data?.live||(this.data.running===false&&this.data.flight?.status!=='impact'))return false;const transition=this.separation,separating=transition&&this.data.running!==false&&transition.visualAge<.6;if(separating)transition.visualAge=Math.min(.6,transition.visualAge+elapsed);const releasing=this.launchStarted&&this.launchArmAge<(this.reducedMotion?.25:1.1);if(releasing)this.launchArmAge+=delta;const vapour=this.launchEffects.advance(delta);if(this.impacts.advance(delta)||separating||releasing||vapour){this.draw();return true;}return false;}
   project(position){const p=position.clone().project(this.camera);const r=this.host.getBoundingClientRect();return {x:(p.x+1)*r.width/2,y:(1-p.y)*r.height/2,visible:p.z>=-1&&p.z<=1&&Math.abs(p.x)<.98&&Math.abs(p.y)<.98};}

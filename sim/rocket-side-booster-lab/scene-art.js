@@ -167,12 +167,12 @@ export function createLandscape(relief){
  group.userData={clearRadius:300,treeMin,buildingMin,trees:trunks.length,buildings:plans.length,facilities,accessRoads:links,serviceRoads:links.length,tankBase,mountains:ridges.length,regionalMapWidth:regionMap.image.width,river:false,coast:true,cloudClearRadius:5000,cloudCenters};return group;
 }
 
-export function buildRocket(c,separated){
+export function buildRocket(c,separated,capsuleOnly=false){
   const group=new THREE.Group(),white=material('#edf1eb',{roughness:.42}),skin=material('#ffffff',{map:surface('payload'),roughness:.5}),shell=material('#ffffff',{map:surface('separator'),roughness:.55,metalness:.25}),dark=material('#4b535c',{map:surface('metal'),metalness:.78,roughness:.36,side:THREE.DoubleSide}),metal=material('#a2b3b9',{map:surface('metal'),metalness:.7,roughness:.38}),mint=material('#318d84',{metalness:.3}),orange=material('#d59257',{metalness:.3}),slots=[],parts=[],ranges=[];let y=0,partParent=group,separatorY=null;
   const mesh=(geometry,mat,x,yy,z,parent=partParent)=>{const m=new THREE.Mesh(geometry,mat);m.position.set(x,yy,z);parent.add(m);return m;};
   const microDetails=[],bolts=new THREE.IcosahedronGeometry(1,0),pipe=new THREE.CylinderGeometry(1,1,1,8),band=new THREE.CylinderGeometry(1,1,1,32),tankMats=Object.fromEntries(['small','medium','large'].map(k=>[k,material('#ffffff',{map:surface(k),roughness:.55,metalness:.22})])),batch=(g,m,rows)=>{const mesh=instances(partParent,g,m,rows);if(g===bolts||g.type==='TorusGeometry')microDetails.push(mesh);return mesh;};
   c.stages.forEach((s,i)=>{
-    if(separated&&i===0)return;
+    if(capsuleOnly||separated&&i===0)return;
     const accent=s.engine===0?orange:s.engine===2?material('#6488bd',{metalness:.3}):mint;const startPart=(part,ordinal=0,index=null)=>{partParent=new THREE.Group();partParent.userData.part={stage:i,part,ordinal,index};group.add(partParent);parts.push(partParent);};
     if(i===1&&c.separator&&!separated){startPart('separator');const cover=s.engine===null?.65:s.engine===1?2.32:2.15;separatorY=y+cover/2;mesh(new THREE.CylinderGeometry(1.47,1.47,cover,32),shell,0,separatorY,0);batch(band,orange,[.12,cover-.12].map(dy=>[0,y+dy,0,1.49,.18,1.49]));batch(bolts,metal,Array.from({length:12},(_,j)=>{const a=j*Math.PI/6;return [1.48*Math.sin(a),y+.14,1.48*Math.cos(a),.035,.035,.035];}));y+=.65;}
     const base=y;
@@ -189,7 +189,7 @@ export function buildRocket(c,separated){
     slots[i]=(base+y)/2;ranges[i]={base,engine:s.engine===null?0:2,large:s.large,medium:s.medium||0,small:s.small,joins};
   });
   const bodyTop=y,boosters=new THREE.Group(),boosterFlames=[];boosters.userData.part={stage:0,part:'boosters',ordinal:0,index:null};
-  if(c.boosters&&!separated){for(const [i,[x,z]]of P.boosterMounts(c.boosters).entries()){
+  if(c.boosters&&!separated&&!capsuleOnly){for(const [i,[x,z]]of P.boosterMounts(c.boosters).entries()){
     const start=boosters.children.length;
     mesh(new THREE.CylinderGeometry(.65,.65,5.6,20),white,x*2.4,3.4,z*2.4,boosters);mesh(new THREE.ConeGeometry(.65,1,20),orange,x*2.4,6.7,z*2.4,boosters);mesh(new THREE.CylinderGeometry(.35,.5,.6,16),dark,x*2.4,.3,z*2.4,boosters);
     const braces=instances(boosters,new THREE.BoxGeometry(1.1,.15,.2),metal,[ranges[0].joins[0]+.2,Math.min(ranges[0].joins[1]-.2,5.9)].map(h=>[x*1.9,h,z*1.9,1,1,1,0,z?Math.PI/2:0,0]));braces.name='booster-brace';
@@ -203,6 +203,7 @@ export function buildRocket(c,separated){
   mesh(new THREE.CylinderGeometry(.04,.04,1.1,8),metal,0,y+3.6,0);mesh(new THREE.SphereGeometry(.17,10,8),orange,0,y+4.15,0);
   }
   partParent=group;
+  if(capsuleOnly)mesh(new THREE.CylinderGeometry(1.4,1.3,.25,32),dark,0,.05,0);
   const rcs=[new THREE.Group(),new THREE.Group()],nozzles=[];
   if(P.hasCapsule(c))for(const [index,direction]of [-1,1].entries())for(const [level,side]of [[y+.25,-direction],[1.8,direction]]){
     nozzles.push([side*1.53,level,0,.13,.24,.13,0,0,-side*Math.PI/2]);
@@ -211,7 +212,7 @@ export function buildRocket(c,separated){
     }
   }
   batch(new THREE.CylinderGeometry(1,1,1,10),dark,nozzles);for(const jets of rcs){jets.visible=false;group.add(jets);}
-  const flame=new THREE.Group(),clustered=c.stages[separated?1:0].engine===0,exits=clustered?[[-.61,-.61],[-.61,.61],[.61,-.61],[.61,.61]]:[[0,0]];flame.position.y=-.04;
+  const flame=new THREE.Group(),clustered=capsuleOnly||c.stages[separated?1:0].engine===0,exits=capsuleOnly?[[-1.4,0],[1.4,0]]:clustered?[[-.61,-.61],[-.61,.61],[.61,-.61],[.61,.61]]:[[0,0]];flame.position.y=capsuleOnly?.35:-.04;
   for(const [radius,length,color,opacity]of clustered?[[.43,4.2,'#ffad52',.45],[.27,3.1,'#b4e8ff',.8],[.13,1.8,'#fff8e7',1]]:[[.9,5.4,'#69b9ff',.45],[.52,4,'#b4e8ff',.8],[.25,2.4,'#fff8e7',1]]){
     const plume=instances(flame,new THREE.ConeGeometry(radius,length,20).rotateZ(Math.PI),new THREE.MeshBasicMaterial({color,transparent:true,opacity,blending:THREE.AdditiveBlending,depthWrite:false,toneMapped:false}),exits.map(([x,z])=>[x,-length/2,z,1,1,1]));
     // Keep full-width bounds while throttle only narrows the individual plumes.

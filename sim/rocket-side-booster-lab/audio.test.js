@@ -44,3 +44,9 @@ function flight(){let s=M.change(T.singlePad(2,0,2),{type:'workshop'});s=M.chang
  console.log('Space audio: high-altitude flight-effect mute, early space music, distinct deep orbit at 190km/zero throttle or spent fuel, true-time confirmation, fixed banks, pause/reentry and no state mutation passed.');
  console.log('Rocket audio: lazy unlock/failure retry, independent throttle/solid layers, 0/2/4 mixes, spatial fade, vacuum, fixed sources, normal pitch, pause/background/review, one-shot impacts, limiter routing and no answer mutation passed.');
 })().catch(e=>{console.error(e);process.exitCode=1;});
+
+{
+ const f=T.singlePad().flight;f.capsule.detached=true;f.fuel[0]=0;f.status='flying';f.state=[P.R+1000,0,0,0,20,0];f.controls.lit=true;f.controls.throttle=.5;
+ assert(mix(f)[0].gain>0&&mix(f)[0].gain<.2);f.controls.mode='retrograde';assert(mix(f)[1].gain>0);f.capsule.fuel=0;assert.equal(mix(f)[0].gain,0);assert.equal(mix(f)[1].gain,0);f.capsule.fuel=30;f.state[0]=P.R+100000;assert(mix(f).every(v=>v.gain===0));
+ console.log('Capsule audio: small engine and fuel-limited attitude puffs reuse bounded voices; all effects mute at 100km.');
+}

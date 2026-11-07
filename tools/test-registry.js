@@ -25,6 +25,7 @@ const registeredTests = [
   {file:'tools/rocket-space-mission-browser-regression.test.js',kind:'node',scope:'rocket-space-mission-lab'},
   ...['interaction','terrain','flight'].map(group=>({file:'tools/rocket-space-mission-browser-regression.js',kind:'browser',scope:'rocket-space-mission-lab',args:['--group='+group]})),
 
+  'sim/rocket-side-booster-lab/recovery.test.js',
   'sim/rocket-side-booster-lab/art.test.js',
   'sim/rocket-side-booster-lab/expansion.test.js',
   'sim/rocket-side-booster-lab/audio.test.js',
