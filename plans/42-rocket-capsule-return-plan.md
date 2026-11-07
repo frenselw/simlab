@@ -320,7 +320,7 @@ model5 recordData = [C, V, coreFuel, active, separated, t, status,
 
 原私人Sites已更新且權限不變：Site來源 `37a9604b44f5699b23376ab486cb517a480842a2`，deployment `appgdep_6aeeb2012d808191b37e79aa5f8a9750` 於2026-11-07 13:07:20 UTC+08 native succeeded；網址仍為 https://simlab-rocket-side-booster.ieyp.chatgpt.site 。證據output/reports/rocket-control-zones-sites.json；封裝tar保存成功後已移除，Site checkout及原有附件保留。
 
-## 15. 太空艙分離防穿透（2026-11-07，實作前）
+## 15. 太空艙分離防穿透（2026-11-07）
 
 已用27 km／1 km/s徑向上升狀態重現：初始相對速度只有1 m/s，但0.5秒後因兩者阻力／質量不同，艙底與級底的沿軸距離由6.4 m變成−10.74 m；200 km真空測試2秒後仍只是約1 m/s。根因包括沒有兩主體接觸處理，而非應抹掉兩者共同的飛行速度。
 
@@ -331,3 +331,5 @@ model5 recordData = [C, V, coreFuel, active, separated, t, status,
 另已重現近景主艙scale=0.0012727而二級=0.001的視覺不一致：最低鏡頭距離令短太空艙放大約27%。現雙主體近景統一每米0.001世界單位；新browser逐格比對實際世界距離與畫面3D模型距離，以及兩者scale比值為1。
 
 實作驗證：十組活動Node通過；recovery測12個高度／姿態組合、每0.01秒取樣、接觸前後動量與存檔合法延續。source＋extracted SCORM在1280×800滑鼠、390×844 trusted touch共12 flows通過：27 km與200 km各逐格分離／保存還原，另四條既有完整返航／提交流程；errors=[]。27 km測試8秒後相對速率約0.21 m/s且不重疊；200 km初始約1.118 m/s，8秒後約1.118 m/s、底部相距約14.94 m，沒有突然加速穿越。browser inventory增為58 cases，registry仍305 entries。證據output/reports/rocket-capsule-contact-node.txt、rocket-capsule-contact-physics.txt、rocket-capsule-contact-browser.json及同任務capsule-separation截圖。真手機／Moodle／完整六自由度碰撞仍未驗證。
+
+實作commit `eed4650ea49fa8e554633cd3fad351597aea8ff7`；runtime `9329a47e050209887f53683889039f7d77e2ca73d8eb3998e0e0d900377c5762` 的來源、477-entry SCORM ZIP及Site dist逐byte一致，原481檔不變。check／check:tests及diff whitespace通過；committed selection見output/reports/rocket-capsule-contact-selection.json，僅為選取證據。最新部署仍維持私人權限：Site來源 `97895cdc6c37f9a87ffcee3afde412a10d9269b6`，deployment `appgdep_6aeeb57108588191bef3083866bf681f` 於2026-11-07 13:21:59 UTC+08 native succeeded；網址 https://simlab-rocket-side-booster.ieyp.chatgpt.site 。紀錄output/reports/rocket-capsule-contact-sites.json；部署tar保存成功後移除，保留Site來源checkout及原有附件。
