@@ -7,7 +7,7 @@ let scene=null,tab='A',view='factory',flightView='follow',selectedPart=null,sele
 const EDIT_PHASE=()=>controller.state?.phase==='check'?controller.state.backPhase:controller.state?.phase;
 const stageName=part=>({'engine-0':'大推力引擎','engine-1':'高效率引擎','engine-2':'均衡型引擎',medium:'中燃料箱',boosters:'固體助推器',small:'小燃料箱',large:'大燃料箱',separator:'分離器',capsule:'太空艙'}[part]||'零件');
 function toast(message){d.savedToast.textContent=message;d.savedToast.hidden=false;}
-function command(action,options){selectedInstalled=null;interaction?.cancel();if(action.type!=='clear-record')undoRecord=null;const before=controller.state,changed=controller.command(action,options);if(changed)sound.action(action,before,controller.state);if(changed&&action.type==='select-body'){trail=[];trailTime=-1;lastPaths=-Infinity;}if(changed&&['launch','workshop'].includes(action.type)){showReturn=false;trail=[];trailTime=-1;lastPaths=-Infinity;}return changed;}
+function command(action,options){selectedInstalled=null;interaction?.cancel();if(action.type!=='clear-record')undoRecord=null;const before=controller.state,changed=controller.command(action,options);if(changed)sound.action(action,before,controller.state);if(changed&&action.type==='capsule-separate'){lastPaths=-Infinity;setView('follow');}if(changed&&action.type==='select-body'){trail=[];trailTime=-1;lastPaths=-Infinity;}if(changed&&['launch','workshop'].includes(action.type)){showReturn=false;trail=[];trailTime=-1;lastPaths=-Infinity;}return changed;}
 function setView(next,reset=false){if(tab==='A'&&controller.state?.flight)flightView=next;view=next;scene?.setView(next,reset);renderScene();}
 function setTab(next){if(controller.editable){if(controller.mode==='check')controller.back();controller.pause();tab=next;}else tab='records';interaction?.cancel();d.controlPanel.scrollTop=0;if(next==='A')setView(controller.state?.phase==='workshop'?'factory':flightView);render();}
 function orbitHTML(q){const o=O.elements(q);return `<div>近地點 <span class="math"><i>h</i><sub>p</sub></span><b>${o.bound?fmt(o.hp/1000)+' km':'—'}</b></div><div>遠地點 <span class="math"><i>h</i><sub>a</sub></span><b>${o.bound?fmt(o.ha/1000)+' km':'非束縛軌道'}</b></div><div>偏心率 <span class="math"><i>e</i></span><b>${fmt(o.e,3)}</b></div><div>周期 <span class="math"><i>T</i></span><b>${o.bound?fmt(o.period/60)+' min':'—'}</b></div>`;}
@@ -97,6 +97,11 @@ function renderScene(){
   const drop=scene?.separation;d.separationReadout.hidden=!drop;
   syncSound();
   if(drop&&f){const lower=O.elements(drop.coast.state),upper=O.elements(f.state),gap=Math.hypot(drop.coast.state[0]-f.state[0],drop.coast.state[1]-f.state[1]),distance=gap<1000?fmt(gap)+' m':fmt(gap/1000)+' km';d.separationReadout.textContent=`上級 ${fmt(upper.speed)} m/s · 下級 ${fmt(lower.speed)} m/s\n兩級相距 ${distance} · 下級${lower.radial>=0?'上升':'下降'}\n${M.thrust(f)>0?'上級推進中':'上級未點火：兩級繼續滑行'}；${space?'全景圖示非同比例':'近景模型與距離採相同比例'}。`;}
+  if(displayMission()){
+    const capsule=s.flight,u=capsule.upperStage,top=RocketRecovery.stageHeight(u),dx=capsule.state[0]-u.state[0]-top*Math.cos(u.attitude),dy=capsule.state[1]-u.state[1]-top*Math.sin(u.attitude),gap=Math.hypot(dx,dy),touching=gap<.02,thrust=RocketRecovery.thrust(capsule);
+    d.separationReadout.hidden=false;d.separationReadout.textContent='太空艙已分離 · 接點相距 '+(gap<1000?fmt(gap)+' m':fmt(gap/1000)+' km')+' · '+(!controller.running?'已暫停；按繼續觀看':thrust>0?'太空艙推進中':capsule.controls.lit?'油門 0%，未產生推力':'兩件各自滑行')+(touching&&M.atmosphere(O.elements(capsule.state).height)>0?'\n低空高速的空氣阻力令兩件再次接觸。':'');
+  }
+
 }
 function syncSound(){
   const f=RocketRecovery.selected(controller.state?.flight),live=controller.mode==='edit'&&tab==='A'&&!renderLost&&!document.hidden;

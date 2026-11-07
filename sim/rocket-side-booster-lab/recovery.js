@@ -14,7 +14,7 @@
     for(let i=0;i<2;i++){f.state[i]+=normal[i]*(hit.depth+.001)*um/(cm+um);u.state[i]-=normal[i]*(hit.depth+.001)*cm/(cm+um);if(closing<0){f.state[i+3]-=normal[i]*closing*um/(cm+um);u.state[i+3]+=normal[i]*closing*cm/(cm+um);}}
     f.maxHeight=Math.max(f.maxHeight,O.elements(f.state).height);u.maxHeight=Math.max(u.maxHeight,O.elements(u.state).height);
   }
-  const thrust=f=>!terminal(f)&&f.controls.lit&&f.capsule.fuel>0&&f.capsule.chute.phase==='stowed'?1000*f.controls.throttle:0;
+  const thrust=f=>!terminal(f)&&f.controls.lit&&f.capsule.fuel>0&&f.capsule.chute.phase==='stowed'?3000*f.controls.throttle:0;
   const angle=f=>f.controls.mode==='hold'?f.attitude:f.controls.mode==='tilt'?Math.atan2(f.state[1],f.state[0])+Math.sign(f.state[0]*f.state[4]-f.state[1]*f.state[3]||1)*f.controls.angle*Math.PI/180:Math.atan2(f.state[4],f.state[3])+(f.controls.mode==='retrograde'?Math.PI:0);
   function area(f){const c=f.capsule.chute,age=Math.max(0,f.t-(c.since??f.t)),smooth=x=>{x=Math.min(1,x);return x*x*(3-2*x);};return c.phase==='drogue-opening'?1.5+8*smooth(age/2):c.phase==='drogue'?9.5:c.phase==='main-opening'?9.5+110.5*smooth(age/4):c.phase==='main'?120:1.5;}
   function chute(f,rho){const c=f.capsule.chute,o=O.elements(f.state),h=S.clearance(f.state,f.t),q=.5*rho*o.speed**2;if(!c.armed||terminal(f)||o.radial>=0||thrust(f)>0||rho<=0)return;
@@ -53,9 +53,9 @@
   function canSeparate(f){return Boolean(f?.capsule&&!f.capsule.detached&&f.status==='flying'&&!P.attached(f)&&(f.craft.stages.length===1||f.separated)&&(!f.controls.lit||f.controls.throttle===0||f.fuel[f.active]===0));}
   function separate(f,makeFlight){if(!canSeparate(f))return false;const index=f.craft.stages.length-1,c=P.clone(f.craft),stage=c.stages[index];c.stages=[stage];c.separator=false;c.capsule=false;delete c.boosters;
     const u=makeFlight(c,'own',f.state);delete u.capsule;delete u.upperStage;delete u.controlled;u.fuel=[f.fuel[index],null];u.t=f.t;u.status='flying';u.attitude=f.attitude;u.controls={...f.controls,lit:false};u.maxHeight=f.maxHeight;u.heat=0;u.auto={mode:'waiting',separatedAt:f.t};
-    const cm=mass(f),um=P.mass(u),axis=[Math.cos(f.attitude),Math.sin(f.attitude)],gap=2+P.tanks(stage).reduce((sum,k)=>sum+({small:2.4,medium:3.25,large:4.1})[k],0)+.3;
-    for(let i=0;i<2;i++){const push=axis[i];f.state[i]+=axis[i]*gap;f.state[i+3]+=push*um/(cm+um);u.state[i+3]-=push*cm/(cm+um);}
-    f.maxHeight=Math.max(f.maxHeight,O.elements(f.state).height);f.fuel=f.fuel.map(v=>v===null?null:0);f.capsule.detached=true;f.controls={...f.controls,mode:'hold',lit:false};u.controls.mode='hold';f.upperStage=u;f.controlled='main';return true;
+    const releaseSpeed=S.clearance(f.state,f.t)<1000?12:1,cm=mass(f),um=P.mass(u),axis=[Math.cos(f.attitude),Math.sin(f.attitude)],gap=2+P.tanks(stage).reduce((sum,k)=>sum+({small:2.4,medium:3.25,large:4.1})[k],0)+.3;
+    for(let i=0;i<2;i++){const push=axis[i]*releaseSpeed;f.state[i]+=axis[i]*gap;f.state[i+3]+=push*um/(cm+um);u.state[i+3]-=push*cm/(cm+um);}
+    f.maxHeight=Math.max(f.maxHeight,O.elements(f.state).height);f.fuel=f.fuel.map(v=>v===null?null:0);f.capsule.detached=true;f.controls={...f.controls,mode:'hold',throttle:1,lit:false};u.controls.mode='hold';f.upperStage=u;f.controlled='main';return true;
   }
   function program(f){const u=f.upperStage;if(!u||terminal(u)||u.auto.mode==='manual')return;const o=O.elements(u.state),gap=Math.hypot(u.state[0]-f.state[0],u.state[1]-f.state[1]);u.controls.lit=false;
     if(o.bound&&o.hp<=60000){u.auto.mode='coasting';return;}
@@ -68,5 +68,5 @@
     return {elapsed:f.t-start,steps,limited:f.t<target-1e-7};
   }
   const selected=f=>f?.controlled==='upper'&&f.upperStage?f.upperStage:f;
-  return Object.freeze({fresh,mass,thrust,area,contact,resolveContact,contactVelocity,terminal,canSeparate,separate,advance,selected,stepCapsule});
+  return Object.freeze({fresh,mass,thrust,area,stageHeight,contact,resolveContact,contactVelocity,terminal,canSeparate,separate,advance,selected,stepCapsule});
 });

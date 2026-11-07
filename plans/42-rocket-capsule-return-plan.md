@@ -345,3 +345,17 @@ model5 recordData = [C, V, coreFuel, active, separated, t, status,
 證據output/reports/rocket-context-controls-node.txt、rocket-context-controls-browser.json、rocket-axial-release-browser.json及同名check／registry／closure報告；desktop及trusted-touch截圖已視覺檢查。runtime `782fdc313649aa22a42e8bf0b94f32fe0c4e27d6d90e97951dac2851f909d6a6` 的來源與477-entry SCORM ZIP逐byte一致；原481檔不變。沿用58 browser cases／305 registry entries，不新增依賴或評分欄位。未做真手機或真Moodle驗證。
 
 實作commit `fad7c857e6c183c21c5ba4246beb7732159a0ada`；committed selection-preview見output/reports/rocket-context-controls-selection.json（只記錄選取，實際執行為上述focused checks）。原私人Sites已以同一runtime更新，Site來源 `9f807a5f689e463c3362be7c3c7d04d57cbd687d`。首次發佈遇到Sites暫時不可用，確認version15已保存archive後沿用同一版本重試成功：deployment `appgdep_6aeebc9dd3188191bceb6c4634d2d271` 於2026-11-07 13:52:36 UTC+08 native succeeded；網址 https://simlab-rocket-side-booster.ieyp.chatgpt.site 。證據output/reports/rocket-context-controls-sites.json；成功保存／部署後已移除任務tar，Site checkout與原有附件保留。
+
+## 17. 操作列位置與分離後距離（2026-11-07，已實作）
+
+使用者指定主按鈕必須位於固定flightDeck的暫停／繼續旁邊，同一行，不在可捲動面板內。移動原來兩個DOM按鈕、刪除下方兩區標題／包裝，保留情境順序、disabled原因與觸控尺寸；桌面、手機、窄屏、橫屏及捲動後都檢查三個主按鈕和倍率同一行且可見。評分、snapshot及套件依賴不變。
+
+已用27 km／1000 m/s直上重現：分艙後8秒，軸向底部距離回到6.101 m（只有接觸skin），相對速度0；滿油門1kN亦不足抵消此動壓下的艙／級阻力差。第16節只驗證不穿透，沒有把「實際拉開距離」當成接受條件，不能視為已解決。繼續核對使用者高度，並檢查分離後自由滑行與重新點火的距離增長、真實模型／畫面接點及存檔還原；不用側移或隱藏二級冒充分離。
+
+使用者已確認實際情境是剛離地立即分艙，並非27 km高速。原1kN小引擎推重比約0.49，不能托起210kg太空艙；同時繼承核心級0%油門也會使點火零推力。修正為唯一太空艙使用3kN、Isp300s的可調返航引擎（全油推重比約1.46），分離時預設油門100%但保持關機；小於1km離地高度用12m/s軸向相對彈出速度，較高仍為1m/s。彈出按質量分配反向衝量、保存總動量，屬一次彈簧／壓氣分離能量，不是持續免費推力；手動點火按真實推力／Isp消耗既有30kg燃料。沒有新增逃逸引擎種類、油箱、按鈕或snapshot欄位；此前表格的1kN參數由本節取代。
+
+分艙時切到同比例follow近景，避免地球尺度放大圖示重疊冒充接合；沿用separationReadout在設定區頂部顯示兩接點實際距離、暫停及0%油門原因。低空高速阻力仍可再次接觸，保留真實阻力／防穿透並明示，不保證任意動壓都可安全逃逸。二級真正撞地才顯示既有撞擊特效並停止顯示，不能提前隱藏二級來偽造拉開。Node測1/10/100/500m、不同初速與0.25/2秒人手操作延遲、1km切換邊界姿態、軸向衝量／動量／無側移、零油門後分艙點火；browser在2m/2m每秒立即分艙後等2秒再點火，逐格檢查距離持續拉開、上升、耗油、原姿態、儲存還原，另保留27km、200km與全返航。
+
+最終驗證：十組活動Node、browser inventory、check:tests、check及diff whitespace通過。source＋extracted SCORM共24 browser flows、errors=[]，含4個操作列尺寸（1280×800、390×844、320×500、844×390）、滑鼠／trusted touch、捲動後主按鈕及倍率仍在同一行，油門／角度並排，2m／27km／200km分離與完整返航／提交。2m近地分艙後先等2秒再點火，6秒後太空艙高度約57.9–58.2m、燃料約23.84kg、姿態0及橫向速度0；二級已真正撞地，沒有繼續黏住。另以baseline `757b31c` 執行相同零油門情境，舊版撞地且fuel30未消耗；新版仍在飛行。證據output/reports/rocket-launch-capsule-browser.json、rocket-launch-capsule-node.txt、rocket-launch-capsule-before-after.json及同名前綴check／registry／closure報告、launch-capsule截圖。沿用58 cases／305 registry entries；未做真手機／真Moodle驗證。
+
+最終runtime `d4c9affd88952ac89a493f9c76f80035a1c4300788a2e29619d8362a5f6fe69d`，來源、477-entry SCORM ZIP及Site dist逐byte一致，原481檔不變。無新依賴／snapshot欄位／評分規則；移除本次中途檢查的可棄置log，保留最終證據。

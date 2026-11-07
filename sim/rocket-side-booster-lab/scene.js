@@ -73,7 +73,7 @@ export class RocketScene{
     this.lastBoosterStatus=f?.boosters?.status;
 
     const other=data.other,otherKey=other?JSON.stringify([other.craft,other.capsule?.detached]):'';
-    if(otherKey!==this.otherKey){if(this.otherRocket){this.scene.remove(this.otherRocket);dispose(this.otherRocket);}this.otherRocket=other?buildRocket(other.craft,Boolean(other.separated),Boolean(other.capsule?.detached)):null;if(this.otherRocket)this.scene.add(this.otherRocket);this.otherKey=otherKey;}
+    if(otherKey!==this.otherKey){if(this.otherRocket){this.scene.remove(this.otherRocket);dispose(this.otherRocket);}this.otherRocket=other?buildRocket(other.craft,Boolean(other.separated),Boolean(other.capsule?.detached)):null;if(this.otherRocket)this.scene.add(this.otherRocket);this.otherKey=otherKey;this.lastOtherStatus=other?.status;}
     this.data=data;this.effectCraft=craft;this.lastFlightStatus=f?.status;this.lastFlightTime=f?.t||0;this.draw();
   }
   drawEffects(f,space,theta){
@@ -110,7 +110,7 @@ export class RocketScene{
     const geometry=new THREE.BufferGeometry().setFromPoints(points.map(q=>new THREE.Vector3(q[1]*3/P.R,q[0]*3/P.R,q[2]*3/P.R))),mat=dashed?new THREE.LineDashedMaterial({color,dashSize:.035,gapSize:.025,transparent:true,opacity:.9}):new THREE.LineBasicMaterial({color,transparent:true,opacity:.9}),line=new THREE.Line(geometry,mat);if(dashed)line.computeLineDistances();this.scene.add(line);this.lines[name]=line;
   }
   drawRecovery(space,f){
-    if(!f)return;const other=this.data.other;
+    if(!f)return;const other=this.data.other;if(other?.status==='impact'&&this.lastOtherStatus==='flying')this.impacts.emit(other.state,other.t,.012);this.lastOtherStatus=other?.status;
     if(this.otherRocket&&other){const theta=space?0:Math.atan2(f.state[1],f.state[0]),dx=other.state[0]-f.state[0],dy=other.state[1]-f.state[1],unit=space?3/P.R:.001;this.otherRocket.position.copy(this.rocket.position).add(new THREE.Vector3(-Math.sin(theta)*dx+Math.cos(theta)*dy,Math.cos(theta)*dx+Math.sin(theta)*dy,0).multiplyScalar(unit));this.otherRocket.scale.setScalar(space?.18/this.otherRocket.userData.height:.001);this.otherRocket.rotation.z=theta-other.attitude;this.otherRocket.visible=!['destroyed','impact'].includes(other.status);this.otherRocket.userData.flame.visible=M.thrust(other)>0;}
     if(f.capsule?.detached){const density=M.atmosphere(O.elements(f.state).height),level=Math.min(.7,Math.sqrt(density)*(O.elements(f.state).speed/7800)**3*30);if(!this.rocket.userData.heatGlow){const glow=new THREE.Mesh(new THREE.TorusGeometry(1.4,.12,8,32),new THREE.MeshBasicMaterial({color:'#f18a57',transparent:true,opacity:0,depthWrite:false}));glow.rotation.x=Math.PI/2;glow.position.y=.05;glow.userData.recoveryDecoration=true;this.rocket.add(glow);this.rocket.userData.heatGlow=glow;}this.rocket.userData.heatGlow.material.opacity=level;this.rocket.userData.heatGlow.visible=f.status==='flying'&&level>.005;const c=f.capsule.chute;
       if(!this.canopy){this.canopy=new THREE.Group();this.canopy.userData.recoveryDecoration=true;const cloth=new THREE.Mesh(new THREE.SphereGeometry(1,24,12,0,Math.PI*2,0,Math.PI/2),material('#e9a56b',{side:THREE.DoubleSide}));cloth.position.y=10;cloth.scale.set(6,3,6);this.canopy.add(cloth);for(let i=0;i<8;i++){const a=i*Math.PI/4,line=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,3,0),new THREE.Vector3(6*Math.cos(a),10,6*Math.sin(a))]),new THREE.LineBasicMaterial({color:'#f2e9d8'}));this.canopy.add(line);}this.rocket.add(this.canopy);}

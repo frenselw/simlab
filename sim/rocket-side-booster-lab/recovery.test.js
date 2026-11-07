@@ -51,3 +51,17 @@ for(const actual of [0,.7,Math.PI/2]){
  assert(Math.abs(dv[0]*axis[1]-dv[1]*axis[0])<1e-10);assert(Math.abs(dv[0]*axis[0]+dv[1]*axis[1]-1)<1e-10);assert.equal(f.controls.mode,'hold');assert.equal(u.controls.mode,'hold');round(s);M.advance(s,2);assert(Math.abs(f.attitude-actual)<1e-12);assert(Math.abs(u.attitude-actual)<1e-12);if(actual===0){assert.equal(f.state[1],0);assert.equal(u.state[1],0);assert.equal(f.state[4],0);assert.equal(u.state[4],0);}round(s);
 }
 console.log('Axial-only 1m/s release, no lateral impulse, actual attitude hold and legal persistence continuation passed.');
+
+{
+ let s=orbit();s.flight.controls.throttle=0;s=M.change(s,{type:'capsule-separate'});const f=s.flight,u=f.upperStage;assert.equal(f.controls.throttle,1);assert.equal(u.controls.throttle,0);assert.equal(f.controls.lit,false);const start=Math.hypot(f.state[0]-u.state[0],f.state[1]-u.state[1]);s=M.change(s,{type:'ignite'});assert.equal(R.thrust(s.flight),3000);M.advance(s,2);assert(Math.hypot(s.flight.state[0]-s.flight.upperStage.state[0],s.flight.state[1]-s.flight.upperStage.state[1])>start+8);assert(s.flight.capsule.fuel<30);round(s);
+}
+console.log('Capsule ignition starts with its own 100% throttle after a zero-throttle stage; real fuel burn opens the gap.');
+
+for(const height of [1,10,100,500])for(const speed of [2,20])for(const delay of [.25,2]){
+ let s=T.launched();Object.assign(s.flight,{state:[P.R+height,0,0,speed,0,0],status:'flying',t:1,maxHeight:height});s.phase='coast';s=M.change(s,{type:'separate'});s=M.change(s,{type:'capsule-separate'});let f=s.flight;assert(Math.abs(f.state[3]-f.upperStage.state[3]-12)<1e-8);assert.equal(f.state[4],0);const initial=f.state[0]-f.upperStage.state[0];M.advance(s,delay);assert(s.flight.state[0]-s.flight.upperStage.state[0]>initial+1);s=M.change(s,{type:'ignite'});for(let i=0;i<60;i++)M.advance(s,.1);f=s.flight;assert.equal(f.status,'flying');assert(O.elements(f.state).height>height+(delay===2?30:80));assert(f.state[0]-f.upperStage.state[0]>initial+(delay===2?30:50));assert.equal(f.attitude,0);assert.equal(f.state[4],0);assert(f.capsule.fuel<30);round(s);
+}
+console.log('Near-ground release at 1/10/100/500m: axial 12m/s push, .25/2s human ignition delay, 3kN thrust exceeds capsule weight, zero lateral motion, clear separation and independent ascent passed.');
+
+{
+ let s=orbit();s.flight.state=[P.R+999.9,0,0,2,0,0];s.flight.maxHeight=1000;s.flight.attitude=.7;s=M.change(s,{type:'capsule-separate'});const f=s.flight,u=f.upperStage;assert(Math.abs((f.state[3]-u.state[3])*Math.cos(.7)+(f.state[4]-u.state[4])*Math.sin(.7)-12)<1e-8);assert(Math.abs((f.state[3]-u.state[3])*Math.sin(.7)-(f.state[4]-u.state[4])*Math.cos(.7))<1e-8);round(s);
+}
