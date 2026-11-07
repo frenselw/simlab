@@ -32,3 +32,12 @@ const boundReview=numberBound(maxReview),boundPending={...pending,payload:{...pe
 let wrong=M.change(entrySnapshot,{type:'control',key:'angle',value:0});for(let i=0;i<10000&&!R.terminal(wrong.flight);i++)M.advance(wrong,1);assert.equal(wrong.flight.status,'destroyed');assert.equal(wrong.flight.capsule.heat,1);round(wrong);assert.equal(S.score(wrong).score,score);console.log('Thermal comparison: protected retrograde entry lands; exposed orientation exhausts protection and preserves the recorded orbit result.');
 
 let legacy=T.reachOrbit();legacy.schema=6;legacy.modelVersion=4;for(const k of ['capsule','upperStage','controlled'])delete legacy.flight[k];for(const r of legacy.records)if(r){delete r.capsule;delete r.physicsVersion;}legacy.flight.controls.lit=true;legacy.flight.controls.throttle=0;legacy=M.change(legacy,{type:'record'});D.validate(legacy);assert.equal(legacy.records[0].engineOff,false);console.log('Ongoing model4 flights keep their legacy recording semantics at zero throttle.');
+
+for(const height of [27000,60000,100000,200000])for(const attitude of [0,.7,Math.PI/2]){
+ let s=orbit(),f=s.flight;f.state=height===200000?O.circular(height):[P.R+height,0,0,1000,0,0];f.attitude=attitude;f.controls={mode:'tilt',angle:attitude*180/Math.PI,throttle:0,lit:false};const original=f.state.slice(3);s=M.change(s,{type:'capsule-separate'});f=s.flight;assert(Math.hypot(...f.state.slice(3).map((v,i)=>v-original[i]))<1.2);assert(Math.abs(Math.hypot(f.state[3]-f.upperStage.state[3],f.state[4]-f.upperStage.state[4])-Math.sqrt(1.25))<1e-8);
+ for(let i=0;i<800;i++){M.advance(s,.01);assert.equal(R.contact(s.flight),null,'No overlap at '+height+'/'+attitude+'/'+i);if(i===100)round(s);}round(s);
+}
+{
+ const s=M.change(orbit(),{type:'capsule-separate'}),f=s.flight,u=f.upperStage;f.state[1]-=.5;const before=[3,4].map(i=>R.mass(f)*f.state[i]+P.mass(u)*u.state[i]);f.state[3]=u.state[3];f.state[4]=u.state[4]-2;const momentum=[3,4].map(i=>R.mass(f)*f.state[i]+P.mass(u)*u.state[i]);assert(R.contact(f));R.resolveContact(f);assert.equal(R.contact(f),null);for(const [j,i]of [3,4].entries())assert(Math.abs(R.mass(f)*f.state[i]+P.mass(u)*u.state[i]-momentum[j])<1e-7);
+}
+console.log('Capsule separation: inherited velocity, gentle spring impulses, twelve altitude/attitude cases, mass-weighted nonpenetration, momentum and restore continuations passed.');

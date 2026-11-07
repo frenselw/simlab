@@ -1,6 +1,6 @@
 # 火箭工廠實驗版：單一太空艙分離、返航與降落計劃
 
-狀態：**已實作；本機驗證與發佈紀錄見第13–14節。** 日期：2026-11-07。前12節保留設計及驗收範圍，未勾選項不代表已通過。
+狀態：**已實作；本機驗證與發佈紀錄見第13–15節。** 日期：2026-11-07。前12節保留設計及驗收範圍，未勾選項不代表已通過。
 
 依[現行擴充計劃](42-rocket-side-booster-expansion-plan.md)、[活動基準](42-rocket-side-booster-lab.md)、[共用設計](00-shared-platform-and-style.md)、[生產契約](../docs/simulation-scorm-production-guide.md)及[計劃模板](NEW-SIMULATION-PLAN-TEMPLATE.md)。本文件擁有太空艙返航擴充的規格；未涉及的組裝、助推器、入軌及提交規則沿用現行活動。先前研究中的「普通／返航兩款太空艙」方案取消。
 
@@ -319,3 +319,15 @@ model5 recordData = [C, V, coreFuel, active, separated, t, status,
 實作commit `02b2e3ff299d3c57e2b89d209646f32edbcc0583`；runtime `9bd5b80d9cad7c1a6eaf724b3cd816c0aa8e663fc4cca7e3492091e8c29039e5` 的來源／477-entry SCORM ZIP／Site dist逐byte一致，原活動481檔不變。committed selection為e4d8b3c→實作head，affected／263 entries，詳output/reports/rocket-control-zones-selection.json（選取證據，非實跑）。
 
 原私人Sites已更新且權限不變：Site來源 `37a9604b44f5699b23376ab486cb517a480842a2`，deployment `appgdep_6aeeb2012d808191b37e79aa5f8a9750` 於2026-11-07 13:07:20 UTC+08 native succeeded；網址仍為 https://simlab-rocket-side-booster.ieyp.chatgpt.site 。證據output/reports/rocket-control-zones-sites.json；封裝tar保存成功後已移除，Site checkout及原有附件保留。
+
+## 15. 太空艙分離防穿透（2026-11-07，實作前）
+
+已用27 km／1 km/s徑向上升狀態重現：初始相對速度只有1 m/s，但0.5秒後因兩者阻力／質量不同，艙底與級底的沿軸距離由6.4 m變成−10.74 m；200 km真空測試2秒後仍只是約1 m/s。根因包括沒有兩主體接觸處理，而非應抹掉兩者共同的飛行速度。
+
+保留各自真實重力／阻力及繼承速度，分離給約1 m/s軸向＋0.5 m/s側向的小相對速度，按質量分配反向衝量。加入僅限艙與最後核心級的二維有向外形接觸：質量加權消除重疊、移除相向法向速度，維持總線動量；近距離縮短積分步長，避免高速單步穿越。低空阻力可讓二者短暫接觸，不保證任意低空高速狀態都能以小彈簧力立即飛離；不改空氣密度或假裝無阻力。外形／接觸進度全部由既有狀態重建，無新snapshot欄位／評分／資源。
+
+跟隨畫面以同一世界比例重建接點並取消殘留的下級分離鏡頭偏移；不縮放、不用固定向下動畫。驗證高空慢分離、27／60／100 km高速、不同姿態與級長、瞬間速度及動量守恆、接觸後存檔續作、兩個操控對象，以及既有完整返航。這是兩個教學剛性外形的防穿透，不加入六自由度轉動碰撞、對接、碰撞損傷或碎片系統。新測試沿用recovery Node及既有flight browser owner並更新inventory。
+
+另已重現近景主艙scale=0.0012727而二級=0.001的視覺不一致：最低鏡頭距離令短太空艙放大約27%。現雙主體近景統一每米0.001世界單位；新browser逐格比對實際世界距離與畫面3D模型距離，以及兩者scale比值為1。
+
+實作驗證：十組活動Node通過；recovery測12個高度／姿態組合、每0.01秒取樣、接觸前後動量與存檔合法延續。source＋extracted SCORM在1280×800滑鼠、390×844 trusted touch共12 flows通過：27 km與200 km各逐格分離／保存還原，另四條既有完整返航／提交流程；errors=[]。27 km測試8秒後相對速率約0.21 m/s且不重疊；200 km初始約1.118 m/s，8秒後約1.118 m/s、底部相距約14.94 m，沒有突然加速穿越。browser inventory增為58 cases，registry仍305 entries。證據output/reports/rocket-capsule-contact-node.txt、rocket-capsule-contact-physics.txt、rocket-capsule-contact-browser.json及同任務capsule-separation截圖。真手機／Moodle／完整六自由度碰撞仍未驗證。

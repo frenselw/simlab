@@ -46,6 +46,7 @@ export class RocketScene{
     if(!data.live||!this.data?.live||!f||f.t<(this.effectPose?.t||0)||craft!==this.effectCraft||previous?.source!==f.source){this.clearSeparation();this.effectPose=null;this.rcsUntil=0;}
     if(!data.live||!this.data?.live||!f||f.t<(this.lastFlightTime||0)||craft!==this.effectCraft){this.launchEffects.clear();this.launchStarted=Boolean(f&&(f.t>0||f.status!=='pad'));this.launchArmAge=this.launchStarted?1.1:0;this.impacts.clear();this.impacted=false;this.pendingImpact=false;}
     if(data.live&&this.data?.live&&f?.status==='impact'&&this.lastFlightStatus==='flying')this.pendingImpact=true;
+    if(f?.capsule?.detached&&!previous?.capsule?.detached)this.clearSeparation();
     if(key!==this.craftKey){
       if(this.rocket){
         if(data.live&&this.data?.live&&f?.separated&&previous&&!previous.separated&&craft===this.effectCraft){
@@ -142,7 +143,7 @@ export class RocketScene{
       distance=Math.max(.035,displayHeight*(this.host.clientHeight<240?.007:.0038),Math.max(0,agl)/1000*3+.035);
       // Keep the upper stage framing independent of the falling stage's distance.
       if(f.separated||f.craft.boosters||this.data.other){const close=Math.max(.035,displayHeight*.0038);distance*=Math.pow(Math.min(1,close/distance),blend);}
-      this.rocket.scale.setScalar(Math.max(.001,distance*.16/displayHeight));this.rocket.position.set(0,0,0);this.rocket.rotation.z=theta-f.attitude;
+      this.rocket.scale.setScalar(this.data.other||f.capsule?.detached?.001:Math.max(.001,distance*.16/displayHeight));this.rocket.position.set(0,0,0);this.rocket.rotation.z=theta-f.attitude;
       for(const environment of [this.studio,this.landscape,this.relief]){environment.scale.setScalar(.001);environment.position.set(-P.R*Math.sin(theta)/1000,(P.R*Math.cos(theta)-r)/1000,0);environment.rotation.z=theta;}
     }
     if(f&&!factory&&!space&&agl<500){const blend=1-THREE.MathUtils.smoothstep(agl,200,500),minimum=hullMinimum(this.rocket,this.rocket.rotation.z);let offset=-minimum*this.rocket.scale.y*blend+Math.max(0,-agl)/1000;if(agl<10){const key=[f.t,f.attitude,this.rocket.scale.y].join(',');if(this.rocket.contactKey!==key){this.rocket.contactKey=key;this.rocket.contactOffset=(Math.max(0,agl)-hullClearance(this.rocket,f,this.rocket.rotation.z))/1000;}offset=this.rocket.contactOffset;}this.rocket.position.y+=offset;}
