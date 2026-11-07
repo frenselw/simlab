@@ -77,15 +77,15 @@
       if(['separate','jettison','capsule-separate'].includes(action.type))this.cue('separate');
     }
     update(input,now=(root.performance?.now()||0)/1000){
-      this.input=input;const {flight:f,pieces=[],live,running,workshop}=input;if(!this.enabled||!live||!running||!f?.controls.lit)this.ignition++;const previous=this.last,newImpact=Boolean(live&&previous?.live&&previous.running&&f&&f.t>previous.t&&previous.status==='flying'&&f.status==='impact');
+      this.input=input;const {flight:f,pieces=[],live,running,workshop}=input;if(!this.enabled||!live||!running||!f?.controls.lit)this.ignition++;const previous=this.last,newImpact=Boolean(live&&previous?.live&&previous.running&&f&&f.t>previous.t&&previous.capsule===Boolean(f.capsule?.detached)&&previous.status==='flying'&&['impact','destroyed'].includes(f.status));
       if(!f||previous&&f.t<previous.t)this.pieces.clear();
       if(live&&previous?.live&&f&&f.t>previous.t&&previous.lit&&!f.controls.lit&&f.fuel[f.active]===0)this.cue('cutoff');
-      if(newImpact&&this.enabled){this.hold=this.context.currentTime+.8;this.cue('impact',0,clamp(Math.hypot(...f.state.slice(3,6))/150,.25,1),true);}
+      if(newImpact&&this.enabled){this.hold=this.context.currentTime+.8;this.cue('impact',0,f.status==='destroyed'?.45:clamp(Math.hypot(...f.state.slice(3,6))/150,.25,1),true);}
       for(const p of pieces){if(live&&running&&this.pieces.get(p.id)==='flying'&&p.coast.status==='impact')this.cue('impact',p.pan,.45/(1+(p.distance/35)**2));this.pieces.set(p.id,p.coast.status);}
       if(live&&running&&previous?.running&&f&&f.t>previous.t){if(f.capsule?.chute.phase!==previous.chute&&previous.chute&&['drogue-opening','main-opening'].includes(f.capsule?.chute.phase))this.cue('chute');}
       if(live&&previous?.live&&previous.running&&f&&f.t>previous.t&&f.status==='landed'&&previous.status==='flying'&&this.enabled&&this.context){this.hold=this.context.currentTime+.4;this.cue('landing',0,1,true);}
       this.updateMusic(input,now);
-      this.last=f?{chute:f.capsule?.chute.phase,t:f.t,lit:f.controls.lit,status:f.status,live,running}:null;this.targets=mix(f,pieces);
+      this.last=f?{capsule:Boolean(f.capsule?.detached),chute:f.capsule?.chute.phase,t:f.t,lit:f.controls.lit,status:f.status,live,running}:null;this.targets=mix(f,pieces);
       if(!this.context)return;
       const active=this.enabled&&live&&(running||workshop||this.context.currentTime<this.hold),target=active?this.volume*.65:0;
       if(target!==this.masterTarget){this.masterTarget=target;this.ramp(this.master.gain,target,.018);}if(active){clearTimeout(this.suspendTimer);this.suspendTimer=null;}else if(this.context.state==='running'&&!this.suspendTimer)this.silence();

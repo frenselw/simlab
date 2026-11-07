@@ -451,3 +451,21 @@ source＋extracted SCORM、1280×800／390×844共4條完整返航flows、errors
 覆核一併排除傘繩穩定艙身時的舊RCS噴氣／嘶聲，避免無姿控耗油卻顯示噴射；既有開傘及著陸聲沿用。證據output/reports/rocket-chute-motion-all-node.txt、rocket-chute-motion-browser.json及同前綴check／registry／closure報告、chute-deploy／chute-inflating／chute-upward-unloaded／chute-collapsed截圖。沿用58 cases／305 registry entries，無新依賴／snapshot欄位／評分變更；風感採程序變形，未建模側風漂移、完整布料／流體或實際傘具載荷，未做真手機／真Moodle實測。
 
 最終runtime `e2d2aaaa571dcc7ad335644fc786e637370ce8c73f84402cc9910eef27bae7c7`，來源、477-entry SCORM ZIP及Site dist全476 runtime檔逐byte一致，原481檔不變。實作commit `6344e8357deeeb5c94623d4189bb9ab798bfc7a9`；committed selection-preview見output/reports/rocket-chute-motion-selection.json，只記錄選取，實際執行為上述focused checks。Site來源 `c409363b643fd7ac85580e667e73b54cc5a6d283`；deployment `appgdep_6aef01544bc48191956d6a02e5a5670f` 於2026-11-07 18:45:47 UTC+08 native succeeded。原owner-private權限及網址 https://simlab-rocket-side-booster.ieyp.chatgpt.site 維持，證據output/reports/rocket-chute-motion-sites.json。成功保存／部署後清理本次tar、中途失敗截圖及重複的暫時Node報告，保留Site checkout、最終驗證證據及使用者附件。
+
+## 24. 操控對象選單、自動離軌可見性與再入呈現（2026-11-07，實作前決策）
+
+使用者反映手機原生操控select無效，要求沿用倍率的彈出選單。改為同一視覺／觸控模式的button＋兩個固定選項，不在飛行更新時重建選項；按選項必須同時更新authoritative controlled、鏡頭主體、HUD、油門／角度／點火操控及Moodle draft還原。保留切換觀看不取消自動離軌，只有手動推進／轉向會接管。原生Android picker未能在桌面headless等同重現，驗證以新選單的trusted touch及實際對象變更為準；不聲稱原生picker已修復。
+
+核對既有功能：太空艙／二級分艙後，二級預設等待10s與50m安全距離，以餘油減速至近地點≤60km，再滑行再入；無油不能保證離軌。下級與二級分離但太空艙仍連接時不執行自動廢棄。UI明示自動模式及目標，手動接管後提供恢復自動離軌，不增加新自動駕駛／schema欄位。參考ESA Ariane上級離軌 https://www.esa.int/Enabling_Support/Space_Transportation/Ariane/Ariane_5_ES 。
+
+再入區分艙身姿態與來流：尾流沿反速度方向（目前大氣靜止近似），不能因艙身傾斜而假轉尾流；新增跟艙體的受熱薄層，按局部迎風法線發光，盾面熱光也只在迎風時強。兩者分開更新，避免看似固定水平的一圈線。HUD以小讀數顯示盾面偏角、建議β、防護餘量。沿用既有熱劑量判定（cos偏角>0.8為保護區，耗損係數0.15；其他1.5），耗盡為destroyed；這不是宣稱任意軌跡只靠固定角度就安全，γ由軌道／速度決定。參考NASA再入速度／攻角示意 https://ntrs.nasa.gov/api/citations/20160004672/downloads/20160004672.pdf 。
+
+既有destroyed會立即隱藏模型，補上有限時的空中火光／碎片解體效果，必須發生在實際高度而非地面，主／副對象都適用，背景／唯讀不重播。沿用現有池化撞擊效果的可選空中定位與短音效，100km靜音規則不變；不是新增持久碎片物理或聲稱所有熱損壞都爆炸。入軌紀錄與得分保留。
+
+範圍：index／styles／main選單與讀數、scene-art／scene來流熱層、impact-effects空中定位與生命週期、audio損毀短聲，以及既有recovery／audio Node、capsuleReturn browser owner。評分風險／rubric／phase／variant／snapshot schema7/model5欄位、SCORM提交契約及runtime依賴不變。驗證桌面／手機選單開合、Escape／外點／滾動／倍率互斥、實際兩主體操控與還原、自動離軌及無油／手動接管、不同艙姿與固定速度下尾流／表面熱光方向、正確朝向返航及錯向燒毀／空中解體、得分與review鎖定。沿用現有test registry owner，原活動不改。
+
+實際驗證：活動十組Node（含預設二級自動減速／觀察不取消／手動接管恢復、冷開始錯向熱損毀、熱損聲100km靜音及切主體不重播）、browser inventory、check:tests、check及diff whitespace通過。source＋extracted SCORM在1280×800／390×844共4條owner flows，每條包括完整安全返航／review及另一個熱損fixture，errors=[]。滑鼠／trusted touch在飛行中開自製選單，實際切到upper的authoritative state、renderer主體、二級燃料／操控，再保存／還原同一對象；Escape、場景空白處外點、滾動後關閉及倍率選單互斥皆通過。滾動關閉等待瀏覽器處理scroll幀，不以固定50ms延遲代替結果；外點位置避開被選單遮住的底層文字。
+
+同一速度下逐一改三種艙身姿態，表面層的世界軸跟艙身，尾流世界軸與反速度方向dot>0.999，局部來流法線／盾光強度相符。HUD顯示偏角／建議β／防護，錯向為警示色。Node既有完整錯向飛行由低熱劑量導致destroyed；browser另用65km／7.42km/s／防護接近耗盡的合法fixture跨過熱損門檻，核對heat=1、status=destroyed、得分維持100及火光在實際模型中心附近（<5m），沒有誤投到地面。空中效果用模型引用定位並跟隨視圖比例，池釋放時清除引用；還原已損毀draft不重播火光。新增短聲沿用既有池，100km以上仍靜音。
+
+既有兩階段展傘、擺動、著陸塌傘／背景凍結／30及60 FPS比較、snapshot還原與review鎖定亦通過。證據output/reports/rocket-mission-controls-all-node.txt、rocket-mission-controls-browser.json及同前綴check／registry／closure報告、control-body-menu／wrong-entry-plasma／airborne-burnup截圖。仍58 cases／305 registry entries，無新依賴、schema欄位或評分規則；原481檔未改。未做真手機原生環境／真Moodle、真實等離子流體／材料失效或持久碎片動力學驗證；動畫與熱劑量仍屬教學近似。

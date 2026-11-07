@@ -133,3 +133,5 @@
 
 .direction-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
 #reentryHint{white-space:pre-line;line-height:1.6;color:var(--muted)}
+.flight-context .body-control{display:flex;align-items:center;gap:8px;font-size:14px}.body-control[hidden]{display:none}.body-control #bodySelect{min-height:44px;min-width:150px}.body-menu{grid-template-columns:1fr;width:min(230px,calc(100vw - 16px))}.body-menu button{text-align:left}
+.reentry-gauge{display:flex;flex-direction:column;gap:3px;margin-top:5px;padding-top:5px;border-top:1px solid #bdceca;font-size:12px;line-height:1.35;font-weight:600;color:#21776e}.reentry-gauge.warning{color:#a64d29}.reentry-gauge[hidden]{display:none}

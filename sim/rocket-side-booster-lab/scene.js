@@ -44,8 +44,9 @@ export class RocketScene{
   setData(data){
     const previous=this.data?.flight,f=data.flight,craft=JSON.stringify(data.craft),key=JSON.stringify([data.craft,f?.separated,f?.capsule?.detached]);
     if(!data.live||!this.data?.live||!f||f.t<(this.effectPose?.t||0)||craft!==this.effectCraft||previous?.source!==f.source){this.clearSeparation();this.effectPose=null;this.rcsUntil=0;}
-    if(!data.live||!this.data?.live||!f||f.t<(this.lastFlightTime||0)||craft!==this.effectCraft){this.launchEffects.clear();this.launchStarted=Boolean(f&&(f.t>0||f.status!=='pad'));this.launchArmAge=this.launchStarted?1.1:0;this.impacts.clear();this.impacted=false;this.pendingImpact=false;}
-    if(data.live&&this.data?.live&&f?.status==='impact'&&this.lastFlightStatus==='flying')this.pendingImpact=true;
+    if(!data.live||!this.data?.live||!f||f.t<(this.lastFlightTime||0)||craft!==this.effectCraft){this.launchEffects.clear();this.launchStarted=Boolean(f&&(f.t>0||f.status!=='pad'));this.launchArmAge=this.launchStarted?1.1:0;this.impacts.clear();this.impacted=false;this.pendingImpact=false;this.pendingBurnup=false;}
+    if(data.live&&this.data?.live&&key===this.craftKey&&f?.status==='impact'&&this.lastFlightStatus==='flying')this.pendingImpact=true;
+    if(data.live&&this.data?.live&&key===this.craftKey&&f?.status==='destroyed'&&this.lastFlightStatus==='flying')this.pendingBurnup=true;
     if(f?.capsule?.detached&&!previous?.capsule?.detached)this.clearSeparation();
     if(key!==this.craftKey){
       if(this.rocket){
@@ -118,16 +119,18 @@ export class RocketScene{
   }
   drawThermal(rocket,f){
     if(!rocket||!f?.capsule?.detached)return;const shield=rocket.userData.heatShield,e=window.RocketRecovery.reentry(f,M.atmosphere),level=f.status==='flying'&&f.capsule.chute.phase==='stowed'?Math.min(1,e.flux*100):0;
-    if(!rocket.userData.reentryEffects){rocket.userData.reentryEffects=createReentryEffects();rocket.add(rocket.userData.reentryEffects);}const effects=rocket.userData.reentryEffects;effects.visible=level>.005;effects.rotation.z=f.attitude-Math.atan2(f.state[4],f.state[3])-Math.PI;
-    effects.children.forEach((mesh,i)=>mesh.material.opacity=level*[.45,.085,.3][i]);
-    if(shield){const remaining=1-f.capsule.heat;shield.material.color.setRGB(.035+.045*remaining,.025+.025*remaining,.02+.015*remaining);shield.material.emissiveIntensity=level*(.15+.85*Math.max(0,Math.cos(e.shieldAngle*Math.PI/180)));}
+    if(!rocket.userData.reentryEffects){rocket.userData.reentryEffects=createReentryEffects();rocket.add(rocket.userData.reentryEffects);}const effects=rocket.userData.reentryEffects;effects.visible=level>.005;const art=effects.userData;art.wakeFrame.rotation.z=f.attitude-Math.atan2(f.state[4],f.state[3])-Math.PI;art.flow.value.set(-Math.sin(f.attitude)*f.state[3]+Math.cos(f.attitude)*f.state[4],Math.cos(f.attitude)*f.state[3]+Math.sin(f.attitude)*f.state[4],0).normalize();
+    art.glow.material.opacity=level*.45*Math.max(0,-art.flow.value.y);art.skinMaterial.opacity=level*.55;art.wake.material.opacity=level*.085;art.trails.material.opacity=level*.3;
+    if(shield){const remaining=1-f.capsule.heat;shield.material.color.setRGB(.035+.045*remaining,.025+.025*remaining,.02+.015*remaining);shield.material.emissiveIntensity=level*Math.max(0,Math.cos(e.shieldAngle*Math.PI/180));}
   }
   drawParachute(rocket,f,space){
     if(!rocket||!f?.capsule?.detached)return;let canopy=rocket.userData.parachute;if(!canopy){canopy=createParachute();rocket.userData.parachute=canopy;rocket.add(canopy);}if(rocket===this.rocket)this.canopy=canopy;if(f.status==='landed')rocket.rotation.z=(space?0:Math.atan2(this.data.flight.state[1],this.data.flight.state[0]))-Math.atan2(f.state[1],f.state[0]);canopy.update(f,this.reducedMotion,this.data.live);
   }
   drawRecovery(space,f){
-    if(!f)return;const other=this.data.other;if(other?.status==='impact'&&this.lastOtherStatus==='flying')this.impacts.emit(other.state,other.t,.012);this.lastOtherStatus=other?.status;
+    if(!f)return;const other=this.data.other;if(other?.status==='impact'&&this.lastOtherStatus==='flying')this.impacts.emit(other.state,other.t,.012);
+    if(this.otherRocket&&other?.status==='destroyed'&&this.lastOtherStatus==='flying'&&this.data.live)this.impacts.emit(other.state,other.t,this.otherRocket.scale.y*this.otherRocket.userData.height*.7,false,this.otherRocket);
     if(this.otherRocket&&other){const theta=space?0:Math.atan2(f.state[1],f.state[0]),dx=other.state[0]-f.state[0],dy=other.state[1]-f.state[1],unit=space?3/P.R:.001;this.otherRocket.position.copy(this.rocket.position).add(new THREE.Vector3(-Math.sin(theta)*dx+Math.cos(theta)*dy,Math.cos(theta)*dx+Math.sin(theta)*dy,0).multiplyScalar(unit));this.otherRocket.scale.setScalar(space?.18/this.otherRocket.userData.height:.001);this.otherRocket.rotation.z=theta-other.attitude;this.otherRocket.visible=!['destroyed','impact'].includes(other.status);this.drawEngine(this.otherRocket,other);}
+    this.lastOtherStatus=other?.status;if(f.status==='destroyed')this.rocket.visible=false;
     this.drawThermal(this.rocket,f);this.drawThermal(this.otherRocket,other);this.drawParachute(this.rocket,f,space);this.drawParachute(this.otherRocket,other,space);
     if(f.capsule?.detached){const c=f.capsule.chute;
 
@@ -202,6 +205,7 @@ export class RocketScene{
     if(this.assemblyPreview?.visible){this.assemblyPreview.position.copy(this.rocket.position);this.assemblyPreview.quaternion.copy(this.rocket.quaternion);this.assemblyPreview.scale.copy(this.rocket.scale);}for(const flame of this.rocket.userData.boosterFlames)flame.visible=Boolean(f&&P.burning(f));this.drawEngine(this.rocket,f);
     this.drawEffects(f,space,theta);
     if(this.pendingImpact){this.impacts.emit(f.state,f.t,Math.max(.015,displayHeight*this.rocket.scale.y*.8),true);this.pendingImpact=false;this.impacted=true;this.effectClock=performance.now();}
+    if(this.pendingBurnup){this.impacts.emit(f.state,f.t,this.rocket.scale.y*this.rocket.userData.height*.7,true,this.rocket);this.pendingBurnup=false;this.effectClock=performance.now();}
     this.impacts.update(this.contactGround.visible?this.contactGround:this.globalTerrain,this.reducedMotion);if(this.impacted&&f?.status==='impact'&&this.impacts.mainHidden())this.rocket.visible=false;else if(this.impacted&&f?.status==='impact'&&!this.impacts.userData.active)this.rocket.visible=false;
     this.velocityArrow.visible=Boolean(f&&Math.hypot(f.state[3],f.state[4])>.1);this.thrustArrow.visible=Boolean(f&&M.thrust(f)>0);
     if(f){
@@ -215,7 +219,7 @@ export class RocketScene{
     this.launchEffects.update(this.camera);
     try{this.drawRecovery(space,f);this.renderer.render(this.scene,this.camera);this.renderCount++;}catch(_){this.lost=true;this.onFault('render');}
   }
-  animateEffects(now){const elapsed=this.effectClock?Math.max(0,(now-this.effectClock)/1000):0,delta=Math.min(.05,elapsed);this.effectClock=now;if(this.lost||document.hidden||!this.data?.live)return false;let settling=false;for(const rocket of [this.rocket,this.otherRocket])if(rocket?.userData.parachute?.advance(delta))settling=true;if(settling)this.draw();if(this.data.running===false&&this.data.flight?.status!=='impact')return Boolean(settling);const transition=this.separation,separating=transition&&this.data.running!==false&&transition.visualAge<.6;if(separating)transition.visualAge=Math.min(.6,transition.visualAge+elapsed);const releasing=this.launchStarted&&this.launchArmAge<(this.reducedMotion?.25:1.1);if(releasing)this.launchArmAge+=delta;const vapour=this.launchEffects.advance(delta);if(this.impacts.advance(delta)||separating||releasing||vapour){this.draw();return true;}return false;}
+  animateEffects(now){const elapsed=this.effectClock?Math.max(0,(now-this.effectClock)/1000):0,delta=Math.min(.05,elapsed);this.effectClock=now;if(this.lost||document.hidden||!this.data?.live)return false;let settling=false;for(const rocket of [this.rocket,this.otherRocket])if(rocket?.userData.parachute?.advance(delta))settling=true;if(settling)this.draw();if(this.data.running===false&&!['impact','destroyed'].includes(this.data.flight?.status)&&this.data.other?.status!=='destroyed')return Boolean(settling);const transition=this.separation,separating=transition&&this.data.running!==false&&transition.visualAge<.6;if(separating)transition.visualAge=Math.min(.6,transition.visualAge+elapsed);const releasing=this.launchStarted&&this.launchArmAge<(this.reducedMotion?.25:1.1);if(releasing)this.launchArmAge+=delta;const vapour=this.launchEffects.advance(delta);if(this.impacts.advance(delta)||separating||releasing||vapour){this.draw();return true;}return false;}
   project(position){const p=position.clone().project(this.camera);const r=this.host.getBoundingClientRect();return {x:(p.x+1)*r.width/2,y:(1-p.y)*r.height/2,visible:p.z>=-1&&p.z<=1&&Math.abs(p.x)<.98&&Math.abs(p.y)<.98};}
   slotPoints(part=null,source=null){
     if(!this.rocket)return [];this.rocket.updateMatrixWorld();const engine=part?.startsWith('engine-'),tank=['small','medium','large'].includes(part);
