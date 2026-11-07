@@ -189,7 +189,7 @@ export function createLandscape(relief){
 }
 
 export function buildRocket(c,separated,capsuleOnly=false){
-  const group=new THREE.Group(),white=material('#edf1eb',{roughness:.42}),skin=material('#ffffff',{map:surface('payload'),roughness:.5}),shell=material('#ffffff',{map:surface('separator'),roughness:.55,metalness:.25}),dark=material('#4b535c',{map:surface('metal'),metalness:.78,roughness:.36,side:THREE.DoubleSide}),metal=material('#a2b3b9',{map:surface('metal'),metalness:.7,roughness:.38}),mint=material('#318d84',{metalness:.3}),orange=material('#d59257',{metalness:.3}),slots=[],parts=[],ranges=[];let y=0,partParent=group,separatorY=null;
+  const group=new THREE.Group(),white=material('#edf1eb',{roughness:.42}),skin=material('#ffffff',{map:surface('payload'),roughness:.5}),shell=material('#ffffff',{map:surface('separator'),roughness:.55,metalness:.25}),dark=material('#4b535c',{map:surface('metal'),metalness:.78,roughness:.36,side:THREE.DoubleSide}),metal=material('#a2b3b9',{map:surface('metal'),metalness:.7,roughness:.38}),mint=material('#318d84',{metalness:.3}),orange=material('#d59257',{metalness:.3}),slots=[],parts=[],ranges=[],capsulePorts=[];let y=0,partParent=group,separatorY=null;
   const mesh=(geometry,mat,x,yy,z,parent=partParent)=>{const m=new THREE.Mesh(geometry,mat);m.position.set(x,yy,z);parent.add(m);return m;};
   const microDetails=[],bolts=new THREE.IcosahedronGeometry(1,0),pipe=new THREE.CylinderGeometry(1,1,1,8),band=new THREE.CylinderGeometry(1,1,1,32),tankMats=Object.fromEntries(['small','medium','large'].map(k=>[k,material('#ffffff',{map:surface(k),roughness:.55,metalness:.22})])),batch=(g,m,rows)=>{const mesh=instances(partParent,g,m,rows);if(g===bolts||g.type==='TorusGeometry')microDetails.push(mesh);return mesh;};
   c.stages.forEach((s,i)=>{
@@ -222,9 +222,11 @@ export function buildRocket(c,separated,capsuleOnly=false){
   batch(new THREE.SphereGeometry(1,12,8),dark,[-1,1].map(side=>[side*.4,faceY,1.24,.16,.16,.16]));batch(new THREE.SphereGeometry(1,8,6),material('#ffffff'),[-1,1].map(side=>[side*.4-.03,faceY+.05,1.37,.07,.07,.07]));
   const smile=new THREE.TorusGeometry(.24,.035,6,14,Math.PI);const mouth=mesh(smile,dark,0,faceY-.25,1.32);mouth.rotation.z=Math.PI;
   mesh(new THREE.CylinderGeometry(.04,.04,1.1,8),metal,0,y+3.6,0);mesh(new THREE.SphereGeometry(.17,10,8),orange,0,y+4.15,0);
+  for(const side of [-1,1]){const angle=side*20*Math.PI/180,pod=mesh(new THREE.SphereGeometry(.22,16,12),white,side*1.39,y+1.12,0);pod.scale.set(.85,1.5,1);pod.name='capsule-engine-pod';
+    const nozzle=new THREE.Group();nozzle.position.set(side*1.5,y+.95,0);nozzle.rotation.z=angle;partParent.add(nozzle);const bell=mesh(new THREE.CylinderGeometry(.07,.13,.16,16,1,true),dark,0,0,0,nozzle);bell.name='capsule-return-engine';const rim=mesh(new THREE.TorusGeometry(.13,.012,6,20),metal,0,-.08,0,nozzle);rim.rotation.x=Math.PI/2;rim.name='capsule-engine-exit';capsulePorts.push([side*1.5+.08*Math.sin(angle),y+.95-.08*Math.cos(angle),0,angle]);}
   }
   partParent=group;
-  if(capsuleOnly){const underside=parts.find(p=>p.userData.part.part==='capsule'),shield=mesh(new THREE.CylinderGeometry(1.4,1.3,.25,48),material('#40382f',{roughness:.96,metalness:0,emissive:'#ff6622',emissiveIntensity:0}),0,.05,0,underside);shield.name='capsule-heat-shield';group.userData.heatShield=shield;for(const x of [-.42,.42]){const bell=mesh(new THREE.CylinderGeometry(.07,.13,.16,16,1,true),dark,x,-.155,0,underside);bell.name='capsule-return-engine';const rim=mesh(new THREE.TorusGeometry(.13,.012,6,20),metal,x,-.235,0,underside);rim.rotation.x=Math.PI/2;}}
+  if(capsuleOnly){const underside=parts.find(p=>p.userData.part.part==='capsule'),shield=mesh(new THREE.CylinderGeometry(1.4,1.3,.25,48),material('#40382f',{roughness:.96,metalness:0,emissive:'#ff6622',emissiveIntensity:0}),0,.05,0,underside);shield.name='capsule-heat-shield';group.userData.heatShield=shield;}
   const rcs=[new THREE.Group(),new THREE.Group()],nozzles=[];
   if(P.hasCapsule(c))for(const [index,direction]of [-1,1].entries())for(const [level,side]of [[y+.25,-direction],[1.8,direction]]){
     nozzles.push([side*1.53,level,0,.13,.24,.13,0,0,-side*Math.PI/2]);
@@ -233,9 +235,9 @@ export function buildRocket(c,separated,capsuleOnly=false){
     }
   }
   batch(new THREE.CylinderGeometry(1,1,1,10),dark,nozzles);for(const jets of rcs){jets.visible=false;group.add(jets);}
-  const flame=new THREE.Group(),clustered=capsuleOnly||c.stages[separated?1:0].engine===0,exits=capsuleOnly?[[-.42,0],[.42,0]]:clustered?[[-.61,-.61],[-.61,.61],[.61,-.61],[.61,.61]]:[[0,0]];flame.position.y=capsuleOnly?-.245:-.04;
+  const flame=new THREE.Group(),clustered=capsuleOnly||c.stages[separated?1:0].engine===0,exits=capsuleOnly?capsulePorts:clustered?[[-.61,-.61],[-.61,.61],[.61,-.61],[.61,.61]]:[[0,0]];flame.position.y=capsuleOnly?0:-.04;flame.userData.ports=capsuleOnly?capsulePorts:null;
   for(const [radius,length,color,opacity]of capsuleOnly?[[.13,.65,'#58b9ec',.5],[.085,.42,'#a9e7ff',.65],[.045,.24,'#fff4d8',.9]]:clustered?[[.43,4.2,'#ffad52',.45],[.27,3.1,'#b4e8ff',.8],[.13,1.8,'#fff8e7',1]]:[[.9,5.4,'#69b9ff',.45],[.52,4,'#b4e8ff',.8],[.25,2.4,'#fff8e7',1]]){
-    const plume=instances(flame,new THREE.ConeGeometry(radius,length,20).rotateZ(Math.PI),new THREE.MeshBasicMaterial({color,transparent:true,opacity,blending:capsuleOnly&&radius>.1?THREE.NormalBlending:THREE.AdditiveBlending,depthWrite:false,toneMapped:false}),exits.map(([x,z])=>[x,-length/2,z,1,1,1]));
+    const plume=instances(flame,new THREE.ConeGeometry(radius,length,20).rotateZ(Math.PI),new THREE.MeshBasicMaterial({color,transparent:true,opacity,blending:capsuleOnly&&radius>.1?THREE.NormalBlending:THREE.AdditiveBlending,depthWrite:false,toneMapped:false}),exits.map(p=>capsuleOnly?[p[0]+Math.sin(p[3])*length/2,p[1]-Math.cos(p[3])*length/2,p[2],1,1,1,0,0,p[3]]:[p[0],-length/2,p[1],1,1,1]));
     // Keep full-width bounds while throttle only narrows the individual plumes.
     plume.computeBoundingSphere();
   }

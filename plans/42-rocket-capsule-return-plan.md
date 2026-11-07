@@ -419,3 +419,15 @@ source＋extracted SCORM、1280×800／390×844共4條完整返航flows、errors
 證據output/reports/rocket-full-turn-all-node.txt、rocket-full-turn-browser.json及同前綴check／registry／closure報告、reentry-heat截圖。最終runtime `366a5608913d6e527fa82fe87231f6a79c6b205541fdde77e0db6b7dbd157ae2`；來源與477-entry SCORM ZIP逐byte一致，原481檔不變。沿用58 cases／305 registry entries，無新資產依賴。熱模型仍屬教學近似，不是材料溫度／高超音速飛行安全驗證；未做真手機／真Moodle實測。
 
 實作commit `629527564aa2aaa387a5a1cb605ab476387b108d`；committed selection-preview見output/reports/rocket-full-turn-selection.json，只記錄選取，實際執行為上述focused checks。Site dist全476 runtime檔與來源一致，Site來源 `68908371c396ec65f59af98b125e3b309b8501d0`；deployment `appgdep_6aeeea812b7881918b5c144cad1c56f4` 於2026-11-07 17:08:23 UTC+08 native succeeded。原owner-private權限及網址 https://simlab-rocket-side-booster.ieyp.chatgpt.site 維持，證據output/reports/rocket-full-turn-sites.json。成功保存／部署後清理本次tar與中途失敗截圖，保留Site checkout、最終驗證證據及使用者附件。
+
+## 22. 側置返航噴嘴與完整隔熱盾（2026-11-07，實作前決策）
+
+使用者指出隔熱盾下方兩噴嘴破壞結構合理性。第19節的艙底雙噴嘴配置由本節取代：移除盾面下的返航噴嘴，改為艙身兩側對稱小引擎艙，噴嘴約離艙底0.95m，略向外斜20°，小火焰從各自出口向外／後方噴出，避開艙身及完整盾面。組裝時、分艙後及切換操控對象都使用相同側置零件，不等分艙才突然出現。參考NASA Crew Dragon結構示意 https://www.nasa.gov/wp-content/uploads/2015/10/commercial_crew_press_kit_2.pdf ，但不宣稱此教學模型的兩噴嘴數量或性能與真實Dragon一致。
+
+本次修改是幾何／視覺佈置：左右側向分力抵消，沿用返航引擎合成軸向3kN及等效Isp300s，不新增獨立噴嘴燃料／側推模型；評分風險、rubric、phase／variant matrix、snapshot欄位、既有熱劑量與分離物理不變。噴流在噴嘴局部座標縮長縮窄，防止沿全艙原點縮放時滑離出口。保留360°操控、熱盾發光／再入尾流、紅白傘、關機／耗盡／開傘鎖定。
+
+範圍：scene-art側艙與出口、scene火焰矩陣、既有gentleRelease browser幾何斷言與截圖。無新依賴／manifest項目。驗證完整盾面無下穿噴嘴、組裝／分艙一致、0／25／100%油門下火焰貼齊兩出口且不穿盾或艙身、左右對稱與無側移、主／副操控對象、舊draft還原、再入／開傘／提交；source及extracted SCORM桌面／手機trusted input與art／recovery Node，沿用既有test owner及註冊。
+
+實際驗證：art／recovery兩組Node、browser inventory、check:tests、check及diff whitespace通過。source＋extracted SCORM在1280×800／390×844共12 flows、errors=[]。組裝時已有兩側小艙；分艙後兩噴嘴中心x=±1.5／y=0.95m，最低點>0.7m，與盾面上緣0.175m保持間距。0／25／100%油門、關機及燃料耗盡、兩操控對象切換均正常；三層火焰基部和各自出口誤差<1微米，所有噴流頂點均在艙身／隔熱盾外，最大可見長度<0.7m。已目視桌面近鏡與手機組裝／點火畫面。
+
+既有溫和分離0至4秒逐格距離、無側移、還原續作、360°手動返航、主／副視角再入光效、紅白傘、著陸／提交鎖定亦通過。證據output/reports/rocket-side-pods-browser.json及同前綴node／check／registry／closure報告、capsule-side-pod-detail及capsule-side-pods-attached截圖；仍58 cases／305 registry entries。無物理、snapshot、評分或新依賴變更，原481檔未改；未做真手機／真Moodle或獨立噴嘴熱流／推力校準。

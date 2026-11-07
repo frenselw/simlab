@@ -111,7 +111,9 @@ export class RocketScene{
   }
   drawEngine(rocket,f){const flame=rocket.userData.flame,lit=Boolean(f&&M.coreThrust(f)>0);flame.visible=lit;if(!lit)return;
     const capsule=Boolean(f.capsule?.detached),throttle=f.controls.throttle,width=capsule ? .35+.65*throttle : .65+.35*throttle;
-    flame.scale.y=(capsule ? .2+.8*throttle : .4+.7*throttle)*(this.reducedMotion?.9:.9+(capsule ? .03 : .08)*Math.sin(f.t*(capsule?16:9)));
+    const lengthScale=(capsule ? .2+.8*throttle : .4+.7*throttle)*(this.reducedMotion?.9:.9+(capsule ? .03 : .08)*Math.sin(f.t*(capsule?16:9)));
+    if(capsule){const matrix=new THREE.Matrix4(),scale=new THREE.Vector3(width,lengthScale,width);for(const plume of flame.children){const half=plume.geometry.parameters.height*lengthScale/2;flame.userData.ports.forEach(([x,y,z,angle],i)=>{matrix.makeRotationZ(angle).scale(scale).setPosition(x+Math.sin(angle)*half,y-Math.cos(angle)*half,z);plume.setMatrixAt(i,matrix);});plume.instanceMatrix.needsUpdate=true;}flame.userData.width=width;return;}
+    flame.scale.y=lengthScale;
     if(flame.userData.width!==width){const matrix=new THREE.Matrix4();for(const plume of flame.children){for(let i=0;i<plume.count;i++){plume.getMatrixAt(i,matrix);matrix.elements[0]=matrix.elements[10]=width;plume.setMatrixAt(i,matrix);}plume.instanceMatrix.needsUpdate=true;}flame.userData.width=width;}
   }
   drawThermal(rocket,f){
