@@ -27,23 +27,51 @@ export function createParachute(){
  const seamUV=[];for(let i=0;i<24;i++)for(let j=0;j<12;j++)seamUV.push([i*Math.PI/12,j/12],[i*Math.PI/12,(j+1)/12]);for(const t of [0,4/12,5/12,9/12,1])for(let i=0;i<96;i++)seamUV.push([i*Math.PI/48,t],[(i+1)*Math.PI/48,t]);
  const seamGeometry=new THREE.BufferGeometry(),ropeGeometry=new THREE.BufferGeometry();seamGeometry.setAttribute('position',new THREE.Float32BufferAttribute(new Float32Array(seamUV.length*3),3));ropeGeometry.setAttribute('position',new THREE.Float32BufferAttribute(new Float32Array(24*6*2*3),3));
  const seams=new THREE.LineSegments(seamGeometry,new THREE.LineBasicMaterial({color:'#b6b9b3',transparent:true,opacity:.65})),lines=new THREE.LineSegments(ropeGeometry,new THREE.LineBasicMaterial({color:'#eee9db',transparent:true,opacity:.85}));seams.name='parachute-seams';lines.name='parachute-lines';lines.userData.ropeCount=24;for(const mesh of [cloth,seams,lines]){mesh.frustumCulled=false;group.add(mesh);}
- const smooth=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x);},v=new THREE.Vector3(),n=new THREE.Vector3(),end=new THREE.Vector3();let lastStatus;
- group.advance=dt=>{if(group.landingAge>=3.2)return false;group.landingAge=Math.min(3.2,group.landingAge+dt);return true;};
+ const smooth=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x);},v=new THREE.Vector3(),n=new THREE.Vector3(),end=new THREE.Vector3();let lastStatus,lastAir,landing;
+ group.landingDuration=5.5;
+ group.advance=dt=>{if(!Number.isFinite(dt)||dt<=0||group.landingAge>=group.landingDuration)return false;group.landingAge=Math.min(group.landingDuration,group.landingAge+dt);return true;};
  // shortcut: gusts deform cloth only; add a wind field before modelling lateral drift.
  group.update=(f,reducedMotion,live)=>{
-  const c=f.capsule.chute,O=window.RocketOrbit,R=window.RocketRecovery,air=window.RocketModel.atmosphere(O.elements(f.state).height),landed=f.status==='landed';
-  if(landed&&lastStatus!=='landed')group.landingAge=lastStatus==='flying'&&live&&!reducedMotion?0:3.2;lastStatus=f.status;if(!landed)group.landingAge=Infinity;if(landed&&!live)group.landingAge=3.2;
+  const c=f.capsule.chute,O=window.RocketOrbit,R=window.RocketRecovery,orbit=O.elements(f.state),air=window.RocketModel.atmosphere(orbit.height),landed=f.status==='landed';
+  group.landingDuration=reducedMotion?.45:5.5;
+  if(landed&&lastStatus!=='landed'){
+   const continuing=live&&lastStatus==='flying'&&lastAir&&c.phase!=='stowed';group.landingAge=continuing?0:group.landingDuration;
+   landing=continuing?{...lastAir,cloth:geometry.attributes.position.array.slice(),normals:geometry.attributes.normal.array.slice(),seams:seamGeometry.attributes.position.array.slice(),ropes:ropeGeometry.attributes.position.array.slice()}:null;
+  }
+  lastStatus=f.status;if(!landed){group.landingAge=Infinity;landing=null;}if(landed&&!live){group.landingAge=group.landingDuration;landing=null;}
   group.visible=c.phase!=='stowed'&&!['destroyed','impact'].includes(f.status);if(!group.visible)return;
-  const wind=Math.atan2(Math.sin(f.attitude-Math.atan2(f.state[4],f.state[3])-Math.PI),Math.cos(f.attitude-Math.atan2(f.state[4],f.state[3])-Math.PI)),age=Math.max(0,f.t-(c.since??f.t)),extraction=c.phase==='drogue-opening'?smooth(age/.55):1,main=c.phase==='main-opening'?.3+.25*smooth(age/1.3)+.45*smooth((age-1.5)/2.5):c.phase==='main'?1:.3,fill=c.phase==='drogue-opening'?smooth((age-.55)/1.45):1,flow=landed?1:air>1e-5?R.chuteLoad(f):0,collapse=landed?smooth(group.landingAge/3.2):0;
-  const radius=(c.phase==='drogue-opening'?.045+.255*fill:main)*(.12+.88*flow),breath=reducedMotion?1:1+.012*Math.sin(f.t*2.2)*flow*(1-collapse),rScale=(radius*(1-smooth(collapse*1.6))+.5*smooth(collapse*1.6))*breath,height=(3*radius*fill*flow+.7*(1-fill*flow))*(1-smooth(collapse*2))+.045*smooth(collapse*2),fullLine=c.phase==='main-opening'?2.04+4.76*smooth(age/1.1):6.8*main,line=(.15+(fullLine-.15)*extraction)*(.55+.45*flow),lineY=line*(1-collapse)-3.235*collapse,offsetX=.65*(1-extraction)+5.4*smooth(collapse*1.8)-.8*(1-flow)*(1-collapse)*Math.sign(wind||1);
-  const sag=Math.max(-1.8,Math.min(1.8,wind)),tilt=(sag+Math.atan2(Math.sin(wind-sag),Math.cos(wind-sag))*flow+(reducedMotion?0:(.035*Math.sin(f.t*.8)+.018*Math.sin(f.t*1.7))*flow))*(1-collapse),cos=Math.cos(tilt),sin=Math.sin(tilt),theta=Math.atan2(f.state[1],f.state[0]),S=window.RocketSurface;
-  let slope=0;if(landed){const q=f.state,sample=d=>S.radius([q[0]-Math.sin(theta)*d,q[1]+Math.cos(theta)*d,0,0,0,0],f.t);slope=(sample(10)-sample(-10))/20;}
-  const floor=x=>-3.255+slope*x;
-  const point=(phi,t,out,offset=0)=>{const angle=.08+(Math.PI/2-.08)*t,wave=reducedMotion?0:Math.sin(phi*6+f.t*4)*.065*t**4*(.25+.75*flow)*(1-collapse),r=6*Math.sin(angle)*rScale*(1+.008*Math.sin(phi*24)**2)*(1-collapse*(.12+.12*Math.sin(phi*3+.8)**2+.08*Math.sin(phi*7+t*8)**2)),x=-r*Math.cos(phi),y=lineY+height*Math.cos(angle)+wave+collapse*(.14*Math.sin(phi*7+t*11)+.08*Math.cos(phi*3+t*17)),z=r*Math.sin(phi);out.set(x*cos-y*sin+offsetX,x*sin+y*cos+offset,z);if(landed)out.y=Math.max(out.y,floor(out.x)+.012+offset);return out;};
+  const age=Math.max(0,f.t-(c.since??f.t)),extraction=c.phase==='drogue-opening'?smooth(age/.55):1,main=c.phase==='main-opening'?.3+.25*smooth(age/1.3)+.45*smooth((age-1.5)/2.5):c.phase==='main'?1:.3,fill=c.phase==='drogue-opening'?smooth((age-.55)/1.45):1;
+  let flow=air>1e-5?R.chuteLoad(f):0,wind=landed?(landing?.wind??lastAir?.wind??0):Math.atan2(Math.sin(f.attitude-Math.atan2(f.state[4],f.state[3])-Math.PI),Math.cos(f.attitude-Math.atan2(f.state[4],f.state[3])-Math.PI));
+  const radius=(c.phase==='drogue-opening'?.045+.255*fill:main)*(.12+.88*flow),breath=reducedMotion?1:1+.012*Math.sin(f.t*2.2)*flow,fullLine=c.phase==='main-opening'?2.04+4.76*smooth(age/1.1):6.8*main;
+  let rScale=radius*breath,height=3*radius*fill*flow+.7*(1-fill*flow),line=(.15+(fullLine-.15)*extraction)*(.55+.45*flow),lineY=line,offsetX=.65*(1-extraction)-.8*(1-flow)*Math.sign(wind||1);
+  const sag=Math.max(-1.8,Math.min(1.8,wind));let tilt=sag+Math.atan2(Math.sin(wind-sag),Math.cos(wind-sag))*flow+(reducedMotion?0:(.035*Math.sin(f.t*.8)+.018*Math.sin(f.t*1.7))*flow),clock=f.t,slack=0,settle=0,collapse=0;
+  if(landed){
+   const origin=landing||lastAir||{rScale:main,height:3*main,line:fullLine,lineY:fullLine,offsetX:0,tilt:0,flow:1,time:f.t,wind:0},t=reducedMotion?5.5:group.landingAge/group.landingDuration*5.5,deflate=smooth((t-.15)/2.4),sink=smooth((t-.08)/3.4),side=Math.sign(origin.offsetX-Math.sin(origin.tilt)*origin.lineY)||-Math.sign(origin.wind)||1;
+   slack=smooth(t/1.6);settle=smooth((t-2.6)/2.9);collapse=smooth(t/5.5);flow=origin.flow*(1-deflate);clock=origin.time+Math.min(group.landingAge,group.landingDuration);
+   rScale=origin.rScale*(1-.12*deflate-.18*settle);height=origin.height*(1-deflate)+.08*deflate;line=origin.line*(1-.6*slack);lineY=origin.lineY*(1-sink)-3.235*sink;offsetX=origin.offsetX+side*(6.9*smooth(t/2)-1.1*settle);tilt=origin.tilt*(1-sink)+side*.42*Math.sin(Math.PI*sink)*(1-settle);
+  }
+  const cos=Math.cos(tilt),sin=Math.sin(tilt),ground=group.userData.ground,normal=ground?.normal||new THREE.Vector3(0,1,0),level=ground?.level??-.055;
+  const contact=(out,lift,rest=0)=>{const distance=normal.x*out.x+normal.y*(out.y+group.position.y)+normal.z*out.z-level;if(distance<lift)out.addScaledVector(normal,lift-distance);else if(rest>0)out.addScaledVector(normal,(lift-distance)*rest);return out;};
+  const point=(phi,t,out,offset=0)=>{
+   const angle=.08+(Math.PI/2-.08)*t,wave=reducedMotion?0:Math.sin(phi*6+clock*4)*(.065+.09*slack)*t**4*(.25+.75*flow)*(1-settle),crumple=slack*(1-flow),fold=settle*(.04+.22*Math.sin(phi*7+t*11+(1-settle)*Math.sin(clock)*.3)**2+.1*Math.cos(phi*3+t*17)**2),r=6*Math.sin(angle)*rScale*(1+.008*Math.sin(phi*24)**2)*(1-.15*crumple*Math.sin(phi*3+t*4)**2-settle*(.12+.12*Math.sin(phi*3+.8)**2+.08*Math.sin(phi*7+t*8)**2)),x=-r*Math.cos(phi),y=lineY+height*Math.cos(angle)+wave+fold+(1-settle)*crumple*(.75*Math.sin(phi*3+t*8)+.3*Math.sin(phi*7+t*3))*t**1.2,z=r*Math.sin(phi);
+   out.set(x*cos-y*sin+offsetX,x*sin+y*cos+offset,z);if(landed)contact(out,.012+offset+fold,settle);return out;
+  };
   for(let i=0;i<uv.count;i++){const phi=uv.getX(i)*Math.PI*2,t=1-uv.getY(i),a=.08+(Math.PI/2-.08)*t;point(phi,t,v);geometry.attributes.position.setXYZ(i,v.x,v.y,v.z);n.set(-Math.cos(phi)*Math.sin(a)/Math.max(.03,6*rScale),Math.cos(a)/Math.max(.05,height),Math.sin(phi)*Math.sin(a)/Math.max(.03,6*rScale)).normalize();const nx=n.x;n.x=nx*cos-n.y*sin;n.y=nx*sin+n.y*cos;geometry.attributes.normal.setXYZ(i,n.x,n.y,n.z);}
   seamUV.forEach(([phi,t],i)=>{point(phi,t,v,.012);seamGeometry.attributes.position.setXYZ(i,v.x,v.y,v.z);});
-  let k=0;for(let i=0;i<24;i++){const phi=i*Math.PI/12;point(phi,1,end);const x=-.15*Math.cos(phi),z=.15*Math.sin(phi);for(let j=0;j<6;j++)for(const u of [j/6,(j+1)/6]){v.set(x+(end.x-x)*u,end.y*u+((1-flow)*.8-collapse*1.8)*Math.sin(Math.PI*u),z+(end.z-z)*u);if(landed){const distance=Math.max(.01,Math.hypot(end.x,end.z)),sx=1.65*end.x/distance,sz=1.65*end.z/distance,sy=Math.max(-.4,end.y*.35),a=Math.min(1,u/.35),b=Math.max(0,(u-.35)/.65),weight=smooth(collapse*2);n.set(u<=.35?x+(sx-x)*a:sx+(end.x-sx)*b,u<=.35?sy*a+.2*Math.sin(Math.PI*a):sy+(end.y-sy)*b-collapse*1.8*Math.sin(Math.PI*b),u<=.35?z+(sz-z)*a:sz+(end.z-sz)*b);v.lerp(n,weight);v.y=Math.max(v.y,floor(v.x)+.008);} ropeGeometry.attributes.position.setXYZ(k++,v.x,v.y,v.z);}}
-  for(const g of [geometry,seamGeometry,ropeGeometry])g.attributes.position.needsUpdate=true;if(landed)geometry.computeVertexNormals();geometry.attributes.normal.needsUpdate=true;group.motion={radiusScale:rScale,lineLength:line,fill,flow,collapse,tilt,extraction,landed,floorSlope:slope};
+  let k=0;for(let i=0;i<24;i++){const phi=i*Math.PI/12;point(phi,1,end);const x=-.15*Math.cos(phi),z=.15*Math.sin(phi);for(let j=0;j<6;j++)for(const u of [j/6,(j+1)/6]){
+   v.set(x+(end.x-x)*u,end.y*u+((1-flow)*.8-slack*1.8)*Math.sin(Math.PI*u),z+(end.z-z)*u);
+   if(landed){const distance=Math.max(.01,Math.hypot(end.x,end.z)),sx=1.65*end.x/distance,sz=1.65*end.z/distance,sy=Math.max(-.4,end.y*.35),a=Math.min(1,u/.35),b=Math.max(0,(u-.35)/.65),weight=smooth((group.landingAge/group.landingDuration*5.5-.6)/2.1);n.set(u<=.35?x+(sx-x)*a:sx+(end.x-sx)*b,u<=.35?sy*a+.2*Math.sin(Math.PI*a):sy+(end.y-sy)*b-slack*1.8*Math.sin(Math.PI*b),u<=.35?z+(sz-z)*a:sz+(end.z-sz)*b);v.lerp(n,weight);contact(v,.008,settle*Math.max(0,(u-.35)/.65));}
+   ropeGeometry.attributes.position.setXYZ(k++,v.x,v.y,v.z);
+  }}
+  // Preserve the rendered airborne pose while pressure and rope tension start to release.
+  const handoff=landing?(reducedMotion?(group.landingAge<group.landingDuration/2?0:1):smooth(group.landingAge/.45)):1;
+  if(handoff<1)for(const [g,from]of [[geometry,landing.cloth],[seamGeometry,landing.seams],[ropeGeometry,landing.ropes]]){const positions=g.attributes.position.array;for(let i=0;i<positions.length;i++)positions[i]=from[i]+(positions[i]-from[i])*handoff;}
+  if(landed){geometry.computeVertexNormals();if(handoff<1){const normals=geometry.attributes.normal;for(let i=0;i<normals.count;i++){n.fromBufferAttribute(normals,i).multiplyScalar(handoff).addScaledVector(v.fromArray(landing.normals,i*3),1-handoff).normalize();normals.setXYZ(i,n.x,n.y,n.z);}}}
+  for(const g of [geometry,seamGeometry,ropeGeometry])g.attributes.position.needsUpdate=true;geometry.attributes.normal.needsUpdate=true;
+  const fading=landed&&reducedMotion&&landing&&group.landingAge<group.landingDuration,opacity=fading?smooth(Math.abs(1-2*group.landingAge/group.landingDuration)):1;
+  if(fading&&!cloth.material.transparent){cloth.material.transparent=true;cloth.material.needsUpdate=true;}cloth.material.opacity=opacity;seams.material.opacity=.65*opacity;lines.material.opacity=.85*opacity;cloth.material.depthWrite=opacity===1;
+  group.motion={radiusScale:rScale,lineLength:line,fill,flow,collapse,slack,settle,tilt,extraction,landed,floorSlope:ground?.slope||0};
+  if(!landed)lastAir={rScale,height,line,lineY,offsetX,tilt,flow,time:f.t,wind};
  };
  return group;
 }

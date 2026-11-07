@@ -66,3 +66,11 @@ Header實測：workshop各尺寸52px；flight桌面1280為52px、844橫屏99px�
 Runtime ordered SHA-256 `d8cbb2964a17b0bc8d3d3a75da4a9cc627e1ed9b5d82085a3e9df5777addc3dd`；standalone ZIP471 entries／15,980,584 bytes、SHA-256 `af5a155f37b9f2119e3c53a3de2b129faca482bf9b3ce0f9c30d157d1994226e`；source／解壓ZIP／Site471檔一致。舊火箭活動481個hash不變。實體手機仍未驗證。
 
 重排版本已發佈至同一owner-private Site，官方helper新source commit `1c65ee5a0e14f633d071e7109d5fafb5facd844c`；deployment `appgdep_6aef56db6a4c8191a024490501890ab8`／version `appgprj_6aeca66555b481919803e437687c4fa8~appgver_4a3475379e748191ae0adf395de2013b`，server回傳 succeeded（2026-11-08 00:50 +08）。原網址 https://simlab-rocket-side-booster.ieyp.chatgpt.site 。
+
+## 降落傘觸地連續動畫
+
+使用者指出下降及觸地塌傘過渡生硬。確認現行landed分支會以零速度重新計風向、強制flow=1，scene亦將艙身瞬間擺正。改為捕捉最後空中傘形／風向／繩長，在觸地首幀保持幾何及艙身朝向；其後用約5.5秒獨立視覺時間分段鬆繩、失壓、側傾下沉、接觸地面及皺摺阻尼收尾。保留紅白花紋、24繩、現有開傘條件／阻力／安全落地物理，不改snapshot或探索狀態。Reduced-motion採0.45秒淡出／淡入、無快速側移或飄動；背景不推進，物理暫停時容許觸地視覺收尾；同一任務切換操控保留正在塌落的傘，不重新跳到終點。布及繩以艙身朝向及地面法線投影，避免穿地。
+
+驗證production Three幾何首幀差異、鬆繩／洩氣／接地／收尾中間幀、無模型狀態變動、30/60FPS一致、reduced-motion、斜艙／斜坡接地、操控切換連續，以及實際完整返航（包括20×下降）的source及standalone。新增於既有browser owner的parachute case；不新增依賴／部件／物理模組。既有9個Node/package測試、registry及protected481檔維持。
+
+視覺驗證另修正：最後接地採漸進法線貼地，避免斜坡上高側懸空；洩氣過程傘瓣逐步摺曲，並避開艙身外形，避免硬碟般翻倒或穿過太空艙。
