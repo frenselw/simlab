@@ -399,3 +399,5 @@ baseline `0a4f96d` 以同一貼合狀態再運行4秒仍維持兩底部約6.101m
 實際驗證：art／recovery兩組Node、browser inventory、check:tests、check及diff whitespace通過。source＋extracted SCORM在1280×800及390×844共4條完整返航flows、errors=[]；減速傘、主傘開啟中與完全張開、存檔還原、著陸／提交鎖定均通過。目視兩種尺寸的紅白傘瓣、白色裙邊與24條懸吊繩，傘頂通風孔／接縫採程序幾何，單傘只需3個draw calls。沿用原尺寸及開傘時序，未改物理或評分。
 
 證據output/reports/rocket-red-white-chute-browser.json、同前綴node／check／registry／closure報告及red-white-chute截圖。最終runtime `4284f067aca86add97ea31b14bcaf2406318de07673668e8acbbdf242c14fbdb`；來源及477-entry SCORM ZIP逐byte一致，原481檔不變。沿用58 cases／305 registry entries；未做真手機／真Moodle驗證。
+
+實作commit `1ca2c26a0a880dc35874f3784b9e46906cacd062`；committed selection-preview見output/reports/rocket-red-white-chute-selection.json，只記錄選取，實際執行為上述focused checks。Site dist全476 runtime檔與來源一致，Site來源 `12798fc36f1d4ae8452fc8fa301e6324fa9a406f`；deployment `appgdep_6aeee6e27be0819185720b739fc075a5` 於2026-11-07 16:52:56 UTC+08 native succeeded。原owner-private權限及網址 https://simlab-rocket-side-booster.ieyp.chatgpt.site 維持，證據output/reports/rocket-red-white-chute-sites.json。成功保存／部署後清理本次tar，保留Site checkout、驗證證據及使用者附件。
