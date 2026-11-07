@@ -315,3 +315,7 @@ model5 recordData = [C, V, coreFuel, active, separated, t, status,
 
 
 本輪實作及驗證：按鈕保留原ID，顯示／禁用統一由renderCommandZones負責；引擎與分離動作不再經舊邏輯先隱藏再顯示。十組活動Node、browser inventory audit（57 cases）、check／check:tests（305 entries）及diff whitespace通過。source＋extracted SCORM共12 flows通過：四種尺寸各走點火／關機、助推器／下級／太空艙分離，五個按鈕在所屬區域的相對位置變化<1px、觸控高度≥44px、固定deck≤80px、無整頁水平溢出；另四條既有完整返航／存檔／唯讀提交流程仍通過。桌面用原生滑鼠，其餘尺寸用trusted touch，操控選擇器另有原生鍵盤驗證。證據保存output/reports/rocket-control-zones-node.txt、rocket-control-zones-browser.json及output/playwright/rocket-side-booster-lab/*control-zones*.png。本輪沒有聲稱真手機／Moodle驗收。
+
+實作commit `02b2e3ff299d3c57e2b89d209646f32edbcc0583`；runtime `9bd5b80d9cad7c1a6eaf724b3cd816c0aa8e663fc4cca7e3492091e8c29039e5` 的來源／477-entry SCORM ZIP／Site dist逐byte一致，原活動481檔不變。committed selection為e4d8b3c→實作head，affected／263 entries，詳output/reports/rocket-control-zones-selection.json（選取證據，非實跑）。
+
+原私人Sites已更新且權限不變：Site來源 `37a9604b44f5699b23376ab486cb517a480842a2`，deployment `appgdep_6aeeb2012d808191b37e79aa5f8a9750` 於2026-11-07 13:07:20 UTC+08 native succeeded；網址仍為 https://simlab-rocket-side-booster.ieyp.chatgpt.site 。證據output/reports/rocket-control-zones-sites.json；封裝tar保存成功後已移除，Site checkout及原有附件保留。
