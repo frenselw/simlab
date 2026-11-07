@@ -52,3 +52,9 @@ Subagent確認兩項P2，均已修正：
 審查修正交付：runtime commit `a00456f760694f112cb08901100515f0917d48ab`，Site新source commit `1561a7a20ef302cd82bfd1c5c320338682ddc5b8`。部署 `appgdep_6aef52fb41e48191ad73d187f6e5532d`／version `appgprj_6aeca66555b481919803e437687c4fa8~appgver_0c9aacf4c7348191b8c9066a8559b25c`，server回傳 succeeded（2026-11-08 00:34 +08），同一owner-private網址。
 
 `npm run check`／`check:tests`通過，registry仍301 entries；committed selection-preview `output/reports/rocket-explorer-audit-selection.json`（base `8b0dbb64ace3b746d4fb491b714382097577e200`），不宣稱全庫測試執行。審查browser報告 `output/playwright/rocket-side-booster-lab/explorer-audit-report.json`。本次ordered runtime SHA-256 `dc58f21698ef8366bae97ec1cf58fe1b6f2aab541691e126f2c6b65e186cb50b`；ZIP471 entries／15,980,482 bytes，SHA-256 `268223e281b06cd62cb74e7980ed5f2c518743e5bc5c1f0a25e041f106e30ab5`，source／解壓standalone／Site471檔一致。原481檔hash不變。
+
+## 飛行操作重新分區
+
+依使用者要求：油門與360°轉向盤必須是flightPanel第一個可見內容；將操控對象、繼續／暫停、點火、分離、降落傘待命與時間倍率移至header同一固定toolbar。Desktop至少960px採一行，較窄屏幕將主題行保留，toolbar用三欄兩行：操控／繼續／倍速，以及點火／分離／降落傘；44px目標、不橫向藏掣。降落傘位置固定，分艙前／操控二級時禁用，維持原有待命及安全自動開傘物理。近／遠地點及T+保留成controls-pane頂部的小型讀數列，狀態說明與返航細節移至主操控之後。
+
+本次不改物理、聲音、倍速規則或探索狀態；評分／SCORM仍N/A。驗證source與standalone的workshop／flight／detached／ended header排版、六viewport無重疊及所有按鈕可見、panel首項位置與捲動、trusted touch／fullscreen兩個popup、native點火分離及開傘流程。既有Node／package、registry及原481檔hash需保持。
