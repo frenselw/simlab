@@ -517,3 +517,13 @@ range input按既有control更新即時油門，change時保存，主體切換�
 證據output/reports/rocket-dial-fader-node.txt、rocket-dial-fader-browser.json、rocket-dial-fader-check.txt、rocket-dial-fader-registry.txt、rocket-dial-fader-closure.json及dial-fader尺寸截圖。runtime `cc6cc7b78865b1dab774539c39a5cee5fce49a15f50210cd97b7f0419e229162`，477-entry SCORM全部476 runtime檔與source逐byte一致，原481檔hash不變。無新增依賴、答案欄位或評分規則；未驗證真手機Safari／真Moodle，垂直range使用現代瀏覽器writing-mode支援，教學物理模型保持不變。
 
 交付：實作commit `279664a45511c9df3fca698576a8e2887ff37bbd`；committed selection-preview見output/reports/rocket-dial-fader-selection.json（只記選取，實際執行為上述focused checks）。Site dist全476 runtime檔與source／SCORM一致；Site source `19445fd3d7c3c19d097484cc7c7eaea8e5480fcc`，deployment `appgdep_6aef2f2a97a88191ab6c187a3fc942f7` 於2026-11-07 22:01:22 UTC+08 native succeeded，維持原owner-private及 https://simlab-rocket-side-booster.ieyp.chatgpt.site 。證據output/reports/rocket-dial-fader-sites.json；成功後清理本次tar及中途失敗截圖，保留checkout、套件、最終QA及使用者附件。
+
+## 28. 發射台坑口渠壁及懸空固定座（2026-11-07，實作前）
+
+使用者紅框顯示固定座在排焰坑上。renderer同角度隱藏渠壁及俯視核對：原四座採0.5rad旋轉，其中一座中心約(x=1.49,z=-2.72)，落在|x|<1.8的排焰槽，另有渠壁頂+0.3m高過台面+0.015m。固定座改為45°對角、半徑4.2m的四點對稱配置；幾何完整邊界須離排焰槽壁(±2.1m)有空隙、避開半徑1.7m坑口，座底留在台面。兩側壁改為底-2.7／頂-0.1m，近端退到z=-2.4m，尾端-26m不變。主圓坑、導流板、坑底、格柵及動畫保留；新增padAnchors場景引用供同一模型檢查，無新依賴／答案欄位／物理或評分改動。
+
+沿用launchSite browser owner：四座逐instance變換geometry bounds，驗證全部座體避開坑口／槽與壁並坐在台面；檢查兩側壁top≤-0.1、近端≤-2.4、尾端=-26、底=-2.7，坑口正／斜俯視截圖及原切口／坑底pixel檢查、發射臂與煙霧流程。source及解壓SCORM均執行，原481檔hash保持。schema7／model5與SCORM生命週期及原活動不變，維持58 cases／305 registry entries。未驗證真手機／真Moodle；本次為視覺模型修正。
+
+實際驗證：art Node與browser inventory兩組通過，check、check:tests（305 entries／58 activity browser cases）及diff whitespace通過。最終`--launch-site-only` source／解壓SCORM共6 flows／errors=[]：兩套各一個坑口幾何／俯斜視fixture及桌面1280、手機390的既有發射臂、蒸氣、暫停／加速獨立效果時鐘、清理流程。逐instance完整Box3邊界證實四座全體避開1.7m坑口及2.1m槽壁、座底0.01m貼台面；兩側壁頂-0.1、底-2.7、近端-2.4、尾端-26，留有實際間隙。原切口pixel對比及坑底封口檢查通過，shader無錯誤。新坑口helper亦掛進一般launchSite owner，非只在focused flag執行。
+
+已檢視最終斜／俯視截圖：固定座四點對稱坐在實心台面，沒有一座懸在槽上；保留source舊版／隱藏渠壁對照作定位證據。證據output/reports/rocket-pad-opening-node.txt、rocket-pad-opening-inventory.txt、rocket-pad-opening-browser.json、rocket-pad-opening-check.txt、rocket-pad-opening-registry.txt、rocket-pad-opening-closure.json及pad-opening-oblique／overhead截圖。runtime `7d0d7871629d7c821c4d3777c83477a89ea71efa48cb096ba90c26b42c57712b`，477-entry SCORM全476 runtime檔與source逐byte一致，原481檔hash不變。未做真手機／真Moodle；本次未改物理或操控，未重跑不相關飛行整組。

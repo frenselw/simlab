@@ -129,10 +129,10 @@ export function createPad(){
  const deck=add(new THREE.RingGeometry(1.7,8,64),material('#ffffff',{map:markings,roughness:.85,side:THREE.DoubleSide}),0,.015,0);deck.rotation.x=-Math.PI/2;
  add(new THREE.CylinderGeometry(1.7,1.7,2.7,32,1,true),material('#566361',{side:THREE.DoubleSide}),0,-1.35,0);const throat=add(new THREE.CircleGeometry(1.7,32),material('#263a3d'),0,-2.7,0);throat.rotation.x=-Math.PI/2;
  const trench=new THREE.Group();group.add(trench);const channelMaterial=material('#78837b',{roughness:.95}),channelGeometry=new THREE.BufferGeometry();channelGeometry.setAttribute('position',new THREE.Float32BufferAttribute([-1.8,-2.7,-1.5,1.8,-2.7,-1.5,-1.8,-2.7,-20,1.8,-2.7,-1.5,1.8,-2.7,-20,-1.8,-2.7,-20,-1.8,-2.7,-20,1.8,-2.7,-20,-1.8,-.1,-26,1.8,-2.7,-20,1.8,-.1,-26,-1.8,-.1,-26],3));channelGeometry.computeVertexNormals();trench.add(new THREE.Mesh(channelGeometry,material('#394b4d',{roughness:.95})));
- instances(trench,new THREE.BoxGeometry(1,1,1),channelMaterial,[[-1.95,-1.2,-13.75,.3,3,24.5],[1.95,-1.2,-13.75,.3,3,24.5],[0,-1.45,-26.15,4.2,2.7,.3],[0,-3.05,-13.7,4.2,.3,24.8]]);
+ instances(trench,new THREE.BoxGeometry(1,1,1),channelMaterial,[[-1.95,-1.4,-14.2,.3,2.6,23.6],[1.95,-1.4,-14.2,.3,2.6,23.6],[0,-1.45,-26.15,4.2,2.7,.3],[0,-3.05,-13.7,4.2,.3,24.8]]);
  const deflector=new THREE.Mesh(new THREE.BoxGeometry(3.2,.25,3.5),material('#7a8580',{metalness:.35}));deflector.position.set(0,-1.65,-1.4);deflector.rotation.x=-.5;trench.add(deflector);
  const grates=instances(group,new THREE.BoxGeometry(1,1,1),steel,[-5.5,-23].flatMap(z=>Array.from({length:5},(_,i)=>[0,.22,z+i*.18,3.6,.1,.08])));
- instances(group,new THREE.BoxGeometry(1,1,1),steel,Array.from({length:4},(_,i)=>{const a=i*Math.PI/2+.5;return [3.1*Math.cos(a),.32,3.1*Math.sin(a),.7,.62,1.3,0,-a,0];}));
+ const anchors=instances(group,new THREE.BoxGeometry(1,1,1),steel,Array.from({length:4},(_,i)=>{const a=i*Math.PI/2+Math.PI/4;return [4.2*Math.cos(a),.32,4.2*Math.sin(a),.7,.62,1.3,0,-a,0];}));
  instances(group,new THREE.CylinderGeometry(1,1,1,8),steel,Array.from({length:32},(_,i)=>{const a=i*Math.PI/16;return [6.5*Math.cos(a),.11,6.5*Math.sin(a),.09,.13,.09];}));
  const shadow=canvasMap('shadow',128,128,(x)=>{const g=x.createRadialGradient(64,64,8,64,64,60);g.addColorStop(0,'#19303866');g.addColorStop(1,'#19303800');x.fillStyle=g;x.fillRect(0,0,128,128);}),contact=add(new THREE.PlaneGeometry(7,7),new THREE.MeshBasicMaterial({map:shadow,transparent:true,depthWrite:false}),0,.025,0);contact.rotation.x=-Math.PI/2;
  const fixtureMaterial=material('#ffffff',{roughness:.78,metalness:.18}),boxGeometry=new THREE.BoxGeometry(1,1,1),cylinderGeometry=new THREE.CylinderGeometry(1,1,1,12);
@@ -160,7 +160,7 @@ export function createPad(){
  box(support,0,.05,-27,5,.12,1,'#4c6268');
  instances(launch,boxGeometry,fixtureMaterial,support);instances(launch,cylinderGeometry,fixtureMaterial,pipes);
  const shadowMat=new THREE.MeshBasicMaterial({map:shadow,transparent:true,depthWrite:false});instances(workshop,new THREE.PlaneGeometry(1,1),shadowMat,[[-9,-.77,0,6,4,1,-Math.PI/2],[9.5,-.77,-5.5,5,5,1,-Math.PI/2],[9,-.77,3,4,3,1,-Math.PI/2]]);
- group.workshopFloor=floor;group.workshopFixtures=workshop;group.launchFixtures=launch;group.launchTower=tower;group.serviceArms=arms;group.apron=apron;group.padDeck=deck;group.flameTrench=trench;group.trenchGrates=grates;
+ group.workshopFloor=floor;group.workshopFixtures=workshop;group.launchFixtures=launch;group.launchTower=tower;group.serviceArms=arms;group.apron=apron;group.padDeck=deck;group.padAnchors=anchors;group.flameTrench=trench;group.trenchGrates=grates;
  group.nearDetails=group.children.filter(o=>o!==floor&&o!==apron);group.userData={flameTrench:true,anchorCount:4,assemblyClearRadius:6,serviceTower:true,waterTower:true};return group;
 }
 export function createLaunchEffects(){
