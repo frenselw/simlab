@@ -74,3 +74,11 @@ Runtime ordered SHA-256 `d8cbb2964a17b0bc8d3d3a75da4a9cc627e1ed9b5d82085a3e9df57
 驗證production Three幾何首幀差異、鬆繩／洩氣／接地／收尾中間幀、無模型狀態變動、30/60FPS一致、reduced-motion、斜艙／斜坡接地、操控切換連續，以及實際完整返航（包括20×下降）的source及standalone。新增於既有browser owner的parachute case；不新增依賴／部件／物理模組。既有9個Node/package測試、registry及protected481檔維持。
 
 視覺驗證另修正：最後接地採漸進法線貼地，避免斜坡上高側懸空；洩氣過程傘瓣逐步摺曲，並避開艙身外形，避免硬碟般翻倒或穿過太空艙。
+
+觸地動畫驗證：9個Node/package檔案、`npm run check`及`check:tests`通過（仍301 registry entries）。最終source與解壓standalone共14個針對性browser flows：8個parachute（1280桌面60／30FPS、390手機60FPS、reduced-motion）及各2個完整20×返航、effects／鏡頭、雙飛船／終止狀態。全部報告runtime hash一致、runtime／HTTP錯誤為零；沒有重跑本次不涉及的其餘完整layout／assembly／controls cases，不宣稱全庫測試。
+
+所有觸地首幀布／繩幾何最大差為0，艙身角度不跳；正常60FPS每幀最大傘面位移約0.152m、30FPS約0.305m，最後幾何30／60FPS一致。普通塌落5.5秒，坡面布／繩不穿近似接地面，最後布面最高約0.368m；兩次native切換操控後仍同一canopy／相同landingAge。視覺收尾前後模型JSON不變。Reduced-motion .45秒以低透明度切換形狀，首幀亦無跳變、沒有快速可見側移。Normal及reduced-motion截圖已目視；背景凍結沿用既有document.hidden guard，未新增實體手機背景測試。
+
+報告`output/playwright/rocket-side-booster-lab/explorer-chute-report.json`、同前綴`return/effects/flight-report.json`；console及build／committed selection-preview在`output/reports/rocket-explorer-chute-*`。Runtime commit `36a867982d65e004fff03b12f92016a955370654`，selection base `611d56d`；預覽不是全庫執行證據。Ordered runtime SHA-256 `0318987830cfef1bf95061954bd51440a117a0743eade2dc5fd834edae965321`。Standalone ZIP471 entries／15981844 bytes，SHA-256 `98406dcb986647b450190bb28fe453d684f8cbc0f6458c7a95ef6e89026ac18a`；source／解壓ZIP／Site471檔一致，舊火箭481檔hash不變。實體手機未驗證。
+
+觸地動畫更新已發佈至原owner-private Site：source commit `690a180168f9b47a55d03cdafe0dea5d0aebc749`；deployment `appgdep_6aef604f77d48191afe9dab99327e0f9`／version `appgprj_6aeca66555b481919803e437687c4fa8~appgver_85f3f60571748191b7f9089932a2f832`，server回傳 succeeded（2026-11-08 01:31 +08）。網址 https://simlab-rocket-side-booster.ieyp.chatgpt.site 。發佈前source credential過期，更新同一Site憑證後官方helper正常完成；沒有更改audience或原火箭活動。
