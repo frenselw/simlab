@@ -487,3 +487,15 @@ source＋extracted SCORM、1280×800／390×844共4條完整返航flows、errors
 證據：output/reports/rocket-warp-deck-node.txt、rocket-warp-deck-browser.json、rocket-warp-deck-check.txt、rocket-warp-deck-registry.txt、rocket-warp-deck-closure.json，以及source／package的warp-deck-long及warp-fullscreen截圖。runtime `4e703268eebc42b6cf9642e589bfb50079f4d10301c2115b2dedae5260492c01`；477-entry SCORM ZIP全476 runtime檔與source逐byte一致，原481檔hash未變。未驗證真手機／真Moodle；物理、布料與熱效應仍沿用原有教學近似，高負載裝置仍以實際倍率顯示每幀預算限制。
 
 交付：實作commit `aabe2adebe218327afa681679a8f0e8b1b92e52c`；committed selection-preview見output/reports/rocket-warp-deck-selection.json（只記選取，實際執行為上述focused checks）。Site dist全476 runtime檔與通過測試的source／SCORM逐byte一致；Site source `17d59aa8d535288c26f65104ad75499306df90c9`，deployment `appgdep_6aef253dffa4819183e472e3689921aa` 於2026-11-07 21:19:00 UTC+08 native succeeded，維持原owner-private及 https://simlab-rocket-side-booster.ieyp.chatgpt.site 。證據output/reports/rocket-warp-deck-sites.json；成功後清理task tar及重複Node／中途失敗截圖，保留checkout、package、最終QA及使用者附件。
+
+## 26. 分離二級的撞地與RCS修復（2026-11-07，實作前）
+
+使用者回報二級離地0m仍顯示約120m/s、漂浮／轉動且沒有爆炸，轉向沒有RCS。範圍：recovery的terminal接地收束、scene的主／副物件撞毀顯示與一次性效果／暫停尾段、scene-art二級RCS及同一轉動顯示邏輯。保留M.step撞擊瞬間速度供原有試飛分析；分離後二級透過既有settle清零速度並停止點火。已撞毀物件不因切換操控／讀檔而重新出現，不重播爆炸。所有有引擎的火箭具既有成對姿控噴口；噴流只隨實際轉向，主物件及未選中二級均可見，終止後熄滅。
+
+舊紀錄合法保留的撞擊瞬間速度仍可解碼，已撞地HUD則顯示0並隱藏速度箭頭；繼續播放後二級狀態收束為零速。沿用schema7／model5、rubric與SCORM依賴，不增加資源、評分或持久狀態。Node驗證海面／陸地碰撞後二級速度零、後續不再平移／轉向、capsule仍可獨立續飛與encode/decode合法續行。既有capsuleReturn browser owner加入二級左右轉／停轉／未選中時RCS、低空撞地爆炸一次／消失、切換及恢復不復活不重播；source與解壓SCORM desktop／phone尺寸並驗證。原活動481檔保持hash；實際執行及未驗證範圍另記。
+
+實際驗證：活動10組Node及browser inventory共11組通過，check／check:tests（305 entries）、inventory（58 activity cases）及diff whitespace通過。Node用t=704.6s、120.4m/s的陸地／發射點與遠端山地fixtures，證實二級撞地status=impact、speed=0、引擎關閉、自動處置結束，後續無沿撞擊速度的平移／轉向；接地隨既有地表收束，capsule仍獨立續飛。各狀態encode/decode及合法續行通過，舊impact snapshot原有瞬間速度可解碼，續播歸零。
+
+最終`--upper-impact-only`集中執行既有capsuleReturn owner的upperStageFaults斷言；source與解壓SCORM在1280×800及390×844完成4 flows／errors=[]。每flow各測選中／未選中二級的兩次撞地（共8次）、零速、一次爆炸及暫停後效果收尾、機體消失、切換不復活、讀檔不重播；舊120.4m/s撞擊紀錄在HUD顯示0.0並關閉速度箭頭。左右兩種真實轉向各見一對RCS噴流，停轉後熄滅，未選中二級亦噴氣，沒有以鏡頭旋轉觸發。RCS姿態樣本改由各mesh持有，兩主體不共用轉向樣本；現有chute無RCS測試亦改為注入實際mesh pose。既有capsuleReturn全組執行時保留此helper，無新增case／registry owner。
+
+證據output/reports/rocket-upper-impact-node.txt、rocket-upper-impact-inventory.txt、rocket-upper-impact-browser.json、rocket-upper-impact-check.txt、rocket-upper-impact-registry.txt、rocket-upper-impact-closure.json及upper-rcs／upper-ground-impact截圖。runtime `870fd3cf0fb633ce7f2dad7681b2c7b4c30809472898d60a0fdf54a21189e064`；477-entry SCORM全476 runtime檔與source逐byte一致，原481檔hash不變。未做真手機／真Moodle；RCS仍沿用教學用12°/s轉向與程序噴流，沒有新增角動量／姿控燃料模型。

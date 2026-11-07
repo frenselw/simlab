@@ -34,7 +34,7 @@
     if(c.phase==='drogue'&&h<=3000&&o.speed<=80&&q<=4000){c.phase='main-opening';c.since=f.t;}
     if(c.phase==='main-opening'&&f.t-c.since>=4)c.phase='main';
   }
-  function settle(f){if(['landed','impact'].includes(f.status)){const r=Math.hypot(f.state[0],f.state[1]),ground=S.radius(f.state,f.t);f.state[0]*=ground/r;f.state[1]*=ground/r;f.maxHeight=Math.max(f.maxHeight,ground-P.R);}}
+  function settle(f){if(['landed','impact'].includes(f.status)){f.state[3]=f.state[4]=f.state[5]=0;f.controls.lit=false;const r=Math.hypot(f.state[0],f.state[1]),ground=S.radius(f.state,f.t);f.state[0]*=ground/r;f.state[1]*=ground/r;f.maxHeight=Math.max(f.maxHeight,ground-P.R);}}
   function contactVelocity(q,t){
     const r=Math.hypot(q[0],q[1]),a=Math.atan2(q[1],q[0]),e=20/P.R;
     const sample=b=>S.radius([r*Math.cos(b),r*Math.sin(b),0,0,0,0],t),slope=(sample(a+e)-sample(a-e))/40,n=Math.sqrt(1+slope*slope),radial=(q[0]*q[3]+q[1]*q[4])/r,tangent=(-q[1]*q[3]+q[0]*q[4])/r;

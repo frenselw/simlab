@@ -246,7 +246,7 @@ export function buildRocket(c,separated,capsuleOnly=false){
   partParent=group;
   if(capsuleOnly){const underside=parts.find(p=>p.userData.part.part==='capsule'),shield=mesh(new THREE.CylinderGeometry(1.4,1.3,.25,48),material('#40382f',{roughness:.96,metalness:0,emissive:'#ff6622',emissiveIntensity:0}),0,.05,0,underside);shield.name='capsule-heat-shield';group.userData.heatShield=shield;}
   const rcs=[new THREE.Group(),new THREE.Group()],nozzles=[];
-  if(P.hasCapsule(c))for(const [index,direction]of [-1,1].entries())for(const [level,side]of [[y+.25,-direction],[1.8,direction]]){
+  if(P.hasCapsule(c)||c.stages.some(st=>st.engine!==null))for(const [index,direction]of [-1,1].entries())for(const [level,side]of [[P.hasCapsule(c)?y+.25:y-.25,-direction],[1.8,direction]]){
     nozzles.push([side*1.53,level,0,.13,.24,.13,0,0,-side*Math.PI/2]);
     for(const [radius,length,opacity]of [[.5,3.2,.45],[.23,2.1,.9]]){
       const plume=mesh(new THREE.ConeGeometry(radius,length,10),new THREE.MeshBasicMaterial({color:radius>.3?'#7bc9ff':'#e1f6ff',transparent:true,opacity,blending:THREE.AdditiveBlending,depthWrite:false,toneMapped:false}),side*(1.65+length/2),level,0,rcs[index]);plume.rotation.z=side*Math.PI/2;plume.userData.baseOpacity=opacity;
