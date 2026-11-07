@@ -35,3 +35,16 @@
 - 同一private Site：`appgprj_6aeca66555b481919803e437687c4fa8`；網址 https://simlab-rocket-side-booster.ieyp.chatgpt.site 。Owner-private audience保持，Site顯示標題已更新。
 - 官方helper將目前新檔建立並推送 Site commit `885c82d53d564d3f841382ff37b1376756d5dfb4`；其後部署該SHA之archive。Version `appgprj_6aeca66555b481919803e437687c4fa8~appgver_1bb256bdf8dc8191a104480bab71204f`；deployment `appgdep_6aef50aa080081919338f94c53557513`，server回傳 succeeded（2026-11-08 00:24 +08）。
 - 部署前自動審核曾因opening receipt為舊SHA而拒絕helper input；核對helper先commit／push current source的流程與471檔一致證據後，同一官方helper重試通過。沒有部署舊SHA或回退。
+
+## Subagent 審查跟進
+
+本次限定審查探索版模擬，不改原火箭活動。已重現：太空艙燒毀後，仍存活二級可用1000×，但frame loop錯用已終止太空艙的下落速度限縮步長，導致實際約0.8×。修正邊界限速只檢查仍飛行本體；驗證已終止太空艙＋存活二級、原有正常再入及frame budget。狀態／rubric／SCORM仍N/A，無新功能。審查其餘結論及執行證據於完成後補錄。
+
+Subagent確認兩項P2，均已修正：
+
+1. 太空艙在65 km再入燒毀、二級仍在200 km手動滑行時，原1000×實際只達0.8×；frame邊界檢查排除已終止本體。
+2. 太空艙離開100,000 km模型界線、二級仍在200 km時，原每次繼續只運行2模擬秒便暫停；radius-stop亦只對仍飛行太空艙生效，保留七日上限與全部結束停止。
+
+修正前regression已失敗；修正後Node/package九檔通過。Chrome在source及解壓standalone各執行雙飛船控制、沿軸分離、RCS和兩種終止太空艙＋存活二級1000×操作；均通過、無runtime／HTTP errors。證據`output/reports/rocket-explorer-audit-node.txt`、`rocket-explorer-audit-browser.txt`及browser report。
+
+另以真實Web Audio native-click啟動，確認穩定軌道音樂有非零RMS訊號，真空飛行音效為零；暫停、實際繼續按鈕恢復及靜音通過。證據`output/reports/rocket-explorer-audit-audio.json`（驗證音訊圖訊號，沒有量測揚聲器）。Subagent未再重現組裝、分離動量、自動離軌、開傘、熱防護或套件重大缺陷；不宣稱無bug。原二維及簡化姿控／熱劑量限制保留；實體手機仍未驗證。
