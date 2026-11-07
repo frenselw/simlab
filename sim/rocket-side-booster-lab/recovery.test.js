@@ -38,7 +38,7 @@ for(const height of [27000,60000,100000,200000])for(const attitude of [0,.7,Math
  for(let i=0;i<800;i++){M.advance(s,.01);assert.equal(R.contact(s.flight),null,'No overlap at '+height+'/'+attitude+'/'+i);if(i===100)round(s);}round(s);
 }
 {
- const s=M.change(orbit(),{type:'capsule-separate'}),f=s.flight,u=f.upperStage;f.state[1]-=.5;const before=[3,4].map(i=>R.mass(f)*f.state[i]+P.mass(u)*u.state[i]);f.state[3]=u.state[3];f.state[4]=u.state[4]-2;const momentum=[3,4].map(i=>R.mass(f)*f.state[i]+P.mass(u)*u.state[i]);assert(R.contact(f));R.resolveContact(f);assert.equal(R.contact(f),null);for(const [j,i]of [3,4].entries())assert(Math.abs(R.mass(f)*f.state[i]+P.mass(u)*u.state[i]-momentum[j])<1e-7);
+ const s=M.change(orbit(),{type:'capsule-separate'}),f=s.flight,u=f.upperStage;f.state[1]-=.5;const before=[3,4].map(i=>R.mass(f)*f.state[i]+P.mass(u)*u.state[i]);f.state[3]=u.state[3];f.state[4]=u.state[4]-2;const momentum=[3,4].map(i=>R.mass(f)*f.state[i]+P.mass(u)*u.state[i]);assert(R.contact(f));R.resolveContact(f,M.atmosphere);assert.equal(R.contact(f),null);for(const [j,i]of [3,4].entries())assert(Math.abs(R.mass(f)*f.state[i]+P.mass(u)*u.state[i]-momentum[j])<1e-7);
 }
 console.log('Capsule separation: inherited velocity, gentle spring impulses, twelve altitude/attitude cases, mass-weighted nonpenetration, momentum and restore continuations passed.');
 
@@ -65,3 +65,14 @@ console.log('Near-ground release at 1/10/100/500m: axial 12m/s push, .25/2s huma
 {
  let s=orbit();s.flight.state=[P.R+999.9,0,0,2,0,0];s.flight.maxHeight=1000;s.flight.attitude=.7;s=M.change(s,{type:'capsule-separate'});const f=s.flight,u=f.upperStage;assert(Math.abs((f.state[3]-u.state[3])*Math.cos(.7)+(f.state[4]-u.state[4])*Math.sin(.7)-12)<1e-8);assert(Math.abs((f.state[3]-u.state[3])*Math.sin(.7)-(f.state[4]-u.state[4])*Math.cos(.7))<1e-8);round(s);
 }
+
+for(const remaining of [0,500,3000,6000]){
+ let s=T.singlePad(0,0,1);Object.assign(s.flight,{state:[P.R+4163.4,0,0,277.5,0,0],status:'flying',t:40,maxHeight:4163.4,fuel:[remaining,null]});s.phase='coast';s=M.change(s,{type:'capsule-separate'});const f=s.flight,u=f.upperStage;f.state=[P.R+4163.4,0,0,277.5,0,0];u.state=[f.state[0]-R.stageHeight(u)-.001,0,0,277.5,0,0];f.capsule.fuel=25.9;f.controls.lit=true;f.t=u.t=44;u.auto.separatedAt=40;
+ round(s);M.advance(s,.2);assert(u.state[4]>3.9&&u.state[4]<=4);assert(Math.abs(f.state[1])<.1);assert.equal(f.attitude,0);round(s);const restored=D.decode(T.snapshot(s),'draft');for(let i=0;i<80;i++){M.advance(restored,.05);assert.equal(R.contact(restored.flight),null);}const r=restored.flight,v=r.upperStage;assert(Math.abs(r.state[1]-v.state[1])>10);assert(Math.hypot(r.state[0]-v.state[0],r.state[1]-v.state[1])>50);assert(Math.abs(r.state[1])<.1&&Math.abs(r.state[4])<.1);assert.equal(r.attitude,0);assert(v.state[4]<=4);assert(r.capsule.fuel<25.9);round(restored);
+}
+console.log('Screenshot replay 4163.4m / 277.5m/s / 25.9kg: empty and full stage clear the path, capsule stays upright, old touching drafts recover and restore never repeats the stage impulse.');
+
+for(const pressure of [0,1999,2001]){
+ let s=orbit();s.flight.state=[P.R+4163.4,0,0,277.5,0,0];s.flight.attitude=0;s=M.change(s,{type:'capsule-separate'});const f=s.flight,u=f.upperStage;f.state[0]=u.state[0]+R.stageHeight(u)-.001;f.state[3]=u.state[3]=277.5;const before=[3,4].map(i=>R.mass(f)*f.state[i]+P.mass(u)*u.state[i]);R.resolveContact(f,()=>2*pressure/277.5**2);const delta=[3,4].map((i,j)=>R.mass(f)*f.state[i]+P.mass(u)*u.state[i]-before[j]);assert(Math.abs(delta[0])<1e-7);assert(Math.abs(delta[1]-(pressure>2000?4*P.mass(u):0))<1e-7);assert.equal(f.state[4],0);assert.equal(R.contact(f),null);
+}
+console.log('Stage jet activates only above 2kPa; capsule has no transverse kick, axial contact momentum is conserved and transverse body momentum matches the exhaust impulse.');

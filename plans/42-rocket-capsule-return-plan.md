@@ -361,3 +361,15 @@ model5 recordData = [C, V, coreFuel, active, separated, t, status,
 最終runtime `d4c9affd88952ac89a493f9c76f80035a1c4300788a2e29619d8362a5f6fe69d`，來源、477-entry SCORM ZIP及Site dist逐byte一致，原481檔不變。無新依賴／snapshot欄位／評分規則；移除本次中途檢查的可棄置log，保留最終證據。
 
 實作commit `23189b6cdf5851cf0ad1536687f8d21df2f58311`；committed selection-preview見output/reports/rocket-launch-capsule-selection.json，只記錄選取。私人Sites已更新：Site來源 `7c13a74c99d086ea98f2a0aa590b767aeddfe54f`，deployment `appgdep_6aeecbbba98c8191be12fd50c18b3957` 於2026-11-07 14:57:06 UTC+08 native succeeded；網址 https://simlab-rocket-side-booster.ieyp.chatgpt.site ，權限維持原有owner-private。證據output/reports/rocket-launch-capsule-sites.json；成功保存／部署後清理本次tar，保留Site checkout與原有附件。
+
+## 18. 高動壓追撞與二級避碰（2026-11-07，已實作）
+
+使用者截圖的海拔4163.4m／277.5m/s／太空艙燃料25.9kg，是高速大氣分艙後仍點火卻黏住的實例。第17節的低速2m測試不能代表此情況；再次加大太空艙推力或只按高度調彈力不能解決同軸追撞。空氣阻力令輕艙比重級減速快；完全非彈性軸向接觸使二者維持貼合。
+
+保留太空艙純軸向分離、朝向、3kN引擎、真實阻力及接觸；在動壓>2kPa且二級正追撞艙底、橫向相對速度不足0.5m/s時，二級自己的分離氣體噴口給一次4m/s側向避碰衝量，移離碰撞路徑。衝量只施加二級，來自噴出的氣體，不向太空艙施加反方向衝量；不能宣稱兩個剩餘主體是封閉動量系統。教學近似：分離氣體儲備包含在二級乾重中，忽略其<0.3%質量消耗；需計算分離推進劑預算時再顯式建模。只在追撞接觸時觸發，正常真空分艙沒有此動作。既有已貼合的Moodle draft下一步也可恢復避碰，不要求重飛；避碰後橫向速度／位置已存於原snapshot，還原不重複施加。
+
+接觸後保留各自主體慣性，二級可能先沿上升方向從旁追過，不預設它立即下墜；保留同一世界比例且不提前隱藏它。以短氣體噴流表達二級避碰，太空艙不打側、不以固定動畫移開。無新零件、按鈕、依賴、schema欄位或評分規則；保留三個同排固定主按鈕。驗證截圖單級大推力引擎＋大箱、滿／空級、既有貼合snapshot、初始／接觸後／還原／視角切換，另保留剛離地、27km、200km、完整返航與鎖定提交。
+
+質量近似以本模型200s等效比衝估算，4m/s脈衝所需質量比例約0.204%，不代表真實型號的噴口校準。最終Node十組、browser inventory、check:tests及check通過。source＋extracted SCORM共32 browser flows、errors=[]，其中8條精確重播已貼合4163.4m／277.5m/s／25.9kg的舊draft（1280×800／390×844、空／滿級）。0.2秒顯示二級噴氣，1秒時側向間距至少3.70m、噴氣已停；4秒時兩模型底部距離約154m／302m、側向13.2m／15.5m，兩件仍在飛行，太空艙姿態及橫向速度均為0。切換操控主體／中途儲存還原不重複加速，模型位置與renderedDistance逐格一致、scale ratio=1。真空前向輕分離、近地點火、完整返航／提交亦通過。
+
+baseline `0a4f96d` 以同一貼合狀態再運行4秒仍維持兩底部約6.101m（接點幾乎無間隙），新程式能移開；前後數據見output/reports/rocket-pressure-clearance-before-after.json，browser及Node見同前綴browser.json／node.txt、check／registry／closure報告及pressure截圖。沿用58 cases／305 registry entries。最終runtime `f7f56d8e08e1a559b344763d752996df6e585b96d4a1663c00217cdd28a2f1c1` 的來源與477-entry SCORM ZIP逐byte一致、原481檔不變；未做真手機／真Moodle驗證。
