@@ -389,3 +389,13 @@ baseline `0a4f96d` 以同一貼合狀態再運行4秒仍維持兩底部約6.101m
 證據：output/reports/rocket-gentle-release-node.txt、rocket-gentle-release-browser.json（外觀微調前32 flows）、rocket-gentle-engines-browser.json（最終12 flows）、同前綴before-after／closure／check／registry報告；gentle-release與capsule-thruster-detail截圖。baseline `381196a` 同一4km上升情境4秒後出現二級側移並越過太空艙，現在空／滿級都維持前向小速度差（空級4秒間距約3.15m，滿級約4.10m）。最終runtime `3b4b8e6ffa7d9fb47b930fd2ee126330d84c2bc06947a0740c898c2495fbfb95` 來源與477-entry SCORM ZIP逐byte一致，原481檔不變。check／check:tests通過，仍58 cases／305 registry entries；無新依賴或snapshot欄位。此版採教學氣動近似，未做CFD校準／真手機／真Moodle驗證；既有已施加側推的舊軌跡不會被偷偷重置，需新試飛觀察新版分離。
 
 實作commit `78f3068b13a907d9c990346c1eaac56d81e045e0`；committed selection-preview見output/reports/rocket-gentle-release-selection.json，只記錄選取。Site dist逐byte核對同一runtime，Site來源 `835f5155902e45878c3257fff7cafdfb5ef3c4e5`；deployment `appgdep_6aeee1b3d6ec81918d71e924fcb551a1` 於2026-11-07 16:30:51 UTC+08 native succeeded。原owner-private權限及網址 https://simlab-rocket-side-booster.ieyp.chatgpt.site 不變，證據output/reports/rocket-gentle-release-sites.json；成功保存／部署後移除本次tar，保留Site checkout、驗證證據及原有附件。
+
+## 20. 紅白降落傘外觀（2026-11-07）
+
+依使用者提供的Crew Dragon照片改為紅白交錯放射傘瓣、白色橫帶／裙邊、圓鼓傘面、頂部通風孔及細傘繩。沿用單一降落傘與原有減速傘／主傘開啟時序、尺寸及阻力參數；不新增零件選項、評分、snapshot欄位或依賴。造型由scene-art工廠產生，scene沿用原來開傘縮放；繩索根部固定在艙頂，縮小減速傘時不縮入艙身。
+
+本次為非評分外觀修改，既有評分風險／rubric／phase matrix／authoritative snapshot不變；檢查source與extracted SCORM桌面及手機trusted touch完整返航、開傘中存檔還原、著陸與提交鎖定，並目視紅白傘瓣及繩索。沿用已註冊capsuleReturn browser owner，不新增測試入口。來源、SCORM及原私人Site需一致；原火箭活動不得變更。
+
+實際驗證：art／recovery兩組Node、browser inventory、check:tests、check及diff whitespace通過。source＋extracted SCORM在1280×800及390×844共4條完整返航flows、errors=[]；減速傘、主傘開啟中與完全張開、存檔還原、著陸／提交鎖定均通過。目視兩種尺寸的紅白傘瓣、白色裙邊與24條懸吊繩，傘頂通風孔／接縫採程序幾何，單傘只需3個draw calls。沿用原尺寸及開傘時序，未改物理或評分。
+
+證據output/reports/rocket-red-white-chute-browser.json、同前綴node／check／registry／closure報告及red-white-chute截圖。最終runtime `4284f067aca86add97ea31b14bcaf2406318de07673668e8acbbdf242c14fbdb`；來源及477-entry SCORM ZIP逐byte一致，原481檔不變。沿用58 cases／305 registry entries；未做真手機／真Moodle驗證。

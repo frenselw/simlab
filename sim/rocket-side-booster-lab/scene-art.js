@@ -19,6 +19,19 @@ export function textureBudget(){return [...cache.values()].reduce((bytes,t)=>byt
 export const EARTH_DAY=86164.2;
 export function material(color,extra={}){const {roughness=.65,metalness=.12,...options}=extra;return new THREE.MeshPhongMaterial({color,shininess:Math.max(2,(1-roughness)*60),specular:new THREE.Color('#ffffff').multiplyScalar(.06+metalness*.25),...options});}
 export function dispose(group){const geometries=new Set(),materials=new Set();group.traverse(o=>{if(o.isInstancedMesh)o.dispose();if(o.geometry)geometries.add(o.geometry);if(o.material)for(const m of Array.isArray(o.material)?o.material:[o.material])materials.add(m);});for(const g of geometries)g.dispose();for(const m of materials)m.dispose();}
+export function createParachute(){
+ const group=new THREE.Group();group.position.y=3.2;group.userData.recoveryDecoration=true;
+ const point=(phi,t)=>{const theta=.08+(Math.PI/2-.08)*t,r=6*Math.sin(theta)*(1+.008*Math.sin(phi*24)**2);return new THREE.Vector3(-r*Math.cos(phi),6.8+3*Math.cos(theta)+.05*Math.sin(phi*24)**2*t**12,r*Math.sin(phi));};
+ const dome=new THREE.SphereGeometry(1,48,12,0,Math.PI*2,.08,Math.PI/2-.08),uv=dome.attributes.uv;
+ for(let i=0;i<uv.count;i++){const p=point(uv.getX(i)*Math.PI*2,1-uv.getY(i));dome.attributes.position.setXYZ(i,p.x,p.y,p.z);}dome.computeVertexNormals();
+ const geometry=dome.toNonIndexed();dome.dispose();const colors=[],red=new THREE.Color('#d7463c'),white=new THREE.Color('#f2f1e9'),coords=geometry.attributes.uv;
+ for(let i=0;i<coords.count;i+=3){const u=(coords.getX(i)+coords.getX(i+1)+coords.getX(i+2))/3,t=1-(coords.getY(i)+coords.getY(i+1)+coords.getY(i+2))/3,sector=Math.floor(u*24),band=Math.floor(t*12),color=(band<4&&sector%2===0||band>=5&&band<9&&sector%2===1)?red:white;for(let j=0;j<3;j++)colors.push(color.r,color.g,color.b);}
+ geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));const cloth=new THREE.Mesh(geometry,material('#ffffff',{vertexColors:true,side:THREE.DoubleSide,roughness:.95,metalness:0}));cloth.name='parachute-cloth';group.add(cloth);
+ const seams=[],ropes=[],stitch=(a,b)=>{for(const p of [a,b]){p.x*=1.001;p.z*=1.001;p.y+=.012;seams.push(p);}};
+ for(let i=0;i<24;i++){const phi=i*Math.PI/12;for(let j=0;j<12;j++)stitch(point(phi,j/12),point(phi,(j+1)/12));ropes.push(new THREE.Vector3(-.15*Math.cos(phi),0,.15*Math.sin(phi)),point(phi,1));}
+ for(const t of [0,4/12,5/12,9/12,1])for(let i=0;i<96;i++)stitch(point(i*Math.PI/48,t),point((i+1)*Math.PI/48,t));
+ const seamsMesh=new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(seams),new THREE.LineBasicMaterial({color:'#b6b9b3',transparent:true,opacity:.65})),lines=new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(ropes),new THREE.LineBasicMaterial({color:'#eee9db',transparent:true,opacity:.85}));seamsMesh.name='parachute-seams';lines.name='parachute-lines';group.add(seamsMesh,lines);return group;
+}
 export function fadeEnvironment(group,opacity){
  if(group.artOpacity===opacity)return;group.artOpacity=opacity;
  group.traverse(o=>{for(const m of o.material?(Array.isArray(o.material)?o.material:[o.material]):[]){const base=m.userData.environmentBase??={opacity:m.opacity,transparent:m.transparent,depthWrite:m.depthWrite},transparent=base.transparent||opacity<1;if(m.transparent!==transparent){m.transparent=transparent;m.needsUpdate=true;}m.opacity=base.opacity*opacity;m.depthWrite=base.depthWrite&&opacity===1;}});
