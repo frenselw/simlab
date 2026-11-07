@@ -1,7 +1,7 @@
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;root.RocketParts=api;})(typeof window==='undefined'?globalThis:window,function(){
   'use strict';
   const ACTIVITY='rocket-side-booster-lab-v1',R=6371000,MU=3.986004418e14,G0=9.80665;
-  const PAYLOADS=[150];
+  const PAYLOADS=[150],CORE_DRAG_AREA=.35*3.14;
   const ENGINES=[{name:'大推力引擎',dry:500,thrust:600000,isp:300,color:'#ee895c'},{name:'高效率引擎',dry:150,thrust:80000,isp:340,color:'#50b5ad'},{name:'均衡型引擎',dry:250,thrust:250000,isp:320,color:'#6488bd'}];
   const BOOSTER=Object.freeze({thrust:120000,dry:300,fuel:3000,isp:250});
   const boosterMounts=count=>[[-1,0],[1,0],[0,-1],[0,1]].slice(0,count||0);
@@ -19,5 +19,5 @@
   function canFit(c,stage,part){const s=c.stages[stage];if(part==='boosters')return stage===0&&(c.boosters||0)<4&&stageComplete(c.stages[0]);if(part==='capsule')return stage===c.stages.length-1&&bodyComplete(c)&&!hasCapsule(c);if(part==='separator')return stage===0&&c.stages.length===1&&stageComplete(c.stages[0])&&!hasCapsule(c);return Boolean(s&&(['engine-0','engine-1','engine-2'].includes(part)?s.engine===null:['small','medium','large'].includes(part)&&s.engine!==null&&!hasCapsule(c)&&s.small+(s.medium||0)+s.large<4));}
   function mass(f,fuel=f.fuel){if(f.capsule?.detached)return 180+f.capsule.fuel;return (hasCapsule(f.craft)?(f.capsule?180+f.capsule.fuel:PAYLOADS[f.craft.payload]):0)+f.craft.stages.reduce((sum,s,i)=>sum+(f.separated&&i===0?0:dry(s)+(fuel[i]||0)),0)+(f.craft.separator&&!f.separated?60:0)+(attached(f)?f.craft.boosters*(BOOSTER.dry+f.boosters.fuel):0);}
   function twr(c){if(!complete(c))return 0;const f={capsule:{fuel:30},craft:c,fuel:c.stages.map(capacity),separated:false,boosters:c.boosters?{status:'ready',fuel:BOOSTER.fuel}:null};return (ENGINES[c.stages[0].engine].thrust+(c.boosters||0)*BOOSTER.thrust)/(mass(f)*MU/R**2);}
-  return Object.freeze({BOOSTER,boosterMounts,attached,burning,ACTIVITY,R,MU,G0,PAYLOADS,ENGINES,clone,emptyStage,emptyCraft,tanks,setTanks,capacity,dry,hasCapsule,stageComplete,bodyComplete,complete,canFit,mass,twr});
+  return Object.freeze({BOOSTER,boosterMounts,attached,burning,ACTIVITY,R,MU,G0,PAYLOADS,CORE_DRAG_AREA,ENGINES,clone,emptyStage,emptyCraft,tanks,setTanks,capacity,dry,hasCapsule,stageComplete,bodyComplete,complete,canFit,mass,twr});
 });

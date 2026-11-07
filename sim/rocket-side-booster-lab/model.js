@@ -8,7 +8,7 @@
   function coreThrust(f){if(f.capsule?.detached)return R.thrust(f);return f.controls.lit&&f.fuel[f.active]>0?P.ENGINES[f.craft.stages[f.active].engine].thrust*f.controls.throttle:0;}
   function thrust(f){return coreThrust(f)+(P.burning(f)?f.craft.boosters*P.BOOSTER.thrust:0);}
   function derivative(y,f,attitude,vacuum=false,noGravity=false,mass){
-    const [x,yy,,vx,vy,,p]=y,r=Math.hypot(x,yy),v=Math.hypot(vx,vy),fuel=f.fuel.slice();fuel[f.active]=Math.max(0,p);const sample={...f,boosters:f.boosters?{...f.boosters,fuel:Math.max(0,y[7]??f.boosters.fuel)}:null},m=mass??P.mass(sample,fuel),F=thrust(f),drag=vacuum?0:.5*atmosphere(r-P.R)*.35*(3.14+(P.attached(f)?f.craft.boosters*Math.PI*.65**2:0))*v,g=noGravity?0:P.MU/r**3;
+    const [x,yy,,vx,vy,,p]=y,r=Math.hypot(x,yy),v=Math.hypot(vx,vy),fuel=f.fuel.slice();fuel[f.active]=Math.max(0,p);const sample={...f,boosters:f.boosters?{...f.boosters,fuel:Math.max(0,y[7]??f.boosters.fuel)}:null},m=mass??P.mass(sample,fuel),F=thrust(f),drag=vacuum?0:.5*atmosphere(r-P.R)*(P.CORE_DRAG_AREA+.35*(P.attached(f)?f.craft.boosters*Math.PI*.65**2:0))*v,g=noGravity?0:P.MU/r**3;
     return [vx,vy,0,-g*x+(F*Math.cos(attitude)-drag*vx)/m,-g*yy+(F*Math.sin(attitude)-drag*vy)/m,0,-coreThrust(f)/(P.ENGINES[f.craft.stages[f.active].engine].isp*P.G0),...(y.length>7?[-(P.burning(f)?P.BOOSTER.thrust/(P.BOOSTER.isp*P.G0):0)]:[])];
   }
   function rk4(y,dt,f,angle,options){const d=(q)=>derivative(q,f,angle,options?.vacuum,options?.noGravity,options?.mass),add=(a,b,k)=>a.map((v,i)=>v+k*b[i]),k1=d(y),k2=d(add(y,k1,dt/2)),k3=d(add(y,k2,dt/2)),k4=d(add(y,k3,dt));return y.map((v,i)=>v+dt/6*(k1[i]+2*k2[i]+2*k3[i]+k4[i]));}

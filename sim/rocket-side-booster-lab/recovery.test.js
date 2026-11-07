@@ -38,7 +38,7 @@ for(const height of [27000,60000,100000,200000])for(const attitude of [0,.7,Math
  for(let i=0;i<800;i++){M.advance(s,.01);assert.equal(R.contact(s.flight),null,'No overlap at '+height+'/'+attitude+'/'+i);if(i===100)round(s);}round(s);
 }
 {
- const s=M.change(orbit(),{type:'capsule-separate'}),f=s.flight,u=f.upperStage;f.state[1]-=.5;const before=[3,4].map(i=>R.mass(f)*f.state[i]+P.mass(u)*u.state[i]);f.state[3]=u.state[3];f.state[4]=u.state[4]-2;const momentum=[3,4].map(i=>R.mass(f)*f.state[i]+P.mass(u)*u.state[i]);assert(R.contact(f));R.resolveContact(f,M.atmosphere);assert.equal(R.contact(f),null);for(const [j,i]of [3,4].entries())assert(Math.abs(R.mass(f)*f.state[i]+P.mass(u)*u.state[i]-momentum[j])<1e-7);
+ const s=M.change(orbit(),{type:'capsule-separate'}),f=s.flight,u=f.upperStage;f.state[1]-=.5;const before=[3,4].map(i=>R.mass(f)*f.state[i]+P.mass(u)*u.state[i]);f.state[3]=u.state[3];f.state[4]=u.state[4]-2;const momentum=[3,4].map(i=>R.mass(f)*f.state[i]+P.mass(u)*u.state[i]);assert(R.contact(f));R.resolveContact(f);assert.equal(R.contact(f),null);for(const [j,i]of [3,4].entries())assert(Math.abs(R.mass(f)*f.state[i]+P.mass(u)*u.state[i]-momentum[j])<1e-7);
 }
 console.log('Capsule separation: inherited velocity, gentle spring impulses, twelve altitude/attitude cases, mass-weighted nonpenetration, momentum and restore continuations passed.');
 
@@ -57,22 +57,27 @@ console.log('Axial-only 1m/s release, no lateral impulse, actual attitude hold a
 }
 console.log('Capsule ignition starts with its own 100% throttle after a zero-throttle stage; real fuel burn opens the gap.');
 
-for(const height of [1,10,100,500])for(const speed of [2,20])for(const delay of [.25,2]){
- let s=T.launched();Object.assign(s.flight,{state:[P.R+height,0,0,speed,0,0],status:'flying',t:1,maxHeight:height});s.phase='coast';s=M.change(s,{type:'separate'});s=M.change(s,{type:'capsule-separate'});let f=s.flight;assert(Math.abs(f.state[3]-f.upperStage.state[3]-12)<1e-8);assert.equal(f.state[4],0);const initial=f.state[0]-f.upperStage.state[0];M.advance(s,delay);assert(s.flight.state[0]-s.flight.upperStage.state[0]>initial+1);s=M.change(s,{type:'ignite'});for(let i=0;i<60;i++)M.advance(s,.1);f=s.flight;assert.equal(f.status,'flying');assert(O.elements(f.state).height>height+(delay===2?30:80));assert(f.state[0]-f.upperStage.state[0]>initial+(delay===2?30:50));assert.equal(f.attitude,0);assert.equal(f.state[4],0);assert(f.capsule.fuel<30);round(s);
-}
-console.log('Near-ground release at 1/10/100/500m: axial 12m/s push, .25/2s human ignition delay, 3kN thrust exceeds capsule weight, zero lateral motion, clear separation and independent ascent passed.');
 
-{
- let s=orbit();s.flight.state=[P.R+999.9,0,0,2,0,0];s.flight.maxHeight=1000;s.flight.attitude=.7;s=M.change(s,{type:'capsule-separate'});const f=s.flight,u=f.upperStage;assert(Math.abs((f.state[3]-u.state[3])*Math.cos(.7)+(f.state[4]-u.state[4])*Math.sin(.7)-12)<1e-8);assert(Math.abs((f.state[3]-u.state[3])*Math.sin(.7)-(f.state[4]-u.state[4])*Math.cos(.7))<1e-8);round(s);
+for(const height of [1,10,100,500])for(const speed of [2,20]){
+ let s=T.launched();Object.assign(s.flight,{state:[P.R+height,0,0,speed,0,0],status:'flying',t:1,maxHeight:height});s.phase='coast';s=M.change(s,{type:'separate'});s=M.change(s,{type:'capsule-separate'});let f=s.flight;assert(Math.abs(f.state[3]-f.upperStage.state[3]-1)<1e-8);assert.equal(f.state[4],0);const initial=f.state[0]-f.upperStage.state[0];M.advance(s,.25);assert(s.flight.state[0]-s.flight.upperStage.state[0]>initial+.1);s=M.change(s,{type:'ignite'});for(let i=0;i<60;i++)M.advance(s,.1);f=s.flight;assert.equal(f.status,'flying');assert(O.elements(f.state).height>height+80);assert(f.state[0]-f.upperStage.state[0]>initial+50);assert.equal(f.attitude,0);assert.equal(f.state[4],0);assert(f.capsule.fuel<30);round(s);
 }
+console.log('Near-ground release uses the same 1m/s impulse; prompt manual ignition gives independent ascent.');
 
 for(const remaining of [0,500,3000,6000]){
- let s=T.singlePad(0,0,1);Object.assign(s.flight,{state:[P.R+4163.4,0,0,277.5,0,0],status:'flying',t:40,maxHeight:4163.4,fuel:[remaining,null]});s.phase='coast';s=M.change(s,{type:'capsule-separate'});const f=s.flight,u=f.upperStage;f.state=[P.R+4163.4,0,0,277.5,0,0];u.state=[f.state[0]-R.stageHeight(u)-.001,0,0,277.5,0,0];f.capsule.fuel=25.9;f.controls.lit=true;f.t=u.t=44;u.auto.separatedAt=40;
- round(s);M.advance(s,.2);assert(u.state[4]>3.9&&u.state[4]<=4);assert(Math.abs(f.state[1])<.1);assert.equal(f.attitude,0);round(s);const restored=D.decode(T.snapshot(s),'draft');for(let i=0;i<80;i++){M.advance(restored,.05);assert.equal(R.contact(restored.flight),null);}const r=restored.flight,v=r.upperStage;assert(Math.abs(r.state[1]-v.state[1])>10);assert(Math.hypot(r.state[0]-v.state[0],r.state[1]-v.state[1])>50);assert(Math.abs(r.state[1])<.1&&Math.abs(r.state[4])<.1);assert.equal(r.attitude,0);assert(v.state[4]<=4);assert(r.capsule.fuel<25.9);round(restored);
+ let s=T.singlePad(0,0,1);Object.assign(s.flight,{state:[P.R+4163.4,0,0,277.5,0,0],status:'flying',t:40,maxHeight:4163.4,fuel:[remaining,null]});s.phase='coast';s=M.change(s,{type:'capsule-separate'});const initial=s.flight.state[0]-s.flight.upperStage.state[0]-R.stageHeight(s.flight.upperStage);let last=initial;
+ for(let i=0;i<80;i++){M.advance(s,.05);const f=s.flight,u=f.upperStage,gap=f.state[0]-u.state[0]-R.stageHeight(u);assert(gap>=last-1e-6&&gap<initial+4.5);assert.equal(f.state[1],0);assert.equal(u.state[1],0);assert.equal(f.attitude,0);assert.equal(u.attitude,0);assert(f.state[3]>u.state[3]);assert.equal(R.contact(f),null);last=gap;if(i===20)round(s);}round(s);
+ s=M.change(s,{type:'ignite'});M.advance(s,2);assert(s.flight.state[0]-s.flight.upperStage.state[0]-R.stageHeight(s.flight.upperStage)>last+5);round(s);
+ // Already-touching drafts also move forward when the existing capsule engine is burning.
+ let f=s.flight,u=f.upperStage;f.state=[P.R+4163.4,0,0,277.5,0,0];u.state=[f.state[0]-R.stageHeight(u)-.001,0,0,277.5,0,0];f.capsule.fuel=25.9;f.t=u.t=44;u.auto.separatedAt=40;round(s);M.advance(s,1);assert(f.state[0]-u.state[0]-R.stageHeight(u)>.5);assert.equal(f.state[1],0);assert.equal(u.state[1],0);assert.equal(f.state[4],0);assert.equal(u.state[4],0);assert.equal(f.attitude,0);round(s);
 }
-console.log('Screenshot replay 4163.4m / 277.5m/s / 25.9kg: empty and full stage clear the path, capsule stays upright, old touching drafts recover and restore never repeats the stage impulse.');
+console.log('4163.4m / 277.5m/s: empty/full cores stay behind; unlit release grows gradually for four seconds, ignition accelerates only the capsule and old touching drafts recover without side kicks.');
 
-for(const pressure of [0,1999,2001]){
- let s=orbit();s.flight.state=[P.R+4163.4,0,0,277.5,0,0];s.flight.attitude=0;s=M.change(s,{type:'capsule-separate'});const f=s.flight,u=f.upperStage;f.state[0]=u.state[0]+R.stageHeight(u)-.001;f.state[3]=u.state[3]=277.5;const before=[3,4].map(i=>R.mass(f)*f.state[i]+P.mass(u)*u.state[i]);R.resolveContact(f,()=>2*pressure/277.5**2);const delta=[3,4].map((i,j)=>R.mass(f)*f.state[i]+P.mass(u)*u.state[i]-before[j]);assert(Math.abs(delta[0])<1e-7);assert(Math.abs(delta[1]-(pressure>2000?4*P.mass(u):0))<1e-7);assert.equal(f.state[4],0);assert.equal(R.contact(f),null);
+{
+ const s=M.change(orbit(),{type:'capsule-separate'}),f=s.flight;f.state=[P.R+4163.4,0,0,277.5,0,0];f.attitude=0;assert(Math.abs(R.area(f)/R.mass(f)-P.CORE_DRAG_AREA/P.mass(f.upperStage))<1e-14);f.attitude=Math.PI;assert.equal(R.area(f),1.5);f.attitude=0;f.state[3]=-277.5;assert.equal(R.area(f),1.5);f.capsule.chute={armed:true,phase:'drogue',since:0};assert.equal(R.area(f),9.5);
 }
-console.log('Stage jet activates only above 2kPa; capsule has no transverse kick, axial contact momentum is conserved and transverse body momentum matches the exhaust impulse.');
+console.log('The shared ascent drag reference is explicit; retrograde, descent and parachutes retain the original drag areas.');
+
+for(const remaining of [0,6000])for(const attitude of [.7,1.1,Math.PI/2]){
+ let s=T.singlePad(0,0,1);Object.assign(s.flight,{state:[P.R+4163.4,0,0,277.5,0,0],status:'flying',t:40,maxHeight:4163.4,fuel:[remaining,null],attitude});s.phase='coast';s=M.change(s,{type:'capsule-separate'});const axis=[Math.cos(attitude),Math.sin(attitude)];let last=.3;for(let i=0;i<80;i++){M.advance(s,.05);const f=s.flight,u=f.upperStage,dx=f.state[0]-u.state[0],dy=f.state[1]-u.state[1],gap=dx*axis[0]+dy*axis[1]-R.stageHeight(u),cross=-(f.state[3]-u.state[3])*axis[1]+(f.state[4]-u.state[4])*axis[0];assert(gap>=last-1e-5);assert(Math.abs(cross)<.5);assert(Math.abs(f.attitude-attitude)<1e-12&&Math.abs(u.attitude-attitude)<1e-12);last=gap;}assert(last>2);round(s);
+}
+console.log('Gentle forward release also holds during 40/63/90-degree steering, with empty/full cores and no imposed side impulse.');

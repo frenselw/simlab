@@ -203,7 +203,7 @@ export function buildRocket(c,separated,capsuleOnly=false){
   mesh(new THREE.CylinderGeometry(.04,.04,1.1,8),metal,0,y+3.6,0);mesh(new THREE.SphereGeometry(.17,10,8),orange,0,y+4.15,0);
   }
   partParent=group;
-  if(capsuleOnly)mesh(new THREE.CylinderGeometry(1.4,1.3,.25,32),dark,0,.05,0);
+  if(capsuleOnly){const underside=parts.find(p=>p.userData.part.part==='capsule');mesh(new THREE.CylinderGeometry(1.4,1.3,.25,32),dark,0,.05,0,underside);for(const x of [-.42,.42]){const bell=mesh(new THREE.CylinderGeometry(.07,.13,.16,16,1,true),dark,x,-.155,0,underside);bell.name='capsule-return-engine';const rim=mesh(new THREE.TorusGeometry(.13,.012,6,20),metal,x,-.235,0,underside);rim.rotation.x=Math.PI/2;}}
   const rcs=[new THREE.Group(),new THREE.Group()],nozzles=[];
   if(P.hasCapsule(c))for(const [index,direction]of [-1,1].entries())for(const [level,side]of [[y+.25,-direction],[1.8,direction]]){
     nozzles.push([side*1.53,level,0,.13,.24,.13,0,0,-side*Math.PI/2]);
@@ -212,9 +212,9 @@ export function buildRocket(c,separated,capsuleOnly=false){
     }
   }
   batch(new THREE.CylinderGeometry(1,1,1,10),dark,nozzles);for(const jets of rcs){jets.visible=false;group.add(jets);}
-  const flame=new THREE.Group(),clustered=capsuleOnly||c.stages[separated?1:0].engine===0,exits=capsuleOnly?[[-1.4,0],[1.4,0]]:clustered?[[-.61,-.61],[-.61,.61],[.61,-.61],[.61,.61]]:[[0,0]];flame.position.y=capsuleOnly?.35:-.04;
-  for(const [radius,length,color,opacity]of clustered?[[.43,4.2,'#ffad52',.45],[.27,3.1,'#b4e8ff',.8],[.13,1.8,'#fff8e7',1]]:[[.9,5.4,'#69b9ff',.45],[.52,4,'#b4e8ff',.8],[.25,2.4,'#fff8e7',1]]){
-    const plume=instances(flame,new THREE.ConeGeometry(radius,length,20).rotateZ(Math.PI),new THREE.MeshBasicMaterial({color,transparent:true,opacity,blending:THREE.AdditiveBlending,depthWrite:false,toneMapped:false}),exits.map(([x,z])=>[x,-length/2,z,1,1,1]));
+  const flame=new THREE.Group(),clustered=capsuleOnly||c.stages[separated?1:0].engine===0,exits=capsuleOnly?[[-.42,0],[.42,0]]:clustered?[[-.61,-.61],[-.61,.61],[.61,-.61],[.61,.61]]:[[0,0]];flame.position.y=capsuleOnly?-.245:-.04;
+  for(const [radius,length,color,opacity]of capsuleOnly?[[.13,.65,'#58b9ec',.5],[.085,.42,'#a9e7ff',.65],[.045,.24,'#fff4d8',.9]]:clustered?[[.43,4.2,'#ffad52',.45],[.27,3.1,'#b4e8ff',.8],[.13,1.8,'#fff8e7',1]]:[[.9,5.4,'#69b9ff',.45],[.52,4,'#b4e8ff',.8],[.25,2.4,'#fff8e7',1]]){
+    const plume=instances(flame,new THREE.ConeGeometry(radius,length,20).rotateZ(Math.PI),new THREE.MeshBasicMaterial({color,transparent:true,opacity,blending:capsuleOnly&&radius>.1?THREE.NormalBlending:THREE.AdditiveBlending,depthWrite:false,toneMapped:false}),exits.map(([x,z])=>[x,-length/2,z,1,1,1]));
     // Keep full-width bounds while throttle only narrows the individual plumes.
     plume.computeBoundingSphere();
   }

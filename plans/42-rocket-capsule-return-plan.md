@@ -375,3 +375,15 @@ model5 recordData = [C, V, coreFuel, active, separated, t, status,
 baseline `0a4f96d` 以同一貼合狀態再運行4秒仍維持兩底部約6.101m（接點幾乎無間隙），新程式能移開；前後數據見output/reports/rocket-pressure-clearance-before-after.json，browser及Node見同前綴browser.json／node.txt、check／registry／closure報告及pressure截圖。沿用58 cases／305 registry entries。最終runtime `f7f56d8e08e1a559b344763d752996df6e585b96d4a1663c00217cdd28a2f1c1` 的來源與477-entry SCORM ZIP逐byte一致、原481檔不變；未做真手機／真Moodle驗證。
 
 實作commit `7c70adbea8b5e9c6d28ebd0ebfab4dba600f8f4d`；committed selection-preview見output/reports/rocket-pressure-clearance-selection.json，只記錄選取。Site dist已逐byte核對同一runtime，Site來源 `cda5dcd99bd2108520c44f3e49d6484a02a857ed`；deployment `appgdep_6aeed46d24a4819195dfe681d422e525` 於2026-11-07 15:34:12 UTC+08 native succeeded。原owner-private權限及網址 https://simlab-rocket-side-booster.ieyp.chatgpt.site 維持，證據output/reports/rocket-pressure-clearance-sites.json。成功保存／部署後清理本次tar，保留Site checkout與原有附件。
+
+## 19. 溫和同軸分艙與太空艙小噴嘴（2026-11-07，已實作）
+
+使用者拒絕第18節二級側推後追過太空艙的效果，明確要求太空艙沿前向緩慢離開。移除二級側向避碰衝量與噴氣圖示，亦取消1km以下12m/s強彈出特例，所有分艙只給1m/s軸向相對速度，繼承共同速度與實際朝向、不改相對位置作動畫。低空不再保證等待兩秒仍能安全逃逸；分離不代替點火，提示近地應及時點火，保留3kN引擎／油門／耗油。
+
+為符合此次教學呈現，在上升且艙頭未逆迎速度方向（夾角≤90°）、傘未開的情況，太空艙沿用二級的彈道係數基準（m/CdA，即相同CdA/m減速基準），以各自當前速度／高度積分重力及阻力，避免兩套差距極大的阻力加速度立即抹掉小分離速度、令重級追過輕艙。這是明示的教學氣動近似，不宣稱兩自由物體在大氣中的精密氣動結果；轉入下降、逆行／返航或開傘即保留原阻力模型。只改分艙後的模型，主火箭發射與既有SCORM評分規則不變；無新snapshot欄位，基準由既有upperStage質量派生，保存還原不重新彈出。
+
+太空艙底部兩噴嘴收至x=±0.42m，短鐘形噴嘴與細邊環，火焰從噴嘴出口開始，藍色半透明外層＋白暖核心，滿油門可見長度約0.6m、半徑約0.13m；不沿用主級4.2m長火柱。主／副操控對象共用相同火焰更新，按油門縮長縮窄、關機及耗盡即隱藏。檢查4163.4m／277.5m/s、空／滿級、分離未點火的0/0.5/1/2/4秒逐格間距、兩件無側移／上級不越過艙、點火後前向加速、已貼合draft續作、儲存還原、0/25/100%火焰尺寸／噴嘴位置、兩操控對象，以及既有近地／真空／返航／提交。
+
+驗證：核心分離行為先在source＋extracted SCORM完整32 flows通過；最後擴闊至前向半球及噴嘴外觀微調後，十組Node（含40°／63°／90°轉向、空／滿級）與同兩種載體12條分離／噴嘴／返航browser flows通過，errors=[]。最後載體在1280×800與390×844逐格量到未點火間距0.300→0.796→1.286→2.245→4.097m（0／0.5／1／2／4秒），兩件橫向速度0、姿態不變，二級沒有追過太空艙。0／25／100%及關機／燃盡、主／副操控對象火焰均一致；兩噴嘴座標±0.42／−0.155m，出口−0.235m，噴流起點−0.245m，滿油門長度約0.596–0.600m，已目視正常與底部近鏡。近地測試改為0.25秒內點火，不再把等待兩秒仍能逃逸當成需求。
+
+證據：output/reports/rocket-gentle-release-node.txt、rocket-gentle-release-browser.json（外觀微調前32 flows）、rocket-gentle-engines-browser.json（最終12 flows）、同前綴before-after／closure／check／registry報告；gentle-release與capsule-thruster-detail截圖。baseline `381196a` 同一4km上升情境4秒後出現二級側移並越過太空艙，現在空／滿級都維持前向小速度差（空級4秒間距約3.15m，滿級約4.10m）。最終runtime `3b4b8e6ffa7d9fb47b930fd2ee126330d84c2bc06947a0740c898c2495fbfb95` 來源與477-entry SCORM ZIP逐byte一致，原481檔不變。check／check:tests通過，仍58 cases／305 registry entries；無新依賴或snapshot欄位。此版採教學氣動近似，未做CFD校準／真手機／真Moodle驗證；既有已施加側推的舊軌跡不會被偷偷重置，需新試飛觀察新版分離。
