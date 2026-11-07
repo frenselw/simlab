@@ -1,6 +1,6 @@
 # 火箭工廠實驗版：單一太空艙分離、返航與降落計劃
 
-狀態：**已實作；本機驗證與發佈紀錄見第13節。** 日期：2026-11-07。前12節保留設計及驗收範圍，未勾選項不代表已通過。
+狀態：**已實作；本機驗證與發佈紀錄見第13–14節。** 日期：2026-11-07。前12節保留設計及驗收範圍，未勾選項不代表已通過。
 
 依[現行擴充計劃](42-rocket-side-booster-expansion-plan.md)、[活動基準](42-rocket-side-booster-lab.md)、[共用設計](00-shared-platform-and-style.md)、[生產契約](../docs/simulation-scorm-production-guide.md)及[計劃模板](NEW-SIMULATION-PLAN-TEMPLATE.md)。本文件擁有太空艙返航擴充的規格；未涉及的組裝、助推器、入軌及提交規則沿用現行活動。先前研究中的「普通／返航兩款太空艙」方案取消。
 
@@ -306,3 +306,12 @@ model5 recordData = [C, V, coreFuel, active, separated, t, status,
 最終交付：實作commit `b065542b4d694ca68f0a9c12a3f1892a0ec99c5a`。最終十組活動Node、check／check:tests及diff whitespace通過；較廣flight owner的21 cases在source＋extracted SCORM共42次執行通過，errors=[]（`output/playwright/rocket-side-booster-lab-flight/report.json`）。這批在開發中版本起跑，紀錄runtime為 `ddd5e94a16a98bdb505b5a11d066893f2d539495aeadc848907c9ceccbfb6fca`；完成後續返航呈現及舊版兼容修正的最終runtime `1b41568a088c3baf0f647207b36de3a5172841e7ef8f9692e9246aa8e2b46276` 已重跑十組Node及4條返航browser flows，並逐byte核對來源／SCORM／Site dist一致。`package:all`通過後重建本活動最終477-entry ZIP；476個manifest runtime檔案及root imsmanifest完整，ZIP SHA256 `079a24d050818fb13dac5fd8c1b5368a04851daafe784e6937693d055a5119b8`，證據 `output/reports/rocket-capsule-return.json`。committed selection為 `a2914d381723566110f4190126e4cccb074c93cb` → 實作head，因registry／catalogue變更選full／305 entries；`output/reports/rocket-return-selection.json`是選取證據，並非GitHub實跑證據。
 
 已發布原私人Sites，權限維持owner-only：Site來源commit `cf9633d3c16ddfd9a475ea35733ebc8c9b8f406c`；deployment `appgdep_6aeea3e64ca88191bcca820d7cdcb5f6` 於2026-11-07 12:07:13 UTC+08 native succeeded，網址 https://simlab-rocket-side-booster.ieyp.chatgpt.site 。紀錄 `output/reports/rocket-capsule-return-sites.json`；已請Codex開啟網址（UI回覆queued），沒有聲稱線上手動試飛或實機／Moodle驗收。部署tar在保存成功後移除，保留SCORM ZIP及必要報告／截圖；Site來源checkout及原有附件沒有清除。
+
+## 14. 固定引擎／分離操作區（2026-11-07）
+
+使用者回報點火與分離按鈕分散、隨階段出現而難找。可捲動飛行設定頂部改為固定並排「引擎」與「分離」兩區：引擎區固定點火／關機及原油門；分離區依序固定助推器／下級／太空艙，不因完成或未符合條件而隱藏，改用禁用狀態及短原因。操控對象在兩區上方，方向與返航操作置於其下。上方固定deck只保留飛行讀數、暫停／繼續及倍速，不集中所有操作。
+
+手機320px仍保持兩區、44px觸控及獨立panel捲動，固定deck不加高；不新增工具列浮層。只改index／局部styles／main呈現及所屬browser案例，不改模型、分離條件、評分、SCORM或snapshot。保留所有原按鈕ID及事件；新增controlZones案例歸interaction，測桌面／手機／短橫向、點火關機與各次分離前後位置不變、禁用原因與真實點按；並重跑既有返航流程以涵蓋存檔／提交。新案例同步inventory audit／registry驗證，未執行的真手機與Moodle驗收仍待驗。
+
+
+本輪實作及驗證：按鈕保留原ID，顯示／禁用統一由renderCommandZones負責；引擎與分離動作不再經舊邏輯先隱藏再顯示。十組活動Node、browser inventory audit（57 cases）、check／check:tests（305 entries）及diff whitespace通過。source＋extracted SCORM共12 flows通過：四種尺寸各走點火／關機、助推器／下級／太空艙分離，五個按鈕在所屬區域的相對位置變化<1px、觸控高度≥44px、固定deck≤80px、無整頁水平溢出；另四條既有完整返航／存檔／唯讀提交流程仍通過。桌面用原生滑鼠，其餘尺寸用trusted touch，操控選擇器另有原生鍵盤驗證。證據保存output/reports/rocket-control-zones-node.txt、rocket-control-zones-browser.json及output/playwright/rocket-side-booster-lab/*control-zones*.png。本輪沒有聲稱真手機／Moodle驗收。
