@@ -1,5 +1,7 @@
 # 小小航天家：火箭升空與返航
 
+目前專項：[視覺座標、升空鏡頭與着陸一致性修正計劃](42-rocket-explorer-visual-consistency.md)。2026-11-08 已重現並實作修正高度／配置依賴的模型放大、已着陸零速度仍隨時間移動的地景，以及着陸姿態帶動鏡頭；專項文件記錄根因、固定地球決定、修正次序及跨時間驗收。實際驗證與部署結果記於專項及本文件末尾，下方舊證據只代表各次歷史變更。
+
 本計劃取代此slug先前SCORM活動及評核計劃。使用者明確要求改為純探索、兒童及學生可反覆遊玩，移除全部評分、提交、成果紀錄與Moodle流程。原rocket-space-mission-lab保持不變；原Site project／網址保留。
 
 依共用設計plans/00-shared-platform-and-style.md與docs/simulation-scorm-production-guide.md的scope-and-shared-cores契約：本次是非評核workbench。風險／rubric／正式提交／答案snapshot／LMS resume／分數信任：全部N/A；不再建立attempt或SCORM套件。重新整理回空白工廠，沒有localStorage／LMS自動還原；不新增匯入匯出。保留物理、音效、鏡頭、助推器／分級／太空艙與返航、10°／10%與±1%油門、fullscreen。

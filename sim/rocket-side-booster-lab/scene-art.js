@@ -16,7 +16,6 @@ const [dayMap,regionMap,weatherTexture,starMap,geography,terrainBuffer,globalBuf
 for(const texture of [dayMap,weatherTexture,starMap])texture.wrapS=THREE.RepeatWrapping;
 export function textureBudget(){return surfaceTextureBytes+[...cache.values()].reduce((bytes,t)=>bytes+t.image.width*t.image.height*4*(t.generateMipmaps?4/3:1),0);}
 
-export const EARTH_DAY=86164.2;
 export function material(color,extra={}){const {roughness=.65,metalness=.12,...options}=extra;return new THREE.MeshPhongMaterial({color,shininess:Math.max(2,(1-roughness)*60),specular:new THREE.Color('#ffffff').multiplyScalar(.06+metalness*.25),...options});}
 export function dispose(group){const geometries=new Set(),materials=new Set();group.traverse(o=>{if(o.isInstancedMesh)o.dispose();if(o.geometry)geometries.add(o.geometry);if(o.material)for(const m of Array.isArray(o.material)?o.material:[o.material])materials.add(m);});for(const g of geometries)g.dispose();for(const m of materials)m.dispose();}
 export function createParachute(){

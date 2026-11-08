@@ -106,3 +106,13 @@ console.log('Detached upper-stage ground contacts freeze velocity, attitude and 
  const q=[P.R,0,0,-5,4,0],positive=R.contactVelocity(q,0),negative=R.contactVelocity([P.R,0,0,-5,-4,0],0);assert(positive.lateral>0&&negative.lateral<0);assert.equal(positive.tangent,Math.abs(positive.lateral));assert(Number.isFinite(positive.slope));f.capsule.touchdown={normal:5,lateral:0,slope:.2};assert(R.landingPose(f,6,false).angle>0);
 }
 console.log('Capsule settling: signed contact momentum, continuous direction-sensitive roll, low-speed stability, buoyancy and reduced-motion rest passed.');
+
+{
+ const Surface=require('./surface'),s=M.change(orbit(),{type:'capsule-separate'}),f=s.flight,q=T.remoteHill(),r=Surface.radius(q,1000),a=Math.atan2(q[1],q[0]);
+ Object.assign(f,{t:1000,status:'landed',state:[r*Math.cos(a),r*Math.sin(a),0,0,0,0]});f.controls.lit=false;f.upperStage.t=1000;f.upperStage.auto.mode='manual';f.upperStage.controls.lit=false;
+ const position=f.state.slice(),direction=Surface.direction(f.state,1000),height=Surface.height(f.state,1000),water=Surface.isWater(f.state,1000);
+ for(const t of [0,600,3600,86400]){assert.deepEqual(Surface.direction(f.state,t),direction);assert.equal(Surface.height(f.state,t),height);assert.equal(Surface.isWater(f.state,t),water);}
+ for(const seconds of [1,20,100,1000]){const time=f.t,upper=f.upperStage.state.slice();M.advance(s,seconds);assert(f.t>time);assert.notDeepEqual(f.upperStage.state,upper);for(let i=0;i<6;i++)assert(Math.abs(f.state[i]-position[i])<1e-6);assert.equal(O.elements(f.state).speed,0);assert(Math.abs(Surface.clearance(f.state,f.t))<1e-6);}
+ assert.deepEqual(Surface.direction([3,4,0],0),Surface.direction([3,4,0],10000));assert.deepEqual(Surface.direction([3,4,2],0),Surface.direction([3,4,2],10000));
+}
+console.log('Fixed terrain and landed capsule remain anchored across mission time while the independent upper stage continues.');

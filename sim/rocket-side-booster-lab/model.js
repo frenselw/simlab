@@ -29,7 +29,7 @@
     f.attitude=O.wrap(oldAttitude+turn);const angle=oldAttitude+turn/2,y=[...old,oldFuel,...(f.boosters?[f.boosters.fuel]:[])];let next=rk4(y,dt,f,angle,options),usedDt=dt;
     if(f.status==='pad'&&Math.hypot(next[0],next[1])<=P.R){next=[P.R,0,0,0,0,0,...next.slice(6)];}
     else{const interval=contactInterval(y,next,dt,f,angle,options);if(interval){
-      let [lo,hi]=interval;for(let i=0;i<32;i++){const mid=(lo+hi)/2,q=rk4(y,mid,f,angle,options);if(clearance(q,f.t+mid)>0)lo=mid;else hi=mid;}usedDt=hi;next=rk4(y,hi,f,angle,options);const r=Math.hypot(next[0],next[1]),ground=S.radius(next,f.t+hi);next[0]*=ground/r;next[1]*=ground/r;f.status='impact';f.controls.lit=false;
+      let [lo,hi]=interval;for(let i=0;i<32;i++){const mid=(lo+hi)/2,q=rk4(y,mid,f,angle,options);if(clearance(q,f.t+mid)>0)lo=mid;else hi=mid;}usedDt=hi;next=rk4(y,hi,f,angle,options);const r=Math.hypot(next[0],next[1]),ground=S.radius(next,f.t+hi);next[0]*=ground/r;next[1]*=ground/r;f.status='impact';f.controls.lit=false;next[3]=next[4]=next[5]=0;
     }else f.status='flying';}
     if(Math.hypot(next[0],next[1])>P.R+1e8){let lo=0,hi=dt;for(let i=0;i<32;i++){const mid=(lo+hi)/2,q=rk4(y,mid,f,angle,options);if(Math.hypot(q[0],q[1])<=P.R+1e8)lo=mid;else hi=mid;}usedDt=lo;next=rk4(y,lo,f,angle,options);f.status=O.elements(next).energy>=0?'escaped':'flying';f.controls.lit=false;}
     f.state=next.slice(0,6);f.fuel[f.active]=Math.max(0,next[6]);if(f.boosters){f.boosters.fuel=Math.max(0,next[7]);if(f.boosters.status==='burning'&&f.boosters.fuel<1e-8){f.boosters.fuel=0;f.boosters.status='spent';}}f.t+=usedDt;f.maxHeight=Math.max(f.maxHeight||0,O.elements(f.state).height);

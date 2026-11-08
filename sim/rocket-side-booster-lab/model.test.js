@@ -60,10 +60,10 @@ console.log('rocket bottom-up assembly: retained lower stage, top extension, fin
 {
  const S=require('./surface'),q=T.remoteHill(),r=S.radius(q,0),length=Math.hypot(q[0],q[1]),unit=[q[0]/length,q[1]/length];
  const f=M.flight(T.launched().craft,'own',[(r+100)*unit[0],(r+100)*unit[1],0,-1000*unit[0],-1000*unit[1],0]);f.status='flying';
- assert(Math.abs(S.clearance(f.state,0)-100)<1e-6);M.step(f,.2);assert.equal(f.status,'impact');assert(Math.abs(S.clearance(f.state,f.t))<.001);assert(O.elements(f.state).height>100);assert.equal(f.controls.lit,false);assert(Math.hypot(f.state[3],f.state[4])>900);
+ assert(Math.abs(S.clearance(f.state,0)-100)<1e-6);M.step(f,.2);assert.equal(f.status,'impact');assert(Math.abs(S.clearance(f.state,f.t))<.001);assert(O.elements(f.state).height>100);assert.equal(f.controls.lit,false);assert.equal(Math.hypot(...f.state.slice(3)),0);
  const stopped=P.clone(f);M.step(f,1);assert.deepEqual(f,stopped);const below=f.state.slice(),above=f.state.slice();for(let i=0;i<2;i++){below[i]-=unit[i]*10;above[i]+=unit[i]*10;}assert(S.clearance(below,f.t)<-9);assert(S.clearance(above,f.t)>9);
 }
-console.log('rocket terrain collision: remote hill contact, signed clearance, retained impact velocity and stopped continuation passed');
+console.log('rocket terrain collision: remote hill contact, signed clearance, zero terminal velocity and stopped continuation passed');
 
 // Both ends are above a narrow ridge: contact must still occur during the step.
 {
