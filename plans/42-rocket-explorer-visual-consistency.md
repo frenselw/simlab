@@ -1,6 +1,6 @@
 # 小小航天家：視覺座標、升空鏡頭與着陸一致性修正計劃
 
-狀態：2026-11-08 已按本計劃實作，正在完成 source／standalone 驗證；部署結果在文件末尾記錄。
+狀態：2026-11-08 已完成實作、source／standalone 驗證及原 Sites 部署；實際證據及限制見文末。
 
 本文件是[探索工作台主計劃](42-rocket-explorer-workbench.md)的專項實作藍圖，沿用[共用樣式](00-shared-platform-and-style.md)、[production guide](../docs/simulation-scorm-production-guide.md)及[計劃模板](NEW-SIMULATION-PLAN-TEMPLATE.md)的適用契約。已發佈的歷史測試不能代替本次跨時間、跨地景層的驗證。
 
@@ -190,11 +190,11 @@
 
 ### 交付閘門
 
-- [ ] 上述跨時間地景／接地測試先重現失敗，再修正通過。
-- [ ] 針對性 Node、browser、package contract、`check:tests` 及 committed selection-preview。
-- [ ] Source／ZIP／Sites runtime 檔案一致，原 481 檔 hash 不變，沒有 SCORM／評分回流。
-- [ ] 更新主計劃，列明實際已跑／未跑範圍及固定地球假設。
-- [ ] Commit、同一 Sites project 部署至 terminal success，再提供網址；未完成不稱已發佈。
+- [x] 上述跨時間地景／接地問題先重現，再修正通過。
+- [x] 針對性 Node、browser、package contract、`check:tests` 及 committed selection-preview。
+- [x] Source／ZIP／Sites runtime 檔案一致，原 481 檔 hash 不變，沒有 SCORM／評分回流。
+- [x] 更新主計劃，列明實際已跑／未跑範圍及固定地球假設。
+- [x] Commit、同一 Sites project 部署至 terminal success，再提供網址。
 
 ## 11. 已知取捨
 
@@ -213,3 +213,17 @@
 一般火箭撞地時亦真正歸零速度，HUD 改讀模型值；不再只強制顯示 terminal 零。已着陸艙仍可讓任務時鐘及存活二級繼續，固定地形及接地點不被搬走。
 
 驗證中的兩項測試工具修正：全螢幕後等兩個 animation frames 再點選選單，避免讀到 fullscreenElement 已設、fullscreenchange 尚未處理完成的過渡；大型 water fixture 截圖期間停止背景動畫，避免 SwiftShader 持續畫圖拖延 screenshot。這不是 iPad 即時 FPS 證據；中間姿態採 CPU 更新、關鍵階段真正 render／截圖。
+
+## 13. 完成證據與部署
+
+Runtime commit `880585a80738cdf82d29bf8469d0ad193d3d00ca`。八個 app Node 檔及 browser/package contract 共九檔通過；更新的 case／delivery selector 另有正常與非法參數斷言。`npm run check`、`check:tests` 通過（301 entries）。Committed selection-preview 比較 `0c0ffdb` → `880585a`，`output/reports/rocket-explorer-visual-selection.json` 列259個CI候選；沒有宣稱執行全部候選／全庫Node。
+
+Source、解壓 standalone 各102 flows，合計204。涵蓋既有layout／assembly／controls／flight／return／effects／parachute／cameras／warp／surface／landing，以及新 visual：兩交付各30組配置（1／2級、0／2／4 boosters、五 viewport）共480個高度樣本，同比例 .001；兩交付各10組 land／water 的接地後繼續及1／20／100／1000×；30／60FPS構圖過渡、低空一級原尺寸及撞地；原生觸控、fullscreen、context restore、畫質及reduced-motion。地標world及screen、側倒／浮沉收尾時鏡頭及另一飛船的最大位移均為0。
+
+這是**續跑後的組合驗證**，不是一次完整命令全通過：首輪完成全部source及standalone前八組，standalone的舊warp等待條件在正常提早着陸後仍要求時間推進而逾時；改為每倍率獨立fixture、接受着陸且要求實際時間曾推進，再完成standalone warp／surface／landing／visual。原報告 `explorer-visual-core-report.json` 保留completed=false；續跑 `explorer-visual-standalone-report.json` 為completed=true。`output/playwright/rocket-side-booster-lab/explorer-visual-report.json` 按label/case替換完整續跑組、驗證source／standalone各組數目一致後彙整204 flows，全部相同runtime hash，runtime／HTTP／console errors為0。
+
+補拍source及standalone、390／1024尺寸、0／200／2000／120000m共16張畫面，核對實際高度、HUD讀數與 .001 scale；報告 `explorer-visual-photos-report.json`。這是render-only高度取樣，不是連續實飛錄影；着陸有24點姿態／相機時間軌跡。已目視升空近遠、地面側倒、落水及塌傘畫面。實體iPad Safari、裝置FPS及全剛體／流體物理未驗證。
+
+原481 protected hashes不變；source／standalone ZIP／Site 471個runtime檔逐檔一致。Ordered SHA-256 `4387ae26a52fabd5e8d6fb4ddfca4015002f4975d0e72636211482373dbec290`。ZIP471 entries／15985549 bytes，SHA-256 `70f6e196e5fb3047a8487ce565c18499684a205b4faf0138e61a00e4cb312677`。Build、Node、package、registry、check及selection證據在 `output/reports/rocket-explorer-visual-*`。
+
+已部署原owner-private Site，沒有更改訪客權限。Site source commit `d91ea7b9d2af2df8b3f0864754f78295c36d71ec`；deployment `appgdep_6af0016cd8788191bc82890f396ff15b`／version `appgprj_6aeca66555b481919803e437687c4fa8~appgver_665cf8fdb8048191a51ed9ec624fa271`，server回傳 succeeded（2026-11-08T04:58:27.402379+00:00）。網址 https://simlab-rocket-side-booster.ieyp.chatgpt.site 。
