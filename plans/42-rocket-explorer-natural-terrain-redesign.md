@@ -91,7 +91,7 @@
 - 所有source／package／build／registry／rebuild／deployment證據在 `output/reports/rocket-natural-sample-*`，瀏覽器畫面及canvas錄影在 `output/playwright/rocket-side-booster-lab/`。生成cache、發佈tar及本機預覽server於交付時清除／停止；原始DEM是固定build source，刻意保留。
 - **歷史狀態：40km樣本已上線；其後使用者回覆「看上去挺自然的」，接受自然觀感並進入原定全區擴展。** 真iPad Safari效能與長時間飛行仍待實機測試。
 
-## 全區擴展（2026-11-08，執行中）
+## 全區擴展（2026-11-08，已完成及部署）
 
 使用者已接受樣本。擴展現有480×480km區域，保留樣本入口供比較；全球其他地貌仍為示意。採USGS同一服務的4096²區域輸出，重投影成4097²、117.1875m canonical高程；gzip只負責傳輸，飛行開始前一次解碼，CPU約33.6MB。海面維持0m，低於海平面陸地在本簡化模型視作0m；NoData以最近有效來源填補並記錄比例，不把異常Float32當山峰。
 
@@ -111,3 +111,11 @@
 - 重新建置482個runtime檔逐byte相同，原活動481個保護hash相同。最後ordered runtime SHA `1b10de912f5a50a480f599479a131fb8333c142a3ff03b3ca657a3c4c2f5a2b9`；standalone ZIP 35,167,013 bytes，SHA `67fc4a1c8327b260970a009b6f1d4eeb43898c68126f9fc71189fc5988bd26ba`。主區以外的全球高度仍為示意；沒有SCORM、評分、提交或持久化。
 
 證據：`output/reports/rocket-natural-region-{build,validation,mesh-error,builder-parity}.json`、Node／check／registry／rebuild文字報告；最後瀏覽器報告 `output/playwright/rocket-side-booster-lab/explorer-natural-region-final-report.json`，候選報告另存並標明非最後closure。Sites收據於部署成功後補記。
+
+### 全區Sites交付收據
+
+- Runtime commit `5f51c8fae5a2aebdd5218ed5367b011e6785f091`；Site source commit `31a37e6dc7d6988353c99178928e3d47227888e1`。482個source／ZIP／Site dist／實際部署tar內runtime逐byte一致；Site dist484檔，tar另含hosting metadata共485檔。Archive 35,158,023 bytes，SHA `a9501d824db4218c8b31fbc70fe2f8c03edd1550b24c876055691cc513224c8b`。
+- 原owner-private project `appgprj_6aeca66555b481919803e437687c4fa8`，audience未變。Native deployment `appgdep_6af053320ef88191b02308f9378b4947`／version `appgprj_6aeca66555b481919803e437687c4fa8~appgver_78bdb1de11d48191b104aef0cc7128ee`，`2026-11-08T10:47:32.248555+00:00` 回報 `succeeded`。網址：https://simlab-rocket-side-booster.ieyp.chatgpt.site 。
+- Committed selection-preview比較`e2139b4`至runtime commit，`output/reports/rocket-natural-region-selection.json`。README／建置依賴未識別而保守選出303項；這是選測預覽，實際執行為上列11個Node檔及分開記錄的候選216／最後96 flows。
+- 匿名live asset請求回傳401，符合現有private存取限制；沒有把它當成已驗證線上檔案內容，亦沒有宣稱已在登入後live UI或真iPad Safari驗收。部署成功依Native terminal收據，檔案內容依source→ZIP→dist→實際tar closure。
+- 收據：`output/reports/rocket-natural-region-{deployment,archive,site-copy,live-asset}.json`。固定DEM build source、standalone ZIP、Site checkout及驗證證據保留；生成cache、scratch及部署tar於交付後清理。
