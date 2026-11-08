@@ -12,12 +12,23 @@ export function terrainNormal(point,out){
  return out.copy(radial).addScaledVector(east,-2*dx).addScaledVector(north,-2*dz).normalize();
 }
 export function setTerrainNormals(geometry,origin){
- const started=performance.now(),p=geometry.attributes.position,n=geometry.attributes.normal||new THREE.BufferAttribute(new Float32Array(p.count*3),3),point=new THREE.Vector3(),normal=new THREE.Vector3();
- for(let i=0;i<p.count;i++){point.fromBufferAttribute(p,i).add(origin);terrainNormal(point,normal);n.setXYZ(i,normal.x,normal.y,normal.z);}geometry.setAttribute('normal',n);n.needsUpdate=true;return performance.now()-started;
+ const started=performance.now(),p=geometry.attributes.position,n=geometry.attributes.normal||new THREE.BufferAttribute(new Float32Array(p.count*3),3),water=geometry.attributes.surfaceWater||new THREE.BufferAttribute(new Float32Array(p.count),1),point=new THREE.Vector3(),normal=new THREE.Vector3();
+ for(let i=0;i<p.count;i++){point.fromBufferAttribute(p,i).add(origin);terrainNormal(point,normal);n.setXYZ(i,normal.x,normal.y,normal.z);sample.copy(point).normalize();water.setX(i,window.RocketSurface.waterAt(sample.x,sample.y,sample.z)?1:0);}geometry.setAttribute('normal',n);geometry.setAttribute('surfaceWater',water);n.needsUpdate=water.needsUpdate=true;return performance.now()-started;
 }
 export const terrainSlopeDetail={value:1};
+// One periodic texture supplies both water normals and quiet land variation without another render pass.
+const surfacePixels=new Uint8Array(128*128*4),waves=[[3,1,.55],[1,-4,.3],[7,3,.17],[-5,8,.1],[11,-7,.06]];
+for(let y=0;y<128;y++)for(let x=0;x<128;x++){
+ const u=x/128*Math.PI*2,v=y/128*Math.PI*2;let dx=0,dy=0;
+ for(const [a,b,w]of waves){const c=Math.cos(a*u+b*v);dx+=a*w*c;dy+=b*w*c;}
+ const i=(y*128+x)*4;surfacePixels[i]=Math.round(127.5+dx*17);surfacePixels[i+1]=Math.round(127.5+dy*17);surfacePixels[i+2]=Math.round(127.5+35*Math.sin(u+2*v)+22*Math.cos(3*u-v)+12*Math.sin(5*u+3*v));surfacePixels[i+3]=255;
+}
+const surfaceTexture=new THREE.DataTexture(surfacePixels,128,128);surfaceTexture.wrapS=surfaceTexture.wrapT=THREE.RepeatWrapping;surfaceTexture.magFilter=THREE.LinearFilter;surfaceTexture.minFilter=THREE.LinearMipmapLinearFilter;surfaceTexture.generateMipmaps=true;surfaceTexture.needsUpdate=true;
+export const surfaceTextureBytes=128*128*4*4/3;
+export const surfaceUniforms={uSurfaceMap:{value:surfaceTexture},uSurfaceTime:{value:0},uSurfaceDetail:{value:1},uSurfaceRotation:{value:new THREE.Matrix3()},uSurfaceStrength:{value:1}};
 export const groundLight=`
-uniform float uSlopeDetail;
+uniform float uSlopeDetail,uSurfaceTime,uSurfaceDetail,uSurfaceStrength;
+uniform sampler2D uSurfaceMap;uniform mat3 uSurfaceRotation;
 vec3 terrainIrradiance(vec3 normal,vec3 radial,vec3 sun){
  normal=normalize(mix(radial,normal,uSlopeDetail));
  float day=smoothstep(-.12,.25,dot(radial,sun));
@@ -25,13 +36,40 @@ vec3 terrainIrradiance(vec3 normal,vec3 radial,vec3 sun){
  vec3 ambient=mix(vec3(.035,.045,.07),vec3(.22,.28,.34),day)*(.7+.3*sky);
  return ambient+vec3(1.0,.95,.83)*(.92*max(0.0,dot(normal,sun)));
 }
+vec3 shadeSurface(vec3 base,vec3 normal,vec3 radial,vec3 point,vec3 world,vec3 sun,float water){
+ vec3 p=normalize(point);vec2 metres=p.xz*6371000.0;
+ float footprint=max(length(dFdx(metres)),length(dFdy(metres))),detail=(1.0-smoothstep(12.0,110.0,footprint))*uSurfaceDetail;
+ vec3 color=base*terrainIrradiance(normal,radial,sun);
+ if(uSurfaceStrength<=0.0)return color;
+ if(water>.5){
+  vec3 n=radial;
+  if(detail>.001){
+   vec2 a=texture2D(uSurfaceMap,metres/92.0+vec2(.009,-.006)*uSurfaceTime).rg*2.0-1.0;
+   vec2 b=mat2(.8,-.6,.6,.8)*(texture2D(uSurfaceMap,mat2(.8,.6,-.6,.8)*(metres/57.0)+vec2(-.005,.008)*uSurfaceTime).rg*2.0-1.0);
+   vec3 east=normalize(cross(abs(p.z)<.9?vec3(0.0,0.0,1.0):vec3(0.0,1.0,0.0),p)),north=cross(p,east);vec2 slope=(a+b*.55)*(.13*detail);
+   n=normalize(radial+uSurfaceRotation*(east*slope.x+north*slope.y));
+  }
+  vec3 eye=normalize(cameraPosition-world);float day=smoothstep(-.12,.25,dot(radial,sun)),fresnel=pow(1.0-max(0.0,dot(n,eye)),5.0);
+  vec3 waterColor=base*terrainIrradiance(n,radial,sun);
+  float skyHeight=smoothstep(-.15,.6,dot(reflect(-eye,n),radial));
+  vec3 skyColor=mix(vec3(.08,.15,.22),vec3(.32,.43,.50),skyHeight)*day;
+  waterColor=mix(waterColor,skyColor,.06+.16*fresnel);
+  float glint=pow(max(0.0,dot(n,normalize(sun+eye))),80.0)*.12*day;
+  color=mix(color,waterColor+vec3(1.0,.96,.86)*glint,uSurfaceStrength);
+ }else if(detail>.001){
+  float variation=texture2D(uSurfaceMap,metres/2800.0).b-.5;
+  vec3 tint=vec3(1.0)+variation*vec3(.18,.035,-.10)*detail*uSurfaceStrength;
+  color*=tint;
+ }
+ return color;
+}
 `;
-export const terrainLighting='diffuseColor.rgb*=terrainIrradiance(normalize(vSlope),normalize(vRadial),uSun);';
+export const terrainLighting='diffuseColor.rgb=shadeSurface(diffuseColor.rgb,normalize(vSlope),normalize(vRadial),vGroundPoint,vGroundWorld,uSun,vSurfaceWater);';
 
 export function createTerrain(buffer,sun){
  const length=new DataView(buffer).getUint32(0,true),header=JSON.parse(new TextDecoder().decode(new Uint8Array(buffer,4,length))),start=4+Math.ceil(length/4)*4,heights=new Float32Array(buffer,start,header.heightSize**2),group=new THREE.Group();
  const material=new THREE.MeshBasicMaterial({vertexColors:true,transparent:true,depthWrite:true});
- material.onBeforeCompile=shader=>{shader.uniforms.uSun={value:sun};shader.uniforms.uSlopeDetail=terrainSlopeDetail;shader.vertexShader='attribute float landFade;varying float vLandFade;varying vec3 vRadial,vSlope,vGroundPoint;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvLandFade=landFade;vGroundPoint=(position+vec3(0.0,6371000.0,0.0))/6371000.0;vSlope=normalize(mat3(modelMatrix)*normal);vRadial=normalize(mat3(modelMatrix)*normalize(position+vec3(0.0,6371000.0,0.0)));');shader.fragmentShader=groundLight+'uniform vec3 uSun;varying vec3 vRadial,vSlope,vGroundPoint;varying float vLandFade;\n'+shader.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\ndiffuseColor.a*=vLandFade;'+terrainLighting);};
+ material.onBeforeCompile=shader=>{Object.assign(shader.uniforms,surfaceUniforms);shader.uniforms.uSun={value:sun};shader.uniforms.uSlopeDetail=terrainSlopeDetail;shader.vertexShader='attribute float surfaceWater;varying float vSurfaceWater;varying vec3 vGroundWorld;\nattribute float landFade;varying float vLandFade;varying vec3 vRadial,vSlope,vGroundPoint;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvLandFade=landFade;vSurfaceWater=surfaceWater;vGroundWorld=(modelMatrix*vec4(position,1.0)).xyz;vGroundPoint=(position+vec3(0.0,6371000.0,0.0))/6371000.0;vSlope=normalize(mat3(modelMatrix)*normal);vRadial=normalize(mat3(modelMatrix)*normalize(position+vec3(0.0,6371000.0,0.0)));');shader.fragmentShader=groundLight+'varying float vSurfaceWater;varying vec3 vGroundWorld;\nuniform vec3 uSun;varying vec3 vRadial,vSlope,vGroundPoint;varying float vLandFade;\n'+shader.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\ndiffuseColor.a*=vLandFade;'+terrainLighting);};
  // Opaque inner tiles draw before the globe so covered ground is shaded once.
  const solid=material.clone();solid.transparent=false;solid.onBeforeCompile=material.onBeforeCompile;
  const chunks=header.chunks.map(chunk=>{

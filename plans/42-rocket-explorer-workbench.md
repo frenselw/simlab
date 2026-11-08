@@ -116,3 +116,15 @@ Committed selection-preview base `4956bfe7431e816bf3ac966ea93aee03bfb6bafc` → 
 Source／解壓standalone共4 browser flows（390×844及1024×768），可信觸控選六倍率、四傘階段全部可選；100×及1000×實際t推進，選定值不被重設，1000×下降至landed並停止，速度0／surface clearance約0。無runtime／HTTP errors。已目視390px的1000×下降截圖。報告output/playwright/rocket-side-booster-lab/explorer-chute-warp-report.json，console在output/reports/rocket-explorer-chute-warp-*；原481 protected hashes不變。沒有重跑無關排版／音效／鏡頭套件，實體iPad Safari未驗證。
 
 已發佈至同一owner-private Site，runtime commit `da339e5e54fcf0ee2d9e1ca1a465e02e1a2fd864`；Site source commit `927c0d4c2d6679ca2873fe6482f1b66e5c0a31e2`。Deployment `appgdep_6aefd9d7ffc4819198ccd372e2d62c7a`／version `appgprj_6aeca66555b481919803e437687c4fa8~appgver_076a48dcb4bc819197ebcdb8faef9d9f`，server回傳 succeeded（2026-11-08T02:09:35.662838+00:00）。原網址 https://simlab-rocket-side-booster.ieyp.chatgpt.site 。Ordered runtime SHA-256 `d18f1df004891c2ca89f294d5bfcd057b1e35cae667ad9ca1de0a41a3e2ae614`，ZIP471 entries／15982524 bytes，SHA-256 `f475f9e1ee72441224e0256d08b4a1883debbe1b8c90872255d154207123dd75`。Source／解壓ZIP／Site471檔一致。Committed selection-preview base `1c17610d1e28e2e5c6518e55c615fc65c0705fc4` → `da339e5e54fcf0ee2d9e1ca1a465e02e1a2fd864`，在output/reports/rocket-explorer-chute-warp-selection.json；預覽不是全庫執行證據。
+
+## 輕量海面與陸地材質
+
+依使用者要求實作輕微自然波紋／柔和反光及陸地色差，完成commit及原Sites部署。沿用現有groundLight／terrainLighting，單一128px可平鋪程式生成法線／色差貼圖供地球海面、regional、global、contact共用；以統一地表座標、旋轉與光源維持接縫一致。只改受光及色彩，不改幾何高度／物理水面／碰撞／貼地。波紋按實際秒推進，暫停／背景／reduced-motion時停止；不隨倍速加快。像素足跡淡出遠處細節，既有quality降級減少／關閉細節。無反射場景額外pass、無shadow map／後處理／新依賴；貼圖含mipmaps約86KiB。陸地保留既有坡面光照，低對比色差以地表座標平滑分布。
+
+驗證決策：source及standalone渲染shader編譯、海岸／近地contact與regional／global切換、全景／軌道、iPad橫直尺寸；可信鏡頭觸控、畫質降級、暫停／減少動態／倍速時鐘、context恢復、模型JSON不變；同視角效果開關對照與draw calls／triangles／texture預算。CPU／GPU耗時只記本機Chromium觀察，不聲稱真實iPad效能。Package／registry／原481檔保護；評核／SCORM及rubric N/A。
+
+材質驗證完成：source及解壓standalone共20 flows（1024×768／768×1024各海面20m、海岸1500m、陸地1200m、高空200km共16；4組時鐘／品質／鏡頭檢查）。Shader均編譯成功，runtime／HTTP／console errors為零。160×120離屏對照中海面有約4000 pixels隨8秒時間變化，高空movingPixels=0；contact海面開關平均RGB差約3.7–3.9/255，沒有大面積硬邊色塊。效果開關draw calls／triangles完全一致，沒有額外reflection pass；128²RGBA貼圖65536 bytes，連mip約87381 bytes，另有每vertex4bytes的水陸遮罩。
+
+波紋實秒時鐘0.5秒測試、pause／document.hidden／reduced-motion停止、quality2細節0及停止時鐘、1000秒無縫週期wrap通過；物理JSON不變。原生觸控全景／軌道／跟隨，以及兩次真實WebGL context loss／restore後重編譯均通過。已目視橫屏海面前後對照及陸地／海岸截圖；色差及反光採低對比，沒有改幾何／水面碰撞。Art／package contract兩個Node檔、六個JS syntax及check:tests通過（301 entries）；原481 protected hashes不變。
+
+報告output/playwright/rocket-side-booster-lab/explorer-surface-report.json，截圖同目錄surface前綴；console／Node／registry在output/reports/rocket-explorer-surface-*。renderReadbackMs包括首次shader編譯及SwiftShader讀回，並非穩態FPS或iPad效能benchmark；實體iPad Safari未驗證，無關物理／音效套件未重跑。
