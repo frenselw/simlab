@@ -41,3 +41,11 @@ Source／ZIP／Site／實際tar byte closure、原481保護hash、離線重建�
 最後source／ZIP讀數一致：day sky .499982882、twilight .188607221、night .009163554（約1.83%日間）；夜空亮像素比例0。喜馬拉雅、阿爾卑斯、安第斯、撒哈拉、澳洲、南極、北極、反經線八區night均低於day 25%，亮像素低於2%。GPU shader runnable、模型／Storage／SCORM不變；最後兩份runtime／HTTP／console錯誤0。已目視山地自然／法線、夜空及冰雪夜面畫面；全球地形仍比USGS細區概化，沒有完整全球高精度陰影或地形遮蔽求解。
 
 NOAA gzip離線重建逐byte一致；再次完整baker重建後484個runtime檔逐byte一致。Source→ZIP逐檔相同，原活動481保護hash全不變。最後ordered runtime SHA-256 `aa1d5c5a1c3d7b9fe0ff158fc961bfa9f29d09cefe8b42b1879cdf887e621187`；ZIP45,715,292 bytes，SHA-256 `9094edb3d5e946ecb42ffd3be150549f15f03754b4a2c5236be07c8ede7d6882`。真iPad Safari FPS／峰值記憶體、登入後live UI尚未驗證；Chromium用軟件GPU，不能作裝置效能證據。
+
+## 發佈收據
+
+Runtime commit `b3ff8f0b29c04f982a2ca25a8dda3ef837c61ac2`；Site source `4d6779eb3dec6f6f818c1d80c5731046af750e80`。原owner-private Site權限不變；deployment `appgdep_6af06d0092e48191a59667d281049e84`，version `appgprj_6aeca66555b481919803e437687c4fa8~appgver_f38e5ed3ff548191a05d7d3e978de901`，Native回傳succeeded於2026-11-08T12:37:35.870476Z。網址 https://simlab-rocket-side-booster.ieyp.chatgpt.site 。
+
+實際tar487檔（484 runtime＋root index／build-info／hosting manifest），45,692,818 bytes，SHA-256 `32844bf010ecae93728bb72ddd9d05f1629f8e685d70afe17f5306f54a86a363`；逐檔與Site dist一致，hosting project ID已核對。收據為`output/reports/rocket-world-{deployment,archive,site-copy,closure,rebuild}.json`。Committed selection-preview `9f4147e`→`b3ff8f0` 在`output/reports/rocket-world-selection.json`，README建置依賴未知所以保守選出304項；實際執行範圍如上，並非全庫通過。
+
+部署成功依Native terminal收據，內容依source→ZIP→dist→實際tar closure；沒有宣稱登入後production UI或真iPad驗收。Codex開啟網址作交接，不代表已觀察live畫面。保留pinned來源、ZIP、Site checkout及證據；原始下載TIFF、重建scratch、Python cache及部署tar於交付後清理。
