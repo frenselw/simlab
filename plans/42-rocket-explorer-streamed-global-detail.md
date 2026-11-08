@@ -29,3 +29,13 @@ Node檢查來源／全land-cell覆蓋／PNG尺寸、hash及共用邊／反經線
 - 實測software Chromium的貼圖估算95,853,308 bytes，最大atlas3081×2054；不含CPU／framebuffer／driver額外開銷。真iPad Safari FPS、峰值driver記憶體及長時間慢速網絡未驗證。Normal全部144.8MB是Site／ZIP總資產量，不是啟動下載量。
 
 Runtime926檔，ordered SHA-256 `bf7f2aa5609b79fb5cae3aceb7d57802176d10226e02ba2a2f826845191cbe06`。ZIP189,700,975 bytes，SHA-256 `8047c995da9060b4eebd119083b3a2c0a3e9bfb529c029641805ad54a9aeea72`；source／ZIP逐檔一致，原活動481保護hash全不變。證據為`output/playwright/rocket-side-booster-lab/explorer-global-detail-final-report.json`及`output/reports/rocket-global-detail-{node-final,cache-final,build,check,registry,rebuild,closure}`。local preview以absolute root回傳HTTP200並開啟Codex交接；queued不是已觀察使用者UI。
+
+## Commit及發布狀態（2026-11-09）
+
+程式commit `9f153fb4769b0f086fc3b5016cc6ef6148818b71`。committed selection-preview以`c34c2c3`為base，README／build依賴觸發full305選擇；實際執行範圍仍為上列13個Node／package檔及118 browser flows，不將selection當作全庫通過證據。
+
+原owner-private Site `appgprj_6aeca66555b481919803e437687c4fa8`權限不變（單一owner、無groups）。大型Git同步先遇403，保留未發布commit的backup branch `codex/global-detail-upload-fbd3d278`後分六批同步，最終source commit `439a43da84bf858bf573075be3917f8ff8ada770`。與原完整待發布tree `1d5df277421926d1a1ea052137ffb43549f324d5`一致；六個中途source commit均未發布。
+
+helper產生Sites tar共189,645,859 bytes、929檔，SHA-256 `81d381b7fbd7fdf62ae073516ffaa625303a359fe9c573e5d842c7259f831894`。已逐檔核對tar／dist／canonical runtime，hosting metadata為同一project。原tar保留於`output/tmp/rocket-global-detail/site.tar.gz`供重試，保持bytes不變；下載原檔、Python暫存及task scripts可清除。證據：`output/reports/rocket-global-detail-{archive,publication}.json`。
+
+**尚未發布成功。** Native `save_version_and_deploy_private`兩次均在OpenAI blob upload階段300秒逾時，未建立saved version或deployment。已查版本列表，live仍為v44／source `669cee6ca7f56153bc35bd0ca38114eb872b2682`，deployment `appgdep_6af075ddd260819180085e664f4bc255`，網址仍為https://simlab-rocket-side-booster.ieyp.chatgpt.site。另請求private publish-on-push，服務回覆`publish_on_push_accepted:false`，沒有以普通push冒稱已部署。這是傳輸／服務能力限制，不是自動審批拒絕；沒有改用缺少archive的save來繞過既有發布合約。後續應沿用已同步source和已驗證tar，待上傳服務可用後重試原private operation；如回覆saved_version_id則改為部署該版本，勿重存。
