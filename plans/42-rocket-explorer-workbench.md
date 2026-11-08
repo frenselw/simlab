@@ -82,3 +82,11 @@ Runtime ordered SHA-256 `d8cbb2964a17b0bc8d3d3a75da4a9cc627e1ed9b5d82085a3e9df57
 報告`output/playwright/rocket-side-booster-lab/explorer-chute-report.json`、同前綴`return/effects/flight-report.json`；console及build／committed selection-preview在`output/reports/rocket-explorer-chute-*`。Runtime commit `36a867982d65e004fff03b12f92016a955370654`，selection base `611d56d`；預覽不是全庫執行證據。Ordered runtime SHA-256 `0318987830cfef1bf95061954bd51440a117a0743eade2dc5fd834edae965321`。Standalone ZIP471 entries／15981844 bytes，SHA-256 `98406dcb986647b450190bb28fe453d684f8cbc0f6458c7a95ef6e89026ac18a`；source／解壓ZIP／Site471檔一致，舊火箭481檔hash不變。實體手機未驗證。
 
 觸地動畫更新已發佈至原owner-private Site：source commit `690a180168f9b47a55d03cdafe0dea5d0aebc749`；deployment `appgdep_6aef604f77d48191afe9dab99327e0f9`／version `appgprj_6aeca66555b481919803e437687c4fa8~appgver_85f3f60571748191b7f9089932a2f832`，server回傳 succeeded（2026-11-08 01:31 +08）。網址 https://simlab-rocket-side-booster.ieyp.chatgpt.site 。發佈前source credential過期，更新同一Site憑證後官方helper正常完成；沒有更改audience或原火箭活動。
+
+## 手機標題列再縮一行
+
+使用者圖片指出主題下方空白及六掣三排佔位。低於720px的flight header改為兩排：第一排主題＋操控對象／繼續／倍速＋音效／fullscreen；第二排只放點火／分離／降落傘，三等欄。保留全部44px觸控目標，不橫向藏掣；飛行手機副題／操控前綴收起，320px用13px主題及12px操控標籤。Workshop及720px以上現有版面保持；dropdown與fullscreen marker沿用原元件，只有HTML分組及CSS重排，不改物理／動畫／模型狀態。驗證六viewport header減至約100px內、首排對齊、全部按鈕無重疊／截字、1000×長標籤、切換操控／開傘、pad轉場、可信觸控及fullscreen。
+
+縮排驗證：source及解壓standalone共26個針對性browser flows通過（24 layout及2組裝／點火／助推器和級間分離／回工廠）；runtime／HTTP errors為零。新版layout另檢查手機首排五個次要／系統操作與標題對齊、三個主要動作同第二排、1000×不截字、shared fullscreen row marker切換不改高度、390手機及1280桌面真實fullscreen內選倍率及切換操控。所有按鈕至少44px、無重疊，Control Panel首項仍為flightControls。
+
+Header實測：320px為97px、375／390手機為98px（原147px），844橫屏仍99px、1280桌面仍52px，workshop保持52px；並已目視320及390截圖。Package contract、JS syntax及check:tests通過，registry仍301 entries；本次純HTML/CSS重排，沒有重跑無關物理／音效／塌傘整套測試。原481 protected files hash不變。實體Safari／手機未驗證。報告`output/playwright/rocket-side-booster-lab/explorer-compact-header-layout-report.json`及`assembly-report.json`；console在`output/reports/rocket-explorer-compact-header-*`。
