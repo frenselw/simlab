@@ -10,9 +10,9 @@ export function terrainNormal(point,out){
  const dx=(height(east,1)-height(east,-1))/(2*step),dz=(height(north,1)-height(north,-1))/(2*step);
  return out.copy(radial).addScaledVector(east,-dx).addScaledVector(north,-dz).normalize();
 }
-export function setTerrainNormals(geometry,origin){
+export function setTerrainNormals(geometry,origin,landOnly=false){
  const started=performance.now(),p=geometry.attributes.position,n=geometry.attributes.normal||new THREE.BufferAttribute(new Float32Array(p.count*3),3),water=geometry.attributes.surfaceWater||new THREE.BufferAttribute(new Float32Array(p.count),1),point=new THREE.Vector3(),normal=new THREE.Vector3();
- for(let i=0;i<p.count;i++){point.fromBufferAttribute(p,i).add(origin);terrainNormal(point,normal);n.setXYZ(i,normal.x,normal.y,normal.z);sample.copy(point).normalize();water.setX(i,window.RocketSurface.waterAt(sample.x,sample.y,sample.z)?1:0);}geometry.setAttribute('normal',n);geometry.setAttribute('surfaceWater',water);n.needsUpdate=water.needsUpdate=true;return performance.now()-started;
+ for(let i=0;i<p.count;i++){point.fromBufferAttribute(p,i).add(origin);terrainNormal(point,normal);n.setXYZ(i,normal.x,normal.y,normal.z);sample.copy(point).normalize();water.setX(i,!landOnly&&window.RocketSurface.waterAt(sample.x,sample.y,sample.z)?1:0);}geometry.setAttribute('normal',n);geometry.setAttribute('surfaceWater',water);n.needsUpdate=water.needsUpdate=true;return performance.now()-started;
 }
 export const terrainSlopeDetail={value:1};
 // One periodic texture supplies both water normals and quiet land variation without another render pass.
@@ -25,20 +25,41 @@ for(let y=0;y<128;y++)for(let x=0;x<128;x++){
 const surfaceTexture=new THREE.DataTexture(surfacePixels,128,128);surfaceTexture.wrapS=surfaceTexture.wrapT=THREE.RepeatWrapping;surfaceTexture.magFilter=THREE.LinearFilter;surfaceTexture.minFilter=THREE.LinearMipmapLinearFilter;surfaceTexture.generateMipmaps=true;surfaceTexture.needsUpdate=true;
 export const surfaceTextureBytes=128*128*4*4/3;
 export const regionalSurfaceTexture={value:null};
-export const surfaceUniforms={uRegionalSurface:regionalSurfaceTexture,uSurfaceMap:{value:surfaceTexture},uSurfaceTime:{value:0},uSurfaceDetail:{value:1},uSurfaceRotation:{value:new THREE.Matrix3()},uSurfaceStrength:{value:1}};
+export const worldSurfaceTexture={value:null};
+export function createWorldSurfaceTexture(){
+ const grid=window.RocketSurface.surfaceGrid(),width=(grid.width-1)/2,height=(grid.height+1)/2,pixels=new Uint8Array(width*height*2);
+ for(let y=0;y<height;y++)for(let x=0;x<width;x++){const h=grid.data[(grid.height-1-y*2)*grid.width+x*2]&32767,i=(y*width+x)*2;pixels[i]=h>>>8;pixels[i+1]=h&255;}
+ // Omit the duplicated longitude endpoint so the texture fits 4096-pixel mobile limits.
+ const texture=new THREE.DataTexture(pixels,width,height,THREE.RGFormat);texture.wrapS=THREE.RepeatWrapping;texture.magFilter=texture.minFilter=THREE.LinearFilter;texture.generateMipmaps=false;texture.needsUpdate=true;worldSurfaceTexture.value=texture;return texture;
+}
+export function orientGroundSphere(geometry,direction){
+ const data=geometry.userData;if(data.groundAnchor&&data.groundAnchor.distanceTo(direction)*R<5000)return false;
+ data.groundBase ||= geometry.attributes.position.array.slice();data.groundAnchor=direction.clone();
+ const target=direction.clone().applyAxisAngle(new THREE.Vector3(0,1,0),-.7),rotation=new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),target),p=new THREE.Vector3(),positions=geometry.attributes.position,normals=geometry.attributes.normal;
+ for(let i=0;i<positions.count;i++){p.fromArray(data.groundBase,i*3).applyQuaternion(rotation);positions.setXYZ(i,p.x,p.y,p.z);normals.setXYZ(i,p.x,p.y,p.z);}positions.needsUpdate=normals.needsUpdate=true;geometry.boundingSphere=new THREE.Sphere(new THREE.Vector3(),1);return true;
+}
+export const surfaceUniforms={uWorldSurface:worldSurfaceTexture,uRegionalSurface:regionalSurfaceTexture,uSurfaceMap:{value:surfaceTexture},uSurfaceTime:{value:0},uSurfaceDetail:{value:1},uSurfaceRotation:{value:new THREE.Matrix3()},uSurfaceStrength:{value:1}};
 export const groundLight=`
 uniform float uSlopeDetail,uSurfaceTime,uSurfaceDetail,uSurfaceStrength;
-uniform sampler2D uSurfaceMap,uRegionalSurface;uniform mat3 uSurfaceRotation;
+uniform sampler2D uSurfaceMap,uRegionalSurface,uWorldSurface;uniform mat3 uSurfaceRotation;
 float regionalHeight(vec2 uv){return dot(texture2D(uRegionalSurface,(uv*2048.0+.5)/2049.0).rg,vec2(65280.0,255.0))*.1;}
+float worldHeight(vec2 uv){uv.x=fract(uv.x);uv.y=clamp(uv.y,0.0,1.0);return dot(texture2D(uWorldSurface,(uv*vec2(4096.0,2048.0)+.5)/vec2(4096.0,2049.0)).rg,vec2(65280.0,255.0));}
 vec3 terrainIrradiance(vec3 normal,vec3 radial,vec3 sun){
  normal=normalize(mix(radial,normal,uSlopeDetail));
  float day=smoothstep(-.12,.25,dot(radial,sun));
  float sky=.5+.5*max(0.0,dot(normal,radial));
- vec3 ambient=mix(vec3(.035,.045,.07),vec3(.22,.28,.34),day)*(.7+.3*sky);
- return ambient+vec3(1.0,.95,.83)*(.92*max(0.0,dot(normal,sun)));
+ vec3 ambient=mix(vec3(.0015,.0025,.005),vec3(.22,.28,.34),day)*(.7+.3*sky);
+ return ambient+vec3(1.0,.95,.83)*(.92*max(0.0,dot(normal,sun)))*smoothstep(-.03,.02,dot(radial,sun));
 }
 vec3 shadeSurface(vec3 base,vec3 normal,vec3 radial,vec3 point,vec3 world,vec3 sun,float water){
  vec3 p=normalize(point);vec2 metres=p.xz*6371000.0;
+ if(water<.5){
+  float lat=.605629,lon=-2.101376;vec3 up=vec3(cos(lat)*cos(lon),sin(lat),cos(lat)*sin(lon)),eastGeo=vec3(-sin(lon),0.0,cos(lon)),northGeo=vec3(-sin(lat)*cos(lon),cos(lat),-sin(lat)*sin(lon)),geo=normalize(eastGeo*p.x+up*p.y+northGeo*p.z);
+  vec2 uv=vec2(atan(geo.z,geo.x)/6.283185307+.5,asin(clamp(geo.y,-1.0,1.0))/3.141592654+.5),delta=vec2(1.0/4096.0,1.0/2048.0);
+  float dx=(worldHeight(uv+vec2(delta.x,0.0))-worldHeight(uv-vec2(delta.x,0.0)))/(19545.983*max(.03,sqrt(max(0.0,1.0-geo.y*geo.y)))),dz=(worldHeight(uv+vec2(0.0,delta.y))-worldHeight(uv-vec2(0.0,delta.y)))/19545.983;
+  vec3 east=normalize(cross(vec3(0.0,sin(lat),cos(lat)),p)+vec3(.0000001,0.0,0.0)),north=cross(p,east);
+  normal=normalize(uSurfaceRotation*normalize(p-east*dx-north*dz));
+ }
  if(water<.5&&p.y>.99&&max(abs(metres.x),abs(metres.y))<239000.0){
   vec2 uv=metres/480000.0+.5,stepUv=vec2(1.0/2048.0,0.0);
   float dx=(regionalHeight(uv+stepUv)-regionalHeight(uv-stepUv))/468.75,dz=(regionalHeight(uv+stepUv.yx)-regionalHeight(uv-stepUv.yx))/468.75;
@@ -85,7 +106,7 @@ export function createTerrain(buffer,sun){
  const chunks=header.chunks.map(chunk=>{
   const inner=chunk.box.every(v=>Math.abs(v)<header.extent*.88);
   // Fading ground also precedes clouds (-1), which still precede flames and smoke (0).
-  const levels=chunk.levels.map(level=>{const attributes=new THREE.InterleavedBuffer(new Float32Array(buffer,start+level.offset,level.vertices*10),10),g=new THREE.BufferGeometry();for(const [name,size,offset]of [['position',3,0],['normal',3,3],['color',3,6],['landFade',1,9]])g.setAttribute(name,new THREE.InterleavedBufferAttribute(attributes,size,offset));g.setIndex(new THREE.BufferAttribute(new Uint32Array(buffer,start+level.offset+level.vertices*40,level.indices),1));setTerrainNormals(g,new THREE.Vector3(0,R,0));g.computeBoundingSphere();const mesh=new THREE.Mesh(g,inner?solid:material);mesh.renderOrder=inner?-3:-2;mesh.visible=false;group.add(mesh);return mesh;});
+  const levels=chunk.levels.map(level=>{const attributes=new THREE.InterleavedBuffer(new Float32Array(buffer,start+level.offset,level.vertices*10),10),g=new THREE.BufferGeometry();for(const [name,size,offset]of [['position',3,0],['normal',3,3],['color',3,6],['landFade',1,9]])g.setAttribute(name,new THREE.InterleavedBufferAttribute(attributes,size,offset));g.setIndex(new THREE.BufferAttribute(new Uint32Array(buffer,start+level.offset+level.vertices*40,level.indices),1));setTerrainNormals(g,new THREE.Vector3(0,R,0),true);g.computeBoundingSphere();const mesh=new THREE.Mesh(g,inner?solid:material);mesh.renderOrder=inner?-3:-2;mesh.visible=false;group.add(mesh);return mesh;});
   return {levels,level:2,center:new THREE.Vector3((chunk.box[0]+chunk.box[1])/2,0,(chunk.box[2]+chunk.box[3])/2),size:chunk.box[1]-chunk.box[0]};
  });
  const townCandidates=[],transform=new THREE.Object3D();for(const chunk of chunks){const geometry=chunk.levels[0].geometry,positions=geometry.attributes.position;for(let i=0;i<positions.count;i+=7){const x=positions.getX(i),y=positions.getY(i),z=positions.getZ(i),height=y-(Math.sqrt(R**2-x*x-z*z)-R);if(x>10000&&x<80000&&Math.abs(z)<80000&&height>40&&height<300&&geometry.attributes.normal.getY(i)>.995)townCandidates.push([x,z]);}}

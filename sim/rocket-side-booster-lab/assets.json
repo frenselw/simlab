@@ -483,6 +483,8 @@
     "rocket-side-booster-lab/assets/terrain-sample/heights.png",
     "rocket-side-booster-lab/assets/terrain-sample/albedo.webp",
     "rocket-side-booster-lab/assets/regional-heights.bin.gz",
-    "rocket-side-booster-lab/assets/regional-surface.png"
+    "rocket-side-booster-lab/assets/regional-surface.png",
+    "rocket-side-booster-lab/lighting.js",
+    "rocket-side-booster-lab/assets/world-heights.bin.gz"
   ]
 }

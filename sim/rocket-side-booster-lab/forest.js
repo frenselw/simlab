@@ -25,16 +25,16 @@ function woodlandMaterial(near,scale){
  #include <project_vertex>`);shader.fragmentShader='varying vec3 vTreeWorld;uniform float uTreeMetres;\n'+shader.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\nfloat treeDistance=distance(vTreeWorld,cameraPosition)*uTreeMetres;diffuseColor.a*='+(near?'1.0-smoothstep(650.0,950.0,treeDistance)':'smoothstep(650.0,1100.0,treeDistance)*(1.0-smoothstep(6000.0,9000.0,treeDistance))')+';');};material.customProgramCacheKey=()=>near?'explorer-near-woodland-v2':'explorer-mid-woodland-v2';return material;
 }
 
-export function createForest(relief){
+export function createForest(relief,world,contact){
  const group=new THREE.Group(),geometry=treeGeometry(),scale={value:1},material=woodlandMaterial(true,scale),canopies=new THREE.InstancedMesh(canopyGeometry(),woodlandMaterial(false,scale),256),cache=new Map(),transform=new THREE.Object3D(),point=new THREE.Vector3(),cameraPoint=new THREE.Vector3(),east=new THREE.Vector3(),north=new THREE.Vector3(),normal=new THREE.Vector3(),neighbor=new THREE.Vector3();
  group.scale.setScalar(R/(R-5));canopies.instanceMatrix.setUsage(THREE.DynamicDrawUsage);group.add(canopies);
- let key='',clock=0,canopyKey='';
+ let key='',clock=0,canopyKey='',canopyAnchors=[];
  const stats=group.userData={nearTrees:0,canopies:0,cached:0,cacheLimit:12,activeLimit:9,instanceBytes:0,buildMs:0,rebuilds:0,trianglesPerTree:geometry.attributes.position.count/3};
  function place(mesh,index,lon,lat,size,width=size*.32){
   direction(lon,lat,point);const h=S.heightAt(point.x,point.y,point.z);if(S.waterAt(point.x,point.y,point.z)||h>2200||point.y>0&&Math.hypot(point.x,point.z)*R<650)return false;
   const density=S.forestAt(point.x,point.y,point.z,h);if(density<.26)return false;
   if(mesh===canopies){const delta=width/R*180/Math.PI;for(const [x,y]of [[lon-delta/Math.max(.15,Math.cos(lat*Math.PI/180)),lat],[lon+delta/Math.max(.15,Math.cos(lat*Math.PI/180)),lat],[lon,lat-delta],[lon,lat+delta]]){direction(x,y,neighbor);if(S.waterAt(neighbor.x,neighbor.y,neighbor.z)||Math.abs(S.heightAt(neighbor.x,neighbor.y,neighbor.z)-h)>100)return false;}}
-  const root=mesh===canopies&&relief&&point.y>.99&&Math.max(Math.abs(point.x),Math.abs(point.z))*R<211200?relief.groundHeight(point.x*R,point.z*R,true):h;transform.position.copy(point).multiplyScalar(1+root/R);transform.quaternion.setFromUnitVectors(up,point);transform.scale.set(width/R,size/R,width/R);transform.updateMatrix();mesh.setMatrixAt(index,transform.matrix);return true;
+  const root=mesh===canopies&&relief&&point.y>.99&&Math.max(Math.abs(point.x),Math.abs(point.z))*R<211200?relief.groundHeight(point.x*R,point.z*R,true):mesh===canopies&&world?world.surfaceHeight(point):h;transform.position.copy(point).multiplyScalar(1+root/R);transform.quaternion.setFromUnitVectors(up,point);transform.scale.set(width/R,size/R,width/R);transform.updateMatrix();mesh.setMatrixAt(index,transform.matrix);return true;
  }
  function build(x,y){
   const started=performance.now(),latitude=(y+.5)*step,dx=step/Math.max(.15,Math.cos(latitude*Math.PI/180)),mesh=new THREE.InstancedMesh(geometry,material,144);mesh.count=0;
@@ -63,19 +63,21 @@ export function createForest(relief){
   }
   stats.nearTrees=0;
   for(const [id,item]of cache){const center=item.mesh.boundingSphere?.center,distance=center?cameraPoint.distanceTo(center)*R:Infinity,screen=16*pixels/Math.max(1,distance),active=desired.some(([x,y])=>id===x+':'+y);item.mesh.visible=active&&screen>(quality===1?2.5:1.1);if(item.mesh.visible)stats.nearTrees+=item.mesh.count;}
-  const midStep=.012,cy=Math.floor(lat/midStep),dx=midStep/Math.max(.15,Math.cos((cy+.5)*midStep*Math.PI/180)),cx=Math.floor(lon/dx),midKey=cx+':'+cy+':'+quality+':'+(relief?.userData.levels.join(',')||'');
-  if(midKey!==canopyKey){canopyKey=midKey;canopies.count=0;
+  const midStep=.012,cy=Math.floor(lat/midStep),dx=midStep/Math.max(.15,Math.cos((cy+.5)*midStep*Math.PI/180)),cx=Math.floor(lon/dx),midKey=cx+':'+cy+':'+quality+':'+(relief?.userData.levels.join(',')||'')+'|'+(world?.userData.active.join(',')||'');
+  if(midKey!==canopyKey){canopyKey=midKey;canopies.count=0;canopyAnchors=[];
    for(let j=-9;j<=9;j++)for(let i=-9;i<=9&&canopies.count<256;i++){
     const row=cy+j,rowDx=midStep/Math.max(.15,Math.cos((row+.5)*midStep*Math.PI/180)),col=Math.floor(lon/rowDx)+i,a=seed(col,row),b=seed(row,col+73),x=(col+.02+a*.96)*rowDx,y=(row+.02+b*.96)*midStep;
     direction(x,y,point);const h=S.heightAt(point.x,point.y,point.z),density=S.forestAt(point.x,point.y,point.z,h);if(a>density*.9)continue;
     if(place(canopies,canopies.count,x,y,65+b*55,350+b*260)){
      const height=(lon,lat)=>{direction(lon,lat,neighbor);return S.heightAt(neighbor.x,neighbor.y,neighbor.z);},ex=(height(x+.001,y)-height(x-.001,y))/(2*R*Math.PI/180*.001*Math.max(.15,Math.cos(y*Math.PI/180))),nz=(height(x,y+.001)-height(x,y-.001))/(2*R*Math.PI/180*.001);
      if(Math.hypot(ex,nz)>.3)continue;
-     east.copy(direction(x+.001,y,neighbor)).sub(point).normalize();north.copy(direction(x,y+.001,neighbor)).sub(point).normalize();normal.copy(point).addScaledVector(east,-ex).addScaledVector(north,-nz).normalize();transform.quaternion.setFromUnitVectors(up,normal);transform.updateMatrix();canopies.setMatrixAt(canopies.count++,transform.matrix);
+     east.copy(direction(x+.001,y,neighbor)).sub(point).normalize();north.copy(direction(x,y+.001,neighbor)).sub(point).normalize();normal.copy(point).addScaledVector(east,-ex).addScaledVector(north,-nz).normalize();transform.quaternion.setFromUnitVectors(up,normal);transform.updateMatrix();canopyAnchors.push({unit:point.clone(),fine:h,base:(transform.position.length()-1)*R});canopies.setMatrixAt(canopies.count++,transform.matrix);
     }
    }
    canopies.instanceMatrix.needsUpdate=true;canopies.computeBoundingSphere();
   }
+  const radius=contact?.visible?contact.userData.detailRadius||0:0,center=contact?.clipping.uContactCenter.value;
+  for(let i=0;i<canopyAnchors.length;i++){const row=canopyAnchors[i],weight=radius?THREE.MathUtils.smoothstep(row.unit.distanceTo(center)*R,radius*.55,radius*.9):1,height=row.fine+(row.base-row.fine)*weight,at=i*16;canopies.instanceMatrix.array[at+12]=row.unit.x*(1+height/R);canopies.instanceMatrix.array[at+13]=row.unit.y*(1+height/R);canopies.instanceMatrix.array[at+14]=row.unit.z*(1+height/R);}canopies.instanceMatrix.needsUpdate=true;canopies.computeBoundingSphere();
   const agl=S.clearance(flight.state),screen=200*pixels/Math.max(1000,agl);canopies.visible=screen>1.5&&screen<2000;stats.canopies=canopies.visible?canopies.count:0;stats.cached=cache.size;stats.instanceBytes=cache.size*144*64+256*64;
  };
  return group;

@@ -1,0 +1,24 @@
+{
+  "width": 8193,
+  "height": 4097,
+  "codec": "row-delta-u16-v1",
+  "file": "assets/world-heights.bin.gz",
+  "bytes": 10625207,
+  "decodedBytes": 67133442,
+  "decodedSha256": "c9d3df50f98107a8fae458b5bcc4f297860ab4371f60e2b17c590305feaa438b",
+  "sha256": "7cfc3200531c70c74f872c6f0d0c7194e0d1a849f5a8c0fca06bca3ebf8c879d",
+  "maxHeight": 9000,
+  "maximumMetres": 6698,
+  "source": {
+    "source": "NOAA ETOPO 2022 ice-surface 60 arc-second",
+    "url": "https://www.ngdc.noaa.gov/mgg/global/relief/ETOPO2022/data/60s/60s_surface_elev_gtif/ETOPO_2022_v1_60s_N90W180_surface.tif",
+    "bytes": 465969062,
+    "sha256": "9d27d4b8ea8e76977e2988bca667d7c8fa68b927355feffcddd6b4875a7fd08e",
+    "retrievedDate": "2026-11-08",
+    "reference": "https://www.ncei.noaa.gov/products/etopo-global-relief-model",
+    "width": 8193,
+    "height": 4097,
+    "processing": "Global point grid; bilinear area resampling, fixed 0.35-pixel filter, Natural Earth 50m coast; two-pixel coastal fade; sea and below-sea-level land at zero; 1m plus land bit.",
+    "derivativeSha256": "48f9743a379fae6d86c000689922fd859a8d1fff05b31ba2d9cbb49dc856a314"
+  }
+}

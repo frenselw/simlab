@@ -4,7 +4,7 @@ import {terrainLighting,groundLight,setTerrainNormals,terrainSlopeDetail,surface
 function geometry(buffer){
  const length=new DataView(buffer).getUint32(0,true),header=JSON.parse(new TextDecoder().decode(new Uint8Array(buffer,4,length))),start=4+Math.ceil(length/4)*4;
  if(header.version!==1||start+header.vertexCount*16+header.indexCount*4!==buffer.byteLength)throw Error('Invalid global terrain');
- const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(buffer,start,header.vertexCount*3),3));g.setAttribute('color',new THREE.BufferAttribute(new Uint8Array(buffer,start+header.vertexCount*12,header.vertexCount*4),4,true));g.setIndex(new THREE.BufferAttribute(new Uint32Array(buffer,start+header.vertexCount*16,header.indexCount),1));const normalMs=setTerrainNormals(g,new THREE.Vector3());g.computeBoundingSphere();return {header,g,normalMs};
+ const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(buffer,start,header.vertexCount*3),3));g.setAttribute('color',new THREE.BufferAttribute(new Uint8Array(buffer,start+header.vertexCount*12,header.vertexCount*4),4,true));g.setIndex(new THREE.BufferAttribute(new Uint32Array(buffer,start+header.vertexCount*16,header.indexCount),1));const normalMs=setTerrainNormals(g,new THREE.Vector3(),true);g.computeBoundingSphere();return {header,g,normalMs};
 }
 export function createGlobalTerrain(buffer,sun){
  const {header,g,normalMs}=geometry(buffer),group=new THREE.Group(),regional={value:0},material=new THREE.MeshBasicMaterial({vertexColors:true,depthTest:false,depthWrite:true});
@@ -20,6 +20,19 @@ export function createGlobalTerrain(buffer,sun){
   const mesh=new THREE.Mesh(g,fineMaterial);mesh.renderOrder=-1;mesh.visible=false;group.add(mesh);return {mesh,bytes:data.byteLength,used:++clock};}
  function evict(){while(cache.size>6){const candidates=[...cache].filter(([id])=>!desired.has(id)).sort((a,b)=>a[1].used-b[1].used);if(!candidates.length)break;const [id,item]=candidates[0];group.remove(item.mesh);item.mesh.geometry.dispose();cache.delete(id);}}
  function load(){for(const id of desired){if(pending.size>=2)break;if(cache.has(id)||pending.has(id)||failed.has(id))continue;const cell=cells.find(c=>c.id===id);if(!cell.file)continue;const abort=new AbortController();pending.set(id,abort);fetch(new URL('./assets/global/'+cell.file,import.meta.url),{signal:abort.signal}).then(r=>{if(!r.ok)throw Error('Global detail unavailable');return r.arrayBuffer();}).then(data=>{if(!abort.signal.aborted)cache.set(id,meshFor(data));}).catch(error=>{if(error.name!=='AbortError')failed.add(id);}).finally(()=>{pending.delete(id);evict();group.onChange?.();});}}
+ const cellMap=new Map(cells.map(c=>[c.id,c])),heightCache=new Map();
+ group.surfaceHeight=direction=>{
+  const S=window.RocketSurface,[lon,lat]=S.geographic(direction.x,direction.y,direction.z),id=Math.min(35,Math.floor((lon+180)/10))+'-'+Math.min(17,Math.floor((lat+90)/10)),cell=cellMap.get(id);if(!cell)return -5;
+  const fine=cache.get(id)?.mesh,geometry=fine?.visible?fine.geometry:g,key=geometry.uuid+':'+id;
+  if(!heightCache.has(key)){
+   const east=new THREE.Vector3(0,1,0).cross(cell.normal);if(east.lengthSq()<.001)east.set(1,0,0);east.normalize();const north=cell.normal.clone().cross(east),limit=Math.tan(cell.angularRadius)*1.1,source=geometry===g?original:geometry.index.array,first=geometry===g?cell.firstIndex:0,count=geometry===g?cell.indexCount:source.length,rows=new Float64Array(count/3*9),bins=Array.from({length:256},()=>[]),p=new THREE.Vector3(),position=geometry.attributes.position,toBin=v=>Math.max(0,Math.min(15,Math.floor((v/limit+1)*8)));
+   for(let i=0;i<count;i+=3){const row=i/3,at=row*9;for(let k=0;k<3;k++){p.fromBufferAttribute(position,source[first+i+k]);const d=p.dot(cell.normal);rows.set([p.dot(east)/d,p.dot(north)/d,1/d],at+k*3);}const xs=[rows[at],rows[at+3],rows[at+6]],ys=[rows[at+1],rows[at+4],rows[at+7]];for(let y=toBin(Math.min(...ys));y<=toBin(Math.max(...ys));y++)for(let x=toBin(Math.min(...xs));x<=toBin(Math.max(...xs));x++)bins[y*16+x].push(row);}
+   heightCache.set(key,{east,north,normal:cell.normal,rows,bins,toBin});if(heightCache.size>8)heightCache.delete(heightCache.keys().next().value);stats.heightCells=heightCache.size;
+  }
+  const data=heightCache.get(key),denom=direction.dot(data.normal),x=direction.dot(data.east)/denom,y=direction.dot(data.north)/denom;let best=-5;
+  for(const row of data.bins[data.toBin(y)*16+data.toBin(x)]){const at=row*9,r=data.rows,ax=r[at],ay=r[at+1],bx=r[at+3],by=r[at+4],cx=r[at+6],cy=r[at+7],det=(by-cy)*(ax-cx)+(cx-bx)*(ay-cy);if(Math.abs(det)<1e-18)continue;const u=((by-cy)*(x-cx)+(cx-bx)*(y-cy))/det,v=((cy-ay)*(x-cx)+(ax-cx)*(y-cy))/det;if(u>=-1e-7&&v>=-1e-7&&u+v<=1+1e-7)best=Math.max(best,(6371000-5)/(denom*(u*r[at+2]+v*r[at+5]+(1-u-v)*r[at+8]))-6371000);}
+  return best;
+ };
  const colorCache=new Map();
  group.colorAt=(direction,out)=>{
   const [lon,lat]=window.RocketSurface.geographic(direction.x,direction.y,direction.z),id=Math.min(35,Math.floor((lon+180)/10))+'-'+Math.min(17,Math.floor((lat+90)/10)),cell=cells.find(c=>c.id===id);if(!cell)return out.setRGB(.24,.37,.22);

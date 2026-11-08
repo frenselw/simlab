@@ -1,0 +1,12 @@
+{
+  "source": "NOAA ETOPO 2022 ice-surface 60 arc-second",
+  "url": "https://www.ngdc.noaa.gov/mgg/global/relief/ETOPO2022/data/60s/60s_surface_elev_gtif/ETOPO_2022_v1_60s_N90W180_surface.tif",
+  "bytes": 465969062,
+  "sha256": "9d27d4b8ea8e76977e2988bca667d7c8fa68b927355feffcddd6b4875a7fd08e",
+  "retrievedDate": "2026-11-08",
+  "reference": "https://www.ncei.noaa.gov/products/etopo-global-relief-model",
+  "width": 8193,
+  "height": 4097,
+  "processing": "Global point grid; bilinear area resampling, fixed 0.35-pixel filter, Natural Earth 50m coast; two-pixel coastal fade; sea and below-sea-level land at zero; 1m plus land bit.",
+  "derivativeSha256": "48f9743a379fae6d86c000689922fd859a8d1fff05b31ba2d9cbb49dc856a314"
+}

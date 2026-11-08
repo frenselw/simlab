@@ -112,3 +112,18 @@ This offline-only command reads the pinned `sources/explorer-terrain-sample/usgs
 An opaque RGB PNG packs 16-bit heights into RG to calculate continuous fragment normals; it uses linear sampling without mipmaps to avoid byte-carry rounding. Lossless WebP albedo avoids compression blocks. Gray/normal diagnostics include the local patch; the wire view explicitly shows the distant irregular mesh. A 200 m overlap at the patch edge prevents sky gaps from differing triangulations. Near tree roots use the same local grid triangles. Woodland uses two bounded instance batches with distance alpha hashing, a capped 32-cell CPU cache and at most 1690 near trees; positions remain seeded and stable. Trees are illustrative, not a land-cover survey. Pixel ratio is capped at 1.5; no real-time shadow or reflection pass is added.
 
 The existing explorer browser owner runs this via its `sample` case for source and extracted standalone ZIP. The user accepted this sample, authorizing full-area integration; the sample remains unchanged for comparison. Its independent build does not rebuild the flight terrain.
+
+## Explorer global elevations and coherent night lighting
+
+The original activity's illustrative pipeline above is historical and unchanged. For the explorer, run these offline commands in order:
+
+```text
+python tools/rocket-art/build-world-height.py
+python tools/rocket-art/bake-explorer-terrain.py --target sim/rocket-side-booster-lab
+```
+
+The checked-in `sources/explorer-world-terrain/height-land-8k.png` is a SHA-pinned derivative of NOAA ETOPO 2022 ice-surface 60-arc-second elevations. Its sidecar records the public URL, raw TIFF hash and processing; the 466 MB original is only an import cache. `build-world-height.py --source <TIFF>` verifies that original before regenerating the derivative. The runtime 8193 by 4097 point grid generalizes elevations to about 5 km at the equator, with periodic longitude and constant poles. A Uint16 stores metre height plus a land bit; sea and below-sea-level land remain zero. Row deltas plus deterministic gzip reduce transmission to about 10.6 MB; decoding reconstructs the shared 67.1 MB buffer in place. Flight waits for world and regional data. The accepted elevation bound is 9000 m; generalization does not preserve every summit.
+
+The global mesh retains common coast/cell topology and bounded 4-active/6-cached/2-request loading. Heights and biome colors are rebaked from the same data; desert and latitude/elevation limits also constrain illustrative woodland. A 4096 by 2049 RG8 texture derived in memory supplies continuous global normals, with no extra download or mipmaps. The USGS core and accepted sample retain higher detail. Contact skirts and middle woodland roots follow displayed coarse/fine triangles. Dense ocean rings follow the controlled craft without moving geography. No dynamic shadow or reflection target is added.
+
+`lighting.js` calculates solar height and spherical Earth occlusion. Sky, clouds, terrain, ocean, trees and bodies share the sun; bodies above a dark surface can receive direct light when the sun clears the horizon. Dim blue fill preserves body outlines. The browser owner's `world` case checks regions, real GPU heights, twilight/night pixels, model isolation and coarse-pointer budgets. These are Chromium checks, not physical iPad Safari FPS or peak-memory measurements. See the [global implementation plan](../../plans/42-rocket-explorer-global-terrain-and-night.md) for evidence and deployment receipts.
