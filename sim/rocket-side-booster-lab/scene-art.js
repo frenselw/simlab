@@ -1,20 +1,22 @@
 import * as THREE from './vendor/three-0.185.1/three.module.min.js';
 import {createTerrain,groundLight,terrainSlopeDetail,surfaceUniforms,surfaceTextureBytes,regionalSurfaceTexture,createWorldSurfaceTexture} from './terrain.js';
 import {createGlobalTerrain} from './global-terrain.js';
+import {createTerrainDetail} from './terrain-detail.js';
 const P=window.RocketParts,cache=new Map(),canvasMaps=new Map(),lostCanvases=new Set();
 export const artRecovery=new EventTarget();
 export function artTexturesReady(){return lostCanvases.size===0&&[...canvasMaps.keys()].every(c=>!c.getContext('2d')?.isContextLost?.());}
 export function restoreArtTextures(){for(const repaint of canvasMaps.values())repaint();for(const texture of cache.values())texture.needsUpdate=true;}
 const compact=innerWidth<960||matchMedia('(pointer: coarse)').matches,loader=new THREE.TextureLoader();
 async function artTexture(name){const texture=await loader.loadAsync(new URL('./assets/'+name,import.meta.url).href);texture.colorSpace=THREE.SRGBColorSpace;cache.set(name,texture);return texture;}
-const [dayMap,regionMap,weatherTexture,starMap,geography,terrainBuffer,globalBuffer,regionSurface]=await Promise.all([
+const [dayMap,regionMap,weatherTexture,starMap,geography,terrainBuffer,globalBuffer,regionSurface,detailMetadata]=await Promise.all([
  artTexture(compact?'earth-2k.webp':'earth-4k.webp'),artTexture('launch-region.webp'),artTexture('clouds.webp'),artTexture('starfield.webp'),
  fetch(new URL('./assets/geography.json',import.meta.url)).then(r=>{if(!r.ok)throw Error('Geography unavailable');return r.json();}),
  fetch(new URL('./assets/terrain.bin',import.meta.url)).then(r=>{if(!r.ok)throw Error('Terrain unavailable');return r.arrayBuffer();}),
  fetch(new URL('./assets/global/coarse.bin',import.meta.url)).then(r=>{if(!r.ok)throw Error('Global terrain unavailable');return r.arrayBuffer();}),
- loader.loadAsync(new URL('./assets/regional-surface.png',import.meta.url).href),window.RocketSurface.ready()
+ loader.loadAsync(new URL('./assets/regional-surface.png',import.meta.url).href),fetch(new URL('./assets/global-detail/index.json',import.meta.url)).then(r=>{if(!r.ok)throw Error('Terrain detail metadata unavailable');return r.json();}),window.RocketSurface.ready()
 ]);
 regionalSurfaceTexture.value=regionSurface;regionSurface.generateMipmaps=false;regionSurface.minFilter=regionSurface.magFilter=THREE.LinearFilter;cache.set('regional-surface',regionSurface);cache.set('world-surface',createWorldSurfaceTexture());
+const detail=createTerrainDetail(detailMetadata);surfaceUniforms.uDetailEnabled.value=1;surfaceUniforms.uDetailAtlas.value=detail.textures[0];surfaceUniforms.uDetailLookup.value=detail.textures[1];cache.set('global-normal-atlas',detail.textures[0]);cache.set('global-normal-lookup',detail.textures[1]);
 for(const texture of [dayMap,weatherTexture,starMap])texture.wrapS=THREE.RepeatWrapping;
 export function textureBudget(){return surfaceTextureBytes+[...cache.values()].reduce((bytes,t)=>bytes+t.image.width*t.image.height*(t.format===THREE.RGFormat?2:4)*(t.generateMipmaps?4/3:1),0);}
 
@@ -147,7 +149,7 @@ uniform sampler2D uMap,uRegion;uniform vec3 uSun;uniform float uCloud,uOpacity,u
 uniform vec3 uSun;uniform float uOpacity;varying vec3 vNormal;varying vec3 vWorld;void main(){vec3 n=normalize(vNormal);float rim=pow(1.0-abs(dot(n,normalize(cameraPosition-vWorld))),2.4);float sun=smoothstep(-.15,.15,dot(n,uSun))*(.25+.75*max(0.0,dot(n,uSun)));gl_FragColor=vec4(.16,.52,.92,rim*sun*.36*uOpacity);\n#include <logdepthbuf_fragment>
 #include <tonemapping_fragment>\n#include <colorspace_fragment>}`,side:THREE.BackSide,transparent:true,depthWrite:false}));
  earth.userData.farGeometry=earth.geometry;earth.userData.nearGeometry=compact?planetGeometry(48):earth.geometry;
- earth.rotation.order='ZYX';return {earth,clouds,halo,sun,opacity,surface,globalTerrain:createGlobalTerrain(globalBuffer,sun)};
+ earth.rotation.order='ZYX';return {earth,clouds,halo,sun,opacity,surface,globalTerrain:createGlobalTerrain(globalBuffer,sun,detail)};
 }
 export function createPad(){
  const group=new THREE.Group(),add=(g,m,x,y,z)=>{const mesh=new THREE.Mesh(g,m);mesh.position.set(x,y,z);group.add(mesh);return mesh;},concrete=new THREE.MeshLambertMaterial({color:'#b8c6c5',map:surface('concrete')}),steel=material('#71848b',{map:surface('metal'),metalness:.7,roughness:.42});

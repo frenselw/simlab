@@ -27,9 +27,9 @@ export const surfaceTextureBytes=128*128*4*4/3;
 export const regionalSurfaceTexture={value:null};
 export const worldSurfaceTexture={value:null};
 export function createWorldSurfaceTexture(){
- const grid=window.RocketSurface.surfaceGrid(),width=(grid.width-1)/2,height=(grid.height+1)/2,pixels=new Uint8Array(width*height*2);
- for(let y=0;y<height;y++)for(let x=0;x<width;x++){const h=grid.data[(grid.height-1-y*2)*grid.width+x*2]&32767,i=(y*width+x)*2;pixels[i]=h>>>8;pixels[i+1]=h&255;}
- // Omit the duplicated longitude endpoint so the texture fits 4096-pixel mobile limits.
+ const grid=window.RocketSurface.surfaceGrid(),width=(grid.width-1)/4,height=(grid.height+3)/4,pixels=new Uint8Array(width*height*2);
+ for(let y=0;y<height;y++)for(let x=0;x<width;x++){const h=grid.data[(grid.height-1-y*4)*grid.width+x*4]&32767,i=(y*width+x)*2;pixels[i]=h>>>8;pixels[i+1]=h&255;}
+ // Coarse orbital fallback leaves memory for six view-streamed kilometre-scale normal tiles.
  const texture=new THREE.DataTexture(pixels,width,height,THREE.RGFormat);texture.wrapS=THREE.RepeatWrapping;texture.magFilter=texture.minFilter=THREE.LinearFilter;texture.generateMipmaps=false;texture.needsUpdate=true;worldSurfaceTexture.value=texture;return texture;
 }
 export function orientGroundSphere(geometry,direction){
@@ -38,12 +38,16 @@ export function orientGroundSphere(geometry,direction){
  const target=direction.clone().applyAxisAngle(new THREE.Vector3(0,1,0),-.7),rotation=new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),target),p=new THREE.Vector3(),positions=geometry.attributes.position,normals=geometry.attributes.normal;
  for(let i=0;i<positions.count;i++){p.fromArray(data.groundBase,i*3).applyQuaternion(rotation);positions.setXYZ(i,p.x,p.y,p.z);normals.setXYZ(i,p.x,p.y,p.z);}positions.needsUpdate=normals.needsUpdate=true;geometry.boundingSphere=new THREE.Sphere(new THREE.Vector3(),1);return true;
 }
-export const surfaceUniforms={uWorldSurface:worldSurfaceTexture,uRegionalSurface:regionalSurfaceTexture,uSurfaceMap:{value:surfaceTexture},uSurfaceTime:{value:0},uSurfaceDetail:{value:1},uSurfaceRotation:{value:new THREE.Matrix3()},uSurfaceStrength:{value:1}};
+export const surfaceUniforms={uWorldSurface:worldSurfaceTexture,uDetailEnabled:{value:0},uDetailAtlas:{value:null},uDetailLookup:{value:null},uRegionalSurface:regionalSurfaceTexture,uSurfaceMap:{value:surfaceTexture},uSurfaceTime:{value:0},uSurfaceDetail:{value:1},uSurfaceRotation:{value:new THREE.Matrix3()},uSurfaceStrength:{value:1}};
 export const groundLight=`
 uniform float uSlopeDetail,uSurfaceTime,uSurfaceDetail,uSurfaceStrength;
-uniform sampler2D uSurfaceMap,uRegionalSurface,uWorldSurface;uniform mat3 uSurfaceRotation;
+uniform sampler2D uSurfaceMap,uRegionalSurface,uWorldSurface,uDetailAtlas,uDetailLookup;uniform float uDetailEnabled;uniform mat3 uSurfaceRotation;
 float regionalHeight(vec2 uv){return dot(texture2D(uRegionalSurface,(uv*2048.0+.5)/2049.0).rg,vec2(65280.0,255.0))*.1;}
-float worldHeight(vec2 uv){uv.x=fract(uv.x);uv.y=clamp(uv.y,0.0,1.0);return dot(texture2D(uWorldSurface,(uv*vec2(4096.0,2048.0)+.5)/vec2(4096.0,2049.0)).rg,vec2(65280.0,255.0));}
+float worldHeight(vec2 uv){uv.x=fract(uv.x);uv.y=clamp(uv.y,0.0,1.0);return dot(texture2D(uWorldSurface,(uv*vec2(2048.0,1024.0)+.5)/vec2(2048.0,1025.0)).rg,vec2(65280.0,255.0));}
+vec4 detailedNormal(vec2 uv){
+ if(uDetailEnabled<.5)return vec4(0.0);uv.x=fract(uv.x);uv.y=clamp(uv.y,0.0,.9999999);vec2 cell=floor(uv*vec2(36.0,18.0));vec4 entry=texture2D(uDetailLookup,(cell+.5)/vec2(36.0,18.0));float slot=floor(entry.r*255.0+.5)-1.0;if(slot<0.0)return vec4(0.0);
+ vec2 local=uv*vec2(36.0,18.0)-cell,atlas=(vec2(mod(slot,3.0),floor(slot/3.0))*1027.0+1.5+local*1024.0)/vec2(3081.0,2054.0);return vec4(normalize((texture2D(uDetailAtlas,atlas).rgb*255.0-128.0)/127.0),entry.g);
+}
 vec3 terrainIrradiance(vec3 normal,vec3 radial,vec3 sun){
  normal=normalize(mix(radial,normal,uSlopeDetail));
  float day=smoothstep(-.12,.25,dot(radial,sun));
@@ -55,16 +59,16 @@ vec3 shadeSurface(vec3 base,vec3 normal,vec3 radial,vec3 point,vec3 world,vec3 s
  vec3 p=normalize(point);vec2 metres=p.xz*6371000.0;
  if(water<.5){
   float lat=.605629,lon=-2.101376;vec3 up=vec3(cos(lat)*cos(lon),sin(lat),cos(lat)*sin(lon)),eastGeo=vec3(-sin(lon),0.0,cos(lon)),northGeo=vec3(-sin(lat)*cos(lon),cos(lat),-sin(lat)*sin(lon)),geo=normalize(eastGeo*p.x+up*p.y+northGeo*p.z);
-  vec2 uv=vec2(atan(geo.z,geo.x)/6.283185307+.5,asin(clamp(geo.y,-1.0,1.0))/3.141592654+.5),delta=vec2(1.0/4096.0,1.0/2048.0);
-  float dx=(worldHeight(uv+vec2(delta.x,0.0))-worldHeight(uv-vec2(delta.x,0.0)))/(19545.983*max(.03,sqrt(max(0.0,1.0-geo.y*geo.y)))),dz=(worldHeight(uv+vec2(0.0,delta.y))-worldHeight(uv-vec2(0.0,delta.y)))/19545.983;
-  vec3 east=normalize(cross(vec3(0.0,sin(lat),cos(lat)),p)+vec3(.0000001,0.0,0.0)),north=cross(p,east);
-  normal=normalize(uSurfaceRotation*normalize(p-east*dx-north*dz));
+  vec2 uv=vec2(atan(geo.z,geo.x)/6.283185307+.5,asin(clamp(geo.y,-1.0,1.0))/3.141592654+.5),delta=vec2(1.0/2048.0,1.0/1024.0);
+  vec3 east=normalize(cross(p,vec3(0.0,sin(lat),cos(lat)))+vec3(.0000001,0.0,0.0)),north=cross(east,p);vec4 fine=detailedNormal(uv);
+  if(fine.a<1.0){float dx=(worldHeight(uv+vec2(delta.x,0.0))-worldHeight(uv-vec2(delta.x,0.0)))/(39091.966*max(.03,sqrt(max(0.0,1.0-geo.y*geo.y)))),dz=(worldHeight(uv+vec2(0.0,delta.y))-worldHeight(uv-vec2(0.0,delta.y)))/39091.966;normal=normalize(uSurfaceRotation*normalize(p-east*dx-north*dz));}
+  if(fine.a>0.0)normal=normalize(mix(normal,uSurfaceRotation*(east*fine.x+north*fine.y+p*fine.z),fine.a));
  }
  if(water<.5&&p.y>.99&&max(abs(metres.x),abs(metres.y))<239000.0){
   vec2 uv=metres/480000.0+.5,stepUv=vec2(1.0/2048.0,0.0);
   float dx=(regionalHeight(uv+stepUv)-regionalHeight(uv-stepUv))/468.75,dz=(regionalHeight(uv+stepUv.yx)-regionalHeight(uv-stepUv.yx))/468.75;
   vec3 gradient=vec3(dx,0.0,dz);vec3 detailed=normalize(p-gradient+p*dot(p,gradient));
-  float weight=1.0-smoothstep(220000.0,239000.0,max(abs(metres.x),abs(metres.y)));
+  float footprint=239000.0*pow(pow(abs(metres.x)/239000.0,8.0)+pow(abs(metres.y)/239000.0,8.0),.125);float weight=1.0-smoothstep(175000.0,239000.0,footprint);
   normal=normalize(mix(normal,uSurfaceRotation*detailed,weight));
   float trees=texture2D(uRegionalSurface,(uv*2048.0+.5)/2049.0).b,h=regionalHeight(uv),dry=1.0-smoothstep(.15,.45,trees),rock=smoothstep(1100.0,2500.0,h)*.65;
   vec3 biome=mix(vec3(.24,.37,.22),vec3(.075,.19,.12),trees*.6);biome=mix(biome,vec3(.43,.37,.25),dry*.4);biome=mix(biome,vec3(.34,.32,.26),rock);base=mix(base,biome,weight);

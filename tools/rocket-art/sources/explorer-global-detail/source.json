@@ -1,0 +1,14 @@
+{
+  "source": "NOAA ETOPO 2022 ice-surface 30 arc-second",
+  "url": "https://www.ngdc.noaa.gov/mgg/global/relief/ETOPO2022/data/30s/30s_surface_elev_gtif/ETOPO_2022_v1_30s_N90W180_surface.tif",
+  "bytes": 1585813987,
+  "sha256": "8630abc401cc6bdd30b507a68d3eb9eda5b65f5636f7199e4b1eefd476b5a9e2",
+  "retrievedDate": "2026-11-08",
+  "reference": "https://www.ncei.noaa.gov/products/etopo-global-relief-model",
+  "crs": "EPSG:9518",
+  "horizontalCrs": "EPSG:4326",
+  "width": 43200,
+  "height": 21600,
+  "pixelIsArea": true,
+  "processing": "Bilinear source-centre samples; 1024 intervals per 10-degree cell; shared one-node gutters; physical central-difference East/North/Up normals; RGB8 signed components encoded 127*n+128; sea elevations clamped zero; pole tangent slopes converge."
+}
