@@ -28,6 +28,7 @@ const registeredTests = [
   'sim/rocket-side-booster-lab/runtime.test.js',
   'sim/rocket-side-booster-lab/recovery.test.js',
   'sim/rocket-side-booster-lab/art.test.js',
+  'sim/rocket-side-booster-lab/forest.test.js',
   'sim/rocket-side-booster-lab/expansion.test.js',
   'sim/rocket-side-booster-lab/audio.test.js',
   'sim/rocket-side-booster-lab/model.test.js',

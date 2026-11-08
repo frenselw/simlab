@@ -12,8 +12,16 @@
   if(land)return isLand;if(!isLand)return 0;
   const nearby=nearLand?sample(local,data.localSize,data.localSize,lx,ly):0,weight=1-smooth(211200,239500,extent);return global*(1-weight)+nearby*weight;
  }
+ function forestAt(e,u,n,h=heightAt(e,u,n)){
+  const lat=geographic(e,u,n)[1],moisture=.52+.24*Math.sin(e*P.R/19000+Math.sin(n*P.R/31000))+.18*Math.cos(n*P.R/17000-e*P.R/47000);
+  return Math.max(0,Math.min(1,(moisture-.30)*1.8))*(1-smooth(1450,2600,h))*(1-smooth(57,73,Math.abs(lat)));
+ }
+ function colorAt(e,u,n){
+  const h=heightAt(e,u,n),lat=Math.abs(geographic(e,u,n)[1]),forest=forestAt(e,u,n,h),dry=(1-smooth(.15,.45,forest))*(1-smooth(45,65,lat)),rock=smooth(1100,2500,h)*.65,cold=smooth(65,78,lat);
+  return [.24,.37,.22].map((v,k)=>{v=v*(1-forest*.6)+[.075,.19,.12][k]*forest*.6;v=v*(1-dry*.4)+[.43,.37,.25][k]*dry*.4;v=v*(1-rock)+[.34,.32,.26][k]*rock;return v*(1-cold)+[.76,.81,.72][k]*cold;});
+ }
  // shortcut: fixed Earth matches the planar flight model; add launch, air and ground rotation together for a rotating model.
  function direction(q){const r=Math.hypot(q[0],q[1],q[2]||0);return [q[1]/r,q[0]/r,(q[2]||0)/r];}
  const heightAt=(e,u,n)=>sampleAt(e,u,n),waterAt=(e,u,n)=>!sampleAt(e,u,n,true),height=(q,t=0)=>heightAt(...direction(q,t)),radius=(q,t=0)=>P.R+height(q,t),clearance=(q,t=0)=>Math.hypot(q[0],q[1],q[2]||0)-radius(q,t),isWater=(q,t=0)=>waterAt(...direction(q,t));
- return Object.freeze({MAX_HEIGHT,direction,geographic,heightAt,waterAt,height,radius,clearance,isWater});
+ return Object.freeze({MAX_HEIGHT,direction,geographic,heightAt,waterAt,forestAt,colorAt,height,radius,clearance,isWater});
 });

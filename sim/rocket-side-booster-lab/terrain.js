@@ -5,7 +5,7 @@ export function terrainNormal(point,out){
  const S=window.RocketSurface;radial.copy(point).normalize();
  if(S.waterAt(radial.x,radial.y,radial.z))return out.copy(radial);
  east.set(0,1,0).cross(radial);if(east.lengthSq()<.001)east.set(1,0,0).cross(radial);east.normalize();north.crossVectors(radial,east).normalize();
- const extent=radial.y>0?Math.max(Math.abs(radial.x),Math.abs(radial.z))*R:Infinity,step=THREE.MathUtils.lerp(1000,16000,THREE.MathUtils.smoothstep(extent,120000,240000));
+ const extent=radial.y>0?Math.max(Math.abs(radial.x),Math.abs(radial.z))*R:Infinity,step=THREE.MathUtils.lerp(450,16000,THREE.MathUtils.smoothstep(extent,120000,240000));
  const height=(axis,sign)=>{sample.copy(radial).addScaledVector(axis,sign*step/R).normalize();return S.heightAt(sample.x,sample.y,sample.z);};
  const dx=(height(east,1)-height(east,-1))/(2*step),dz=(height(north,1)-height(north,-1))/(2*step);
  // Only physical relief slopes are emphasized; mesh curvature and tile borders never enter the lighting normal.
@@ -78,9 +78,7 @@ export function createTerrain(buffer,sun){
   const levels=chunk.levels.map(level=>{const attributes=new THREE.InterleavedBuffer(new Float32Array(buffer,start+level.offset,level.vertices*10),10),g=new THREE.BufferGeometry();for(const [name,size,offset]of [['position',3,0],['normal',3,3],['color',3,6],['landFade',1,9]])g.setAttribute(name,new THREE.InterleavedBufferAttribute(attributes,size,offset));g.setIndex(new THREE.BufferAttribute(new Uint32Array(buffer,start+level.offset+level.vertices*40,level.indices),1));setTerrainNormals(g,new THREE.Vector3(0,R,0));g.computeBoundingSphere();const mesh=new THREE.Mesh(g,inner?solid:material);mesh.renderOrder=inner?-3:-2;mesh.visible=false;group.add(mesh);return mesh;});
   return {levels,level:2,center:new THREE.Vector3((chunk.box[0]+chunk.box[1])/2,0,(chunk.box[2]+chunk.box[3])/2),size:chunk.box[1]-chunk.box[0]};
  });
- const townCandidates=[],canopyRows=[];for(const chunk of chunks){const geometry=chunk.levels[0].geometry,positions=geometry.attributes.position;for(let i=0;i<positions.count;i+=7){const x=positions.getX(i),y=positions.getY(i),z=positions.getZ(i),height=y-(Math.sqrt(6371000**2-x*x-z*z)-6371000);if(x>10000&&x<80000&&Math.abs(z)<80000&&height>40&&height<300&&geometry.attributes.normal.getY(i)>.995)townCandidates.push([x,z]);if(Math.hypot(x,z)<9000||Math.hypot(x,z)>160000||height<60||height>1100||Math.sin(x*.003+z*.002)<.25)continue;canopyRows.push([x,y,z]);}}
- const allCanopies=canopyRows.splice(0);for(let i=0;i<Math.min(240,allCanopies.length);i++)canopyRows.push(allCanopies[Math.floor(i*allCanopies.length/Math.min(240,allCanopies.length))]);
- const canopy=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1,0),new THREE.MeshLambertMaterial({color:'#507b60'}),canopyRows.length),transform=new THREE.Object3D();for(let i=0;i<canopyRows.length;i++){const [x,y,z]=canopyRows[i],size=160+i%5*45;transform.position.set(x,y+18,z);transform.scale.set(size,42+i%3*18,size*.72);transform.rotation.y=i*2.399;transform.updateMatrix();canopy.setMatrixAt(i,transform.matrix);}canopy.computeBoundingSphere();group.add(canopy);
+ const townCandidates=[],transform=new THREE.Object3D();for(const chunk of chunks){const geometry=chunk.levels[0].geometry,positions=geometry.attributes.position;for(let i=0;i<positions.count;i+=7){const x=positions.getX(i),y=positions.getY(i),z=positions.getZ(i),height=y-(Math.sqrt(R**2-x*x-z*z)-R);if(x>10000&&x<80000&&Math.abs(z)<80000&&height>40&&height<300&&geometry.attributes.normal.getY(i)>.995)townCandidates.push([x,z]);}}
  const smooth=(a,b,x)=>THREE.MathUtils.smoothstep(x,a,b),position=new THREE.Vector3(),normal=new THREE.Vector3(),towardCamera=new THREE.Vector3();
  group.groundHeight=(x,z)=>{const n=header.heightSize,u=THREE.MathUtils.clamp((x/header.extent+1)*(n-1)/2,0,n-1),v=THREE.MathUtils.clamp((1-z/header.extent)*(n-1)/2,0,n-1),i=Math.min(n-2,Math.floor(u)),j=Math.min(n-2,Math.floor(v)),a=u-i,b=v-j;return heights[j*n+i]*(1-a)*(1-b)+heights[j*n+i+1]*a*(1-b)+heights[(j+1)*n+i]*(1-a)*b+heights[(j+1)*n+i+1]*a*b;};
  const ray=new THREE.Raycaster(new THREE.Vector3(),new THREE.Vector3(0,-1,0)),hits=[];
@@ -95,8 +93,8 @@ export function createTerrain(buffer,sun){
    chunk.level=quality>=2?2:screen>threshold?0:screen>(old===1?55:75)?1:2;if(quality===1)chunk.level=Math.max(1,chunk.level);
    for(let i=0;i<3;i++)chunk.levels[i].visible=i===chunk.level;
   }
-  canopy.visible=Boolean(quality<2&&extentPixels>600);settlement.visible=Boolean(quality<2&&extentPixels>1800);
+ settlement.visible=Boolean(quality<2&&extentPixels>1800);
   group.userData.levels=chunks.map(c=>c.level);group.userData.opacity=material.opacity;
  };
- group.userData={chunks:chunks.length,extent:header.extent,canopies:canopyRows.length,settlements:centers.length,levels:chunks.map(c=>c.level)};return group;
+ group.userData={chunks:chunks.length,extent:header.extent,canopies:0,settlements:centers.length,levels:chunks.map(c=>c.level)};return group;
 }

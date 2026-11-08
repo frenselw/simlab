@@ -13,7 +13,11 @@ export function createGlobalTerrain(buffer,sun){
  const original=g.index.array,index=new THREE.BufferAttribute(new Uint32Array(original.length),1).setUsage(THREE.DynamicDrawUsage);g.setIndex(index);g.setDrawRange(0,0);const coarse=new THREE.Mesh(g,material);coarse.renderOrder=-1;coarse.frustumCulled=false;group.add(coarse);
  const cells=header.cells.map(c=>({...c,normal:new THREE.Vector3(...c.center)})),cache=new Map(),pending=new Map(),failed=new Set(),cameraLocal=new THREE.Vector3(),world=new THREE.Vector3();let selected='',clock=0,desired=new Set();
  const stats=group.userData={normalBuildMs:normalMs,lastNormalBuildMs:normalMs,coarseTriangles:0,fineTriangles:0,loaded:0,pending:0,cacheLimit:6,activeLimit:4,requestLimit:2,failures:[],active:[],bytes:buffer.byteLength};
- function meshFor(data){const {g,normalMs}=geometry(data);stats.normalBuildMs+=normalMs;stats.lastNormalBuildMs=normalMs;const mesh=new THREE.Mesh(g,material);mesh.renderOrder=-1;mesh.visible=false;group.add(mesh);return {mesh,bytes:data.byteLength,used:++clock};}
+ let fineMaterial;
+ function meshFor(data){const {g,normalMs}=geometry(data);stats.normalBuildMs+=normalMs;stats.lastNormalBuildMs=normalMs;
+  // Fine mountain faces must occlude each other; only distant coarse ocean chords keep the depth workaround.
+  if(!fineMaterial){fineMaterial=material.clone();fineMaterial.depthTest=true;fineMaterial.onBeforeCompile=material.onBeforeCompile;fineMaterial.customProgramCacheKey=()=>material.customProgramCacheKey()+'-fine-depth';}
+  const mesh=new THREE.Mesh(g,fineMaterial);mesh.renderOrder=-1;mesh.visible=false;group.add(mesh);return {mesh,bytes:data.byteLength,used:++clock};}
  function evict(){while(cache.size>6){const candidates=[...cache].filter(([id])=>!desired.has(id)).sort((a,b)=>a[1].used-b[1].used);if(!candidates.length)break;const [id,item]=candidates[0];group.remove(item.mesh);item.mesh.geometry.dispose();cache.delete(id);}}
  function load(){for(const id of desired){if(pending.size>=2)break;if(cache.has(id)||pending.has(id)||failed.has(id))continue;const cell=cells.find(c=>c.id===id);if(!cell.file)continue;const abort=new AbortController();pending.set(id,abort);fetch(new URL('./assets/global/'+cell.file,import.meta.url),{signal:abort.signal}).then(r=>{if(!r.ok)throw Error('Global detail unavailable');return r.arrayBuffer();}).then(data=>{if(!abort.signal.aborted)cache.set(id,meshFor(data));}).catch(error=>{if(error.name!=='AbortError')failed.add(id);}).finally(()=>{pending.delete(id);evict();group.onChange?.();});}}
  const colorCache=new Map();

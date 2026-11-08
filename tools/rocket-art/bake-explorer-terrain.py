@@ -1,0 +1,165 @@
+"""Rebuild only the explorer's canonical relief and mesh attributes, offline."""
+from pathlib import Path
+import argparse, base64, gzip, hashlib, importlib.util, json, math, struct, subprocess
+import numpy as np
+from PIL import Image, ImageDraw
+from scipy.ndimage import distance_transform_edt, map_coordinates
+
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parents[1]
+spec = importlib.util.spec_from_file_location('globe', HERE / 'global-terrain.py')
+globe = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(globe)
+art = globe.art
+R, E, N = art.R, 240000, 1025
+smooth = globe.smooth
+
+
+def forest(e, n, lat, height):
+    moisture = .52 + .24*np.sin(e/19000 + np.sin(n/31000)) + .18*np.cos(n/17000-e/47000)
+    return np.clip((moisture-.30)*1.8, 0, 1)*(1-smooth(1450,2600,height))*(1-smooth(57,73,np.abs(lat)))
+
+
+def paint(e, n, lat, height):
+    trees = forest(e, n, lat, height)
+    color=np.tile([.24,.37,.22],(len(e),1))*(1-trees[:,None]*.6)+np.array([.075,.19,.12])*trees[:,None]*.6
+    dry=(1-smooth(.15,.45,trees))*(1-smooth(45,65,np.abs(lat)))
+    color=color*(1-dry[:,None]*.4)+np.array([.43,.37,.25])*dry[:,None]*.4
+    rock=smooth(1100,2500,height)*.65
+    color=color*(1-rock[:,None])+np.array([.34,.32,.26])*rock[:,None]
+    cold=smooth(65,78,np.abs(lat))
+    return color*(1-cold[:,None])+np.array([.76,.81,.72])*cold[:,None]
+
+
+def main():
+    parser=argparse.ArgumentParser()
+    parser.add_argument('--target', required=True, type=Path)
+    args=parser.parse_args()
+    target=args.target.resolve()
+    assert target == (ROOT/'sim/rocket-side-booster-lab').resolve(), 'Explorer target required; original activity is protected'
+    assets=target/'assets'
+    scratch=ROOT/'output/tmp/explorer-terrain'
+    scratch.mkdir(parents=True,exist_ok=True)
+    image=Image.new('L',(3601,1801));draw=ImageDraw.Draw(image)
+    land=art.load_shapes('ne_50m_land')
+    for outer in (True,False):
+        for shape in land:
+            for ring in shape:
+                if (globe.area(ring)<0)==outer:
+                    draw.polygon([((lon+180)*10,(90-lat)*10) for lon,lat in ring],fill=255 if outer else 0)
+    mask=np.asarray(image)>127
+    mask[-1,:]=mask[-2,:]
+    shore=distance_transform_edt(mask)*11.12
+    width,height=721,361
+    lon,lat=np.meshgrid(np.linspace(-180,180,width),np.linspace(90,-90,height))
+    points=np.column_stack((lon.ravel(),lat.ravel()))
+    coords=[(90-points[:,1])*10,(points[:,0]+180)*10]
+    global_land=map_coordinates(mask.astype('u1'),coords,order=0,mode='nearest').reshape(height,width).astype(bool)
+    distance=map_coordinates(shore,coords,order=1,mode='nearest')
+    # Remove the old 240–400 km flattening band; regional detail adds to this base.
+    base=130+100*(art.noise(*points.T,96)+.5)+140*(art.noise(*points.T,384)+.4)
+    mountain=np.zeros(len(points))
+    for chain,breadth in globe.CHAINS:
+        for a,b in zip(chain,chain[1:]):
+            a=np.array(a);d=np.array(b)-a;t=np.clip(((points-a)@d)/(d@d),0,1)
+            dist=np.linalg.norm(points-(a+t[:,None]*d),axis=1)
+            mountain=np.maximum(mountain,np.exp(-(dist/breadth)**2)*(1800+950*np.sin((points[:,0]+points[:,1])*.9)**2))
+    global_h=np.rint(np.clip(base+mountain,15,3500)*smooth(0,30,distance)).reshape(height,width)
+    global_h[~global_land]=0
+    global_h[0,:]=global_h[0,width//2];global_h[-1,:]=global_h[-1,width//2]
+    global_h[:,-1]=global_h[:,0];global_land[:,-1]=global_land[:,0]
+    global_land[0,:]=global_land[0,width//2];global_land[-1,:]=global_land[-1,width//2]
+
+    groups=[]
+    for shape in art.refine_coasts(art.load_shapes('ne_50m_land')):
+        rings=[]
+        for ring in shape:
+            if not np.any((ring[:,0]>-125)&(ring[:,0]<-116)&(ring[:,1]>30)&(ring[:,1]<39)):continue
+            clipped=art.clip_ring(ring,-125,-116,30,39)
+            if len(clipped)<3:continue
+            local=art.geo_to_local(np.asarray(clipped))[:,:2]
+            clipped=art.clip_ring(local,-E,E,-E,E)
+            if len(clipped)<3:continue
+            reduced=[clipped[0]]
+            for q in clipped[1:]:
+                if math.dist(q,reduced[-1])>40:reduced.append(q)
+            if len(reduced)>2 and math.dist(reduced[0],reduced[-1])<40:reduced.pop()
+            if len(reduced)>=3:rings.append([[round(x,2),round(z,2)] for x,z in reduced])
+        if rings:groups.append(rings)
+    image=Image.new('L',(4096,4096));draw=ImageDraw.Draw(image)
+    for rings in groups:
+        for i,ring in enumerate(rings):draw.polygon([((x+E)/(2*E)*4096,(E-z)/(2*E)*4096) for x,z in ring],fill=255 if i==0 else 0)
+    mask=np.asarray(image)>127
+    local_shore=(distance_transform_edt(mask)-distance_transform_edt(~mask))*(2*E/4096)
+    shore_local=np.asarray(Image.fromarray(local_shore.astype('f4'),'F').resize((N,N),Image.Resampling.BILINEAR))
+    xx,zz=np.meshgrid(np.linspace(-E,E,N),np.linspace(E,-E,N))
+    llon,llat=art.local_to_geo(xx,zz)
+    def globe_sample(lon,lat):return map_coordinates(global_h,[(90-lat)/180*(height-1),(lon+180)/360*(width-1)],order=1,mode='nearest')
+    base_local=globe_sample(llon,llat)
+    # Long, branching ridgelines and carved valleys survive ascent and low oblique views.
+    spine=28000+14500*np.sin(zz/62000)+6000*np.sin(zz/24000)
+    ridge=1850*np.exp(-np.abs((xx-spine)/9000)**1.35)*(.72+.28*np.cos(zz/12000)**2)
+    ridge+=850*np.exp(-((xx-(spine+38000+zz*.16))/14000)**2)
+    ridge+=520*np.exp(-((xx-(spine-24000+zz*.10))/6500)**2)
+    plateau=1150*smooth(65000,79000,xx)*(1-smooth(128000,145000,xx))*(1-smooth(65000,85000,np.abs(zz-18000)))
+    valley=520*np.exp(-((zz-(8000+5500*np.sin(xx/14000)))/1800)**2)*smooth(4000,17000,xx)*(1-smooth(120000,155000,xx))
+    valley+=420*np.exp(-((zz-(-28000+.45*xx+2600*np.sin(xx/9000)))/1600)**2)*smooth(10000,25000,xx)*(1-smooth(90000,135000,xx))
+    hills=170+110*np.sin(xx/6800+np.sin(zz/17000))*np.cos(zz/10000)
+    detail=np.maximum(0,ridge+plateau+hills-valley)
+    fade=1-smooth(175000,211200,np.maximum(np.abs(xx),np.abs(zz)))
+    local_h=np.rint(np.clip(base_local*(1-.65*(1-smooth(6000,35000,np.hypot(xx,zz)))*fade)+detail*fade,0,3500)*smooth(0,3500,shore_local)*smooth(3000,5000,np.hypot(xx,zz)))
+    local_land=shore_local>0;local_land[N//2,N//2]=True;local_h[~local_land]=0
+    def pack(h,l):return (np.rint(h).astype('<u2') | (l.astype('<u2')*32768))
+    data=dict(version=1,width=width,height=height,global_=base64.b64encode(pack(global_h,global_land).tobytes()).decode(),localSize=N,extent=E,local=base64.b64encode(pack(local_h,local_land).tobytes()).decode(),maxHeight=3500)
+    data['global']=data.pop('global_')
+    text="/* Generated by tools/rocket-art/bake-explorer-terrain.py; illustrative metres. */\n(function(root){const data="+json.dumps(data,separators=(',',':'))+";if(typeof module==='object'&&module.exports)module.exports=data;else root.RocketSurfaceData=data;})(typeof globalThis!=='undefined'?globalThis:this);\n"
+    (target/'surface-data.js').write_text(text,encoding='utf-8',newline='\n')
+    def sample(e,u,n):
+        geographic=e[:,None]*art.EAST+u[:,None]*art.UP+n[:,None]*art.NORTH
+        lon=np.degrees(np.arctan2(geographic[:,2],geographic[:,0]));lat=np.degrees(np.arcsin(np.clip(geographic[:,1],-1,1)))
+        gh=globe_sample(lon,lat)
+        is_land=map_coordinates(global_land.astype('u1'),[(90-lat)/180*(height-1),(lon+180)/360*(width-1)],order=0,mode='nearest').astype(bool)
+        extent=np.maximum(np.abs(e),np.abs(n))*R
+        coords=[(1-n*R/E)*(N-1)/2,(e*R/E+1)*(N-1)/2]
+        lh=map_coordinates(local_h,coords,order=1,mode='nearest')
+        land_near=map_coordinates(local_land.astype('u1'),coords,order=0,mode='nearest').astype(bool)
+        w=np.where(u>0,1-smooth(211200,239500,extent),0)
+        is_land=np.where((u>0)&(extent<211200),land_near,is_land)
+        h=np.where(is_land,gh*(1-w)+lh*w,0)
+        return h,lon,lat
+    metadata=json.loads((assets/'geography.json').read_text(encoding='utf-8'))
+    for record in metadata['globalTerrain']['files']:
+        file=assets/record['file'];blob=bytearray(file.read_bytes());length=struct.unpack_from('<I',blob)[0];header=json.loads(blob[4:4+length]);start=4+(length+3)//4*4;count=header['vertexCount']
+        # Rebuild from the protected seed directions, never repeatedly round a prior bake.
+        original=(ROOT/'sim/rocket-space-mission-lab/assets'/record['file']).read_bytes()
+        positions=np.frombuffer(original,'<f4',count*3,start).reshape(-1,3).astype(float)
+        unit=positions/np.linalg.norm(positions,axis=1)[:,None]
+        h,lon,lat=sample(*unit.T)
+        positions=(unit*(1+h[:,None]/R)).astype('<f4')
+        blob[start:start+count*12]=positions.tobytes()
+        # Quantized positions are the color key across coarse/fine borders.
+        quant=positions.astype(float);quant/=np.linalg.norm(quant,axis=1)[:,None]
+        h,lon,lat=sample(*quant.T)
+        rgba=np.column_stack((np.rint(paint(quant[:,0]*R,quant[:,2]*R,lat,h)*255).astype('u1'),np.full(count,255,'u1')))
+        color_start=start+count*12;index=start+count*16;blob[color_start:index]=rgba.tobytes()
+        faces=np.frombuffer(blob,'<u4',header['indexCount'],index).reshape(-1,3).copy()
+        p=positions[faces].astype(float)
+        orientation=np.einsum('ij,ij->i',np.cross(p[:,1]-p[:,0],p[:,2]-p[:,0]),p[:,0])
+        assert np.all(orientation!=0), 'No collapsed relief triangles'
+        faces[orientation<0]=faces[orientation<0][:,[0,2,1]]
+        blob[index:]=faces.tobytes();file.write_bytes(blob)
+        record.update(bytes=len(blob),sha256=hashlib.sha256(blob).hexdigest(),nonColorSha256=hashlib.sha256(blob[:color_start]+blob[index:]).hexdigest())
+    surface=(target/'surface-data.js').read_bytes()
+    metadata['surface'].update(localSize=N,bytes=len(surface),gzipBytes=len(gzip.compress(surface,mtime=0)),sha256=hashlib.sha256(surface).hexdigest(),globalMaxHeight=int(global_h.max()),localMaxHeight=int(local_h.max()))
+    metadata['reliefModel']={'version':2,'illustrative':True,'localSpacingMetres':2*E/(N-1),'detailFadeMetres':[175000,211200],'features':['branching-ridges','branching-valleys','plateau','basin'],'forest':'geographic-moisture-v1'}
+    (assets/'geography.json').write_text(json.dumps(metadata,separators=(',',':'))+'\n',encoding='utf-8')
+    source=scratch/'terrain-source.json'
+    source.write_text(json.dumps(dict(extent=E,groups=groups,shore=shore_local.tolist(),ridges=art.RIDGES,heights=local_h.tolist()),separators=(',',':')),encoding='utf-8')
+    subprocess.run(['node',str(HERE/'bake-terrain.mjs'),str(source),'--target',str(target)],cwd=ROOT,check=True)
+    metadata=json.loads((assets/'geography.json').read_text(encoding='utf-8'));metadata['surface']['terrainSha256']=metadata['terrain']['sha256']
+    (assets/'geography.json').write_text(json.dumps(metadata,separators=(',',':'))+'\n',encoding='utf-8')
+    assert local_h[N//2,N//2]==0 and 1800<local_h.max()<=3500
+    print(json.dumps(dict(localSize=N,localMax=float(local_h.max()),surfaceBytes=len(surface),surfaceGzipBytes=metadata['surface']['gzipBytes'],terrain=metadata['terrain'])),flush=True)
+
+
+if __name__=='__main__':main()

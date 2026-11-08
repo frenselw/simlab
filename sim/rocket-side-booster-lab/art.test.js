@@ -20,10 +20,10 @@ console.log('Rocket art: pinned assets/sources, package closure, dry launch, geo
 
 const terrain=fs.readFileSync(path.join(dir,g.terrain.file));assert.equal(hash(terrain),g.terrain.sha256);assert.equal(terrain.length,g.terrain.bytes);assert(manifest.includes('assets/terrain.bin'));assert(manifest.includes('/terrain.js'));
 const headerLength=terrain.readUInt32LE(0),header=JSON.parse(terrain.toString('utf8',4,4+headerLength)),start=4+Math.ceil(headerLength/4)*4;
-assert.equal(header.version,1);assert.equal(header.chunks.length,16);assert.equal(header.heightSize,257);assert.equal(terrain.readFloatLE(start+(128*257+128)*4),0,'Dry level launch');
+assert.equal(header.version,1);assert.equal(header.chunks.length,16);assert.equal(header.heightSize,1025);assert.equal(terrain.readFloatLE(start+((header.heightSize-1)/2*header.heightSize+(header.heightSize-1)/2)*4),0,'Dry level launch');
 assert.equal(g.terrain.colorModel,'unlit-albedo-v1');const terrainGeometry=Buffer.from(terrain);
 let triangles=0;for(const chunk of header.chunks){assert.equal(chunk.levels.length,3);assert(chunk.levels[0].indices>=chunk.levels[2].indices);for(const level of chunk.levels){const from=start+level.offset,index=from+level.vertices*40;assert(index+level.indices*4<=terrain.length);assert.equal(level.indices%3,0);for(let i=0;i<level.vertices;i++){const at=from+i*40;for(let k=0;k<10;k++)assert(Number.isFinite(terrain.readFloatLE(at+k*4)));terrainGeometry.fill(0,at+24,at+36);assert(terrain.readFloatLE(at+16)>.5,'Terrain normal points up');assert(terrain.readFloatLE(at+36)>=0&&terrain.readFloatLE(at+36)<=1);}for(let i=0;i<level.indices;i++)assert(terrain.readUInt32LE(index+i*4)<level.vertices);triangles+=level.indices/3;}}
-assert.equal(hash(terrainGeometry),g.terrain.nonColorSha256,'Regional heights, positions, normals, fades and topology remain unchanged by albedo repair');assert(triangles<50000);assert(terrain.length<2*1024*1024);console.log('Terrain: baked chunks, LOD, finite geometry, upward normals, indices, launch clearance and budgets passed.');
+assert.equal(hash(terrainGeometry),g.terrain.nonColorSha256,'Regional heights, positions, normals, fades and topology remain unchanged by albedo repair');assert(triangles<120000);assert(terrain.length<10*1024*1024);console.log('Terrain: baked chunks, LOD, finite geometry, upward normals, indices, launch clearance and budgets passed.');
 
 const shared=new Map();for(const chunk of header.chunks)for(const level of chunk.levels){const from=start+level.offset;for(let i=0;i<level.vertices;i++){const at=from+i*40,x=terrain.readFloatLE(at),y=terrain.readFloatLE(at+4),z=terrain.readFloatLE(at+8);if(!chunk.box.some((b,j)=>Math.abs((j<2?x:z)-b)<.01))continue;const key=x.toFixed(2)+','+z.toFixed(2);if(shared.has(key))assert(Math.abs(shared.get(key)-y)<.01,'Shared chunk and LOD borders must not crack '+JSON.stringify({key,old:shared.get(key),y,box:chunk.box}));else shared.set(key,y);}}
 assert(shared.size>100);console.log('Terrain shared borders agree across neighboring chunks and all detail levels.');
@@ -42,3 +42,21 @@ assert(sharedAlbedo>10000,'Albedo continuity compares real shared vertices');ass
 console.log('Global terrain: pinned source, all land cells packaged, finite radial relief, outward triangles, binary blocks and bounded asset budgets passed.');
 
 const Surface=require('./surface'),surfaceData=require('./surface-data'),surfaceBytes=fs.readFileSync(path.join(__dirname,g.surface.file));assert.equal(hash(surfaceBytes),g.surface.sha256);assert.equal(surfaceBytes.length,g.surface.bytes);assert.equal(surfaceData.width,721);assert.equal(surfaceData.height,361);assert.equal(Surface.height([6371000,0],0),0);assert(!Surface.isWater([6371000,0],0));for(let i=0;i<2000;i++){const angle=i*.117,t=i*173,q=[6371000*Math.cos(angle),6371000*Math.sin(angle),0],height=Surface.height(q,t);assert(Number.isFinite(height)&&height>=0&&height<=3500);if(Surface.isWater(q,t))assert.equal(height,0);assert(Math.abs(Surface.clearance([q[0]*(1+height/6371000),q[1]*(1+height/6371000)],t))<.00001);}for(const file of ['surface-data.js','surface.js','contact-ground.js','impact-effects.js'])assert(manifest.includes('/'+file));console.log('Shared surface: pinned compact grids, finite elevations, water at zero, exact radial clearance, launch and package dependencies passed.');
+
+const R=6371000,field=(x,z=0)=>Surface.heightAt(x/R,Math.sqrt(1-(x*x+z*z)/(R*R)),z/R);
+assert.equal(surfaceData.localSize,1025);assert.equal(g.reliefModel.localSpacingMetres,468.75);
+assert(field(30000)>1800&&field(80000)>1500,'Continuous ranges cross the normal eastward flight corridor');
+for(const x of [50000,80000,100000]){const z=8000+5500*Math.sin(x/14000);assert(Math.max(field(x,z+4000),field(x,z-4000))-field(x,z)>200,'Carved valley has visible banks');}
+for(const edge of [175000,211200,239500,240000])assert(Math.abs(field(edge-1)-field(edge+1))<1,'Regional/global relief has no height step');
+for(const x of [10000,30000,50000,180000,260000]){const e=x/R,u=Math.sqrt(1-e*e),density=Surface.forestAt(e,u,0),color=Surface.colorAt(e,u,0);assert(density>=0&&density<=1&&color.every(v=>v>=0&&v<=1));assert.deepEqual(Surface.colorAt(e,u,0),color);}
+assert(Surface.forestAt(10000/R,Math.sqrt(1-(10000/R)**2),0)>.7);
+let compared=0,maxHeightError=0;
+for(const chunk of header.chunks)for(const level of chunk.levels.slice(0,1))for(let i=0;i<level.vertices;i+=5){const at=start+level.offset+i*40,x=terrain.readFloatLE(at),z=terrain.readFloatLE(at+8),y=terrain.readFloatLE(at+4);if(chunk.box.some((b,j)=>Math.abs((j<2?x:z)-b)<1)||Math.hypot(x,z)<5000||field(x,z)<50)continue;const actual=y-(Math.sqrt(R*R-x*x-z*z)-R)+.78;maxHeightError=Math.max(maxHeightError,Math.abs(actual-field(x,z)));compared++;}
+assert(compared>100&&maxHeightError<1,'Regional mesh samples canonical physical relief '+maxHeightError);
+console.log(JSON.stringify({terrainFeatures:true,compared,maxHeightError,localGridBytes:surfaceData.localSize**2*2,regionalMeshBytes:terrain.length}));
+
+let globalCompared=0,globalHeightError=0,globalColorError=0;
+for(const asset of global.files){const b=fs.readFileSync(path.join(dir,asset.file)),length=b.readUInt32LE(0),h=JSON.parse(b.toString('utf8',4,4+length)),offset=4+Math.ceil(length/4)*4;for(let i=0;i<h.vertexCount;i+=97){const p=Array.from({length:3},(_,k)=>b.readFloatLE(offset+i*12+k*4)),r=Math.hypot(...p),direction=p.map(v=>v/r);globalHeightError=Math.max(globalHeightError,Math.abs((r-1)*R-Surface.heightAt(...direction)));const color=Surface.colorAt(...direction);for(let k=0;k<3;k++)globalColorError=Math.max(globalColorError,Math.abs(color[k]-b[offset+h.vertexCount*12+i*4+k]/255));globalCompared++;}}
+assert(globalCompared>7000&&globalHeightError<1,'Global rendered vertices follow canonical relief');
+assert(globalColorError<=.5/255+1e-6,'Baked global and runtime contact biome colors agree');
+console.log(JSON.stringify({globalCompared,globalHeightError,globalColorError}));

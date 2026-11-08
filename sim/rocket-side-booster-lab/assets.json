@@ -472,6 +472,7 @@
     "rocket-side-booster-lab/assets/global/cell-26-17.bin",
     "rocket-side-booster-lab/assets/global/cell-27-17.bin",
     "shared/styles.css",
-    "shared/fullscreen.js"
+    "shared/fullscreen.js",
+    "rocket-side-booster-lab/forest.js"
   ]
 }

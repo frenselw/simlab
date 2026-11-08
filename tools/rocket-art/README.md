@@ -80,3 +80,18 @@ node tools/rocket-art/bake-terrain.mjs --recolor
 ```
 
 These commands update only colors and metadata hashes; headers, positions, normals stored in the regional binary, fades, indices and height grids remain byte-identical. The global color field no longer includes a fixed directional slope shade. Exact shared global positions use identical albedo, including harmonized border vertices. Runtime lighting normals are sampled from the shared contact height field at fixed geographic positions rather than computed separately from tile triangles; the rendered geometry and physical collision data remain unchanged. Global, regional and contact ground share one diffuse sun and local skylight model. No global noise texture, new runtime dependency, shadow pass or postprocessing target is added. P31/P33 descriptions of baked directional lighting are historical.
+
+
+## Explorer mountains and forests (2026-11)
+
+The independent non-assessed explorer has its own explicit rebuild entry:
+
+```text
+python tools/rocket-art/bake-explorer-terrain.py --target sim/rocket-side-booster-lab
+```
+
+This command rejects other targets. It reads the pinned Natural Earth source and the original globe's seed directions without writing the original activity. It bakes a 1025×1025 canonical local height grid, retains the 721×361 global grid, adds branching mountain ranges, valleys and a plateau, and removes the old flattened regional/global transition. Existing global topology is retained apart from correcting outward winding after Float32 relief changes. Global and regional vertices and biome albedo sample the canonical field; shared regional edge interpolation still prevents LOD cracks. The near-contact patch supplies precise landing ground. Mountains remain illustrative and heights stay within 0–3500 m.
+
+`bake-terrain.mjs --target` carries the explorer target through its reads and writes; the historical no-target command retains its original behavior. The shared triangulator accepts optional ridge/valley sample points, with all existing callers unchanged. The explorer command owns `output/tmp/explorer-terrain/`; remove that scratch directory after verification, keeping source binaries and metadata. No runtime triangulation or new dependency is added.
+
+`forest.js` builds capped geographic instance chunks and a middle-distance canopy batch. The same fixed moisture/altitude/latitude field paints baked land colors and places vegetation; the contact patch uses that palette as well. Forest instances have no individual physics, real-time shadows or leaf animation. Far ground retains forest colors when geometry becomes subpixel or adaptive quality disables trees. The original SCORM activity and its runtime assets remain unchanged.

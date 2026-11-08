@@ -21,6 +21,7 @@ def triangulate(requests):
             if request.get('localDense',True):
                 x=np.arange(max(box[0]+500,-8000),min(box[1],8001),500);z=np.arange(max(box[2]+500,-8000),min(box[3],8001),500)
                 xx,zz=np.meshgrid(x,z);grid=np.vstack((grid,np.column_stack((xx.ravel(),zz.ravel()))))
+            if request.get('extra'):grid=np.vstack((grid,np.asarray(request['extra'])))
             valid=inside(grid,boundary[0])
             for ring in boundary[1:]:valid&=~inside(grid,ring)
             grid=grid[valid]
