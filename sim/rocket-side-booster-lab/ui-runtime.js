@@ -10,13 +10,13 @@
     pause(){this.running=false;this.emit();}
     play(){if(this.state.flight&&!['ended','workshop'].includes(this.state.phase)){this.running=true;this.emit();}}
   }
-  function warpLimit(flight){if(flight.capsule?.detached){const bodies=[flight,flight.upperStage].filter(f=>f&&!['landed','impact','destroyed','escaped'].includes(f.status));return bodies.some(f=>f.controls.lit||O.elements(f.state).height<120000)||['waiting','turning','burning'].includes(flight.upperStage?.auto.mode)?20:1000;}return flight.controls.lit||P.burning(flight)||O.elements(flight.state).height<120000?20:1000;}
+  function warpLimit(flight){if(flight.capsule?.detached&&flight.status==='flying'&&flight.capsule.chute.phase!=='stowed')return 1000;if(flight.capsule?.detached){const bodies=[flight,flight.upperStage].filter(f=>f&&!['landed','impact','destroyed','escaped'].includes(f.status));return bodies.some(f=>f.controls.lit||O.elements(f.state).height<120000)||['waiting','turning','burning'].includes(flight.upperStage?.auto.mode)?20:1000;}return flight.controls.lit||P.burning(flight)||O.elements(flight.state).height<120000?20:1000;}
   function advanceFrame(controller,seconds,warp){
     let remaining=seconds,elapsed=0,steps=0;
     while(remaining>1e-9&&steps<800){
       const f=controller.state.flight,o=O.elements(f.state),rate=Math.min(warp,warpLimit(f));let request=remaining*rate;
       // Approach the atmosphere boundary before rechecking the rate for the remaining wall time.
-      if(rate>20&&f.status==='flying'&&o.radial<0)request=Math.min(request,Math.max(.001,(o.height-120000)/-o.radial));
+      if(rate>20&&f.status==='flying'&&o.height>120000&&o.radial<0)request=Math.min(request,Math.max(.001,(o.height-120000)/-o.radial));
       const result=controller.tick(request,1);if(!result||result.elapsed<=0||!result.steps)break;
       elapsed+=result.elapsed;remaining=Math.max(0,remaining-result.elapsed/rate);steps+=result.steps;
     }
