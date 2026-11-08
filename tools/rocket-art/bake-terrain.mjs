@@ -48,24 +48,24 @@ function contour(points,box){for(const [axis,bound,sign]of [[0,box[0],1],[0,box[
  return out;
 }
 const request=[];
-const chunks=[],buffers=[Buffer.from(heights.buffer)];let offset=heights.byteLength,totalTriangles=0;
+const chunks=[],buffers=source.natural?[]:[Buffer.from(heights.buffer)];let offset=source.natural?0:heights.byteLength,totalTriangles=0;
 for(let row=0;row<4;row++)for(let col=0;col<4;col++){
  const size=2*E/4,box=[-E+col*size,-E+(col+1)*size,-E+row*size,-E+(row+1)*size];
  const polygons=source.groups.map(rings=>rings.map(r=>contour(r,box)).filter(r=>r.length>=3)).filter(r=>r.length);
  for(const limit of [3000,6500,14000]){
  const extra=[];
- if(surface&&limit===3000)for(let z=box[2]+1500;z<box[3];z+=1500)for(let x=box[0]+1500;x<box[1];x+=1500){
+ if(surface&&!source.natural&&limit===3000)for(let z=box[2]+1500;z<box[3];z+=1500)for(let x=box[0]+1500;x<box[1];x+=1500){
   const slope=Math.hypot(height(x+500,z)-height(x-500,z),height(x,z+500)-height(x,z-500));
   if(slope>105&&height(x,z)>50)extra.push([x,z]);
  }
- if(surface&&limit===3000){
+ if(surface&&!source.natural&&limit===3000){
   for(let x=Math.max(9000,box[0]+500);x<Math.min(150000,box[1]);x+=1500)for(const delta of [-2200,0,2200]){const z=8000+5500*Math.sin(x/14000)+delta;if(z>box[2]+500&&z<box[3]-500)extra.push([x,z]);}
   for(let z=box[2]+1500;z<box[3];z+=1500){const x=28000+14500*Math.sin(z/62000)+6000*Math.sin(z/24000);if(x>box[0]+500&&x<box[1]-500)extra.push([x,z]);}
  }
- request.push({box,limit,polygons,extra});
+ request.push({box,limit,polygons,extra,localDense:!source.natural});
 }
 }
-const result=spawnSync('python',[path.resolve('tools/rocket-art/triangulate-terrain.py')],{input:JSON.stringify(request),encoding:'utf8',maxBuffer:32*1024*1024});if(result.status!==0)throw Error(result.stderr);const meshes=JSON.parse(result.stdout);
+const result=spawnSync('python',[path.resolve('tools/rocket-art/triangulate-terrain.py')],{input:JSON.stringify(source.natural?{requests:request,heights:source.heights,extent:E}:request),encoding:'utf8',maxBuffer:32*1024*1024});if(result.status!==0)throw Error(result.stderr);const meshes=JSON.parse(result.stdout);
 for(let k=0;k<meshes.length;k++){
  const {vertices,faces}=meshes[k],requestChunk=request[k],box=requestChunk.box;
  function borderHeight(x,z,given){if(Math.abs(x-box[0])<.01||Math.abs(x-box[1])<.01){const a=Math.floor(z/1500)*1500,t=(z-a)/1500;return height(x,a)*(1-t)+height(x,a+1500)*t;}if(Math.abs(z-box[2])<.01||Math.abs(z-box[3])<.01){const a=Math.floor(x/1500)*1500,t=(x-a)/1500;return height(a,z)*(1-t)+height(a+1500,z)*t;}return given===0&&!surface?0:height(x,z);}
@@ -77,6 +77,6 @@ for(let k=0;k<meshes.length;k++){
  for(const v of attributes)assert(Number.isFinite(v));for(const i of indices)assert(i<vertices.length);
  const data=Buffer.from(attributes.buffer),index=Buffer.from(indices.buffer);levels.push({offset,vertices:vertices.length,indices:indices.length});buffers.push(data,index);offset+=data.length+index.length;totalTriangles+=faces.length;
  }
-const header=Buffer.from(JSON.stringify({version:1,extent:E,heightSize:N,heightBytes:heights.byteLength,chunks})),padded=Math.ceil(header.length/4)*4,prefix=Buffer.alloc(4+padded);prefix.writeUInt32LE(header.length);header.copy(prefix,4);
+const header=Buffer.from(JSON.stringify({version:1,extent:E,heightSize:source.natural?4097:N,heightBytes:source.natural?0:heights.byteLength,chunks})),padded=Math.ceil(header.length/4)*4,prefix=Buffer.alloc(4+padded);prefix.writeUInt32LE(header.length);header.copy(prefix,4);
 const output=path.resolve(path.join(target,'assets/terrain.bin'));saveTerrain(Buffer.concat([prefix,...buffers]),JSON.parse(header.toString()),prefix.length);
 assert.equal(height(0,0),0);assert(height(40000,20000)>100);console.log('Terrain baked:',chunks.length,'chunks;',totalTriangles,'triangles across 3 levels;',fs.statSync(output).size,'bytes');

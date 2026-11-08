@@ -8,8 +8,7 @@ export function terrainNormal(point,out){
  const extent=radial.y>0?Math.max(Math.abs(radial.x),Math.abs(radial.z))*R:Infinity,step=THREE.MathUtils.lerp(450,16000,THREE.MathUtils.smoothstep(extent,120000,240000));
  const height=(axis,sign)=>{sample.copy(radial).addScaledVector(axis,sign*step/R).normalize();return S.heightAt(sample.x,sample.y,sample.z);};
  const dx=(height(east,1)-height(east,-1))/(2*step),dz=(height(north,1)-height(north,-1))/(2*step);
- // Only physical relief slopes are emphasized; mesh curvature and tile borders never enter the lighting normal.
- return out.copy(radial).addScaledVector(east,-2*dx).addScaledVector(north,-2*dz).normalize();
+ return out.copy(radial).addScaledVector(east,-dx).addScaledVector(north,-dz).normalize();
 }
 export function setTerrainNormals(geometry,origin){
  const started=performance.now(),p=geometry.attributes.position,n=geometry.attributes.normal||new THREE.BufferAttribute(new Float32Array(p.count*3),3),water=geometry.attributes.surfaceWater||new THREE.BufferAttribute(new Float32Array(p.count),1),point=new THREE.Vector3(),normal=new THREE.Vector3();
@@ -25,10 +24,12 @@ for(let y=0;y<128;y++)for(let x=0;x<128;x++){
 }
 const surfaceTexture=new THREE.DataTexture(surfacePixels,128,128);surfaceTexture.wrapS=surfaceTexture.wrapT=THREE.RepeatWrapping;surfaceTexture.magFilter=THREE.LinearFilter;surfaceTexture.minFilter=THREE.LinearMipmapLinearFilter;surfaceTexture.generateMipmaps=true;surfaceTexture.needsUpdate=true;
 export const surfaceTextureBytes=128*128*4*4/3;
-export const surfaceUniforms={uSurfaceMap:{value:surfaceTexture},uSurfaceTime:{value:0},uSurfaceDetail:{value:1},uSurfaceRotation:{value:new THREE.Matrix3()},uSurfaceStrength:{value:1}};
+export const regionalSurfaceTexture={value:null};
+export const surfaceUniforms={uRegionalSurface:regionalSurfaceTexture,uSurfaceMap:{value:surfaceTexture},uSurfaceTime:{value:0},uSurfaceDetail:{value:1},uSurfaceRotation:{value:new THREE.Matrix3()},uSurfaceStrength:{value:1}};
 export const groundLight=`
 uniform float uSlopeDetail,uSurfaceTime,uSurfaceDetail,uSurfaceStrength;
-uniform sampler2D uSurfaceMap;uniform mat3 uSurfaceRotation;
+uniform sampler2D uSurfaceMap,uRegionalSurface;uniform mat3 uSurfaceRotation;
+float regionalHeight(vec2 uv){return dot(texture2D(uRegionalSurface,(uv*2048.0+.5)/2049.0).rg,vec2(65280.0,255.0))*.1;}
 vec3 terrainIrradiance(vec3 normal,vec3 radial,vec3 sun){
  normal=normalize(mix(radial,normal,uSlopeDetail));
  float day=smoothstep(-.12,.25,dot(radial,sun));
@@ -38,6 +39,15 @@ vec3 terrainIrradiance(vec3 normal,vec3 radial,vec3 sun){
 }
 vec3 shadeSurface(vec3 base,vec3 normal,vec3 radial,vec3 point,vec3 world,vec3 sun,float water){
  vec3 p=normalize(point);vec2 metres=p.xz*6371000.0;
+ if(water<.5&&p.y>.99&&max(abs(metres.x),abs(metres.y))<239000.0){
+  vec2 uv=metres/480000.0+.5,stepUv=vec2(1.0/2048.0,0.0);
+  float dx=(regionalHeight(uv+stepUv)-regionalHeight(uv-stepUv))/468.75,dz=(regionalHeight(uv+stepUv.yx)-regionalHeight(uv-stepUv.yx))/468.75;
+  vec3 gradient=vec3(dx,0.0,dz);vec3 detailed=normalize(p-gradient+p*dot(p,gradient));
+  float weight=1.0-smoothstep(220000.0,239000.0,max(abs(metres.x),abs(metres.y)));
+  normal=normalize(mix(normal,uSurfaceRotation*detailed,weight));
+  float trees=texture2D(uRegionalSurface,(uv*2048.0+.5)/2049.0).b,h=regionalHeight(uv),dry=1.0-smoothstep(.15,.45,trees),rock=smoothstep(1100.0,2500.0,h)*.65;
+  vec3 biome=mix(vec3(.24,.37,.22),vec3(.075,.19,.12),trees*.6);biome=mix(biome,vec3(.43,.37,.25),dry*.4);biome=mix(biome,vec3(.34,.32,.26),rock);base=mix(base,biome,weight);
+ }
  float footprint=max(length(dFdx(metres)),length(dFdy(metres))),detail=(1.0-smoothstep(12.0,110.0,footprint))*uSurfaceDetail;
  vec3 color=base*terrainIrradiance(normal,radial,sun);
  if(uSurfaceStrength<=0.0)return color;
@@ -67,7 +77,7 @@ vec3 shadeSurface(vec3 base,vec3 normal,vec3 radial,vec3 point,vec3 world,vec3 s
 export const terrainLighting='diffuseColor.rgb=shadeSurface(diffuseColor.rgb,normalize(vSlope),normalize(vRadial),vGroundPoint,vGroundWorld,uSun,vSurfaceWater);';
 
 export function createTerrain(buffer,sun){
- const length=new DataView(buffer).getUint32(0,true),header=JSON.parse(new TextDecoder().decode(new Uint8Array(buffer,4,length))),start=4+Math.ceil(length/4)*4,heights=new Float32Array(buffer,start,header.heightSize**2),group=new THREE.Group();
+ const length=new DataView(buffer).getUint32(0,true),header=JSON.parse(new TextDecoder().decode(new Uint8Array(buffer,4,length))),start=4+Math.ceil(length/4)*4,group=new THREE.Group();
  const material=new THREE.MeshBasicMaterial({vertexColors:true,transparent:true,depthWrite:true});
  material.onBeforeCompile=shader=>{Object.assign(shader.uniforms,surfaceUniforms);shader.uniforms.uSun={value:sun};shader.uniforms.uSlopeDetail=terrainSlopeDetail;shader.vertexShader='attribute float surfaceWater;varying float vSurfaceWater;varying vec3 vGroundWorld;\nattribute float landFade;varying float vLandFade;varying vec3 vRadial,vSlope,vGroundPoint;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvLandFade=landFade;vSurfaceWater=surfaceWater;vGroundWorld=(modelMatrix*vec4(position,1.0)).xyz;vGroundPoint=(position+vec3(0.0,6371000.0,0.0))/6371000.0;vSlope=normalize(mat3(modelMatrix)*normal);vRadial=normalize(mat3(modelMatrix)*normalize(position+vec3(0.0,6371000.0,0.0)));');shader.fragmentShader=groundLight+'varying float vSurfaceWater;varying vec3 vGroundWorld;\nuniform vec3 uSun;varying vec3 vRadial,vSlope,vGroundPoint;varying float vLandFade;\n'+shader.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\ndiffuseColor.a*=vLandFade;'+terrainLighting);};
  // Opaque inner tiles draw before the globe so covered ground is shaded once.
@@ -80,9 +90,15 @@ export function createTerrain(buffer,sun){
  });
  const townCandidates=[],transform=new THREE.Object3D();for(const chunk of chunks){const geometry=chunk.levels[0].geometry,positions=geometry.attributes.position;for(let i=0;i<positions.count;i+=7){const x=positions.getX(i),y=positions.getY(i),z=positions.getZ(i),height=y-(Math.sqrt(R**2-x*x-z*z)-R);if(x>10000&&x<80000&&Math.abs(z)<80000&&height>40&&height<300&&geometry.attributes.normal.getY(i)>.995)townCandidates.push([x,z]);}}
  const smooth=(a,b,x)=>THREE.MathUtils.smoothstep(x,a,b),position=new THREE.Vector3(),normal=new THREE.Vector3(),towardCamera=new THREE.Vector3();
- group.groundHeight=(x,z)=>{const n=header.heightSize,u=THREE.MathUtils.clamp((x/header.extent+1)*(n-1)/2,0,n-1),v=THREE.MathUtils.clamp((1-z/header.extent)*(n-1)/2,0,n-1),i=Math.min(n-2,Math.floor(u)),j=Math.min(n-2,Math.floor(v)),a=u-i,b=v-j;return heights[j*n+i]*(1-a)*(1-b)+heights[j*n+i+1]*a*(1-b)+heights[(j+1)*n+i]*(1-a)*b+heights[(j+1)*n+i+1]*a*b;};
- const ray=new THREE.Raycaster(new THREE.Vector3(),new THREE.Vector3(0,-1,0)),hits=[];
- const fieldHeight=group.groundHeight;group.groundHeight=(x,z)=>{group.updateMatrixWorld(true);ray.ray.origin.set(x,10000,z).applyMatrix4(group.matrixWorld);ray.ray.direction.set(0,-1,0).transformDirection(group.matrixWorld);hits.length=0;for(const chunk of chunks){const box=chunk.levels[0].geometry.boundingSphere;if(!box||Math.hypot(x-box.center.x,z-box.center.z)>box.radius)continue;chunk.levels[0].raycast(ray,hits);}if(!hits.length)return fieldHeight(x,z);return Math.max(...hits.map(h=>group.worldToLocal(h.point).y))-(Math.sqrt(6371000**2-x*x-z*z)-6371000)+.78;};
+
+ // A small spatial index also lets the contact skirt meet the actual simplified triangles.
+ const bins=new Map(),binSize=8000;
+ for(const chunk of chunks)for(let level=0;level<3;level++){const g=chunk.levels[level].geometry,p=g.attributes.position,ix=g.index;
+  for(let k=0;k<ix.count;k+=3){const ids=[ix.getX(k),ix.getX(k+1),ix.getX(k+2)],v=ids.map(i=>[p.getX(i),p.getY(i),p.getZ(i)]),xs=v.map(p=>p[0]),zs=v.map(p=>p[2]);for(let z=Math.floor(Math.min(...zs)/binSize);z<=Math.floor(Math.max(...zs)/binSize);z++)for(let x=Math.floor(Math.min(...xs)/binSize);x<=Math.floor(Math.max(...xs)/binSize);x++){const key=x+':'+z;if(!bins.has(key))bins.set(key,[]);bins.get(key).push({v,chunk,level});}}
+ }
+ group.meshHeight=(x,z,visible=false)=>{let best=-Infinity;for(const record of bins.get(Math.floor(x/binSize)+':'+Math.floor(z/binSize))||[]){if(record.level!==(visible?record.chunk.level:0))continue;const [a,b,c]=record.v;const d=(b[2]-c[2])*(a[0]-c[0])+(c[0]-b[0])*(a[2]-c[2]);if(Math.abs(d)<1e-6)continue;const u=((b[2]-c[2])*(x-c[0])+(c[0]-b[0])*(z-c[2]))/d,v=((c[2]-a[2])*(x-c[0])+(a[0]-c[0])*(z-c[2]))/d;if(u>=-1e-7&&v>=-1e-7&&u+v<=1+1e-7)best=Math.max(best,u*a[1]+v*b[1]+(1-u-v)*c[1]);}return best;};
+ group.groundHeight=(x,z,visible=false)=>{const h=group.meshHeight(x,z,visible);return Number.isFinite(h)?h-(Math.sqrt(R*R-x*x-z*z)-R)+.78:window.RocketSurface.heightAt(x/R,Math.sqrt(1-(x*x+z*z)/(R*R)),z/R);};
+
  const towns=[],centers=[];for(const [x,z]of townCandidates){if(centers.length===6)break;if(centers.some(p=>Math.hypot(x-p[0],z-p[1])<14000))continue;centers.push([x,z]);for(let i=0;i<6;i++)towns.push([x+(i%3-1)*280,z+(Math.floor(i/3)-.5)*340]);}
  const settlement=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshLambertMaterial({color:'#ffffff'}),towns.length);for(let i=0;i<towns.length;i++){const [x,z]=towns[i],h=35+i%4*14;transform.position.set(x,Math.sqrt(6371000**2-x*x-z*z)-6371000+group.groundHeight(x,z)-.78+h/2-1,z);transform.scale.set(100+i%3*24,h,80+i%2*30);transform.rotation.y=i%3*.15;transform.updateMatrix();settlement.setMatrixAt(i,transform.matrix);settlement.setColorAt(i,new THREE.Color(['#b8bba7','#b0c0b9','#bfb39d'][i%3]));}settlement.computeBoundingSphere();group.add(settlement);
  group.updateDetail=(camera,pixels,quality,enabled)=>{

@@ -481,6 +481,8 @@
     "rocket-side-booster-lab/assets/terrain-sample/sample.bin",
     "rocket-side-booster-lab/assets/terrain-sample/metadata.json",
     "rocket-side-booster-lab/assets/terrain-sample/heights.png",
-    "rocket-side-booster-lab/assets/terrain-sample/albedo.webp"
+    "rocket-side-booster-lab/assets/terrain-sample/albedo.webp",
+    "rocket-side-booster-lab/assets/regional-heights.bin.gz",
+    "rocket-side-booster-lab/assets/regional-surface.png"
   ]
 }

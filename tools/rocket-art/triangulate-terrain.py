@@ -2,6 +2,8 @@
 import json,sys
 import numpy as np
 from scipy.spatial import Delaunay
+from scipy.ndimage import map_coordinates
+from scipy.stats import qmc
 
 def inside(points,ring):
     ring=np.asarray(ring);x,z=points[:,0],points[:,1];result=np.zeros(len(points),bool)
@@ -11,13 +13,32 @@ def inside(points,ring):
     return result
 
 def triangulate(requests):
+    field=None
+    if isinstance(requests,dict):
+        field=np.asarray(requests['heights']);extent=requests['extent'];requests=requests['requests']
+    def height(points):return map_coordinates(field,[(extent-points[:,1])/(2*extent)*(len(field)-1),(points[:,0]+extent)/(2*extent)*(len(field)-1)],order=1,mode='nearest')
     meshes=[]
     for request in requests:
         vertices=[];faces=[];box=request['box'];step=request['limit'];precision=request.get('precision',4)
         for rings in request['polygons']:
             boundary=[np.asarray(r,dtype=float) for r in rings]
-            x=np.arange(box[0]+step/2,box[1],step);z=np.arange(box[2]+step/2,box[3],step)
-            xx,zz=np.meshgrid(x,z);grid=np.column_stack((xx.ravel(),zz.ravel()))
+            if field is not None:
+                lower=np.array(box)[[0,2]];span=np.array(box)[[1,3]]-lower
+                grid=qmc.PoissonDisk(2,radius=.11,seed=731).fill_space()*span+lower
+                candidates=qmc.Sobol(2,scramble=True,seed=19).random_base2(13)*span+lower
+                points=np.unique(np.vstack((np.vstack(boundary)[:,:2],grid,[[box[0],box[2]],[box[0],box[3]],[box[1],box[2]],[box[1],box[3]]])),axis=0)
+                budget,tolerance={3000:(2200,25),6500:(900,70),14000:(380,180)}[step]
+                for iteration in range(18):
+                    tri=Delaunay(points);simplex=tri.find_simplex(candidates);assert np.all(simplex>=0)
+                    bary=np.einsum('ijk,ik->ij',tri.transform[simplex,:2,:],candidates-tri.transform[simplex,2,:]);weights=np.column_stack((bary,1-bary.sum(axis=1)))
+                    error=np.abs(np.sum(height(points)[tri.simplices[simplex]]*weights,axis=1)-height(candidates))
+                    order=np.argsort(-error);_,first=np.unique(simplex[order],return_index=True);chosen=order[first];chosen=chosen[error[chosen]>tolerance];chosen=chosen[np.argsort(-error[chosen])][:max(0,min(300,budget-len(points)))]
+                    if not len(chosen):break
+                    points=np.vstack((points,candidates[chosen]))
+                grid=points
+            else:
+                x=np.arange(box[0]+step/2,box[1],step);z=np.arange(box[2]+step/2,box[3],step)
+                xx,zz=np.meshgrid(x,z);grid=np.column_stack((xx.ravel(),zz.ravel()))
             if request.get('localDense',True):
                 x=np.arange(max(box[0]+500,-8000),min(box[1],8001),500);z=np.arange(max(box[2]+500,-8000),min(box[3],8001),500)
                 xx,zz=np.meshgrid(x,z);grid=np.vstack((grid,np.column_stack((xx.ravel(),zz.ravel()))))

@@ -89,4 +89,25 @@
 - 樣本網址：https://simlab-rocket-side-booster.ieyp.chatgpt.site/rocket-side-booster-lab/terrain-sample.html 。Codex browser opening回報queued，沒有把它當真機或live UI驗收。
 - Committed selection preview `output/reports/rocket-natural-sample-selection.json`，比較 `065eefc9f85cd7b58a73f9315eb711f0aed21409`至runtime commit；README dependency未識別，保守選出303項。這是選測預覽，實際執行仍為上述11個Node檔及10個source／ZIP flows。
 - 所有source／package／build／registry／rebuild／deployment證據在 `output/reports/rocket-natural-sample-*`，瀏覽器畫面及canvas錄影在 `output/playwright/rocket-side-booster-lab/`。生成cache、發佈tar及本機預覽server於交付時清除／停止；原始DEM是固定build source，刻意保留。
-- **狀態：40km樣本已上線，等待使用者確認山勢與森林自然程度。未擴展全區，未改主模擬地形。** 真iPad Safari效能與長時間飛行仍待實機測試。
+- **歷史狀態：40km樣本已上線；其後使用者回覆「看上去挺自然的」，接受自然觀感並進入原定全區擴展。** 真iPad Safari效能與長時間飛行仍待實機測試。
+
+## 全區擴展（2026-11-08，執行中）
+
+使用者已接受樣本。擴展現有480×480km區域，保留樣本入口供比較；全球其他地貌仍為示意。採USGS同一服務的4096²區域輸出，重投影成4097²、117.1875m canonical高程；gzip只負責傳輸，飛行開始前一次解碼，CPU約33.6MB。海面維持0m，低於海平面陸地在本簡化模型視作0m；NoData以最近有效來源填補並記錄比例，不把異常Float32當山峰。
+
+範圍包含surface／全球與區域mesh／contact／森林／材質／manifest／原有測試及生成腳本。區域用誤差加點的不規則網格；連續片段法線由16-bit高度貼圖產生，保留輕微海面波光。iPad等coarse pointer裝置固定2K地球底圖抵銷新增貼圖成本。小範圍發射設施整地、超過3500m山峰上限、海岸及區域邊緣會一併處理。採原有Node及browser owner；檢查發射、分離、再入、warp、陸海着陸、兩個交付版本及保護hash。評分／rubric／SCORM／snapshot persistence均N/A（探索工具）。不新增任務、GIS依賴或額外陰影pass。最後記錄實測預算及未驗證實機項目。
+
+### 全區實作與最後驗證
+
+- 原始USGS GeoTIFF 31,269,670 bytes，SHA `6653cc68d871559cae89467ad9e78215fca374eea4573c9187d6f20f9856a8d8`，bbox[-123.2,32.4,-117.6,37.0]，EPSG:4326 PixelIsArea。來源無效值約1.275%，先最近有效值填補、再套Natural Earth海岸；原檔及request sidecar保留為build source，不進ZIP／Site。
+- 主模擬已使用4097² canonical field、三角插值及5000m一致物理上限；儲存高程最大4346.2m，非硬切3500m。117.1875m是本地取樣距離，來源仍是多解析度服務輸出。原40km樣本不變；441個重疊測點95%高度差13.04m，這是兩份處理資料的比較，並非地面測量精度。
+- 傳輸gzip 11,654,445 bytes，解碼Uint16 33,570,818 bytes；257²啟動fallback加全球格約0.65MB，執行飛行前等待fine ready，失敗顯示原有載入錯誤。網格取消重複4.2MB高度陣列，三層共50,104 triangles、1,832,508 bytes；共用1500m chunk邊界仍保留，內部以Poisson／Sobol候選及高度誤差加點。遠景4,776個陸地probes的中位誤差11.36m、95%約100.09m、最大441.90m；25m是細層加點目標，不是達成的硬上限。這是遠景簡化面誤差，不是近景接地誤差或DEM真實精度。
+- 2049² RGBA高度／密度PNG 4,149,257 bytes，GPU RGBA估算16,793,604 bytes、不產生height mipmaps；片段法線不再放大兩倍坡度。近景81²、12,800 triangles與canonical格及對角線對齊，2.2km內保留原高程，2.2–3.8km裙邊接到當前顯示LOD；LOD改變即使飛船靜止亦重建。Node檢查912個近景頂點，最大canonical差約0.000057m。這是頂點一致性，沒有宣稱球面三角面所有內點均零誤差。
+- 森林仍最多9 active／12 cached near batches、1296近樹及256中景九冠組，固定亂數、最小間距候選及連續value noise取代小格排樹／周期濕度條紋。距離alpha hashing接替；中景根部及LOD改變共用實際顯示三角面。植被及設施仍是示意，不是實測land-cover。250–650m發射場整地取代3–5km整片壓平，設施以canonical地面定位。
+- 開發中候選source／ZIP執行216 flows，包含飛行、返航、分離效果、鏡頭、倍速、材質、着陸、座標穩定及地形。其後修正LOD裙邊及森林根部，最後同一runtime hash重跑source／ZIP的surface、landing、terrain共96 flows；三種地形viewport、兩種材質viewport、陸／海接地、cache繞行及0→1→2→0畫質均通過，runtime／HTTP錯誤0。未將候選的hash當最後closure證據，也沒有重跑所有無關UI測項。
+- 最後另有自然／灰模／法線／第二光向／相反視角各source及ZIP畫面，已逐張目視；實際Canvas與模型低空滑行錄影 `natural-region-flight.webm` 7秒、348,983 bytes。沒有在正式UI新增診斷選項。樣本78m細節仍保留在原review頁，主區的117m碰撞及234m片段法線是不同資源預算，未聲稱全480km均維持樣本mesh密度。
+- 測試畫面最高95,213 submitted triangles、89 draws（整個主場景）；coarse-pointer使用2K globe，貼圖RGBA估算最高約66.34MB。森林獨立上限10 calls，cache繞行不超過12；這些是Chromium觸控尺寸／軟件GPU數值，沒有真iPad FPS、峰值driver memory或長時間耗電證據。fine解碼及影像／geometry／索引另有CPU開銷，不以下載大小當記憶體。
+- 最後11個Node／package檔全部通過；browser height拒絕截斷／超高／404，近景接地、靜止LOD更新、原三角化list呼叫三個案例逐值與`e2139b4`一致。`npm run check`、registry303 entries、docs links及diff checks通過；並非全庫303項已執行。
+- 重新建置482個runtime檔逐byte相同，原活動481個保護hash相同。最後ordered runtime SHA `1b10de912f5a50a480f599479a131fb8333c142a3ff03b3ca657a3c4c2f5a2b9`；standalone ZIP 35,167,013 bytes，SHA `67fc4a1c8327b260970a009b6f1d4eeb43898c68126f9fc71189fc5988bd26ba`。主區以外的全球高度仍為示意；沒有SCORM、評分、提交或持久化。
+
+證據：`output/reports/rocket-natural-region-{build,validation,mesh-error,builder-parity}.json`、Node／check／registry／rebuild文字報告；最後瀏覽器報告 `output/playwright/rocket-side-booster-lab/explorer-natural-region-final-report.json`，候選報告另存並標明非最後closure。Sites收據於部署成功後補記。

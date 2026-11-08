@@ -1,0 +1,35 @@
+{
+  "service": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer",
+  "request": {
+    "bbox": "-123.2,32.4,-117.6,37.0",
+    "bboxSR": 4326,
+    "imageSR": 4326,
+    "size": "4096,4096",
+    "format": "tiff",
+    "pixelType": "F32",
+    "interpolation": "RSP_BilinearInterpolation",
+    "adjustAspectRatio": "false",
+    "f": "json"
+  },
+  "export": {
+    "href": "https://elevation.nationalmap.gov/arcgis/rest/directories/elevation_output/3DEPElevation_ImageServer/_ags_07aefaa4_d6b7_4b0e_8840_248afb172724.tif",
+    "width": 4096,
+    "height": 4096,
+    "extent": {
+      "xmin": -123.2,
+      "ymin": 32.4,
+      "xmax": -117.6,
+      "ymax": 37,
+      "spatialReference": {
+        "wkid": 4326,
+        "latestWkid": 4326
+      }
+    },
+    "scale": 0
+  },
+  "description": "The USGS 3D Elevation Program (3DEP) Bare Earth DEM Dynamic service is based on multi-resolution USGS DEM sources and provides dynamic functions for visualization. These functions include: Hillshade, Aspect Map, Hillshade Stretched, Multi-directional Hillshade, Slope Map, Elevation Tinted Hillshade, Contour. In addition the OGC Web Map Service (WMS) and Web Coverage Service (WCS) interfaces are enabled. Data available in this map service reflects all 3DEP DEM data published as of October 26, 2026.",
+  "retrievedDate": "2026-11-08",
+  "sha256": "6653cc68d871559cae89467ad9e78215fca374eea4573c9187d6f20f9856a8d8",
+  "bytes": 31269670,
+  "license": "USGS public domain; https://www.usgs.gov/3d-elevation-program/about-3dep-products-services"
+}

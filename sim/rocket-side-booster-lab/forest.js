@@ -12,35 +12,46 @@ function treeGeometry(){
  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));g.computeVertexNormals();return g;
 }
 function canopyGeometry(){
- const source=new THREE.IcosahedronGeometry(1,0),p=source.attributes.position,positions=[],colors=[];
- for(const [x,z,size,tint]of [[-.4,-.12,.55,1],[.3,-.25,.48,.9],[.12,.35,.5,1.08]])for(let i=0;i<p.count;i++){positions.push(x+p.getX(i)*size,.42+p.getY(i)*.42,z+p.getZ(i)*size);colors.push(.10*tint,.24*tint,.13*tint);}
- source.dispose();const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));g.computeVertexNormals();return g;
+ const positions=[],colors=[];
+ for(let i=0;i<9;i++){const a=i*2.399,r=.12+Math.sqrt(i/9)*.32,g=new THREE.ConeGeometry(.09,.65,5,1,true).toNonIndexed(),p=g.attributes.position;for(let j=0;j<p.count;j++){positions.push(Math.cos(a)*r+p.getX(j),.36+(i%3)*.08+p.getY(j),Math.sin(a)*r+p.getZ(j));colors.push(.10,.22,.105);}g.dispose();}
+ const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));g.computeVertexNormals();return g;
 }
-export function createForest(){
- const group=new THREE.Group(),geometry=treeGeometry(),material=new THREE.MeshLambertMaterial({vertexColors:true,flatShading:true}),canopies=new THREE.InstancedMesh(canopyGeometry(),material,256),cache=new Map(),transform=new THREE.Object3D(),point=new THREE.Vector3(),cameraPoint=new THREE.Vector3(),east=new THREE.Vector3(),north=new THREE.Vector3(),normal=new THREE.Vector3(),neighbor=new THREE.Vector3();
+function woodlandMaterial(near,scale){
+ const material=new THREE.MeshLambertMaterial({vertexColors:true,alphaHash:true});material.onBeforeCompile=shader=>{shader.uniforms.uTreeMetres=scale;shader.vertexShader='varying vec3 vTreeWorld;\n'+shader.vertexShader.replace('#include <project_vertex>',`vec4 treePoint=vec4(transformed,1.0);
+ #ifdef USE_INSTANCING
+ treePoint=instanceMatrix*treePoint;
+ #endif
+ vTreeWorld=(modelMatrix*treePoint).xyz;
+ #include <project_vertex>`);shader.fragmentShader='varying vec3 vTreeWorld;uniform float uTreeMetres;\n'+shader.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\nfloat treeDistance=distance(vTreeWorld,cameraPosition)*uTreeMetres;diffuseColor.a*='+(near?'1.0-smoothstep(650.0,950.0,treeDistance)':'smoothstep(650.0,1100.0,treeDistance)*(1.0-smoothstep(6000.0,9000.0,treeDistance))')+';');};material.customProgramCacheKey=()=>near?'explorer-near-woodland-v2':'explorer-mid-woodland-v2';return material;
+}
+
+export function createForest(relief){
+ const group=new THREE.Group(),geometry=treeGeometry(),scale={value:1},material=woodlandMaterial(true,scale),canopies=new THREE.InstancedMesh(canopyGeometry(),woodlandMaterial(false,scale),256),cache=new Map(),transform=new THREE.Object3D(),point=new THREE.Vector3(),cameraPoint=new THREE.Vector3(),east=new THREE.Vector3(),north=new THREE.Vector3(),normal=new THREE.Vector3(),neighbor=new THREE.Vector3();
  group.scale.setScalar(R/(R-5));canopies.instanceMatrix.setUsage(THREE.DynamicDrawUsage);group.add(canopies);
  let key='',clock=0,canopyKey='';
  const stats=group.userData={nearTrees:0,canopies:0,cached:0,cacheLimit:12,activeLimit:9,instanceBytes:0,buildMs:0,rebuilds:0,trianglesPerTree:geometry.attributes.position.count/3};
  function place(mesh,index,lon,lat,size,width=size*.32){
-  direction(lon,lat,point);const h=S.heightAt(point.x,point.y,point.z);if(S.waterAt(point.x,point.y,point.z)||h>2200||point.y>0&&Math.hypot(point.x,point.z)*R<3200)return false;
+  direction(lon,lat,point);const h=S.heightAt(point.x,point.y,point.z);if(S.waterAt(point.x,point.y,point.z)||h>2200||point.y>0&&Math.hypot(point.x,point.z)*R<650)return false;
   const density=S.forestAt(point.x,point.y,point.z,h);if(density<.26)return false;
   if(mesh===canopies){const delta=width/R*180/Math.PI;for(const [x,y]of [[lon-delta/Math.max(.15,Math.cos(lat*Math.PI/180)),lat],[lon+delta/Math.max(.15,Math.cos(lat*Math.PI/180)),lat],[lon,lat-delta],[lon,lat+delta]]){direction(x,y,neighbor);if(S.waterAt(neighbor.x,neighbor.y,neighbor.z)||Math.abs(S.heightAt(neighbor.x,neighbor.y,neighbor.z)-h)>100)return false;}}
-  transform.position.copy(point).multiplyScalar(1+h/R);transform.quaternion.setFromUnitVectors(up,point);transform.scale.set(width/R,size/R,width/R);transform.updateMatrix();mesh.setMatrixAt(index,transform.matrix);return true;
+  const root=mesh===canopies&&relief&&point.y>.99&&Math.max(Math.abs(point.x),Math.abs(point.z))*R<211200?relief.groundHeight(point.x*R,point.z*R,true):h;transform.position.copy(point).multiplyScalar(1+root/R);transform.quaternion.setFromUnitVectors(up,point);transform.scale.set(width/R,size/R,width/R);transform.updateMatrix();mesh.setMatrixAt(index,transform.matrix);return true;
  }
  function build(x,y){
   const started=performance.now(),latitude=(y+.5)*step,dx=step/Math.max(.15,Math.cos(latitude*Math.PI/180)),mesh=new THREE.InstancedMesh(geometry,material,144);mesh.count=0;
-  for(let j=0;j<12;j++)for(let i=0;i<12;i++){
-   const a=seed(x*12+i,y*12+j),b=seed(y*12+j,x*12+i+17),lon=(x+(i+.15+a*.7)/12)*dx,lat=(y+(j+.15+b*.7)/12)*step;
-   direction(lon,lat,point);const h=S.heightAt(point.x,point.y,point.z),density=S.forestAt(point.x,point.y,point.z,h);if(a>density*.88)continue;
+  const accepted=[];
+  for(let i=0;i<260&&mesh.count<144;i++){
+   const a=seed(x*311+i,y*17+91),b=seed(y*197+i,x*31+17),lon=(x+.02+a*.96)*dx,lat=(y+.02+b*.96)*step;
+   if(accepted.some(([p,q])=>((p-lon)*Math.cos(latitude*Math.PI/180))**2+(q-lat)**2<(14/111195)**2))continue;
+   direction(lon,lat,point);const h=S.heightAt(point.x,point.y,point.z),density=S.forestAt(point.x,point.y,point.z,h);if(seed(x+i*13,y-i*17)>density*.88)continue;
    // Reject cliffs using the same canonical field as contact; no per-tree physics.
    const neighbor=direction(lon,lat+.00035,new THREE.Vector3()),slope=Math.abs(S.heightAt(neighbor.x,neighbor.y,neighbor.z)-h)/39;if(slope>.45)continue;
-   if(place(mesh,mesh.count,lon,lat,11+b*12,11+b*12))mesh.count++;
+   if(place(mesh,mesh.count,lon,lat,11+b*12,11+b*12)){mesh.count++;accepted.push([lon,lat]);}
   }
   mesh.instanceMatrix.needsUpdate=true;mesh.computeBoundingSphere();group.add(mesh);stats.buildMs+=performance.now()-started;stats.rebuilds++;return {mesh,used:++clock,x,y};
  }
  group.update=(flight,camera,pixels,quality,enabled)=>{
   group.visible=Boolean(enabled&&flight&&quality<2&&200*pixels/Math.max(1000,S.clearance(flight.state))>1.5);if(!group.visible){stats.nearTrees=stats.canopies=0;return;}
-  group.updateWorldMatrix(true,false);cameraPoint.copy(camera.position);group.worldToLocal(cameraPoint);
+  group.updateWorldMatrix(true,false);scale.value=R/group.getWorldScale(normal).x;cameraPoint.copy(camera.position);group.worldToLocal(cameraPoint);
   const [lon,lat]=S.geographic(...S.direction(flight.state)),row=Math.floor(lat/step),desired=[];
   for(let y=row-1;y<=row+1;y++){
    const dx=step/Math.max(.15,Math.cos((y+.5)*step*Math.PI/180)),x=Math.floor(lon/dx);
@@ -52,12 +63,12 @@ export function createForest(){
   }
   stats.nearTrees=0;
   for(const [id,item]of cache){const center=item.mesh.boundingSphere?.center,distance=center?cameraPoint.distanceTo(center)*R:Infinity,screen=16*pixels/Math.max(1,distance),active=desired.some(([x,y])=>id===x+':'+y);item.mesh.visible=active&&screen>(quality===1?2.5:1.1);if(item.mesh.visible)stats.nearTrees+=item.mesh.count;}
-  const midStep=.012,cy=Math.floor(lat/midStep),dx=midStep/Math.max(.15,Math.cos((cy+.5)*midStep*Math.PI/180)),cx=Math.floor(lon/dx),midKey=cx+':'+cy+':'+quality;
+  const midStep=.012,cy=Math.floor(lat/midStep),dx=midStep/Math.max(.15,Math.cos((cy+.5)*midStep*Math.PI/180)),cx=Math.floor(lon/dx),midKey=cx+':'+cy+':'+quality+':'+(relief?.userData.levels.join(',')||'');
   if(midKey!==canopyKey){canopyKey=midKey;canopies.count=0;
    for(let j=-9;j<=9;j++)for(let i=-9;i<=9&&canopies.count<256;i++){
-    const row=cy+j,rowDx=midStep/Math.max(.15,Math.cos((row+.5)*midStep*Math.PI/180)),col=Math.floor(lon/rowDx)+i,a=seed(col,row),b=seed(row,col+73),x=(col+.2+a*.6)*rowDx,y=(row+.2+b*.6)*midStep;
+    const row=cy+j,rowDx=midStep/Math.max(.15,Math.cos((row+.5)*midStep*Math.PI/180)),col=Math.floor(lon/rowDx)+i,a=seed(col,row),b=seed(row,col+73),x=(col+.02+a*.96)*rowDx,y=(row+.02+b*.96)*midStep;
     direction(x,y,point);const h=S.heightAt(point.x,point.y,point.z),density=S.forestAt(point.x,point.y,point.z,h);if(a>density*.9)continue;
-    if(place(canopies,canopies.count,x,y,24+b*16,250+b*210)){
+    if(place(canopies,canopies.count,x,y,65+b*55,350+b*260)){
      const height=(lon,lat)=>{direction(lon,lat,neighbor);return S.heightAt(neighbor.x,neighbor.y,neighbor.z);},ex=(height(x+.001,y)-height(x-.001,y))/(2*R*Math.PI/180*.001*Math.max(.15,Math.cos(y*Math.PI/180))),nz=(height(x,y+.001)-height(x,y-.001))/(2*R*Math.PI/180*.001);
      if(Math.hypot(ex,nz)>.3)continue;
      east.copy(direction(x+.001,y,neighbor)).sub(point).normalize();north.copy(direction(x,y+.001,neighbor)).sub(point).normalize();normal.copy(point).addScaledVector(east,-ex).addScaledVector(north,-nz).normalize();transform.quaternion.setFromUnitVectors(up,normal);transform.updateMatrix();canopies.setMatrixAt(canopies.count++,transform.matrix);

@@ -1,18 +1,20 @@
 import * as THREE from './vendor/three-0.185.1/three.module.min.js';
-import {createTerrain,groundLight,terrainSlopeDetail,surfaceUniforms,surfaceTextureBytes} from './terrain.js';
+import {createTerrain,groundLight,terrainSlopeDetail,surfaceUniforms,surfaceTextureBytes,regionalSurfaceTexture} from './terrain.js';
 import {createGlobalTerrain} from './global-terrain.js';
 const P=window.RocketParts,cache=new Map(),canvasMaps=new Map(),lostCanvases=new Set();
 export const artRecovery=new EventTarget();
 export function artTexturesReady(){return lostCanvases.size===0&&[...canvasMaps.keys()].every(c=>!c.getContext('2d')?.isContextLost?.());}
 export function restoreArtTextures(){for(const repaint of canvasMaps.values())repaint();for(const texture of cache.values())texture.needsUpdate=true;}
-const compact=innerWidth<960,loader=new THREE.TextureLoader();
+const compact=innerWidth<960||matchMedia('(pointer: coarse)').matches,loader=new THREE.TextureLoader();
 async function artTexture(name){const texture=await loader.loadAsync(new URL('./assets/'+name,import.meta.url).href);texture.colorSpace=THREE.SRGBColorSpace;cache.set(name,texture);return texture;}
-const [dayMap,regionMap,weatherTexture,starMap,geography,terrainBuffer,globalBuffer]=await Promise.all([
+const [dayMap,regionMap,weatherTexture,starMap,geography,terrainBuffer,globalBuffer,regionSurface]=await Promise.all([
  artTexture(compact?'earth-2k.webp':'earth-4k.webp'),artTexture('launch-region.webp'),artTexture('clouds.webp'),artTexture('starfield.webp'),
  fetch(new URL('./assets/geography.json',import.meta.url)).then(r=>{if(!r.ok)throw Error('Geography unavailable');return r.json();}),
  fetch(new URL('./assets/terrain.bin',import.meta.url)).then(r=>{if(!r.ok)throw Error('Terrain unavailable');return r.arrayBuffer();}),
- fetch(new URL('./assets/global/coarse.bin',import.meta.url)).then(r=>{if(!r.ok)throw Error('Global terrain unavailable');return r.arrayBuffer();})
+ fetch(new URL('./assets/global/coarse.bin',import.meta.url)).then(r=>{if(!r.ok)throw Error('Global terrain unavailable');return r.arrayBuffer();}),
+ loader.loadAsync(new URL('./assets/regional-surface.png',import.meta.url).href),window.RocketSurface.ready()
 ]);
+regionalSurfaceTexture.value=regionSurface;regionSurface.generateMipmaps=false;regionSurface.minFilter=regionSurface.magFilter=THREE.LinearFilter;cache.set('regional-surface',regionSurface);
 for(const texture of [dayMap,weatherTexture,starMap])texture.wrapS=THREE.RepeatWrapping;
 export function textureBudget(){return surfaceTextureBytes+[...cache.values()].reduce((bytes,t)=>bytes+t.image.width*t.image.height*4*(t.generateMipmaps?4/3:1),0);}
 
@@ -200,7 +202,7 @@ export function createLaunchEffects(){
  root.update=camera=>{root.updateWorldMatrix(true,false);rotation.copy(root.getWorldQuaternion(rotation)).invert().multiply(camera.quaternion);let count=0;for(const p of particles)if(p.age>=0){const a=p.age,entry=p.seed%4===0,spread=Math.sin(p.seed*2.399),scale=(entry?1.4:2.3)+a*(3.2+p.seed%3*.4);pose.position.set(spread*(1+a*.9),entry?-1.2+a*1.8:.4+a*2.5,entry?-1-a*11:-26-a*(2+p.seed%3));pose.quaternion.copy(rotation);pose.scale.set(scale,scale*.8,1);pose.updateMatrix();mesh.setMatrixAt(count,pose.matrix);alpha.setX(count,.7*Math.pow(1-a/3.4,1.4)*Math.min(1,p.strength));count++;}mesh.count=count;mesh.instanceMatrix.needsUpdate=alpha.needsUpdate=true;root.visible=count>0;root.userData.active=count;};root.clear();return root;
 }
 export function createLandscape(relief){
- const group=new THREE.Group(),groundY=(x,z)=>Math.sqrt(P.R*P.R-x*x-z*z)-P.R+relief.groundHeight(x,z);
+ const group=new THREE.Group(),groundY=(x,z)=>Math.sqrt(P.R*P.R-x*x-z*z)-P.R+window.RocketSurface.heightAt(x/P.R,Math.sqrt(1-(x*x+z*z)/(P.R*P.R)),z/P.R);
  function ribbon(width,color,center,start,length,mat,lift=-.7){const v=[],uv=[];for(let i=0;i<96;i++){const edge=(j,s)=>{const z=start+j/96*length,x=center(z)+s*width/2;return [x,groundY(x,z)+lift,z];};for(const [j,s]of [[i,-1],[i+1,-1],[i,1],[i,1],[i+1,-1],[i+1,1]]){v.push(...edge(j,s));uv.push((s+1)/2,j/96*length/80);}}const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(v,3));geo.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));geo.computeVertexNormals();group.add(new THREE.Mesh(geo,mat||material(color,{side:THREE.DoubleSide})));}
  const road=surface('road');road.wrapS=road.wrapT=THREE.RepeatWrapping;const roadMaterial=material('#ffffff',{map:road,roughness:.92});ribbon(18,'#ffffff',()=>320,-1800,4200,roadMaterial,.08);
  group.landmarks=[];

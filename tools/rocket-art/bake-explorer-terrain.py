@@ -3,7 +3,9 @@ from pathlib import Path
 import argparse, base64, gzip, hashlib, importlib.util, json, math, struct, subprocess
 import numpy as np
 from PIL import Image, ImageDraw
-from scipy.ndimage import distance_transform_edt, map_coordinates
+from scipy.ndimage import distance_transform_edt, map_coordinates, gaussian_filter
+from scipy.spatial import Delaunay
+from scipy.stats import qmc
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
@@ -16,7 +18,12 @@ smooth = globe.smooth
 
 
 def forest(e, n, lat, height):
-    moisture = .52 + .24*np.sin(e/19000 + np.sin(n/31000)) + .18*np.cos(n/17000-e/47000)
+    def noise(x,y):
+        i=np.floor(x);j=np.floor(y);a=smooth(0,1,x-i);b=smooth(0,1,y-j)
+        def hash(i,j):
+            v=np.sin(i*127.1+j*311.7)*43758.5453;return v-np.floor(v)
+        return hash(i,j)*(1-a)*(1-b)+hash(i+1,j)*a*(1-b)+hash(i,j+1)*(1-a)*b+hash(i+1,j+1)*a*b
+    moisture=.28+.6*noise(e/13000+31.4,n/13000-17.8)+.2*noise(e/3100-7.3,n/3100+11.2)
     return np.clip((moisture-.30)*1.8, 0, 1)*(1-smooth(1450,2600,height))*(1-smooth(57,73,np.abs(lat)))
 
 
@@ -92,40 +99,54 @@ def main():
     mask=np.asarray(image)>127
     local_shore=(distance_transform_edt(mask)-distance_transform_edt(~mask))*(2*E/4096)
     shore_local=np.asarray(Image.fromarray(local_shore.astype('f4'),'F').resize((N,N),Image.Resampling.BILINEAR))
-    xx,zz=np.meshgrid(np.linspace(-E,E,N),np.linspace(E,-E,N))
+    F=4097
+    xx,zz=np.meshgrid(np.linspace(-E,E,F),np.linspace(E,-E,F))
     llon,llat=art.local_to_geo(xx,zz)
+    source_dir=HERE/'sources/explorer-natural-region'
+    source_meta=json.loads((source_dir/'source.json').read_text(encoding='utf-8'))
+    source_blob=(source_dir/'usgs-region-dem.tif').read_bytes()
+    assert hashlib.sha256(source_blob).hexdigest()==source_meta['sha256']
+    image=Image.open(source_dir/'usgs-region-dem.tif')
+    assert image.mode=='F' and image.size==(4096,4096)
+    keys=image.tag_v2[34735];keys={keys[i]:keys[i+3] for i in range(4,len(keys),4)}
+    assert keys[2048]==4326 and keys[1025]==1
+    dx,dy,_=image.tag_v2[33550];_,_,_,west,north,_=image.tag_v2[33922]
+    with np.errstate(invalid='ignore'):raw=np.asarray(image).astype(float)
+    valid=np.isfinite(raw)&(raw> -500)&(raw<5000)
+    invalid_fraction=float(1-valid.mean())
+    nearest=distance_transform_edt(~valid,return_distances=False,return_indices=True)
+    raw[~valid]=raw[tuple(q[~valid] for q in nearest)]
+    coords=[(north-llat)/dy-.5,(llon-west)/dx-.5]
+    assert min(float(q.min()) for q in coords)>=0 and max(float(q.max()) for q in coords)<4095
+    fine_h=gaussian_filter(map_coordinates(raw,coords,order=1,mode='nearest'),.45)
+    fine_shore=map_coordinates(local_shore,[(E-zz)/(2*E)*4095,(xx+E)/(2*E)*4095],order=1,mode='nearest')
+    fine_land=fine_shore>0
+    # The launch apron alone is level; the facilities follow the real surrounding ground.
+    fine_h=np.maximum(0,fine_h)*smooth(0,350,fine_shore)*smooth(250,650,np.hypot(xx,zz))
+    fine_h[~fine_land]=0;fine_land[F//2,F//2]=True
+    fine_h=np.rint(fine_h*10)*.1
+    assert fine_h.max()<5000
+    fine=np.where(fine_land,np.rint(fine_h*10)+1,0).astype('<u2')
+    fine_file=assets/'regional-heights.bin.gz';fine_file.write_bytes(gzip.compress(fine.tobytes(),compresslevel=9,mtime=0))
+    local_h=fine_h[::4,::4];local_land=fine_land[::4,::4]
     def globe_sample(lon,lat):return map_coordinates(global_h,[(90-lat)/180*(height-1),(lon+180)/360*(width-1)],order=1,mode='nearest')
-    base_local=globe_sample(llon,llat)
-    # Long, branching ridgelines and carved valleys survive ascent and low oblique views.
-    spine=28000+14500*np.sin(zz/62000)+6000*np.sin(zz/24000)
-    ridge=1850*np.exp(-np.abs((xx-spine)/9000)**1.35)*(.72+.28*np.cos(zz/12000)**2)
-    ridge+=850*np.exp(-((xx-(spine+38000+zz*.16))/14000)**2)
-    ridge+=520*np.exp(-((xx-(spine-24000+zz*.10))/6500)**2)
-    plateau=1150*smooth(65000,79000,xx)*(1-smooth(128000,145000,xx))*(1-smooth(65000,85000,np.abs(zz-18000)))
-    valley=520*np.exp(-((zz-(8000+5500*np.sin(xx/14000)))/1800)**2)*smooth(4000,17000,xx)*(1-smooth(120000,155000,xx))
-    valley+=420*np.exp(-((zz-(-28000+.45*xx+2600*np.sin(xx/9000)))/1600)**2)*smooth(10000,25000,xx)*(1-smooth(90000,135000,xx))
-    hills=170+110*np.sin(xx/6800+np.sin(zz/17000))*np.cos(zz/10000)
-    detail=np.maximum(0,ridge+plateau+hills-valley)
-    fade=1-smooth(175000,211200,np.maximum(np.abs(xx),np.abs(zz)))
-    local_h=np.rint(np.clip(base_local*(1-.65*(1-smooth(6000,35000,np.hypot(xx,zz)))*fade)+detail*fade,0,3500)*smooth(0,3500,shore_local)*smooth(3000,5000,np.hypot(xx,zz)))
-    local_land=shore_local>0;local_land[N//2,N//2]=True;local_h[~local_land]=0
     def pack(h,l):return (np.rint(h).astype('<u2') | (l.astype('<u2')*32768))
-    data=dict(version=1,width=width,height=height,global_=base64.b64encode(pack(global_h,global_land).tobytes()).decode(),localSize=N,extent=E,local=base64.b64encode(pack(local_h,local_land).tobytes()).decode(),maxHeight=3500)
+    data=dict(version=1,width=width,height=height,global_=base64.b64encode(pack(global_h,global_land).tobytes()).decode(),localSize=257,extent=E,local=base64.b64encode(pack(local_h[::4,::4],local_land[::4,::4]).tobytes()).decode(),maxHeight=5000,fine=dict(size=F,file='assets/regional-heights.bin.gz',bytes=fine_file.stat().st_size,sha256=hashlib.sha256(fine_file.read_bytes()).hexdigest()))
     data['global']=data.pop('global_')
-    text="/* Generated by tools/rocket-art/bake-explorer-terrain.py; illustrative metres. */\n(function(root){const data="+json.dumps(data,separators=(',',':'))+";if(typeof module==='object'&&module.exports)module.exports=data;else root.RocketSurfaceData=data;})(typeof globalThis!=='undefined'?globalThis:this);\n"
+    text="/* Generated regional USGS relief; global elevations remain illustrative. */\n(function(root){const data="+json.dumps(data,separators=(',',':'))+";if(typeof module==='object'&&module.exports)module.exports=data;else root.RocketSurfaceData=data;})(typeof globalThis!=='undefined'?globalThis:this);\n"
     (target/'surface-data.js').write_text(text,encoding='utf-8',newline='\n')
     def sample(e,u,n):
         geographic=e[:,None]*art.EAST+u[:,None]*art.UP+n[:,None]*art.NORTH
         lon=np.degrees(np.arctan2(geographic[:,2],geographic[:,0]));lat=np.degrees(np.arcsin(np.clip(geographic[:,1],-1,1)))
         gh=globe_sample(lon,lat)
         is_land=map_coordinates(global_land.astype('u1'),[(90-lat)/180*(height-1),(lon+180)/360*(width-1)],order=0,mode='nearest').astype(bool)
-        extent=np.maximum(np.abs(e),np.abs(n))*R
-        coords=[(1-n*R/E)*(N-1)/2,(e*R/E+1)*(N-1)/2]
-        lh=map_coordinates(local_h,coords,order=1,mode='nearest')
-        land_near=map_coordinates(local_land.astype('u1'),coords,order=0,mode='nearest').astype(bool)
-        w=np.where(u>0,1-smooth(211200,239500,extent),0)
-        is_land=np.where((u>0)&(extent<211200),land_near,is_land)
-        h=np.where(is_land,gh*(1-w)+lh*w,0)
+        extent=(np.abs(e)**8+np.abs(n)**8)**(1/8)*R
+        fy=np.clip((1-n*R/E)*(F-1)/2,0,F-1);fx=np.clip((e*R/E+1)*(F-1)/2,0,F-1)
+        i=np.minimum(F-2,np.floor(fx).astype(int));j=np.minimum(F-2,np.floor(fy).astype(int));a=fx-i;b=fy-j
+        lh=np.where(a+b<=1,fine_h[j,i]*(1-a-b)+fine_h[j,i+1]*a+fine_h[j+1,i]*b,fine_h[j+1,i+1]*(a+b-1)+fine_h[j,i+1]*(1-b)+fine_h[j+1,i]*(1-a))
+        land_near=fine_land[np.rint(fy).astype(int),np.rint(fx).astype(int)]
+        w=np.where(u>0,1-smooth(175000,239500,extent),0)
+        h=np.where(is_land,gh,0)*(1-w)+np.where(land_near,lh,0)*w
         return h,lon,lat
     metadata=json.loads((assets/'geography.json').read_text(encoding='utf-8'))
     for record in metadata['globalTerrain']['files']:
@@ -147,19 +168,27 @@ def main():
         orientation=np.einsum('ij,ij->i',np.cross(p[:,1]-p[:,0],p[:,2]-p[:,0]),p[:,0])
         assert np.all(orientation!=0), 'No collapsed relief triangles'
         faces[orientation<0]=faces[orientation<0][:,[0,2,1]]
-        blob[index:]=faces.tobytes();file.write_bytes(blob)
+        blob[index:]=faces.tobytes()
+        if file.read_bytes()!=blob:file.write_bytes(blob)
         record.update(bytes=len(blob),sha256=hashlib.sha256(blob).hexdigest(),nonColorSha256=hashlib.sha256(blob[:color_start]+blob[index:]).hexdigest())
     surface=(target/'surface-data.js').read_bytes()
-    metadata['surface'].update(localSize=N,bytes=len(surface),gzipBytes=len(gzip.compress(surface,mtime=0)),sha256=hashlib.sha256(surface).hexdigest(),globalMaxHeight=int(global_h.max()),localMaxHeight=int(local_h.max()))
-    metadata['reliefModel']={'version':2,'illustrative':True,'localSpacingMetres':2*E/(N-1),'detailFadeMetres':[175000,211200],'features':['branching-ridges','branching-valleys','plateau','basin'],'forest':'geographic-moisture-v1'}
+    metadata['surface'].update(localSize=257,bytes=len(surface),gzipBytes=len(gzip.compress(surface,mtime=0)),sha256=hashlib.sha256(surface).hexdigest(),globalMaxHeight=int(global_h.max()),localMaxHeight=int(local_h.max()))
+    metadata['reliefModel']=dict(version=3,illustrative=False,globalIllustrative=True,localSpacingMetres=2*E/(F-1),detailFadeMetres=[175000,239500],features=['USGS-mountains','branching-valleys','coastal-plains'],forest='seeded-value-noise-v2',source=source_meta,noDataFraction=invalid_fraction,fine=dict(size=F,decodedBytes=fine.nbytes,bytes=fine_file.stat().st_size,sha256=hashlib.sha256(fine_file.read_bytes()).hexdigest(),minimumMetres=float(fine_h.min()),maximumMetres=float(fine_h.max())))
+    (assets/'geography.json').write_text(json.dumps(metadata,separators=(',',':'))+'\n',encoding='utf-8')
+    # Region-wide continuous normals: 16-bit RG height, B woodland density, A land.
+    tx=xx[::2,::2];tz=zz[::2,::2];tu=np.sqrt(1-(tx*tx+tz*tz)/(R*R))
+    th,_,tlat=sample(tx.ravel()/R,tu.ravel(),tz.ravel()/R);th=th.reshape(tx.shape)
+    packed_h=np.rint(th*10).astype('u2');density=forest(tx.ravel(),tz.ravel(),tlat,th.ravel()).reshape(tx.shape)
+    Image.fromarray(np.dstack((packed_h//256,packed_h%256,np.rint(density*255),fine_land[::2,::2]*255)).astype('u1'),'RGBA').save(assets/'regional-surface.png',optimize=True)
+    metadata['reliefModel']['surfaceTexture']=dict(size=2049,bytes=(assets/'regional-surface.png').stat().st_size,sha256=hashlib.sha256((assets/'regional-surface.png').read_bytes()).hexdigest(),gpuBytes=2049**2*4)
     (assets/'geography.json').write_text(json.dumps(metadata,separators=(',',':'))+'\n',encoding='utf-8')
     source=scratch/'terrain-source.json'
-    source.write_text(json.dumps(dict(extent=E,groups=groups,shore=shore_local.tolist(),ridges=art.RIDGES,heights=local_h.tolist()),separators=(',',':')),encoding='utf-8')
+    source.write_text(json.dumps(dict(extent=E,groups=groups,shore=shore_local.tolist(),ridges=[],heights=local_h.tolist(),natural=True),separators=(',',':')),encoding='utf-8')
     subprocess.run(['node',str(HERE/'bake-terrain.mjs'),str(source),'--target',str(target)],cwd=ROOT,check=True)
     metadata=json.loads((assets/'geography.json').read_text(encoding='utf-8'));metadata['surface']['terrainSha256']=metadata['terrain']['sha256']
     (assets/'geography.json').write_text(json.dumps(metadata,separators=(',',':'))+'\n',encoding='utf-8')
-    assert local_h[N//2,N//2]==0 and 1800<local_h.max()<=3500
-    print(json.dumps(dict(localSize=N,localMax=float(local_h.max()),surfaceBytes=len(surface),surfaceGzipBytes=metadata['surface']['gzipBytes'],terrain=metadata['terrain'])),flush=True)
+    assert local_h[N//2,N//2]==0 and 1800<local_h.max()<5000
+    print(json.dumps(dict(localSize=257,fineSize=F,localMax=float(fine_h.max()),surfaceBytes=len(surface),surfaceGzipBytes=metadata['surface']['gzipBytes'],terrain=metadata['terrain'])),flush=True)
 
 
 if __name__=='__main__':main()
