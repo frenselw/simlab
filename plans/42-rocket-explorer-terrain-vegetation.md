@@ -115,5 +115,13 @@
 - 最後runtime hash：`af559f0d6b5536afdc194ea00942a9780c3968c9aa0273d8348477b0a33d32d2`。source＋解壓ZIP共94 flows通過（surface／landing／terrain）；390×844、1024×768、768×1024、0／3／10／30／80／200km及區域外1000km航程細級地貌。包含graphics context恢復、低畫質、reduced-motion、ground／water／slope touchdown、森林cache跨區、固定地物、全球細級depth test。Runtime／HTTP errors均0；報告`output/playwright/rocket-side-booster-lab/explorer-terrain-final-report.json`。
 - 代表性森林場景在六個source／ZIP viewport中一致：1064近樹、242林冠；58–60 calls、71,283–84,083 triangles（全場景），instance buffers 99,328 bytes。森林初次9 chunks建置累計6.5–11ms是本機參考，並非iPad校準。
 - 額外固定鏡頭開／關森林量度：51→57 calls、52,480→80,024 triangles，即追加6 calls／27,544 triangles；沒有追加貼圖。12次warm samples的軟件GPU finish中位數1.4／0.9ms，順序／warmup差異明顯，不能據此宣稱開森林反而更快或換算裝置FPS。10,000次高程查詢約4.2ms。證據`output/reports/rocket-explorer-terrain-render-budget.json`；真機frame time／decode peak仍未量度。
-- Standalone ZIP：472 entries、16,979,304 bytes，無imsmanifest.xml；SHA-256 `1b0a82a9bbc500e07826940dc91eb5748b42b89a693568a3bc88e1bb46f5ab5c`。最後package contract、10個Node測試檔、registry 302 entries、`npm run check`及doc links全部通過。區域／全球biome顏色誤差不超過Uint8量化半階，避免近景與遠景使用不同林色。
+- Standalone ZIP：472 entries、16,979,304 bytes，無imsmanifest.xml；SHA-256 `97c9b873bdc9edcba501a05933d1e4b9588773e50596a01dd0c681413a5d06fb`。最後package contract、10個Node測試檔、registry 302 entries、`npm run check`及doc links全部通過。區域／全球biome顏色誤差不超過Uint8量化半階，避免近景與遠景使用不同林色。
 - 已清除此任務的生成scratch與Python cache；保留ZIP、必要報告及瀏覽器畫面。Sites使用原owner-private project／網址，發佈收據於下方補記。
+
+
+### Sites 發佈收據
+
+- Runtime commit：`c8d2cfcf3241b5e1c5de83b45678ee9d225d1271`；Site source commit：`057f3aff8c822d10225ff0ced2f708705603ed7e`。472個source／ZIP／Site執行檔逐byte一致；Site dist共474檔（另有root入口及build-info）。ZIP在最後package contract重封裝後的SHA以本節上方及build-info為準，runtime內容不變。
+- 原owner-private project `appgprj_6aeca66555b481919803e437687c4fa8`，保留原audience。Native deployment `appgdep_6af02370e060819197e555f8ef3ae57e`，version `appgprj_6aeca66555b481919803e437687c4fa8~appgver_b79ca1bbb5e08191aa205d93fe64454f`，2026-11-08T07:23:42.588491Z 回報 `succeeded`。
+- 網址：https://simlab-rocket-side-booster.ieyp.chatgpt.site 。Native成功回執驗證部署；Codex opening只作交付入口，不等於真機操作證據。
+- Committed selection preview：`output/reports/rocket-explorer-terrain-selection.json`，比較 `cc95b788061b613aed23286fcffbfc3ef2447171`→runtime commit；README dependency未識別而保守選出全302項。這只是選測預覽，實際執行範圍仍是上述10個Node檔及瀏覽器流程。
