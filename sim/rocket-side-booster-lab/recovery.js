@@ -38,7 +38,17 @@
   function contactVelocity(q,t){
     const r=Math.hypot(q[0],q[1]),a=Math.atan2(q[1],q[0]),e=20/P.R;
     const sample=b=>S.radius([r*Math.cos(b),r*Math.sin(b),0,0,0,0],t),slope=(sample(a+e)-sample(a-e))/40,n=Math.sqrt(1+slope*slope),radial=(q[0]*q[3]+q[1]*q[4])/r,tangent=(-q[1]*q[3]+q[0]*q[4])/r;
-    return {normal:Math.abs((radial-slope*tangent)/n),tangent:Math.abs((tangent+slope*radial)/n)};
+    const lateral=(tangent+slope*radial)/n;return {normal:Math.abs((radial-slope*tangent)/n),tangent:Math.abs(lateral),lateral,slope};
+  }
+  function landingPose(f,age,water,reduced=false){
+    const hit=f.capsule.touchdown||{},lateral=hit.lateral||0,slope=hit.slope||0,speed=Math.abs(lateral),direction=Math.sign(lateral)||-Math.sign(slope)||1,base=Math.atan2(f.state[1],f.state[0])-f.attitude;
+    const smooth=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x);},t=Math.max(0,age),blend=reduced?smooth(t/.45):t>=6?1:1-(1+3*t)*Math.exp(-3*t);
+    const tipped=smooth((speed+Math.abs(slope)*3-2.2)/2.4),target=water?-direction*Math.min(.18,speed*.04):Math.atan(slope)-direction*tipped*1.45,delta=Math.atan2(Math.sin(target-base),Math.cos(target-base));
+    const rock=reduced||t>=6?0:-direction*Math.min(.5,.06+speed*.09)*t*Math.exp(-1.6*t)*Math.sin(5.2*t),ramp=reduced?blend:1-Math.exp(-1.8*t);
+    // shortcut: damped contact response and buoyancy are visual; use a rigid-body solver for interacting wrecks.
+    const angle=delta*blend+rock+(water&&!reduced?(.035*Math.sin(1.1*t)+.018*Math.sin(1.7*t))*ramp:0);
+    const heave=water?-.55*ramp+(reduced?0:(.06*Math.sin(1.4*t)+.025*Math.sin(2.3*t))*ramp-.55*Math.min(1,(hit.normal||0)/6)*t*Math.exp(-2*t)):reduced||t>=6?0:Math.max(0,Math.sin(5*t))*t*Math.exp(-2*t)*Math.min(6,hit.normal||0)*.035;
+    return {angle,heave,tipped:!water&&tipped>.6,water};
   }
   function stepCapsule(f,dt,atmosphere){
     if(terminal(f)){f.t+=dt;settle(f);return;}
@@ -79,5 +89,5 @@
     return {elapsed:f.t-start,steps,limited:f.t<target-1e-7};
   }
   const selected=f=>f?.controlled==='upper'&&f.upperStage?f.upperStage:f;
-  return Object.freeze({fresh,mass,thrust,localAngle,reentry,chuteLoad,area,stageHeight,contact,resolveContact,contactVelocity,terminal,canSeparate,separate,advance,selected,stepCapsule});
+  return Object.freeze({fresh,mass,thrust,localAngle,reentry,chuteLoad,area,stageHeight,contact,resolveContact,contactVelocity,landingPose,terminal,canSeparate,separate,advance,selected,stepCapsule});
 });

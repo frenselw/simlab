@@ -99,3 +99,10 @@ for(const point of [[P.R,0,0],T.remoteHill()]){
  u.state[3]=120.4;continueCheck(s);M.advance(s,.1);assert.equal(O.elements(u.state).speed,0);continueCheck(s);
 }
 console.log('Detached upper-stage ground contacts freeze velocity, attitude and thrust; capsule continues; existing impact poses settle without schema changes.');
+
+{
+ const f={state:[P.R,0,0,0,0,0],attitude:0,capsule:{touchdown:{normal:5.2,lateral:0,slope:0}}};
+ for(const lateral of [-4.5,-.3,0,.3,4.5]){f.capsule.touchdown.lateral=lateral;const saved=JSON.stringify(f);for(const water of [false,true]){const first=R.landingPose(f,0,water);assert.equal(first.angle,0);assert.equal(first.heave,0);let last=first;for(let i=1;i<=360;i++){const next=R.landingPose(f,i/60,water);assert(Number.isFinite(next.angle)&&Number.isFinite(next.heave));assert(Math.abs(next.angle-last.angle)<.1);assert(Math.abs(next.heave-last.heave)<.04);last=next;}if(water){assert(last.heave<-.4&&last.heave>-.7);assert(Math.abs(last.angle)<.26);assert.notEqual(last.heave,R.landingPose(f,7,true).heave);}else if(Math.abs(lateral)>4){assert(last.tipped);assert(Math.sign(last.angle)===-Math.sign(lateral));assert(Math.abs(last.angle)>1.3);}else assert(Math.abs(last.angle)<1e-8);assert.deepEqual(R.landingPose(f,6,water,true),R.landingPose(f,12,water,true));}assert.equal(JSON.stringify(f),saved);}
+ const q=[P.R,0,0,-5,4,0],positive=R.contactVelocity(q,0),negative=R.contactVelocity([P.R,0,0,-5,-4,0],0);assert(positive.lateral>0&&negative.lateral<0);assert.equal(positive.tangent,Math.abs(positive.lateral));assert(Number.isFinite(positive.slope));f.capsule.touchdown={normal:5,lateral:0,slope:.2};assert(R.landingPose(f,6,false).angle>0);
+}
+console.log('Capsule settling: signed contact momentum, continuous direction-sensitive roll, low-speed stability, buoyancy and reduced-motion rest passed.');

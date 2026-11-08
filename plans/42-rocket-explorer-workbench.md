@@ -130,3 +130,15 @@ Source／解壓standalone共4 browser flows（390×844及1024×768），可信�
 報告output/playwright/rocket-side-booster-lab/explorer-surface-report.json，截圖同目錄surface前綴；console／Node／registry在output/reports/rocket-explorer-surface-*。renderReadbackMs包括首次shader編譯及SwiftShader讀回，並非穩態FPS或iPad效能benchmark；實體iPad Safari未驗證，無關物理／音效套件未重跑。
 
 材質更新已部署至原owner-private Site。Runtime commit `19b90bd3ed2904dbbbc17d786ae2ab6e80e6941b`，Site source commit `eb12758a26cb621bfaef27e1efd0e529bfbaf8b5`；deployment `appgdep_6aefe13a5664819190ca43041c9cc880`／version `appgprj_6aeca66555b481919803e437687c4fa8~appgver_4b569972305c8191872e80733d3ec719`，server回傳 succeeded（2026-11-08T02:41:05.297500+00:00）。網址 https://simlab-rocket-side-booster.ieyp.chatgpt.site 。Ordered runtime SHA-256 `1304813e64f5b0f96be1c1c6056633a327139c5c4b34ce8e460383ec02ae459a`，standalone ZIP471 entries／15984009 bytes，SHA-256 `e2d1c98168f34e7a8839467b5392da9be1148b6c912752770953b452cb69895f`。Source／解壓ZIP／Site471檔一致。Committed selection-preview base `0b7f3eab9b92d4d9faa3a4992ecc5f489b18991b` → `19b90bd3ed2904dbbbc17d786ae2ab6e80e6941b`，在output/reports/rocket-explorer-surface-selection.json；非全庫執行證據。
+
+## 太空艙觸地傾側與水面浮沉
+
+使用者要求按觸地運動呈現傾側／翻側及落水浮沉。保留現有安全着陸normal≤6／tangent≤5與高速撞毀；觸地資料增加有號橫向速度及局部坡度。共用recovery提供解析、阻尼式着陸姿態：低側速搖晃回穩，較高側速及坡度可向慣性方向側倒；水面先入水下沉再小幅浮沉／搖擺。此為觸地後簡化被動姿態收尾，飛行位置／速度仍按現有終止契約停止，不增加通用剛體／流體求解器。
+
+Scene沿用既有hull支撐及降落傘landing wall-clock：首幀連續、陸地不穿地、水面允許合理浸水；降落傘反向補償艙身旋轉並用實際地表平面夾限，水波圈保持水平及漸淡。切換操控攜帶着陸動畫狀態；reduced-motion縮短收尾並關閉持續浮沉，背景不推進；海上穩定後只近景且最多30Hz重畫。純探索，SCORM／rubric／submission N/A。驗證解析姿態方向／幅度／時間連續、真實接觸資料、左右側速／坡地／落水、30／60FPS、切換操控、降落傘／地面接觸、撞毀維持、source／standalone／package／registry及原481檔；實體iPad性能不作已驗證聲稱。
+
+觸地姿態驗證完成：recovery／runtime／browser-package contract三個Node檔、三份JS syntax及check:tests通過（301 entries）。解析姿態覆蓋正負側速0／0.3／4.5m/s、逐幀連續、陸地回穩／翻側、坡面法線、水面浸水及持續小幅浮沉、reduced-motion靜止；模型JSON不變。真實觸地保存有號lateral／slope，normal及tangent的安全判定原值不變。
+
+Source／解壓standalone共28 browser flows：20 landing（390×844／30FPS及1024×768／60FPS，每個低側速、左／右側速、海上及高速撞毀）＋8既有parachute。首幀附加angle／heave為0；landed hull不穿接觸平面，左右方向正確；海上約0.48m浸水並繼續浮沉。切換操控保存同一motion物件／age，降落傘cloth／rope維持地表上方，30／60FPS及source／standalone最終pose一致。高速側速仍impact及一次爆炸，沒有floating motion。持續浮沉不超過30次draw／秒，reduced-motion .45秒後不再重畫；原有5.5秒塌傘、reduced-motion淡出、30／60FPS幾何一致及首幀連續檢查通過。
+
+Runtime／HTTP／console errors為零。已目視390px左右側倒及海上收傘截圖。測試中間幀保留CPU姿態／布面更新、暫停GPU提交，關鍵階段真正render與截圖；不能用這些測試推論實體iPad幀率。報告output/playwright/rocket-side-booster-lab/explorer-landing-report.json、explorer-landing-parachute-report.json；console及Node／registry為output/reports/rocket-explorer-landing-*。原481 protected hashes不變，無新增依賴／runtime檔，standalone仍471檔。未跑無關海面／音效全套，實體iPad Safari未驗證；本次是基於觸地條件的輕量姿態／浮沉收尾，不是完整剛體／流體求解。
