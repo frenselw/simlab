@@ -80,3 +80,13 @@
 - 正式保留畫面 `source-natural-sample-low-1024.png`、`source-natural-sample-overview-1024.png`、`source-natural-sample-top-1024.png` 等在 `output/playwright/rocket-side-booster-lab/`；另有實際canvas錄影 `natural-terrain-flight.webm`。Source初版視覺不合格的自動通過紀錄只作歷史參考，不作最後接受證據。
 - 最後受光使用opaque RGB PNG的RG兩色存16-bit高度，片段內取鄰近高度計算法線；不使用低精度8-bit法線或有損地色壓縮，以免緩坡出現假等高條帶。相鄰高低位元採線性取樣、禁用height mipmaps，來源PNG及高度格逐值round-trip通過。
 - 尚未將真實DEM、樹群或局部細地形移入主模擬全區。下一階段先收使用者對本樣本的山勢、林帶及動態觀感回饋，再決定調整／擴展。
+
+
+## 樣本Sites交付收據
+
+- Runtime commit `e2533553a202a0d9dafcb8bc914409d0d7ef2eab`；Site source commit `65347e5b2c9158998ea0f55951e6ffe61d067ada`。480個source／ZIP／Site dist／實際發佈tar內runtime逐byte一致；Site dist共482檔，另兩檔為root入口及build-info。Standalone ZIP 20,029,625 bytes，SHA `0e2b9bd38bc966916d14b48ffa605e6038f81fcad31ae7f0acd84fd6bbb02214`，不包含原始GeoTIFF。
+- 原owner-private project `appgprj_6aeca66555b481919803e437687c4fa8`，audience保持不變。Native deployment `appgdep_6af03fd80fac8191a29d48006ca332a0`，version `appgprj_6aeca66555b481919803e437687c4fa8~appgver_3fe59ca31cf88191bf1c9df1fa043f87`，2026-11-08T09:24:48.451567Z 回報 `succeeded`。
+- 樣本網址：https://simlab-rocket-side-booster.ieyp.chatgpt.site/rocket-side-booster-lab/terrain-sample.html 。Codex browser opening回報queued，沒有把它當真機或live UI驗收。
+- Committed selection preview `output/reports/rocket-natural-sample-selection.json`，比較 `065eefc9f85cd7b58a73f9315eb711f0aed21409`至runtime commit；README dependency未識別，保守選出303項。這是選測預覽，實際執行仍為上述11個Node檔及10個source／ZIP flows。
+- 所有source／package／build／registry／rebuild／deployment證據在 `output/reports/rocket-natural-sample-*`，瀏覽器畫面及canvas錄影在 `output/playwright/rocket-side-booster-lab/`。生成cache、發佈tar及本機預覽server於交付時清除／停止；原始DEM是固定build source，刻意保留。
+- **狀態：40km樣本已上線，等待使用者確認山勢與森林自然程度。未擴展全區，未改主模擬地形。** 真iPad Safari效能與長時間飛行仍待實機測試。
