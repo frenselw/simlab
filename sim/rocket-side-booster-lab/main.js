@@ -1,6 +1,11 @@
 const P=window.RocketParts,M=window.RocketModel,O=window.RocketOrbit;
 const d=Object.fromEntries([...document.querySelectorAll('[id]')].map(e=>[e.id,e])),fmt=(n,digits=1)=>Number.isFinite(n)?n.toLocaleString('en-US',{minimumFractionDigits:digits,maximumFractionDigits:digits}):'—';
 const sound=new RocketAudio.Sound();
+// Safari browser chrome can reduce the visible area without changing CSS viewport units.
+let viewportWidth,viewportHeight;
+function fitViewport(){const viewport=window.visualViewport,layoutChanged=viewportWidth!==innerWidth||viewportHeight!==innerHeight;if(viewport&&Math.abs(viewport.scale-1)>.01&&!layoutChanged)return;const full=document.fullscreenElement||document.webkitFullscreenElement,height=full?innerHeight:Math.min(innerHeight,viewport?.height||innerHeight);if(Number.isFinite(height)&&height>0){d.app.style.height=height+'px';viewportWidth=innerWidth;viewportHeight=innerHeight;}}
+fitViewport();window.addEventListener('resize',fitViewport);window.addEventListener('orientationchange',()=>requestAnimationFrame(fitViewport));window.visualViewport?.addEventListener('resize',fitViewport);for(const event of ['fullscreenchange','webkitfullscreenchange'])document.addEventListener(event,fitViewport);
+
 const controller=new RocketRuntime.Controller(render);
 let assemblyWarningTimer=null,dialGesture=null;
 let scene=null,view='factory',flightView='follow',selectedPart=null,selectedStage=0,assemblyDrag=null,selectedInstalled=null,lastPaths=-Infinity,lastHud=0,lastFrame=0,physicsTime=0,warp=1,actualWarp=1,warpSeconds=0,warpElapsed=0,trail=[],trailTime=-1,renderLost=false,renderMessage='',interaction=null,frameCount=0,targetFrame=-1,targetUpdates=0;

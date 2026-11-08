@@ -94,3 +94,13 @@ Header實測：320px為97px、375／390手機為98px（原147px），844橫屏�
 手機縮排已發佈至同一owner-private Site：runtime commit `abdfe295f2eabb74d9839b8597df528f5b5848e3`，Site source commit `de7aa550c2f5450a1895b494378c376d639d5345`；deployment `appgdep_6aefd2f9369481919f9b81189d0d4466`／version `appgprj_6aeca66555b481919803e437687c4fa8~appgver_2241ab41141c8191902366d997a03e87`，server回傳 succeeded（2026-11-08T01:40:16.197079+00:00）。原網址 https://simlab-rocket-side-booster.ieyp.chatgpt.site 。
 
 Committed selection-preview base `4956bfe7431e816bf3ac966ea93aee03bfb6bafc` → `abdfe295f2eabb74d9839b8597df528f5b5848e3`，在`output/reports/rocket-explorer-compact-header-selection.json`。Ordered runtime SHA-256 `b384b50af23ab741e73b0c1887ae8ca7948bd58def039183a7aaf60f2bdd75ed`；standalone ZIP471 entries／15,982,090 bytes，SHA-256 `d199b38498c8636f605123e7755f7bc78950874c8ecb4868f387799d701fd0df`。source／解壓ZIP／Site471檔一致。實際browser報告為`output/playwright/rocket-side-booster-lab/explorer-compact-header-layout-report.json`及`explorer-compact-header-assembly-report.json`。
+
+## iPad Safari 橫屏鏡頭控制
+
+使用者回報iPad Safari橫屏看不到左下角全景／軌道，直屏可見。先補iPad 1024／1194／1366橫直轉向、觸控hit-test及可視範圍短於layout viewport的遮擋fixture；本機無實體iPad／Safari，不把Chromium尺寸測試當作實機重現。Apple viewport文件亦指出layout與visible area可不同，作為相容性設計依據。
+
+範圍：以未縮放的visualViewport／window尺寸約束app實際高度，監聽轉向／resize／fullscreen；保留pinch zoom時原layout尺寸。將鏡頭footer放回實際stage內的定位層，清楚在canvas上方及safe-area之內，不新增操作列高度、不更改頂欄或主控制。全景／軌道持續顯示可觸控；原模型／音效／降落傘／探索狀態及SCORM N/A維持。測試原生觸控切換、orientation同頁resize、viewport縮短／恢復、放大不重排、全螢幕、source與standalone及package／registry，保護原481檔。
+
+根因及修正：shared/styles.css 的 `.sim-app{min-height:100vh}` 令app即使設定較小的可見高度也仍被撐到layout viewport底部；本模擬覆寫min-height為0。可見viewport fixture在修正前的全景掣y=715–759，而可見下界640；這是受控重現，不能確認使用者裝置的唯一成因。App高度與visualViewport同步，pinch-only縮放不重排；真正layout尺寸改變時仍更新。Footer改放stage內並保留44px觸控及safe-area。相容性依據：[Apple viewport文件](https://developer.apple.com/library/archive/documentation/AppleApplications/Reference/SafariWebContent/UsingtheViewport/UsingtheViewport.html)。
+
+驗證完成：source及解壓standalone共50 browser flows通過（26 cameras＋24 layout）。鏡頭檢查涵蓋1024×768、1194×834、1366×1024、1024×600及各自直屏、同頁轉向、真實fullscreen進出、640／700／768可見高度變更、pinch不重排及zoom時layout轉向更新；全景／軌道／跟隨全部44px或以上且通過elementFromPoint與原生touch切換，模型JSON不變。640px可見下界時全景掣移至y=587–631。既有手機緊湊頂欄、切換操控、開傘、倍率及fullscreen選單layout仍通過，console／HTTP errors為零。已目視1024×768可見640及1194×834截圖。Package contract、兩份JS syntax、check:tests通過（301 entries）；原481 protected hashes不變。沒有重跑無關物理／音效套件，實體iPad Safari未驗證。報告在output/playwright/rocket-side-booster-lab/explorer-ipad-cameras-report.json、explorer-ipad-layout-report.json；console及registry／package證據為output/reports/rocket-explorer-ipad-*。
