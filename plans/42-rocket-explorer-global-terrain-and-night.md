@@ -49,3 +49,19 @@ Runtime commit `b3ff8f0b29c04f982a2ca25a8dda3ef837c61ac2`；Site source `4d6779e
 實際tar487檔（484 runtime＋root index／build-info／hosting manifest），45,692,818 bytes，SHA-256 `32844bf010ecae93728bb72ddd9d05f1629f8e685d70afe17f5306f54a86a363`；逐檔與Site dist一致，hosting project ID已核對。收據為`output/reports/rocket-world-{deployment,archive,site-copy,closure,rebuild}.json`。Committed selection-preview `9f4147e`→`b3ff8f0` 在`output/reports/rocket-world-selection.json`，README建置依賴未知所以保守選出304項；實際執行範圍如上，並非全庫通過。
 
 部署成功依Native terminal收據，內容依source→ZIP→dist→實際tar closure；沒有宣稱登入後production UI或真iPad驗收。Codex開啟網址作交接，不代表已觀察live畫面。保留pinned來源、ZIP、Site checkout及證據；原始下載TIFF、重建scratch、Python cache及部署tar於交付後清理。
+
+## 前方精細地形載入修正（2026-11-08）
+
+使用者指出飛行前方仍粗糙、後方先變精細。現行fine cell以鏡頭到cell中心距離排序，沒有視錐／畫面地表焦點，也未預讀飛行方向；鏡頭在火箭後面時會浪費4個active名額。
+
+本輪僅修改explorer的global-terrain選取／載入及scene呼叫、既有art與world browser owner。先選視錐內、接近畫面地表焦點的4塊；另外按實際切向速度預讀30／60秒後所在cell，最遠約414km，最多2塊。active與prefetch分開，6 cached／2 pending及粗地形fallback保留，停定／純垂直升降／着陸不預測，視角轉後仍優先目前畫面。預讀不改模型、物理高程、森林位置、光照、評分或storage；assessment／rubric／snapshot N/A。
+
+驗證以真正camera ray／frustum、向前／向後／反向速度、跨cell／反經線、延遲載入、取消／失敗粗面fallback、4／6／2上限及靜止不重排為主；source／ZIP實際畫面及模型state不變。沿用既有owner，不新增依賴或高程資產。完成後commit及更新同一private Site，保留原481檔。
+
+修正完成：以視錐篩選，再以畫面射線與地表相交的焦點排序fine cells；地面不在中央射線時用下半畫面射線。切向速度只用於另外2個預讀名額，active與wanted分開；預讀不取代可見粗面、不佔active名額，cache eviction保護當前畫面及預讀的集合。scene傳入目前受控飛船，反方向速度同樣適用。
+
+3個Node／package檔（art、forest、browser-package）通過；art以真實cell和camera／延遲fetch檢查向東選8-12、向西選5-12、背向觀看時預讀8-12、轉向前已可直接顯示、靜止不重啟下載、低畫質／着陸／純徑向不預讀、取消及404仍有粗面。registry304 entries、三份JS syntax、docs links及diff check通過。未重跑無關飛行／返航UI全套。
+
+Source／ZIP共48 browser flows：24 terrain-ahead（390×844／1024×768、正負7.8km/s、0／30／60秒地理位置），加24既有global GPU高度／日夜／八區／iPad budget。前方focus方向正確，desired全部載成active；觀測最多5 cached／4 active／2 pending，模型及Storage／SCORM不變；runtime／HTTP／console errors為0。這是以飛行狀態地理位置逐段檢查載入，沒有當作完整自由飛行或真裝置FPS。已目視前望／反向畫面。
+
+Runtime仍484檔，ordered SHA-256 `4b362593ee5bdfca1e4e397543d4d4e3f4aa4d755c2a23d7464a61d08a4f054c`；ZIP45,715,938 bytes，SHA-256 `76aa239b49c71a1e08af2ba19d1a89d156fb501be9a27d81af42734a968ab57e`。source／ZIP逐檔一致、原481保護hash不變。報告`output/playwright/rocket-side-booster-lab/explorer-ahead-report.json`及`output/reports/rocket-ahead-{node,closure,browser-console}`。真iPad Safari及慢速網絡長時間飛行未實測；30／60秒預讀係按當前速度外推，每次更新會重算，不是完整彈道預測。

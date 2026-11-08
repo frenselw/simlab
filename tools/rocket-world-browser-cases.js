@@ -1,6 +1,15 @@
 'use strict';
 const assert=require('node:assert/strict');
 async function run({base,label,P,T,H,cdp,call,viewport,open,wait,shot,report}){
+ for(const [width,height]of [[390,844],[1024,768]])for(const sign of [1,-1]){
+  await viewport(width,height);const fixture=T.launched();fixture.phase='coast';fixture.flight.status='flying';fixture.flight.controls.lit=false;await open(base,fixture);
+  for(const seconds of [0,30,60]){
+   const angle=.25+sign*7800*seconds/(P.R+50000),radius=P.R+50000;
+   const cold=await call(`const f=app.controller.state.flight;f.state=[${radius*Math.cos(angle)},${radius*Math.sin(angle)},0,${-sign*7800*Math.sin(angle)},${sign*7800*Math.cos(angle)},0];f.t=${seconds};f.attitude=${angle+sign*Math.PI/2};app.controller.emit();const s=app.getScene();s.animateEffects=()=>false;s.yaw=${-sign*Math.PI/2};s.pitch=.12;s.draw();window.__aheadModel=JSON.stringify(app.getState());return {...s.globalTerrain.userData};`);assert(cold.pending<=2&&cold.desired.length<=4&&cold.prefetch.length<=2);if(!seconds)assert(cold.coarseTriangles>0,'Coarse fallback must remain during initial requests');
+   await wait(()=>call('return app.getScene().globalTerrain.userData.pending===0;'),'forward ground '+width+' '+sign+' '+seconds);
+   const hot=await call('const s=app.getScene();return{...s.globalTerrain.userData,unchanged:window.__aheadModel===JSON.stringify(app.getState()),shaders:s.renderer.info.programs.every(p=>p.diagnostics?.runnable!==false)};');assert(hot.unchanged&&hot.shaders&&hot.desired.length>0&&hot.loaded<=6&&hot.active.length<=4&&hot.pending===0&&hot.failures.length===0);assert(hot.desired.every(id=>hot.active.includes(id)),'Front-facing detail must be ready');const tangent=[sign*Math.cos(angle),-sign*Math.sin(angle),0];assert(hot.focus.reduce((sum,v,i)=>sum+v*tangent[i],0)>0,'Ground detail must follow the forward view');await shot(label+'-terrain-ahead-'+width+'-'+sign+'-'+seconds);report.flows.push({label,case:'terrain-ahead',width,height,sign,seconds,cold,hot});
+  }
+ }
  await viewport(1024,768);
  const state=T.launched(),angle=1000000/P.R,r=P.R+12000;state.phase='coast';state.flight.status='flying';state.flight.controls.lit=false;state.flight.attitude=angle;state.flight.state=[r*Math.cos(angle),r*Math.sin(angle),0,0,0,0];await open(base,state);
  await H.evaluate(cdp,'(async()=>{window.__worldThree=await import("./vendor/three-0.185.1/three.module.min.js");window.__worldTerrain=await import("./terrain.js");})()');
