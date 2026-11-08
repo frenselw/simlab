@@ -1,0 +1,53 @@
+{
+  "provider": "USGS 3DEP Bare Earth DEM Dynamic Service",
+  "service": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer",
+  "description": "The USGS 3D Elevation Program (3DEP) Bare Earth DEM Dynamic service is based on multi-resolution USGS DEM sources and provides dynamic functions for visualization. These functions include: Hillshade, Aspect Map, Hillshade Stretched, Multi-directional Hillshade, Slope Map, Elevation Tinted Hillshade, Contour. In addition the OGC Web Map Service (WMS) and Web Coverage Service (WCS) interfaces are enabled. Data available in this map service reflects all 3DEP DEM data published as of October 26, 2026.",
+  "requestUrl": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage?bbox=-120.40%2C34.48%2C-119.86%2C34.92&bboxSR=4326&imageSR=4326&size=1536%2C1536&format=tiff&pixelType=F32&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&f=json",
+  "export": {
+    "href": "https://elevation.nationalmap.gov/arcgis/rest/directories/elevation_output/3DEPElevation_ImageServer/_ags_19192bdd_ebf3_492b_8d30_e4eeb91c5296.tif",
+    "width": 1536,
+    "height": 1536,
+    "extent": {
+      "xmin": -120.4,
+      "ymin": 34.48,
+      "xmax": -119.86,
+      "ymax": 34.92,
+      "spatialReference": {
+        "wkid": 4326,
+        "latestWkid": 4326
+      }
+    },
+    "scale": 0
+  },
+  "sha256": "17f8c61c3608f4a6ae6f61461883ca208245acbe298a04aaf815f644363d700e",
+  "bytes": 9439142,
+  "size": [
+    1536,
+    1536
+  ],
+  "mode": "F",
+  "tags": {
+    "256": "1536",
+    "257": "1536",
+    "258": "(32,)",
+    "259": "1",
+    "322": "128",
+    "323": "128",
+    "262": "1",
+    "324": "(1958, 67494, 133030, 198566, 264102, 329638, 395174, 460710, 526246, 591782, 657318, 722854, 788390, 853926, 919462, 984998, 1050534, 1116070, 1181606, 1247142, 1312678, 1378214, 1443750, 1509286, 1574822, 1640358, 1705894, 1771430, 1836966, 1902502, 1968038, 2033574, 2099110, 2164646, 2230182, 2295718, 2361254, 2426790, 2492326, 2557862, 2623398, 2688934, 2754470, 2820006, 2885542, 2951078, 3016614, 3082150, 3147686, 3213222, 3278758, 3344294, 3409830, 3475366, 3540902, 3606438, 3671974, 3737510, 3803046, 3868582, 3934118, 3999654, 4065190, 4130726, 4196262, 4261798, 4327334, 4392870, 4458406, 4523942, 4589478, 4655014, 4720550, 4786086, 4851622, 4917158, 4982694, 5048230, 5113766, 5179302, 5244838, 5310374, 5375910, 5441446, 5506982, 5572518, 5638054, 5703590, 5769126, 5834662, 5900198, 5965734, 6031270, 6096806, 6162342, 6227878, 6293414, 6358950, 6424486, 6490022, 6555558, 6621094, 6686630, 6752166, 6817702, 6883238, 6948774, 7014310, 7079846, 7145382, 7210918, 7276454, 7341990, 7407526, 7473062, 7538598, 7604134, 7669670, 7735206, 7800742, 7866278, 7931814, 7997350, 8062886, 8128422, 8193958, 8259494, 8325030, 8390566, 8456102, 8521638, 8587174, 8652710, 8718246, 8783782, 8849318, 8914854, 8980390, 9045926, 9111462, 9176998, 9242534, 9308070, 9373606)",
+    "325": "(65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536, 65536)",
+    "33922": "(0.0, 0.0, 0.0, -120.4, 34.92, 0.0)",
+    "33550": "(0.00035156250000000405, 0.0002864583333333365, 0.0)",
+    "339": "(3,)",
+    "277": "1",
+    "284": "1",
+    "42112": "<GDALMetadata>\n  <Item name=\"DataType\">Generic</Item>\n  <Item name=\"SourceBandIndex\" sample=\"0\">0</Item>\n</GDALMetadata>\n",
+    "34735": "(1, 1, 0, 13, 1024, 0, 1, 2, 1025, 0, 1, 1, 2048, 0, 1, 4326, 2049, 34737, 74, 0, 2050, 0, 1, 6326, 2051, 0, 1, 8901, 2054, 0, 1, 9102, 2055, 34736, 1, 0, 2056, 0, 1, 7030, 2057, 34736, 1, 1, 2059, 34736, 1, 2, 2061, 34736, 1, 3, 3073, 34737, 163, 74)",
+    "34736": "(0.017453292519943295, 6378137.0, 298.257223563, 0.0)",
+    "34737": "GCS Name = WGS 84|Datum = WGS_1984|Ellipsoid = WGS 84|Primem = Greenwich||ESRI PE String = GEOGCS[\"GCS_WGS_1984\",DATUM[\"D_WGS_1984\",SPHEROID[\"WGS_1984\",6378137.0,298.257223563]],PRIMEM[\"Greenwich\",0.0],UNIT[\"Degree\",0.0174532925199433]]|"
+  },
+  "license": "Public domain; https://www.usgs.gov/3d-elevation-program/about-3dep-products-services",
+  "sourceType": "best-available multi-resolution DEM, resampled export; not a claimed 30m source tile",
+  "retrievedDate": "2026-11-08",
+  "previewUse": "Pinned real-elevation source for the bounded 40km prototype; does not modify the main flight surface."
+}

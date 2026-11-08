@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>自然地貌樣本｜小小航天家</title><link rel="stylesheet" href="../shared/styles.css"><link rel="stylesheet" href="terrain-sample.css"><script src="../shared/fullscreen.js" defer></script><script src="terrain-sample-data.js" defer></script><script type="module" src="terrain-sample.js"></script></head>
+<body><main class="sample-app" id="app" data-sim-fullscreen-target>
+<header data-sim-fullscreen><div class="sample-title"><h1>自然地貌樣本</h1><span>40 × 40 km・實際山形</span></div><a href="index.html" class="sample-back">主模擬</a></header>
+<section id="sampleStage" aria-label="可拖動、縮放的地形預覽">
+<div id="sampleCanvas" tabindex="0" aria-label="拖動轉向，雙指或滾輪縮放；方向鍵轉向，加減鍵縮放"></div>
+<div id="sampleLoading" role="status">正在載入實際高程…</div>
+<div class="sample-caption"><strong id="sampleViewName">低空望山谷</strong><span id="sampleAltitude">聖伊內斯山脈附近</span></div>
+<details class="sample-inspect"><summary>檢視地形</summary><div class="sample-tools"><div role="group" aria-label="地形圖層"><button data-mode="natural" aria-pressed="true">自然</button><button data-mode="gray" aria-pressed="false">灰模</button><button data-mode="normal" aria-pressed="false">法線</button><button data-mode="wire" aria-pressed="false">遠景網格</button></div><button id="sampleForest" aria-pressed="true">樹木：開</button><button id="sampleSun" aria-pressed="false">光向：一</button><p>灰模、法線包含近景細地形；網格檢視遠景簡化層。</p></div></details>
+<div class="sample-navigation" role="group" aria-label="預覽視角"><button data-view="overview" aria-pressed="false">全景</button><button data-view="low" aria-pressed="true">山谷</button><button data-view="top" aria-pressed="false">俯視</button><button data-view="flight" aria-pressed="false">沿路飛行</button><button id="samplePause" hidden>暫停</button></div>
+<div class="sample-zoom" role="group" aria-label="縮放"><button id="sampleZoomIn" aria-label="放大">＋</button><button id="sampleZoomOut" aria-label="縮小">−</button></div>
+<p class="sample-hint">拖動轉向・雙指縮放</p>
+</section>
+<footer><span>USGS 實際高程・植被為示意</span><a href="assets/terrain-sample/metadata.json" target="_blank" rel="noopener">來源資料</a><span>先確認樣本，主模擬地形未改</span></footer>
+</main></body></html>

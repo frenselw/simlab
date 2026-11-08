@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "source": "USGS 3DEP Bare Earth DEM Dynamic Service",
+  "sourceHash": "17f8c61c3608f4a6ae6f61461883ca208245acbe298a04aaf815f644363d700e",
+  "sourceRequest": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage?bbox=-120.40%2C34.48%2C-119.86%2C34.92&bboxSR=4326&imageSR=4326&size=1536%2C1536&format=tiff&pixelType=F32&interpolation=RSP_BilinearInterpolation&adjustAspectRatio=false&f=json",
+  "sourceType": "best-available multi-resolution DEM, resampled export; not a claimed 30m source tile",
+  "license": "Public domain; https://www.usgs.gov/3d-elevation-program/about-3dep-products-services",
+  "file": "sample.bin",
+  "bytes": 2391092,
+  "sha256": "2d741dbe1ad23832ccb5c90d9906b94ea0a94b9b7b905560f36356eee5d8e32a",
+  "textures": {
+    "heights.png": {
+      "bytes": 393718,
+      "sha256": "7a53b8a60b0e706345b0d85d9f42c5dcee0ecb25dca983708aa0ab480aa1b8a2"
+    },
+    "albedo.webp": {
+      "bytes": 817226,
+      "sha256": "e8d356c34d476f6bfc5fb555aa8196f038049be9f9817edf73ccbef84d84c643"
+    }
+  },
+  "header": {
+    "version": 1,
+    "spanMetres": 40000.0,
+    "gridSize": 513,
+    "spacingMetres": 78.125,
+    "heightScale": 0.1,
+    "heightBytes": 526338,
+    "densityBytes": 263169,
+    "levels": [
+      {
+        "offset": 789508,
+        "vertices": 2600,
+        "indices": 14634,
+        "targetErrorMetres": 55,
+        "triangles": 4878,
+        "error95Metres": 68.414,
+        "maximumProbeErrorMetres": 271.922
+      },
+      {
+        "offset": 941644,
+        "vertices": 7000,
+        "indices": 41034,
+        "targetErrorMetres": 22,
+        "triangles": 13678,
+        "error95Metres": 30.634,
+        "maximumProbeErrorMetres": 94.378
+      },
+      {
+        "offset": 1357780,
+        "vertices": 17000,
+        "indices": 101034,
+        "targetErrorMetres": 8,
+        "triangles": 33678,
+        "error95Metres": 16.692,
+        "maximumProbeErrorMetres": 79.707
+      }
+    ],
+    "standsOffset": 2373916,
+    "stands": 512,
+    "centerLocalMetres": [
+      28000,
+      0
+    ],
+    "centerGeographic": [
+      -120.0936913937485,
+      34.699602497933476
+    ],
+    "minimumMetres": 64.3,
+    "maximumMetres": 1422.2,
+    "illustrativeVegetation": true
+  },
+  "sourceExtents": {
+    "xmin": -120.4,
+    "ymin": 34.48,
+    "xmax": -119.86,
+    "ymax": 34.92,
+    "spatialReference": {
+      "wkid": 4326,
+      "latestWkid": 4326
+    }
+  },
+  "note": "40km real terrain sample only; vegetation is illustrative; flight terrain unchanged"
+}

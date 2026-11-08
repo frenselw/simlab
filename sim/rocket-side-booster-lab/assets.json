@@ -473,6 +473,14 @@
     "rocket-side-booster-lab/assets/global/cell-27-17.bin",
     "shared/styles.css",
     "shared/fullscreen.js",
-    "rocket-side-booster-lab/forest.js"
+    "rocket-side-booster-lab/forest.js",
+    "rocket-side-booster-lab/terrain-sample.html",
+    "rocket-side-booster-lab/terrain-sample.css",
+    "rocket-side-booster-lab/terrain-sample-data.js",
+    "rocket-side-booster-lab/terrain-sample.js",
+    "rocket-side-booster-lab/assets/terrain-sample/sample.bin",
+    "rocket-side-booster-lab/assets/terrain-sample/metadata.json",
+    "rocket-side-booster-lab/assets/terrain-sample/heights.png",
+    "rocket-side-booster-lab/assets/terrain-sample/albedo.webp"
   ]
 }

@@ -95,3 +95,18 @@ This command rejects other targets. It reads the pinned Natural Earth source and
 `bake-terrain.mjs --target` carries the explorer target through its reads and writes; the historical no-target command retains its original behavior. The shared triangulator accepts optional ridge/valley sample points, with all existing callers unchanged. The explorer command owns `output/tmp/explorer-terrain/`; remove that scratch directory after verification, keeping source binaries and metadata. No runtime triangulation or new dependency is added.
 
 `forest.js` builds capped geographic instance chunks and a middle-distance canopy batch. The same fixed moisture/altitude/latitude field paints baked land colors and places vegetation; the contact patch uses that palette as well. Forest instances have no individual physics, real-time shadows or leaf animation. Far ground retains forest colors when geometry becomes subpixel or adaptive quality disables trees. The original SCORM activity and its runtime assets remain unchanged.
+
+
+## Bounded real-terrain review sample
+
+```text
+python tools/rocket-art/build-terrain-sample.py
+```
+
+This offline-only command reads the pinned `sources/explorer-terrain-sample/usgs-santa-ynez-dem.tif` and `source.json`. It writes only `sim/rocket-side-booster-lab/assets/terrain-sample/`. The 40 km square is centered 28 km east of the launch reference, with real USGS 3DEP elevation projected into local E/N. The source is a best-available multi-resolution service export, not a claim that the source was uniformly 30 m. The source sidecar records request extent, EPSG:4326 pixel-is-area georeferencing, export settings, service data date, license and SHA-256; no API key is used. The TIFF remains a build source and is not served or packaged.
+
+`terrain-sample.html` is a review page within the existing explorer Site. It does not replace the main flight terrain, its physics or its controls. It uses existing Three.js and shared fullscreen support, with no new browser dependency. The artifact contains a 513² canonical height grid (0.1 m packing), deterministic woodland density, error-refined irregular meshes and sample stand locations. Coarse/middle candidates remain recorded for later evaluation; the review page uses the fine mesh, plus a camera-local canonical-grid detail patch for low flight. Reported mesh error statistics are measured errors, separate from target thresholds; the vertex budget can stop refinement before a target is met.
+
+An opaque RGB PNG packs 16-bit heights into RG to calculate continuous fragment normals; it uses linear sampling without mipmaps to avoid byte-carry rounding. Lossless WebP albedo avoids compression blocks. Gray/normal diagnostics include the local patch; the wire view explicitly shows the distant irregular mesh. A 200 m overlap at the patch edge prevents sky gaps from differing triangulations. Near tree roots use the same local grid triangles. Woodland uses two bounded instance batches with distance alpha hashing, a capped 32-cell CPU cache and at most 1690 near trees; positions remain seeded and stable. Trees are illustrative, not a land-cover survey. Pixel ratio is capped at 1.5; no real-time shadow or reflection pass is added.
+
+The existing explorer browser owner runs this via its `sample` case for source and extracted standalone ZIP. Full-area replacement waits for the user's visual confirmation of this sample. Do not run the old full explorer bake as part of this sample build.

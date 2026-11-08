@@ -1,6 +1,6 @@
 # 小小航天家：山地、峽谷及森林的低成本顯示計劃
 
-狀態：2026-11-08 已完成地形及分層森林實作與跨交付物驗證。以下保留原設計及候選預算，實際採用值與限制記於末尾。
+狀態：首版已實作並發佈，但2026-11-08使用者指出地貌呈格仔／橫直交叉，視覺品質需重做。後續採用[自然地貌重新設計方案](42-rocket-explorer-natural-terrain-redesign.md)。以下保留原設計、數值驗證及部署的歷史紀錄，不代表自然觀感已通過。
 
 沿用[探索工作台主計劃](42-rocket-explorer-workbench.md)、[共用設計](00-shared-platform-and-style.md)及[production guide](../docs/simulation-scorm-production-guide.md)；評核、rubric、SCORM、attempt／snapshot均N/A。目標是飛行途中有可辨認、連貫的山系、谷地、平原及森林變化，沿用現有WebGL／Three.js，保留固定地球、同尺度及接地穩定性。
 
