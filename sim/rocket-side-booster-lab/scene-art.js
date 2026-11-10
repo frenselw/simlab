@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three-0.185.1/three.module.min.js';
-import {createTerrain,groundLight,terrainSlopeDetail,surfaceUniforms,surfaceTextureBytes,regionalSurfaceTexture,createWorldSurfaceTexture} from './terrain.js';
+import {createTerrain,groundLight,orbitalLighting,terrainSlopeDetail,surfaceUniforms,surfaceTextureBytes,regionalSurfaceTexture,createWorldSurfaceTexture} from './terrain.js';
 import {createGlobalTerrain} from './global-terrain.js';
 import {createTerrainDetail} from './terrain-detail.js';
 const P=window.RocketParts,cache=new Map(),canvasMaps=new Map(),lostCanvases=new Set();
@@ -17,6 +17,7 @@ const [dayMap,regionMap,weatherTexture,starMap,geography,terrainBuffer,globalBuf
 ]);
 regionalSurfaceTexture.value=regionSurface;regionSurface.generateMipmaps=false;regionSurface.minFilter=regionSurface.magFilter=THREE.LinearFilter;cache.set('regional-surface',regionSurface);cache.set('world-surface',createWorldSurfaceTexture());
 const detail=createTerrainDetail(detailMetadata);surfaceUniforms.uDetailEnabled.value=1;surfaceUniforms.uDetailAtlas.value=detail.textures[0];surfaceUniforms.uDetailLookup.value=detail.textures[1];cache.set('global-normal-atlas',detail.textures[0]);cache.set('global-normal-lookup',detail.textures[1]);
+surfaceUniforms.uOrbitalMap.value=dayMap;
 for(const texture of [dayMap,weatherTexture,starMap])texture.wrapS=THREE.RepeatWrapping;
 export function textureBudget(){return surfaceTextureBytes+[...cache.values()].reduce((bytes,t)=>bytes+t.image.width*t.image.height*(t.format===THREE.RGFormat?2:4)*(t.generateMipmaps?4/3:1),0);}
 
@@ -140,16 +141,39 @@ varying vec2 vUv;varying vec3 vNormal;varying vec3 vWorld;varying vec3 vSurface;
 #include <logdepthbuf_vertex>
 }`;
 export function createPlanet(){
- const sun=new THREE.Vector3(-.5,.3,1).normalize(),opacity={value:1},surface={region:{value:regionMap},relief:{value:0}},shader=(map,cloud)=>new THREE.ShaderMaterial({uniforms:{...surfaceUniforms,uMap:{value:map},uSun:{value:sun},uSlopeDetail:terrainSlopeDetail,uCloud:{value:cloud?1:0},uOpacity:opacity,uRegion:surface.region,uRelief:surface.relief,uGlobal:{value:1}},vertexShader:planetVertex,fragmentShader:groundLight+`
+ const sun=new THREE.Vector3(-.5,.3,1).normalize(),opacity={value:1};
+ const shader=(map,cloud)=>new THREE.ShaderMaterial({uniforms:{...surfaceUniforms,uMap:{value:map},uSun:{value:sun},uSlopeDetail:terrainSlopeDetail,uCloud:{value:cloud?1:0},uOpacity:opacity},vertexShader:planetVertex,fragmentShader:groundLight+orbitalLighting+`
 #include <logdepthbuf_pars_fragment>
-uniform sampler2D uMap,uRegion;uniform vec3 uSun;uniform float uCloud,uOpacity,uRelief,uGlobal;varying vec2 vUv;varying vec3 vNormal,vWorld,vSurface;void main(){vec2 chart=mat2(.764842,-.644218,.644218,.764842)*vSurface.xz;vec2 metres=chart*6371000.0;float region=(1.0-smoothstep(75000.0,115000.0,length(metres)))*step(0.0,vSurface.y);float relief=(1.0-smoothstep(182400.0,211200.0,max(abs(metres.x),abs(metres.y))))*step(0.0,vSurface.y)*uRelief;vec4 tex;if(uCloud<.5&&(uGlobal>.5||relief==1.0)){tex=vec4(.035,.19,.25,1.0);}else if(uCloud<.5&&region==1.0){tex=texture2D(uRegion,metres/240000.0+.5);}else{vec3 local=vec3(chart.x,vSurface.y,chart.y);float lat=.605629,lon=-2.101376;vec3 up=vec3(cos(lat)*cos(lon),sin(lat),cos(lat)*sin(lon)),east=vec3(-sin(lon),0.0,cos(lon)),north=vec3(-sin(lat)*cos(lon),cos(lat),-sin(lat)*sin(lon)),geo=normalize(east*local.x+up*local.y+north*local.z);vec2 atlas=vec2(atan(geo.z,geo.x)/6.2831853+.5,asin(clamp(geo.y,-1.0,1.0))/3.14159265+.5);tex=texture2D(uMap,atlas);if(uCloud<.5)tex.rgb=mix(tex.rgb,texture2D(uRegion,metres/240000.0+.5).rgb,region);}vec3 n=normalize(vNormal),eye=normalize(cameraPosition-vWorld);float light=smoothstep(-.12,.7,dot(n,uSun));vec3 ground=tex.rgb;if(uCloud<.5){ground=mix(ground,vec3(.035,.19,.25),relief);}vec3 color=uCloud<.5?shadeSurface(ground,n,n,vec3(chart.x,vSurface.y,chart.y),vWorld,uSun,1.0):ground*terrainIrradiance(n,n,uSun);if(uCloud>.5)color=tex.rgb*mix(vec3(.0015,.0025,.004),vec3(1.0),light);float rim=pow(1.0-max(0.0,dot(n,eye)),4.0);color+=vec3(.025,.12,.24)*rim*light;gl_FragColor=vec4(color,mix(1.0,tex.a*.64*uOpacity,uCloud));\n#include <logdepthbuf_fragment>
+uniform sampler2D uMap;
+uniform vec3 uSun;
+uniform float uCloud,uOpacity;
+varying vec3 vNormal,vWorld,vSurface;
+void main(){
+ vec2 chart=mat2(.764842,-.644218,.644218,.764842)*vSurface.xz;
+ vec3 point=vec3(chart.x,vSurface.y,chart.y),n=normalize(vNormal),eye=normalize(cameraPosition-vWorld);
+ float light=smoothstep(-.12,.7,dot(n,uSun)),alpha=1.0;
+ vec3 color;
+ if(uCloud>.5){
+  vec4 tex=texture2D(uMap,geographicUv(normalize(geographicDirection(normalize(point)))));
+  color=tex.rgb*mix(vec3(.0015,.0025,.004),vec3(1.0),light);
+  alpha=tex.a*.64*uOpacity;
+ }else if(uOrbitalBlend>=1.0){
+  color=shadeOrbitalSurface(n,point,vWorld,uSun);
+ }else{
+  color=shadeSurface(oceanAlbedo,n,n,point,vWorld,uSun,1.0);
+  if(uOrbitalBlend>0.0)color=mix(color,shadeOrbitalSurface(n,point,vWorld,uSun),uOrbitalBlend);
+ }
+ float rim=pow(1.0-max(0.0,dot(n,eye)),4.0);
+ color+=vec3(.025,.12,.24)*rim*light;
+ gl_FragColor=vec4(color,alpha);
+#include <logdepthbuf_fragment>
 #include <tonemapping_fragment>\n#include <colorspace_fragment>}`,transparent:cloud,depthWrite:!cloud});
  const earth=new THREE.Mesh(planetGeometry(),shader(dayMap,false)),clouds=new THREE.Mesh(new THREE.SphereGeometry(1,96,48),shader(weatherTexture,true));earth.rotation.z=0;clouds.renderOrder=-1;
  const halo=new THREE.Mesh(new THREE.SphereGeometry(1,64,32),new THREE.ShaderMaterial({uniforms:{uSun:{value:sun},uOpacity:opacity},vertexShader:planetVertex,fragmentShader:`#include <logdepthbuf_pars_fragment>
 uniform vec3 uSun;uniform float uOpacity;varying vec3 vNormal;varying vec3 vWorld;void main(){vec3 n=normalize(vNormal);float rim=pow(1.0-abs(dot(n,normalize(cameraPosition-vWorld))),2.4);float sun=smoothstep(-.15,.15,dot(n,uSun))*(.25+.75*max(0.0,dot(n,uSun)));gl_FragColor=vec4(.16,.52,.92,rim*sun*.36*uOpacity);\n#include <logdepthbuf_fragment>
 #include <tonemapping_fragment>\n#include <colorspace_fragment>}`,side:THREE.BackSide,transparent:true,depthWrite:false}));
  earth.userData.farGeometry=earth.geometry;earth.userData.nearGeometry=compact?planetGeometry(48):earth.geometry;
- earth.rotation.order='ZYX';return {earth,clouds,halo,sun,opacity,surface,globalTerrain:createGlobalTerrain(globalBuffer,sun,detail)};
+ earth.rotation.order='ZYX';return {earth,clouds,halo,sun,opacity,globalTerrain:createGlobalTerrain(globalBuffer,sun,detail)};
 }
 export function createPad(){
  const group=new THREE.Group(),add=(g,m,x,y,z)=>{const mesh=new THREE.Mesh(g,m);mesh.position.set(x,y,z);group.add(mesh);return mesh;},concrete=new THREE.MeshLambertMaterial({color:'#b8c6c5',map:surface('concrete')}),steel=material('#71848b',{map:surface('metal'),metalness:.7,roughness:.42});

@@ -113,12 +113,12 @@ def tint(image,color,weight):
     return image*(1-weight[...,None])+np.array(color,dtype=np.float32)*weight[...,None]
 
 
-def terrain(lon,lat,mask,km_per_pixel):
-    n=noise(lon,lat,96); medium=noise(lon,lat,384); fine=noise(lon,lat,1536)
-    color=np.empty((*mask.shape,3),np.float32); color[:]=[135,172,128]
+def land_palette(lon,lat,n,medium):
+    fine=noise(lon,lat,1536)
+    color=np.empty((*lon.shape,3),np.float32); color[:]=[135,172,128]
     forest=np.clip((np.exp(-(lat/18)**2)*.65+np.exp(-((lat-58)/11)**2)*.5+medium*.25-.12),0,.82)
     color=tint(color,[74,127,104],forest)
-    dry=np.zeros(mask.shape,np.float32)
+    dry=np.zeros(lon.shape,np.float32)
     for cx,cy,sx,sy in [(14,23,31,10),(46,25,15,9),(82,43,24,10),(134,-25,19,10),(23,-23,10,9),(-112,36,15,10),(-68,-24,5,12)]:
         field=np.exp(-((lon-cx)/sx)**4-((lat-cy)/sy)**4)
         dry=np.maximum(dry,np.clip(field*.95+n*.23,0,1))
@@ -127,6 +127,12 @@ def terrain(lon,lat,mask,km_per_pixel):
     cold=np.clip((abs(lat)-65+n*5)/10,0,1)
     cold=np.maximum(cold,np.clip((lat-57)/10,0,1)*np.exp(-((lon+42)/14)**4))
     color=tint(color,[231,238,218],cold)
+    return color
+
+
+def terrain(lon,lat,mask,km_per_pixel):
+    n=noise(lon,lat,96); medium=noise(lon,lat,384)
+    color=land_palette(lon,lat,n,medium)
     ocean=np.empty_like(color); ocean[:]=[42,109,133]
     ocean+=((np.cos(np.radians(lat))*4+n*3+medium*1.4))[...,None]*np.array([.4,1,1.1])
     # Distances operate only while baking; runtime simply samples the image.
@@ -332,6 +338,34 @@ def bake_relief(land):
     return json.loads((OUT/'geography.json').read_text(encoding='utf-8'))['terrain']
 
 
+def explorer_orbital_maps():
+    out=ROOT/'sim/rocket-side-booster-lab/assets'
+    metadata_path=out/'geography.json'
+    metadata=json.loads(metadata_path.read_text(encoding='utf-8'))
+    land,lakes=(load_shapes(name) for name in ('ne_50m_land','ne_50m_lakes'))
+    w,h=4096,2048
+    lon=(np.arange(w,dtype=np.float32)[None,:]+.5)*360/w-180
+    lat=90-(np.arange(h,dtype=np.float32)[:,None]+.5)*180/h
+    lon,lat=np.broadcast_arrays(lon,lat)
+    rgb=Image.fromarray(land_palette(lon,lat,noise(lon,lat,96),noise(lon,lat,384)).clip(0,255).astype(np.uint8))
+    coverage=Image.fromarray(land_mask(land,lakes,w*2,h*2).astype(np.uint8)*255)
+    for width in (4096,2048):
+        size=(width,width//2)
+        image=rgb.resize(size,Image.Resampling.BOX).convert('RGBA')
+        alpha=np.asarray(coverage.resize(size,Image.Resampling.BOX),dtype=np.uint16)
+        # Keep RGB available in ocean texels when the browser decodes alpha.
+        image.putalpha(Image.fromarray((64+(alpha*127+127)//255).astype(np.uint8)))
+        name=f'earth-{width//1024}k.webp';path=out/name
+        image.save(path,format='WEBP',quality=88,method=6)
+        with Image.open(path) as baked:
+            assert baked.mode=='RGBA' and baked.size==size
+            for x,y,is_land in [(-112,40,True),(-117,27,False),(-112.5,27.3,True),(-111,27,False),(-108,27,True)]:
+                pixel=baked.getpixel((int((x+180)*width/360),int((90-y)*width/360)))
+                assert (pixel[3]>127)==is_land,(name,x,y,pixel)
+        metadata['assets'][name]={'dimensions':list(size),'bytes':path.stat().st_size,'sha256':hashlib.sha256(path.read_bytes()).hexdigest()}
+    metadata_path.write_text(json.dumps(metadata,separators=(',',':'))+'\n',encoding='utf-8')
+
+
 def main():
     OUT.mkdir(exist_ok=True)
     land=refine_coasts(load_shapes('ne_50m_land'));lakes=load_shapes('ne_50m_lakes');rivers=load_shapes('ne_50m_rivers_lake_centerlines')
@@ -383,10 +417,11 @@ def main():
 
 if __name__=='__main__':
     import argparse
-    parser=argparse.ArgumentParser();parser.add_argument('--clouds-only',action='store_true');args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('--clouds-only',action='store_true');parser.add_argument('--explorer-orbital',action='store_true');args=parser.parse_args()
     if args.clouds_only:
         image=clouds();save(image,'clouds.webp')
         metadata=json.loads((OUT/'geography.json').read_text(encoding='utf-8'));asset=OUT/'clouds.webp'
         metadata['assets']['clouds.webp']={'dimensions':list(image.size),'bytes':asset.stat().st_size,'sha256':hashlib.sha256(asset.read_bytes()).hexdigest()}
         (OUT/'geography.json').write_text(json.dumps(metadata,separators=(',',':'))+'\n',encoding='utf-8')
+    elif args.explorer_orbital:explorer_orbital_maps()
     else:main()

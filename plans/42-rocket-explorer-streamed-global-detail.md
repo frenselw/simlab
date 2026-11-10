@@ -30,6 +30,12 @@ Node檢查來源／全land-cell覆蓋／PNG尺寸、hash及共用邊／反經線
 
 Runtime926檔，ordered SHA-256 `bf7f2aa5609b79fb5cae3aceb7d57802176d10226e02ba2a2f826845191cbe06`。ZIP189,700,975 bytes，SHA-256 `8047c995da9060b4eebd119083b3a2c0a3e9bfb529c029641805ad54a9aeea72`；source／ZIP逐檔一致，原活動481保護hash全不變。證據為`output/playwright/rocket-side-booster-lab/explorer-global-detail-final-report.json`及`output/reports/rocket-global-detail-{node-final,cache-final,build,check,registry,rebuild,closure}`。local preview以absolute root回傳HTTP200並開啟Codex交接；queued不是已觀察使用者UI。
 
+## 2026-11-10 高空海岸與地表修正
+
+282.1 km 畫面露出簡化海岸輪廓，816.9 km 畫面可見粗網格的頂點色三角形。沿用現有 2K／4K 球面貼圖槽，從固定 Natural Earth 陸地及湖泊資料以雙倍解像度取樣海岸，將陸地覆蓋率放進 alpha 通道。連續地色取代高空三角面的插值，地形明暗繼續取樣同一套全球高度與串流法線。相機海拔 100 至 220 km 平順過渡，之後停止繪製全球陸地網格。近地及着陸仍用原有地形網格與碰撞資料。非評核工具的 rubric、評核風險與 snapshot 不適用。
+
+`python tools/rocket-art/generate.py --explorer-orbital` 只重建探索版的兩張球面貼圖與相關雜湊，內建半島、海灣與陸地取樣檢查。沿用既有 `detail` 瀏覽器案例檢查兩個回報高度、正常及低畫質、視野法線、近地過渡與畫面。覆蓋 source 與 standalone，使用既有 assets manifest 與 test owner。
+
 ## Commit及發布狀態（2026-11-09）
 
 程式commit `9f153fb4769b0f086fc3b5016cc6ef6148818b71`。committed selection-preview以`c34c2c3`為base，README／build依賴觸發full305選擇；實際執行範圍仍為上列13個Node／package檔及118 browser flows，不將selection當作全庫通過證據。

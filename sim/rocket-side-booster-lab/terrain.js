@@ -38,10 +38,16 @@ export function orientGroundSphere(geometry,direction){
  const target=direction.clone().applyAxisAngle(new THREE.Vector3(0,1,0),-.7),rotation=new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),target),p=new THREE.Vector3(),positions=geometry.attributes.position,normals=geometry.attributes.normal;
  for(let i=0;i<positions.count;i++){p.fromArray(data.groundBase,i*3).applyQuaternion(rotation);positions.setXYZ(i,p.x,p.y,p.z);normals.setXYZ(i,p.x,p.y,p.z);}positions.needsUpdate=normals.needsUpdate=true;geometry.boundingSphere=new THREE.Sphere(new THREE.Vector3(),1);return true;
 }
-export const surfaceUniforms={uWorldSurface:worldSurfaceTexture,uDetailEnabled:{value:0},uDetailAtlas:{value:null},uDetailLookup:{value:null},uRegionalSurface:regionalSurfaceTexture,uSurfaceMap:{value:surfaceTexture},uSurfaceTime:{value:0},uSurfaceDetail:{value:1},uSurfaceRotation:{value:new THREE.Matrix3()},uSurfaceStrength:{value:1}};
+export const surfaceUniforms={uWorldSurface:worldSurfaceTexture,uDetailEnabled:{value:0},uDetailAtlas:{value:null},uDetailLookup:{value:null},uRegionalSurface:regionalSurfaceTexture,uSurfaceMap:{value:surfaceTexture},uSurfaceTime:{value:0},uSurfaceDetail:{value:1},uSurfaceRotation:{value:new THREE.Matrix3()},uSurfaceStrength:{value:1},uOrbitalMap:{value:null},uOrbitalBlend:{value:0}};
 export const groundLight=`
 uniform float uSlopeDetail,uSurfaceTime,uSurfaceDetail,uSurfaceStrength;
 uniform sampler2D uSurfaceMap,uRegionalSurface,uWorldSurface,uDetailAtlas,uDetailLookup;uniform float uDetailEnabled;uniform mat3 uSurfaceRotation;
+vec3 geographicDirection(vec3 p){
+ float lat=.605629,lon=-2.101376;
+ vec3 up=vec3(cos(lat)*cos(lon),sin(lat),cos(lat)*sin(lon)),east=vec3(-sin(lon),0.0,cos(lon)),north=vec3(-sin(lat)*cos(lon),cos(lat),-sin(lat)*sin(lon));
+ return east*p.x+up*p.y+north*p.z;
+}
+vec2 geographicUv(vec3 geo){return vec2(atan(geo.z,geo.x)/6.283185307+.5,asin(clamp(geo.y,-1.0,1.0))/3.141592654+.5);}
 float regionalHeight(vec2 uv){return dot(texture2D(uRegionalSurface,(uv*2048.0+.5)/2049.0).rg,vec2(65280.0,255.0))*.1;}
 float worldHeight(vec2 uv){uv.x=fract(uv.x);uv.y=clamp(uv.y,0.0,1.0);return dot(texture2D(uWorldSurface,(uv*vec2(2048.0,1024.0)+.5)/vec2(2048.0,1025.0)).rg,vec2(65280.0,255.0));}
 vec4 detailedNormal(vec2 uv){
@@ -58,9 +64,9 @@ vec3 terrainIrradiance(vec3 normal,vec3 radial,vec3 sun){
 vec3 shadeSurface(vec3 base,vec3 normal,vec3 radial,vec3 point,vec3 world,vec3 sun,float water){
  vec3 p=normalize(point);vec2 metres=p.xz*6371000.0;
  if(water<.5){
-  float lat=.605629,lon=-2.101376;vec3 up=vec3(cos(lat)*cos(lon),sin(lat),cos(lat)*sin(lon)),eastGeo=vec3(-sin(lon),0.0,cos(lon)),northGeo=vec3(-sin(lat)*cos(lon),cos(lat),-sin(lat)*sin(lon)),geo=normalize(eastGeo*p.x+up*p.y+northGeo*p.z);
-  vec2 uv=vec2(atan(geo.z,geo.x)/6.283185307+.5,asin(clamp(geo.y,-1.0,1.0))/3.141592654+.5),delta=vec2(1.0/2048.0,1.0/1024.0);
-  vec3 east=normalize(cross(p,vec3(0.0,sin(lat),cos(lat)))+vec3(.0000001,0.0,0.0)),north=cross(east,p);vec4 fine=detailedNormal(uv);
+  vec3 geo=normalize(geographicDirection(p));
+  vec2 uv=geographicUv(geo),delta=vec2(1.0/2048.0,1.0/1024.0);
+  vec3 east=normalize(cross(p,vec3(0.0,sin(.605629),cos(.605629)))+vec3(.0000001,0.0,0.0)),north=cross(east,p);vec4 fine=detailedNormal(uv);
   if(fine.a<1.0){float dx=(worldHeight(uv+vec2(delta.x,0.0))-worldHeight(uv-vec2(delta.x,0.0)))/(39091.966*max(.03,sqrt(max(0.0,1.0-geo.y*geo.y)))),dz=(worldHeight(uv+vec2(0.0,delta.y))-worldHeight(uv-vec2(0.0,delta.y)))/39091.966;normal=normalize(uSurfaceRotation*normalize(p-east*dx-north*dz));}
   if(fine.a>0.0)normal=normalize(mix(normal,uSurfaceRotation*(east*fine.x+north*fine.y+p*fine.z),fine.a));
  }
@@ -100,6 +106,19 @@ vec3 shadeSurface(vec3 base,vec3 normal,vec3 radial,vec3 point,vec3 world,vec3 s
 }
 `;
 export const terrainLighting='diffuseColor.rgb=shadeSurface(diffuseColor.rgb,normalize(vSlope),normalize(vRadial),vGroundPoint,vGroundWorld,uSun,vSurfaceWater);';
+export const orbitalLighting=`
+uniform sampler2D uOrbitalMap;
+uniform float uOrbitalBlend;
+const vec3 oceanAlbedo=vec3(.035,.19,.25);
+vec3 shadeOrbitalSurface(vec3 radial,vec3 point,vec3 world,vec3 sun){
+ vec2 uv=geographicUv(normalize(geographicDirection(normalize(point))));
+ // Wrap longitude derivatives as well as coordinates so the date line selects the same mip level.
+ vec2 dx=dFdx(uv),dy=dFdy(uv);dx.x-=round(dx.x);dy.x-=round(dy.x);
+ vec4 land=textureGrad(uOrbitalMap,uv,dx,dy);
+ float width=max(.008,.5*fwidth(land.a)),cover=smoothstep(.5-width,.5+width,land.a);
+ return shadeSurface(mix(oceanAlbedo,land.rgb,cover),radial,radial,point,world,sun,1.0-step(.5,cover));
+}
+`;
 
 export function createTerrain(buffer,sun){
  const length=new DataView(buffer).getUint32(0,true),header=JSON.parse(new TextDecoder().decode(new Uint8Array(buffer,4,length))),start=4+Math.ceil(length/4)*4,group=new THREE.Group();

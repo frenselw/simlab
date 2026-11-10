@@ -37,6 +37,19 @@ async function run({base,label,P,T,H,cdp,call,viewport,open,wait,shot,report}){
 }
 async function detail({base,label,P,T,H,cdp,call,viewport,open,wait,shot,report}){
  const index=require('../sim/rocket-side-booster-lab/assets/global-detail/index.json');
+ await viewport(1413,923);await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:false});
+ const orbital=T.launched();orbital.phase='coast';orbital.flight.status='flying';orbital.flight.controls.lit=false;
+ await open(base,orbital);
+ for(const [height,arc] of [[282100,-.065],[816900,.27]]){
+  const radius=P.R+height,cos=Math.cos(arc),sin=Math.sin(arc);
+  await call(`const s=app.getScene(),f=app.controller.state.flight;f.state=[${radius*cos},${radius*sin},0,${1510*cos-3050*sin},${1510*sin+3050*cos},0];f.attitude=${arc+1.2};app.controller.emit();s.observeFrame=()=>{};s.quality=0;s.yaw=-1.1;s.pitch=.75;s.draw();window.__orbitModel=JSON.stringify(app.getState());`);
+  await wait(()=>call('const s=app.getScene();s.draw();return s.globalTerrain.userData.pending===0&&!s.globalTerrain.userData.detail.fading;'),'orbital coast '+height);
+  for(const quality of [0,2]){
+   const frame=await call(`const s=app.getScene();s.quality=${quality};s.draw();const {orbitalBlend,coarseTriangles,fineTriangles,detail}=s.globalTerrain.userData;return{orbitalBlend,coarseTriangles,fineTriangles,detail:detail.visible,atlas:s.diagnostics().earthMapWidth,modelUnchanged:window.__orbitModel===JSON.stringify(app.getState()),shaders:s.renderer.info.programs.every(p=>p.diagnostics?.runnable!==false)};`);
+   assert.equal(frame.orbitalBlend,1);assert.equal(frame.coarseTriangles+frame.fineTriangles,0);assert(frame.modelUnchanged&&frame.shaders&&frame.detail>0&&frame.atlas===4096,JSON.stringify(frame));
+   await shot(label+'-orbital-coast-'+height+'-quality-'+quality);report.flows.push({label,case:'orbital-coast',height,quality,...frame});
+  }
+ }
  for(const [width,height]of [[390,844],[1024,768]]){
   await viewport(width,height);const fixture=T.launched();fixture.phase='coast';fixture.flight.status='flying';fixture.flight.controls.lit=false;await open(base,fixture);
   await H.evaluate(cdp,'(async()=>{window.__detailTerrain=await import("./terrain.js");window.__detailThree=await import("./vendor/three-0.185.1/three.module.min.js");})()');
