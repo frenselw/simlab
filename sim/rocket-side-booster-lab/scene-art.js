@@ -2,6 +2,7 @@ import * as THREE from './vendor/three-0.185.1/three.module.min.js';
 import {createTerrain,groundLight,orbitalLighting,terrainSlopeDetail,surfaceUniforms,surfaceTextureBytes,regionalSurfaceTexture,createWorldSurfaceTexture} from './terrain.js';
 import {createGlobalTerrain} from './global-terrain.js';
 import {createTerrainDetail} from './terrain-detail.js';
+import {createPreciseTerrain} from './precise-terrain.js';
 const P=window.RocketParts,cache=new Map(),canvasMaps=new Map(),lostCanvases=new Set();
 export const artRecovery=new EventTarget();
 export function artTexturesReady(){return lostCanvases.size===0&&[...canvasMaps.keys()].every(c=>!c.getContext('2d')?.isContextLost?.());}
@@ -151,6 +152,7 @@ varying vec3 vNormal,vWorld,vSurface;
 void main(){
  vec2 chart=mat2(.764842,-.644218,.644218,.764842)*vSurface.xz;
  vec3 point=vec3(chart.x,vSurface.y,chart.y),n=normalize(vNormal),eye=normalize(cameraPosition-vWorld);
+ /* ground-contact-cut */
  float light=smoothstep(-.12,.7,dot(n,uSun)),alpha=1.0;
  vec3 color;
  if(uCloud>.5){
@@ -173,7 +175,17 @@ void main(){
 uniform vec3 uSun;uniform float uOpacity;varying vec3 vNormal;varying vec3 vWorld;void main(){vec3 n=normalize(vNormal);float rim=pow(1.0-abs(dot(n,normalize(cameraPosition-vWorld))),2.4);float sun=smoothstep(-.15,.15,dot(n,uSun))*(.25+.75*max(0.0,dot(n,uSun)));gl_FragColor=vec4(.16,.52,.92,rim*sun*.36*uOpacity);\n#include <logdepthbuf_fragment>
 #include <tonemapping_fragment>\n#include <colorspace_fragment>}`,side:THREE.BackSide,transparent:true,depthWrite:false}));
  earth.userData.farGeometry=earth.geometry;earth.userData.nearGeometry=compact?planetGeometry(48):earth.geometry;
- earth.rotation.order='ZYX';return {earth,clouds,halo,sun,opacity,globalTerrain:createGlobalTerrain(globalBuffer,sun,detail)};
+ const globalTerrain=createGlobalTerrain(globalBuffer,sun,detail);
+ if(window.RocketPreciseTerrainEndpoint){
+  const endpoint=new URL(window.RocketPreciseTerrainEndpoint,location.href);
+  if(endpoint.origin===location.origin){
+   const precise=createPreciseTerrain(sun,endpoint.href),advance=globalTerrain.advanceDetail;
+   precise.onChange=()=>globalTerrain.onChange?.();globalTerrain.precise=precise;globalTerrain.add(precise);
+   globalTerrain.userData.precise=precise.userData;
+   globalTerrain.advanceDetail=now=>{const previous=advance(now);return precise.advance(now)||previous;};
+  }
+ }
+ earth.rotation.order='ZYX';return {earth,clouds,halo,sun,opacity,globalTerrain};
 }
 export function createPad(){
  const group=new THREE.Group(),add=(g,m,x,y,z)=>{const mesh=new THREE.Mesh(g,m);mesh.position.set(x,y,z);group.add(mesh);return mesh;},concrete=new THREE.MeshLambertMaterial({color:'#b8c6c5',map:surface('concrete')}),steel=material('#71848b',{map:surface('metal'),metalness:.7,roughness:.42});
