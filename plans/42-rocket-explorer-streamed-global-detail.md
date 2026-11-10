@@ -36,6 +36,10 @@ Runtime926檔，ordered SHA-256 `bf7f2aa5609b79fb5cae3aceb7d57802176d10226e02ba2
 
 `python tools/rocket-art/generate.py --explorer-orbital` 只重建探索版的兩張球面貼圖與相關雜湊，內建半島、海灣與陸地取樣檢查。沿用既有 `detail` 瀏覽器案例檢查兩個回報高度、正常及低畫質、視野法線、近地過渡與畫面。覆蓋 source 與 standalone，使用既有 assets manifest 與 test owner。
 
+程式 commit `926b706`。Node 地形／貼圖快取／套件檢查、`npm run check` 及 `npm run check:tests` 通過。`b65c06c` 到 `926b706` 的選擇預覽另存於 `output/reports/rocket-orbital-coast-selection.txt`。瀏覽器 `surface,terrain,world,detail` 在 source 與 standalone 各完成 81 個流程，runtime 及 HTTP 錯誤為零。282 公里沿岸補測截圖及 817 公里地貌已目視核對。未測 iPad 真機。
+
+Sites 源碼已同步至 `9c83a9b52ab307e17da93f9df2c9dce763f76df9`，929 個部署包檔案逐一核對。兩次 blob 上傳均在 300 秒逾時，源碼直發未獲接受，線上版本仍為 v45。可從 `output/tmp/rocket-orbital-coast/site.tar.gz` 重試已驗證的發布包，完整收據在 `output/reports/rocket-orbital-coast-publication.json`。
+
 ## Commit及發布狀態（2026-11-09）
 
 程式commit `9f153fb4769b0f086fc3b5016cc6ef6148818b71`。committed selection-preview以`c34c2c3`為base，README／build依賴觸發full305選擇；實際執行範圍仍為上列13個Node／package檔及118 browser flows，不將selection當作全庫通過證據。
