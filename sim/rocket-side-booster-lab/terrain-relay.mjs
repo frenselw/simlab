@@ -24,7 +24,7 @@ export async function terrainRelay(request,fetchData=fetch){
   let upstream;
   try{
     upstream=await fetchData(`${bucket}/${stem}_DEM/${file}`,{
-      headers:range?{Range:range}:{},redirect:'error',signal:request.signal
+      headers:range?{Range:range}:{},redirect:'manual',signal:request.signal
     });
   }catch{
     return new Response(null,{status:502});

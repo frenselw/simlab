@@ -24,7 +24,7 @@ test('relay sends only the requested Copernicus object and preserves byte ranges
     calls++;
     assert.equal(url,'https://copernicus-dem-90m.s3.eu-central-1.amazonaws.com/Copernicus_DSM_COG_30_S34_00_W072_00_DEM/AUXFILES/Copernicus_DSM_COG_30_S34_00_W072_00_WBM.tif');
     assert.deepEqual(options.headers,{Range:'bytes=0-2'});
-    assert.equal(options.redirect,'error');
+    assert.equal(options.redirect,'manual');
     return new Response(new Uint8Array([1,2,3]),{status:206,headers:{'Content-Type':'image/tiff','Content-Length':'3','Content-Range':'bytes 0-2/100'}});
   };
   const request=(path,options)=>new Request('https://example.test'+path,options);
@@ -40,4 +40,6 @@ test('relay sends only the requested Copernicus object and preserves byte ranges
   assert.equal(response.status,206);assert.equal(response.headers.get('Content-Range'),'bytes 0-2/100');
   assert.deepEqual([...new Uint8Array(await response.arrayBuffer())],[1,2,3]);
   assert.equal(calls,1);
+  const redirect=await terrainRelay(request(tile),async()=>Response.redirect('https://example.test/other'));
+  assert.equal(redirect.status,502);
 });
