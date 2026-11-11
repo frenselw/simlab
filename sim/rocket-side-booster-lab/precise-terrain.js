@@ -24,7 +24,7 @@ export function createPreciseTerrain(sun,endpoint){
   const inverse=new THREE.Matrix4(),ray=new THREE.Raycaster(),sphere=new THREE.Sphere(new THREE.Vector3(),1),point=new THREE.Vector3();
   const cameraLocal=new THREE.Vector3(),geo=new THREE.Vector3(),nearHit=new THREE.Vector3(),screen=new THREE.Vector2();
   const contactCenter={value:new THREE.Vector3()},contactRadius={value:0};
-  let wanted=new Map(),pending=null,worker,sequence=0;
+  let wanted=new Map(),targets=new Map(),pending=null,worker,sequence=0;
   const stats=group.userData={active:0,loaded:0,pending:0,failed:0,triangles:0,maximumSpacingMetres:0};
   const faceIndices=[];
   for(let y=0;y<segments;y++)for(let x=0;x<segments;x++){
@@ -60,9 +60,10 @@ export function createPreciseTerrain(sun,endpoint){
     const geometry=new THREE.BufferGeometry();
     geometry.setAttribute('position',new THREE.BufferAttribute(position,3));
     geometry.setAttribute('uv',uvAttribute.clone());geometry.setIndex(index.clone());geometry.computeBoundingSphere();
-    // Draw blended borders before the craft, using the unchanged globe as the fallback surface.
+    // Preserve opaque framebuffer alpha when a border blends over the globe.
     const material=new THREE.MeshBasicMaterial({depthTest:false,depthWrite:true,side:THREE.DoubleSide,
-      blending:THREE.CustomBlending,blendSrc:THREE.SrcAlphaFactor,blendDst:THREE.OneMinusSrcAlphaFactor});
+      blending:THREE.CustomBlending,blendSrc:THREE.SrcAlphaFactor,blendDst:THREE.OneMinusSrcAlphaFactor,
+      blendSrcAlpha:THREE.OneFactor,blendDstAlpha:THREE.OneMinusSrcAlphaFactor});
     const fade={value:0},edges={value:new THREE.Vector4()};
     material.onBeforeCompile=shader=>{
       Object.assign(shader.uniforms,surfaceUniforms,{uSun:{value:sun},uSlopeDetail:terrainSlopeDetail,
@@ -81,8 +82,9 @@ float tileHeight(vec2 uv){return dot(texture2D(uTile,uv).rg,vec2(65280.0,255.0))
 `+shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
 vec3 p=normalize(vTilePoint),radial=normalize(uSurfaceRotation*p);
 if(dot(radial,cameraPosition-vTileWorld)<=0.0)discard;
-vec4 sides=mix(smoothstep(vec4(0.0),vec4(.12),vec4(vTileUv.x,1.0-vTileUv.x,vTileUv.y,1.0-vTileUv.y)),vec4(1.0),uEdges);
-float opacity=uFade*min(min(sides.x,sides.y),min(sides.z,sides.w));
+vec4 sides=mix(smoothstep(vec4(0.0),vec4(.06),vec4(vTileUv.x,1.0-vTileUv.x,vTileUv.y,1.0-vTileUv.y)),vec4(1.0),uEdges);
+float sunAngle=dot(radial,uSun);
+float opacity=uFade*min(min(sides.x,sides.y),min(sides.z,sides.w))*(1.0-uOrbitalBlend)*smoothstep(-.12,.03,sunAngle);
 vec2 m=abs(p.xz)*6371000.0;
 if(p.y>0.0&&max(m.x,m.y)<239500.0){
   float extent=239500.0*pow(pow(m.x/239500.0,8.0)+pow(m.y/239500.0,8.0),.125);
@@ -94,13 +96,18 @@ vec2 tile=(vTileUv*64.0+1.5)/67.0,d=vec2(1.0/67.0,0.0);
 vec3 g=normalize(geographicDirection(p));
 vec3 east=normalize(cross(p,vec3(0.0,sin(.605629),cos(.605629)))+vec3(.0000001,0.0,0.0));
 vec3 north=cross(east,p);
-float dx=(tileHeight(tile+d)-tileHeight(tile-d))/(2.0*uStep*max(.02,length(g.xz)));
-float dy=(tileHeight(tile+d.yx)-tileHeight(tile-d.yx))/(2.0*uStep);
+float eastHeight=tileHeight(tile+d),westHeight=tileHeight(tile-d),northHeight=tileHeight(tile+d.yx),southHeight=tileHeight(tile-d.yx);
+float dx=(eastHeight-westHeight)/(2.0*uStep*max(.02,length(g.xz)));
+float dy=(northHeight-southHeight)/(2.0*uStep);
 vec3 normal=normalize(uSurfaceRotation*(p-east*dx-north*dy));
 vec2 uv=geographicUv(g),du=dFdx(uv),dv=dFdy(uv);du.x-=round(du.x);dv.x-=round(dv.x);
 vec3 land=textureGrad(uOrbitalMap,uv,du,dv).rgb;
-float h=tileHeight(tile),rock=smoothstep(1600.0,3500.0,h),snow=smoothstep(4000.0,5200.0,h);
-land=mix(mix(land,vec3(.31,.30,.27),rock*.55),vec3(.75,.80,.82),snow*.8);
+float h=tileHeight(tile),slope=length(vec2(dx,dy));
+float rock=max(smoothstep(1600.0,3500.0,h)*.48,smoothstep(.06,.52,slope)*.68);
+float snow=smoothstep(4000.0,5200.0,h)*(1.0-.48*smoothstep(.35,1.0,slope));
+float crest=clamp((h-.25*(eastHeight+westHeight+northHeight+southHeight))/uStep,-.4,.4);
+land=mix(mix(land,vec3(.24,.20,.16),rock),vec3(.75,.80,.82),snow*.8);
+land*=landSurfaceTint(p)*(1.0+.65*crest);
 float w=texture2D(uTile,tile).b,edge=max(.01,.5*fwidth(w)),water=smoothstep(.5-edge,.5+edge,w);
 vec3 color=land*terrainIrradiance(normal,radial,uSun);
 if(water>0.0)color=mix(color,shadeSurface(oceanAlbedo,radial,radial,p,vTileWorld,uSun,1.0),water);
@@ -117,26 +124,27 @@ diffuseColor=vec4(color,opacity);`);
   }
 
   function load(){
-    if(pending)return;
-    const now=performance.now(),patch=[...wanted.values()].find(p=>!cache.has(p.id)&&(failed.get(p.id)??0)<=now);
+    if(pending&&(!targets.size||targets.has(pending.patch.id)||pending.cancelled))return;
+    const now=performance.now(),patch=[...targets.values()].find(p=>!cache.has(p.id)&&(failed.get(p.id)??0)<=now);
     if(!patch)return;
+    if(pending){pending.cancelled=true;worker.postMessage({cancel:pending.id});return;}
     if(!worker){
       try{worker=new Worker(new URL('./precise-terrain-worker.js',import.meta.url));}
       catch{failed.set(patch.id,now+30000);return;}
       worker.onmessage=({data})=>{
         if(!pending||data.id!==pending.id)return;
-        const {patch}=pending;pending=null;
-        if(data.error)failed.set(patch.id,performance.now()+30000);
-        else if(wanted.has(patch.id)){
+        const {patch,cancelled}=pending;pending=null;
+        if(data.error){if(!cancelled)failed.set(patch.id,performance.now()+30000);}
+        else if(targets.has(patch.id)){
           try{
-            while(cache.size>=cacheLimit){const [id,item]=[...cache].find(([id])=>!wanted.has(id));forget(id,item);}
+            while(cache.size>=cacheLimit){const [id,item]=[...cache].find(([id])=>!targets.has(id));forget(id,item);}
             cache.set(patch.id,createMesh(patch,data.heights,data.water));
           }catch{failed.set(patch.id,performance.now()+30000);}
         }
         group.onChange?.();
       };
       worker.onerror=()=>{
-        if(pending)failed.set(pending.patch.id,performance.now()+30000);
+        if(pending&&!pending.cancelled)failed.set(pending.patch.id,performance.now()+30000);
         pending=null;worker.terminate();worker=null;group.onChange?.();
       };
     }
@@ -144,6 +152,9 @@ diffuseColor=vec4(color,opacity);`);
   }
 
   function refresh(now){
+    let retry=false;
+    for(const [id,until] of failed)if(until<=now){failed.delete(id);retry ||= targets.has(id);}
+    if(retry)load();
     let moving=false,active=0,spacing=0;
     for(const [id,item] of cache){
       item.mesh.visible=wanted.has(id);
@@ -161,13 +172,13 @@ diffuseColor=vec4(color,opacity);`);
     return moving;
   }
 
-  group.update=(camera,pixels,enabled,clip)=>{
+  const lead=new THREE.Vector3(),tangent=new THREE.Vector3(),ahead=new THREE.Vector3();
+  group.update=(camera,pixels,enabled,clip,flight)=>{
     const now=performance.now();
-    for(const [id,until] of failed)if(until<=now)failed.delete(id);
     if(clip){contactCenter.value.copy(clip.uContactCenter.value);contactRadius.value=clip.uContactRadius.value;}
     cameraLocal.copy(camera.position);group.parent.worldToLocal(cameraLocal);
     const radius=cameraLocal.length(),mpp=Math.max(1,(radius-1)*R/pixels),next=new Map();
-    if(enabled&&mpp<800){
+    if(enabled&&surfaceUniforms.uOrbitalBlend.value<1&&mpp<800){
       inverse.copy(group.parent.matrixWorld).invert();
       for(const [x,y] of offsets){
         ray.setFromCamera(screen.set(x,y),camera);ray.ray.applyMatrix4(inverse);
@@ -182,7 +193,30 @@ diffuseColor=vec4(color,opacity);`);
         if(next.size===limit)break;
       }
     }
-    wanted=next;load();refresh(now);
+    wanted=next;
+    targets=new Map();
+    const nearest=wanted.values().next().value;
+    if(nearest){
+      targets.set(nearest.id,nearest);
+      if(flight?.status==='flying'){
+        lead.set(...S.direction(flight.state));
+        tangent.set(flight.state[4],flight.state[3],flight.state[5]).addScaledVector(lead,-tangent.dot(lead));
+        const speed=tangent.length();
+        if(speed>25){
+          tangent.divideScalar(speed);
+          for(const seconds of [3,8,16]){
+            const arc=speed*seconds/R;
+            ahead.copy(lead).multiplyScalar(Math.cos(arc)).addScaledVector(tangent,Math.sin(arc));
+            if(footprint(ahead)<175000)continue;
+            const patch=terrainPatch(...S.geographic(ahead.x,ahead.y,ahead.z),mpp);
+            if(!wanted.has(patch.id))targets.set(patch.id,patch);
+          }
+        }
+      }
+      for(const [id,patch] of wanted)targets.set(id,patch);
+    }
+    stats.prefetch=targets.size-wanted.size;
+    load();refresh(now);
   };
   group.advance=refresh;
   return group;

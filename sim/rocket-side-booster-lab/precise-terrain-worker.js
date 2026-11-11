@@ -4,10 +4,15 @@ importScripts('./vendor/geotiff-3.0.5/geotiff.js');
 
 const intervals=64,side=intervals+3,sourceCache=new Map();
 const wrap=lon=>((lon+180)%360+360)%360-180;
-let index;
+let index,active;
 
 async function raster(url,overview,signal){
-  const tiff=await GeoTIFF.fromUrl(url,{allowFullFile:false,blockSize:65536,cacheSize:8},signal);
+  // GeoTIFF does not pass the read signal through its metadata range requests.
+  const client={async request({headers}){
+    const response=await fetch(url,{headers,signal});
+    return {ok:response.ok,status:response.status,getHeader:name=>response.headers.get(name),getData:()=>response.arrayBuffer()};
+  }};
+  const tiff=await GeoTIFF.fromCustomClient(client,{allowFullFile:false,blockSize:65536,cacheSize:8},signal);
   try{
     const image=await tiff.getImage(overview);
     const width=image.getWidth(),height=image.getHeight();
@@ -43,8 +48,7 @@ function sample({width,height,values},u,v,nearest=false){
   return top*(1-b)+bottom*b;
 }
 
-async function read({endpoint,west,south,size}){
-  const signal=AbortSignal.timeout(22000);
+async function read({endpoint,west,south,size},signal){
   if(!index){
     const response=await fetch(new URL('./assets/precise-terrain-index.bin',location.href),{signal});
     if(!response.ok)throw Error('Global terrain inventory unavailable');
@@ -73,8 +77,12 @@ async function read({endpoint,west,south,size}){
 }
 
 self.onmessage=async({data})=>{
+  if(data.cancel){if(active?.id===data.cancel)active.controller.abort();return;}
+  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),22000);
+  active={id:data.id,controller};
   try{
-    const {heights,water}=await read(data);
+    const {heights,water}=await read(data,controller.signal);
     postMessage({id:data.id,heights,water},[heights.buffer,water.buffer]);
   }catch(error){postMessage({id:data.id,error:error.message});}
+  finally{clearTimeout(timeout);controller.abort();active=null;}
 };

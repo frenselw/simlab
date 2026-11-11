@@ -33,6 +33,7 @@ const registeredTests = [
   'sim/rocket-side-booster-lab/expansion.test.js',
   'sim/rocket-side-booster-lab/audio.test.js',
   'sim/rocket-side-booster-lab/lighting.test.js',
+  'sim/rocket-side-booster-lab/sky.test.js',
   'sim/rocket-side-booster-lab/terrain-detail.test.js',
   'sim/rocket-side-booster-lab/precise-terrain.test.js',
   'sim/rocket-side-booster-lab/model.test.js',
@@ -315,6 +316,7 @@ const tests = [...registeredTests, ...extraBrowserEntries];
 const extraBrowserTests=extraBrowserEntries.map(e=>e.file);
 
 const helpers = [
+  {file:"tools/rocket-sky-browser-cases.js",scope:"rocket-side-booster-lab",consumers:["tools/rocket-side-booster-browser-regression.js"]},
   {file:"tools/rocket-world-browser-cases.js",scope:"rocket-side-booster-lab",consumers:["tools/rocket-side-booster-browser-regression.js"]},
   {"file":"tools/circuit-ac-audit-browser-cases.js","scope":"circuit-family","consumers":["tools/circuit-ac-browser-regression.js"]},
   {"file":"tools/circuit-ac-review-r3-browser-cases.js","scope":"circuit-family","consumers":["tools/circuit-ac-browser-regression.js"]},

@@ -120,12 +120,48 @@ function instances(parent,geometry,mat,rows){const mesh=new THREE.InstancedMesh(
 export function createRelief(sun){return createTerrain(terrainBuffer,sun);}
 const ridges=geography.ridges;
 function coast(z){const rows=geography.coastRows;let i=0;while(i<rows.length-2&&rows[i+1].z<z)i++;const a=rows[i],b=rows[i+1],t=THREE.MathUtils.clamp((z-a.z)/(b.z-a.z),0,1);return THREE.MathUtils.lerp(a.x??-120000,b.x??-120000,t);}
+export const skyDisc=`
+float discOffset(vec3 ray, vec4 disc){
+ return dot(ray,disc.xyz)>0.0 ? length(cross(ray,disc.xyz)) : 1.0;
+}`;
 export function createSky(){
  return new THREE.Mesh(new THREE.SphereGeometry(1,32,16),new THREE.ShaderMaterial({
-  uniforms:{uMap:{value:starMap},uSpace:{value:0},uDaylight:{value:1}},side:THREE.BackSide,depthWrite:false,depthTest:false,
+  uniforms:{uMap:{value:starMap},uSpace:{value:0},uDaylight:{value:1},uCelestial:{value:0},uSunDisc:{value:new THREE.Vector4()},uMoonDisc:{value:new THREE.Vector4()},uMoonLight:{value:new THREE.Vector3()},uObserver:{value:new THREE.Vector3()},uStarFrame:{value:new THREE.Matrix3()}},side:THREE.BackSide,depthWrite:false,depthTest:false,
   // Keep the background inside the far clip plane even with sub-metre camera near planes.
-  vertexShader:`varying vec3 vDirection;varying vec2 vUv;void main(){vDirection=position;vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);gl_Position.z=gl_Position.w;}`,
-  fragmentShader:`uniform sampler2D uMap;uniform float uSpace,uDaylight;varying vec3 vDirection;varying vec2 vUv;void main(){vec3 d=normalize(vDirection);vec2 uv=vUv;vec3 day=mix(vec3(.66,.83,.88),vec3(.19,.48,.68),smoothstep(-.12,.8,d.y));vec3 night=texture2D(uMap,uv).rgb;gl_FragColor=vec4(mix(mix(vec3(.0015,.0025,.006)+night*.25,day,uDaylight),night,uSpace),1.0);
+  vertexShader:`varying vec3 vDirection;void main(){vDirection=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);gl_Position.z=gl_Position.w;}`,
+  fragmentShader:`uniform sampler2D uMap;
+uniform float uSpace,uDaylight,uCelestial;
+uniform vec4 uSunDisc,uMoonDisc;
+uniform vec3 uMoonLight,uObserver;
+uniform mat3 uStarFrame;
+varying vec3 vDirection;
+${skyDisc}
+void main(){
+ vec3 ray=normalize(vDirection),star=uStarFrame*ray;
+ vec2 uv=vec2(fract(atan(star.z,-star.x)/6.283185307+1.0),1.0-acos(clamp(star.y,-1.0,1.0))/3.141592654);
+ vec3 day=mix(vec3(.66,.83,.88),vec3(.19,.48,.68),smoothstep(-.12,.8,ray.y));
+ vec3 night=texture2D(uMap,uv).rgb,color=mix(mix(vec3(.0015,.0025,.006)+night*.25,day,uDaylight),night,uSpace);
+ if(uCelestial>.5){
+  float sun=discOffset(ray,uSunDisc),moon=discOffset(ray,uMoonDisc);
+  float sunEdge=fwidth(sun)*.5,moonEdge=fwidth(moon)*.5;
+  float along=-dot(uObserver,ray);
+  bool blocked=along>0.0 && along*along>max(0.0,dot(uObserver,uObserver)-1.0);
+  if(!blocked){
+   if(moon<uMoonDisc.w+moonEdge){
+    vec3 offset=(ray-dot(ray,uMoonDisc.xyz)*uMoonDisc.xyz)/uMoonDisc.w;
+    vec3 normal=offset-uMoonDisc.xyz*sqrt(max(0.0,1.0-dot(offset,offset)));
+    float diffuse=max(0.0,dot(normal,uMoonLight));
+    vec3 lunar=vec3(.80,.78,.72)*sqrt(diffuse)+vec3(.006);
+    lunar=mix(lunar,mix(color,max(lunar,color),.56),uDaylight*(1.0-uSpace));
+    color=mix(color,lunar,1.0-smoothstep(uMoonDisc.w-moonEdge,uMoonDisc.w+moonEdge,moon));
+   }
+   if(sun<.025){
+    color+=vec3(.42,.30,.15)*(1.0-smoothstep(uSunDisc.w,.025,sun));
+    color=mix(color,vec3(4.0,3.4,2.6),1.0-smoothstep(uSunDisc.w-sunEdge,uSunDisc.w+sunEdge,sun));
+   }
+  }
+ }
+ gl_FragColor=vec4(color,1.0);
 #include <tonemapping_fragment>
 #include <colorspace_fragment>}`
  }));
@@ -166,7 +202,7 @@ void main(){
   if(uOrbitalBlend>0.0)color=mix(color,shadeOrbitalSurface(n,point,vWorld,uSun),uOrbitalBlend);
  }
  float rim=pow(1.0-max(0.0,dot(n,eye)),4.0);
- color+=vec3(.025,.12,.24)*rim*light;
+ color+=vec3(.025,.12,.24)*rim*light*(uCloud>.5?1.0:uOrbitalBlend);
  gl_FragColor=vec4(color,alpha);
 #include <logdepthbuf_fragment>
 #include <tonemapping_fragment>\n#include <colorspace_fragment>}`,transparent:cloud,depthWrite:!cloud});

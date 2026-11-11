@@ -492,6 +492,8 @@
     "rocket-side-booster-lab/assets/regional-heights.bin.gz",
     "rocket-side-booster-lab/assets/regional-surface.png",
     "rocket-side-booster-lab/lighting.js",
+    "rocket-side-booster-lab/sky.js",
+    "rocket-side-booster-lab/assets/sky-ephemeris.json",
     "rocket-side-booster-lab/assets/world-heights.bin.gz",
     "rocket-side-booster-lab/terrain-detail.js",
     "rocket-side-booster-lab/assets/global-detail/index.json",

@@ -14,6 +14,8 @@
  function region(x,y,land){const size=data.fine.size;x=Math.max(0,Math.min(size-1,x));y=Math.max(0,Math.min(size-1,y));if(land)return fine[Math.round(y)*size+Math.round(x)]>0;const i=Math.min(size-2,Math.floor(x)),j=Math.min(size-2,Math.floor(y)),a=x-i,b=y-j,h=(dx,dy)=>Math.max(0,fine[(j+dy)*size+i+dx]-1)*.1;return a+b<=1?h(0,0)*(1-a-b)+h(1,0)*a+h(0,1)*b:h(1,1)*(a+b-1)+h(1,0)*(1-b)+h(0,1)*(1-a);}
  function sample(grid,width,height,x,y,land=false){x=Math.max(0,Math.min(width-1,x));y=Math.max(0,Math.min(height-1,y));if(land)return Boolean(grid[Math.round(y)*width+Math.round(x)]&32768);const i=Math.min(width-2,Math.floor(x)),j=Math.min(height-2,Math.floor(y)),a=x-i,b=y-j;return (grid[j*width+i]&32767)*(1-a)*(1-b)+(grid[j*width+i+1]&32767)*a*(1-b)+(grid[(j+1)*width+i]&32767)*(1-a)*b+(grid[(j+1)*width+i+1]&32767)*a*b;}
  function geographic(e,u,n){const x=e*(-sinLon)+u*cosLat*cosLon-n*sinLat*cosLon,y=u*sinLat+n*cosLat,z=e*cosLon+u*cosLat*sinLon-n*sinLat*sinLon;return [Math.atan2(z,x)*180/Math.PI,Math.asin(Math.max(-1,Math.min(1,y)))*180/Math.PI];}
+ // Standard Earth-fixed axes use X at Greenwich, Y east along the equator, and Z north.
+ function fromGeocentric(x,y,z){const equator=x*cosLon+y*sinLon;return [-x*sinLon+y*cosLon,equator*cosLat+z*sinLat,-equator*sinLat+z*cosLat];}
  function sampleAt(e,u,n,land=false){
   const [lon,lat]=geographic(e,u,n),grid=world||globe,width=world?data.world.width:data.width,height=world?data.world.height:data.height,x=(lon+180)/360*(width-1),y=(90-lat)/180*(height-1),globalLand=sample(grid,width,height,x,y,true),global=globalLand?sample(grid,width,height,x,y):0,extent=Math.pow(Math.abs(e)**8+Math.abs(n)**8,1/8)*P.R;
   if(u<=0||extent>=239500)return land?globalLand:global;
@@ -35,5 +37,5 @@
  // shortcut: fixed Earth matches the planar flight model; add launch, air and ground rotation together for a rotating model.
  function direction(q){const r=Math.hypot(q[0],q[1],q[2]||0);return [q[1]/r,q[0]/r,(q[2]||0)/r];}
  const heightAt=(e,u,n)=>sampleAt(e,u,n),waterAt=(e,u,n)=>!sampleAt(e,u,n,true),height=(q,t=0)=>heightAt(...direction(q,t)),radius=(q,t=0)=>P.R+height(q,t),clearance=(q,t=0)=>Math.hypot(q[0],q[1],q[2]||0)-radius(q,t),isWater=(q,t=0)=>waterAt(...direction(q,t));
- return Object.freeze({MAX_HEIGHT,ready,surfaceGrid,direction,geographic,heightAt,waterAt,forestAt,colorAt,height,radius,clearance,isWater});
+ return Object.freeze({MAX_HEIGHT,ready,surfaceGrid,direction,geographic,fromGeocentric,heightAt,waterAt,forestAt,colorAt,height,radius,clearance,isWater});
 });

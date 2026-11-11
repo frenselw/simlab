@@ -101,5 +101,12 @@ console.log(JSON.stringify({globalCompared,globalHeightError,globalColorError}))
  for(const [px,pz]of [[0,0],[28000,10000],[80000,0]])assert(Number.isFinite(relief.meshHeight(px,pz)),'Indexed mesh lookup must cover land');
  const rebuilds=contact.userData.rebuilds,camera=new THREE.PerspectiveCamera();camera.position.set(28000,500,10000);relief.updateDetail(camera,800,0,true);contact.update({state:[u*r,e*r,n*r,0,0,0],t:0},true);assert(contact.userData.rebuilds>rebuilds,'A stationary contact skirt must refresh when surrounding LOD changes');
  const fineLevels=relief.userData.levels.slice();relief.updateDetail(camera,800,2,true);assert(fineLevels.some(level=>level===0)&&relief.userData.levels.every(level=>level===2));contact.update({state:[u*r,e*r,n*r,0,0,0],t:0},true);assert(contact.userData.rebuilds>rebuilds+1);
+ for(const [east,up,north] of [[e,u,n],directionAt(12,47)]){
+  const radius=R+Surface.heightAt(east,up,north)+30;
+  contact.update({state:[up*radius,east*radius,north*radius,0,0,0],t:0},true);
+  const {index}=contact.children[0].geometry;
+  const [a,b,c]=[0,1,2].map(i=>new THREE.Vector3().fromBufferAttribute(p,index.getX(i)));
+  assert(b.sub(a).cross(c.sub(a)).dot(contact.clipping.uContactCenter.value)>0,'Contact ground must face outward both near and far from the launch site');
+ }
  console.log(JSON.stringify({browserHeightValidation:true,contactVertices:checked,maximumContactErrorMetres:error,contactTriangles:contact.userData.triangles}));
 })().catch(error=>{console.error(error);process.exitCode=1;});

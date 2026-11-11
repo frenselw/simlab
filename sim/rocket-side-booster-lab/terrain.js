@@ -17,10 +17,12 @@ export function setTerrainNormals(geometry,origin,landOnly=false){
 export const terrainSlopeDetail={value:1};
 // One periodic texture supplies both water normals and quiet land variation without another render pass.
 const surfacePixels=new Uint8Array(128*128*4),waves=[[3,1,.55],[1,-4,.3],[7,3,.17],[-5,8,.1],[11,-7,.06]];
+let landSeed=9127;
 for(let y=0;y<128;y++)for(let x=0;x<128;x++){
  const u=x/128*Math.PI*2,v=y/128*Math.PI*2;let dx=0,dy=0;
  for(const [a,b,w]of waves){const c=Math.cos(a*u+b*v);dx+=a*w*c;dy+=b*w*c;}
- const i=(y*128+x)*4;surfacePixels[i]=Math.round(127.5+dx*17);surfacePixels[i+1]=Math.round(127.5+dy*17);surfacePixels[i+2]=Math.round(127.5+35*Math.sin(u+2*v)+22*Math.cos(3*u-v)+12*Math.sin(5*u+3*v));surfacePixels[i+3]=255;
+ landSeed=(Math.imul(landSeed,1664525)+1013904223)>>>0;
+ const i=(y*128+x)*4;surfacePixels[i]=Math.round(127.5+dx*17);surfacePixels[i+1]=Math.round(127.5+dy*17);surfacePixels[i+2]=Math.round(127.5+35*Math.sin(u+2*v)+22*Math.cos(3*u-v)+12*Math.sin(5*u+3*v));surfacePixels[i+3]=landSeed>>>24;
 }
 const surfaceTexture=new THREE.DataTexture(surfacePixels,128,128);surfaceTexture.wrapS=surfaceTexture.wrapT=THREE.RepeatWrapping;surfaceTexture.magFilter=THREE.LinearFilter;surfaceTexture.minFilter=THREE.LinearMipmapLinearFilter;surfaceTexture.generateMipmaps=true;surfaceTexture.needsUpdate=true;
 export const surfaceTextureBytes=128*128*4*4/3;
@@ -61,8 +63,25 @@ vec3 terrainIrradiance(vec3 normal,vec3 radial,vec3 sun){
  vec3 ambient=mix(vec3(.0015,.0025,.005),vec3(.22,.28,.34),day)*(.7+.3*sky);
  return ambient+vec3(1.0,.95,.83)*(.92*max(0.0,dot(normal,sun)))*smoothstep(-.03,.02,dot(radial,sun));
 }
+vec3 landSurfaceTint(vec3 point){
+ vec3 metres=normalize(point)*6371000.0;
+ vec2 chart=vec2(metres.x+.37*metres.y,metres.z-.63*metres.y);
+ vec2 dx=dFdx(chart),dy=dFdy(chart);
+ float footprint=max(length(dx),length(dy));
+ if(footprint>=220.0||uSurfaceStrength<=0.0)return vec3(1.0);
+ float broad=textureGrad(uSurfaceMap,chart/38000.0,dx/38000.0,dy/38000.0).a-.5;
+ float tint=broad*.32*(1.0-smoothstep(50.0,220.0,footprint));
+ if(footprint<65.0){
+  mat2 rotation=mat2(.8,.6,-.6,.8);
+  vec2 fineUv=rotation*chart/8900.0+vec2(.018,-.024)*broad;
+  float fine=textureGrad(uSurfaceMap,fineUv,rotation*dx/8900.0,rotation*dy/8900.0).a-.5;
+  tint+=fine*.20*(1.0-smoothstep(12.0,65.0,footprint));
+ }
+ return vec3(1.0)+tint*vec3(1.0,.85,.66)*uSurfaceStrength;
+}
 vec3 shadeSurface(vec3 base,vec3 normal,vec3 radial,vec3 point,vec3 world,vec3 sun,float water){
  vec3 p=normalize(point);vec2 metres=p.xz*6371000.0;
+ vec3 landTint=landSurfaceTint(p);
  if(water<.5){
   vec3 geo=normalize(geographicDirection(p));
   vec2 uv=geographicUv(geo),delta=vec2(1.0/2048.0,1.0/1024.0);
@@ -97,10 +116,11 @@ vec3 shadeSurface(vec3 base,vec3 normal,vec3 radial,vec3 point,vec3 world,vec3 s
   waterColor=mix(waterColor,skyColor,.06+.16*fresnel);
   float glint=pow(max(0.0,dot(n,normalize(sun+eye))),80.0)*.12*day;
   color=mix(color,waterColor+vec3(1.0,.96,.86)*glint,uSurfaceStrength);
- }else if(detail>.001){
+ }else{
+  float regional=p.y>0.0?1.0-smoothstep(175000.0,239000.0,length(metres)):0.0;
   float variation=texture2D(uSurfaceMap,metres/2800.0).b-.5;
-  vec3 tint=vec3(1.0)+variation*vec3(.18,.035,-.10)*detail*uSurfaceStrength;
-  color*=tint;
+  vec3 regionalTint=vec3(1.0)+variation*vec3(.18,.035,-.10)*detail*uSurfaceStrength;
+  color*=mix(landTint,regionalTint,regional);
  }
  return color;
 }

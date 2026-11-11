@@ -170,3 +170,8 @@
 
 /* Keep camera controls inside the visible WebGL stage, above its drawing layer. */
 .stage-footer{z-index:12;bottom:max(8px,env(safe-area-inset-bottom))}.orbit-legend{bottom:calc(51px + max(8px,env(safe-area-inset-bottom)))}
+.sky-settings label{display:block;font-size:14px;margin-top:6px}
+.sky-settings input{min-height:44px;max-width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink)}
+#skyError{color:#9b3022}
+#skyReadout{font-variant-numeric:tabular-nums}
+.camera-controls [data-camera-view="sky"]:disabled{display:none}
