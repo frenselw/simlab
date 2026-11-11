@@ -7,6 +7,9 @@
 - 沿用 Pages 的 Node 與 browser owners，驗證四個入口與資產、桌面及窄手機模擬、側助推器組裝、全螢幕與刷新重置。正式發布後查公開入口與原火箭網址狀態。
 - 本機精確檔案檢查通過，共 994 檔，含 935 個火箭獨立版清單檔。桌面 1280×900 與原生觸控 320×500 共八個瀏覽器案例通過。首次 Chrome 全螢幕檢查失敗後，runner 加上與火箭 browser owner 相同的分頁前置步驟，重跑通過。首頁截圖採用本輪 1280×900 的待發射畫面。驗證報告為 `output/playwright/pages/local-report.json`。
 - `npm run check:tests` 通過（307 entries：264 Node、43 browser），文件連結與 diff 檢查通過。
+- Committed selection preview `1033817` → `ed9f713` 選取 307 項和全部套件，原因為 Pages 打包器改動。選取報告為 `output/reports/pages-booster-selection.json`，本輪執行 Pages 專項檢查。
+- [Pages 發布流程](https://github.com/frenselw/simlab/actions/runs/42986878343) 成功部署 `ed9f7133617ac8ae3a1d89e86c66335d6d7bba1e`。公開首頁及新版入口回傳 HTTP 200，原版入口回傳 HTTP 404。
+- 公開 HTTPS 的八個桌面及窄手機模擬案例全部通過，包含四張截圖、入口、原生全螢幕、狀態保持、火箭 WebGL／側助推器組裝及刷新。首次較短的驗證期限遇到地形檔下載逾時。最終通過的冷啟動約 45 秒，同一瀏覽器快取後的手機模擬啟動約 1.7 秒。記錄見 `output/playwright/pages/live-report.json` 及 `live-*.png`。實體手機及完整飛行未在本輪重驗。
 
 ## 擴充為互動模擬首頁（2026-10-30）
 

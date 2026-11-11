@@ -16,6 +16,7 @@ async function main() {
   const profile = fs.mkdtempSync(path.join(temp, 'simlab-pages-chrome-'));
   const remote = process.env.SIMLAB_PAGES_URL;
   const errors = [], evidence = [];
+  const pendingRequests = new Map();
   let server, chrome, cdp, failure, current;
   try {
     if (!remote) {
@@ -35,11 +36,16 @@ async function main() {
     for (const domain of ['Runtime', 'Page', 'Network']) await cdp.send(domain + '.enable');
     await cdp.send('Page.bringToFront');
     cdp.on('Runtime.exceptionThrown', event => errors.push(event.exceptionDetails.exception?.description || event.exceptionDetails.text));
+    cdp.on('Network.requestWillBeSent', ({requestId, request}) => pendingRequests.set(requestId, request.url));
+    cdp.on('Network.loadingFinished', ({requestId}) => pendingRequests.delete(requestId));
     cdp.on('Network.responseReceived', ({response}) => {
       // Chrome probes this undeclared origin-level icon outside the Pages project.
       if (response.status >= 400 && new URL(response.url).pathname !== '/favicon.ico') errors.push(response.status + ' ' + response.url);
     });
-    cdp.on('Network.loadingFailed', event => { if (!event.canceled) errors.push(event.errorText); });
+    cdp.on('Network.loadingFailed', event => {
+      if (!event.canceled) errors.push(event.errorText + ' ' + pendingRequests.get(event.requestId));
+      pendingRequests.delete(event.requestId);
+    });
     const evaluate = code => H.evaluate(cdp, code);
     const screenshot = async name => {
       const result = await cdp.send('Page.captureScreenshot', {format: 'png'});
@@ -68,8 +74,12 @@ async function main() {
           await cdp.send('Input.dispatchMouseEvent', {type: 'mouseReleased', ...point, button: 'left', buttons: 0, clickCount: 1});
         }
         const api = apis[index];
-        await H.waitForCondition(() => evaluate('!!window.' + api), slug + ' initialization');
         const rocket = api === '__rocketApp';
+        const startup = performance.now();
+        // A cold public startup downloads both compressed height grids before creating the 3D scene.
+        const startupTimeout = rocket && remote ? 150000 : 15000;
+        await H.waitForCondition(() => evaluate('!!window.' + api), slug + ' initialization', startupTimeout);
+        const startupMs = Math.round(performance.now() - startup);
         if (rocket) {
           assert(await evaluate(api + '.getScene() && ' + api + '.diagnostics().scene.webgl2'), 'Rocket WebGL initialization');
           assert.equal(await evaluate(api + '.controller.editable'), true);
@@ -96,17 +106,17 @@ async function main() {
         await screenshot(slug + '-' + width);
         if (rocket) {
           await cdp.send('Page.reload');
-          await H.waitForCondition(() => evaluate('!!window.__rocketApp && document.readyState === "complete" && __rocketApp.getState().phase === "workshop"'), 'Rocket standalone refresh');
+          await H.waitForCondition(() => evaluate('!!window.__rocketApp && document.readyState === "complete" && __rocketApp.getState().phase === "workshop"'), 'Rocket standalone refresh', startupTimeout);
           assert(await evaluate('__rocketApp.getState().phase === "workshop" && __rocketApp.getState().flight === null && __rocketApp.getState().craft.stages[0].engine === null'), 'Standalone refresh must start fresh');
         }
         assert.deepEqual(errors, [], 'Browser or network errors');
-        evidence.push({...current, previewsLoaded: true, fullscreen: true, statePreserved: true, ...(rocket ? {webgl: true, assembly: true, refreshFresh: true} : {})});
+        evidence.push({...current, startupMs, previewsLoaded: true, fullscreen: true, statePreserved: true, ...(rocket ? {webgl: true, assembly: true, refreshFresh: true} : {})});
       }
     }
     fs.writeFileSync(path.join(output, (remote ? 'live-' : 'local-') + 'report.json'), JSON.stringify({evidence, errors}, null, 2) + '\n');
   } catch (error) {
     failure = error;
-    console.error('Pages browser failure:', current, errors);
+    console.error('Pages browser failure:', current, errors, 'Pending requests:', [...pendingRequests.values()]);
     if (cdp) {
       try {
         const {data} = await cdp.send('Page.captureScreenshot', {format: 'png'});
