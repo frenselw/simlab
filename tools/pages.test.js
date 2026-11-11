@@ -3,15 +3,14 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const {XMLParser} = require('fast-xml-parser');
+const {assets: rocketAssets} = require('./package-rocket-explorer');
 const {build, directory, workbenches, activities} = require('./build-pages');
 const root = path.resolve(__dirname, '..');
 
 build();
 fs.writeFileSync(path.join(directory, 'removed-activity.html'), 'stale');
 build();
-const rocketManifest = new XMLParser({ignoreAttributes: false}).parse(fs.readFileSync(path.join(root, 'sim/manifests/rocket-space-mission-lab.xml'), 'utf8'));
-const sourceFiles = new Set([...workbenches.flatMap(slug => require('../sim/' + slug + '/assets.json').files), ...rocketManifest.manifest.resources.resource.file.map(file => file['@_href'])]);
+const sourceFiles = new Set([...workbenches.flatMap(slug => require('../sim/' + slug + '/assets.json').files), ...rocketAssets.files]);
 const pageFiles = ['index.html', 'styles.css', ...activities.map(slug => 'previews/' + slug + '.png')];
 const expected = [...sourceFiles, ...pageFiles].sort();
 const actual = fs.readdirSync(directory, {recursive: true}).filter(file => fs.statSync(path.join(directory, file)).isFile()).map(file => file.split(path.sep).join('/')).sort();

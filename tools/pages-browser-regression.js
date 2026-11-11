@@ -33,6 +33,7 @@ async function main() {
     const {body: target} = await H.fetchJson('http://127.0.0.1:' + port + '/json/new?about:blank', {method: 'PUT'});
     cdp = new H.CdpClient(target.webSocketDebuggerUrl, WebSocket, 30000);
     for (const domain of ['Runtime', 'Page', 'Network']) await cdp.send(domain + '.enable');
+    await cdp.send('Page.bringToFront');
     cdp.on('Runtime.exceptionThrown', event => errors.push(event.exceptionDetails.exception?.description || event.exceptionDetails.text));
     cdp.on('Network.responseReceived', ({response}) => {
       // Chrome probes this undeclared origin-level icon outside the Pages project.
@@ -71,9 +72,10 @@ async function main() {
         const rocket = api === '__rocketApp';
         if (rocket) {
           assert(await evaluate(api + '.getScene() && ' + api + '.diagnostics().scene.webgl2'), 'Rocket WebGL initialization');
-          assert.equal(await evaluate(api + '.controller.mode'), 'edit');
+          assert.equal(await evaluate(api + '.controller.editable'), true);
           assert.equal(await evaluate(api + '.getState().phase'), 'workshop');
-          for (const action of [{type:'part',stage:0,part:'engine',value:0},{type:'part',stage:0,part:'large',value:2},{type:'capsule'},{type:'launch'}]) assert(await evaluate(api + '.command(' + JSON.stringify(action) + ')'), 'Legal rocket assembly action');
+          for (const action of [{type:'part',stage:0,part:'engine',value:0},{type:'part',stage:0,part:'large',value:2},{type:'boosters'},{type:'capsule'},{type:'launch'}]) assert(await evaluate(api + '.command(' + JSON.stringify(action) + ')'), 'Legal rocket assembly action');
+          assert.equal(await evaluate(api + '.getState().craft.boosters'), 2);
           await H.waitForCondition(() => evaluate(api + '.getState().phase === "pad" && ' + api + '.diagnostics().scene.renderCount > 0'), 'Assembled rocket on launchpad');
           assert(await evaluate('document.getElementById("renderFault").hidden'), 'Rocket renderer error');
         } else {

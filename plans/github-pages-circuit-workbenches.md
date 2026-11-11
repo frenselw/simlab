@@ -1,5 +1,13 @@
 # 三個電路工作台的 GitHub Pages 公開試用
 
+## 換上小小航天家（2026-11-11）
+
+- 公開首頁以 `rocket-side-booster-lab` 取代 `rocket-space-mission-lab`，使用正式名稱「小小航天家：火箭升空與返航」及實際裝上側助推器的畫面。
+- 依[小小航天家現行計劃](42-rocket-explorer-workbench.md)，沿用獨立版 packager 與 `assets.json`。評分、提交、Moodle 和答案快照均不適用。GitHub Pages 使用套件內附地形，精細地形串流由另一個部署的中繼服務提供。
+- 沿用 Pages 的 Node 與 browser owners，驗證四個入口與資產、桌面及窄手機模擬、側助推器組裝、全螢幕與刷新重置。正式發布後查公開入口與原火箭網址狀態。
+- 本機精確檔案檢查通過，共 994 檔，含 935 個火箭獨立版清單檔。桌面 1280×900 與原生觸控 320×500 共八個瀏覽器案例通過。首次 Chrome 全螢幕檢查失敗後，runner 加上與火箭 browser owner 相同的分頁前置步驟，重跑通過。首頁截圖採用本輪 1280×900 的待發射畫面。驗證報告為 `output/playwright/pages/local-report.json`。
+- `npm run check:tests` 通過（307 entries：264 Node、43 browser），文件連結與 diff 檢查通過。
+
 ## 擴充為互動模擬首頁（2026-10-30）
 
 - 使用者要求加入既有 `rocket-space-mission-lab`、首頁每個入口顯示實際截圖，並移除「電路工作台」作為全站名稱。新名稱為「SimLab · 互動模擬」，保留三個原入口及 URL。
