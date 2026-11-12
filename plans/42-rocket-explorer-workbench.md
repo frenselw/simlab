@@ -1,5 +1,7 @@
 # 小小航天家：火箭升空與返航
 
+[飛行事件與分段載入計劃](42-rocket-explorer-flight-events-and-loading.md) 記錄三種尺寸的事件列、工廠先行及按視角補載的實作與驗收決定。
+
 [日地月運動、光照與天空觀測](42-rocket-explorer-sun-earth-moon.md) 記錄首版實作、星曆資料及獨立版驗證。
 
 地貌重新設計：[自然地貌重新設計方案](42-rocket-explorer-natural-terrain-redesign.md)。2026-11-08 使用者指出首版有格仔及橫直交叉紋，視覺品質需重做；本輪獲授權先實作40km獨立預覽，主模擬全區等待使用者視覺確認後才擴展；樣本驗證及發佈記於專項。首版實作與發佈紀錄保留於[原地貌計劃](42-rocket-explorer-terrain-vegetation.md)。
