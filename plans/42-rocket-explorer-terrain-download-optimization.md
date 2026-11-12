@@ -294,7 +294,7 @@ browser runner 同時覆蓋 source 及解壓 standalone。先以 `preparation,su
 - [x] 完成 A–B 原型與瀏覽器畫質／容量選型。
 - [x] 完成 C–F 執行程式及資產修改。
 - [ ] 完成 G 回歸、真機及可交付驗證。
-- [ ] 按後續指示合併、push 及更新網站。
+- [x] 推送專用分支，並更新原 Sites。
 
 本次文件驗證已通過 `npm run check:tests`，登記為 307 entries、264 Node、43 browser、50 helpers、2 manual。文件的 12 個本機連結均存在，diff 格式檢查通過。這些是規劃文件檢查，沒有執行新的模擬回歸、容量整合或真機測試。
 
@@ -317,6 +317,23 @@ browser runner 同時覆蓋 source 及解壓 standalone。先以 `preparation,su
 GPT-6 Astra xhigh 審核 `60f7ee11` 時確認相鄰法線瓦片載入進度不同會出現直線光影接縫。已按共邊及角位的最低漸入比例平滑過渡，經度環繞亦使用同一規則。GPU 回歸案例覆蓋相鄰瓦片缺失及漸入未完成兩種情況。
 
 已用 JavaScript 實際解碼逐格核對 17,947,263 個有效陸地格點及所有海陸分類。量測報告在 `output/reports/rocket-terrain-compact-point-check.json`。兩份完整高度陣列仍佔 100.7 MB，實體 iPad 與手機的解碼峰值及幀率留待真機測試。
+
+### 容量及複審證據
+
+複審提交 `f145c5040cc284835231534bcc5b6027ae5951ba` 的來源及解壓 ZIP 都通過 `detail,local-transfer` 瀏覽器測試，涵蓋 GPU 法線及桌面 4K 本地飛行。限速設定為 2 MiB/s、70 ms 延遲，每種交付各三次冷載入。六次啟動及兩次完成升空、分離、開傘、着陸、旋轉鏡頭並等待 30 秒的飛行，地形 HTTP body 均為 **4,545,767 bytes**，整個活動為 5,784,737 bytes。量測包含主頁及 Worker 所用的地形解碼資產，計成功送出的 body，不計 HTTP 標頭。
+
+| 計時 | 來源版中位數 | ZIP 版中位數 |
+|---|---:|---:|
+| 工廠首次可操作 | 1.903 s | 1.813 s |
+| 場景準備完成，可發射 | 5.958 s | 5.878 s |
+
+預算低於 5 MB 驗收上限，桌面較 4.5 MB 目標多約 46 KB。初步較小貼圖的版本量得約 4.45 MB。完整報告在 `output/playwright/rocket-side-booster-lab/terrain-reviewed/explorer-report.json`。GPU 實測缺片時兩邊的法線強度在接縫為 0，漸入一半時兩邊均為 128/255。並排檢視了發射區、喜馬拉雅及安第斯畫面，全球各視角的 1 CSS px 輪廓目標仍欠逐像素量測。
+
+GPT-6 Astra xhigh 複審上述提交，確認接縫已修正，沒有新發現。14 個活動 Node 測試檔、`npm run check`、`npm run check:tests`、獨立版檔案閉合及 Pages 本機建置檢查通過。已對 `a27d3ca..f145c504` 執行 committed selection preview，因舊瓦片已移出 runtime manifest 而保守選擇 `full`，包含火箭瀏覽器 owner。這份預覽是 `output/reports/rocket-terrain-selection.json`，不視為執行了全庫 307 項。
+
+### 發佈
+
+GitHub 專用分支已推送。Sites 第 54 版的執行程式來自複審提交 `f145c504`，5,337 個執行檔案由 Git 物件直接匯出。由於來源服務每次推送上限為 64 MiB，先以兩批新增瓦片同步，再提交完整檔案樹。最終 Sites 來源為 `038475a6a032eabb68af17418474beea541d94b2`，部署 `appgdep_6af5f81fea988191923347671ad5d180` 的狀態為 `succeeded`。發佈記錄在 `output/reports/rocket-terrain-sites-release.json`。網站位於 [小小航天家 Sites](https://simlab-rocket-side-booster.ieyp.chatgpt.site)。
 
 ## 10. 方法參考
 
