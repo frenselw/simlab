@@ -38,6 +38,40 @@ async function run({base,label,P,T,H,cdp,call,viewport,open,wait,shot,report}){
  }
  await viewport(1194,834);await cdp.send('Emulation.setDeviceMetricsOverride',{width:1194,height:834,deviceScaleFactor:2,mobile:false});await open(base,T.reachOrbit());await call('app.view("orbit");');const budget=await call('const s=app.getScene();return{coarse:matchMedia("(pointer: coarse)").matches,pixelRatio:s.renderer.getPixelRatio(),textureBytes:s.diagnostics().textureBytes,earthWidth:s.diagnostics().earthMapWidth,gridBytes:RocketSurface.surfaceGrid().data.byteLength};');if(budget.coarse)assert(budget.pixelRatio<=1.5&&budget.earthWidth===2048);assert(budget.textureBytes<100e6&&budget.gridBytes===67133442);await shot(label+'-world-ipad-landscape');report.flows.push({label,case:'world-budget',budget});
 }
+async function detailSeam(H,cdp){
+ const result=await H.evaluate(cdp,`(()=>{
+  const T=window.__detailThree,M=window.__detailTerrain,renderer=window.__rocketApp.getScene().renderer;
+  const pixels=new Uint8Array(144*72*4),lookup=new T.DataTexture(pixels,144,72);
+  const scene=new T.Scene(),camera=new T.OrthographicCamera(-1,1,1,-1,0,1);
+  const uv={value:new T.Vector2()},material=new T.ShaderMaterial({
+   uniforms:{...M.surfaceUniforms,uDetailLookup:{value:lookup},uProbeUv:uv},
+   vertexShader:'void main(){gl_Position=vec4(position.xy,0.,1.);}',
+   fragmentShader:M.groundLight+'uniform vec2 uProbeUv;void main(){gl_FragColor=vec4(vec3(detailedNormal(uProbeUv).a),1.);}',
+   toneMapped:false
+  });
+  const geometry=new T.PlaneGeometry(2,2),target=new T.WebGLRenderTarget(1,1),previous=renderer.getRenderTarget();
+  scene.add(new T.Mesh(geometry,material));
+  const read=(x,y)=>{
+   uv.value.set(x/144,y/72);
+   renderer.render(scene,camera);
+   const sample=new Uint8Array(4);
+   renderer.readRenderTargetPixels(target,0,0,1,1,sample);
+   return sample[0];
+  };
+  const row=30;
+  try{
+   renderer.setRenderTarget(target);
+   pixels.set([1,255,0,255],(row*144+143)*4);lookup.needsUpdate=true;
+   const isolated=[read(143.5,row+.5),read(143.99999,row+.5),read(.00001,row+.5)];
+   pixels.set([2,128,0,255],row*144*4);lookup.needsUpdate=true;
+   const midFade=[read(143.5,row+.5),read(143.99999,row+.5),read(.00001,row+.5)];
+   return {isolated,midFade};
+  }finally{renderer.setRenderTarget(previous);target.dispose();lookup.dispose();geometry.dispose();material.dispose();}
+ })()`);
+ assert.deepEqual(result.isolated,[255,0,0],'An absent neighbor blends into the same coarse normal across the date line');
+ assert.deepEqual(result.midFade,[255,128,128],'Both sides share the lower opacity while a tile fades in');
+ return result;
+}
 async function detail({base,label,P,T,H,cdp,call,viewport,open,wait,shot,report}){
  await viewport(1413,923);await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:false});
  const orbital=T.launched();orbital.phase='coast';orbital.flight.status='flying';orbital.flight.controls.lit=false;
@@ -87,6 +121,7 @@ async function detail({base,label,P,T,H,cdp,call,viewport,open,wait,shot,report}
   assert(chosen,'A ready nonregional, east-west slope is required for the GPU check');
   const probe=await call(`const {probe,lon,lat}=${JSON.stringify(chosen)},s=app.getScene(),T=window.__detailThree,M=window.__detailTerrain,basis=[[1,0,0],[0,1,0],[0,0,1]].map(q=>{const [a,b]=RocketSurface.geographic(...q).map(v=>v*Math.PI/180);return new T.Vector3(Math.cos(b)*Math.cos(a),Math.sin(b),Math.cos(b)*Math.sin(a));}),a=lon*Math.PI/180,b=lat*Math.PI/180,up=new T.Vector3(Math.cos(b)*Math.cos(a),Math.sin(b),Math.cos(b)*Math.sin(a)),east=new T.Vector3(-Math.sin(a),0,Math.cos(a)),north=new T.Vector3(-Math.sin(b)*Math.cos(a),Math.cos(b),-Math.sin(b)*Math.sin(a)),convert=v=>new T.Vector3(...basis.map(row=>row.dot(v))),components=probe.rgb.map(v=>(v-128)/127),expected=convert(east.multiplyScalar(components[0]).addScaledVector(north,components[1]).addScaledVector(up,components[2])).normalize(),point=convert(up),priorRotation=M.surfaceUniforms.uSurfaceRotation.value;M.surfaceUniforms.uSurfaceRotation.value=new T.Matrix3();const scene=new T.Scene(),camera=new T.OrthographicCamera(-1,1,1,-1,0,1),geometry=new T.PlaneGeometry(2,2),material=new T.ShaderMaterial({uniforms:{...M.surfaceUniforms,uSlopeDetail:{value:1},uPoint:{value:point}},vertexShader:'void main(){gl_Position=vec4(position.xy,0.,1.);}',fragmentShader:M.groundLight.replace(' return color;\\n}',' return normal*.5+.5;\\n}')+'uniform vec3 uPoint;void main(){vec3 p=normalize(uPoint);gl_FragColor=vec4(shadeSurface(vec3(.4),p,p,p,p,normalize(vec3(.3,.5,1.)),0.),1.);}',toneMapped:false}),target=new T.WebGLRenderTarget(1,1),previous=s.renderer.getRenderTarget(),pixel=new Uint8Array(4);scene.add(new T.Mesh(geometry,material));try{s.renderer.setRenderTarget(target);s.renderer.render(scene,camera);s.renderer.readRenderTargetPixels(target,0,0,1,1,pixel);}finally{s.renderer.setRenderTarget(previous);M.surfaceUniforms.uSurfaceRotation.value=priorRotation;target.dispose();material.dispose();geometry.dispose();}return{pixel:Array.from(pixel),expected:expected.toArray().map(v=>Math.round((v*.5+.5)*255))};`);
   assert(probe.expected.every((v,i)=>Math.abs(v-probe.pixel[i])<=3),'Actual global shader must preserve the source normal direction '+JSON.stringify(probe));report.flows.push({label,case:'global-detail-gpu',width,...chosen,...probe});
+  if(width===1024)report.flows.push({label,case:'global-detail-seam',...await detailSeam(H,cdp)});
   if(width===1024){await call('app.getScene().renderer.forceContextLoss();');await wait(()=>call('return app.getScene().lost;'),'detail context loss');await call('app.getScene().renderer.forceContextRestore();');await wait(()=>call('return !app.getScene().lost;'),'detail context restore');const restored=await call('const s=app.getScene();s.draw();return{loaded:s.globalTerrain.userData.detail.loaded,visible:s.globalTerrain.userData.detail.visible,shaders:s.renderer.info.programs.every(p=>p.diagnostics?.runnable!==false)};');assert(restored.loaded>0&&restored.visible>0&&restored.shaders);await shot(label+'-global-detail-restored');report.flows.push({label,case:'global-detail-restore',restored});}
  }
 }

@@ -73,10 +73,22 @@ vec3 geographicDirection(vec3 p){
 vec2 geographicUv(vec3 geo){return vec2(atan(geo.z,geo.x)/6.283185307+.5,asin(clamp(geo.y,-1.0,1.0))/3.141592654+.5);}
 float regionalHeight(vec2 uv){return dot(texture2D(uRegionalSurface,(uv*2048.0+.5)/2049.0).rg,vec2(65280.0,255.0))*.1;}
 float worldHeight(vec2 uv){uv.x=fract(uv.x);uv.y=clamp(uv.y,0.0,1.0);return dot(texture2D(uWorldSurface,(uv*vec2(2048.0,1024.0)+.5)/vec2(2048.0,1025.0)).rg,vec2(65280.0,255.0));}
+vec4 detailEntry(vec2 cell){
+ cell=vec2(mod(cell.x,144.0),clamp(cell.y,0.0,71.0));
+ return texture2D(uDetailLookup,(cell+.5)/vec2(144.0,72.0));
+}
 vec4 detailedNormal(vec2 uv){
- if(uDetailEnabled<.5)return vec4(0.0);uv.x=fract(uv.x);uv.y=clamp(uv.y,0.0,.9999999);vec2 cell=floor(uv*vec2(144.0,72.0));vec4 entry=texture2D(uDetailLookup,(cell+.5)/vec2(144.0,72.0));float slot=floor(entry.r*255.0+.5)-1.0;if(slot<0.0)return vec4(0.0);
+ if(uDetailEnabled<.5)return vec4(0.0);uv.x=fract(uv.x);uv.y=clamp(uv.y,0.0,.9999999);vec2 cell=floor(uv*vec2(144.0,72.0));vec4 entry=detailEntry(cell);float slot=floor(entry.r*255.0+.5)-1.0;if(slot<0.0)return vec4(0.0);
  vec2 local=uv*vec2(144.0,72.0)-cell,atlas=(vec2(mod(slot,4.0),floor(slot/4.0))*259.0+1.5+local*256.0)/vec2(1036.0,777.0);
- return vec4(normalize((texture2D(uDetailAtlas,atlas).rgb*255.0-128.0)/127.0),entry.g);
+ // Use the same opacity on each side of a shared edge, including a tile still loading.
+ vec2 blend=smoothstep(vec2(0.0),vec2(4.0/256.0),min(local,1.0-local));
+ vec2 adjacent=step(vec2(.5),local)*2.0-1.0;
+ float x=entry.g,y=entry.g,corner=entry.g;
+ if(blend.x<1.0)x=min(x,detailEntry(cell+vec2(adjacent.x,0.0)).g);
+ if(blend.y<1.0)y=min(y,detailEntry(cell+vec2(0.0,adjacent.y)).g);
+ if(blend.x<1.0&&blend.y<1.0)corner=min(min(x,y),detailEntry(cell+adjacent).g);
+ float opacity=mix(mix(corner,y,blend.x),mix(x,entry.g,blend.x),blend.y);
+ return vec4(normalize((texture2D(uDetailAtlas,atlas).rgb*255.0-128.0)/127.0),opacity);
 }
 vec3 terrainIrradiance(vec3 normal,vec3 radial,vec3 sun){
  normal=normalize(mix(radial,normal,uSlopeDetail));

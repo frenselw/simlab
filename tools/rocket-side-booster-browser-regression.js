@@ -251,6 +251,7 @@ async function world(base,label){return World.run({base,label,P,T,H,cdp,call,vie
 async function detail(base,label){return World.detail({base,label,P,T,H,cdp,call,viewport,open,wait,shot,report});}
 async function localTransfer(base,label){
   await viewport(1024,768);
+  await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:false});
   await cdp.send('Network.emulateNetworkConditions',{offline:false,latency:70,downloadThroughput:2*1024*1024,uploadThroughput:2*1024*1024});
   const delivered=[];
   const measure=(request,response)=>{
@@ -282,7 +283,10 @@ async function localTransfer(base,label){
       const factory=await traffic();
       await wait(()=>call('return app.getScene().flightReady;'),'cold flight ready');
       const ready=await traffic();
-      assert(ready.bodyBytes>4000000&&ready.bodyBytes<=5000000,JSON.stringify(ready));
+      for(const name of ['region-v2.gz','world-v2.gz','region-mesh-v2.gz','coarse.bin.gz','earth-4k.webp']){
+        assert(ready.files.some(([file])=>file.endsWith('/'+name)),'Missing measured terrain resource '+name);
+      }
+      assert(ready.bodyBytes<=5000000,JSON.stringify(ready));
       cold.push({factory,ready});
     }
     const pad=T.singlePad(0,1,0);
