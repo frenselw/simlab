@@ -111,7 +111,7 @@ function renderRecovery(){const f=controller.state?.flight,c=f?.capsule,detached
   d.chuteArm.hidden=false;d.chuteArm.disabled=!detached||f.controlled==='upper'||Boolean(c?.chute.armed)||RocketRecovery.terminal(f||{});d.chuteArm.title=!detached?'分離太空艙後可令降落傘待命':f.controlled==='upper'?'切換至太空艙以操控降落傘':'待命後，下降至安全高度及速度時自動展開';d.chuteArm.textContent=c?.chute.armed?'降落傘已待命':'降落傘待命';d.autoDispose.hidden=!detached||f.controlled!=='upper';const manual=f?.upperStage?.auto.mode==='manual';d.autoDispose.disabled=!manual||Boolean(f?.upperStage&&RocketRecovery.terminal(f.upperStage));d.autoDispose.textContent=manual?'恢復自動離軌':'自動離軌已啟用';
   for(const button of document.querySelectorAll('[data-throttle],[data-pitch]'))button.disabled=!flightControlAllowed(button.hasAttribute('data-pitch')?'angle':'throttle');d.throttleSlider.disabled=!flightControlAllowed('throttle');const dialDisabled=!flightControlAllowed('angle');d.pitchDial.setAttribute('aria-disabled',String(dialDisabled));d.pitchDial.tabIndex=dialDisabled?-1:0;if(dialDisabled)cancelDial();
   const modes={waiting:'等待安全距離',turning:'逆行轉向',burning:'離軌燃燒',coasting:'已進入再入軌道','no-fuel':'燃料不足，離軌未完成',manual:'手動操控',done:'已結束'};
-  d.recoveryStatus.textContent=detached?'太空艙：'+({landed:'安全着陸',impact:'硬着陸／撞毀',destroyed:'隔熱防護耗盡',escaped:'離開範圍'}[f.status]||'飛行中')+' · 隔熱盾 '+fmt((1-c.heat)*100,0)+'% · 二級：'+modes[f.upperStage.auto.mode]+(c.touchdown?' · 接地 '+fmt(c.touchdown.normal)+' m/s':''):c?'內置返航引擎、隔熱盾及兩階段降落傘；關機後可分艙。':'舊試飛沿用原設定，重新試飛使用新版太空艙。';
+  d.recoveryStatus.textContent=detached?'太空艙：'+({landed:'安全着陸',impact:'硬着陸／撞毀',destroyed:'隔熱防護耗盡',escaped:'離開範圍'}[f.status]||'飛行中')+' · 隔熱盾 '+fmt((1-c.heat)*100,0)+'% · 二級：'+modes[f.upperStage.auto.mode]+(c.touchdown?' · 接地總速率 '+fmt(Math.hypot(c.touchdown.normal,c.touchdown.tangent),2)+' m/s':''):c?'內置返航引擎、隔熱盾及兩階段降落傘；關機後可分艙。':'舊試飛沿用原設定，重新試飛使用新版太空艙。';
   d.reentryHint.hidden=!detached||f.controlled==='upper';
   if(detached){const e=RocketRecovery.reentry(f,M.atmosphere),o=O.elements(f.state);d.reentryHint.textContent=RocketRecovery.terminal(f)?'熱防護餘量 '+fmt((1-c.heat)*100,0)+'%（非溫度）':c.chute.phase!=='stowed'?'降落傘減速中，氣流與傘繩穩定艙身；返航引擎已鎖定。':c.chute.armed&&o.radial>=0?'上升中，降落傘已待命；下降至安全高度及速度才會展開。':'隔熱盾迎風偏角 '+(o.speed>1?fmt(e.shieldAngle,0)+'°':'—')+' · 路徑角 γ '+fmt(e.pathAngle,1)+'°（負值下降）\n'+(o.speed>1?'用角度掣調至約 '+fmt(e.targetAngle,0)+'°，令艙底迎風；減速燃燒後關機。':'用角度掣調整艙身朝向。')+(e.flux>.001&&!e.protected?' 隔熱盾偏離來流，熱防護消耗較快。':'')+' 再入期間隨速度方向微調，路徑斜度由軌道決定。';}
   renderCommandZones(f,body);
@@ -129,8 +129,9 @@ function renderCommandZones(f,body){if(!f)return;const phase=EDIT_PHASE(),dead=R
   d.recoveryControls.hidden=!controller.editable||!detached;
   d.igniteButton.hidden=d.separateButton.hidden=false;
   const bodyName=f.controlled==='upper'?'二級／核心級':mainName;d.igniteButton.textContent=body.controls.lit?'關機':'點火';d.igniteButton.setAttribute('aria-label',bodyName+d.igniteButton.textContent);
-  d.igniteButton.disabled=dead||(!body.controls.lit&&(fuel<=0||Boolean(body.capsule?.detached&&body.capsule.chute.phase!=='stowed')))||renderLost;
-  const text=dead?'引擎已停止':fuel<=0?'燃料已用盡':body.controls.lit?'引擎已點火 · 油門 '+fmt(body.controls.throttle*100,0)+'%':P.burning(body)?'主引擎已關閉，固體繼續燃燒':'引擎已關閉';if(d.engineStatus.textContent!==text)d.engineStatus.textContent=text;
+  const capsule=body.capsule?.detached?body.capsule:null;
+  d.igniteButton.disabled=dead||(!body.controls.lit&&(fuel<=0||Boolean(capsule&&capsule.chute.phase!=='stowed')))||renderLost;
+  const text=dead?'引擎已停止':fuel<=0?(capsule?'返航引擎燃料已用盡'+(capsule.chute.phase==='stowed'?' · RCS 仍可轉向':''):'燃料已用盡'):body.controls.lit?'引擎已點火 · 油門 '+fmt(body.controls.throttle*100,0)+'%':P.burning(body)?'主引擎已關閉，固體繼續燃燒':'引擎已關閉';if(d.engineStatus.textContent!==text)d.engineStatus.textContent=text;
   const action=separationAction(f);d.separateButton.textContent=action.label;d.separateButton.disabled=!action.enabled||phase==='ended'||renderLost;d.separationReason.textContent=action.reason;d.separateButton.setAttribute('aria-describedby','separationReason');d.separateButton.title=action.reason;
   d.playButton.hidden=false;d.playButton.disabled=phase==='pad'||phase==='ended'||renderLost;
 }

@@ -26,6 +26,16 @@
 
 保留並遷移物理Node測試（發射、軌道、solid／staging、返航、熱防護、傘、撞地、聲音、互動／素材），刪除已失效評分／LMS codec測試，以workbench controller測試覆蓋新啟動／reset／pause／非法command及frame budget。Browser由SCORM attempt fixtures改為source與解壓standalone；檢查API存在也零讀寫、無評分提交DOM／scripts、refresh fresh、反覆試飛，手機緊湊頂欄及trusted touch／fullscreen／dial-fader、助推器／二級／太空艙轉向與分離、開傘平滑鏡頭及安全返航，保留WebGL錯誤／遺漏資產檢查。registry與selection-preview隨刪除的assessed owners更新，不假稱舊58 cases仍完整執行；與assets一致的ZIP／Site closure及原481檔hash驗證。真手機未驗證；真Moodle readiness對本工具N/A。
 
+### 太空艙姿態控制與接地規則
+
+太空艙的姿態控制（RCS）採免計推進劑的教學簡化。轉向沿用每秒 12° 上限，剩餘燃料只供返航引擎使用。開傘後由氣流及傘繩穩定姿態。
+
+太空艙接觸地面或水面一刻的總速率低於 20 m/s 判為安全着陸，涵蓋未開傘的情況。達到 20 m/s 判為撞毀。已有的觸地法向、側向速度與坡度繼續供傾側和浮沉動畫使用。下方 6／5 m/s 分量門檻是舊版本的驗證記錄。
+
+沿用返航、音效、飛行和着陸測試。覆蓋有油和零油時的姿態控制、返航引擎耗油及鎖定、無傘與開傘時門檻兩側的觸地、着陸與撞地事件，並驗證既有完整返航流程。
+
+本機 14 個火箭 Node 測試檔、`npm run check` 和 `npm run check:tests` 通過。來源與解壓獨立版各通過 14 個 Chromium 流程，確認零油仍可轉向及顯示噴流，無傘以 19.9 m/s 接地安全着陸，以 20.1 m/s 接地判撞毀。完整的開傘返航流程也通過。[瀏覽器報告](../output/reports/rocket-capsule-rcs-landing-browser.json)
+
 ## 已執行驗證
 
 - 8 個模擬 Node 測試檔及 standalone browser/package contract 共 9 項通過；registry／selection 另 2 項通過。`npm run check` 與 `npm run check:tests` 通過（301 entries：258 Node、43 browser；48 helpers、2 manual）。

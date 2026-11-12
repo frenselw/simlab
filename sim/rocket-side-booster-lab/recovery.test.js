@@ -11,9 +11,26 @@ console.log('Capsule return: mass/momentum, independent deorbit, 200km braking, 
 
 let real=T.reachOrbit();const injection=O.elements(real.flight.state);real=M.change(real,{type:'capsule-separate'});real=M.change(real,{type:'control',key:'mode',value:'retrograde'});M.advance(real,16);real=M.change(real,{type:'ignite'});for(let i=0;i<1000&&O.elements(real.flight.state).hp>60000;i++)M.advance(real,.1);real=M.change(real,{type:'stop'});real=M.change(real,{type:'chute-arm'});for(let i=0;i<10000&&!R.terminal(real.flight);i++)M.advance(real,1);assert.equal(real.flight.status,'landed');continueCheck(real);console.log(JSON.stringify({productionLaunchAndReturn:true,injection:[injection.hp,injection.ha],touchdown:real.flight.capsule.touchdown,time:real.flight.t,fuel:real.flight.capsule.fuel}));
 
-for(const [normal,tangent,expected]of [[5.99,0,'landed'],[6.01,0,'impact'],[5,4.99,'landed'],[5,5.01,'impact']]){const s=M.change(orbit(),{type:'capsule-separate'}),f=s.flight;f.state=[P.R+.00001,0,0,-normal,tangent,0];M.advance(s,.001);assert.equal(f.status,expected);continueCheck(s);}
+for(const phase of ['stowed','main']){
+ for(const [radial,tangent,expected]of [[19.99,0,'landed'],[20.01,0,'impact'],[12,15,'landed'],[14,15,'impact']]){
+  const s=M.change(orbit(),{type:'capsule-separate'}),f=s.flight;
+  f.state=[P.R+.00001,0,0,-radial,tangent,0];f.capsule.chute={armed:phase==='main',phase,since:phase==='main'?f.t-5:null};
+  M.advance(s,.001);
+  assert.equal(f.status,expected,phase+' '+radial+'/'+tangent);
+  const hit=f.capsule.touchdown;
+  assert.equal(Math.hypot(hit.normal,hit.tangent)<20,expected==='landed');
+  assert.equal(O.elements(f.state).speed,0);
+  continueCheck(s);
+ }
+}
+{
+ const f=M.change(orbit(),{type:'capsule-separate'}).flight;
+ f.state=[P.R,0,0,-12,16,0];
+ R.stepCapsule(f,0,M.atmosphere);
+ assert.equal(f.status,'impact','Exactly 20 m/s is outside the safe range');
+}
 let manual=M.change(orbit(),{type:'capsule-separate'});manual=M.change(manual,{type:'select-body',value:'upper'});manual=M.change(manual,{type:'control',key:'throttle',value:.25});assert.equal(manual.flight.upperStage.auto.mode,'manual');assert.equal(manual.flight.upperStage.controls.throttle,.25);assert.equal(manual.flight.controls.throttle,1);continueCheck(manual);manual=M.change(manual,{type:'auto-dispose'});assert.equal(manual.flight.upperStage.auto.mode,'waiting');continueCheck(manual);
-console.log('Touchdown limits on both velocity components, background continuation and selected-body manual/automatic control passed.');
+console.log('20 m/s total touchdown threshold with and without parachutes, background continuation and manual/automatic control passed.');
 
 
 let wrong=M.change(entrySnapshot,{type:'control',key:'angle',value:0});for(let i=0;i<10000&&!R.terminal(wrong.flight);i++)M.advance(wrong,1);assert.equal(wrong.flight.status,'destroyed');assert.equal(wrong.flight.capsule.heat,1);continueCheck(wrong);console.log('Thermal comparison: protected retrograde entry lands; exposed orientation exhausts protection and exhausts the heat shield.');
@@ -82,8 +99,21 @@ const hot=M.change(orbit(),{type:'capsule-separate'}).flight;hot.state=[P.R+6500
 console.log('360-degree local attitude: both bodies, reverse tangential velocity, invalid boundary rejection, continued flight and shared reentry angles/thermal protection passed.');
 
 
-for(const [angle,sign]of [[358,-1],[2,1]]){const a=M.change(orbit(),{type:'capsule-separate'}).flight;a.state=[P.R+200000,0,0,100,0,0];a.attitude=0;a.controls={mode:'tilt',angle,throttle:0,lit:false};const fuel=a.capsule.fuel;R.stepCapsule(a,.1,M.atmosphere);const turn=Math.atan2(Math.sin(a.attitude),Math.cos(a.attitude));assert.equal(Math.sign(turn),sign);assert(Math.abs(turn)<=12*Math.PI/180*.1+1e-9);assert(a.capsule.fuel<fuel);}
-console.log('Cross-zero steering turns in each requested direction at the finite RCS rate and consumes fuel.');
+for(const fuel of [0,30])for(const [angle,sign]of [[358,-1],[2,1]]){
+ const s=M.change(orbit(),{type:'capsule-separate'}),f=s.flight;
+ f.state=[P.R+200000,0,0,100,0,0];f.attitude=0;f.capsule.fuel=fuel;
+ const command=M.change(s,{type:'control',key:'angle',value:angle}),steered=command.flight;
+ R.stepCapsule(steered,.1,M.atmosphere);
+ const turn=Math.atan2(Math.sin(steered.attitude),Math.cos(steered.attitude));
+ assert(Math.abs(turn-sign*12*Math.PI/180*.1)<1e-9);
+ assert.equal(steered.capsule.fuel,fuel);
+ if(!fuel){
+  const lit=M.change(command,{type:'ignite'}).flight;
+  assert.equal(lit.controls.lit,false);
+  assert.equal(R.thrust(lit),0);
+ }
+}
+console.log('Cross-zero steering turns at the same RCS rate with or without return-engine fuel.');
 
 for(const radial of [0,1,30]){const a=M.change(orbit(),{type:'capsule-separate'}).flight;a.state=[P.R+5000,0,0,radial,0,0];a.capsule.chute.armed=true;a.controls.lit=false;R.stepCapsule(a,radial===0?0:.01,M.atmosphere);assert.equal(a.capsule.chute.phase,'stowed');}
 const chuteFlight=M.change(orbit(),{type:'capsule-separate'}).flight;chuteFlight.state=[P.R+5000,0,0,-20,0,0];chuteFlight.capsule.chute={armed:true,phase:'main',since:0};chuteFlight.t=5;chuteFlight.attitude=Math.PI/2;const fullArea=R.area(chuteFlight),fuelBefore=chuteFlight.capsule.fuel;R.stepCapsule(chuteFlight,.1,M.atmosphere);assert(chuteFlight.attitude<Math.PI/2&&chuteFlight.attitude>Math.PI/2-13*Math.PI/180*.1);assert.equal(chuteFlight.capsule.fuel,fuelBefore);assert.equal(fullArea,120);

@@ -8,7 +8,7 @@
     const air=clamp(M.atmosphere(Math.hypot(...f.state.slice(0,3))-P.R)/1.225),engine=f.craft.stages[f.active].engine,throttle=M.coreThrust(f)>0?f.controls.throttle:0;
     voices[0]={gain:(f.capsule?.detached?.12:.32)*Math.sqrt(throttle),hz:150+[700,430,560][engine]*throttle,bass:[48,72,60][engine],pan:0};
     voices[1]={gain:P.burning(f)?.21*Math.sqrt(f.craft.boosters/2):0,hz:650,bass:58,pan:0};
-    if(f.capsule?.detached&&f.capsule.chute.phase==='stowed'&&f.capsule.fuel>0&&Math.abs(Math.atan2(Math.sin(M.targetAttitude(f)-f.attitude),Math.cos(M.targetAttitude(f)-f.attitude)))>.01)voices[1]={gain:.025*Math.sqrt(air),hz:1200,bass:0,pan:0};
+    if(f.status==='flying'&&f.capsule?.detached&&f.capsule.chute.phase==='stowed'&&Math.abs(Math.atan2(Math.sin(M.targetAttitude(f)-f.attitude),Math.cos(M.targetAttitude(f)-f.attitude)))>.01)voices[1]={gain:.025*Math.sqrt(air),hz:1200,bass:0,pan:0};
     voices[2]={gain:.085*Math.sqrt(air)*clamp(Math.hypot(...f.state.slice(3,6))/500),hz:2400,bass:0,pan:0};
     pieces.slice(0,4).forEach((p,i)=>{const distance=Math.hypot(...p.coast.state.slice(0,3).map((v,j)=>v-f.state[j]));voices[i+3]={gain:p.coast.fuel>0&&p.coast.status==='flying'?.13*Math.sqrt(air)/(1+(distance/35)**2):0,hz:650,bass:58,pan:clamp(p.pan||0,-.95,.95)};});
     const fade=flightGain(f);for(const v of voices)v.gain*=fade;return voices;

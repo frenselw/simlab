@@ -53,15 +53,19 @@
   function stepCapsule(f,dt,atmosphere,report){
     if(terminal(f)){f.t+=dt;settle(f);return;}
     const c=f.capsule,o=O.elements(f.state),startTime=f.t;chute(f,atmosphere(o.height),report);
-    const underChute=c.chute.phase!=='stowed',load=underChute&&atmosphere(o.height)>1e-5?chuteLoad(f)*Math.min(1,(area(f)-1.5)/8):0,target=underChute?Math.atan2(f.state[4],f.state[3])+Math.PI:angle(f),delta=Math.atan2(Math.sin(target-f.attitude),Math.cos(target-f.attitude)),turn=Math.sign(delta)*Math.min(Math.abs(delta),12*Math.PI/180*dt*(underChute?load:1),underChute?Infinity:c.fuel/.0005*Math.PI/180);
-    if(!underChute)c.fuel=Math.max(0,c.fuel-Math.abs(turn)*180/Math.PI*.0005);f.attitude=O.wrap(f.attitude+turn);
+    const underChute=c.chute.phase!=='stowed',load=underChute&&atmosphere(o.height)>1e-5?chuteLoad(f)*Math.min(1,(area(f)-1.5)/8):0,target=underChute?Math.atan2(f.state[4],f.state[3])+Math.PI:angle(f),delta=Math.atan2(Math.sin(target-f.attitude),Math.cos(target-f.attitude));
+    const turn=Math.sign(delta)*Math.min(Math.abs(delta),12*Math.PI/180*dt*(underChute?load:1));
+    f.attitude=O.wrap(f.attitude+turn);
     const force=thrust(f),flow=force/(300*P.G0),h=Math.min(dt,flow?c.fuel/flow:dt),a=f.attitude,cd=area(f),start=f.state.slice(),m=mass(f);
     const derivative=q=>{const r=Math.hypot(q[0],q[1]),v=Math.hypot(q[3],q[4]),drag=.5*atmosphere(r-P.R)*cd*v,g=P.MU/r**3;return [q[3],q[4],0,-g*q[0]+(force*Math.cos(a)-drag*q[3])/m,-g*q[1]+(force*Math.sin(a)-drag*q[4])/m,0];};
     const integrate=t=>{const add=(q,k,s)=>q.map((v,i)=>v+k[i]*s),k1=derivative(start),k2=derivative(add(start,k1,t/2)),k3=derivative(add(start,k2,t/2)),k4=derivative(add(start,k3,t));return start.map((v,i)=>v+t/6*(k1[i]+2*k2[i]+2*k3[i]+k4[i]));};
     let next=integrate(h),used=h;
     // Locate contact within terrain cells as in the launcher integrator.
     const samples=Math.max(1,Math.ceil(Math.hypot(next[0]-start[0],next[1]-start[1])/250));
-    if(Math.min(Math.hypot(...start.slice(0,2)),Math.hypot(...next.slice(0,2)))<P.R+S.MAX_HEIGHT+1000){for(let i=1;i<=samples;i++){if(S.clearance(integrate(h*i/samples),f.t+h*i/samples)<=0){let lo=h*(i-1)/samples,hi=h*i/samples;for(let j=0;j<30;j++){const mid=(lo+hi)/2;if(S.clearance(integrate(mid),f.t+mid)>0)lo=mid;else hi=mid;}used=hi;next=integrate(used);c.touchdown=contactVelocity(next,f.t+used);f.status=c.touchdown.normal<=6&&c.touchdown.tangent<=5?'landed':'impact';const r=Math.hypot(next[0],next[1]),ground=S.radius(next,f.t+used);next[0]*=ground/r;next[1]*=ground/r;next[3]=next[4]=0;break;}}}
+    if(Math.min(Math.hypot(...start.slice(0,2)),Math.hypot(...next.slice(0,2)))<P.R+S.MAX_HEIGHT+1000){for(let i=1;i<=samples;i++){if(S.clearance(integrate(h*i/samples),f.t+h*i/samples)<=0){let lo=h*(i-1)/samples,hi=h*i/samples;for(let j=0;j<30;j++){const mid=(lo+hi)/2;if(S.clearance(integrate(mid),f.t+mid)>0)lo=mid;else hi=mid;}used=hi;next=integrate(used);
+      c.touchdown=contactVelocity(next,f.t+used);
+      f.status=Math.hypot(next[3],next[4])<20?'landed':'impact';
+      const r=Math.hypot(next[0],next[1]),ground=S.radius(next,f.t+used);next[0]*=ground/r;next[1]*=ground/r;next[3]=next[4]=0;break;}}}
     if(Math.hypot(next[0],next[1])>P.R+1e8){let lo=0,hi=h;for(let j=0;j<32;j++){const mid=(lo+hi)/2;if(Math.hypot(...integrate(mid).slice(0,2))<=P.R+1e8)lo=mid;else hi=mid;}used=lo;next=integrate(lo);f.status='escaped';}
     f.state=next;f.t+=dt;c.fuel=Math.max(0,c.fuel-flow*used);
     const end=O.elements(next),entry=reentry(f,atmosphere);
