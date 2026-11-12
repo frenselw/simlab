@@ -76,17 +76,32 @@ async function main() {
         const api = apis[index];
         const rocket = api === '__rocketApp';
         const startup = performance.now();
-        // A cold public startup downloads both compressed height grids before creating the 3D scene.
+        // Cold public downloads can take longer than the local terrain preparation.
         const startupTimeout = rocket && remote ? 150000 : 15000;
-        await H.waitForCondition(() => evaluate('!!window.' + api), slug + ' initialization', startupTimeout);
+        const initialized = rocket ? 'window.__rocketApp?.getScene()?.renderCount > 0' : '!!window.' + api;
+        await H.waitForCondition(() => evaluate(initialized), slug + ' initialization', startupTimeout);
         const startupMs = Math.round(performance.now() - startup);
+        let terrainReadyMs;
         if (rocket) {
-          assert(await evaluate(api + '.getScene() && ' + api + '.diagnostics().scene.webgl2'), 'Rocket WebGL initialization');
+          assert(await evaluate(api + '.getScene().renderer.capabilities.isWebGL2 !== false'), 'Rocket WebGL initialization');
           assert.equal(await evaluate(api + '.controller.editable'), true);
           assert.equal(await evaluate(api + '.getState().phase'), 'workshop');
-          for (const action of [{type:'part',stage:0,part:'engine',value:0},{type:'part',stage:0,part:'large',value:2},{type:'boosters'},{type:'capsule'},{type:'launch'}]) assert(await evaluate(api + '.command(' + JSON.stringify(action) + ')'), 'Legal rocket assembly action');
+          for (const action of [{type:'part',stage:0,part:'engine',value:0},{type:'part',stage:0,part:'large',value:2},{type:'boosters'},{type:'capsule'}]) assert(await evaluate(api + '.command(' + JSON.stringify(action) + ')'), 'Legal rocket assembly action');
           assert.equal(await evaluate(api + '.getState().craft.boosters'), 2);
+          assert(await evaluate('__rocketApp.getScene().flightReady || !__rocketApp.command({type:"launch"})'), 'Launch must wait for terrain');
+          await H.waitForCondition(() => evaluate('!document.getElementById("launchButton").disabled'), 'Rocket terrain ready', startupTimeout);
+          terrainReadyMs = Math.round(performance.now() - startup);
+          await evaluate('document.getElementById("launchButton").click()');
           await H.waitForCondition(() => evaluate(api + '.getState().phase === "pad" && ' + api + '.diagnostics().scene.renderCount > 0'), 'Assembled rocket on launchpad');
+          await evaluate('document.getElementById("igniteButton").click()');
+          await H.waitForCondition(() => evaluate('!document.getElementById("flightEvents").hidden && document.getElementById("latestEvent").textContent.includes("火箭離地")'), 'Rocket liftoff event');
+          await evaluate('__rocketApp.controller.pause()');
+          assert.equal(await evaluate('document.getElementById("previousEvent").hidden'), touch);
+          if (touch) {
+            await H.clickControl(cdp, '#flightEventsToggle', 'window', touch);
+            assert(await evaluate('!document.getElementById("previousEvent").hidden'));
+          }
+          assert(await evaluate('document.getElementById("previousEvent").textContent.includes("點火")'));
           assert(await evaluate('document.getElementById("renderFault").hidden'), 'Rocket renderer error');
         } else {
           await evaluate('if (typeof ' + api + '.setPlayback === "function") ' + api + '.setPlayback({paused:true})');
@@ -110,7 +125,7 @@ async function main() {
           assert(await evaluate('__rocketApp.getState().phase === "workshop" && __rocketApp.getState().flight === null && __rocketApp.getState().craft.stages[0].engine === null'), 'Standalone refresh must start fresh');
         }
         assert.deepEqual(errors, [], 'Browser or network errors');
-        evidence.push({...current, startupMs, previewsLoaded: true, fullscreen: true, statePreserved: true, ...(rocket ? {webgl: true, assembly: true, refreshFresh: true} : {})});
+        evidence.push({...current, startupMs, previewsLoaded: true, fullscreen: true, statePreserved: true, ...(rocket ? {webgl: true, assembly: true, terrainReadyMs, flightEvents: true, refreshFresh: true} : {})});
       }
     }
     fs.writeFileSync(path.join(output, (remote ? 'live-' : 'local-') + 'report.json'), JSON.stringify({evidence, errors}, null, 2) + '\n');
