@@ -1,28 +1,74 @@
 import * as THREE from './vendor/three-0.185.1/three.module.min.js';
-import {terrainLighting,groundLight,setTerrainNormals,terrainSlopeDetail,surfaceUniforms,orbitalLighting} from './terrain.js';
+import {terrainLighting,groundLight,setTerrainNormals,yieldTerrainTask,terrainSlopeDetail,surfaceUniforms,orbitalLighting} from './terrain.js';
 
 function geometry(buffer){
  const length=new DataView(buffer).getUint32(0,true),header=JSON.parse(new TextDecoder().decode(new Uint8Array(buffer,4,length))),start=4+Math.ceil(length/4)*4;
  if(header.version!==1||start+header.vertexCount*16+header.indexCount*4!==buffer.byteLength)throw Error('Invalid global terrain');
- const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(buffer,start,header.vertexCount*3),3));g.setAttribute('color',new THREE.BufferAttribute(new Uint8Array(buffer,start+header.vertexCount*12,header.vertexCount*4),4,true));g.setIndex(new THREE.BufferAttribute(new Uint32Array(buffer,start+header.vertexCount*16,header.indexCount),1));const normalMs=setTerrainNormals(g,new THREE.Vector3(),true);g.computeBoundingSphere();return {header,g,normalMs};
+ const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(buffer,start,header.vertexCount*3),3));g.setAttribute('color',new THREE.BufferAttribute(new Uint8Array(buffer,start+header.vertexCount*12,header.vertexCount*4),4,true));g.setIndex(new THREE.BufferAttribute(new Uint32Array(buffer,start+header.vertexCount*16,header.indexCount),1));g.computeBoundingSphere();return {header,g};
 }
-export function createGlobalTerrain(buffer,sun,detail=null){
- const {header,g,normalMs}=geometry(buffer),group=new THREE.Group(),regional={value:0},material=new THREE.MeshBasicMaterial({vertexColors:true,depthTest:false,depthWrite:true});
+export async function createGlobalTerrain(buffer,sun,loadDetail){
+ const {header,g}=geometry(buffer),origin=new THREE.Vector3(),group=new THREE.Group(),regional={value:0},material=new THREE.MeshBasicMaterial({vertexColors:true,depthTest:false,depthWrite:true});
+ let normalMs=0;
+ for(let first=0;first<header.vertexCount;first+=8192){
+  normalMs+=setTerrainNormals(g,origin,true,first,Math.min(first+8192,header.vertexCount));
+  await yieldTerrainTask();
+ }
  // Coarse sphere chords must not disappear below the smooth ocean; clip the far hemisphere analytically.
  material.onBeforeCompile=shader=>{Object.assign(shader.uniforms,surfaceUniforms,{uRegional:regional,uSun:{value:sun},uSlopeDetail:terrainSlopeDetail});shader.vertexShader='attribute float surfaceWater;varying float vSurfaceWater;varying vec3 vGroundWorld;\nvarying vec3 vSurface,vTerrainWorld,vRadial,vSlope,vGroundPoint;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvSurface=position;vSurfaceWater=surfaceWater;vGroundWorld=(modelMatrix*vec4(position,1.0)).xyz;vGroundPoint=position;vSlope=normalize(mat3(modelMatrix)*normal);vTerrainWorld=(modelMatrix*vec4(position,1.0)).xyz;vRadial=normalize(mat3(modelMatrix)*normalize(position));');shader.fragmentShader=groundLight+orbitalLighting+'varying float vSurfaceWater;varying vec3 vGroundWorld;\nuniform float uRegional;uniform vec3 uSun;varying vec3 vSurface,vTerrainWorld,vRadial,vSlope,vGroundPoint;\n'+shader.fragmentShader.replace('#include <clipping_planes_fragment>','#include <clipping_planes_fragment>\nif(dot(normalize(vRadial),cameraPosition-vTerrainWorld)<=0.0)discard;if(uRegional>.5&&vSurface.y>0.0&&max(abs(vSurface.x),abs(vSurface.z))*6371000.0<211200.0)discard;').replace('#include <color_fragment>','#include <color_fragment>\n'+terrainLighting+'\nif(uOrbitalBlend>0.0)diffuseColor.rgb=mix(diffuseColor.rgb,shadeOrbitalSurface(normalize(vRadial),vGroundPoint,vGroundWorld,uSun),uOrbitalBlend);');};material.customProgramCacheKey=()=> 'rocket-global-terrain';
  const original=g.index.array,index=new THREE.BufferAttribute(new Uint32Array(original.length),1).setUsage(THREE.DynamicDrawUsage);g.setIndex(index);g.setDrawRange(0,0);const coarse=new THREE.Mesh(g,material);coarse.renderOrder=-1;coarse.frustumCulled=false;group.add(coarse);
  const cells=header.cells.map(c=>({...c,normal:new THREE.Vector3(...c.center)})),cache=new Map(),pending=new Map(),failed=new Set(),cameraLocal=new THREE.Vector3(),world=new THREE.Vector3(),frustum=new THREE.Frustum(),projection=new THREE.Matrix4(),inverse=new THREE.Matrix4(),sphere=new THREE.Sphere(),ray=new THREE.Raycaster(),focus=new THREE.Vector3(),lead=new THREE.Vector3(),tangent=new THREE.Vector3();let selected='',clock=0,desired=new Set(),wanted=new Set();
- const stats=group.userData={normalBuildMs:normalMs,lastNormalBuildMs:normalMs,coarseTriangles:0,fineTriangles:0,loaded:0,pending:0,cacheLimit:6,activeLimit:4,requestLimit:2,failures:[],active:[],detail:detail?.stats,normalFailures:[],bytes:buffer.byteLength};
+ const stats=group.userData={normalBuildMs:normalMs,lastNormalBuildMs:normalMs,coarseTriangles:0,fineTriangles:0,loaded:0,pending:0,cacheLimit:6,activeLimit:4,requestLimit:2,failures:[],active:[],normalFailures:[],bytes:buffer.byteLength};
+ let detail,detailRequest;
  let fineMaterial;const normalFailed=new Set();group.advanceDetail=now=>detail?.advance(now)||false;
- function meshFor(data){const {g,normalMs}=geometry(data);stats.normalBuildMs+=normalMs;stats.lastNormalBuildMs=normalMs;
+ function meshFor(data){const {g}=geometry(data),normalMs=setTerrainNormals(g,origin,true);stats.normalBuildMs+=normalMs;stats.lastNormalBuildMs=normalMs;
   // Fine mountain faces must occlude each other; only distant coarse ocean chords keep the depth workaround.
   if(!fineMaterial){fineMaterial=material.clone();fineMaterial.depthTest=true;fineMaterial.onBeforeCompile=material.onBeforeCompile;fineMaterial.customProgramCacheKey=()=>material.customProgramCacheKey()+'-fine-depth';}
   const mesh=new THREE.Mesh(g,fineMaterial);mesh.renderOrder=-1;mesh.visible=false;group.add(mesh);return {mesh,bytes:data.byteLength,used:++clock};}
  function evict(limit=6){while(cache.size>limit){const candidates=[...cache].filter(([id])=>!wanted.has(id)).sort((a,b)=>a[1].used-b[1].used);if(!candidates.length)break;const [id,item]=candidates[0];group.remove(item.mesh);item.mesh.geometry.dispose();detail?.drop(id);cache.delete(id);}}
- function load(){for(const id of wanted){if(pending.size>=2)break;if(cache.has(id)||pending.has(id)||failed.has(id))continue;const cell=cells.find(c=>c.id===id);if(!cell.file)continue;const abort=new AbortController();pending.set(id,abort);fetch(new URL('./assets/global/'+cell.file,import.meta.url),{signal:abort.signal}).then(r=>{if(!r.ok)throw Error('Global detail unavailable');return r.arrayBuffer();}).then(async data=>{
-   let slopes=null;try{slopes=await detail?.read(id,abort.signal);}catch(error){if(error.name==='AbortError')throw error;normalFailed.add(id);}
-   if(!abort.signal.aborted){evict(5);if(slopes)detail.install(id,slopes);cache.set(id,meshFor(data));}
-  }).catch(error=>{detail?.drop(id);if(error.name!=='AbortError')failed.add(id);}).finally(()=>{pending.delete(id);evict();group.onChange?.();});}}
+ function updateMetadata(){
+  if(!loadDetail||detail)return;
+  if(!wanted.size){
+   detailRequest?.abort();detailRequest=null;stats.detailPending=false;
+   return;
+  }
+  if(detailRequest)return;
+  const request=new AbortController();
+  detailRequest=request;stats.detailPending=true;
+  loadDetail(request.signal).then(result=>{
+   if(!request.signal.aborted){detail=result;stats.detail=detail.stats;}
+  },()=>{}).finally(()=>{
+   if(detailRequest===request){stats.detailPending=false;group.onChange?.();}
+  });
+ }
+ async function loadCell(id,signal){
+  let item=cache.get(id);
+  if(!item){
+   const cell=cellMap.get(id),response=await fetch(new URL('./assets/global/'+cell.file,import.meta.url),{signal});
+   if(!response.ok)throw Error('Global detail unavailable');
+   const data=await response.arrayBuffer();
+   if(signal.aborted)return;
+   evict(5);item=meshFor(data);cache.set(id,item);
+  }
+  if(detail&&!item.slopes&&!normalFailed.has(id)){
+   try{
+    const slopes=await detail.read(id,signal);
+    if(signal.aborted||cache.get(id)!==item)return;
+    if(slopes)detail.install(id,slopes);
+    item.slopes=true;
+   }catch(error){if(!signal.aborted)normalFailed.add(id);}
+  }
+ }
+ function load(){
+  for(const id of wanted){
+   if(pending.size>=2)break;
+   const item=cache.get(id);
+   if(pending.has(id)||failed.has(id)||(item&&(!detail||item.slopes||normalFailed.has(id))))continue;
+   const abort=new AbortController();pending.set(id,abort);
+   loadCell(id,abort.signal).catch(()=>{if(!abort.signal.aborted)failed.add(id);}).finally(()=>{
+    pending.delete(id);evict();group.onChange?.();
+   });
+  }
+ }
  const cellMap=new Map(cells.map(c=>[c.id,c])),heightCache=new Map();
  group.surfaceHeight=direction=>{
   const S=window.RocketSurface,[lon,lat]=S.geographic(direction.x,direction.y,direction.z),id=Math.min(35,Math.floor((lon+180)/10))+'-'+Math.min(17,Math.floor((lat+90)/10)),cell=cellMap.get(id);if(!cell)return -5;
@@ -48,7 +94,7 @@ export function createGlobalTerrain(buffer,sun,detail=null){
   surfaceUniforms.uOrbitalBlend.value=stats.orbitalBlend=orbitalBlend;
   terrainSlopeDetail.value=THREE.MathUtils.smoothstep(12000*pixels/Math.max(1,(d-1)*6371000),1,24);
   const visible=enabled?cells.filter(c=>c.normal.dot(direction)>Math.cos(Math.min(Math.PI,angle+c.angularRadius+.03))):[];
-  const fineEnabled=enabled&&allowFine&&(quality<2||Boolean(detail));
+  const fineEnabled=enabled&&allowFine&&(quality<2||Boolean(loadDetail));
   frustum.setFromProjectionMatrix(projection.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse));inverse.copy(group.matrixWorld).invert();focus.copy(direction);
   // Prefer the ground actually ahead in the image, not the ground nearest a trailing camera.
   for(const y of [0,-.55,-.9]){ray.setFromCamera(new THREE.Vector2(0,y),camera);ray.ray.applyMatrix4(inverse);if(ray.ray.intersectSphere(sphere.set(new THREE.Vector3(),1),focus)){focus.normalize();break;}focus.copy(direction);}
@@ -59,7 +105,7 @@ export function createGlobalTerrain(buffer,sun,detail=null){
    if(speed>25){tangent.divideScalar(speed);for(const seconds of [30,60]){const a=Math.min(.065,speed*seconds/6371000),point=lead.clone().multiplyScalar(Math.cos(a)).addScaledVector(tangent,Math.sin(a)),[lon,lat]=window.RocketSurface.geographic(point.x,point.y,point.z),id=Math.min(35,Math.max(0,Math.floor((lon+180)/10)))+'-'+Math.min(17,Math.max(0,Math.floor((lat+90)/10)));if(cellMap.get(id)?.file)wanted.add(id);}}
   }
   stats.desired=[...desired];stats.prefetch=[...wanted].filter(id=>!inView.has(id));stats.focus=focus.toArray();
-  for(const [id,abort]of pending)if(!wanted.has(id))abort.abort();for(const [id,item]of cache){item.mesh.visible=Boolean(enabled&&desired.has(id));if(item.mesh.visible)item.used=++clock;}evict();load();detail?.select(wanted);stats.normalFailures=[...normalFailed];
+  for(const [id,abort]of pending)if(!wanted.has(id))abort.abort();for(const [id,item]of cache){item.mesh.visible=Boolean(enabled&&desired.has(id));if(item.mesh.visible)item.used=++clock;}evict();updateMetadata();load();detail?.select(wanted);stats.normalFailures=[...normalFailed];
   const coarseCells=orbitalBlend===1?[]:visible.filter(c=>!cache.has(c.id)||!desired.has(c.id)),key=coarseCells.map(c=>c.id).join(',');if(key!==selected){let offset=0;for(const c of coarseCells){index.array.set(original.subarray(c.firstIndex,c.firstIndex+c.indexCount),offset);offset+=c.indexCount;}index.needsUpdate=true;g.setDrawRange(0,offset);selected=key;}
   stats.coarseTriangles=g.drawRange.count/3;stats.fineTriangles=[...cache.values()].filter(i=>i.mesh.visible).reduce((n,i)=>n+i.mesh.geometry.index.count/3,0);stats.loaded=cache.size;stats.pending=pending.size;stats.failures=[...failed];stats.active=[...cache].filter(([,i])=>i.mesh.visible).map(([id])=>id);stats.bytes=buffer.byteLength+[...cache.values()].reduce((n,i)=>n+i.bytes,0);
  };

@@ -3,13 +3,39 @@
  const MAX_HEIGHT=9000,LAT=.605629,LON=-2.101376,sinLat=Math.sin(LAT),cosLat=Math.cos(LAT),sinLon=Math.sin(LON),cosLon=Math.cos(LON);
  function decode(value){const bytes=typeof Buffer==='function'?Uint8Array.from(Buffer.from(value,'base64')):Uint8Array.from(atob(value),c=>c.charCodeAt(0)),view=new DataView(bytes.buffer),out=new Uint16Array(bytes.length/2);for(let i=0;i<out.length;i++)out[i]=view.getUint16(i*2,true);return out;}
  const globe=decode(data.global),local=decode(data.local),smooth=(a,b,x)=>{const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t);};
- let fine=null,world=null,pending=null;
+ let fine=null,world=null,pending=null,attempted=false;
  function integers(bytes){if((bytes.byteOffset||0)%2===0&&new Uint8Array(new Uint16Array([1]).buffer)[0]===1)return new Uint16Array(bytes.buffer,bytes.byteOffset||0,bytes.byteLength/2);const view=new DataView(bytes.buffer,bytes.byteOffset||0,bytes.byteLength),out=new Uint16Array(bytes.byteLength/2);for(let i=0;i<out.length;i++)out[i]=view.getUint16(i*2,true);return out;}
- function installRegion(bytes){if(bytes.byteLength!==data.fine.size**2*2)throw Error('Invalid regional height length');const grid=integers(bytes);for(const v of grid)if(v>50001)throw Error('Invalid regional height');fine=grid;}
- function installWorld(bytes){if(bytes.byteLength!==data.world.width*data.world.height*2)throw Error('Invalid world height length');const grid=integers(bytes);for(let row=0;row<data.world.height;row++){let previous=0;for(let x=0;x<data.world.width;x++){const i=row*data.world.width+x,v=(previous+grid[i])&65535;grid[i]=v;previous=v;if((v&32767)>MAX_HEIGHT||(!(v&32768)&&v!==0))throw Error('Invalid world height');}}world=grid;}
- if(read&&data.fine)installRegion(read(data.fine.file));
- if(read&&data.world)installWorld(read(data.world.file));
- function ready(){if((fine||!data.fine)&&(world||!data.world))return Promise.resolve();return pending||(pending=Promise.all([[data.fine,installRegion],[data.world,installWorld]].filter(([record])=>record).map(async([record,install])=>{const response=await fetch(new URL(record.file,base));if(!response.ok)throw Error('Surface heights unavailable');const stream=response.body.pipeThrough(new DecompressionStream('gzip'));install(new Uint8Array(await new Response(stream).arrayBuffer()));})));}
+ function decodeRegion(bytes){
+  if(bytes.byteLength!==data.fine.size**2*2)throw Error('Invalid regional height length');
+  const grid=integers(bytes);
+  for(let i=0;i<grid.length;i++)if(grid[i]>50001)throw Error('Invalid regional height');
+  return grid;
+ }
+ function decodeWorld(bytes){
+  if(bytes.byteLength!==data.world.width*data.world.height*2)throw Error('Invalid world height length');
+  const grid=integers(bytes);
+  for(let row=0;row<data.world.height;row++){let previous=0;for(let x=0;x<data.world.width;x++){const i=row*data.world.width+x,v=(previous+grid[i])&65535;grid[i]=v;previous=v;if((v&32767)>MAX_HEIGHT||(!(v&32768)&&v!==0))throw Error('Invalid world height');}}
+  return grid;
+ }
+ if(read&&data.fine)fine=decodeRegion(read(data.fine.file));
+ if(read&&data.world)world=decodeWorld(read(data.world.file));
+ function ready(){
+  if((fine||!data.fine)&&(world||!data.world))return Promise.resolve();
+  if(pending)return pending;
+  const abort=new AbortController(),cache=attempted?'reload':'default';
+  attempted=true;
+  async function load(record,decode){
+   if(!record)return null;
+   const response=await fetch(new URL(record.file,base),{signal:abort.signal,cache});
+   if(!response.ok)throw Error('Surface heights unavailable');
+   const stream=response.body.pipeThrough(new DecompressionStream('gzip'));
+   return decode(new Uint8Array(await new Response(stream).arrayBuffer()));
+  }
+  pending=Promise.all([load(data.fine,decodeRegion),load(data.world,decodeWorld)]).then(([region,globe])=>{
+   fine=region;world=globe;
+  }).catch(error=>{abort.abort();throw error;}).finally(()=>{pending=null;});
+  return pending;
+ }
  function surfaceGrid(){return {data:world||globe,width:world?data.world.width:data.width,height:world?data.world.height:data.height};}
  function region(x,y,land){const size=data.fine.size;x=Math.max(0,Math.min(size-1,x));y=Math.max(0,Math.min(size-1,y));if(land)return fine[Math.round(y)*size+Math.round(x)]>0;const i=Math.min(size-2,Math.floor(x)),j=Math.min(size-2,Math.floor(y)),a=x-i,b=y-j,h=(dx,dy)=>Math.max(0,fine[(j+dy)*size+i+dx]-1)*.1;return a+b<=1?h(0,0)*(1-a-b)+h(1,0)*a+h(0,1)*b:h(1,1)*(a+b-1)+h(1,0)*(1-b)+h(0,1)*(1-a);}
  function sample(grid,width,height,x,y,land=false){x=Math.max(0,Math.min(width-1,x));y=Math.max(0,Math.min(height-1,y));if(land)return Boolean(grid[Math.round(y)*width+Math.round(x)]&32768);const i=Math.min(width-2,Math.floor(x)),j=Math.min(height-2,Math.floor(y)),a=x-i,b=y-j;return (grid[j*width+i]&32767)*(1-a)*(1-b)+(grid[j*width+i+1]&32767)*a*(1-b)+(grid[(j+1)*width+i]&32767)*(1-a)*b+(grid[(j+1)*width+i+1]&32767)*a*b;}

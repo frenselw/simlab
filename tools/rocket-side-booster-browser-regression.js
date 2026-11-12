@@ -3,16 +3,16 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto'),{spawn}=require('node:child_process'),AdmZip=require('adm-zip'),H=require('./position-time-browser-regression'),Pack=require('./package-rocket-explorer'),M=require('../sim/rocket-side-booster-lab/model'),P=require('../sim/rocket-side-booster-lab/parts'),O=require('../sim/rocket-side-booster-lab/orbit'),T=require('../sim/rocket-side-booster-lab/test-support');
 const World=require('./rocket-world-browser-cases');
 const Sky=require('./rocket-sky-browser-cases');
-const root=path.resolve(__dirname,'..'),slug='rocket-side-booster-lab',out=path.join(root,'output/playwright',slug),temp=fs.realpathSync(os.tmpdir()),caseNames=['layout','assembly','controls','flight','return','effects','parachute','cameras','warp','surface','landing','visual','readouts','terrain','sample','world','detail','sky'];
+const root=path.resolve(__dirname,'..'),slug='rocket-side-booster-lab',out=path.join(root,'output/playwright',slug),temp=fs.realpathSync(os.tmpdir()),caseNames=['layout','assembly','controls','flight','return','effects','parachute','cameras','warp','surface','landing','visual','readouts','terrain','sample','world','detail','sky','preparation','events'];
 const report={kind:'standalone',flows:[],errors:[],loads:[],completed:false};let cdp,chrome,server,profile,extracted,touchId=1;
 const call=code=>H.evaluate(cdp,`(()=>{const app=window.__rocketApp,d=document;${code}})()`);
 async function wait(fn,label){return H.waitForCondition(fn,label,15000);}
 async function viewport(width,height){await cdp.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:width<600});await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:2});}
-async function open(base,state){await cdp.send('Page.navigate',{url:base+'/'+slug+'/index.html'});await wait(()=>call('return Boolean(app?.getScene())&&d.readyState==="complete";'),'explorer startup');if(state)await call(`app.controller.state=${JSON.stringify(state)};app.controller.emit();app.view('follow');`);assert(await call('return window.__lmsReads===0&&window.__lmsWrites===0&&window.__storageReads===0&&window.__storageWrites===0;'));}
+async function open(base,state){await cdp.send('Page.navigate',{url:base+'/'+slug+'/index.html'});await wait(()=>call('return Boolean(app?.getScene()?.flightReady)&&d.readyState==="complete";'),'explorer startup');if(state)await call(`app.controller.state=${JSON.stringify(state)};app.controller.emit();app.view('follow');`);assert(await call('return window.__lmsReads===0&&window.__lmsWrites===0&&window.__storageReads===0&&window.__storageWrites===0;'));}
 async function shot(name){const r=await cdp.send('Page.captureScreenshot',{format:'png'});fs.writeFileSync(path.join(out,name+'.png'),Buffer.from(r.data,'base64'));}
 async function pointer(from,to=from,touch=true,cancel=false){if(touch){const id=touchId++,point=p=>({...p,id,radiusX:2,radiusY:2,force:1});await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[point(from)]});if(to!==from)for(let i=1;i<=6;i++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[point({x:from.x+(to.x-from.x)*i/6,y:from.y+(to.y-from.y)*i/6})]});await H.delay(15);}await cdp.send('Input.dispatchTouchEvent',{type:cancel?'touchCancel':'touchEnd',touchPoints:[]});}else{await cdp.send('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,...from});if(to!==from)await cdp.send('Input.dispatchMouseEvent',{type:'mouseMoved',button:'left',buttons:1,...to});await cdp.send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,...to});}await H.delay(40);}
-async function click(selector){const p=await call(`const e=d.querySelector(${JSON.stringify(selector)});if(!e||e.disabled||e.hidden)throw Error('Unavailable '+${JSON.stringify(selector)});e.scrollIntoView({block:'nearest'});const r=e.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2,touch:innerWidth<960};`);await pointer({x:p.x,y:p.y},undefined,p.touch);if(selector==='#fullscreenButton')await H.evaluate(cdp,'new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');}
-async function key(name){await cdp.send('Input.dispatchKeyEvent',{type:'keyDown',key:name});await cdp.send('Input.dispatchKeyEvent',{type:'keyUp',key:name});}
+async function click(selector,useTouch){const p=await call(`const e=d.querySelector(${JSON.stringify(selector)});if(!e||e.disabled||e.hidden)throw Error('Unavailable '+${JSON.stringify(selector)});e.scrollIntoView({block:'nearest'});const r=e.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2,touch:innerWidth<960};`);await pointer({x:p.x,y:p.y},undefined,useTouch??p.touch);if(selector==='#fullscreenButton')await H.evaluate(cdp,'new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');}
+async function key(name){const event=name==='Enter'?{key:name,code:name,windowsVirtualKeyCode:13}:{key:name};await cdp.send('Input.dispatchKeyEvent',{type:'keyDown',...event,...(name==='Enter'?{text:'\r'}:{})});await cdp.send('Input.dispatchKeyEvent',{type:'keyUp',...event});}
 async function pitch(value){const p=await call(`const e=d.getElementById('pitchDial');e.scrollIntoView({block:'nearest'});const r=e.getBoundingClientRect(),a=${value}*Math.PI/180;return{x:r.x+r.width/2+Math.sin(a)*r.width*.32,y:r.y+r.height/2-Math.cos(a)*r.height*.32,touch:innerWidth<960};`);await pointer({x:p.x,y:p.y},undefined,p.touch);}
 async function throttle(value){const p=await call(`const e=d.getElementById('throttleSlider');e.scrollIntoView({block:'nearest'});const r=e.getBoundingClientRect(),y=v=>r.y+9+(r.height-18)*(1-v/100);return{x:r.x+r.width/2,from:y(Number(e.value)),to:y(${value}),touch:innerWidth<960};`);await pointer({x:p.x,y:p.from},{x:p.x,y:p.to},p.touch);}
 async function layout(base,label){
@@ -191,7 +191,7 @@ async function terrainForest(base,label){
    const state=T.launched(),angle=28000/P.R,r=P.R+Surface.heightAt(Math.sin(angle),Math.cos(angle),0)+400;state.phase='coast';state.flight.status='flying';state.flight.controls.lit=false;state.flight.state=[r*Math.cos(angle),r*Math.sin(angle),0,0,0,0];await open(base,state);
    const layers=[];
    for(const mode of ['natural','gray','normal','second-sun','opposite']){
-    const frame=await call(`const s=app.getScene();s.animateEffects=()=>false;s.yaw=${mode==='opposite'?1.5:-1.1};s.pitch=.15;s.draw();const materials=new Set([s.earth.material,s.contactGround.children[0].material,...s.relief.children.filter(o=>o.geometry?.attributes.landFade).map(o=>o.material),...s.globalTerrain.children.filter(o=>o.material).map(o=>o.material)]),saved=[...materials].map(m=>({m,compile:m.onBeforeCompile,key:m.customProgramCacheKey})),mode=${JSON.stringify(mode)},forest=s.forest.visible;if(mode==='gray'||mode==='normal'){s.forest.visible=false;for(const row of saved){const {m,compile,key}=row;m.onBeforeCompile=shader=>{compile.call(m,shader);shader.fragmentShader=mode==='gray'?shader.fragmentShader.replace(' float footprint=max(',' base=vec3(.42);float footprint=max('):shader.fragmentShader.replace(' return color;\\n}',' return normalize(normal)*.5+.5;\\n}');};m.customProgramCacheKey=()=>key.call(m)+':terrain-check-'+mode;m.needsUpdate=true;}}if(mode==='second-sun'){s.planetSun.set(.7,.8,-.4).normalize();s.sunLight.position.copy(s.planetSun);}s.renderer.render(s.scene,s.camera);const result={mode,diagnostics:s.diagnostics(),heap:performance.memory?.usedJSHeapSize,coarsePointer:matchMedia('(pointer: coarse)').matches,shaders:s.renderer.info.programs.every(p=>p.diagnostics?.runnable!==false)};window.__terrainLayerRestore=()=>{for(const {m,compile,key}of saved){m.onBeforeCompile=compile;m.customProgramCacheKey=key;m.needsUpdate=true;}s.forest.visible=forest;};return result;`);
+    const frame=await call(`const s=app.getScene();s.animateEffects=()=>false;s.yaw=${mode==='opposite'?1.5:-1.1};s.pitch=.15;s.draw();const materials=new Set([s.earth.material,s.contactGround.children[0].material,...s.relief.children.filter(o=>o.geometry?.attributes.landFade).map(o=>o.material),...s.globalTerrain.children.filter(o=>o.material).map(o=>o.material)]),saved=[...materials].map(m=>({m,compile:m.onBeforeCompile,key:m.customProgramCacheKey})),mode=${JSON.stringify(mode)},forest=s.forest.visible;if(mode==='gray'||mode==='normal'){s.forest.visible=false;for(const row of saved){const {m,compile,key}=row;m.onBeforeCompile=shader=>{compile.call(m,shader);shader.fragmentShader=mode==='gray'?shader.fragmentShader.replace(' float footprint=max(length(dFdx(metres)),',' base=vec3(.42);float footprint=max(length(dFdx(metres)),'):shader.fragmentShader.replace(' return color;\\n}',' return normalize(normal)*.5+.5;\\n}');};m.customProgramCacheKey=()=>key.call(m)+':terrain-check-'+mode;m.needsUpdate=true;}}if(mode==='second-sun'){s.planetSun.set(.7,.8,-.4).normalize();s.sunLight.position.copy(s.planetSun);}s.renderer.render(s.scene,s.camera);const result={mode,diagnostics:s.diagnostics(),heap:performance.memory?.usedJSHeapSize,coarsePointer:matchMedia('(pointer: coarse)').matches,shaders:s.renderer.info.programs.every(p=>p.diagnostics?.runnable!==false)};window.__terrainLayerRestore=()=>{for(const {m,compile,key}of saved){m.onBeforeCompile=compile;m.customProgramCacheKey=key;m.needsUpdate=true;}s.forest.visible=forest;};return result;`);
     assert(frame.shaders);assert.equal(frame.diagnostics.contact.triangles,12800);if(frame.coarsePointer)assert.equal(frame.diagnostics.earthMapWidth,2048);await shot(label+'-natural-region-'+mode+'-1024');await call('window.__terrainLayerRestore();delete window.__terrainLayerRestore;');layers.push(frame);
    }
    if(label==='source'){
@@ -223,8 +223,145 @@ async function terrainSample(base,label){
 async function sky(base,label){return Sky.run({base,label,P,T,H,cdp,call,viewport,open,wait,shot,click,pointer,key,report});}
 async function world(base,label){return World.run({base,label,P,T,H,cdp,call,viewport,open,wait,shot,report});}
 async function detail(base,label){return World.detail({base,label,P,T,H,cdp,call,viewport,open,wait,shot,report});}
+async function preparation(base,label){
+  await viewport(390,844);
+  const {identifier}=await cdp.send('Page.addScriptToEvaluateOnNewDocument',{source:`(()=>{
+    const original=window.fetch,requests=[];
+    window.__flightAssetGate=requests;
+    window.fetch=(input,options={})=>{
+      const kind=['world-heights.bin.gz','regional-heights.bin.gz','regional-surface.png','global-detail/index.json'].find(name=>String(input).endsWith(name));
+      if(!kind)return original(input,options);
+      return new Promise((resolve,reject)=>{
+        const entry={kind,done:false,aborted:false,release(mode){
+          this.done=true;
+          if(mode==='bad-gzip')resolve(new Response('invalid gzip'));
+          else if(mode==='unavailable')resolve(new Response(null,{status:404}));
+          else original(input,options).then(resolve,reject);
+        }};
+        requests.push(entry);
+        options.signal.addEventListener('abort',()=>{entry.aborted=true;reject(options.signal.reason);},{once:true});
+      });
+    };
+  })()`});
+  try{
+    await cdp.send('Page.navigate',{url:base+'/'+slug+'/index.html'});
+    await wait(()=>call('return app?.getScene()?.renderCount>0&&window.__flightAssetGate.length===2;'),'factory with both heights held');
+    assert(await call('return d.getElementById("launchButton").disabled&&!app.getScene().flightReady;'));
+    assert(await call('app.view("orbit");return app.diagnostics().view==="factory"&&d.querySelector("[data-camera-view=orbit]").disabled&&d.querySelector("[data-camera-view=plane]").disabled;'));
+    await call('window.__assemblyTouches=[];d.addEventListener("pointerdown",e=>window.__assemblyTouches.push([e.isTrusted,e.pointerType]));');
+    for(const part of ['engine-0','large','capsule']){
+      const endpoints=await call(`const part=${JSON.stringify(part)},handle=d.querySelector('[data-part-handle="'+part+'"]');
+        handle.scrollIntoView({block:'nearest'});const r=handle.getBoundingClientRect(),s=app.getScene().host.getBoundingClientRect(),slot=app.getGeometry(part).slots.find(slot=>slot.visible&&slot.compatible);
+        return{from:{x:r.x+r.width/2,y:r.y+r.height/2},to:{x:s.x+slot.x,y:s.y+slot.y}};`);
+      await pointer(endpoints.from,endpoints.to);
+    }
+    assert(await call('return window.__assemblyTouches.filter(([trusted,type])=>trusted&&type==="touch").length>=3;'));
+    const craft=await call('return app.getState().craft;');
+    assert(P.complete(craft));
+    assert(await call('return !app.command({type:"launch"})&&!app.controller.command({type:"launch"})&&app.getState().phase==="workshop";'));
+    await shot(label+'-explorer-factory-before-heights');
+    await call('window.__flightAssetGate.find(r=>r.kind==="world-heights.bin.gz").release("unavailable");');
+    await wait(()=>call('return !d.getElementById("retryFlightPreparation").hidden&&window.__flightAssetGate[1].aborted&&window.__flightAssetGate[0].aborted;'),'failed batch aborts both requests');
+    assert.deepEqual(await call('return app.getState().craft;'),craft);
+    await click('#retryFlightPreparation');
+    await wait(()=>call('return window.__flightAssetGate.length===4;'),'new pair of height requests');
+    await call('d.getElementById("retryFlightPreparation").click();window.__flightAssetGate.find(r=>r.kind==="regional-heights.bin.gz"&&!r.aborted).release("bad-gzip");');
+    await wait(()=>call('return !d.getElementById("retryFlightPreparation").hidden;'),'malformed gzip is rejected');
+    assert(await call('return window.__flightAssetGate.length===4&&d.getElementById("launchButton").disabled&&RocketSurface.surfaceGrid().width<8193;'));
+    assert.deepEqual(await call('return app.getState().craft;'),craft);
+    await call('app.getScene().renderer.forceContextLoss();');
+    await wait(()=>call('return app.getScene().lost;'),'factory WebGL lost');
+    await call('app.getScene().renderer.forceContextRestore();');
+    await wait(()=>call('return !app.getScene().lost;'),'factory WebGL restored');
+    await click('#retryFlightPreparation');
+    await wait(()=>call('return window.__flightAssetGate.length===6;'),'third pair of height requests');
+    await call('window.__flightAssetGate.findLast(r=>r.kind==="world-heights.bin.gz").release();');
+    await wait(()=>call('return performance.getEntriesByType("resource").some(e=>e.name.endsWith("world-heights.bin.gz"));'),'world heights respond first');
+    assert(await call('return d.getElementById("launchButton").disabled&&RocketSurface.surfaceGrid().width<8193;'));
+    await call('window.__flightAssetGate.findLast(r=>r.kind==="regional-heights.bin.gz").release();');
+    await wait(()=>call('return !d.getElementById("launchButton").disabled;'),'both validated heights and base scene');
+    assert.deepEqual(await call('return app.getState().craft;'),craft);
+    assert(await call('return RocketSurface.surfaceGrid().width===8193&&window.__flightAssetGate.length===6;'));
+    assert(await call('return !d.querySelector("[data-camera-view=orbit]").disabled&&!d.querySelector("[data-camera-view=plane]").disabled;'));
+    await click('#launchButton');
+    await wait(()=>call('return window.__flightAssetGate.at(-1).kind==="regional-surface.png";'),'regional texture requested at pad');
+    await click('#igniteButton');
+    await wait(()=>call('return app.getState().flight.status==="flying";'),'liftoff while regional texture is held');
+    await click('#playButton');
+    assert(await call('return !app.controller.running&&!app.getScene().diagnostics().regionalSurfaceReady;'));
+    await call('app.view("sky");');
+    assert(await call('return window.__flightAssetGate.find(r=>r.kind==="regional-surface.png").aborted;'));
+    await call('app.view("follow");');
+    await call('window.__flightAssetGate.at(-1).release("unavailable");');
+    await call('app.view("orbit");app.view("follow");');
+    const probe='const f=app.getState().flight,s=app.getScene();return {flight:f,agl:RocketSurface.clearance(f.state,f.t),position:s.rocket.position.toArray()};';
+    const before=await call(probe);
+    await call('window.__flightAssetGate.findLast(r=>r.kind==="regional-surface.png").release();');
+    await wait(()=>call('return app.getScene().diagnostics().regionalSurfaceReady;'),'regional texture recovers on revisiting');
+    assert.deepEqual(await call(probe),before);
+    await call('const s=app.getScene(),f=app.controller.state.flight,a=.17,r=RocketParts.R+50000;f.state=[r*Math.cos(a),r*Math.sin(a),0,0,2300,0];s.yaw=-1.1;s.pitch=.75;app.controller.emit();');
+    await wait(()=>call('return window.__flightAssetGate.some(r=>r.kind==="global-detail/index.json");'),'global detail requested by distant ground view');
+    await call('app.command({type:"workshop"});app.view("factory");');
+    assert(await call('return window.__flightAssetGate.find(r=>r.kind==="global-detail/index.json").aborted&&app.getScene().globalTerrain.userData.pending<=2;'));
+    await cdp.send('Page.reload');
+    await wait(()=>call('return app?.getScene()?.renderCount>0;'),'factory refresh');
+    assert.deepEqual(await call('return app.getState();'),M.fresh());
+    report.flows.push({label,case:'preparation',trustedDrag:true,httpAndGzipRetry:true,preservedCraft:true,contextRestored:true,visualFallback:true,unchangedFlight:true,globalCancel:true});
+  }finally{await cdp.send('Page.removeScriptToEvaluateOnNewDocument',{identifier});}
+}
+async function events(base,label){
+  for(const [width,height,touch]of [[1280,900,false],[1100,800,false],[1194,834,true],[834,1194,true],[390,844,true],[320,500,true],[568,320,true]]){
+    await viewport(width,height);
+    if(!touch)await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:false});
+    const state=M.change(T.launched(),{type:'workshop'});
+    await open(base);
+    await call(`app.controller.state=${JSON.stringify(M.change(state,{type:'boosters'}))};app.controller.emit();`);
+    await click('#launchButton');assert(await call('return d.getElementById("flightEvents").hidden;'));
+    await click('#igniteButton');
+    await wait(()=>call('return app.controller.events[0]?.type==="liftoff";'),'real liftoff event');
+    await click('#playButton');
+    await call('app.controller.play();app.controller.tick(RocketParts.BOOSTER.fuel*RocketParts.BOOSTER.isp*RocketParts.G0/RocketParts.BOOSTER.thrust+1,20000);app.controller.pause();');
+    const eventUI=()=>call(`const e=d.getElementById('flightEventsToggle'),panel=d.getElementById('controlPanel');return {
+      latest:d.getElementById('latestEvent').textContent,previous:d.getElementById('previousEvent').textContent,
+      shown:!d.getElementById('previousEvent').hidden,toggle:!e.hidden,target:e.getBoundingClientRect().height,
+      history:app.controller.events,focus:d.activeElement===e,panelHeight:panel.clientHeight,
+      root:[d.scrollingElement.scrollWidth,d.scrollingElement.scrollHeight]
+    };`);
+    const first=await eventUI(),[burnout,liftoff]=first.history;
+    assert.equal(burnout.type,'booster-spent');assert.equal(liftoff.type,'liftoff');
+    assert.equal(first.latest,'T+ '+burnout.t.toFixed(1)+' s　助推器燃盡');
+    assert.equal(first.previous,'T+ '+liftoff.t.toFixed(1)+' s　火箭離地');
+    const compact=touch||width<1200;
+    assert.equal(first.shown,!compact);assert.equal(first.toggle,compact);
+    assert(first.root[0]<=width+1&&first.root[1]<=height+1);
+    await shot(label+'-explorer-events-'+width+'x'+height);
+    if(compact){
+      assert(first.target>=44);
+      if(!touch){
+        const center=await call('const r=d.getElementById("flightEventsToggle").getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};');
+        await cdp.send('Input.dispatchMouseEvent',{type:'mouseMoved',...center});
+        assert(await call('const e=d.getElementById("flightEventsToggle");return e.matches(":hover")&&getComputedStyle(e).backgroundColor==="rgba(0, 0, 0, 0)";'));
+      }
+      await click('#flightEventsToggle',touch);assert((await eventUI()).shown);
+      await call('d.getElementById("flightEventsToggle").focus();app.command({type:"jettison"});');
+      const expanded=await eventUI();assert(expanded.shown&&expanded.focus&&expanded.panelHeight>=44,JSON.stringify(expanded));
+      await key('Enter');assert(!(await eventUI()).shown);
+      await click('#flightEventsToggle',touch);assert((await eventUI()).shown);
+      const control=await call('const e=d.getElementById("pitchDial");e.scrollIntoView({block:"nearest"});const r=e.getBoundingClientRect(),p=d.getElementById("controlPanel").getBoundingClientRect();return r.bottom>p.top&&r.top<p.bottom;');
+      assert(control);
+      if(height<=500){
+        await click('[data-throttle="-1"]',true);await click('[data-pitch="2"]',true);
+        assert(await call('const c=app.getState().flight.controls;return c.throttle===.99&&c.angle===2;'));
+      }
+      if(touch)assert(await call('return [...d.querySelectorAll(".scroll-strip")].every(e=>{const r=e.getBoundingClientRect();return r.width>=32&&r.height>0&&d.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.closest(".scroll-strip")===e;});'));
+    }
+    if(width===390){await click('#fullscreenButton');assert(await call('return Boolean(d.fullscreenElement)&&!d.getElementById("flightEvents").hidden;'));await click('#fullscreenButton');}
+    await click('#returnWorkshop');assert(await call('return !app.controller.events.length&&d.getElementById("flightEvents").hidden;'));
+    report.flows.push({label,case:'events',width,height,touch,first,expanded:compact,keyboard:compact});
+  }
+}
 function selection(args){if(args.length>2)throw Error("Expected cases and optional delivery");const cases=args[0]?args[0].split(","):caseNames,delivery=args[1]||null;if(cases.some(name=>!caseNames.includes(name))||new Set(cases).size!==cases.length)throw Error("Unknown or repeated explorer case");if(delivery&&!["source","standalone"].includes(delivery))throw Error("Unknown explorer delivery");return{cases,delivery};}
 async function main(){const scope=selection(process.argv.slice(2));report.cases=scope.cases;report.delivery=scope.delivery;fs.mkdirSync(out,{recursive:true});try{const packageFile=Pack.build();extracted=fs.mkdtempSync(path.join(temp,'simlab-rocket-explorer-package-'));new AdmZip(packageFile).extractAllTo(extracted,true);for(const f of Pack.assets.files)assert(fs.readFileSync(path.join(root,'sim',f)).equals(fs.readFileSync(path.join(extracted,f))));const runtimeHasher=crypto.createHash('sha256');for(const f of Pack.assets.files)runtimeHasher.update(fs.readFileSync(path.join(root,'sim',f)));report.runtimeHash=runtimeHasher.digest('hex');profile=fs.mkdtempSync(path.join(temp,'simlab-rocket-explorer-chrome-'));chrome=spawn(H.findBrowser(),['--headless=new','--remote-debugging-address=127.0.0.1','--remote-debugging-port=0','--user-data-dir='+profile,'--no-first-run','--no-default-browser-check','--disable-background-networking','--use-angle=swiftshader','--enable-unsafe-swiftshader','about:blank'],{stdio:['ignore','ignore','pipe'],windowsHide:true});chrome.stderr.resume();const port=await H.devToolsPort(profile,chrome),{body:target}=await H.fetchJson('http://127.0.0.1:'+port+'/json/new?about:blank',{method:'PUT'});cdp=new H.CdpClient(target.webSocketDebuggerUrl,WebSocket,30000);await cdp.send('Page.enable');await cdp.send('Runtime.enable');cdp.on('Runtime.consoleAPICalled',e=>{if(e.type==='error')report.errors.push(e.args.map(a=>a.description||a.value||'').join(' '));});await cdp.send('Network.enable');await cdp.send('Page.bringToFront');report.engine=await cdp.send('Browser.getVersion');cdp.on('Runtime.exceptionThrown',e=>report.errors.push(e.exceptionDetails?.exception?.description||e.exceptionDetails?.text));cdp.on('Network.responseReceived',e=>{if(e.response.status>=400&&!e.response.url.endsWith('/favicon.ico'))report.loads.push(e.response.url+' '+e.response.status);});await cdp.send('Page.addScriptToEvaluateOnNewDocument',{source:'window.__lmsReads=window.__lmsWrites=window.__storageReads=window.__storageWrites=0;for(const name of ["API","API_1484_11"])Object.defineProperty(window,name,{get(){window.__lmsReads++;return new Proxy({},{get(){return()=>{window.__lmsWrites++;return "true";};}});}});for(const [method,key]of [["getItem","__storageReads"],["setItem","__storageWrites"]]){const original=Storage.prototype[method];Storage.prototype[method]=function(...args){window[key]++;return original.apply(this,args);};}'});
-for(const [label,directory]of [['source',path.join(root,'sim')],['standalone',extracted]]){if(scope.delivery&&label!==scope.delivery)continue;server=H.createServer(directory);await H.listenServer(server);const base='http://127.0.0.1:'+server.address().port;console.log('Explorer browser: '+label);for(const [name,test]of Object.entries({layout,assembly,controls,flight,return:returnFlight,effects,parachute,cameras,warp:parachuteWarp,surface:surfaceShading,landing:capsuleLanding,visual:visualConsistency,readouts,terrain:terrainForest,sample:terrainSample,world,detail,sky})){if(!report.cases.includes(name))continue;console.log('Explorer case '+label+' '+name);await test(base,label);assert(await call('return window.__lmsReads===0&&window.__lmsWrites===0&&window.__storageReads===0&&window.__storageWrites===0;'));}await cdp.send('Page.navigate',{url:'about:blank'});await H.closeServer(server);server=null;}assert.deepEqual(report.errors,[]);assert.deepEqual(report.loads,[]);report.completed=true;console.log('Rocket explorer source and standalone passed.');
+for(const [label,directory]of [['source',path.join(root,'sim')],['standalone',extracted]]){if(scope.delivery&&label!==scope.delivery)continue;server=H.createServer(directory);await H.listenServer(server);const base='http://127.0.0.1:'+server.address().port;console.log('Explorer browser: '+label);const tests={layout,assembly,controls,flight,return:returnFlight,effects,parachute,cameras,warp:parachuteWarp,surface:surfaceShading,landing:capsuleLanding,visual:visualConsistency,readouts,terrain:terrainForest,sample:terrainSample,world,detail,sky,preparation,events};for(const name of scope.cases){const test=tests[name];console.log('Explorer case '+label+' '+name);await test(base,label);assert(await call('return window.__lmsReads===0&&window.__lmsWrites===0&&window.__storageReads===0&&window.__storageWrites===0;'));}await cdp.send('Page.navigate',{url:'about:blank'});await H.closeServer(server);server=null;}assert.deepEqual(report.errors,[]);assert.deepEqual(report.loads,[]);report.completed=true;console.log('Rocket explorer source and standalone passed.');
 }finally{if(!report.completed&&cdp)try{await shot('explorer-failure');}catch(_){}fs.writeFileSync(path.join(out,'explorer-report.json'),JSON.stringify(report,null,2));await H.stopChrome(chrome,cdp);cdp?.close();if(server)await H.closeServer(server);for(const [dir,pattern]of [[profile,/^simlab-rocket-explorer-chrome-[A-Za-z0-9]+$/],[extracted,/^simlab-rocket-explorer-package-[A-Za-z0-9]+$/]])if(dir&&fs.existsSync(dir)){const safe=H.validateOwnedDirectory(dir,temp,pattern,'rocket explorer browser');fs.rmSync(safe,{recursive:true,force:false,maxRetries:5,retryDelay:200});}}}
 module.exports={caseNames,selection};if(require.main===module)main().catch(e=>{console.error(e);process.exitCode=1;});

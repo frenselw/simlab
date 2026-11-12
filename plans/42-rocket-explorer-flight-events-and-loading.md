@@ -69,6 +69,30 @@
 ## 進度
 
 - [x] 開立專用分支並完成實作與驗收計劃
-- [ ] 實作事件列、背景高度資料與視覺補載
-- [ ] 執行瀏覽器、套件及效能對照驗證
-- [ ] 確認交付與實體手機／iPad 驗證
+- [x] 實作事件列、背景高度資料與視覺補載
+- [x] 執行瀏覽器、套件及效能對照驗證
+- [x] 核對獨立 ZIP 與本機 Pages 產物
+- [ ] 在實體手機／iPad 上驗證
+
+## 實作記錄
+
+- 飛行控制區的事件列可隨面板捲動，短橫向畫面展開後仍可捲至油門及轉向。物理步直接回報開傘、觸地及隔熱耗盡的時刻，並在同步時鐘前記住二級觸地時間。單級火箭分艙後，剩餘本體標為核心級。
+- 工廠使用原有畫布、拖放和火箭模型。地形尚未就緒時，發射與全景／軌道鏡頭暫停開放。驗證失敗後重新請求高度圖，原組裝、鏡頭和同一個 WebGL 場景保留。全球粗網格法線、區域網格及接地索引分批建立，讓瀏覽器在準備期間處理輸入。
+- 補載的區域材質及全球坡面瓦片維持既有地形資料和瓦片預算。區域材質請求在離開區域或鏡頭朝向天空時取消。全球地形中，網格可以先顯示，坡面資料就緒後再更新光照。子代理與基準逐位元組比較 49 個區域網格及全球粗網格，100 個區域網格地面高度取樣相同。
+
+### 冷啟動對照
+
+同機 Chromium、390×844 觸控模擬，每次用新設定檔及冷快取，限速 2 MiB/s、延遲 70 ms。數字為各三次的中位數。下載量採量測當時已完成的 HTTP 回應 body，含頁面與共用程式。
+
+| 時點 | 基準 `de3e055` | 改版 |
+| --- | ---: | ---: |
+| 工廠可組裝 | 17.39 秒／33.02 MB | 1.83 秒／2.11 MB |
+| 地形準備完成 | 17.39 秒／33.02 MB | 15.29 秒／28.75 MB |
+
+初版分段載入在準備完成前曾出現 459–498 ms 的主執行緒工作。分批建立網格後，三次各自的最長工作為 189、193、205 ms，工廠首幀均在兩份高度圖完成前。原始資料見[冷啟動對照](../output/reports/rocket-explorer-flight-loading-benchmark.json)。
+
+### 交付驗證
+
+- 火箭的 14 個 Node 測試檔、套件檢查、`npm run check` 及 `npm run check:tests` 通過。來源與獨立 ZIP 各完成 80 個 Chromium 流程，涵蓋兩份高度圖受阻時的可信觸控組裝、HTTP／gzip 失敗及重試、WebGL 恢復、事件展開與鍵盤、完整返航和地表補載。瀏覽器無未處理的程式或非預期 HTTP 錯誤。見[瀏覽器報告](../output/reports/rocket-explorer-flight-loading-browser.json)。
+- [桌面 1280×900](../output/playwright/rocket-side-booster-lab/source-explorer-events-1280x900.png)、[iPad 模擬 1194×834](../output/playwright/rocket-side-booster-lab/source-explorer-events-1194x834.png)及[手機模擬 390×844](../output/playwright/rocket-side-booster-lab/source-explorer-events-390x844.png)是正式介面的截圖。另驗證 iPad 直向、320×500 手機直向及 568×320 短橫向的操作。
+- [獨立 ZIP](../output/packages/rocket-explorer-standalone.zip) 逐檔與來源核對，Pages 測試驗證 994 個預期檔案、四個入口及靜態依賴。[提交範圍測試選擇](../output/reports/rocket-explorer-flight-loading-selection.json)記錄 CI 選到的範圍。GitHub Pages 正式發佈和實體裝置操作驗證待完成。

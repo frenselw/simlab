@@ -10,9 +10,10 @@ export function terrainNormal(point,out){
  const dx=(height(east,1)-height(east,-1))/(2*step),dz=(height(north,1)-height(north,-1))/(2*step);
  return out.copy(radial).addScaledVector(east,-dx).addScaledVector(north,-dz).normalize();
 }
-export function setTerrainNormals(geometry,origin,landOnly=false){
+export const yieldTerrainTask=()=>globalThis.scheduler?.yield?.()??new Promise(resolve=>setTimeout(resolve,0));
+export function setTerrainNormals(geometry,origin,landOnly=false,first=0,last=geometry.attributes.position.count){
  const started=performance.now(),p=geometry.attributes.position,n=geometry.attributes.normal||new THREE.BufferAttribute(new Float32Array(p.count*3),3),water=geometry.attributes.surfaceWater||new THREE.BufferAttribute(new Float32Array(p.count),1),point=new THREE.Vector3(),normal=new THREE.Vector3();
- for(let i=0;i<p.count;i++){point.fromBufferAttribute(p,i).add(origin);terrainNormal(point,normal);n.setXYZ(i,normal.x,normal.y,normal.z);sample.copy(point).normalize();water.setX(i,!landOnly&&window.RocketSurface.waterAt(sample.x,sample.y,sample.z)?1:0);}geometry.setAttribute('normal',n);geometry.setAttribute('surfaceWater',water);n.needsUpdate=water.needsUpdate=true;return performance.now()-started;
+ for(let i=first;i<last;i++){point.fromBufferAttribute(p,i).add(origin);terrainNormal(point,normal);n.setXYZ(i,normal.x,normal.y,normal.z);sample.copy(point).normalize();water.setX(i,!landOnly&&window.RocketSurface.waterAt(sample.x,sample.y,sample.z)?1:0);}geometry.setAttribute('normal',n);geometry.setAttribute('surfaceWater',water);n.needsUpdate=water.needsUpdate=true;return performance.now()-started;
 }
 export const terrainSlopeDetail={value:1};
 // One periodic texture supplies both water normals and quiet land variation without another render pass.
@@ -40,10 +41,10 @@ export function orientGroundSphere(geometry,direction){
  const target=direction.clone().applyAxisAngle(new THREE.Vector3(0,1,0),-.7),rotation=new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),target),p=new THREE.Vector3(),positions=geometry.attributes.position,normals=geometry.attributes.normal;
  for(let i=0;i<positions.count;i++){p.fromArray(data.groundBase,i*3).applyQuaternion(rotation);positions.setXYZ(i,p.x,p.y,p.z);normals.setXYZ(i,p.x,p.y,p.z);}positions.needsUpdate=normals.needsUpdate=true;geometry.boundingSphere=new THREE.Sphere(new THREE.Vector3(),1);return true;
 }
-export const surfaceUniforms={uWorldSurface:worldSurfaceTexture,uDetailEnabled:{value:0},uDetailAtlas:{value:null},uDetailLookup:{value:null},uRegionalSurface:regionalSurfaceTexture,uSurfaceMap:{value:surfaceTexture},uSurfaceTime:{value:0},uSurfaceDetail:{value:1},uSurfaceRotation:{value:new THREE.Matrix3()},uSurfaceStrength:{value:1},uOrbitalMap:{value:null},uOrbitalBlend:{value:0}};
+export const surfaceUniforms={uWorldSurface:worldSurfaceTexture,uDetailEnabled:{value:0},uDetailAtlas:{value:null},uDetailLookup:{value:null},uRegionalSurface:regionalSurfaceTexture,uRegionalSurfaceReady:{value:0},uSurfaceMap:{value:surfaceTexture},uSurfaceTime:{value:0},uSurfaceDetail:{value:1},uSurfaceRotation:{value:new THREE.Matrix3()},uSurfaceStrength:{value:1},uOrbitalMap:{value:null},uOrbitalBlend:{value:0}};
 export const groundLight=`
 uniform float uSlopeDetail,uSurfaceTime,uSurfaceDetail,uSurfaceStrength;
-uniform sampler2D uSurfaceMap,uRegionalSurface,uWorldSurface,uDetailAtlas,uDetailLookup;uniform float uDetailEnabled;uniform mat3 uSurfaceRotation;
+uniform sampler2D uSurfaceMap,uRegionalSurface,uWorldSurface,uDetailAtlas,uDetailLookup;uniform float uDetailEnabled,uRegionalSurfaceReady;uniform mat3 uSurfaceRotation;
 vec3 geographicDirection(vec3 p){
  float lat=.605629,lon=-2.101376;
  vec3 up=vec3(cos(lat)*cos(lon),sin(lat),cos(lat)*sin(lon)),east=vec3(-sin(lon),0.0,cos(lon)),north=vec3(-sin(lat)*cos(lon),cos(lat),-sin(lat)*sin(lon));
@@ -89,7 +90,7 @@ vec3 shadeSurface(vec3 base,vec3 normal,vec3 radial,vec3 point,vec3 world,vec3 s
   if(fine.a<1.0){float dx=(worldHeight(uv+vec2(delta.x,0.0))-worldHeight(uv-vec2(delta.x,0.0)))/(39091.966*max(.03,sqrt(max(0.0,1.0-geo.y*geo.y)))),dz=(worldHeight(uv+vec2(0.0,delta.y))-worldHeight(uv-vec2(0.0,delta.y)))/39091.966;normal=normalize(uSurfaceRotation*normalize(p-east*dx-north*dz));}
   if(fine.a>0.0)normal=normalize(mix(normal,uSurfaceRotation*(east*fine.x+north*fine.y+p*fine.z),fine.a));
  }
- if(water<.5&&p.y>.99&&max(abs(metres.x),abs(metres.y))<239000.0){
+ if(uRegionalSurfaceReady>.5&&water<.5&&p.y>.99&&max(abs(metres.x),abs(metres.y))<239000.0){
   vec2 uv=metres/480000.0+.5,stepUv=vec2(1.0/2048.0,0.0);
   float dx=(regionalHeight(uv+stepUv)-regionalHeight(uv-stepUv))/468.75,dz=(regionalHeight(uv+stepUv.yx)-regionalHeight(uv-stepUv.yx))/468.75;
   vec3 gradient=vec3(dx,0.0,dz);vec3 detailed=normalize(p-gradient+p*dot(p,gradient));
@@ -140,25 +141,30 @@ vec3 shadeOrbitalSurface(vec3 radial,vec3 point,vec3 world,vec3 sun){
 }
 `;
 
-export function createTerrain(buffer,sun){
+export async function createTerrain(buffer,sun){
  const length=new DataView(buffer).getUint32(0,true),header=JSON.parse(new TextDecoder().decode(new Uint8Array(buffer,4,length))),start=4+Math.ceil(length/4)*4,group=new THREE.Group();
  const material=new THREE.MeshBasicMaterial({vertexColors:true,transparent:true,depthWrite:true});
  material.onBeforeCompile=shader=>{Object.assign(shader.uniforms,surfaceUniforms);shader.uniforms.uSun={value:sun};shader.uniforms.uSlopeDetail=terrainSlopeDetail;shader.vertexShader='attribute float surfaceWater;varying float vSurfaceWater;varying vec3 vGroundWorld;\nattribute float landFade;varying float vLandFade;varying vec3 vRadial,vSlope,vGroundPoint;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvLandFade=landFade;vSurfaceWater=surfaceWater;vGroundWorld=(modelMatrix*vec4(position,1.0)).xyz;vGroundPoint=(position+vec3(0.0,6371000.0,0.0))/6371000.0;vSlope=normalize(mat3(modelMatrix)*normal);vRadial=normalize(mat3(modelMatrix)*normalize(position+vec3(0.0,6371000.0,0.0)));');shader.fragmentShader=groundLight+'varying float vSurfaceWater;varying vec3 vGroundWorld;\nuniform vec3 uSun;varying vec3 vRadial,vSlope,vGroundPoint;varying float vLandFade;\n'+shader.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\ndiffuseColor.a*=vLandFade;'+terrainLighting);};
  // Opaque inner tiles draw before the globe so covered ground is shaded once.
  const solid=material.clone();solid.transparent=false;solid.onBeforeCompile=material.onBeforeCompile;
- const chunks=header.chunks.map(chunk=>{
+ const chunks=[];
+ for(const chunk of header.chunks){
   const inner=chunk.box.every(v=>Math.abs(v)<header.extent*.88);
   // Fading ground also precedes clouds (-1), which still precede flames and smoke (0).
   const levels=chunk.levels.map(level=>{const attributes=new THREE.InterleavedBuffer(new Float32Array(buffer,start+level.offset,level.vertices*10),10),g=new THREE.BufferGeometry();for(const [name,size,offset]of [['position',3,0],['normal',3,3],['color',3,6],['landFade',1,9]])g.setAttribute(name,new THREE.InterleavedBufferAttribute(attributes,size,offset));g.setIndex(new THREE.BufferAttribute(new Uint32Array(buffer,start+level.offset+level.vertices*40,level.indices),1));setTerrainNormals(g,new THREE.Vector3(0,R,0),true);g.computeBoundingSphere();const mesh=new THREE.Mesh(g,inner?solid:material);mesh.renderOrder=inner?-3:-2;mesh.visible=false;group.add(mesh);return mesh;});
-  return {levels,level:2,center:new THREE.Vector3((chunk.box[0]+chunk.box[1])/2,0,(chunk.box[2]+chunk.box[3])/2),size:chunk.box[1]-chunk.box[0]};
- });
+  chunks.push({levels,level:2,center:new THREE.Vector3((chunk.box[0]+chunk.box[1])/2,0,(chunk.box[2]+chunk.box[3])/2),size:chunk.box[1]-chunk.box[0]});
+  await yieldTerrainTask();
+ }
  const townCandidates=[],transform=new THREE.Object3D();for(const chunk of chunks){const geometry=chunk.levels[0].geometry,positions=geometry.attributes.position;for(let i=0;i<positions.count;i+=7){const x=positions.getX(i),y=positions.getY(i),z=positions.getZ(i),height=y-(Math.sqrt(R**2-x*x-z*z)-R);if(x>10000&&x<80000&&Math.abs(z)<80000&&height>40&&height<300&&geometry.attributes.normal.getY(i)>.995)townCandidates.push([x,z]);}}
  const smooth=(a,b,x)=>THREE.MathUtils.smoothstep(x,a,b),position=new THREE.Vector3(),normal=new THREE.Vector3(),towardCamera=new THREE.Vector3();
 
  // A small spatial index also lets the contact skirt meet the actual simplified triangles.
  const bins=new Map(),binSize=8000;
- for(const chunk of chunks)for(let level=0;level<3;level++){const g=chunk.levels[level].geometry,p=g.attributes.position,ix=g.index;
-  for(let k=0;k<ix.count;k+=3){const ids=[ix.getX(k),ix.getX(k+1),ix.getX(k+2)],v=ids.map(i=>[p.getX(i),p.getY(i),p.getZ(i)]),xs=v.map(p=>p[0]),zs=v.map(p=>p[2]);for(let z=Math.floor(Math.min(...zs)/binSize);z<=Math.floor(Math.max(...zs)/binSize);z++)for(let x=Math.floor(Math.min(...xs)/binSize);x<=Math.floor(Math.max(...xs)/binSize);x++){const key=x+':'+z;if(!bins.has(key))bins.set(key,[]);bins.get(key).push({v,chunk,level});}}
+ for(const chunk of chunks){
+  for(let level=0;level<3;level++){const g=chunk.levels[level].geometry,p=g.attributes.position,ix=g.index;
+   for(let k=0;k<ix.count;k+=3){const ids=[ix.getX(k),ix.getX(k+1),ix.getX(k+2)],v=ids.map(i=>[p.getX(i),p.getY(i),p.getZ(i)]),xs=v.map(p=>p[0]),zs=v.map(p=>p[2]);for(let z=Math.floor(Math.min(...zs)/binSize);z<=Math.floor(Math.max(...zs)/binSize);z++)for(let x=Math.floor(Math.min(...xs)/binSize);x<=Math.floor(Math.max(...xs)/binSize);x++){const key=x+':'+z;if(!bins.has(key))bins.set(key,[]);bins.get(key).push({v,chunk,level});}}
+  }
+  await yieldTerrainTask();
  }
  group.meshHeight=(x,z,visible=false)=>{let best=-Infinity;for(const record of bins.get(Math.floor(x/binSize)+':'+Math.floor(z/binSize))||[]){if(record.level!==(visible?record.chunk.level:0))continue;const [a,b,c]=record.v;const d=(b[2]-c[2])*(a[0]-c[0])+(c[0]-b[0])*(a[2]-c[2]);if(Math.abs(d)<1e-6)continue;const u=((b[2]-c[2])*(x-c[0])+(c[0]-b[0])*(z-c[2]))/d,v=((c[2]-a[2])*(x-c[0])+(a[0]-c[0])*(z-c[2]))/d;if(u>=-1e-7&&v>=-1e-7&&u+v<=1+1e-7)best=Math.max(best,u*a[1]+v*b[1]+(1-u-v)*c[1]);}return best;};
  group.groundHeight=(x,z,visible=false)=>{const h=group.meshHeight(x,z,visible);return Number.isFinite(h)?h-(Math.sqrt(R*R-x*x-z*z)-R)+.78:window.RocketSurface.heightAt(x/R,Math.sqrt(1-(x*x+z*z)/(R*R)),z/R);};

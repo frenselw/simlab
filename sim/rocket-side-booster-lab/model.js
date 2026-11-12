@@ -22,7 +22,8 @@
     for(let i=1;i<=count;i++){const time=dt*i/count,q=i===count?next:rk4(y,time,f,angle,options);if(clearance(q,f.t+time)<=0)return [dt*(i-1)/count,time];}
     return null;
   }
-  function step(f,requested,options){if(f.capsule?.detached){const t=f.t;R.stepCapsule(f,requested,atmosphere);return f.t-t;}
+  function step(f,requested,options,report){if(f.capsule?.detached){const t=f.t;R.stepCapsule(f,requested,atmosphere,report);return f.t-t;}
+    const previousStatus=f.status,previousBoosters=f.boosters?.status;
     if(['impact','escaped'].includes(f.status))return 0;
     const F=thrust(f),engine=P.ENGINES[f.craft.stages[f.active].engine],mdot=coreThrust(f)/(engine.isp*P.G0),bdot=P.burning(f)?P.BOOSTER.thrust/(P.BOOSTER.isp*P.G0):0,dt=Math.min(requested,mdot>0?f.fuel[f.active]/mdot:Infinity,bdot>0?f.boosters.fuel/bdot:Infinity),old=f.state.slice(),oldFuel=f.fuel[f.active],m0=P.mass(f),oldAttitude=f.attitude;
     const delta=Math.atan2(Math.sin(targetAttitude(f)-oldAttitude),Math.cos(targetAttitude(f)-oldAttitude)),turn=Math.max(-12*Math.PI/180*dt,Math.min(12*Math.PI/180*dt,delta));
@@ -35,6 +36,11 @@
     f.state=next.slice(0,6);f.fuel[f.active]=Math.max(0,next[6]);if(f.boosters){f.boosters.fuel=Math.max(0,next[7]);if(f.boosters.status==='burning'&&f.boosters.fuel<1e-8){f.boosters.fuel=0;f.boosters.status='spent';}}f.t+=usedDt;f.maxHeight=Math.max(f.maxHeight||0,O.elements(f.state).height);
     if(f.fuel[f.active]<1e-8){f.fuel[f.active]=0;f.controls.lit=false;}
     const o=O.elements(f.state);if(o.energy>=0&&o.radial>0&&o.height>=1e8-.01){f.status='escaped';f.controls.lit=false;}
+    if(report){
+      if(previousStatus==='pad'&&f.status==='flying')report('liftoff',f.t,f);
+      if(previousBoosters==='burning'&&f.boosters.status==='spent')report('booster-spent',f.t,f);
+      if(previousStatus!=='impact'&&f.status==='impact')report('impact',f.t,f);
+    }
     return F>0?(bdot?F/(mdot+f.craft.boosters*bdot)*Math.log(m0/P.mass(f)):engine.isp*P.G0*Math.log(m0/P.mass(f))):0;
   }
   const boosterTilt=age=>.525*(1-Math.exp(-Math.max(0,age)/1.5));
@@ -60,11 +66,11 @@
   }
   function ignite(s){if(!s.flight||s.flight.fuel[s.flight.active]<=0||['ended','workshop'].includes(s.phase))return;s.flight.controls.lit=true;if(s.flight.boosters?.status==='ready')s.flight.boosters.status='burning';s.phase='ascent';}
   function stop(s){if(s.flight)s.flight.controls.lit=false;if(s.flight&&s.flight.status==='flying')s.phase=P.burning(s.flight)?'ascent':'coast';}
-  function advance(s,seconds,budget=20000){
-    const f=s.flight;if(f?.capsule?.detached&&['ascent','coast'].includes(s.phase))return R.advance(s,seconds,budget,step,atmosphere);if(!f||!['pad','ascent','coast'].includes(s.phase)||['impact','escaped'].includes(f.status))return {elapsed:0,steps:0,limited:false};
+  function advance(s,seconds,budget=20000,report){
+    const f=s.flight;if(f?.capsule?.detached&&['ascent','coast'].includes(s.phase))return R.advance(s,seconds,budget,step,atmosphere,report);if(!f||!['pad','ascent','coast'].includes(s.phase)||['impact','escaped'].includes(f.status))return {elapsed:0,steps:0,limited:false};
     const target=Math.min(f.t+seconds,604800),start=f.t;let steps=0;
     while(f.t<target-1e-9&&steps<budget){
-      step(f,Math.min(target-f.t,thrust(f)>0||O.elements(f.state).height<120000?.1:2));steps++;
+      step(f,Math.min(target-f.t,thrust(f)>0||O.elements(f.state).height<120000?.1:2),undefined,report);steps++;
       if(O.elements(f.state).height>=1e8-.01&&f.status==='flying')break;
       if(['impact','escaped'].includes(f.status)){s.phase='ended';break;}
     }

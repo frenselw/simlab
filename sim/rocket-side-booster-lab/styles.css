@@ -175,3 +175,25 @@
 #skyError{color:#9b3022}
 #skyReadout{font-variant-numeric:tabular-nums}
 .camera-controls [data-camera-view="sky"]:disabled{display:none}
+
+.flight-events{margin:-14px -18px 12px;padding:4px 8px 6px;border-bottom:1px solid var(--line);background:var(--paper)}
+.flight-events h2{margin:0;color:#315650;font-size:12px;white-space:nowrap}
+.flight-event{position:relative;display:flex;align-items:center;min-height:28px;padding:4px 8px;border-radius:5px;color:#315650;font-size:13px;line-height:1.3;font-variant-numeric:tabular-nums}
+.flight-event-latest{gap:8px;background:#e1f2ec;font-weight:700}
+.flight-event-latest:has(button:not([hidden])){min-height:44px;padding-right:34px}
+#latestEvent::before{content:'';display:inline-block;width:7px;height:7px;margin-right:7px;vertical-align:1px;border-radius:50%;background:var(--teal)}
+#previousEvent{padding-left:22px}
+@media(min-width:1200px) and (not (any-pointer:coarse)){
+  .flight-event-latest{display:block;background:none;padding:0}
+  .flight-events h2{margin:0 0 3px;padding-left:6px;border-left:3px solid var(--teal)}
+  #latestEvent{display:block;padding:5px 8px;border-radius:5px;background:#e1f2ec}
+}
+.flight-event button{position:absolute;inset:0;width:100%;min-height:44px;padding:0 11px;background:transparent;border:0;border-radius:inherit;color:inherit;text-align:right;touch-action:manipulation}
+@media(max-width:959px){.flight-events{margin:-8px -12px 8px}}
+.flight-event button:hover:enabled{background:transparent}
+.flight-event button:focus-visible{outline:2px solid var(--teal);outline-offset:-2px}
+.flight-event button span{display:inline-block;font-size:18px}
+.flight-event button[aria-expanded=true] span{transform:rotate(180deg)}
+.flight-event-announcement{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.flight-preparation{margin:6px 0}
+.flight-preparation:empty{margin:0}
