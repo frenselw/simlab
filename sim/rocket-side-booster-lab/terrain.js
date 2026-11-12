@@ -29,6 +29,26 @@ const surfaceTexture=new THREE.DataTexture(surfacePixels,128,128);surfaceTexture
 export const surfaceTextureBytes=128*128*4*4/3;
 export const regionalSurfaceTexture={value:null};
 export const worldSurfaceTexture={value:null};
+export async function createRegionalSurfaceTexture(signal){
+ const size=2049,extent=240000,surface=window.RocketSurface,pixels=new Uint8Array(size*size*4);
+ for(let y=0;y<size;y++){
+  const n=(y/(size-1)*2-1)*extent/R;
+  for(let x=0;x<size;x++){
+   const e=(x/(size-1)*2-1)*extent/R,u=Math.sqrt(1-e*e-n*n);
+   const height=surface.heightAt(e,u,n),h=Math.round(height*10),i=(y*size+x)*4;
+   pixels[i]=h>>>8;pixels[i+1]=h&255;
+   pixels[i+2]=Math.round(255*surface.forestAt(e,u,n,height));pixels[i+3]=255;
+  }
+  if(y%8===7){
+   await yieldTerrainTask();
+   if(signal.aborted)return null;
+  }
+ }
+ const texture=new THREE.DataTexture(pixels,size,size);
+ texture.minFilter=texture.magFilter=THREE.LinearFilter;
+ texture.needsUpdate=true;
+ return texture;
+}
 export function createWorldSurfaceTexture(){
  const grid=window.RocketSurface.surfaceGrid(),width=(grid.width-1)/4,height=(grid.height+3)/4,pixels=new Uint8Array(width*height*2);
  for(let y=0;y<height;y++)for(let x=0;x<width;x++){const h=grid.data[(grid.height-1-y*4)*grid.width+x*4]&32767,i=(y*width+x)*2;pixels[i]=h>>>8;pixels[i+1]=h&255;}
@@ -54,8 +74,9 @@ vec2 geographicUv(vec3 geo){return vec2(atan(geo.z,geo.x)/6.283185307+.5,asin(cl
 float regionalHeight(vec2 uv){return dot(texture2D(uRegionalSurface,(uv*2048.0+.5)/2049.0).rg,vec2(65280.0,255.0))*.1;}
 float worldHeight(vec2 uv){uv.x=fract(uv.x);uv.y=clamp(uv.y,0.0,1.0);return dot(texture2D(uWorldSurface,(uv*vec2(2048.0,1024.0)+.5)/vec2(2048.0,1025.0)).rg,vec2(65280.0,255.0));}
 vec4 detailedNormal(vec2 uv){
- if(uDetailEnabled<.5)return vec4(0.0);uv.x=fract(uv.x);uv.y=clamp(uv.y,0.0,.9999999);vec2 cell=floor(uv*vec2(36.0,18.0));vec4 entry=texture2D(uDetailLookup,(cell+.5)/vec2(36.0,18.0));float slot=floor(entry.r*255.0+.5)-1.0;if(slot<0.0)return vec4(0.0);
- vec2 local=uv*vec2(36.0,18.0)-cell,atlas=(vec2(mod(slot,3.0),floor(slot/3.0))*1027.0+1.5+local*1024.0)/vec2(3081.0,2054.0);return vec4(normalize((texture2D(uDetailAtlas,atlas).rgb*255.0-128.0)/127.0),entry.g);
+ if(uDetailEnabled<.5)return vec4(0.0);uv.x=fract(uv.x);uv.y=clamp(uv.y,0.0,.9999999);vec2 cell=floor(uv*vec2(144.0,72.0));vec4 entry=texture2D(uDetailLookup,(cell+.5)/vec2(144.0,72.0));float slot=floor(entry.r*255.0+.5)-1.0;if(slot<0.0)return vec4(0.0);
+ vec2 local=uv*vec2(144.0,72.0)-cell,atlas=(vec2(mod(slot,4.0),floor(slot/4.0))*259.0+1.5+local*256.0)/vec2(1036.0,777.0);
+ return vec4(normalize((texture2D(uDetailAtlas,atlas).rgb*255.0-128.0)/127.0),entry.g);
 }
 vec3 terrainIrradiance(vec3 normal,vec3 radial,vec3 sun){
  normal=normalize(mix(radial,normal,uSlopeDetail));
@@ -143,6 +164,7 @@ vec3 shadeOrbitalSurface(vec3 radial,vec3 point,vec3 world,vec3 sun){
 
 export async function createTerrain(buffer,sun){
  const length=new DataView(buffer).getUint32(0,true),header=JSON.parse(new TextDecoder().decode(new Uint8Array(buffer,4,length))),start=4+Math.ceil(length/4)*4,group=new THREE.Group();
+ if(header.version!==2||header.extent!==240000||header.chunks.length!==16)throw Error('Invalid regional mesh');
  const material=new THREE.MeshBasicMaterial({vertexColors:true,transparent:true,depthWrite:true});
  material.onBeforeCompile=shader=>{Object.assign(shader.uniforms,surfaceUniforms);shader.uniforms.uSun={value:sun};shader.uniforms.uSlopeDetail=terrainSlopeDetail;shader.vertexShader='attribute float surfaceWater;varying float vSurfaceWater;varying vec3 vGroundWorld;\nattribute float landFade;varying float vLandFade;varying vec3 vRadial,vSlope,vGroundPoint;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvLandFade=landFade;vSurfaceWater=surfaceWater;vGroundWorld=(modelMatrix*vec4(position,1.0)).xyz;vGroundPoint=(position+vec3(0.0,6371000.0,0.0))/6371000.0;vSlope=normalize(mat3(modelMatrix)*normal);vRadial=normalize(mat3(modelMatrix)*normalize(position+vec3(0.0,6371000.0,0.0)));');shader.fragmentShader=groundLight+'varying float vSurfaceWater;varying vec3 vGroundWorld;\nuniform vec3 uSun;varying vec3 vRadial,vSlope,vGroundPoint;varying float vLandFade;\n'+shader.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\ndiffuseColor.a*=vLandFade;'+terrainLighting);};
  // Opaque inner tiles draw before the globe so covered ground is shaded once.
@@ -151,7 +173,30 @@ export async function createTerrain(buffer,sun){
  for(const chunk of header.chunks){
   const inner=chunk.box.every(v=>Math.abs(v)<header.extent*.88);
   // Fading ground also precedes clouds (-1), which still precede flames and smoke (0).
-  const levels=chunk.levels.map(level=>{const attributes=new THREE.InterleavedBuffer(new Float32Array(buffer,start+level.offset,level.vertices*10),10),g=new THREE.BufferGeometry();for(const [name,size,offset]of [['position',3,0],['normal',3,3],['color',3,6],['landFade',1,9]])g.setAttribute(name,new THREE.InterleavedBufferAttribute(attributes,size,offset));g.setIndex(new THREE.BufferAttribute(new Uint32Array(buffer,start+level.offset+level.vertices*40,level.indices),1));setTerrainNormals(g,new THREE.Vector3(0,R,0),true);g.computeBoundingSphere();const mesh=new THREE.Mesh(g,inner?solid:material);mesh.renderOrder=inner?-3:-2;mesh.visible=false;group.add(mesh);return mesh;});
+  const levels=chunk.levels.map(level=>{
+   const {vertices,indices}=level,offset=start+level.offset;
+   if(![offset,vertices,indices].every(Number.isInteger)||offset<start||offset%4||vertices<0||vertices>=32768||
+    indices<0||indices%3||offset+vertices*8+indices*2>buffer.byteLength)throw Error('Invalid regional mesh block');
+   const chart=new Float32Array(buffer,offset,vertices*2),deltas=new Int16Array(buffer,offset+vertices*8,indices);
+   const values=new Float32Array(vertices*10),index=new Uint32Array(indices),surface=window.RocketSurface;
+   for(let i=0;i<vertices;i++){
+    const x=chart[i],z=chart[i+vertices],e=x/R,n=z/R,u=Math.sqrt(1-e*e-n*n);
+    if(!Number.isFinite(x+z)||Math.max(Math.abs(x),Math.abs(z))>header.extent)throw Error('Invalid regional mesh position');
+    const height=surface.heightAt(e,u,n),curve=(u-1)*R*THREE.MathUtils.smoothstep(Math.hypot(x,z),1500,5000);
+    const fade=1-THREE.MathUtils.smoothstep(Math.max(Math.abs(x),Math.abs(z)),header.extent*.88,header.extent-500);
+    values.set([x,curve+height-.78,z,0,1,0,...surface.colorAt(e,u,n),fade],i*10);
+   }
+   for(let i=0,vertex=0;i<indices;i++){
+    vertex+=deltas[i];
+    if(vertex<0||vertex>=vertices)throw Error('Invalid regional mesh index');
+    index[i]=vertex;
+   }
+   const attributes=new THREE.InterleavedBuffer(values,10),g=new THREE.BufferGeometry();
+   for(const [name,size,offset] of [['position',3,0],['normal',3,3],['color',3,6],['landFade',1,9]])g.setAttribute(name,new THREE.InterleavedBufferAttribute(attributes,size,offset));
+   g.setIndex(new THREE.BufferAttribute(index,1));setTerrainNormals(g,new THREE.Vector3(0,R,0),true);g.computeBoundingSphere();
+   const mesh=new THREE.Mesh(g,inner?solid:material);
+   mesh.renderOrder=inner?-3:-2;mesh.visible=false;group.add(mesh);return mesh;
+  });
   chunks.push({levels,level:2,center:new THREE.Vector3((chunk.box[0]+chunk.box[1])/2,0,(chunk.box[2]+chunk.box[3])/2),size:chunk.box[1]-chunk.box[0]});
   await yieldTerrainTask();
  }

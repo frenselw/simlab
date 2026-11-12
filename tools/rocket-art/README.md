@@ -124,6 +124,18 @@ python tools/rocket-art/bake-explorer-terrain.py --target sim/rocket-side-booste
 
 The checked-in `sources/explorer-world-terrain/height-land-8k.png` is a SHA-pinned derivative of NOAA ETOPO 2022 ice-surface 60-arc-second elevations. Its sidecar records the public URL, raw TIFF hash and processing; the 466 MB original is only an import cache. `build-world-height.py --source <TIFF>` verifies that original before regenerating the derivative. The runtime 8193 by 4097 point grid generalizes elevations to about 5 km at the equator, with periodic longitude and constant poles. A Uint16 stores metre height plus a land bit; sea and below-sea-level land remain zero. Row deltas plus deterministic gzip reduce transmission to about 10.6 MB; decoding reconstructs the shared 67.1 MB buffer in place. Flight waits for world and regional data. The accepted elevation bound is 9000 m; generalization does not preserve every summit.
 
+### Compact explorer delivery
+
+The full-resolution bake described here is the input for the current deployment format. Use the verified pre-compaction checkout at `a27d3ca2290db798fcea9e9d32bcfc648e158a0d` or a separate equivalent terrain bake. Generate into a clean staging directory:
+
+```text
+python tools/rocket-art/compact-explorer-terrain.py <bake>/sim/rocket-side-booster-lab --target output/tmp/rocket-terrain-generated
+```
+
+Copy the generated `assets/`, `assets.json` and `surface-data.js` into `sim/rocket-side-booster-lab/` with the compact runtime present. The asset list replaces the legacy geometry, height, regional texture and normal files. Use a fresh staging directory when regenerating so removed tiles do not persist. Check packaging and browser results before updating the pinned delivery.
+
+The height format stores the original land mask and an exact grid every 32 samples. Each refinement step inserts horizontal, vertical and centre samples predicted from the enclosing coarse grid. Signed residuals are quantized, and the encoder predicts from its own decoded values so errors do not compound. The regional launch patch uses original decimetre heights with a fixed 16-sample feather. Coastal topology is preserved separately. The renderer derives mesh elevations, colours and regional material from the validated height field. The detailed normal WebP tiles preserve the input pixels and shared sampling gutters. See the [implementation plan](../../plans/42-rocket-explorer-terrain-download-optimization.md) for measured results.
+
 The global mesh retains common coast/cell topology and bounded 4-active/6-cached/2-request loading. Heights and biome colors are rebaked from the same data; desert and latitude/elevation limits also constrain illustrative woodland. A 4096 by 2049 RG8 texture derived in memory supplies continuous global normals, with no extra download or mipmaps. The USGS core and accepted sample retain higher detail. Contact skirts and middle woodland roots follow displayed coarse/fine triangles. Dense ocean rings follow the controlled craft without moving geography. No dynamic shadow or reflection target is added.
 
 `lighting.js` calculates solar height and spherical Earth occlusion. Sky, clouds, terrain, ocean, trees and bodies share the sun; bodies above a dark surface can receive direct light when the sun clears the horizon. Dim blue fill preserves body outlines. The browser owner's `world` case checks regions, real GPU heights, twilight/night pixels, model isolation and coarse-pointer budgets. These are Chromium checks, not physical iPad Safari FPS or peak-memory measurements. See the [global implementation plan](../../plans/42-rocket-explorer-global-terrain-and-night.md) for evidence and deployment receipts.

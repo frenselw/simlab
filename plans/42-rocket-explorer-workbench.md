@@ -1,5 +1,7 @@
 # 小小航天家：火箭升空與返航
 
+[地形下載精簡與畫質保留計劃](42-rocket-explorer-terrain-download-optimization.md) 記錄 5 MB 地形容量目標、多層格點壓縮、近場精度、無損法線補載及畫質與碰撞驗收。實際格式、格點誤差及交付證據記在該專項的實作紀錄。
+
 [飛行事件與分段載入計劃](42-rocket-explorer-flight-events-and-loading.md) 記錄三種尺寸的事件列、工廠先行及按視角補載的實作與驗收決定。
 
 [日地月運動、光照與天空觀測](42-rocket-explorer-sun-earth-moon.md) 記錄首版實作、星曆資料及獨立版驗證。

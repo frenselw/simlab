@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three-0.185.1/three.module.min.js';
-import {createTerrain,groundLight,orbitalLighting,terrainSlopeDetail,surfaceUniforms,surfaceTextureBytes,regionalSurfaceTexture,createWorldSurfaceTexture} from './terrain.js';
+import {createTerrain,groundLight,orbitalLighting,terrainSlopeDetail,surfaceUniforms,surfaceTextureBytes,regionalSurfaceTexture,createRegionalSurfaceTexture,createWorldSurfaceTexture} from './terrain.js';
 import {createGlobalTerrain} from './global-terrain.js';
 import {createTerrainDetail} from './terrain-detail.js';
 import {createPreciseTerrain} from './precise-terrain.js';
@@ -17,6 +17,11 @@ async function artTexture(name,signal,cacheMode){
  const url=URL.createObjectURL(await (await asset(name,signal,cacheMode)).blob());
  try{return await loader.loadAsync(url);}finally{URL.revokeObjectURL(url);}
 }
+async function compactAsset(name,signal,cacheMode,limit){
+ const response=await asset(name,signal,cacheMode);
+ const compressed=await RocketSurfaceCodec.readBytes(response.body,limit);
+ return (await RocketSurfaceCodec.gunzip(compressed,limit)).slice().buffer;
+}
 let dayMap,weatherTexture,starMap,geography,terrainBuffer,globalBuffer,baseAttempted=false;
 export async function loadFlightArt(){
  const cacheMode=baseAttempted?'reload':'default';
@@ -26,9 +31,9 @@ export async function loadFlightArt(){
  try{
   const [textures,site,region,global]=await Promise.all([
    Promise.all(names.map(name=>artTexture(name,signal,cacheMode))),
-   asset('geography.json',signal,cacheMode).then(r=>r.json()),
-   asset('terrain.bin',signal,cacheMode).then(r=>r.arrayBuffer()),
-   asset('global/coarse.bin',signal,cacheMode).then(r=>r.arrayBuffer()),
+   compactAsset('geography-v2.gz',signal,cacheMode,32768).then(b=>JSON.parse(new TextDecoder().decode(b))),
+   compactAsset('region-mesh-v2.gz',signal,cacheMode,1200000),
+   compactAsset('global/coarse.bin.gz',signal,cacheMode,2200000),
    window.RocketSurface.ready()
   ]);
   [dayMap,weatherTexture,starMap]=textures;geography=site;terrainBuffer=region;globalBuffer=global;
@@ -38,14 +43,13 @@ export async function loadFlightArt(){
  }catch(error){abort.abort();throw error;}
 }
 export async function loadRegionalSurface(signal){
- const texture=await artTexture('regional-surface.png',signal);
+ const texture=await createRegionalSurfaceTexture(signal);
+ if(!texture)return;
  if(signal.aborted){texture.dispose();return;}
- if(texture.image.width!==2049||texture.image.height!==2049){texture.dispose();throw Error('Invalid regional surface size');}
- texture.generateMipmaps=false;texture.minFilter=texture.magFilter=THREE.LinearFilter;
  cache.set('regional-surface',texture);regionalSurfaceTexture.value=texture;surfaceUniforms.uRegionalSurfaceReady.value=1;
 }
 async function loadGlobalDetail(signal){
- const metadata=await (await asset('global-detail/index.json',signal)).json();
+ const metadata=JSON.parse(new TextDecoder().decode(await compactAsset('global-detail/tiles.json.gz',signal,'default',200000)));
  if(signal.aborted)throw new DOMException('Cancelled','AbortError');
  const detail=createTerrainDetail(metadata),[atlas,lookup]=detail.textures;
  surfaceUniforms.uDetailAtlas.value=atlas;surfaceUniforms.uDetailLookup.value=lookup;surfaceUniforms.uDetailEnabled.value=1;
@@ -337,7 +341,7 @@ export function createLandscape(relief){
   for(const [j,dx,dy,dz]of [[0,-1200,0,0],[1,-520,280,-160],[2,150,440,100],[3,830,150,-100],[4,1400,-50,80]]){const scale=.85+i%3*.16;clouds.push([cx+dx*scale,groundY(cx+dx*scale,cz+dz)+h+dy*scale,cz+dz,(720+j%3*150)*scale,(290+j%3*60)*scale,(650+j%2*140)*scale,0,a,0]);}
  }
  const weather=instances(group,new THREE.SphereGeometry(1,8,5),new THREE.MeshLambertMaterial({color:'#f2f3eb'}),clouds);group.landmarks.push(weather);group.weather=weather;
- group.userData={clearRadius:300,treeMin,buildingMin,trees:trunks.length,buildings:plans.length,facilities,accessRoads:links,serviceRoads:links.length,tankBase,mountains:geography.ridges.length,river:false,coast:true,cloudClearRadius:5000,cloudCenters};return group;
+ group.userData={clearRadius:300,treeMin,buildingMin,trees:trunks.length,buildings:plans.length,facilities,accessRoads:links,serviceRoads:links.length,tankBase,mountains:geography.ridges,river:false,coast:true,cloudClearRadius:5000,cloudCenters};return group;
 }
 
 export function buildRocket(c,separated,capsuleOnly=false){

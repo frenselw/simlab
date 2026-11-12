@@ -1,13 +1,39 @@
 import * as THREE from './vendor/three-0.185.1/three.module.min.js';
 import {terrainLighting,groundLight,setTerrainNormals,yieldTerrainTask,terrainSlopeDetail,surfaceUniforms,orbitalLighting} from './terrain.js';
 
-function geometry(buffer){
+async function geometry(buffer,signal){
  const length=new DataView(buffer).getUint32(0,true),header=JSON.parse(new TextDecoder().decode(new Uint8Array(buffer,4,length))),start=4+Math.ceil(length/4)*4;
- if(header.version!==1||start+header.vertexCount*16+header.indexCount*4!==buffer.byteLength)throw Error('Invalid global terrain');
- const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(buffer,start,header.vertexCount*3),3));g.setAttribute('color',new THREE.BufferAttribute(new Uint8Array(buffer,start+header.vertexCount*12,header.vertexCount*4),4,true));g.setIndex(new THREE.BufferAttribute(new Uint32Array(buffer,start+header.vertexCount*16,header.indexCount),1));g.computeBoundingSphere();return {header,g};
+ const {vertexCount,indexCount}=header;
+ if(header.version!==2||!Number.isInteger(vertexCount)||vertexCount<3||!Number.isInteger(indexCount)||indexCount<0||indexCount%3||
+  start+vertexCount*8+indexCount*4!==buffer.byteLength)throw Error('Invalid global terrain');
+ const coordinates=new Int32Array(buffer,start,vertexCount*2),deltas=new Int32Array(buffer,start+vertexCount*8,indexCount);
+ const positions=new Float32Array(vertexCount*3),colors=new Uint8Array(vertexCount*4),indices=new Uint32Array(indexCount);
+ const surface=window.RocketSurface,radius=6371000;
+ for(let i=0,longitude=0,latitude=0;i<vertexCount;i++){
+  longitude+=coordinates[i];latitude+=coordinates[i+vertexCount];
+  const a=longitude/1e7,b=latitude/1e7,c=Math.cos(b);
+  if(Math.abs(a)>Math.PI+1e-7||Math.abs(b)>Math.PI/2+1e-7)throw Error('Invalid global terrain coordinates');
+  const x=c*Math.cos(a),y=Math.sin(b),z=c*Math.sin(a),scale=1+surface.heightAt(x,y,z)/radius;
+  positions.set([x*scale,y*scale,z*scale],i*3);
+  const [red,green,blue]=surface.colorAt(x,y,z);
+  colors.set([Math.round(red*255),Math.round(green*255),Math.round(blue*255),255],i*4);
+  if(i%8192===8191){
+   await yieldTerrainTask();
+   if(signal?.aborted)throw signal.reason;
+  }
+ }
+ for(let i=0,vertex=0;i<indexCount;i++){
+  vertex+=deltas[i];
+  if(vertex<0||vertex>=vertexCount)throw Error('Invalid global terrain index');
+  indices[i]=vertex;
+ }
+ const g=new THREE.BufferGeometry();
+ g.setAttribute('position',new THREE.BufferAttribute(positions,3));
+ g.setAttribute('color',new THREE.BufferAttribute(colors,4,true));
+ g.setIndex(new THREE.BufferAttribute(indices,1));g.computeBoundingSphere();return {header,g};
 }
 export async function createGlobalTerrain(buffer,sun,loadDetail){
- const {header,g}=geometry(buffer),origin=new THREE.Vector3(),group=new THREE.Group(),regional={value:0},material=new THREE.MeshBasicMaterial({vertexColors:true,depthTest:false,depthWrite:true});
+ const {header,g}=await geometry(buffer),origin=new THREE.Vector3(),group=new THREE.Group(),regional={value:0},material=new THREE.MeshBasicMaterial({vertexColors:true,depthTest:false,depthWrite:true});
  let normalMs=0;
  for(let first=0;first<header.vertexCount;first+=8192){
   normalMs+=setTerrainNormals(g,origin,true,first,Math.min(first+8192,header.vertexCount));
@@ -18,16 +44,19 @@ export async function createGlobalTerrain(buffer,sun,loadDetail){
  const original=g.index.array,index=new THREE.BufferAttribute(new Uint32Array(original.length),1).setUsage(THREE.DynamicDrawUsage);g.setIndex(index);g.setDrawRange(0,0);const coarse=new THREE.Mesh(g,material);coarse.renderOrder=-1;coarse.frustumCulled=false;group.add(coarse);
  const cells=header.cells.map(c=>({...c,normal:new THREE.Vector3(...c.center)})),cache=new Map(),pending=new Map(),failed=new Set(),cameraLocal=new THREE.Vector3(),world=new THREE.Vector3(),frustum=new THREE.Frustum(),projection=new THREE.Matrix4(),inverse=new THREE.Matrix4(),sphere=new THREE.Sphere(),ray=new THREE.Raycaster(),focus=new THREE.Vector3(),lead=new THREE.Vector3(),tangent=new THREE.Vector3();let selected='',clock=0,desired=new Set(),wanted=new Set();
  const stats=group.userData={normalBuildMs:normalMs,lastNormalBuildMs:normalMs,coarseTriangles:0,fineTriangles:0,loaded:0,pending:0,cacheLimit:6,activeLimit:4,requestLimit:2,failures:[],active:[],normalFailures:[],bytes:buffer.byteLength};
- let detail,detailRequest;
+ let detail,detailRequest,detailWanted=new Set(),detailVisible=false;
  let fineMaterial;const normalFailed=new Set();group.advanceDetail=now=>detail?.advance(now)||false;
- function meshFor(data){const {g}=geometry(data),normalMs=setTerrainNormals(g,origin,true);stats.normalBuildMs+=normalMs;stats.lastNormalBuildMs=normalMs;
+ async function meshFor(data,signal){
+  const {g}=await geometry(data,signal);
+  if(signal.aborted){g.dispose();return null;}
+  const normalMs=setTerrainNormals(g,origin,true);stats.normalBuildMs+=normalMs;stats.lastNormalBuildMs=normalMs;
   // Fine mountain faces must occlude each other; only distant coarse ocean chords keep the depth workaround.
   if(!fineMaterial){fineMaterial=material.clone();fineMaterial.depthTest=true;fineMaterial.onBeforeCompile=material.onBeforeCompile;fineMaterial.customProgramCacheKey=()=>material.customProgramCacheKey()+'-fine-depth';}
   const mesh=new THREE.Mesh(g,fineMaterial);mesh.renderOrder=-1;mesh.visible=false;group.add(mesh);return {mesh,bytes:data.byteLength,used:++clock};}
- function evict(limit=6){while(cache.size>limit){const candidates=[...cache].filter(([id])=>!wanted.has(id)).sort((a,b)=>a[1].used-b[1].used);if(!candidates.length)break;const [id,item]=candidates[0];group.remove(item.mesh);item.mesh.geometry.dispose();detail?.drop(id);cache.delete(id);}}
+ function evict(limit=6){while(cache.size>limit){const candidates=[...cache].filter(([id])=>!wanted.has(id)).sort((a,b)=>a[1].used-b[1].used);if(!candidates.length)break;const [id,item]=candidates[0];group.remove(item.mesh);item.mesh.geometry.dispose();cache.delete(id);}}
  function updateMetadata(){
   if(!loadDetail||detail)return;
-  if(!wanted.size){
+  if(!detailVisible){
    detailRequest?.abort();detailRequest=null;stats.detailPending=false;
    return;
   }
@@ -45,29 +74,68 @@ export async function createGlobalTerrain(buffer,sun,loadDetail){
   if(!item){
    const cell=cellMap.get(id),response=await fetch(new URL('./assets/global/'+cell.file,import.meta.url),{signal});
    if(!response.ok)throw Error('Global detail unavailable');
-   const data=await response.arrayBuffer();
+   const compressed=await RocketSurfaceCodec.readBytes(response.body,300000);
+   const data=(await RocketSurfaceCodec.gunzip(compressed,500000)).slice().buffer;
    if(signal.aborted)return;
-   evict(5);item=meshFor(data);cache.set(id,item);
-  }
-  if(detail&&!item.slopes&&!normalFailed.has(id)){
-   try{
-    const slopes=await detail.read(id,signal);
-    if(signal.aborted||cache.get(id)!==item)return;
-    if(slopes)detail.install(id,slopes);
-    item.slopes=true;
-   }catch(error){if(!signal.aborted)normalFailed.add(id);}
+   item=await meshFor(data,signal);
+   if(item){evict(5);cache.set(id,item);}
   }
  }
+ async function loadNormal(id,signal){
+  const pixels=await detail.read(id,signal);
+  if(signal.aborted||!pixels||!detailWanted.has(id))return;
+  if(detail.stats.loaded>=detail.capacity){
+   const outside=detail.stats.ids.find(key=>!detailWanted.has(key));
+   if(!outside)return;
+   detail.drop(outside);
+  }
+  detail.install(id,pixels);
+ }
  function load(){
-  for(const id of wanted){
+  const jobs=[
+   ...[...desired].map(id=>[id,false]),
+   ...[...detailWanted].map(id=>[id,true]),
+   ...[...wanted].filter(id=>!desired.has(id)).map(id=>[id,false])
+  ];
+  for(const [id,normal] of jobs){
    if(pending.size>=2)break;
-   const item=cache.get(id);
-   if(pending.has(id)||failed.has(id)||(item&&(!detail||item.slopes||normalFailed.has(id))))continue;
-   const abort=new AbortController();pending.set(id,abort);
-   loadCell(id,abort.signal).catch(()=>{if(!abort.signal.aborted)failed.add(id);}).finally(()=>{
-    pending.delete(id);evict();group.onChange?.();
+   const key=normal?'normal:'+id:id;
+   if(pending.has(key)||(normal?(detail.has(id)||normalFailed.has(id)):(cache.has(id)||failed.has(id))))continue;
+   const abort=new AbortController();pending.set(key,abort);
+   (normal?loadNormal(id,abort.signal):loadCell(id,abort.signal)).catch(()=>{
+    if(!abort.signal.aborted)(normal?normalFailed:failed).add(id);
+   }).finally(()=>{
+    pending.delete(key);evict();group.onChange?.();
    });
   }
+ }
+ const normalCentres=new Map();
+ function selectDetail(candidates){
+  if(!detail||!detailVisible)return new Set();
+  const options=[];
+  for(const {c,screen} of candidates){
+   if(screen<260)continue;
+   const [cx,cy]=c.id.split('-').map(Number);
+   for(let y=cy*4;y<cy*4+4;y++)for(let x=cx*4;x<cx*4+4;x++){
+    const id=x+'-'+y,bytes=detail.sizeOf(id);
+    if(!bytes||normalFailed.has(id))continue;
+    if(!normalCentres.has(id)){
+     const a=((x+.5)*2.5-180)*Math.PI/180,b=((y+.5)*2.5-90)*Math.PI/180,cos=Math.cos(b);
+     normalCentres.set(id,new THREE.Vector3(...window.RocketSurface.fromGeocentric(cos*Math.cos(a),cos*Math.sin(a),Math.sin(b))));
+    }
+    const center=normalCentres.get(id);
+    sphere.center.copy(center);sphere.radius=.032;sphere.applyMatrix4(group.matrixWorld);
+    if(frustum.intersectsSphere(sphere))options.push({id,bytes,score:1-center.dot(focus)});
+   }
+  }
+  let bytes=0;
+  const selected=new Set();
+  for(const tile of options.sort((a,b)=>a.score-b.score)){
+   if(bytes+tile.bytes>450000)continue;
+   selected.add(tile.id);bytes+=tile.bytes;
+   if(selected.size===detail.capacity)break;
+  }
+  return selected;
  }
  const cellMap=new Map(cells.map(c=>[c.id,c])),heightCache=new Map();
  group.surfaceHeight=direction=>{
@@ -99,13 +167,19 @@ export async function createGlobalTerrain(buffer,sun,loadDetail){
   // Prefer the ground actually ahead in the image, not the ground nearest a trailing camera.
   for(const y of [0,-.55,-.9]){ray.setFromCamera(new THREE.Vector2(0,y),camera);ray.ray.applyMatrix4(inverse);if(ray.ray.intersectSphere(sphere.set(new THREE.Vector3(),1),focus)){focus.normalize();break;}focus.copy(direction);}
   const candidates=fineEnabled?visible.map(c=>{sphere.center.copy(c.normal).multiplyScalar(Math.cos(c.angularRadius));sphere.radius=Math.sin(c.angularRadius)+.002;sphere.applyMatrix4(group.matrixWorld);world.copy(c.normal).applyMatrix4(group.matrixWorld);const distance=camera.position.distanceTo(world),screen=.174533*scale*pixels/Math.max(camera.near,distance);return {c,screen,inView:frustum.intersectsSphere(sphere),score:1-c.normal.dot(focus)};}).filter(({c,screen,inView})=>c.file&&inView&&screen>(cache.get(c.id)?.mesh.visible?180:260)*(quality===1?1.5:1)).sort((a,b)=>a.score-b.score).slice(0,4):[];
-  const inView=new Set(candidates.map(({c})=>c.id));desired=quality<2&&orbitalBlend<1?new Set(inView):new Set();wanted=new Set(inView);
-  if(fineEnabled&&candidates.length&&flight?.status==='flying'){
+  const inView=new Set(candidates.map(({c})=>c.id));desired=quality<2&&orbitalBlend<1?new Set(inView):new Set();wanted=new Set(desired);
+  if(desired.size&&flight?.status==='flying'){
    lead.set(...window.RocketSurface.direction(flight.state));tangent.set(flight.state[4],flight.state[3],0).addScaledVector(lead,-(flight.state[4]*lead.x+flight.state[3]*lead.y));const speed=tangent.length();
    if(speed>25){tangent.divideScalar(speed);for(const seconds of [30,60]){const a=Math.min(.065,speed*seconds/6371000),point=lead.clone().multiplyScalar(Math.cos(a)).addScaledVector(tangent,Math.sin(a)),[lon,lat]=window.RocketSurface.geographic(point.x,point.y,point.z),id=Math.min(35,Math.max(0,Math.floor((lon+180)/10)))+'-'+Math.min(17,Math.max(0,Math.floor((lat+90)/10)));if(cellMap.get(id)?.file)wanted.add(id);}}
   }
   stats.desired=[...desired];stats.prefetch=[...wanted].filter(id=>!inView.has(id));stats.focus=focus.toArray();
-  for(const [id,abort]of pending)if(!wanted.has(id))abort.abort();for(const [id,item]of cache){item.mesh.visible=Boolean(enabled&&desired.has(id));if(item.mesh.visible)item.used=++clock;}evict();updateMetadata();load();detail?.select(wanted);stats.normalFailures=[...normalFailed];
+  detailVisible=inView.size>0;updateMetadata();
+  detailWanted=selectDetail(candidates);
+  for(const [id,abort]of pending){
+   if(id.startsWith('normal:')?!detailWanted.has(id.slice(7)):!wanted.has(id))abort.abort();
+  }
+  for(const [id,item]of cache){item.mesh.visible=Boolean(enabled&&desired.has(id));if(item.mesh.visible)item.used=++clock;}
+  evict();load();detail?.select(detailWanted);stats.normalFailures=[...normalFailed];
   const coarseCells=orbitalBlend===1?[]:visible.filter(c=>!cache.has(c.id)||!desired.has(c.id)),key=coarseCells.map(c=>c.id).join(',');if(key!==selected){let offset=0;for(const c of coarseCells){index.array.set(original.subarray(c.firstIndex,c.firstIndex+c.indexCount),offset);offset+=c.indexCount;}index.needsUpdate=true;g.setDrawRange(0,offset);selected=key;}
   stats.coarseTriangles=g.drawRange.count/3;stats.fineTriangles=[...cache.values()].filter(i=>i.mesh.visible).reduce((n,i)=>n+i.mesh.geometry.index.count/3,0);stats.loaded=cache.size;stats.pending=pending.size;stats.failures=[...failed];stats.active=[...cache].filter(([,i])=>i.mesh.visible).map(([id])=>id);stats.bytes=buffer.byteLength+[...cache.values()].reduce((n,i)=>n+i.bytes,0);
  };

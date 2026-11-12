@@ -1,53 +1,58 @@
-(function(root,factory){const node=typeof module==='object'&&module.exports,api=factory(node?require('./parts.js'):root.RocketParts,node?require('./surface-data.js'):root.RocketSurfaceData,node?file=>require('node:zlib').gunzipSync(require('node:fs').readFileSync(require('node:path').join(__dirname,file))):null,node?null:document.currentScript.src);if(node)module.exports=api;root.RocketSurface=api;})(typeof window==='undefined'?globalThis:window,function(P,data,read,base){
+(function(root,factory){const node=typeof module==='object'&&module.exports,api=factory(node?require('./parts.js'):root.RocketParts,node?require('./surface-data.js'):root.RocketSurfaceData,node?file=>require('node:zlib').gunzipSync(require('node:fs').readFileSync(require('node:path').join(__dirname,file.file)),{maxOutputLength:file.decodedBytes}):null,node?null:document.currentScript.src,node?require('./surface-codec.js'):root.RocketSurfaceCodec);if(node)module.exports=api;root.RocketSurface=api;})(typeof window==='undefined'?globalThis:window,function(P,data,read,base,codec){
  'use strict';
  const MAX_HEIGHT=9000,LAT=.605629,LON=-2.101376,sinLat=Math.sin(LAT),cosLat=Math.cos(LAT),sinLon=Math.sin(LON),cosLon=Math.cos(LON);
- function decode(value){const bytes=typeof Buffer==='function'?Uint8Array.from(Buffer.from(value,'base64')):Uint8Array.from(atob(value),c=>c.charCodeAt(0)),view=new DataView(bytes.buffer),out=new Uint16Array(bytes.length/2);for(let i=0;i<out.length;i++)out[i]=view.getUint16(i*2,true);return out;}
- const globe=decode(data.global),local=decode(data.local),smooth=(a,b,x)=>{const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t);};
+ const smooth=(a,b,x)=>{const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t);};
+ const empty=new Uint16Array(4);
  let fine=null,world=null,pending=null,attempted=false;
- function integers(bytes){if((bytes.byteOffset||0)%2===0&&new Uint8Array(new Uint16Array([1]).buffer)[0]===1)return new Uint16Array(bytes.buffer,bytes.byteOffset||0,bytes.byteLength/2);const view=new DataView(bytes.buffer,bytes.byteOffset||0,bytes.byteLength),out=new Uint16Array(bytes.byteLength/2);for(let i=0;i<out.length;i++)out[i]=view.getUint16(i*2,true);return out;}
- function decodeRegion(bytes){
-  if(bytes.byteLength!==data.fine.size**2*2)throw Error('Invalid regional height length');
-  const grid=integers(bytes);
-  for(let i=0;i<grid.length;i++)if(grid[i]>50001)throw Error('Invalid regional height');
-  return grid;
+ if(data.version!==2)throw Error('Unsupported terrain version');
+ if(read){
+  fine=codec.decode(read(data.fine),data.fine);
+  world=codec.decode(read(data.world),data.world);
  }
- function decodeWorld(bytes){
-  if(bytes.byteLength!==data.world.width*data.world.height*2)throw Error('Invalid world height length');
-  const grid=integers(bytes);
-  for(let row=0;row<data.world.height;row++){let previous=0;for(let x=0;x<data.world.width;x++){const i=row*data.world.width+x,v=(previous+grid[i])&65535;grid[i]=v;previous=v;if((v&32767)>MAX_HEIGHT||(!(v&32768)&&v!==0))throw Error('Invalid world height');}}
-  return grid;
- }
- if(read&&data.fine)fine=decodeRegion(read(data.fine.file));
- if(read&&data.world)world=decodeWorld(read(data.world.file));
  function ready(){
-  if((fine||!data.fine)&&(world||!data.world))return Promise.resolve();
+  if(fine&&world)return Promise.resolve();
   if(pending)return pending;
   const abort=new AbortController(),cache=attempted?'reload':'default';
   attempted=true;
-  async function load(record,decode){
-   if(!record)return null;
+  async function load(record){
    const response=await fetch(new URL(record.file,base),{signal:abort.signal,cache});
    if(!response.ok)throw Error('Surface heights unavailable');
-   const stream=response.body.pipeThrough(new DecompressionStream('gzip'));
-   return decode(new Uint8Array(await new Response(stream).arrayBuffer()));
+   const bytes=await codec.readBytes(response.body,record.bytes,true);
+   if(bytes[0]!==31||bytes[1]!==139)throw Error('Invalid terrain gzip header');
+   return {record,bytes};
   }
-  pending=Promise.all([load(data.fine,decodeRegion),load(data.world,decodeWorld)]).then(([region,globe])=>{
-   fine=region;world=globe;
-  }).catch(error=>{abort.abort();throw error;}).finally(()=>{pending=null;});
+  pending=Promise.all([load(data.fine),load(data.world)]).then(files=>new Promise((resolve,reject)=>{
+   const worker=new Worker(new URL('surface-worker.js',base));
+   function fail(error){worker.terminate();reject(error);}
+   worker.onerror=()=>fail(Error('Terrain decoder unavailable'));
+   worker.onmessageerror=()=>fail(Error('Invalid terrain decoder result'));
+   worker.onmessage=({data:result})=>{
+    if(result?.error){fail(Error(result.error));return;}
+    worker.terminate();
+    const [region,globe]=result?.grids??[];
+    if(region?.length!==data.fine.width*data.fine.height||globe?.length!==data.world.width*data.world.height){
+     reject(Error('Invalid decoded terrain dimensions'));return;
+    }
+    fine=region;world=globe;resolve();
+   };
+   try{worker.postMessage({files},files.map(file=>file.bytes.buffer));}
+   catch(error){fail(error);}
+  })).catch(error=>{abort.abort();throw error;}).finally(()=>{pending=null;});
   return pending;
  }
- function surfaceGrid(){return {data:world||globe,width:world?data.world.width:data.width,height:world?data.world.height:data.height};}
- function region(x,y,land){const size=data.fine.size;x=Math.max(0,Math.min(size-1,x));y=Math.max(0,Math.min(size-1,y));if(land)return fine[Math.round(y)*size+Math.round(x)]>0;const i=Math.min(size-2,Math.floor(x)),j=Math.min(size-2,Math.floor(y)),a=x-i,b=y-j,h=(dx,dy)=>Math.max(0,fine[(j+dy)*size+i+dx]-1)*.1;return a+b<=1?h(0,0)*(1-a-b)+h(1,0)*a+h(0,1)*b:h(1,1)*(a+b-1)+h(1,0)*(1-b)+h(0,1)*(1-a);}
+ function surfaceGrid(){return {data:world||empty,width:world?data.world.width:2,height:world?data.world.height:2};}
+ function region(x,y,land){const size=data.fine.width;x=Math.max(0,Math.min(size-1,x));y=Math.max(0,Math.min(size-1,y));if(land)return fine[Math.round(y)*size+Math.round(x)]>0;const i=Math.min(size-2,Math.floor(x)),j=Math.min(size-2,Math.floor(y)),a=x-i,b=y-j,h=(dx,dy)=>Math.max(0,fine[(j+dy)*size+i+dx]-1)*.1;return a+b<=1?h(0,0)*(1-a-b)+h(1,0)*a+h(0,1)*b:h(1,1)*(a+b-1)+h(1,0)*(1-b)+h(0,1)*(1-a);}
  function sample(grid,width,height,x,y,land=false){x=Math.max(0,Math.min(width-1,x));y=Math.max(0,Math.min(height-1,y));if(land)return Boolean(grid[Math.round(y)*width+Math.round(x)]&32768);const i=Math.min(width-2,Math.floor(x)),j=Math.min(height-2,Math.floor(y)),a=x-i,b=y-j;return (grid[j*width+i]&32767)*(1-a)*(1-b)+(grid[j*width+i+1]&32767)*a*(1-b)+(grid[(j+1)*width+i]&32767)*(1-a)*b+(grid[(j+1)*width+i+1]&32767)*a*b;}
  function geographic(e,u,n){const x=e*(-sinLon)+u*cosLat*cosLon-n*sinLat*cosLon,y=u*sinLat+n*cosLat,z=e*cosLon+u*cosLat*sinLon-n*sinLat*sinLon;return [Math.atan2(z,x)*180/Math.PI,Math.asin(Math.max(-1,Math.min(1,y)))*180/Math.PI];}
  // Standard Earth-fixed axes use X at Greenwich, Y east along the equator, and Z north.
  function fromGeocentric(x,y,z){const equator=x*cosLon+y*sinLon;return [-x*sinLon+y*cosLon,equator*cosLat+z*sinLat,-equator*sinLat+z*cosLat];}
  function sampleAt(e,u,n,land=false){
-  const [lon,lat]=geographic(e,u,n),grid=world||globe,width=world?data.world.width:data.width,height=world?data.world.height:data.height,x=(lon+180)/360*(width-1),y=(90-lat)/180*(height-1),globalLand=sample(grid,width,height,x,y,true),global=globalLand?sample(grid,width,height,x,y):0,extent=Math.pow(Math.abs(e)**8+Math.abs(n)**8,1/8)*P.R;
+  if(!world)return land?u>0:0;
+  const [lon,lat]=geographic(e,u,n),grid=world,width=data.world.width,height=data.world.height,x=(lon+180)/360*(width-1),y=(90-lat)/180*(height-1),globalLand=sample(grid,width,height,x,y,true),global=globalLand?sample(grid,width,height,x,y):0,extent=Math.pow(Math.abs(e)**8+Math.abs(n)**8,1/8)*P.R;
   if(u<=0||extent>=239500)return land?globalLand:global;
-  const size=fine?data.fine.size:data.localSize,lx=(e*P.R/data.extent+1)*(size-1)/2,ly=(1-n*P.R/data.extent)*(size-1)/2,nearLand=fine?region(lx,ly,true):sample(local,size,size,lx,ly,true),weight=1-smooth(175000,239500,extent);
+  const size=data.fine.width,lx=(e*P.R/data.extent+1)*(size-1)/2,ly=(1-n*P.R/data.extent)*(size-1)/2,nearLand=region(lx,ly,true),weight=1-smooth(175000,239500,extent);
   if(land)return weight===1?nearLand:nearLand||globalLand;
-  const nearby=nearLand?(fine?region(lx,ly,false):sample(local,size,size,lx,ly)):0;return global*(1-weight)+nearby*weight;
+  const nearby=nearLand?region(lx,ly,false):0;return global*(1-weight)+nearby*weight;
  }
  function noise(x,y){const hash=(a,b)=>{const v=Math.sin(a*127.1+b*311.7)*43758.5453;return v-Math.floor(v);},i=Math.floor(x),j=Math.floor(y),a=smooth(0,1,x-i),b=smooth(0,1,y-j);return hash(i,j)*(1-a)*(1-b)+hash(i+1,j)*a*(1-b)+hash(i,j+1)*(1-a)*b+hash(i+1,j+1)*a*b;}
  function ecology(e,u,n,h){

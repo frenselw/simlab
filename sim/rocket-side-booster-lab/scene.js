@@ -234,7 +234,9 @@ export class RocketScene{
     if(this.regionalRequest)return;
     const request=new AbortController();
     this.regionalRequest=request;
-    loadRegionalSurface(request.signal).then(()=>{if(!request.signal.aborted)this.draw();},()=>{});
+    loadRegionalSurface(request.signal).then(()=>{if(!request.signal.aborted)this.draw();},()=>{}).finally(()=>{
+      if(this.regionalRequest===request)this.regionalRequest=null;
+    });
   }
   renderFrame(space,f){
     try{this.drawRecovery(space,f);this.renderer.render(this.scene,this.camera);this.renderCount++;}catch(_){this.lost=true;this.onFault('render');}

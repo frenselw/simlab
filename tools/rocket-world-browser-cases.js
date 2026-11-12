@@ -39,7 +39,6 @@ async function run({base,label,P,T,H,cdp,call,viewport,open,wait,shot,report}){
  await viewport(1194,834);await cdp.send('Emulation.setDeviceMetricsOverride',{width:1194,height:834,deviceScaleFactor:2,mobile:false});await open(base,T.reachOrbit());await call('app.view("orbit");');const budget=await call('const s=app.getScene();return{coarse:matchMedia("(pointer: coarse)").matches,pixelRatio:s.renderer.getPixelRatio(),textureBytes:s.diagnostics().textureBytes,earthWidth:s.diagnostics().earthMapWidth,gridBytes:RocketSurface.surfaceGrid().data.byteLength};');if(budget.coarse)assert(budget.pixelRatio<=1.5&&budget.earthWidth===2048);assert(budget.textureBytes<100e6&&budget.gridBytes===67133442);await shot(label+'-world-ipad-landscape');report.flows.push({label,case:'world-budget',budget});
 }
 async function detail({base,label,P,T,H,cdp,call,viewport,open,wait,shot,report}){
- const index=require('../sim/rocket-side-booster-lab/assets/global-detail/index.json');
  await viewport(1413,923);await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:false});
  const orbital=T.launched();orbital.phase='coast';orbital.flight.status='flying';orbital.flight.controls.lit=false;
  await open(base,orbital);
@@ -61,12 +60,30 @@ async function detail({base,label,P,T,H,cdp,call,viewport,open,wait,shot,report}
    await call(`const f=app.controller.state.flight;f.state=[${r*Math.cos(a)},${r*Math.sin(a)},0,${403*Math.cos(a)-3440*Math.sin(a)},${403*Math.sin(a)+3440*Math.cos(a)},0];f.attitude=${a+1.25};app.controller.emit();const s=app.getScene();s.quality=0;s.observeFrame=()=>{};s.yaw=-1.1;s.pitch=1;s.draw();window.__detailModel=JSON.stringify(app.getState());`);
    await wait(()=>call('const s=app.getScene();s.draw();return s.globalTerrain.userData.pending===0&&s.globalTerrain.userData.detail&&!s.globalTerrain.userData.detail.fading;'),'global slope readiness '+metres);
    const frame=await call(`const s=app.getScene(),T=window.__detailThree,u=window.__detailTerrain.surfaceUniforms,target=new T.WebGLRenderTarget(240,160),previous=s.renderer.getRenderTarget(),enabled=u.uDetailEnabled.value;target.texture.colorSpace=T.SRGBColorSpace;const images=[];try{for(const on of [1,0]){u.uDetailEnabled.value=on;s.renderer.setRenderTarget(target);s.renderer.render(s.scene,s.camera);const p=new Uint8Array(240*160*4);s.renderer.readRenderTargetPixels(target,0,0,240,160,p);images.push(p);}}finally{u.uDetailEnabled.value=enabled;s.renderer.setRenderTarget(previous);target.dispose();}let sum=0,square=0,count=0;for(let y=5;y<140;y++)for(let x=5;x<235;x++)for(let k=0;k<3;k++){const d=(images[0][(y*240+x)*4+k]-images[1][(y*240+x)*4+k])/255;sum+=Math.abs(d);square+=d*d;count++;}s.renderer.render(s.scene,s.camera);return{meanDifference:sum/count,rmsDifference:Math.sqrt(square/count),stats:JSON.parse(JSON.stringify(s.globalTerrain.userData)),textureBytes:s.diagnostics().textureBytes,unchanged:window.__detailModel===JSON.stringify(app.getState()),shaders:s.renderer.info.programs.every(p=>p.diagnostics?.runnable!==false)};`);
-   assert(frame.unchanged&&frame.shaders&&frame.stats.detail.visible>0&&frame.stats.detail.loaded<=6&&frame.stats.loaded<=6&&frame.stats.active.length<=4&&frame.stats.pending===0&&frame.stats.normalFailures.length===0);assert(frame.textureBytes<100e6);await shot(label+'-global-detail-'+width+'-'+metres);report.flows.push({label,case:'global-detail',width,height,metres,...frame});
+   assert(frame.unchanged&&frame.shaders&&frame.stats.detail.visible>0&&frame.stats.detail.loaded<=12&&frame.stats.loaded<=6&&frame.stats.active.length<=4&&frame.stats.pending===0&&frame.stats.normalFailures.length===0);assert(frame.textureBytes<100e6);await shot(label+'-global-detail-'+width+'-'+metres);report.flows.push({label,case:'global-detail',width,height,metres,...frame});
   }
   const outside=report.flows.filter(f=>f.label===label&&f.case==='global-detail'&&f.width===width&&f.metres>=350000);assert(outside.some(f=>f.rmsDifference>.001),'The world outside the launch region must visibly use the streamed slope data');
   const ready=await call('const s=app.getScene();s.quality=2;s.draw();return JSON.parse(JSON.stringify(s.globalTerrain.userData));');assert(ready.active.length===0&&ready.detail.visible>0,'Low quality must retain global slope detail while simplifying geometry');await shot(label+'-global-detail-low-'+width);await call('app.getScene().quality=0;app.getScene().draw();');
-  const data=await call('return JSON.parse(JSON.stringify(app.getScene().globalTerrain.userData));');let chosen;
-  for(const id of data.detail.ids){if(!data.desired.includes(id)&&!data.prefetch.includes(id))continue;const cell=index.cells[id],probe=cell.probes?.at(-1);if(!probe||probe.rgb[0]===128)continue;const [w,,south]=cell.bounds,lon=w+(probe.x-1)*10/1024,lat=south+(probe.y-1)*10/1024;if(lon>-110||lon< -125){chosen={id,probe,lon,lat};break;}}
+  const chosen=await H.evaluate(cdp,`(async()=>{
+   const s=window.__rocketApp.getScene(),stats=s.globalTerrain.userData.detail;
+   const lookup=window.__detailTerrain.surfaceUniforms.uDetailLookup.value.image.data;
+   for(const id of stats.ids){
+    const [x,y]=id.split('-').map(Number);
+    if(lookup[(y*144+x)*4+1]!==255)continue;
+    const west=x*2.5-180,south=y*2.5-90;
+    if(west>-125&&west< -110&&south>30&&south<40)continue;
+    const response=await fetch("./assets/global-detail/normal-"+id+".webp");
+    const bitmap=await createImageBitmap(await response.blob(),{colorSpaceConversion:"none",premultiplyAlpha:"none"});
+    const canvas=document.createElement("canvas");canvas.width=canvas.height=259;
+    const ctx=canvas.getContext("2d");ctx.drawImage(bitmap,0,0);bitmap.close();
+    const pixels=ctx.getImageData(0,0,259,259).data;
+    for(let row=32;row<230;row+=16)for(let col=32;col<230;col+=16){
+     const i=(row*259+col)*4;
+     if(Math.abs(pixels[i]-128)<8)continue;
+     return {id,probe:{rgb:Array.from(pixels.slice(i,i+3))},lon:west+(col-1)*2.5/256,lat:south+(row-1)*2.5/256};
+    }
+   }
+  })()`);
   assert(chosen,'A ready nonregional, east-west slope is required for the GPU check');
   const probe=await call(`const {probe,lon,lat}=${JSON.stringify(chosen)},s=app.getScene(),T=window.__detailThree,M=window.__detailTerrain,basis=[[1,0,0],[0,1,0],[0,0,1]].map(q=>{const [a,b]=RocketSurface.geographic(...q).map(v=>v*Math.PI/180);return new T.Vector3(Math.cos(b)*Math.cos(a),Math.sin(b),Math.cos(b)*Math.sin(a));}),a=lon*Math.PI/180,b=lat*Math.PI/180,up=new T.Vector3(Math.cos(b)*Math.cos(a),Math.sin(b),Math.cos(b)*Math.sin(a)),east=new T.Vector3(-Math.sin(a),0,Math.cos(a)),north=new T.Vector3(-Math.sin(b)*Math.cos(a),Math.cos(b),-Math.sin(b)*Math.sin(a)),convert=v=>new T.Vector3(...basis.map(row=>row.dot(v))),components=probe.rgb.map(v=>(v-128)/127),expected=convert(east.multiplyScalar(components[0]).addScaledVector(north,components[1]).addScaledVector(up,components[2])).normalize(),point=convert(up),priorRotation=M.surfaceUniforms.uSurfaceRotation.value;M.surfaceUniforms.uSurfaceRotation.value=new T.Matrix3();const scene=new T.Scene(),camera=new T.OrthographicCamera(-1,1,1,-1,0,1),geometry=new T.PlaneGeometry(2,2),material=new T.ShaderMaterial({uniforms:{...M.surfaceUniforms,uSlopeDetail:{value:1},uPoint:{value:point}},vertexShader:'void main(){gl_Position=vec4(position.xy,0.,1.);}',fragmentShader:M.groundLight.replace(' return color;\\n}',' return normal*.5+.5;\\n}')+'uniform vec3 uPoint;void main(){vec3 p=normalize(uPoint);gl_FragColor=vec4(shadeSurface(vec3(.4),p,p,p,p,normalize(vec3(.3,.5,1.)),0.),1.);}',toneMapped:false}),target=new T.WebGLRenderTarget(1,1),previous=s.renderer.getRenderTarget(),pixel=new Uint8Array(4);scene.add(new T.Mesh(geometry,material));try{s.renderer.setRenderTarget(target);s.renderer.render(scene,camera);s.renderer.readRenderTargetPixels(target,0,0,1,1,pixel);}finally{s.renderer.setRenderTarget(previous);M.surfaceUniforms.uSurfaceRotation.value=priorRotation;target.dispose();material.dispose();geometry.dispose();}return{pixel:Array.from(pixel),expected:expected.toArray().map(v=>Math.round((v*.5+.5)*255))};`);
   assert(probe.expected.every((v,i)=>Math.abs(v-probe.pixel[i])<=3),'Actual global shader must preserve the source normal direction '+JSON.stringify(probe));report.flows.push({label,case:'global-detail-gpu',width,...chosen,...probe});

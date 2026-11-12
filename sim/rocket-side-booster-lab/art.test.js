@@ -6,7 +6,10 @@ let bytes=0;
 for(const [name,a]of Object.entries(g.assets)){
  const b=fs.readFileSync(path.join(dir,name));assert.equal(hash(b),a.sha256,name+' must match the inspected atlas');assert.equal(b.length,a.bytes);assert.equal(b.toString('ascii',0,4),'RIFF');assert.equal(b.toString('ascii',8,12),'WEBP');assert(manifest.includes('rocket-side-booster-lab/assets/'+name));bytes+=b.length;
 }
-assert(bytes<1024*1024);assert(manifest.includes('rocket-side-booster-lab/assets/geography.json'));
+assert(bytes<1024*1024);const zlib=require('node:zlib'),codec=require('./surface-codec');
+const compact=file=>zlib.gunzipSync(fs.readFileSync(path.join(dir,file)));
+const chart=JSON.parse(compact('geography-v2.gz'));
+assert.deepEqual(chart.coastRows,g.coastRows);assert.equal(chart.ridges,g.ridges.length);
 for(const source of g.sources)assert.equal(hash(fs.readFileSync(path.join(root,'tools/rocket-art/sources',source.file))),source.sha256);
 assert.equal(g.projection.radius,6371000);assert(g.projection.imagesNorthUp);
 const grid=g.landGrid;assert.equal(grid.rows.length,grid.height);assert(grid.rows.every(r=>r.length===grid.width&&/^[01]+$/.test(r)));
@@ -18,41 +21,52 @@ assert.equal(g.ridges.length,36);assert(g.ridges.every(r=>land(r.x,r.z)));assert
 assert.equal(g.river.nearPad.waterWidth,76);assert.equal(g.river.nearPad.bankWidth,112);assert(g.river.samples[0][0]<-20000,'River must extend to the west coast');
 console.log('Rocket art: pinned assets/sources, package closure, dry launch, geographic orientation, coast/ridge/river contracts passed.');
 
-const terrain=fs.readFileSync(path.join(dir,g.terrain.file));assert.equal(hash(terrain),g.terrain.sha256);assert.equal(terrain.length,g.terrain.bytes);assert(manifest.includes('assets/terrain.bin'));assert(manifest.includes('/terrain.js'));
-const headerLength=terrain.readUInt32LE(0),header=JSON.parse(terrain.toString('utf8',4,4+headerLength)),start=4+Math.ceil(headerLength/4)*4;
-assert.equal(header.version,1);assert.equal(header.chunks.length,16);assert.equal(header.heightSize,4097);assert.equal(header.heightBytes,0,'Do not duplicate the canonical height field in mesh assets');
-assert.equal(g.terrain.colorModel,'unlit-albedo-v1');const terrainGeometry=Buffer.from(terrain);
-let triangles=0;for(const chunk of header.chunks){assert.equal(chunk.levels.length,3);assert(chunk.levels[0].indices>=chunk.levels[2].indices);for(const level of chunk.levels){const from=start+level.offset,index=from+level.vertices*40;assert(index+level.indices*4<=terrain.length);assert.equal(level.indices%3,0);for(let i=0;i<level.vertices;i++){const at=from+i*40;for(let k=0;k<10;k++)assert(Number.isFinite(terrain.readFloatLE(at+k*4)));terrainGeometry.fill(0,at+24,at+36);assert(terrain.readFloatLE(at+16)>0,'Real steep slopes still point upward');assert(terrain.readFloatLE(at+36)>=0&&terrain.readFloatLE(at+36)<=1);}for(let i=0;i<level.indices;i++)assert(terrain.readUInt32LE(index+i*4)<level.vertices);triangles+=level.indices/3;}}
-assert.equal(hash(terrainGeometry),g.terrain.nonColorSha256,'Regional heights, positions, normals, fades and topology remain unchanged by albedo repair');assert(triangles<120000);assert(terrain.length<10*1024*1024);console.log('Terrain: baked chunks, LOD, finite geometry, upward normals, indices, launch clearance and budgets passed.');
-
-const shared=new Map();for(const chunk of header.chunks)for(const level of chunk.levels){const from=start+level.offset;for(let i=0;i<level.vertices;i++){const at=from+i*40,x=terrain.readFloatLE(at),y=terrain.readFloatLE(at+4),z=terrain.readFloatLE(at+8);if(!chunk.box.some((b,j)=>Math.abs((j<2?x:z)-b)<.01))continue;const key=x.toFixed(2)+','+z.toFixed(2);if(shared.has(key))assert(Math.abs(shared.get(key)-y)<.01,'Shared chunk and LOD borders must not crack '+JSON.stringify({key,old:shared.get(key),y,box:chunk.box}));else shared.set(key,y);}}
-assert(shared.size>100);console.log('Terrain shared borders agree across neighboring chunks and all detail levels.');
-
-const global=g.globalTerrain;assert(global&&!global.prototype&&global.fineCells===global.landCells);assert(global.bytes<28e6);assert.equal(global.cellDegrees,10);assert.equal(global.source.sha256,hash(fs.readFileSync(path.join(root,'tools/rocket-art/sources',global.source.file))));assert(manifest.includes('/global-terrain.js'));
-assert.equal(global.colorModel,'unlit-albedo-v1');let totalGlobalBytes=0;const globalHeaders=new Map(),globalAlbedo=new Map();let sharedAlbedo=0;
-for(const asset of global.files){
- const b=fs.readFileSync(path.join(dir,asset.file));assert.equal(hash(b),asset.sha256,asset.file);assert.equal(b.length,asset.bytes);assert(manifest.includes('rocket-side-booster-lab/assets/'+asset.file));totalGlobalBytes+=b.length;
- const n=b.readUInt32LE(0),h=JSON.parse(b.toString('utf8',4,n+4)),offset=4+Math.ceil(n/4)*4,index=offset+h.vertexCount*16;assert.equal(hash(Buffer.concat([b.subarray(0,offset+h.vertexCount*12),b.subarray(index)])),asset.nonColorSha256,'Global headers, heights, positions and topology remain unchanged by albedo repair '+asset.file);assert.equal(h.version,1);assert.equal(h.prototype,false);assert.equal(index+h.indexCount*4,b.length);assert.equal(h.indexCount%3,0);assert.equal(h.indexCount/3,asset.triangles);globalHeaders.set(asset.file,h);
- for(let i=0;i<h.vertexCount;i++){const p=Array.from({length:3},(_,k)=>b.readFloatLE(offset+i*12+k*4)),r=Math.hypot(...p);assert(p.every(Number.isFinite));assert(r>.99999&&r<1+9001/6371000,'Normalized radial relief');assert.equal(b[offset+h.vertexCount*12+i*4+3],255);const key=b.subarray(offset+i*12,offset+i*12+12).toString('hex'),rgba=b.readUInt32LE(offset+h.vertexCount*12+i*4);if(globalAlbedo.has(key)){assert.equal(rgba,globalAlbedo.get(key),'Same geographic position must have identical albedo across cells and LOD');sharedAlbedo++;}else globalAlbedo.set(key,rgba);}
- for(let i=0;i<h.indexCount;i+=3){const v=[];for(let j=0;j<3;j++){const k=b.readUInt32LE(index+(i+j)*4);assert(k<h.vertexCount);v.push(Array.from({length:3},(_,a)=>b.readFloatLE(offset+k*12+a*4)));}const [a,c,d]=v,u=c.map((x,j)=>x-a[j]),w=d.map((x,j)=>x-a[j]),cross=[u[1]*w[2]-u[2]*w[1],u[2]*w[0]-u[0]*w[2],u[0]*w[1]-u[1]*w[0]];assert(cross.reduce((sum,x,j)=>sum+x*a[j],0)>0,'Every global triangle points outward');}
- let end=0;for(const c of h.cells){assert.equal(c.firstIndex,end);end+=c.indexCount;assert.equal(c.bounds.length,4);assert(c.center.every(Number.isFinite)&&Math.abs(Math.hypot(...c.center)-1)<1e-6);assert(c.angularRadius>0&&c.angularRadius<.13);if(c.file)assert(global.files.some(a=>a.file==='global/'+c.file));}assert.equal(end,h.indexCount);
- if(asset.file!=='global/coarse.bin')assert(asset.triangles<15000);
+const terrain=compact('region-mesh-v2.gz'),manifestFiles=require('./assets.json').files;
+const coarseBytes=compact('global/coarse.bin.gz');
+const worldRecords=g.globalTerrain.files;
+let geometryBytes=0;
+for(const {file} of worldRecords){
+ const packedFile=file+'.gz',data=compact(packedFile),length=data.readUInt32LE(),offset=4+Math.ceil(length/4)*4;
+ const header=JSON.parse(data.toString('utf8',4,4+length));
+ assert.equal(header.version,2);assert.equal(offset+header.vertexCount*8+header.indexCount*4,data.length);
+ assert(header.cells.every(c=>!c.file||manifestFiles.includes('rocket-side-booster-lab/assets/global/'+c.file)));
+ assert(manifestFiles.includes('rocket-side-booster-lab/assets/'+packedFile));
+ const directions=[];
+ for(let i=0,lon=0,lat=0;i<header.vertexCount;i++){
+  lon+=data.readInt32LE(offset+i*4);lat+=data.readInt32LE(offset+(header.vertexCount+i)*4);
+  const a=lon/1e7,b=lat/1e7,c=Math.cos(b);
+  directions.push([c*Math.cos(a),Math.sin(b),c*Math.sin(a)]);
+ }
+ let index=0,end=0;
+ for(const cell of header.cells){assert.equal(cell.firstIndex,end);end+=cell.indexCount;}
+ assert.equal(end,header.indexCount);
+ for(let i=offset+header.vertexCount*8;i<data.length;i+=12){
+  const points=[];
+  for(let k=0;k<3;k++){
+   index+=data.readInt32LE(i+k*4);
+   assert(index>=0&&index<header.vertexCount);
+   points.push(directions[index]);
+  }
+  const [a,b,c]=points,u=b.map((v,k)=>v-a[k]),w=c.map((v,k)=>v-a[k]);
+  const winding=a[0]*(u[1]*w[2]-u[2]*w[1])+a[1]*(u[2]*w[0]-u[0]*w[2])+a[2]*(u[0]*w[1]-u[1]*w[0]);
+  assert(winding>0,'Compact globe triangles must face outward');
+ }
+ geometryBytes+=fs.statSync(path.join(dir,packedFile)).size;
 }
-assert(sharedAlbedo>10000,'Albedo continuity compares real shared vertices');assert.equal(totalGlobalBytes,global.bytes);assert.equal(globalHeaders.get(global.coarse).cells.length,global.landCells);assert(globalHeaders.get(global.coarse).indexCount/3<100000);assert(global.files.length===global.landCells+1);
-console.log('Global terrain: pinned source, all land cells packaged, finite radial relief, outward triangles, binary blocks and bounded asset budgets passed.');
-
-const Surface=require('./surface'),surfaceData=require('./surface-data'),surfaceBytes=fs.readFileSync(path.join(__dirname,g.surface.file));assert.equal(hash(surfaceBytes),g.surface.sha256);assert.equal(surfaceBytes.length,g.surface.bytes);assert.equal(surfaceData.width,721);assert.equal(surfaceData.height,361);assert.equal(Surface.height([6371000,0],0),0);assert(!Surface.isWater([6371000,0],0));for(let i=0;i<2000;i++){const angle=i*.117,t=i*173,q=[6371000*Math.cos(angle),6371000*Math.sin(angle),0],height=Surface.height(q,t);assert(Number.isFinite(height)&&height>=0&&height<=Surface.MAX_HEIGHT);if(Surface.isWater(q,t))assert.equal(height,0);assert(Math.abs(Surface.clearance([q[0]*(1+height/6371000),q[1]*(1+height/6371000)],t))<.00001);}for(const file of ['surface-data.js','surface.js','contact-ground.js','impact-effects.js'])assert(manifest.includes('/'+file));console.log('Shared surface: pinned compact grids, finite elevations, water at zero, exact radial clearance, launch and package dependencies passed.');
+assert(geometryBytes<10e6,'Streamed geometry must not carry duplicate heights, normals and colors');
+assert(!manifestFiles.some(f=>f.endsWith('/regional-surface.png')||f.endsWith('/terrain.bin')));
+const Surface=require('./surface'),surfaceData=require('./surface-data'),surfaceBytes=fs.readFileSync(path.join(__dirname,g.surface.file));assert(surfaceBytes.length<2000);assert.equal(surfaceData.version,2);assert.equal(Surface.height([6371000,0],0),0);assert(!Surface.isWater([6371000,0],0));for(let i=0;i<2000;i++){const angle=i*.117,t=i*173,q=[6371000*Math.cos(angle),6371000*Math.sin(angle),0],height=Surface.height(q,t);assert(Number.isFinite(height)&&height>=0&&height<=Surface.MAX_HEIGHT);if(Surface.isWater(q,t))assert.equal(height,0);assert(Math.abs(Surface.clearance([q[0]*(1+height/6371000),q[1]*(1+height/6371000)],t))<.00001);}for(const file of ['surface-data.js','surface.js','contact-ground.js','impact-effects.js'])assert(manifest.includes('/'+file));console.log('Shared surface: pinned compact grids, finite elevations, water at zero, exact radial clearance, launch and package dependencies passed.');
 
 const R=6371000,field=(x,z=0)=>Surface.heightAt(x/R,Math.sqrt(1-(x*x+z*z)/(R*R)),z/R);
-const world=Surface.surfaceGrid();assert.equal(world.width,8193);assert.equal(world.height,4097);assert.equal(world.data.byteLength,67133442);assert.equal(hash(Buffer.from(world.data.buffer,world.data.byteOffset,world.data.byteLength)),surfaceData.world.decodedSha256);assert.equal(hash(fs.readFileSync(path.join(__dirname,surfaceData.world.file))),surfaceData.world.sha256);
+const world=Surface.surfaceGrid();assert.equal(world.width,8193);assert.equal(world.height,4097);assert.equal(world.data.byteLength,67133442);assert.equal(hash(fs.readFileSync(path.join(__dirname,surfaceData.world.file))),surfaceData.world.sha256);
 for(let row=0;row<world.height;row++)assert.equal(world.data[row*world.width],world.data[(row+1)*world.width-1],'Longitude seam');assert(world.data.subarray(0,world.width).every(v=>v===0));assert(world.data.subarray((world.height-1)*world.width).every(v=>v===world.data.at(-1)));
 const basis=[[1,0,0],[0,1,0],[0,0,1]].map(q=>{const [lon,lat]=Surface.geographic(...q).map(v=>v*Math.PI/180);return [Math.cos(lat)*Math.cos(lon),Math.sin(lat),Math.cos(lat)*Math.sin(lon)];});
 const directionAt=(lon,lat)=>{lon*=Math.PI/180;lat*=Math.PI/180;const p=[Math.cos(lat)*Math.cos(lon),Math.sin(lat),Math.cos(lat)*Math.sin(lon)];return basis.map(v=>v.reduce((s,n,i)=>s+n*p[i],0));};
 for(const [name,lon,lat,low,high]of [['Himalaya',86.9,28,4500,9000],['Andes',-70,-30,1500,6500],['Alps',10.5,46.8,1000,4500],['Australia',133,-25,0,2000],['Antarctica',0,-89,1000,4500]]){const p=directionAt(lon,lat),h=Surface.heightAt(...p);assert(h>=low&&h<=high,name+' '+h);assert(!Surface.waterAt(...p));}
 assert(Surface.waterAt(...directionAt(-150,0)));assert.equal(Surface.heightAt(...directionAt(-150,0)),0);assert(Surface.forestAt(...directionAt(14,23))<.1,'Sahara must not become a dense forest');assert(Math.abs(Surface.heightAt(...directionAt(-180+1e-7,66))-Surface.heightAt(...directionAt(180-1e-7,66)))<.1);
 const worldSource=require('../../tools/rocket-art/sources/explorer-world-terrain/source.json');assert.equal(hash(fs.readFileSync(path.join(root,'tools/rocket-art/sources/explorer-world-terrain/height-land-8k.png'))),worldSource.derivativeSha256);assert.equal(g.globalTerrain.illustrative,false);assert.equal(g.reliefModel.globalIllustrative,false);
-assert.equal(surfaceData.fine.size,4097);assert.equal(g.reliefModel.localSpacingMetres,117.1875);assert.equal(Surface.MAX_HEIGHT,9000);
-const fine=fs.readFileSync(path.join(__dirname,surfaceData.fine.file));assert.equal(hash(fine),surfaceData.fine.sha256);assert.equal(require('node:zlib').gunzipSync(fine).length,4097**2*2);assert(manifest.includes(surfaceData.fine.file));
+assert.equal(surfaceData.fine.width,4097);assert.equal(g.reliefModel.localSpacingMetres,117.1875);assert.equal(Surface.MAX_HEIGHT,9000);
+const fine=fs.readFileSync(path.join(__dirname,surfaceData.fine.file));assert.equal(hash(fine),surfaceData.fine.sha256);assert.equal(require('node:zlib').gunzipSync(fine).length,surfaceData.fine.decodedBytes);assert(manifest.includes(surfaceData.fine.file));
 assert(g.reliefModel.fine.maximumMetres>3500&&g.reliefModel.fine.maximumMetres<Surface.MAX_HEIGHT,'Real summits are not clipped to the historical ceiling');
 const demPath=path.join(root,'tools/rocket-art/sources/explorer-natural-region/usgs-region-dem.tif');assert.equal(hash(fs.readFileSync(demPath)),g.reliefModel.source.sha256);assert(g.reliefModel.noDataFraction<.02);
 const sampleBytes=fs.readFileSync(path.join(dir,'terrain-sample/sample.bin')),sample=require('./terrain-sample-data').decode(sampleBytes.buffer.slice(sampleBytes.byteOffset,sampleBytes.byteOffset+sampleBytes.length));
@@ -64,54 +78,73 @@ assert.equal(field(0),0);assert(!Surface.waterAt(0,1,0));assert.equal(field(-500
 const unit=480000/4096,x=30000,z=10000,i=Math.floor((x+240000)/unit),j=Math.floor((240000-z)/unit),gx=-240000+i*unit,gz=240000-j*unit;
 const blend=.5*field(gx,gz)+.25*field(gx+unit,gz)+.25*field(gx,gz-unit);assert(Math.abs(field(gx+unit*.25,gz-unit*.25)-blend)<1e-6);
 console.log(JSON.stringify({acceptedSampleError95Metres:errors[Math.floor(errors.length*.95)],fineDecodedBytes:4097**2*2}));
-let compared=0,maxHeightError=0;
-for(const chunk of header.chunks)for(const level of chunk.levels.slice(0,1))for(let i=0;i<level.vertices;i+=5){const at=start+level.offset+i*40,x=terrain.readFloatLE(at),z=terrain.readFloatLE(at+8),y=terrain.readFloatLE(at+4);if(chunk.box.some((b,j)=>Math.abs((j<2?x:z)-b)<1)||Math.hypot(x,z)<5000||field(x,z)<50)continue;const actual=y-(Math.sqrt(R*R-x*x-z*z)-R)+.78;maxHeightError=Math.max(maxHeightError,Math.abs(actual-field(x,z)));compared++;}
-assert(compared>100&&maxHeightError<1,'Regional mesh samples canonical physical relief '+maxHeightError);
-console.log(JSON.stringify({terrainFeatures:true,compared,maxHeightError,localGridBytes:surfaceData.localSize**2*2,regionalMeshBytes:terrain.length}));
-
-let globalCompared=0,globalHeightError=0,globalColorError=0;
-for(const asset of global.files){const b=fs.readFileSync(path.join(dir,asset.file)),length=b.readUInt32LE(0),h=JSON.parse(b.toString('utf8',4,4+length)),offset=4+Math.ceil(length/4)*4;for(let i=0;i<h.vertexCount;i+=97){const p=Array.from({length:3},(_,k)=>b.readFloatLE(offset+i*12+k*4)),r=Math.hypot(...p),direction=p.map(v=>v/r);globalHeightError=Math.max(globalHeightError,Math.abs((r-1)*R-Surface.heightAt(...direction)));const color=Surface.colorAt(...direction);for(let k=0;k<3;k++)globalColorError=Math.max(globalColorError,Math.abs(color[k]-b[offset+h.vertexCount*12+i*4+k]/255));globalCompared++;}}
-assert(globalCompared>7000&&globalHeightError<1,'Global rendered vertices follow canonical relief');
-assert(globalColorError<=.5/255+1e-6,'Baked global and runtime contact biome colors agree');
-console.log(JSON.stringify({globalCompared,globalHeightError,globalColorError}));
-
 (async()=>{
- const vm=require('node:vm'),zlib=require('node:zlib'),code=fs.readFileSync(path.join(__dirname,'surface.js'),'utf8');
- function browserSurface(fine,world,fetch){
-  const window={RocketParts:require('./parts'),RocketSurfaceData:{...surfaceData,fine,world}};
-  vm.runInNewContext(code,{window,Buffer,URL,Response,DecompressionStream,AbortController,document:{currentScript:{src:'https://test.invalid/rocket/surface.js'}},fetch});
-  return window.RocketSurface;
+ const vm=require('node:vm'),code=fs.readFileSync(path.join(__dirname,'surface.js'),'utf8'),heightRequests=[];
+ const raw=Buffer.alloc(1230),compressed=zlib.gzipSync(raw);
+ const fixture={codec:'pyramid-i8-v1',width:33,height:33,step:80,maximum:9000,decodedBytes:raw.length,bytes:compressed.length};
+ assert.equal(codec.decode(raw,fixture).length,1089);
+ assert.throws(()=>codec.decode(raw.subarray(1),fixture),/length/);
+ const bad=Buffer.from(raw);bad.writeUInt16LE(9001,137);
+ assert.throws(()=>codec.decode(bad,fixture),/base height/);
+ let worker;
+ class TestWorker {
+  constructor(){worker=this;}
+  postMessage(message){this.files=message.files;}
+  terminate(){this.terminated=true;}
  }
- const fineFixture={size:2,file:'assets/regional.gz'},worldFixture={width:2,height:2,file:'assets/world.gz'};
- const response=(bytes,status=200)=>new Response(zlib.gzipSync(bytes),{status});
- const browser=(bytes,status,isWorld=false)=>browserSurface(isWorld?null:fineFixture,isWorld?worldFixture:null,async()=>response(bytes,status));
- await assert.rejects(browser(Buffer.alloc(2)).ready(),/length/);const corrupt=Buffer.alloc(8);corrupt.writeUInt16LE(50002);await assert.rejects(browser(corrupt).ready(),/Invalid regional height/);await assert.rejects(browser(Buffer.alloc(8),404).ready(),/unavailable/);await browser(Buffer.alloc(8)).ready();await assert.rejects(browser(Buffer.alloc(2),200,true).ready(),/world height length/);const badWorld=Buffer.alloc(8);badWorld.writeUInt16LE(32768+9001);await assert.rejects(browser(badWorld,200,true).ready(),/Invalid world height/);badWorld.writeUInt16LE(100);await assert.rejects(browser(badWorld,200,true).ready(),/Invalid world height/);await browser(Buffer.alloc(8),200,true).ready();
- const heightRequests=[];
- const batch=browserSurface(fineFixture,worldFixture,(url,options)=>new Promise(resolve=>heightRequests.push({url,options,resolve})));
- const fallback=batch.surfaceGrid().data,first=batch.ready();
- assert.equal(batch.ready(),first,'Concurrent callers must share the height batch');
- heightRequests[1].resolve(response(Buffer.alloc(8)));
- await new Promise(resolve=>setTimeout(resolve,30));
- assert.equal(batch.surfaceGrid().data,fallback,'One decoded height grid cannot publish before the other validates');
- heightRequests[0].resolve(response(Buffer.alloc(2)));
- await assert.rejects(first,/Invalid regional height length/);
- assert.equal(batch.surfaceGrid().data,fallback);
+ const browser={RocketParts:require('./parts'),RocketSurfaceCodec:codec,RocketSurfaceData:{
+  version:2,extent:240000,fine:{...fixture,file:'region.gz'},world:{...fixture,file:'world.gz'}
+ }};
+ vm.runInNewContext(code,{window:browser,URL,Worker:TestWorker,AbortController,
+  document:{currentScript:{src:'https://test.invalid/rocket/surface.js'}},
+  fetch:(url,options)=>new Promise(resolve=>heightRequests.push({url,options,resolve}))
+ });
+ const batch=browser.RocketSurface,fallback=batch.surfaceGrid().data,first=batch.ready();
+ assert.equal(batch.ready(),first,'Concurrent callers share a batch');
+ heightRequests[1].resolve(new Response(compressed));
+ heightRequests[0].resolve(new Response(null,{status:404}));
+ await assert.rejects(first,/unavailable/);
  assert(heightRequests.every(r=>r.options.signal.aborted));
- const retry=batch.ready();assert.notEqual(retry,first);
- for(const request of heightRequests.slice(2)){assert.equal(request.options.cache,'reload');request.resolve(response(Buffer.alloc(8)));}
+ assert.equal(batch.surfaceGrid().data,fallback);
+ const retry=batch.ready();
+ for(const request of heightRequests.slice(2)){
+  assert.equal(request.options.cache,'reload');request.resolve(new Response(compressed));
+ }
+ for(let i=0;i<100&&!worker;i++)await new Promise(setImmediate);
+ assert(worker,'Both compressed bodies arrive before decoding');
+ assert.equal(batch.surfaceGrid().data,fallback,'Nothing publishes until both grids validate');
+ worker.onmessage({data:{grids:worker.files.map(({bytes,record})=>codec.decode(zlib.gunzipSync(bytes),record))}});
  await retry;
- assert.equal(batch.surfaceGrid().width,2);
+ assert.equal(batch.surfaceGrid().width,33);assert(worker.terminated);
  globalThis.window={RocketSurface:Surface};const {pathToFileURL}=require('node:url'),THREE=await import(pathToFileURL(path.join(__dirname,'vendor/three-0.185.1/three.module.min.js'))),{createTerrain,createWorldSurfaceTexture,orientGroundSphere}=await import(pathToFileURL(path.join(__dirname,'terrain.js'))),{createContactGround}=await import(pathToFileURL(path.join(__dirname,'contact-ground.js'))),relief=await createTerrain(terrain.buffer.slice(terrain.byteOffset,terrain.byteOffset+terrain.length),new THREE.Vector3(0,1,0)),contact=createContactGround(new THREE.Vector3(0,1,0),null,{uLaunchCut:{value:0}},relief);
+ let vertices=0;
+ const shared=new Map();
+ for(const mesh of relief.children){
+  if(!mesh.geometry.attributes.landFade)continue;
+  const {position,color}=mesh.geometry.attributes,indices=mesh.geometry.index.array;
+  assert(indices.every(i=>i<position.count));
+  for(let i=0;i<position.count;i++){
+   const x=position.getX(i),y=position.getY(i),z=position.getZ(i),e=x/R,n=z/R,u=Math.sqrt(1-e*e-n*n);
+   const curve=(u-1)*R*THREE.MathUtils.smoothstep(Math.hypot(x,z),1500,5000);
+   assert(Math.abs(y-curve+.78-Surface.heightAt(e,u,n))<.001);
+   const key=x+','+z;
+   if(shared.has(key))assert.equal(y,shared.get(key),'Matching LOD vertices remain watertight');
+   else shared.set(key,y);
+   if(i%13===0)assert(Math.abs(color.getX(i)-Surface.colorAt(e,u,n)[0])<1e-6);
+   vertices++;
+  }
+ }
+ assert(vertices>10000);
  const texture=createWorldSurfaceTexture();assert.equal(texture.image.data.length,2048*1025*2);assert.equal(texture.generateMipmaps,false);assert.equal(texture.image.width,2048);assert.equal(texture.wrapS,THREE.RepeatWrapping);for(const [x,y]of [[0,0],[1024,512],[2047,1024],[1234,800]])assert.equal(texture.image.data[(y*2048+x)*2]*256+texture.image.data[(y*2048+x)*2+1],world.data[(4096-y*4)*8193+x*4]&32767);
  const sphere=new THREE.SphereGeometry(1,24,12),target=new THREE.Vector3(...directionAt(86.9,28));assert(orientGroundSphere(sphere,target));const before=sphere.attributes.position.array.slice();assert.equal(orientGroundSphere(sphere,target),false);assert.deepEqual(sphere.attributes.position.array,before);assert(orientGroundSphere(sphere,new THREE.Vector3(...directionAt(10,47))));sphere.dispose();texture.dispose();
- const coarseBytes=fs.readFileSync(path.join(dir,'global/coarse.bin')),{createGlobalTerrain}=await import(pathToFileURL(path.join(__dirname,'global-terrain.js'))),globe=await createGlobalTerrain(coarseBytes.buffer.slice(coarseBytes.byteOffset,coarseBytes.byteOffset+coarseBytes.length),new THREE.Vector3(0,1,0));for(const [lon,lat]of [[86.9,28],[-70,-30],[10.5,46.8],[133,-25]])assert(Number.isFinite(globe.surfaceHeight(new THREE.Vector3(...directionAt(lon,lat)))));assert(globe.userData.heightCells<=8);
+ const {createGlobalTerrain}=await import(pathToFileURL(path.join(__dirname,'global-terrain.js'))),globe=await createGlobalTerrain(coarseBytes.buffer.slice(coarseBytes.byteOffset,coarseBytes.byteOffset+coarseBytes.length),new THREE.Vector3(0,1,0));for(const [lon,lat]of [[86.9,28],[-70,-30],[10.5,46.8],[133,-25]])assert(Number.isFinite(globe.surfaceHeight(new THREE.Vector3(...directionAt(lon,lat)))));assert(globe.userData.heightCells<=8);
  // Real camera rays must select ahead of a trailing camera, with route tiles cached before use.
  const nativeFetch=globalThis.fetch,requests=[];globalThis.fetch=(url,{signal})=>new Promise((resolve,reject)=>{const item={url,resolve,signal};requests.push(item);signal.addEventListener('abort',()=>reject(new DOMException('Cancelled','AbortError')),{once:true});});
  try{
   const camera=new THREE.PerspectiveCamera(40,1,.00001,10),a=.14,view=(angle,sign)=>{camera.position.set(Math.sin(angle-.05*sign),Math.cos(angle-.05*sign),0).multiplyScalar(1.02);camera.lookAt(new THREE.Vector3(Math.sin(angle+.1*sign),Math.cos(angle+.1*sign),0));camera.updateMatrixWorld();},flight=(angle,speed=7800,status='flying')=>({status,state:[(R+50000)*Math.cos(angle),(R+50000)*Math.sin(angle),0,-speed*Math.sin(angle),speed*Math.cos(angle),0]}),update=f=>globe.updateDetail(camera,800,0,true,false,true,f);
   view(a,1);update(flight(a));assert(globe.userData.desired.includes('8-12'),'Visible eastward terrain must precede the tiles behind the camera');assert(globe.userData.desired.length<=4&&globe.userData.pending<=2);view(a,-1);update(flight(a,-7800));assert(globe.userData.desired.includes('5-12'),'Turning the camera west must prioritize the westward view');
   await new Promise(setImmediate);camera.position.set(Math.sin(.28),Math.cos(.28),0).multiplyScalar(1.01);camera.lookAt(new THREE.Vector3(Math.sin(.15),Math.cos(.15),0));camera.updateMatrixWorld();update(flight(.25));assert(globe.userData.prefetch.includes('8-12'),'A route tile outside the current backward view must be prefetched');
-  async function deliver(){for(const item of requests.splice(0)){if(item.signal.aborted)continue;const bytes=fs.readFileSync(item.url);item.resolve({ok:true,arrayBuffer:async()=>bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength)});}await new Promise(setImmediate);update(flight(.25));assert(globe.userData.loaded<=6&&globe.userData.active.length<=4&&globe.userData.pending<=2);}
+  async function deliver(){for(const item of requests.splice(0)){if(item.signal.aborted)continue;const bytes=fs.readFileSync(item.url);item.resolve(new Response(bytes));}await new Promise(resolve=>setTimeout(resolve,70));update(flight(.25));assert(globe.userData.loaded<=6&&globe.userData.active.length<=4&&globe.userData.pending<=2);}
   assert(globe.children[0].geometry.drawRange.count>0,'Coarse ground remains while fine requests wait');for(let i=0;i<5;i++)await deliver();assert.equal(globe.userData.pending,0);assert(!globe.userData.active.includes('8-12'),'Prefetch must not consume an active view slot');const order=globe.userData.desired.slice();update(flight(.25));assert.deepEqual(globe.userData.desired,order);assert.equal(requests.length,0,'A stationary view must not restart downloads');
   view(.25,1);update(flight(.25));assert(globe.userData.active.includes('8-12'),'The forward tile must already be drawable when the camera turns');update(flight(.25,0,'landed'));assert.equal(globe.userData.prefetch.length,0);globe.updateDetail(camera,800,2,true,false,true,flight(.25));assert.equal(globe.userData.desired.length,0);assert.equal(globe.userData.prefetch.length,0);await new Promise(setImmediate);
   const radial=flight(.25);radial.state[3]=500*Math.cos(.25);radial.state[4]=500*Math.sin(.25);update(radial);assert.equal(globe.userData.prefetch.length,0,'Pure radial motion must not predict sideways terrain');globe.updateDetail(camera,800,2,true,false,true,radial);await new Promise(setImmediate);

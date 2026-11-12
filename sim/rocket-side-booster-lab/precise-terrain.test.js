@@ -58,8 +58,18 @@ test('terrain worker aborts GeoTIFF metadata ranges and reads the next patch',as
   for(const id of [90*360+180,91*360+181])inventory[id>>3]|=1<<(id&7);
   const firstBlock=Buffer.alloc(65536);
   firstBlock.write('II');firstBlock.writeUInt16LE(42,2);firstBlock.writeUInt32LE(65536,4);
-  const dem=GeoTIFF.writeArrayBuffer([12,12,12,12],{width:2,height:2});
-  const water=GeoTIFF.writeArrayBuffer([0,0,0,0],{width:2,height:2});
+  const size=128,windows=[];
+  const dem=GeoTIFF.writeArrayBuffer(Array.from({length:size*size},(_,i)=>i%size),{width:size,height:size});
+  const water=GeoTIFF.writeArrayBuffer(Array(size*size).fill(0),{width:size,height:size});
+  const instrumented={...GeoTIFF,async fromCustomClient(...args){
+    const tiff=await GeoTIFF.fromCustomClient(...args),imageAt=tiff.getImage.bind(tiff);
+    tiff.getImage=async overview=>{
+      const image=await imageAt(overview),read=image.readRasters.bind(image);
+      image.readRasters=options=>{windows.push(options.window);return read(options);};
+      return image;
+    };
+    return tiff;
+  }};
   const range=(data,start,total)=>new Response(data,{status:206,headers:{'Content-Range':`bytes ${start}-${start+data.byteLength-1}/${total}`}});
   const metadata=[];
   const fetchData=async(url,{headers,signal})=>{
@@ -79,7 +89,7 @@ test('terrain worker aborts GeoTIFF metadata ranges and reads the next patch',as
   t.mock.method(globalThis,'fetch',fetchData);
   const self={},messages=[];
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,'precise-terrain-worker.js'),'utf8'),{
-    GeoTIFF,self,fetch:fetchData,importScripts(){},location:{href:'https://example.test/worker.js'},
+    GeoTIFF:instrumented,self,fetch:fetchData,importScripts(){},location:{href:'https://example.test/worker.js'},
     URL,AbortController,AbortSignal,setTimeout,clearTimeout,postMessage:data=>messages.push(data)
   });
   const endpoint='https://example.test/rocket-terrain/';
@@ -96,7 +106,10 @@ test('terrain worker aborts GeoTIFF metadata ranges and reads the next patch',as
   assert.equal(messages[0].id,1);assert(messages[0].error);
   await self.onmessage({data:{endpoint,id:2,west:1.25,south:1.25,size:.03125}});
   assert.equal(messages[1].id,2);assert(!messages[1].error,messages[1].error);
-  assert(messages[1].heights.length===4489&&messages[1].heights.every(value=>value===48));
+  assert.equal(messages[1].heights.length,4489);
+  assert.equal(messages[1].heights[33*67+33],136,'The centre samples original pixel x=34 after cropping');
+  assert.equal(windows.length,2);
+  assert(windows.every(([left,top,right,bottom])=>right-left<10&&bottom-top<10&&left>0&&top>0));
   assert(messages[1].water.every(value=>value===0));
 });
 

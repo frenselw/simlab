@@ -6,7 +6,19 @@ const intervals=64,side=intervals+3,sourceCache=new Map();
 const wrap=lon=>((lon+180)%360+360)%360-180;
 let index,active;
 
-async function raster(url,overview,signal){
+function windowFor(points,width,height){
+  const xs=points.map(point=>pixel(point[1],width)),ys=points.map(point=>pixel(point[2],height));
+  return [Math.floor(Math.min(...xs)),Math.floor(Math.min(...ys)),Math.min(width,Math.floor(Math.max(...xs))+2),Math.min(height,Math.floor(Math.max(...ys))+2)];
+}
+const pixel=(fraction,size)=>Math.max(0,Math.min(size-1,fraction*size));
+async function raster(url,overview,points,signal){
+  const key=url+'/'+overview,saved=sourceCache.get(key);
+  if(saved){
+    const [left,top,right,bottom]=windowFor(points,saved.width,saved.height),[x,y,endX,endY]=saved.window;
+    if(left>=x&&top>=y&&right<=endX&&bottom<=endY){
+      sourceCache.delete(key);sourceCache.set(key,saved);return saved;
+    }
+  }
   // GeoTIFF does not pass the read signal through its metadata range requests.
   const client={async request({headers}){
     const response=await fetch(url,{headers,signal});
@@ -17,35 +29,36 @@ async function raster(url,overview,signal){
     const image=await tiff.getImage(overview);
     const width=image.getWidth(),height=image.getHeight();
     if(width<1||width>1200||height<1||height>1200)throw Error('Invalid terrain raster size');
-    const values=await image.readRasters({samples:[0],interleave:true,signal});
-    if(values.length!==width*height)throw Error('Invalid terrain raster data');
-    return {width,height,values};
+    const window=windowFor(points,width,height),[left,top,right,bottom]=window;
+    const values=await image.readRasters({window,samples:[0],interleave:true,signal});
+    if(values.length!==(right-left)*(bottom-top))throw Error('Invalid terrain raster data');
+    const entry={width,height,window,values};
+    if(signal.aborted)throw signal.reason;
+    sourceCache.delete(key);sourceCache.set(key,entry);
+    if(sourceCache.size>10)sourceCache.delete(sourceCache.keys().next().value);
+    return entry;
   }finally{await tiff.close();}
 }
 
-async function cell(endpoint,lat,lon,overview,signal){
-  const key=`${lat}/${lon}/${overview}`,saved=sourceCache.get(key);
-  if(saved){sourceCache.delete(key);sourceCache.set(key,saved);return saved;}
+async function cell(endpoint,lat,lon,overview,points,signal){
   const id=(lat+90)*360+lon+180;
   if(!(index[id>>3]&(1<<(id&7))))return null;
   const path=new URL(`${lat}/${lon}/`,endpoint);
   const [dem,water]=await Promise.all([
-    raster(new URL('dem.tif',path).href,overview,signal),
-    raster(new URL('water.tif',path).href,0,signal)
+    raster(new URL('dem.tif',path).href,overview,points,signal),
+    raster(new URL('water.tif',path).href,0,points,signal)
   ]);
-  const entry={dem,water};sourceCache.set(key,entry);
-  if(sourceCache.size>5)sourceCache.delete(sourceCache.keys().next().value);
-  return entry;
+  return {dem,water};
 }
 
-function sample({width,height,values},u,v,nearest=false){
-  const x=Math.max(0,Math.min(width-1,u*width)),y=Math.max(0,Math.min(height-1,v*height));
-  if(nearest)return values[Math.round(y)*width+Math.round(x)];
-  const i=Math.floor(x),j=Math.floor(y),right=Math.min(width-1,i+1),down=Math.min(height-1,j+1);
+function sample({width,height,window:[left,top,endX,endY],values},u,v,nearest=false){
+  const x=pixel(u,width)-left,y=pixel(v,height)-top,stride=endX-left;
+  if(nearest)return values[Math.round(y)*stride+Math.round(x)];
+  const i=Math.floor(x),j=Math.floor(y),right=Math.min(stride-1,i+1),down=Math.min(endY-top-1,j+1);
   const a=x-i,b=y-j;
-  const top=values[j*width+i]*(1-a)+values[j*width+right]*a;
-  const bottom=values[down*width+i]*(1-a)+values[down*width+right]*a;
-  return top*(1-b)+bottom*b;
+  const upper=values[j*stride+i]*(1-a)+values[j*stride+right]*a;
+  const lower=values[down*stride+i]*(1-a)+values[down*stride+right]*a;
+  return upper*(1-b)+lower*b;
 }
 
 async function read({endpoint,west,south,size},signal){
@@ -65,7 +78,7 @@ async function read({endpoint,west,south,size},signal){
   }
   const heights=new Uint16Array(side*side),water=new Uint8Array(side*side).fill(1);
   for(const {lat,lon,points} of jobs.values()){
-    const data=await cell(endpoint,lat,lon,overview,signal);
+    const data=await cell(endpoint,lat,lon,overview,points,signal);
     if(!data)continue;
     for(const [i,u,v] of points){
       const kind=sample(data.water,u,v,true),height=sample(data.dem,u,v);
@@ -84,5 +97,5 @@ self.onmessage=async({data})=>{
     const {heights,water}=await read(data,controller.signal);
     postMessage({id:data.id,heights,water},[heights.buffer,water.buffer]);
   }catch(error){postMessage({id:data.id,error:error.message});}
-  finally{clearTimeout(timeout);controller.abort();active=null;}
+  finally{clearTimeout(timeout);controller.abort();if(active?.id===data.id)active=null;}
 };
