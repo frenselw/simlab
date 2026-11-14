@@ -1,7 +1,9 @@
 (function(root,factory){const node=typeof module==='object'&&module.exports,api=factory(node?require('./parts.js'):root.RocketParts,node?require('./orbit.js'):root.RocketOrbit,node?require('./surface.js'):root.RocketSurface);if(node)module.exports=api;root.RocketRecovery=api;})(typeof window==='undefined'?globalThis:window,function(P,O,S){
   'use strict';
   const terminal=f=>['impact','escaped','landed','destroyed'].includes(f.status);
-  const fresh=()=>({detached:false,fuel:30,heat:0,chute:{armed:false,phase:'stowed',since:null},touchdown:null});
+  const maxTurnRate=12*Math.PI/180,turnAcceleration=48*Math.PI/180;
+  const fresh=()=>({detached:false,fuel:30,heat:0,chute:{armed:false,phase:'stowed',since:null},touchdown:null,angularVelocity:0,rcsDirection:0});
+  const rcsDirection=f=>f.status==='flying'&&f.capsule?.detached&&f.capsule.chute.phase==='stowed'?(f.capsule.rcsDirection||0):0;
   const mass=f=>180+f.capsule.fuel;
   const stageHeight=u=>2+P.tanks(u.craft.stages[0]).reduce((sum,k)=>sum+({small:2.4,medium:3.25,large:4.1})[k],0);
   function hull(f,height){const a=[Math.cos(f.attitude),Math.sin(f.attitude)],side=[-a[1],a[0]];return {axes:[a,side],half:[height/2,1.65],center:[f.state[0]+a[0]*height/2,f.state[1]+a[1]*height/2]};}
@@ -50,13 +52,50 @@
     const heave=water?-.55*ramp+(reduced?0:(.06*Math.sin(1.4*t)+.025*Math.sin(2.3*t))*ramp-.55*Math.min(1,(hit.normal||0)/6)*t*Math.exp(-2*t)):reduced||t>=6?0:Math.max(0,Math.sin(5*t))*t*Math.exp(-2*t)*Math.min(6,hit.normal||0)*.035;
     return {angle,heave,tipped:!water&&tipped>.6,water};
   }
+  function turnCapsule(f,delta,dt){
+    const c=f.capsule,epsilon=1e-9,deadband=.1*Math.PI/180;
+    let speed=c.angularVelocity||0,remaining=dt;
+    c.rcsDirection=0;
+    // shortcut: paired jets apply a fixed angular acceleration about one axis; model inertia for three-axis attitude control.
+    while(remaining>epsilon){
+      if(Math.abs(speed)<=epsilon&&Math.abs(delta)<=deadband){speed=0;c.rcsDirection=0;break;}
+      const direction=Math.sign(delta)||-Math.sign(speed),along=speed*direction,stopDistance=along**2/(2*turnAcceleration);
+      let acceleration,duration;
+      if(along<-epsilon){
+        acceleration=direction*turnAcceleration;
+        duration=-along/turnAcceleration;
+      }else if(along>epsilon&&Math.abs(delta)<=stopDistance+epsilon){
+        acceleration=-direction*turnAcceleration;
+        duration=along/turnAcceleration;
+      }else if(along<maxTurnRate-epsilon){
+        const peak=Math.sqrt(turnAcceleration*Math.abs(delta)+along**2/2);
+        acceleration=direction*turnAcceleration;
+        duration=(Math.min(peak,maxTurnRate)-along)/turnAcceleration;
+      }else{
+        acceleration=0;
+        duration=(Math.abs(delta)-stopDistance)/along;
+      }
+      const step=Math.min(remaining,duration),turn=speed*step+.5*acceleration*step**2;
+      f.attitude=O.wrap(f.attitude+turn);
+      delta-=turn;
+      speed+=acceleration*step;
+      remaining-=step;
+      c.rcsDirection=Math.sign(acceleration);
+    }
+    c.angularVelocity=Math.abs(speed)<=epsilon?0:speed;
+    if(c.angularVelocity===0||remaining>epsilon)c.rcsDirection=0;
+  }
   function stepCapsule(f,dt,atmosphere,report){
     if(terminal(f)){f.t+=dt;settle(f);return;}
     const c=f.capsule,o=O.elements(f.state),startTime=f.t;chute(f,atmosphere(o.height),report);
     const underChute=c.chute.phase!=='stowed',load=underChute&&atmosphere(o.height)>1e-5?chuteLoad(f)*Math.min(1,(area(f)-1.5)/8):0,target=underChute?Math.atan2(f.state[4],f.state[3])+Math.PI:angle(f),delta=Math.atan2(Math.sin(target-f.attitude),Math.cos(target-f.attitude));
-    const turn=Math.sign(delta)*Math.min(Math.abs(delta),12*Math.PI/180*dt*(underChute?load:1));
-    f.attitude=O.wrap(f.attitude+turn);
-    const force=thrust(f),flow=force/(300*P.G0),h=Math.min(dt,flow?c.fuel/flow:dt),a=f.attitude,cd=area(f),start=f.state.slice(),m=mass(f);
+    const startAttitude=f.attitude;
+    if(underChute){
+      c.angularVelocity=0;c.rcsDirection=0;
+      f.attitude=O.wrap(f.attitude+Math.sign(delta)*Math.min(Math.abs(delta),maxTurnRate*dt*load));
+    }else if(dt>0)turnCapsule(f,delta,dt);
+    const change=f.attitude-startAttitude;
+    const force=thrust(f),flow=force/(300*P.G0),h=Math.min(dt,flow?c.fuel/flow:dt),a=startAttitude+Math.atan2(Math.sin(change),Math.cos(change))/2,cd=area(f),start=f.state.slice(),m=mass(f);
     const derivative=q=>{const r=Math.hypot(q[0],q[1]),v=Math.hypot(q[3],q[4]),drag=.5*atmosphere(r-P.R)*cd*v,g=P.MU/r**3;return [q[3],q[4],0,-g*q[0]+(force*Math.cos(a)-drag*q[3])/m,-g*q[1]+(force*Math.sin(a)-drag*q[4])/m,0];};
     const integrate=t=>{const add=(q,k,s)=>q.map((v,i)=>v+k[i]*s),k1=derivative(start),k2=derivative(add(start,k1,t/2)),k3=derivative(add(start,k2,t/2)),k4=derivative(add(start,k3,t));return start.map((v,i)=>v+t/6*(k1[i]+2*k2[i]+2*k3[i]+k4[i]));};
     let next=integrate(h),used=h;
@@ -76,6 +115,7 @@
     if(f.status==='destroyed')report?.(f.status,f.t,f);
     else if(f.status==='landed'||f.status==='impact')report?.(f.status,startTime+used,f);
     settle(f);f.maxHeight=Math.max(f.maxHeight,end.height);chute(f,atmosphere(end.height),report);
+    if(terminal(f)||c.chute.phase!=='stowed'){c.angularVelocity=0;c.rcsDirection=0;}
   }
   function canSeparate(f){return Boolean(f?.capsule&&!f.capsule.detached&&f.status==='flying'&&!P.attached(f)&&(f.craft.stages.length===1||f.separated)&&(!f.controls.lit||f.controls.throttle===0||f.fuel[f.active]===0));}
   function separate(f,makeFlight){if(!canSeparate(f))return false;const index=f.craft.stages.length-1,c=P.clone(f.craft),stage=c.stages[index];c.stages=[stage];c.separator=false;c.capsule=false;delete c.boosters;
@@ -95,5 +135,5 @@
     return {elapsed:f.t-start,steps,limited:f.t<target-1e-7};
   }
   const selected=f=>f?.controlled==='upper'&&f.upperStage?f.upperStage:f;
-  return Object.freeze({fresh,mass,thrust,localAngle,reentry,chuteLoad,area,stageHeight,contact,resolveContact,contactVelocity,landingPose,terminal,canSeparate,separate,advance,selected,stepCapsule});
+  return Object.freeze({fresh,mass,thrust,rcsDirection,localAngle,reentry,chuteLoad,area,stageHeight,contact,resolveContact,contactVelocity,landingPose,terminal,canSeparate,separate,advance,selected,stepCapsule});
 });

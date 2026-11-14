@@ -1,4 +1,4 @@
-(function(root,factory){const api=factory(root,typeof module==='object'&&module.exports?require('./parts'):root.RocketParts,typeof module==='object'&&module.exports?require('./model'):root.RocketModel,typeof module==='object'&&module.exports?require('./orbit'):root.RocketOrbit);if(typeof module==='object'&&module.exports)module.exports=api;root.RocketAudio=api;})(typeof window==='undefined'?globalThis:window,function(root,P,M,O){
+(function(root,factory){const node=typeof module==='object'&&module.exports,api=factory(root,node?require('./parts'):root.RocketParts,node?require('./model'):root.RocketModel,node?require('./orbit'):root.RocketOrbit,node?require('./recovery'):root.RocketRecovery);if(node)module.exports=api;root.RocketAudio=api;})(typeof window==='undefined'?globalThis:window,function(root,P,M,O,R){
   'use strict';
   const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v)),silent=()=>({gain:0,hz:500,bass:55,pan:0});
   function flightGain(f){if(!f)return 1;const t=clamp((Math.hypot(...f.state.slice(0,3))-P.R-80000)/20000);return 1-t*t*(3-2*t);}
@@ -8,7 +8,7 @@
     const air=clamp(M.atmosphere(Math.hypot(...f.state.slice(0,3))-P.R)/1.225),engine=f.craft.stages[f.active].engine,throttle=M.coreThrust(f)>0?f.controls.throttle:0;
     voices[0]={gain:(f.capsule?.detached?.12:.32)*Math.sqrt(throttle),hz:150+[700,430,560][engine]*throttle,bass:[48,72,60][engine],pan:0};
     voices[1]={gain:P.burning(f)?.21*Math.sqrt(f.craft.boosters/2):0,hz:650,bass:58,pan:0};
-    if(f.status==='flying'&&f.capsule?.detached&&f.capsule.chute.phase==='stowed'&&Math.abs(Math.atan2(Math.sin(M.targetAttitude(f)-f.attitude),Math.cos(M.targetAttitude(f)-f.attitude)))>.01)voices[1]={gain:.025*Math.sqrt(air),hz:1200,bass:0,pan:0};
+    if(R.rcsDirection(f))voices[1]={gain:.025*Math.sqrt(air),hz:1200,bass:0,pan:0};
     voices[2]={gain:.085*Math.sqrt(air)*clamp(Math.hypot(...f.state.slice(3,6))/500),hz:2400,bass:0,pan:0};
     pieces.slice(0,4).forEach((p,i)=>{const distance=Math.hypot(...p.coast.state.slice(0,3).map((v,j)=>v-f.state[j]));voices[i+3]={gain:p.coast.fuel>0&&p.coast.status==='flying'?.13*Math.sqrt(air)/(1+(distance/35)**2):0,hz:650,bass:58,pan:clamp(p.pan||0,-.95,.95)};});
     const fade=flightGain(f);for(const v of voices)v.gain*=fade;return voices;

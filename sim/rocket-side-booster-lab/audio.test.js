@@ -48,8 +48,8 @@ function flight(){let s=M.change(T.singlePad(2,0,2),{type:'workshop'});s=M.chang
 
 {
  const f=T.singlePad().flight;f.capsule.detached=true;f.fuel[0]=0;f.status='flying';f.state=[P.R+1000,0,0,0,20,0];f.controls.lit=true;f.controls.throttle=.5;
- assert(mix(f)[0].gain>0&&mix(f)[0].gain<.2);f.controls.mode='retrograde';const rcs=mix(f)[1].gain;assert(rcs>0);f.capsule.fuel=0;assert.equal(mix(f)[0].gain,0);assert.equal(mix(f)[1].gain,rcs);f.status='landed';assert.equal(mix(f)[1].gain,0);f.status='flying';f.capsule.fuel=30;f.state[0]=P.R+100000;assert(mix(f).every(v=>v.gain===0));
+ assert(mix(f)[0].gain>0&&mix(f)[0].gain<.2);f.capsule.rcsDirection=1;const rcs=mix(f)[1].gain;assert(rcs>0);f.capsule.fuel=0;assert.equal(mix(f)[0].gain,0);f.capsule.rcsDirection=-1;assert.equal(mix(f)[1].gain,rcs);f.capsule.rcsDirection=0;assert.equal(mix(f)[1].gain,0);f.capsule.rcsDirection=-1;f.status='landed';assert.equal(mix(f)[1].gain,0);f.status='flying';f.capsule.fuel=30;f.state[0]=P.R+100000;assert(mix(f).every(v=>v.gain===0));
  console.log('Capsule audio: attitude puffs remain audible without return-engine fuel and stop after landing or above the sound cutoff.');
 }
 
-{const f=T.singlePad().flight;f.capsule.detached=true;f.status='flying';f.state=[P.R+1000,0,0,-20,0,0];f.controls.mode='tilt';f.controls.angle=90;f.attitude=0;assert(mix(f)[1].gain>0);for(const phase of ['drogue-opening','drogue','main-opening','main']){f.capsule.chute.phase=phase;assert.equal(mix(f)[1].gain,0);}console.log('Canopy aerodynamic alignment remains quiet on the RCS channel.');}
+{const f=T.singlePad().flight;f.capsule.detached=true;f.status='flying';f.state=[P.R+1000,0,0,-20,0,0];f.capsule.rcsDirection=1;assert(mix(f)[1].gain>0);for(const phase of ['drogue-opening','drogue','main-opening','main']){f.capsule.chute.phase=phase;assert.equal(mix(f)[1].gain,0);}console.log('Canopy aerodynamic alignment remains quiet on the RCS channel.');}

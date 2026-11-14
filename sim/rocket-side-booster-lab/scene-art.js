@@ -432,6 +432,32 @@ export function createLandscape(){
  group.userData={clearRadius:300,treeMin,buildingMin,trees:trunks.length,buildings:plans.length,facilities,accessRoads:links,serviceRoads:links.length,tankBase,mountains:geography.ridges,river:false,coast:true,cloudClearRadius:5000,cloudCenters};return group;
 }
 
+function capsuleShell(){
+  const shell=new THREE.CylinderGeometry(1.25,1.4,2,32,10,false,-Math.PI/32);
+  const hull=shell.attributes.position,index=shell.index.array,skinIndices=[],vertices=[],colors=[],recessIndices=[],mouths=[];
+  const rimColor=new THREE.Color('#85959b'),innerColor=new THREE.Color('#303b42'),floorColor=new THREE.Color('#17232b');
+  const cuts=new Set();
+  for(const column of [8,24])for(const row of [1,8]){
+    const start=6*(column*10+row),corners=[0,1,4,2].map(i=>new THREE.Vector3().fromBufferAttribute(hull,index[start+i]));
+    cuts.add(start);
+    const mouth=corners[0].clone().add(corners[2]).multiplyScalar(.5),base=vertices.length/3;
+    mouths.push(mouth.clone().add(new THREE.Vector3(0,1,0)));
+    // Keep the rim on the original hull and taper the recess inwards.
+    const inner=corners.map(p=>p.clone().lerp(mouth,.28).add(new THREE.Vector3(-Math.sign(mouth.x)*.065,0,0)));
+    for(const [ring,color]of [[corners,rimColor],[inner,innerColor],[inner,floorColor]])for(const p of ring){vertices.push(p.x,p.y,p.z);colors.push(color.r,color.g,color.b);}
+    for(let i=0;i<4;i++){
+      const a=base+i,b=base+(i+1)%4;recessIndices.push(a,b,b+4,a,b+4,a+4);
+    }
+    recessIndices.push(base+8,base+9,base+10,base+8,base+10,base+11);
+  }
+  for(let i=0;i<index.length;i+=6)if(!cuts.has(i))skinIndices.push(...index.subarray(i,i+6));
+  shell.setIndex(skinIndices);shell.clearGroups();
+  const recess=new THREE.BufferGeometry();recess.setIndex(recessIndices);
+  recess.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));
+  recess.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));recess.computeVertexNormals();
+  return {shell,recess,mouths};
+}
+
 export function buildRocket(c,separated,capsuleOnly=false){
   const group=new THREE.Group(),white=material('#edf1eb',{roughness:.42}),skin=material('#ffffff',{map:surface('payload'),roughness:.5}),shell=material('#ffffff',{map:surface('separator'),roughness:.55,metalness:.25}),dark=material('#4b535c',{map:surface('metal'),metalness:.78,roughness:.36,side:THREE.DoubleSide}),metal=material('#a2b3b9',{map:surface('metal'),metalness:.7,roughness:.38}),mint=material('#318d84',{metalness:.3}),orange=material('#d59257',{metalness:.3}),slots=[],parts=[],ranges=[],capsulePorts=[];let y=0,partParent=group,separatorY=null;
   const mesh=(geometry,mat,x,yy,z,parent=partParent)=>{const m=new THREE.Mesh(geometry,mat);m.position.set(x,yy,z);parent.add(m);return m;};
@@ -453,7 +479,7 @@ export function buildRocket(c,separated,capsuleOnly=false){
     partParent=group;
     slots[i]=(base+y)/2;ranges[i]={base,engine:s.engine===null?0:2,large:s.large,medium:s.medium||0,small:s.small,joins};
   });
-  const bodyTop=y,boosters=new THREE.Group(),boosterFlames=[];boosters.userData.part={stage:0,part:'boosters',ordinal:0,index:null};
+  const bodyTop=y,boosters=new THREE.Group(),boosterFlames=[];let rcsMouths=[];boosters.userData.part={stage:0,part:'boosters',ordinal:0,index:null};
   if(c.boosters&&!separated&&!capsuleOnly){for(const [i,[x,z]]of P.boosterMounts(c.boosters).entries()){
     const start=boosters.children.length;
     mesh(new THREE.CylinderGeometry(.65,.65,5.6,20),white,x*2.4,3.4,z*2.4,boosters);mesh(new THREE.ConeGeometry(.65,1,20),orange,x*2.4,6.7,z*2.4,boosters);mesh(new THREE.CylinderGeometry(.35,.5,.6,16),dark,x*2.4,.3,z*2.4,boosters);
@@ -462,7 +488,9 @@ export function buildRocket(c,separated,capsuleOnly=false){
     const flame=new THREE.Mesh(new THREE.ConeGeometry(.45,4,16).rotateZ(Math.PI),new THREE.MeshBasicMaterial({color:'#ffc270',transparent:true,opacity:.8,depthWrite:false}));flame.position.set(x*2.4,-2,z*2.4);flame.visible=false;flame.name='booster-flame';group.add(flame);boosterFlames.push(flame);
   }group.add(boosters);parts.push(boosters);}
   if(P.hasCapsule(c)){partParent=new THREE.Group();partParent.userData.part={stage:c.stages.length-1,part:'capsule',ordinal:0,index:null};group.add(partParent);parts.push(partParent);
-  mesh(new THREE.CylinderGeometry(1.25,1.4,2,32),skin,0,y+1,0);mesh(new THREE.SphereGeometry(1.25,32,20,0,Math.PI*2,0,Math.PI/2),white,0,y+2,0);const faceY=y+1.1;
+  const {shell,recess,mouths}=capsuleShell();rcsMouths=mouths;
+  mesh(shell,skin,0,y+1,0).name='capsule-shell';mesh(recess,material('#ffffff',{vertexColors:true,roughness:.7}),0,y+1,0).name='capsule-rcs-recesses';
+  mesh(new THREE.SphereGeometry(1.25,32,20,0,Math.PI*2,0,Math.PI/2),white,0,y+2,0);const faceY=y+1.1;
   batch(new THREE.SphereGeometry(1,12,8),dark,[-1,1].map(side=>[side*.4,faceY,1.24,.16,.16,.16]));batch(new THREE.SphereGeometry(1,8,6),material('#ffffff'),[-1,1].map(side=>[side*.4-.03,faceY+.05,1.37,.07,.07,.07]));
   const smile=new THREE.TorusGeometry(.24,.035,6,14,Math.PI);const mouth=mesh(smile,dark,0,faceY-.25,1.32);mouth.rotation.z=Math.PI;
   mesh(new THREE.CylinderGeometry(.04,.04,1.1,8),metal,0,y+3.6,0);mesh(new THREE.SphereGeometry(.17,10,8),orange,0,y+4.15,0);
@@ -472,13 +500,18 @@ export function buildRocket(c,separated,capsuleOnly=false){
   partParent=group;
   if(capsuleOnly){const underside=parts.find(p=>p.userData.part.part==='capsule'),shield=mesh(new THREE.CylinderGeometry(1.4,1.3,.25,48),material('#40382f',{roughness:.96,metalness:0,emissive:'#ff6622',emissiveIntensity:0}),0,.05,0,underside);shield.name='capsule-heat-shield';group.userData.heatShield=shield;}
   const rcs=[new THREE.Group(),new THREE.Group()],nozzles=[];
-  if(P.hasCapsule(c)||c.stages.some(st=>st.engine!==null))for(const [index,direction]of [-1,1].entries())for(const [level,side]of [[P.hasCapsule(c)?y+.25:y-.25,-direction],[1.8,direction]]){
-    nozzles.push([side*1.53,level,0,.13,.24,.13,0,0,-side*Math.PI/2]);
-    for(const [radius,length,opacity]of [[.5,3.2,.45],[.23,2.1,.9]]){
-      const plume=mesh(new THREE.ConeGeometry(radius,length,10),new THREE.MeshBasicMaterial({color:radius>.3?'#7bc9ff':'#e1f6ff',transparent:true,opacity,blending:THREE.AdditiveBlending,depthWrite:false,toneMapped:false}),side*(1.65+length/2),level,0,rcs[index]);plume.rotation.z=side*Math.PI/2;plume.userData.baseOpacity=opacity;
+  if(P.hasCapsule(c)||c.stages.some(st=>st.engine!==null))for(const [index,direction]of [-1,1].entries())for(const [upper,side]of [[true,-direction],[false,direction]]){
+    const port=rcsMouths.find(p=>Math.sign(p.x)===side&&(p.y>1)===(capsuleOnly&&upper));
+    const recessed=port&&(upper||capsuleOnly),level=recessed?y+port.y:upper?y-.25:1.8,exit=recessed?port.x:side*1.65;
+    if(!recessed)nozzles.push([side*1.53,level,0,.13,.24,.13,0,0,-side*Math.PI/2]);
+    const layers=recessed?[[.24,2,.45],[.1,1.3,.9]]:[[.5,3.2,.45],[.23,2.1,.9]];
+    for(const [i,[radius,length,opacity]]of layers.entries()){
+      const geometry=recessed?new THREE.LatheGeometry([[.055,0],[radius,length*.28],[radius*.5,length*.68],[0,length]].map(([r,h])=>new THREE.Vector2(r,h)),10).translate(0,-length/2,0):new THREE.ConeGeometry(radius,length,10);
+      const plume=mesh(geometry,new THREE.MeshBasicMaterial({color:i===0?'#7bc9ff':'#e1f6ff',transparent:true,opacity,blending:THREE.AdditiveBlending,depthWrite:false,toneMapped:false}),exit+side*length/2,level,0,rcs[index]);
+      plume.rotation.z=(recessed?-side:side)*Math.PI/2;plume.userData.baseOpacity=opacity;
     }
   }
-  batch(new THREE.CylinderGeometry(1,1,1,10),dark,nozzles);for(const jets of rcs){jets.visible=false;group.add(jets);}
+  if(nozzles.length)batch(new THREE.CylinderGeometry(1,1,1,10),dark,nozzles);for(const jets of rcs){jets.visible=false;group.add(jets);}
   const flame=new THREE.Group(),clustered=capsuleOnly||c.stages[separated?1:0].engine===0,exits=capsuleOnly?capsulePorts:clustered?[[-.61,-.61],[-.61,.61],[.61,-.61],[.61,.61]]:[[0,0]];flame.position.y=capsuleOnly?0:-.04;flame.userData.ports=capsuleOnly?capsulePorts:null;
   for(const [radius,length,color,opacity]of capsuleOnly?[[.13,.65,'#58b9ec',.5],[.085,.42,'#a9e7ff',.65],[.045,.24,'#fff4d8',.9]]:clustered?[[.43,4.2,'#ffad52',.45],[.27,3.1,'#b4e8ff',.8],[.13,1.8,'#fff8e7',1]]:[[.9,5.4,'#69b9ff',.45],[.52,4,'#b4e8ff',.8],[.25,2.4,'#fff8e7',1]]){
     const plume=instances(flame,new THREE.ConeGeometry(radius,length,20).rotateZ(Math.PI),new THREE.MeshBasicMaterial({color,transparent:true,opacity,blending:capsuleOnly&&radius>.1?THREE.NormalBlending:THREE.AdditiveBlending,depthWrite:false,toneMapped:false}),exits.map(p=>capsuleOnly?[p[0]+Math.sin(p[3])*length/2,p[1]-Math.cos(p[3])*length/2,p[2],1,1,1,0,0,p[3]]:[p[0],-length/2,p[1],1,1,1]));

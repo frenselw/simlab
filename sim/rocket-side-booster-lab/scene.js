@@ -175,16 +175,26 @@ export class RocketScene{
     if(flame.userData.width!==width){const matrix=new THREE.Matrix4();for(const plume of flame.children){for(let i=0;i<plume.count;i++){plume.getMatrixAt(i,matrix);matrix.elements[0]=matrix.elements[10]=width;plume.setMatrixAt(i,matrix);}plume.instanceMatrix.needsUpdate=true;}flame.userData.width=width;}
   }
   drawRcs(rocket,f){
-    if(!rocket)return;const pose=rocket.userData.rcsPose,dt=f&&pose?f.t-pose.t:0,turn=f&&pose?Math.atan2(Math.sin(f.attitude-pose.attitude),Math.cos(f.attitude-pose.attitude)):0;
-    let until=pose?.until||0,direction=pose?.direction||0;
-    if(!this.data.live||dt<0)until=0;
-    if(dt>0){until=0;
-      // Slow local-vertical/orbit tracking must not look like a permanent RCS burn.
-      if(this.data.live&&Math.abs(turn)/dt>Math.PI/360){direction=Math.sign(turn);const target=M.targetAttitude(f)-f.attitude,aligned=Math.abs(Math.atan2(Math.sin(target),Math.cos(target)))<1e-5;until=dt>.25&&aligned?f.t:f.t+.08;}
-    }
-    rocket.userData.rcsPose=f&&this.data.live?{t:f.t,attitude:f.attitude,until,direction}:null;
+    if(!rocket)return;
+    let direction=0,until=0;
+    if(this.data.live&&f?.capsule?.detached){
+      direction=RocketRecovery.rcsDirection(f);
+    }else if(this.data.live&&f&&!RocketRecovery.terminal(f)){
+      const pose=rocket.userData.rcsPose,dt=pose?f.t-pose.t:0;
+      if(dt===0&&pose&&f.t<pose.until){direction=pose.direction;until=pose.until;}
+      if(dt>0){
+        const change=f.attitude-pose.attitude,turn=Math.atan2(Math.sin(change),Math.cos(change));
+        const target=M.targetAttitude(f)-f.attitude,aligned=Math.abs(Math.atan2(Math.sin(target),Math.cos(target)))<1e-5;
+        // Slow local-vertical/orbit tracking must not look like a permanent RCS burn.
+        if(Math.abs(turn)/dt>Math.PI/360&&!(dt>.25&&aligned)){direction=Math.sign(turn);until=f.t+.08;}
+      }
+      rocket.userData.rcsPose={t:f.t,attitude:f.attitude,until,direction};
+    }else rocket.userData.rcsPose=null;
     if(rocket===this.rocket){this.rcsDirection=direction;this.rcsUntil=until;}
-    for(const [i,jets]of rocket.userData.rcs.entries()){jets.visible=Boolean(this.data.live&&f&&(!f.capsule?.detached||f.capsule.chute.phase==='stowed')&&!window.RocketRecovery.terminal(f)&&f.t<until&&direction===[-1,1][i]);for(const plume of jets.children)plume.material.opacity=plume.userData.baseOpacity*(this.reducedMotion?1:.85+.15*Math.sin(f?.t*70||0));}
+    for(const [i,jets]of rocket.userData.rcs.entries()){
+      jets.visible=direction===[-1,1][i];
+      if(jets.visible)for(const plume of jets.children)plume.material.opacity=plume.userData.baseOpacity*(this.reducedMotion?1:.85+.15*Math.sin(f.t*70));
+    }
   }
   drawThermal(rocket,f){
     if(!rocket||!f?.capsule?.detached)return;const shield=rocket.userData.heatShield,e=window.RocketRecovery.reentry(f,M.atmosphere),level=f.status==='flying'&&f.capsule.chute.phase==='stowed'?Math.min(1,e.flux*100):0;
