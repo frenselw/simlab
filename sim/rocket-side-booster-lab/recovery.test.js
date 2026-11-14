@@ -105,18 +105,18 @@ for(const fuel of [0,30])for(const [angle,sign]of [[358,-1],[2,1]]){
  const command=M.change(s,{type:'control',key:'angle',value:angle}),steered=command.flight;
  R.stepCapsule(steered,.1,M.atmosphere);
  const turn=Math.atan2(Math.sin(steered.attitude),Math.cos(steered.attitude));
- assert(Math.abs(turn-sign*.24*Math.PI/180)<1e-9);
+ assert(Math.abs(turn-sign*.1*Math.PI/180)<1e-9);
  assert.equal(R.rcsDirection(steered),sign);
- assert(Math.abs(steered.capsule.angularVelocity-sign*4.8*Math.PI/180)<1e-9);
+ assert(Math.abs(steered.angularVelocity-sign*2*Math.PI/180)<1e-9);
  const directions=[];
  for(let i=0;i<15;i++){
   R.stepCapsule(steered,.05,M.atmosphere);
   directions.push(R.rcsDirection(steered));
-  assert(Math.abs(steered.capsule.angularVelocity)<=12*Math.PI/180+1e-9);
+  assert(Math.abs(steered.angularVelocity)<=12*Math.PI/180+1e-9);
  }
  assert(directions.includes(-sign));
  assert.equal(directions.at(-1),0);
- assert.equal(steered.capsule.angularVelocity,0);
+ assert.equal(steered.angularVelocity,0);
  assert(Math.abs(steered.attitude-angle*Math.PI/180)<1e-9);
  assert.equal(steered.capsule.fuel,fuel);
  if(!fuel){
@@ -131,12 +131,12 @@ for(const step of [.01,.1,2]){
  const f=M.change(orbit(),{type:'capsule-separate'}).flight;
  f.state=[P.R+200000,0,0,100,0,0];f.attitude=0;
  f.controls.mode='tilt';f.controls.angle=30;f.capsule.fuel=0;
- R.stepCapsule(f,.5,M.atmosphere);
+ R.stepCapsule(f,.65,M.atmosphere);
  assert.equal(R.rcsDirection(f),0);
- assert(Math.abs(f.capsule.angularVelocity-12*Math.PI/180)<1e-9);
+ assert(Math.abs(f.angularVelocity-12*Math.PI/180)<1e-9);
  for(let elapsed=0;elapsed<3.5;elapsed+=step)R.stepCapsule(f,step,M.atmosphere);
  assert(Math.abs(f.attitude-Math.PI/6)<1e-9);
- assert.equal(f.capsule.angularVelocity,0);
+ assert.equal(f.angularVelocity,0);
  assert.equal(R.rcsDirection(f),0);
 }
 {
@@ -146,10 +146,10 @@ for(const step of [.01,.1,2]){
  const before=f.attitude,reversed=M.change(s,{type:'control',key:'angle',value:270}).flight;
  R.stepCapsule(reversed,.1,M.atmosphere);
  assert.equal(R.rcsDirection(reversed),-1);
- assert(reversed.attitude>before&&reversed.capsule.angularVelocity>0);
- R.stepCapsule(reversed,8.5,M.atmosphere);
+ assert(reversed.attitude>before&&reversed.angularVelocity>0);
+ R.stepCapsule(reversed,9,M.atmosphere);
  assert(Math.abs(reversed.attitude-3*Math.PI/2)<1e-9);
- assert.equal(reversed.capsule.angularVelocity,0);
+ assert.equal(reversed.angularVelocity,0);
 }
 
 for(const radial of [0,1,30]){const a=M.change(orbit(),{type:'capsule-separate'}).flight;a.state=[P.R+5000,0,0,radial,0,0];a.capsule.chute.armed=true;a.controls.lit=false;R.stepCapsule(a,radial===0?0:.01,M.atmosphere);assert.equal(a.capsule.chute.phase,'stowed');}

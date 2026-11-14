@@ -176,21 +176,8 @@ export class RocketScene{
   }
   drawRcs(rocket,f){
     if(!rocket)return;
-    let direction=0,until=0;
-    if(this.data.live&&f?.capsule?.detached){
-      direction=RocketRecovery.rcsDirection(f);
-    }else if(this.data.live&&f&&!RocketRecovery.terminal(f)){
-      const pose=rocket.userData.rcsPose,dt=pose?f.t-pose.t:0;
-      if(dt===0&&pose&&f.t<pose.until){direction=pose.direction;until=pose.until;}
-      if(dt>0){
-        const change=f.attitude-pose.attitude,turn=Math.atan2(Math.sin(change),Math.cos(change));
-        const target=M.targetAttitude(f)-f.attitude,aligned=Math.abs(Math.atan2(Math.sin(target),Math.cos(target)))<1e-5;
-        // Slow local-vertical/orbit tracking must not look like a permanent RCS burn.
-        if(Math.abs(turn)/dt>Math.PI/360&&!(dt>.25&&aligned)){direction=Math.sign(turn);until=f.t+.08;}
-      }
-      rocket.userData.rcsPose={t:f.t,attitude:f.attitude,until,direction};
-    }else rocket.userData.rcsPose=null;
-    if(rocket===this.rocket){this.rcsDirection=direction;this.rcsUntil=until;}
+    const direction=this.data.live?RocketRecovery.rcsDirection(f):0;
+    if(rocket===this.rocket)this.rcsDirection=direction;
     for(const [i,jets]of rocket.userData.rcs.entries()){
       jets.visible=direction===[-1,1][i];
       if(jets.visible)for(const plume of jets.children)plume.material.opacity=plume.userData.baseOpacity*(this.reducedMotion?1:.85+.15*Math.sin(f.t*70));

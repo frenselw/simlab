@@ -1,9 +1,11 @@
 (function(root,factory){const node=typeof module==='object'&&module.exports,api=factory(node?require('./parts.js'):root.RocketParts,node?require('./orbit.js'):root.RocketOrbit,node?require('./surface.js'):root.RocketSurface);if(node)module.exports=api;root.RocketRecovery=api;})(typeof window==='undefined'?globalThis:window,function(P,O,S){
   'use strict';
   const terminal=f=>['impact','escaped','landed','destroyed'].includes(f.status);
-  const maxTurnRate=12*Math.PI/180,turnAcceleration=48*Math.PI/180;
-  const fresh=()=>({detached:false,fuel:30,heat:0,chute:{armed:false,phase:'stowed',since:null},touchdown:null,angularVelocity:0,rcsDirection:0});
-  const rcsDirection=f=>f.status==='flying'&&f.capsule?.detached&&f.capsule.chute.phase==='stowed'?(f.capsule.rcsDirection||0):0;
+  const maxTurnRate=12*Math.PI/180,turnAcceleration=20*Math.PI/180;
+  const fresh=()=>({detached:false,fuel:30,heat:0,chute:{armed:false,phase:'stowed',since:null},touchdown:null});
+  const underChute=f=>f.capsule?.detached&&f.capsule.chute.phase!=='stowed';
+  const rcsDirection=f=>f?.status==='flying'&&!underChute(f)?(f.rcsDirection||0):0;
+  function stopTurn(f){f.angularVelocity=0;f.rcsDirection=0;}
   const mass=f=>180+f.capsule.fuel;
   const stageHeight=u=>2+P.tanks(u.craft.stages[0]).reduce((sum,k)=>sum+({small:2.4,medium:3.25,large:4.1})[k],0);
   function hull(f,height){const a=[Math.cos(f.attitude),Math.sin(f.attitude)],side=[-a[1],a[0]];return {axes:[a,side],half:[height/2,1.65],center:[f.state[0]+a[0]*height/2,f.state[1]+a[1]*height/2]};}
@@ -17,7 +19,8 @@
     f.maxHeight=Math.max(f.maxHeight,O.elements(f.state).height);u.maxHeight=Math.max(u.maxHeight,O.elements(u.state).height);
   }
   const thrust=f=>!terminal(f)&&f.controls.lit&&f.capsule.fuel>0&&f.capsule.chute.phase==='stowed'?3000*f.controls.throttle:0;
-  const angle=f=>f.controls.mode==='hold'?f.attitude:f.controls.mode==='tilt'?Math.atan2(f.state[1],f.state[0])+f.controls.angle*Math.PI/180:Math.atan2(f.state[4],f.state[3])+(f.controls.mode==='retrograde'?Math.PI:0);
+  const targetAttitude=f=>f.controls.mode==='hold'?f.attitude:f.controls.mode==='tilt'?Math.atan2(f.state[1],f.state[0])+f.controls.angle*Math.PI/180:Math.atan2(f.state[4],f.state[3])+(f.controls.mode==='retrograde'?Math.PI:0);
+  const angleDelta=(target,current)=>Math.atan2(Math.sin(target-current),Math.cos(target-current));
   const localAngle=f=>O.wrap(f.attitude-Math.atan2(f.state[1],f.state[0]))*180/Math.PI;
   function reentry(f,atmosphere){const o=O.elements(f.state),heading=Math.atan2(f.state[4],f.state[3]),facing=-Math.cos(f.attitude-heading);return {pathAngle:Math.atan2(o.radial,Math.abs(o.tangential))*180/Math.PI,shieldAngle:Math.acos(Math.max(-1,Math.min(1,facing)))*180/Math.PI,targetAngle:O.wrap(heading+Math.PI-Math.atan2(f.state[1],f.state[0]))*180/Math.PI,flux:Math.sqrt(atmosphere(o.height))*(o.speed/7800)**3,protected:facing>.8};}
   function chuteLoad(f){const x=Math.max(0,Math.min(1,-O.elements(f.state).radial/3));return x*x*(3-2*x);}
@@ -52,13 +55,13 @@
     const heave=water?-.55*ramp+(reduced?0:(.06*Math.sin(1.4*t)+.025*Math.sin(2.3*t))*ramp-.55*Math.min(1,(hit.normal||0)/6)*t*Math.exp(-2*t)):reduced||t>=6?0:Math.max(0,Math.sin(5*t))*t*Math.exp(-2*t)*Math.min(6,hit.normal||0)*.035;
     return {angle,heave,tipped:!water&&tipped>.6,water};
   }
-  function turnCapsule(f,delta,dt){
-    const c=f.capsule,epsilon=1e-9,deadband=.1*Math.PI/180;
-    let speed=c.angularVelocity||0,remaining=dt;
-    c.rcsDirection=0;
+  function turn(f,dt){
+    const epsilon=1e-9,deadband=.1*Math.PI/180;
+    let delta=angleDelta(targetAttitude(f),f.attitude),speed=f.angularVelocity||0,remaining=dt;
+    f.rcsDirection=0;
     // shortcut: paired jets apply a fixed angular acceleration about one axis; model inertia for three-axis attitude control.
     while(remaining>epsilon){
-      if(Math.abs(speed)<=epsilon&&Math.abs(delta)<=deadband){speed=0;c.rcsDirection=0;break;}
+      if(Math.abs(speed)<=epsilon&&Math.abs(delta)<=deadband){speed=0;f.rcsDirection=0;break;}
       const direction=Math.sign(delta)||-Math.sign(speed),along=speed*direction,stopDistance=along**2/(2*turnAcceleration);
       let acceleration,duration;
       if(along<-epsilon){
@@ -80,22 +83,22 @@
       delta-=turn;
       speed+=acceleration*step;
       remaining-=step;
-      c.rcsDirection=Math.sign(acceleration);
+      f.rcsDirection=Math.sign(acceleration);
     }
-    c.angularVelocity=Math.abs(speed)<=epsilon?0:speed;
-    if(c.angularVelocity===0||remaining>epsilon)c.rcsDirection=0;
+    f.angularVelocity=Math.abs(speed)<=epsilon?0:speed;
+    if(f.angularVelocity===0||remaining>epsilon)f.rcsDirection=0;
   }
   function stepCapsule(f,dt,atmosphere,report){
     if(terminal(f)){f.t+=dt;settle(f);return;}
     const c=f.capsule,o=O.elements(f.state),startTime=f.t;chute(f,atmosphere(o.height),report);
-    const underChute=c.chute.phase!=='stowed',load=underChute&&atmosphere(o.height)>1e-5?chuteLoad(f)*Math.min(1,(area(f)-1.5)/8):0,target=underChute?Math.atan2(f.state[4],f.state[3])+Math.PI:angle(f),delta=Math.atan2(Math.sin(target-f.attitude),Math.cos(target-f.attitude));
     const startAttitude=f.attitude;
-    if(underChute){
-      c.angularVelocity=0;c.rcsDirection=0;
+    if(underChute(f)){
+      stopTurn(f);
+      const load=atmosphere(o.height)>1e-5?chuteLoad(f)*Math.min(1,(area(f)-1.5)/8):0;
+      const delta=angleDelta(Math.atan2(f.state[4],f.state[3])+Math.PI,f.attitude);
       f.attitude=O.wrap(f.attitude+Math.sign(delta)*Math.min(Math.abs(delta),maxTurnRate*dt*load));
-    }else if(dt>0)turnCapsule(f,delta,dt);
-    const change=f.attitude-startAttitude;
-    const force=thrust(f),flow=force/(300*P.G0),h=Math.min(dt,flow?c.fuel/flow:dt),a=startAttitude+Math.atan2(Math.sin(change),Math.cos(change))/2,cd=area(f),start=f.state.slice(),m=mass(f);
+    }else if(dt>0)turn(f,dt);
+    const force=thrust(f),flow=force/(300*P.G0),h=Math.min(dt,flow?c.fuel/flow:dt),a=startAttitude+angleDelta(f.attitude,startAttitude)/2,cd=area(f),start=f.state.slice(),m=mass(f);
     const derivative=q=>{const r=Math.hypot(q[0],q[1]),v=Math.hypot(q[3],q[4]),drag=.5*atmosphere(r-P.R)*cd*v,g=P.MU/r**3;return [q[3],q[4],0,-g*q[0]+(force*Math.cos(a)-drag*q[3])/m,-g*q[1]+(force*Math.sin(a)-drag*q[4])/m,0];};
     const integrate=t=>{const add=(q,k,s)=>q.map((v,i)=>v+k[i]*s),k1=derivative(start),k2=derivative(add(start,k1,t/2)),k3=derivative(add(start,k2,t/2)),k4=derivative(add(start,k3,t));return start.map((v,i)=>v+t/6*(k1[i]+2*k2[i]+2*k3[i]+k4[i]));};
     let next=integrate(h),used=h;
@@ -115,25 +118,25 @@
     if(f.status==='destroyed')report?.(f.status,f.t,f);
     else if(f.status==='landed'||f.status==='impact')report?.(f.status,startTime+used,f);
     settle(f);f.maxHeight=Math.max(f.maxHeight,end.height);chute(f,atmosphere(end.height),report);
-    if(terminal(f)||c.chute.phase!=='stowed'){c.angularVelocity=0;c.rcsDirection=0;}
+    if(terminal(f)||underChute(f))stopTurn(f);
   }
   function canSeparate(f){return Boolean(f?.capsule&&!f.capsule.detached&&f.status==='flying'&&!P.attached(f)&&(f.craft.stages.length===1||f.separated)&&(!f.controls.lit||f.controls.throttle===0||f.fuel[f.active]===0));}
   function separate(f,makeFlight){if(!canSeparate(f))return false;const index=f.craft.stages.length-1,c=P.clone(f.craft),stage=c.stages[index];c.stages=[stage];c.separator=false;c.capsule=false;delete c.boosters;
     const u=makeFlight(c,'own',f.state);delete u.capsule;delete u.upperStage;delete u.controlled;u.fuel=[f.fuel[index],null];u.t=f.t;u.status='flying';u.attitude=f.attitude;u.controls={...f.controls,lit:false};u.maxHeight=f.maxHeight;u.heat=0;u.auto={mode:'waiting',separatedAt:f.t};
     const releaseSpeed=1,cm=mass(f),um=P.mass(u),axis=[Math.cos(f.attitude),Math.sin(f.attitude)],gap=2+P.tanks(stage).reduce((sum,k)=>sum+({small:2.4,medium:3.25,large:4.1})[k],0)+.3;
     for(let i=0;i<2;i++){const push=axis[i]*releaseSpeed;f.state[i]+=axis[i]*gap;f.state[i+3]+=push*um/(cm+um);u.state[i+3]-=push*cm/(cm+um);}
-    f.maxHeight=Math.max(f.maxHeight,O.elements(f.state).height);f.fuel=f.fuel.map(v=>v===null?null:0);f.capsule.detached=true;f.controls={...f.controls,mode:'hold',throttle:1,lit:false};u.controls.mode='hold';f.upperStage=u;f.controlled='main';return true;
+    f.maxHeight=Math.max(f.maxHeight,O.elements(f.state).height);f.fuel=f.fuel.map(v=>v===null?null:0);f.capsule.detached=true;f.controls={...f.controls,mode:'hold',throttle:1,lit:false};stopTurn(f);u.controls.mode='hold';f.upperStage=u;f.controlled='main';return true;
   }
   function program(f){const u=f.upperStage;if(!u||terminal(u)||u.auto.mode==='manual')return;const o=O.elements(u.state),gap=Math.hypot(u.state[0]-f.state[0],u.state[1]-f.state[1]);u.controls.lit=false;
     if(o.bound&&o.hp<=60000){u.auto.mode='coasting';return;}
     if(u.fuel[0]<=0){u.auto.mode='no-fuel';return;}
     if(f.t-u.auto.separatedAt<10||gap<50){u.auto.mode='waiting';return;}
-    u.controls.mode='retrograde';const error=Math.abs(Math.atan2(Math.sin(angle(u)-u.attitude),Math.cos(angle(u)-u.attitude)));u.auto.mode=error>5*Math.PI/180?'turning':'burning';u.controls.lit=u.auto.mode==='burning';u.controls.throttle=Math.min(.2,Math.max(.005,(o.hp-60000)/1e6));
+    u.controls.mode='retrograde';const error=Math.abs(angleDelta(targetAttitude(u),u.attitude));u.auto.mode=error>5*Math.PI/180?'turning':'burning';u.controls.lit=u.auto.mode==='burning';u.controls.throttle=Math.min(.2,Math.max(.005,(o.hp-60000)/1e6));
   }
   function advance(s,seconds,budget,step,atmosphere,report){const f=s.flight,start=f.t,target=Math.min(604800,start+seconds);let steps=0;
     while(f.t<target-1e-9&&steps<budget){const u=f.upperStage,wasLit=u?.controls.lit;program(f);if(u?.controls.lit&&!wasLit)report?.('ignite',f.t,u);const bodies=[f,u].filter(b=>b&&!terminal(b)),fine=bodies.some(b=>b.controls.lit||O.elements(b.state).height<=120000)||['waiting','turning','burning'].includes(u?.auto.mode);let dt=Math.min(fine?.1:2,target-f.t);if(u&&!terminal(f)&&!terminal(u)){const distance=Math.hypot(f.state[0]-u.state[0],f.state[1]-u.state[1]),reach=stageHeight(u)+10;const relative=Math.hypot(f.state[3]-u.state[3],f.state[4]-u.state[4]);if(distance<=reach+1)dt=Math.min(dt,.02,.25/Math.max(1,relative));else if(relative>0)dt=Math.min(dt,(distance-reach)/relative);}for(const b of bodies){const o=O.elements(b.state);if(o.height>120000&&o.radial<0)dt=Math.min(dt,Math.max(.001,(o.height-120000)/-o.radial));}stepCapsule(f,dt,atmosphere,report);if(u&&!terminal(u)){for(let j=0;j<3&&u.t<f.t-1e-9&&!terminal(u);j++)step(u,Math.min(dt,f.t-u.t));const hitTime=u.t;u.t=f.t;const o=O.elements(u.state);u.heat=Math.min(1,u.heat+Math.sqrt(atmosphere(o.height))*(o.speed/7800)**3*dt*.25);if(u.heat>=1){u.status='destroyed';u.controls.lit=false;}if(u.status==='destroyed')report?.(u.status,u.t,u);else if(u.status==='impact')report?.(u.status,hitTime,u);if(terminal(u))u.auto.mode='done';}if(u){u.t=f.t;settle(u);}resolveContact(f);steps++;if(terminal(f)&&(!u||terminal(u))){s.phase='ended';break;}}
     return {elapsed:f.t-start,steps,limited:f.t<target-1e-7};
   }
   const selected=f=>f?.controlled==='upper'&&f.upperStage?f.upperStage:f;
-  return Object.freeze({fresh,mass,thrust,rcsDirection,localAngle,reentry,chuteLoad,area,stageHeight,contact,resolveContact,contactVelocity,landingPose,terminal,canSeparate,separate,advance,selected,stepCapsule});
+  return Object.freeze({fresh,mass,thrust,targetAttitude,angleDelta,turn,stopTurn,rcsDirection,localAngle,reentry,chuteLoad,area,stageHeight,contact,resolveContact,contactVelocity,landingPose,terminal,canSeparate,separate,advance,selected,stepCapsule});
 });

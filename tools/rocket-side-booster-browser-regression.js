@@ -85,20 +85,44 @@ async function flight(base,label){await viewport(390,844);await open(base,T.reac
   await shot(label+'-explorer-rcs-accelerating');
   const braking=await call(`
     const s=app.getScene(),controller=app.controller,f=controller.state.flight;
-    let coast=false;
+    let coast=false,initialBurn=0;
     controller.play();
     for(let i=0;i<200&&RocketRecovery.rcsDirection(f)!==1;i++){
       controller.tick(.05,20000);
-      if(f.capsule.angularVelocity<0&&!RocketRecovery.rcsDirection(f))coast=true;
+      if(RocketRecovery.rcsDirection(f)===-1)initialBurn+=.05;
+      if(f.angularVelocity<0&&!RocketRecovery.rcsDirection(f))coast=true;
     }
     controller.pause();
-    return {coast,direction:s.rcsDirection,velocity:f.capsule.angularVelocity,torque:s.rocket.userData.rcs.find(group=>group.visible)?.children.map(plume=>Math.sign(plume.position.x)*Math.sign(plume.position.y-1))};`);
-  assert(braking.coast&&braking.direction===1&&braking.velocity<0&&braking.torque.every(sign=>sign===-1),JSON.stringify(braking));
+    return {coast,initialBurn,direction:s.rcsDirection,velocity:f.angularVelocity,torque:s.rocket.userData.rcs.find(group=>group.visible)?.children.map(plume=>Math.sign(plume.position.x)*Math.sign(plume.position.y-1))};`);
+  assert(braking.coast&&braking.initialBurn>.3&&braking.direction===1&&braking.velocity<0&&braking.torque.every(sign=>sign===-1),JSON.stringify(braking));
   await shot(label+'-explorer-rcs-braking');
-  const stopped=await call('app.controller.play();app.controller.tick(.45,20000);app.controller.pause();const f=app.getState().flight;return {direction:app.getScene().rcsDirection,velocity:f.capsule.angularVelocity,fuel:f.capsule.fuel};');
+  const continued=await call('app.controller.play();app.controller.tick(.33,20000);app.controller.pause();return app.getScene().rcsDirection;');
+  assert.equal(continued,1,'The capsule should still be counterfiring after a third of a second');
+  const stopped=await call('app.controller.play();app.controller.tick(.4,20000);app.controller.pause();const f=app.getState().flight;return {direction:app.getScene().rcsDirection,velocity:f.angularVelocity,fuel:f.capsule.fuel};');
   assert.deepEqual(stopped,{direction:0,velocity:0,fuel:0});
   await shot(label+'-explorer-rcs-stopped');
-  report.flows.push({label,case:'flight',inheritedVelocity:true,axialRelease:true,rcs:true,dryTurn,braking,stopped,bodyControl:true,terminalCapsuleKeepsUpperFlying:true});
+  const stageTurns={};
+  for(const [name,state]of [['stack',T.launched()],['upper',T.reachOrbit()],['detached',P.clone(dry)]]){
+    const f=name==='detached'?state.flight.upperStage:state.flight;
+    if(name==='detached'){state.flight.controlled='upper';f.auto.mode='manual';}
+    Object.assign(f,{status:'flying',state:[P.R+200000,0,0,100,0,0],attitude:0,angularVelocity:0,rcsDirection:0});
+    f.controls={mode:'tilt',angle:0,throttle:0,lit:false};
+    await open(base,state);
+    await pitch(30);
+    stageTurns[name]=await call(`
+      const s=app.getScene(),controller=app.controller,rows=[];
+      const f=RocketRecovery.selected(controller.state.flight);
+      controller.play();
+      for(const seconds of [.35,.5,2.05,.85]){
+        controller.tick(seconds,20000);controller.emit();
+        rows.push({direction:s.rcsDirection,velocity:f.angularVelocity,jets:s.rocket.userData.rcs.map(jet=>jet.visible)});
+      }
+      controller.pause();return rows;`);
+    assert.deepEqual(stageTurns[name].map(r=>r.direction),[1,0,-1,0],name);
+    assert.deepEqual(stageTurns[name].map(r=>r.jets),[[false,true],[false,false],[true,false],[false,false]],name);
+    assert(stageTurns[name][0].velocity>0&&stageTurns[name][1].velocity>stageTurns[name][2].velocity&&stageTurns[name][2].velocity>0&&stageTurns[name][3].velocity===0,name);
+  }
+  report.flows.push({label,case:'flight',inheritedVelocity:true,axialRelease:true,rcs:true,dryTurn,braking,stopped,stageTurns,bodyControl:true,terminalCapsuleKeepsUpperFlying:true});
 }
 async function returnFlight(base,label){await viewport(390,844);await open(base,T.reachOrbit());await click('#separateButton');await pitch(270);await call('app.controller.play();app.controller.tick(16,20000);app.controller.pause();');await click('#igniteButton');await call('for(let i=0;i<1000&&RocketOrbit.elements(app.controller.state.flight.state).hp>60000;i++)app.controller.tick(.1,20000);app.controller.pause();');await click('#igniteButton');await click('#chuteArm');const entry=await call('app.controller.play();for(let i=0;i<4000;i++){const f=app.controller.state.flight,e=RocketRecovery.reentry(f,RocketModel.atmosphere);app.controller.state=RocketModel.change(app.controller.state,{type:"control",key:"angle",value:Math.round(e.targetAngle/10)*10%360});app.controller.tick(1,20000);if(RocketRecovery.reentry(app.controller.state.flight,RocketModel.atmosphere).flux>.006||RocketRecovery.terminal(app.controller.state.flight))break;}app.controller.pause();return {state:app.getState(),heat:app.getScene().rocket.userData.reentryEffects?.visible};');assert.equal(entry.state.flight.status,'flying');assert(entry.heat);await shot(label+'-explorer-entry');await call('app.controller.play();for(let i=0;i<4000;i++){const f=app.controller.state.flight;if(f.capsule.chute.phase==="stowed"){const e=RocketRecovery.reentry(f,RocketModel.atmosphere);app.controller.state=RocketModel.change(app.controller.state,{type:"control",key:"angle",value:Math.round(e.targetAngle/10)*10%360});}app.controller.tick(1,20000);if(app.controller.state.flight.capsule.chute.phase==="main"||RocketRecovery.terminal(app.controller.state.flight))break;}app.controller.pause();');assert.equal(await call('return app.getState().flight.capsule.chute.phase;'),'main');await click('#timeWarp');await click('[data-time-warp="20"]');const start=await call('app.controller.play();return app.getState().flight.t;');await wait(()=>call('return app.getState().flight.t;').then(t=>t-start>12),'20x parachute descent');assert(await call('return app.diagnostics().actualWarp>19;'));await call('app.controller.pause();');await shot(label+'-explorer-main-chute');await call('app.controller.play();for(let i=0;i<2000&&!RocketRecovery.terminal(app.controller.state.flight);i++)app.controller.tick(1,20000);app.controller.pause();');assert.equal(await call('return app.getState().flight.status;'),'landed');assert(!/提交|分數|滿分/.test(await call('return d.body.textContent;')));await shot(label+'-explorer-landed');await click('#returnWorkshop');assert(await call('return app.getState().phase==="workshop"&&RocketParts.complete(app.getState().craft);'));report.flows.push({label,case:'return',guidedPhysicsFixture:true,entry:true,twoParachutes:true,warp20:true,landed:true,repeatable:true});}
 async function effects(base,label){await viewport(390,844);const f=M.change(T.reachOrbit(),{type:'capsule-separate'});f.flight.state=[P.R+6000,0,0,-20,0,0];f.flight.attitude=0;f.flight.capsule.chute.armed=true;f.flight.upperStage.auto.mode='manual';await open(base,f);const r=await call('const s=app.getScene(),animate=s.animateEffects;s.animateEffects=()=>false;const before=s.camera.position.distanceTo(s.rocket.position);app.controller.play();app.controller.tick(.1,20000);s.draw();const between=s.camera.position.distanceTo(s.rocket.position);app.controller.pause();const first=s.camera.position.distanceTo(s.rocket.position),state=JSON.stringify(app.getState()),samples=[];s.effectClock=1000;for(let i=1;i<=24;i++){animate.call(s,1000+i*50);samples.push(s.camera.position.distanceTo(s.rocket.position));}const unchanged=state===JSON.stringify(app.getState());s.animateEffects=animate;s.effectClock=performance.now();return{before,between,first,samples,unchanged};');assert(Math.abs(r.before-r.first)<1e-8&&Math.abs(r.between-r.before)<1e-8&&r.unchanged);assert(r.samples.every((v,i,a)=>!i||v>=a[i-1]-1e-10)&&r.samples.at(-1)>r.first*1.2&&r.samples.some(v=>v>r.first+1e-6&&v<r.samples.at(-1)-1e-6));const falling=M.change(T.reachOrbit(),{type:'capsule-separate'});falling.flight.controlled='upper';falling.flight.upperStage.auto.mode='manual';falling.flight.upperStage.state=[P.R+1,0,0,-120.4,.9,0];falling.flight.upperStage.controls.lit=false;await open(base,falling);await call('app.controller.play();app.controller.tick(.1,20000);app.controller.pause();');assert(await call('const s=app.getScene(),u=app.getState().flight.upperStage;return u.status==="impact"&&RocketOrbit.elements(u.state).speed===0&&s.impacts.userData.count===1;'));await call('const s=app.getScene();s.impacts.advance(4);s.draw();app.command({type:"select-body",value:"main"});app.command({type:"select-body",value:"upper"});');assert(await call('return !app.getScene().rocket.visible;'));report.flows.push({label,case:'effects',smoothChuteCamera:r,impactStopped:true,noRevival:true});}

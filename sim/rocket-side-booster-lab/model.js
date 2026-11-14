@@ -2,9 +2,8 @@
   'use strict';
   const clone=P.clone,PHASES=['workshop','pad','ascent','coast','ended'];
   function fresh(){return {variant:0,phase:'workshop',craft:P.emptyCraft(0),flight:null};}
-  function flight(craft,source='own',q=[P.R,0,0,0,0,0]){return {capsule:R.fresh(),upperStage:null,controlled:'main',boosters:craft.boosters?{status:'ready',fuel:P.BOOSTER.fuel}:null,source,craft:clone(craft),t:0,state:q.slice(),fuel:[P.capacity(craft.stages[0]),craft.stages[1]?P.capacity(craft.stages[1]):null],active:0,separated:false,attitude:0,controls:{mode:'tilt',angle:0,throttle:1,lit:false},status:source==='practice'?'flying':'pad',maxHeight:Math.max(0,O.elements(q).height)};}
+  function flight(craft,source='own',q=[P.R,0,0,0,0,0]){return {capsule:R.fresh(),upperStage:null,controlled:'main',boosters:craft.boosters?{status:'ready',fuel:P.BOOSTER.fuel}:null,source,craft:clone(craft),t:0,state:q.slice(),fuel:[P.capacity(craft.stages[0]),craft.stages[1]?P.capacity(craft.stages[1]):null],active:0,separated:false,attitude:0,angularVelocity:0,rcsDirection:0,controls:{mode:'tilt',angle:0,throttle:1,lit:false},status:source==='practice'?'flying':'pad',maxHeight:Math.max(0,O.elements(q).height)};}
   function atmosphere(h){if(h>=120000)return 0;const t=Math.max(0,Math.min(1,(h-80000)/40000));return 1.225*Math.exp(-Math.max(0,h)/8500)*(1-t*t*(3-2*t));}
-  function targetAttitude(f){const q=f.state,c=f.controls;if(c.mode==='hold')return f.attitude;if(c.mode==='tilt')return Math.atan2(q[1],q[0])+c.angle*Math.PI/180;return Math.atan2(q[4],q[3])+(c.mode==='retrograde'?Math.PI:0);}
   function coreThrust(f){if(f.capsule?.detached)return R.thrust(f);return f.controls.lit&&f.fuel[f.active]>0?P.ENGINES[f.craft.stages[f.active].engine].thrust*f.controls.throttle:0;}
   function thrust(f){return coreThrust(f)+(P.burning(f)?f.craft.boosters*P.BOOSTER.thrust:0);}
   function derivative(y,f,attitude,vacuum=false,noGravity=false,mass){
@@ -26,8 +25,8 @@
     const previousStatus=f.status,previousBoosters=f.boosters?.status;
     if(['impact','escaped'].includes(f.status))return 0;
     const F=thrust(f),engine=P.ENGINES[f.craft.stages[f.active].engine],mdot=coreThrust(f)/(engine.isp*P.G0),bdot=P.burning(f)?P.BOOSTER.thrust/(P.BOOSTER.isp*P.G0):0,dt=Math.min(requested,mdot>0?f.fuel[f.active]/mdot:Infinity,bdot>0?f.boosters.fuel/bdot:Infinity),old=f.state.slice(),oldFuel=f.fuel[f.active],m0=P.mass(f),oldAttitude=f.attitude;
-    const delta=Math.atan2(Math.sin(targetAttitude(f)-oldAttitude),Math.cos(targetAttitude(f)-oldAttitude)),turn=Math.max(-12*Math.PI/180*dt,Math.min(12*Math.PI/180*dt,delta));
-    f.attitude=O.wrap(oldAttitude+turn);const angle=oldAttitude+turn/2,y=[...old,oldFuel,...(f.boosters?[f.boosters.fuel]:[])];let next=rk4(y,dt,f,angle,options),usedDt=dt;
+    if(previousStatus==='flying'&&dt>0)R.turn(f,dt);
+    const angle=oldAttitude+R.angleDelta(f.attitude,oldAttitude)/2,y=[...old,oldFuel,...(f.boosters?[f.boosters.fuel]:[])];let next=rk4(y,dt,f,angle,options),usedDt=dt;
     if(f.status==='pad'&&Math.hypot(next[0],next[1])<=P.R){next=[P.R,0,0,0,0,0,...next.slice(6)];}
     else{const interval=contactInterval(y,next,dt,f,angle,options);if(interval){
       let [lo,hi]=interval;for(let i=0;i<32;i++){const mid=(lo+hi)/2,q=rk4(y,mid,f,angle,options);if(clearance(q,f.t+mid)>0)lo=mid;else hi=mid;}usedDt=hi;next=rk4(y,hi,f,angle,options);const r=Math.hypot(next[0],next[1]),ground=S.radius(next,f.t+hi);next[0]*=ground/r;next[1]*=ground/r;f.status='impact';f.controls.lit=false;next[3]=next[4]=next[5]=0;
@@ -36,6 +35,7 @@
     f.state=next.slice(0,6);f.fuel[f.active]=Math.max(0,next[6]);if(f.boosters){f.boosters.fuel=Math.max(0,next[7]);if(f.boosters.status==='burning'&&f.boosters.fuel<1e-8){f.boosters.fuel=0;f.boosters.status='spent';}}f.t+=usedDt;f.maxHeight=Math.max(f.maxHeight||0,O.elements(f.state).height);
     if(f.fuel[f.active]<1e-8){f.fuel[f.active]=0;f.controls.lit=false;}
     const o=O.elements(f.state);if(o.energy>=0&&o.radial>0&&o.height>=1e8-.01){f.status='escaped';f.controls.lit=false;}
+    if(R.terminal(f))R.stopTurn(f);
     if(report){
       if(previousStatus==='pad'&&f.status==='flying')report('liftoff',f.t,f);
       if(previousBoosters==='burning'&&f.boosters.status==='spent')report('booster-spent',f.t,f);
@@ -119,5 +119,5 @@
     if(n.phase==='workshop'&&n.craft.boosters&&!P.stageComplete(n.craft.stages[0]))return clone(s);
     return n;
   }
-  return Object.freeze({PHASES,clone,fresh,flight,atmosphere,targetAttitude,coreThrust,thrust,derivative,rk4,step,boosterTilt,boosterDirection,boosterFlight,boosterClearance,stepBooster,advance,change});
+  return Object.freeze({PHASES,clone,fresh,flight,atmosphere,targetAttitude:R.targetAttitude,coreThrust,thrust,derivative,rk4,step,boosterTilt,boosterDirection,boosterFlight,boosterClearance,stepBooster,advance,change});
 });
