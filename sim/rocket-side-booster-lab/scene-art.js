@@ -432,25 +432,57 @@ export function createLandscape(){
  group.userData={clearRadius:300,treeMin,buildingMin,trees:trunks.length,buildings:plans.length,facilities,accessRoads:links,serviceRoads:links.length,tankBase,mountains:geography.ridges,river:false,coast:true,cloudClearRadius:5000,cloudCenters};return group;
 }
 
-function capsuleShell(){
-  const shell=new THREE.CylinderGeometry(1.25,1.4,2,32,10,false,-Math.PI/32);
-  const hull=shell.attributes.position,index=shell.index.array,skinIndices=[],vertices=[],colors=[],recessIndices=[],mouths=[];
+function rcsShell(top,bottom,height,rows,portRows,offset){
+  const shell=new THREE.CylinderGeometry(top,bottom,height,32,rows,false,-Math.PI/32);
+  const {position,normal,uv}=shell.attributes,index=shell.index.array;
+  const skinIndices=[],skinPositions=Array.from(position.array),skinNormals=Array.from(normal.array),skinUvs=Array.from(uv.array);
+  const vertices=[],colors=[],recessIndices=[],mouths=[];
   const rimColor=new THREE.Color('#85959b'),innerColor=new THREE.Color('#303b42'),floorColor=new THREE.Color('#17232b');
   const cuts=new Set();
-  for(const column of [8,24])for(const row of [1,8]){
-    const start=6*(column*10+row),corners=[0,1,4,2].map(i=>new THREE.Vector3().fromBufferAttribute(hull,index[start+i]));
+  const segments=16,radius=.073,depth=.042;
+  for(const column of [8-offset,24+offset])for(const [row,station]of portRows){
+    const start=6*(column*rows+row),ids=[0,1,4,2].map(i=>index[start+i]);
+    const corners=ids.map(i=>new THREE.Vector3().fromBufferAttribute(position,i));
     cuts.add(start);
-    const mouth=corners[0].clone().add(corners[2]).multiplyScalar(.5),base=vertices.length/3;
-    mouths.push(mouth.clone().add(new THREE.Vector3(0,1,0)));
-    // Keep the rim on the original hull and taper the recess inwards.
-    const inner=corners.map(p=>p.clone().lerp(mouth,.28).add(new THREE.Vector3(-Math.sign(mouth.x)*.065,0,0)));
-    for(const [ring,color]of [[corners,rimColor],[inner,innerColor],[inner,floorColor]])for(const p of ring){vertices.push(p.x,p.y,p.z);colors.push(color.r,color.g,color.b);}
-    for(let i=0;i<4;i++){
-      const a=base+i,b=base+(i+1)%4;recessIndices.push(a,b,b+4,a,b+4,a+4);
+    const at=(u,v)=>corners[0].clone().lerp(corners[3],u).lerp(corners[1].clone().lerp(corners[2],u),v);
+    const mouth=at(.5,.5),across=at(1,.5).sub(mouth),vertical=at(.5,1).sub(mouth);
+    const outward=vertical.clone().cross(across).normalize(),base=vertices.length/3,skinBase=skinPositions.length/3;
+    mouths.push({position:mouth,station});
+    const ring=[];
+    // Match the rectangular panel's corners while keeping the actual opening circular.
+    const halfWidth=across.length(),halfHeight=vertical.length(),cornerAngle=Math.atan2(halfHeight,halfWidth);
+    const cornerAngles=[-cornerAngle,cornerAngle,Math.PI-cornerAngle,Math.PI+cornerAngle,2*Math.PI-cornerAngle];
+    for(let quadrant=0;quadrant<4;quadrant++){
+      const from=cornerAngles[quadrant],to=cornerAngles[quadrant+1];
+      for(let j=0;j<segments/4;j++){
+        const angle=from+(to-from)*j/(segments/4),u=Math.cos(angle)/(2*halfWidth),v=Math.sin(angle)/(2*halfHeight);
+        const edge=.5/Math.max(Math.abs(u),Math.abs(v));
+        ring.push([.5+u*edge,.5+v*edge,.5+u*radius,.5+v*radius]);
+      }
     }
-    recessIndices.push(base+8,base+9,base+10,base+8,base+10,base+11);
+    const leftNormal=new THREE.Vector3().fromBufferAttribute(normal,ids[0]),rightNormal=new THREE.Vector3().fromBufferAttribute(normal,ids[3]);
+    for(const [eu,ev,u,v]of ring)for(const [x,y]of [[eu,ev],[u,v]]){
+      skinPositions.push(...at(x,y).toArray());
+      const n=leftNormal.clone().lerp(rightNormal,x);
+      skinNormals.push(...n.toArray());
+      skinUvs.push(THREE.MathUtils.lerp(uv.getX(ids[0]),uv.getX(ids[3]),x),THREE.MathUtils.lerp(uv.getY(ids[0]),uv.getY(ids[1]),y));
+    }
+    for(const [scale,inset,color]of [[1,0,rimColor],[.68,depth,innerColor],[.68,depth,floorColor]])for(const [,,u,v]of ring){
+      vertices.push(...at(.5+(u-.5)*scale,.5+(v-.5)*scale).addScaledVector(outward,-inset).toArray());
+      colors.push(color.r,color.g,color.b);
+    }
+    for(let i=0;i<segments;i++){
+      const next=(i+1)%segments,a=skinBase+i*2,b=skinBase+next*2;
+      skinIndices.push(a,a+1,b,b,a+1,b+1);
+      const r=base+i,s=base+next;
+      recessIndices.push(r,r+segments,s,s,r+segments,s+segments);
+      if(i>=1&&i<segments-1)recessIndices.push(base+2*segments,r+2*segments+1,r+2*segments);
+    }
   }
   for(let i=0;i<index.length;i+=6)if(!cuts.has(i))skinIndices.push(...index.subarray(i,i+6));
+  shell.setAttribute('position',new THREE.Float32BufferAttribute(skinPositions,3));
+  shell.setAttribute('normal',new THREE.Float32BufferAttribute(skinNormals,3));
+  shell.setAttribute('uv',new THREE.Float32BufferAttribute(skinUvs,2));
   shell.setIndex(skinIndices);shell.clearGroups();
   const recess=new THREE.BufferGeometry();recess.setIndex(recessIndices);
   recess.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));
@@ -461,6 +493,15 @@ function capsuleShell(){
 export function buildRocket(c,separated,capsuleOnly=false){
   const group=new THREE.Group(),white=material('#edf1eb',{roughness:.42}),skin=material('#ffffff',{map:surface('payload'),roughness:.5}),shell=material('#ffffff',{map:surface('separator'),roughness:.55,metalness:.25}),dark=material('#4b535c',{map:surface('metal'),metalness:.78,roughness:.36,side:THREE.DoubleSide}),metal=material('#a2b3b9',{map:surface('metal'),metalness:.7,roughness:.38}),mint=material('#318d84',{metalness:.3}),orange=material('#d59257',{metalness:.3}),slots=[],parts=[],ranges=[],capsulePorts=[];let y=0,partParent=group,separatorY=null;
   const mesh=(geometry,mat,x,yy,z,parent=partParent)=>{const m=new THREE.Mesh(geometry,mat);m.position.set(x,yy,z);parent.add(m);return m;};
+  const rcsMouths=[],hasCapsule=P.hasCapsule(c),activeTanks=c.stages.flatMap((s,i)=>capsuleOnly||separated&&i===0?[]:P.tanks(s).map((_,j)=>[i,j]));
+  const [firstStage,firstTank]=activeTanks[0]||[],[lastStage,lastTank]=activeTanks.at(-1)||[];
+  const recessMaterial=material('#ffffff',{vertexColors:true,roughness:.7});
+  const recessedShell=(top,bottom,height,rows,ports,offset,mat,center)=>{
+    const {shell,recess,mouths}=rcsShell(top,bottom,height,rows,ports,offset);
+    mesh(shell,mat,0,center,0).name='rcs-hull';
+    mesh(recess,recessMaterial,0,center,0).name='rcs-recesses';
+    for(const {position,station}of mouths){position.y+=center;rcsMouths.push({position,station});}
+  };
   const microDetails=[],bolts=new THREE.IcosahedronGeometry(1,0),pipe=new THREE.CylinderGeometry(1,1,1,8),band=new THREE.CylinderGeometry(1,1,1,32),tankMats=Object.fromEntries(['small','medium','large'].map(k=>[k,material('#ffffff',{map:surface(k),roughness:.55,metalness:.22})])),batch=(g,m,rows)=>{const mesh=instances(partParent,g,m,rows);if(g===bolts||g.type==='TorusGeometry')microDetails.push(mesh);return mesh;};
   c.stages.forEach((s,i)=>{
     if(capsuleOnly||separated&&i===0)return;
@@ -475,11 +516,20 @@ export function buildRocket(c,separated,capsuleOnly=false){
       batch(bolts,metal,Array.from({length:16},(_,j)=>{const a=j*Math.PI/8;return [.97*Math.sin(a),y+1.8,.97*Math.cos(a),.055,.035,.055];}));batch(pipe,metal,[[-.72,y+1.25,.72,.055,.75,.055],[.72,y+1.25,.72,.055,.75,.055]]);batch(new THREE.BoxGeometry(1,1,1),metal,[[-.55,y+1.22,.68,.34,.38,.3],[.55,y+1.22,.68,.34,.38,.3]]);y+=2;
     }
     partParent=group;const tanks=P.tanks(s),joins=[y],ordinals={small:0,medium:0,large:0};
-    tanks.forEach((part,j)=>{const h=part==='large'?4.1:part==='medium'?3.25:2.4;startPart(part,ordinals[part]++,j);mesh(new THREE.CylinderGeometry(1.4,1.4,h,32),tankMats[part],0,y+h/2,0);batch(band,accent,[.2,h-.2].map(dy=>[0,y+dy,0,1.43,.23,1.43]));batch(pipe,metal,[[-.2,y+h/2,1.41,.04,h*.67,.04],[.2,y+h/2,1.41,.04,h*.67,.04],[0,y+h*.48,1.44,.115,.06,.115,Math.PI/2]]);batch(bolts,metal,Array.from({length:16},(_,j)=>{const a=(j%8)*Math.PI/4;return [1.44*Math.sin(a),y+(j<8?.2:h-.2),1.44*Math.cos(a),.04,.04,.04];}));y+=h;joins.push(y);});
+    tanks.forEach((part,j)=>{
+      const h=part==='large'?4.1:part==='medium'?3.25:2.4;
+      startPart(part,ordinals[part]++,j);
+      const rows=Math.round(h/.22),ports=[];
+      if(i===firstStage&&j===firstTank)ports.push([rows-3,'lower']);
+      if(i===lastStage&&j===lastTank&&!hasCapsule)ports.push([2,'upper']);
+      if(ports.length)recessedShell(1.4,1.4,h,rows,ports,c.boosters&&!separated?4:0,tankMats[part],y+h/2);
+      else mesh(new THREE.CylinderGeometry(1.4,1.4,h,32),tankMats[part],0,y+h/2,0);
+      batch(band,accent,[.2,h-.2].map(dy=>[0,y+dy,0,1.43,.23,1.43]));batch(pipe,metal,[[-.2,y+h/2,1.41,.04,h*.67,.04],[.2,y+h/2,1.41,.04,h*.67,.04],[0,y+h*.48,1.44,.115,.06,.115,Math.PI/2]]);batch(bolts,metal,Array.from({length:16},(_,j)=>{const a=(j%8)*Math.PI/4;return [1.44*Math.sin(a),y+(j<8?.2:h-.2),1.44*Math.cos(a),.04,.04,.04];}));y+=h;joins.push(y);
+    });
     partParent=group;
     slots[i]=(base+y)/2;ranges[i]={base,engine:s.engine===null?0:2,large:s.large,medium:s.medium||0,small:s.small,joins};
   });
-  const bodyTop=y,boosters=new THREE.Group(),boosterFlames=[];let rcsMouths=[];boosters.userData.part={stage:0,part:'boosters',ordinal:0,index:null};
+  const bodyTop=y,boosters=new THREE.Group(),boosterFlames=[];boosters.userData.part={stage:0,part:'boosters',ordinal:0,index:null};
   if(c.boosters&&!separated&&!capsuleOnly){for(const [i,[x,z]]of P.boosterMounts(c.boosters).entries()){
     const start=boosters.children.length;
     mesh(new THREE.CylinderGeometry(.65,.65,5.6,20),white,x*2.4,3.4,z*2.4,boosters);mesh(new THREE.ConeGeometry(.65,1,20),orange,x*2.4,6.7,z*2.4,boosters);mesh(new THREE.CylinderGeometry(.35,.5,.6,16),dark,x*2.4,.3,z*2.4,boosters);
@@ -488,8 +538,7 @@ export function buildRocket(c,separated,capsuleOnly=false){
     const flame=new THREE.Mesh(new THREE.ConeGeometry(.45,4,16).rotateZ(Math.PI),new THREE.MeshBasicMaterial({color:'#ffc270',transparent:true,opacity:.8,depthWrite:false}));flame.position.set(x*2.4,-2,z*2.4);flame.visible=false;flame.name='booster-flame';group.add(flame);boosterFlames.push(flame);
   }group.add(boosters);parts.push(boosters);}
   if(P.hasCapsule(c)){partParent=new THREE.Group();partParent.userData.part={stage:c.stages.length-1,part:'capsule',ordinal:0,index:null};group.add(partParent);parts.push(partParent);
-  const {shell,recess,mouths}=capsuleShell();rcsMouths=mouths;
-  mesh(shell,skin,0,y+1,0).name='capsule-shell';mesh(recess,material('#ffffff',{vertexColors:true,roughness:.7}),0,y+1,0).name='capsule-rcs-recesses';
+  recessedShell(1.25,1.4,2,10,[[1,capsuleOnly?'upper':null],[8,capsuleOnly?'lower':'upper']],c.boosters&&!separated&&!capsuleOnly?4:0,skin,y+1);
   mesh(new THREE.SphereGeometry(1.25,32,20,0,Math.PI*2,0,Math.PI/2),white,0,y+2,0);const faceY=y+1.1;
   batch(new THREE.SphereGeometry(1,12,8),dark,[-1,1].map(side=>[side*.4,faceY,1.24,.16,.16,.16]));batch(new THREE.SphereGeometry(1,8,6),material('#ffffff'),[-1,1].map(side=>[side*.4-.03,faceY+.05,1.37,.07,.07,.07]));
   const smile=new THREE.TorusGeometry(.24,.035,6,14,Math.PI);const mouth=mesh(smile,dark,0,faceY-.25,1.32);mouth.rotation.z=Math.PI;
@@ -499,19 +548,17 @@ export function buildRocket(c,separated,capsuleOnly=false){
   }
   partParent=group;
   if(capsuleOnly){const underside=parts.find(p=>p.userData.part.part==='capsule'),shield=mesh(new THREE.CylinderGeometry(1.4,1.3,.25,48),material('#40382f',{roughness:.96,metalness:0,emissive:'#ff6622',emissiveIntensity:0}),0,.05,0,underside);shield.name='capsule-heat-shield';group.userData.heatShield=shield;}
-  const rcs=[new THREE.Group(),new THREE.Group()],nozzles=[];
-  if(P.hasCapsule(c)||c.stages.some(st=>st.engine!==null))for(const [index,direction]of [-1,1].entries())for(const [upper,side]of [[true,-direction],[false,direction]]){
-    const port=rcsMouths.find(p=>Math.sign(p.x)===side&&(p.y>1)===(capsuleOnly&&upper));
-    const recessed=port&&(upper||capsuleOnly),level=recessed?y+port.y:upper?y-.25:1.8,exit=recessed?port.x:side*1.65;
-    if(!recessed)nozzles.push([side*1.53,level,0,.13,.24,.13,0,0,-side*Math.PI/2]);
-    const layers=recessed?[[.24,2,.45],[.1,1.3,.9]]:[[.5,3.2,.45],[.23,2.1,.9]];
-    for(const [i,[radius,length,opacity]]of layers.entries()){
-      const geometry=recessed?new THREE.LatheGeometry([[.055,0],[radius,length*.28],[radius*.5,length*.68],[0,length]].map(([r,h])=>new THREE.Vector2(r,h)),10).translate(0,-length/2,0):new THREE.ConeGeometry(radius,length,10);
-      const plume=mesh(geometry,new THREE.MeshBasicMaterial({color:i===0?'#7bc9ff':'#e1f6ff',transparent:true,opacity,blending:THREE.AdditiveBlending,depthWrite:false,toneMapped:false}),exit+side*length/2,level,0,rcs[index]);
-      plume.rotation.z=(recessed?-side:side)*Math.PI/2;plume.userData.baseOpacity=opacity;
+  const rcs=[new THREE.Group(),new THREE.Group()];
+  for(const {position,station}of rcsMouths){
+    if(!station)continue;
+    const side=Math.sign(position.x),direction=station==='upper'?-side:side,jets=rcs[direction===1?1:0];
+    for(const [radius,length,opacity,color]of [[.18,1.65,.45,'#7bc9ff'],[.085,1.05,.9,'#e1f6ff']]){
+      const geometry=new THREE.LatheGeometry([[.037,0],[radius,length*.28],[radius*.5,length*.68],[0,length]].map(([r,h])=>new THREE.Vector2(r,h)),10).translate(0,-length/2,0);
+      const plume=mesh(geometry,new THREE.MeshBasicMaterial({color,transparent:true,opacity,blending:THREE.AdditiveBlending,depthWrite:false,toneMapped:false}),position.x+side*length/2,position.y,position.z,jets);
+      plume.rotation.z=-side*Math.PI/2;plume.userData.baseOpacity=opacity;
     }
   }
-  if(nozzles.length)batch(new THREE.CylinderGeometry(1,1,1,10),dark,nozzles);for(const jets of rcs){jets.visible=false;group.add(jets);}
+  for(const jets of rcs){jets.visible=false;group.add(jets);}
   const flame=new THREE.Group(),clustered=capsuleOnly||c.stages[separated?1:0].engine===0,exits=capsuleOnly?capsulePorts:clustered?[[-.61,-.61],[-.61,.61],[.61,-.61],[.61,.61]]:[[0,0]];flame.position.y=capsuleOnly?0:-.04;flame.userData.ports=capsuleOnly?capsulePorts:null;
   for(const [radius,length,color,opacity]of capsuleOnly?[[.13,.65,'#58b9ec',.5],[.085,.42,'#a9e7ff',.65],[.045,.24,'#fff4d8',.9]]:clustered?[[.43,4.2,'#ffad52',.45],[.27,3.1,'#b4e8ff',.8],[.13,1.8,'#fff8e7',1]]:[[.9,5.4,'#69b9ff',.45],[.52,4,'#b4e8ff',.8],[.25,2.4,'#fff8e7',1]]){
     const plume=instances(flame,new THREE.ConeGeometry(radius,length,20).rotateZ(Math.PI),new THREE.MeshBasicMaterial({color,transparent:true,opacity,blending:capsuleOnly&&radius>.1?THREE.NormalBlending:THREE.AdditiveBlending,depthWrite:false,toneMapped:false}),exits.map(p=>capsuleOnly?[p[0]+Math.sin(p[3])*length/2,p[1]-Math.cos(p[3])*length/2,p[2],1,1,1,0,0,p[3]]:[p[0],-length/2,p[1],1,1,1]));

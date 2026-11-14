@@ -43,29 +43,45 @@ async function flight(base,label){await viewport(390,844);await open(base,T.reac
   await pitch(270);
   const dryTurn=await H.evaluate(cdp,`(async()=>{
     const {Raycaster,Vector3}=await import('./vendor/three-0.185.1/three.module.min.js'),app=window.__rocketApp;
+    const {buildRocket}=await import('./scene-art.js');
     const s=app.getScene(),rocket=s.rocket,f=app.controller.state.flight;
-    const shell=rocket.getObjectByName('capsule-shell'),recess=rocket.getObjectByName('capsule-rcs-recesses');
-    const vertices=recess.geometry.attributes.position,ports=[];
-    for(let i=0;i<vertices.count;i+=12){
-      const mouth=(vertices.getX(i)+vertices.getX(i+2))/2;
-      const floor=(vertices.getX(i+8)+vertices.getX(i+10))/2;
-      ports.push({mouth,floor,y:recess.position.y+(vertices.getY(i)+vertices.getY(i+2))/2});
-    }
-    const anchored=rocket.userData.rcs.every(group=>group.children.length===4&&group.children.every(plume=>{
-      const side=Math.sign(plume.position.x),height=plume.geometry.parameters.points.at(-1).y;
-      return ports.some(port=>Math.abs(plume.position.y-port.y)<1e-7&&Math.abs(plume.position.x-side*height/2-port.mouth)<1e-7);
-    }));
-    const probe=new Raycaster();
-    const floorVisible=ports.every(port=>{
-      const side=Math.sign(port.mouth),origin=new Vector3(side*2,port.y,0);
-      probe.set(rocket.localToWorld(origin),new Vector3(-side,0,0).transformDirection(rocket.matrixWorld));
-      return probe.intersectObjects([shell,recess],false)[0]?.object===recess;
-    });
+    const checkPorts=body=>{
+      const ports=[],probe=new Raycaster(),point=new Vector3();
+      body.updateMatrixWorld(true);
+      body.traverse(recess=>{
+        if(recess.name!=='rcs-recesses')return;
+        const shell=recess.parent.getObjectByName('rcs-hull'),vertices=recess.geometry.attributes.position;
+        for(let i=0;i<vertices.count;i+=48){
+          const ringCenter=start=>{
+            const center=new Vector3();
+            for(let j=0;j<16;j++)center.add(point.fromBufferAttribute(vertices,start+j));
+            return center.multiplyScalar(1/16).add(recess.position);
+          };
+          const center=ringCenter(i),floor=ringCenter(i+32);
+          const outward=center.clone().sub(floor).normalize(),side=Math.sign(center.x);
+          const round=Array.from({length:16},(_,j)=>point.fromBufferAttribute(vertices,i+j).add(recess.position).distanceTo(center)).every(r=>Math.abs(r-.073)<.001);
+          probe.set(body.localToWorld(center.clone().addScaledVector(outward,.18)),outward.clone().negate().transformDirection(body.matrixWorld));
+          const open=probe.intersectObjects([shell,recess],false)[0]?.object===recess;
+          probe.set(body.localToWorld(center.clone().add(new Vector3(side*3,0,0))),new Vector3(-side,0,0).transformDirection(body.matrixWorld));
+          const clear=probe.intersectObjects(body.userData.boosters.children,false).length===0;
+          ports.push({center,round,open,clear,depth:center.distanceTo(floor)});
+        }
+      });
+      const anchored=body.userData.rcs.map(group=>group.children.length===4&&group.children.every(plume=>{
+        const side=Math.sign(plume.position.x),length=plume.geometry.parameters.points.at(-1).y;
+        const start=plume.position.clone().add(new Vector3(-side*length/2,0,0));
+        return ports.some(port=>port.center.distanceTo(start)<1e-6);
+      }));
+      return {count:ports.length,round:ports.every(p=>p.round),clear:ports.every(p=>p.clear),open:ports.every(p=>p.open&&p.depth>.04),anchored:anchored.every(Boolean)};
+    };
+    const full=RocketParts.clone(f.craft),upper=f.upperStage.craft;
+    const short={engine:0,small:1,large:0},models={capsule:checkPorts(rocket),upper:checkPorts(s.otherRocket),single:checkPorts(buildRocket({...full,stages:[short],separator:false,boosters:2},false)),
+      stacked:checkPorts(buildRocket({...full,boosters:4},false)),separated:checkPorts(buildRocket(full,true)),core:checkPorts(buildRocket({...upper,stages:[full.stages[0]]},false))};
     app.controller.play();app.controller.tick(.2,20000);app.controller.pause();
-    return {angle:f.controls.angle,turn:Math.atan2(Math.sin(f.attitude),Math.cos(f.attitude)),fuel:f.capsule.fuel,jets:s.rcsDirection,ports,anchored,floorVisible};
+    return {angle:f.controls.angle,turn:Math.atan2(Math.sin(f.attitude),Math.cos(f.attitude)),fuel:f.capsule.fuel,jets:s.rcsDirection,models};
   })()`);
   assert(dryTurn.angle===270&&dryTurn.turn<0&&dryTurn.fuel===0&&dryTurn.jets===-1);
-  assert(dryTurn.ports.length===4&&dryTurn.ports.every(p=>Math.abs(p.mouth)-Math.abs(p.floor)>.06)&&dryTurn.anchored&&dryTurn.floorVisible,JSON.stringify(dryTurn));
+  for(const [name,model]of Object.entries(dryTurn.models))assert.deepEqual(model,{count:['single','stacked','separated'].includes(name)?6:4,round:true,clear:true,open:true,anchored:true},name);
   await shot(label+'-explorer-rcs-accelerating');
   const braking=await call(`
     const s=app.getScene(),controller=app.controller,f=controller.state.flight;
