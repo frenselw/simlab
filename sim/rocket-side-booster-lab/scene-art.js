@@ -432,8 +432,9 @@ export function createLandscape(){
  group.userData={clearRadius:300,treeMin,buildingMin,trees:trunks.length,buildings:plans.length,facilities,accessRoads:links,serviceRoads:links.length,tankBase,mountains:geography.ridges,river:false,coast:true,cloudClearRadius:5000,cloudCenters};return group;
 }
 
+const hullAzimuth=-Math.PI/32;
 function rcsShell(top,bottom,height,rows,portRows,offset){
-  const shell=new THREE.CylinderGeometry(top,bottom,height,32,rows,false,-Math.PI/32);
+  const shell=new THREE.CylinderGeometry(top,bottom,height,32,rows,false,hullAzimuth);
   const {position,normal,uv}=shell.attributes,index=shell.index.array;
   const skinIndices=[],skinPositions=Array.from(position.array),skinNormals=Array.from(normal.array),skinUvs=Array.from(uv.array);
   const vertices=[],colors=[],recessIndices=[],mouths=[];
@@ -502,16 +503,19 @@ export function buildRocket(c,separated,capsuleOnly=false){
     mesh(recess,recessMaterial,0,center,0).name='rcs-recesses';
     for(const {position,station}of mouths){position.y+=center;rcsMouths.push({position,station});}
   };
-  const microDetails=[],bolts=new THREE.IcosahedronGeometry(1,0),pipe=new THREE.CylinderGeometry(1,1,1,8),band=new THREE.CylinderGeometry(1,1,1,32),tankMats=Object.fromEntries(['small','medium','large'].map(k=>[k,material('#ffffff',{map:surface(k),roughness:.55,metalness:.22})])),batch=(g,m,rows)=>{const mesh=instances(partParent,g,m,rows);if(g===bolts||g.type==='TorusGeometry')microDetails.push(mesh);return mesh;};
+  const microDetails=[],bolts=new THREE.IcosahedronGeometry(1,0),pipe=new THREE.CylinderGeometry(1,1,1,8),band=new THREE.CylinderGeometry(1,1,1,32,1,false,hullAzimuth),tankMats=Object.fromEntries(['small','medium','large'].map(k=>[k,material('#ffffff',{map:surface(k),roughness:.55,metalness:.22})])),batch=(g,m,rows)=>{const mesh=instances(partParent,g,m,rows);if(g===bolts||g.type==='TorusGeometry')microDetails.push(mesh);return mesh;};
   c.stages.forEach((s,i)=>{
     if(capsuleOnly||separated&&i===0)return;
     const accent=s.engine===0?orange:s.engine===2?material('#6488bd',{metalness:.3}):mint;const startPart=(part,ordinal=0,index=null)=>{partParent=new THREE.Group();partParent.userData.part={stage:i,part,ordinal,index};group.add(partParent);parts.push(partParent);};
-    if(i===1&&c.separator&&!separated){startPart('separator');const cover=s.engine===null?.65:s.engine===1?2.32:2.15;separatorY=y+cover/2;mesh(new THREE.CylinderGeometry(1.47,1.47,cover,32),shell,0,separatorY,0);batch(band,orange,[.12,cover-.12].map(dy=>[0,y+dy,0,1.49,.18,1.49]));batch(bolts,metal,Array.from({length:12},(_,j)=>{const a=j*Math.PI/6;return [1.48*Math.sin(a),y+.14,1.48*Math.cos(a),.035,.035,.035];}));y+=.65;}
+    if(i===1&&c.separator&&!separated){startPart('separator');const cover=s.engine===null?.65:s.engine===1?2.32:2.15;separatorY=y+cover/2;mesh(new THREE.CylinderGeometry(1.47,1.47,cover,32,1,false,hullAzimuth),shell,0,separatorY,0);batch(band,orange,[.12,cover-.12].map(dy=>[0,y+dy,0,1.49,.18,1.49]));batch(bolts,metal,Array.from({length:12},(_,j)=>{const a=j*Math.PI/6;return [1.48*Math.sin(a),y+.14,1.48*Math.cos(a),.035,.035,.035];}));y+=.65;}
     const base=y;
     if(s.engine!==null){
       startPart('engine-'+s.engine);if(i===1&&!separated)partParent.userData.pickY=y+(s.engine===1?1.7:1.5);
       const clustered=s.engine===0,centers=clustered?[[-.61,-.61],[-.61,.61],[.61,-.61],[.61,.61]]:[[0,0]],throat=clustered?.25:.3,rim=clustered?.58:s.engine===2?.95:1.38,bellHeight=clustered?1.25:1.65,radius=h=>throat+(rim-throat)*Math.pow(Math.max(0,1-h/bellHeight),1.35),profile=Array.from({length:13},(_,j)=>new THREE.Vector2(radius(j*bellHeight/12),j*bellHeight/12));
-      batch(new THREE.LatheGeometry(profile,24),dark,centers.map(([x,z])=>[x,y,z,1,1,1]));mesh(new THREE.CylinderGeometry(1.1,1.1,.45,32),metal,0,y+1.55,0);
+      batch(new THREE.LatheGeometry(profile,24),dark,centers.map(([x,z])=>[x,y,z,1,1,1])).name='engine-bells';
+      // The mount joins the bells to the full-width tank seat inside the engine slot.
+      const mount=[[0,bellHeight-.04],[1.16,bellHeight-.04],[1.16,1.73],[1.4,1.93],[1.4,2],[0,2]].map(([r,h])=>new THREE.Vector2(r,h));
+      mesh(new THREE.LatheGeometry(mount,32,hullAzimuth),metal,0,y,0).name='engine-mount';
       const ribs=[];for(const [x,z]of centers)for(let j=0;j<(clustered?5:8);j++){const h=.07+j*(clustered?.23:.2),r=radius(h)+.025;ribs.push([x,y+h,z,r,r,1,Math.PI/2]);}batch(new THREE.TorusGeometry(1,.022,4,20),accent,ribs);
       batch(bolts,metal,Array.from({length:16},(_,j)=>{const a=j*Math.PI/8;return [.97*Math.sin(a),y+1.8,.97*Math.cos(a),.055,.035,.055];}));batch(pipe,metal,[[-.72,y+1.25,.72,.055,.75,.055],[.72,y+1.25,.72,.055,.75,.055]]);batch(new THREE.BoxGeometry(1,1,1),metal,[[-.55,y+1.22,.68,.34,.38,.3],[.55,y+1.22,.68,.34,.38,.3]]);y+=2;
     }
@@ -523,8 +527,12 @@ export function buildRocket(c,separated,capsuleOnly=false){
       if(i===firstStage&&j===firstTank)ports.push([rows-3,'lower']);
       if(i===lastStage&&j===lastTank&&!hasCapsule)ports.push([2,'upper']);
       if(ports.length)recessedShell(1.4,1.4,h,rows,ports,c.boosters&&!separated?4:0,tankMats[part],y+h/2);
-      else mesh(new THREE.CylinderGeometry(1.4,1.4,h,32),tankMats[part],0,y+h/2,0);
-      batch(band,accent,[.2,h-.2].map(dy=>[0,y+dy,0,1.43,.23,1.43]));batch(pipe,metal,[[-.2,y+h/2,1.41,.04,h*.67,.04],[.2,y+h/2,1.41,.04,h*.67,.04],[0,y+h*.48,1.44,.115,.06,.115,Math.PI/2]]);batch(bolts,metal,Array.from({length:16},(_,j)=>{const a=(j%8)*Math.PI/4;return [1.44*Math.sin(a),y+(j<8?.2:h-.2),1.44*Math.cos(a),.04,.04,.04];}));y+=h;joins.push(y);
+      else mesh(new THREE.CylinderGeometry(1.4,1.4,h,32,1,false,hullAzimuth),tankMats[part],0,y+h/2,0);
+      const capsuleSeat=hasCapsule&&i===c.stages.length-1;
+      const seams=[...(j===0?[s.engine===null?.2:.08]:[]),j<tanks.length-1||capsuleSeat?h:h-.2];
+      batch(band,accent,seams.map(dy=>[0,y+dy,0,1.43,.23,1.43])).name='tank-collars';
+      batch(pipe,metal,[[-.2,y+h/2,1.41,.04,h*.67,.04],[.2,y+h/2,1.41,.04,h*.67,.04],[0,y+h*.48,1.44,.115,.06,.115,Math.PI/2]]);
+      batch(bolts,metal,seams.flatMap(dy=>Array.from({length:8},(_,j)=>{const a=j*Math.PI/4;return [1.44*Math.sin(a),y+dy,1.44*Math.cos(a),.04,.04,.04];})));y+=h;joins.push(y);
     });
     partParent=group;
     slots[i]=(base+y)/2;ranges[i]={base,engine:s.engine===null?0:2,large:s.large,medium:s.medium||0,small:s.small,joins};
@@ -539,7 +547,7 @@ export function buildRocket(c,separated,capsuleOnly=false){
   }group.add(boosters);parts.push(boosters);}
   if(P.hasCapsule(c)){partParent=new THREE.Group();partParent.userData.part={stage:c.stages.length-1,part:'capsule',ordinal:0,index:null};group.add(partParent);parts.push(partParent);
   recessedShell(1.25,1.4,2,10,[[1,capsuleOnly?'upper':null],[8,capsuleOnly?'lower':'upper']],c.boosters&&!separated&&!capsuleOnly?4:0,skin,y+1);
-  mesh(new THREE.SphereGeometry(1.25,32,20,0,Math.PI*2,0,Math.PI/2),white,0,y+2,0);const faceY=y+1.1;
+  mesh(new THREE.SphereGeometry(1.25,32,20,hullAzimuth,Math.PI*2,0,Math.PI/2),white,0,y+2,0);const faceY=y+1.1;
   batch(new THREE.SphereGeometry(1,12,8),dark,[-1,1].map(side=>[side*.4,faceY,1.24,.16,.16,.16]));batch(new THREE.SphereGeometry(1,8,6),material('#ffffff'),[-1,1].map(side=>[side*.4-.03,faceY+.05,1.37,.07,.07,.07]));
   const smile=new THREE.TorusGeometry(.24,.035,6,14,Math.PI);const mouth=mesh(smile,dark,0,faceY-.25,1.32);mouth.rotation.z=Math.PI;
   mesh(new THREE.CylinderGeometry(.04,.04,1.1,8),metal,0,y+3.6,0);mesh(new THREE.SphereGeometry(.17,10,8),orange,0,y+4.15,0);

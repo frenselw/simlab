@@ -45,6 +45,31 @@ async function flight(base,label){await viewport(390,844);await open(base,T.reac
     const {Raycaster,Vector3}=await import('./vendor/three-0.185.1/three.module.min.js'),app=window.__rocketApp;
     const {buildRocket}=await import('./scene-art.js');
     const s=app.getScene(),rocket=s.rocket,f=app.controller.state.flight;
+    const joins=[];
+    for(const engine of [0,1,2])for(const separated of [false,true]){
+      const stages=[engine,(engine+1)%3].map(engine=>({engine,small:1,medium:1,large:1,order:'sml'}));
+      const body=buildRocket({stages,capsule:true,separator:true},separated),parts=body.userData.parts;
+      const probe=new Raycaster();
+      const continuous=(x,z,levels)=>levels.every(y=>{
+        probe.set(new Vector3(x,y,z).addScaledVector(new Vector3(x,0,z).normalize(),2),new Vector3(-x,0,-z).normalize());
+        return probe.intersectObjects(parts,true).length>0;
+      });
+      for(const [i,range]of body.userData.ranges.entries()){
+        if(!range)continue;
+        const enginePart=parts.find(part=>part.userData.part.stage===i&&part.userData.part.part.startsWith('engine-'));
+        const mount=enginePart.getObjectByName('engine-mount'),bell=enginePart.getObjectByName('engine-bells');
+        const bellTop=bell.geometry.parameters.points.at(-1).y;
+        const bellJoin=mount.geometry.parameters.points[0].y<bellTop;
+        const levels=[range.base+bellTop+.01,...range.joins.flatMap(y=>[y-.01,y+.01])];
+        const closed=bellJoin&&mount.geometry.parameters.points.at(-1).y===2&&continuous(1,.01,levels);
+        joins.push({engine,separated,closed});
+      }
+      for(const tank of parts.filter(part=>part.userData.part.part==='small'||part.userData.part.part==='medium')){
+        const seam=body.userData.ranges[tank.userData.part.stage].joins[tank.userData.part.index+1],collars=tank.getObjectByName('tank-collars');
+        const matrix=collars.matrix.clone();collars.getMatrixAt(collars.count-1,matrix);
+        joins.push({engine,separated,closed:Math.abs(matrix.elements[13]-seam)<1e-6});
+      }
+    }
     const checkPorts=body=>{
       const ports=[],probe=new Raycaster(),point=new Vector3();
       body.updateMatrixWorld(true);
@@ -78,10 +103,12 @@ async function flight(base,label){await viewport(390,844);await open(base,T.reac
     const short={engine:0,small:1,large:0},models={capsule:checkPorts(rocket),upper:checkPorts(s.otherRocket),single:checkPorts(buildRocket({...full,stages:[short],separator:false,boosters:2},false)),
       stacked:checkPorts(buildRocket({...full,boosters:4},false)),separated:checkPorts(buildRocket(full,true)),core:checkPorts(buildRocket({...upper,stages:[full.stages[0]]},false))};
     app.controller.play();app.controller.tick(.2,20000);app.controller.pause();
-    return {angle:f.controls.angle,turn:Math.atan2(Math.sin(f.attitude),Math.cos(f.attitude)),fuel:f.capsule.fuel,jets:s.rcsDirection,models};
+    return {angle:f.controls.angle,turn:Math.atan2(Math.sin(f.attitude),Math.cos(f.attitude)),fuel:f.capsule.fuel,jets:s.rcsDirection,models,joins};
   })()`);
   assert(dryTurn.angle===270&&dryTurn.turn<0&&dryTurn.fuel===0&&dryTurn.jets===-1);
   for(const [name,model]of Object.entries(dryTurn.models))assert.deepEqual(model,{count:['single','stacked','separated'].includes(name)?6:4,round:true,clear:true,open:true,anchored:true},name);
+  assert.equal(dryTurn.joins.length,27);
+  assert(dryTurn.joins.every(join=>join.closed),JSON.stringify(dryTurn.joins));
   await shot(label+'-explorer-rcs-accelerating');
   const braking=await call(`
     const s=app.getScene(),controller=app.controller,f=controller.state.flight;
@@ -122,6 +149,13 @@ async function flight(base,label){await viewport(390,844);await open(base,T.reac
     assert.deepEqual(stageTurns[name].map(r=>r.jets),[[false,true],[false,false],[true,false],[false,false]],name);
     assert(stageTurns[name][0].velocity>0&&stageTurns[name][1].velocity>stageTurns[name][2].velocity&&stageTurns[name][2].velocity>0&&stageTurns[name][3].velocity===0,name);
   }
+  await viewport(1280,800);
+  const engineView=T.singlePad(0,0,2);
+  engineView.phase='coast';Object.assign(engineView.flight,{status:'flying',state:[P.R+9737,0,0,-21,26,0],attitude:Math.PI});
+  const uncapped=M.change(engineView,{type:'capsule-separate'});
+  uncapped.flight.controlled='upper';
+  await open(base,uncapped);
+  await shot(label+'-explorer-rocket-joints');
   report.flows.push({label,case:'flight',inheritedVelocity:true,axialRelease:true,rcs:true,dryTurn,braking,stopped,stageTurns,bodyControl:true,terminalCapsuleKeepsUpperFlying:true});
 }
 async function returnFlight(base,label){await viewport(390,844);await open(base,T.reachOrbit());await click('#separateButton');await pitch(270);await call('app.controller.play();app.controller.tick(16,20000);app.controller.pause();');await click('#igniteButton');await call('for(let i=0;i<1000&&RocketOrbit.elements(app.controller.state.flight.state).hp>60000;i++)app.controller.tick(.1,20000);app.controller.pause();');await click('#igniteButton');await click('#chuteArm');const entry=await call('app.controller.play();for(let i=0;i<4000;i++){const f=app.controller.state.flight,e=RocketRecovery.reentry(f,RocketModel.atmosphere);app.controller.state=RocketModel.change(app.controller.state,{type:"control",key:"angle",value:Math.round(e.targetAngle/10)*10%360});app.controller.tick(1,20000);if(RocketRecovery.reentry(app.controller.state.flight,RocketModel.atmosphere).flux>.006||RocketRecovery.terminal(app.controller.state.flight))break;}app.controller.pause();return {state:app.getState(),heat:app.getScene().rocket.userData.reentryEffects?.visible};');assert.equal(entry.state.flight.status,'flying');assert(entry.heat);await shot(label+'-explorer-entry');await call('app.controller.play();for(let i=0;i<4000;i++){const f=app.controller.state.flight;if(f.capsule.chute.phase==="stowed"){const e=RocketRecovery.reentry(f,RocketModel.atmosphere);app.controller.state=RocketModel.change(app.controller.state,{type:"control",key:"angle",value:Math.round(e.targetAngle/10)*10%360});}app.controller.tick(1,20000);if(app.controller.state.flight.capsule.chute.phase==="main"||RocketRecovery.terminal(app.controller.state.flight))break;}app.controller.pause();');assert.equal(await call('return app.getState().flight.capsule.chute.phase;'),'main');await click('#timeWarp');await click('[data-time-warp="20"]');const start=await call('app.controller.play();return app.getState().flight.t;');await wait(()=>call('return app.getState().flight.t;').then(t=>t-start>12),'20x parachute descent');assert(await call('return app.diagnostics().actualWarp>19;'));await call('app.controller.pause();');await shot(label+'-explorer-main-chute');await call('app.controller.play();for(let i=0;i<2000&&!RocketRecovery.terminal(app.controller.state.flight);i++)app.controller.tick(1,20000);app.controller.pause();');assert.equal(await call('return app.getState().flight.status;'),'landed');assert(!/提交|分數|滿分/.test(await call('return d.body.textContent;')));await shot(label+'-explorer-landed');await click('#returnWorkshop');assert(await call('return app.getState().phase==="workshop"&&RocketParts.complete(app.getState().craft);'));report.flows.push({label,case:'return',guidedPhysicsFixture:true,entry:true,twoParachutes:true,warp20:true,landed:true,repeatable:true});}
