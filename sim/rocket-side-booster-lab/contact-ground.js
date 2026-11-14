@@ -19,14 +19,38 @@ export function createContactGround(sun,colorAt,site,relief,world){
  geometry.setIndex(indices);const mesh=new THREE.Mesh(geometry,material);mesh.renderOrder=-1;mesh.frustumCulled=false;group.add(mesh);
  const rocks=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1,0),new THREE.MeshLambertMaterial({color:'#9b9a85',flatShading:true,transparent:true}),81),transform=new THREE.Object3D(),up=new THREE.Vector3(0,1,0);
  rocks.instanceMatrix.setUsage(THREE.DynamicDrawUsage);rocks.frustumCulled=false;group.add(rocks);
- let lastLevels='',lastRadius=-100;
+ let lastLevels='',lastRadius=-100,grid;
+ // Return the visible triangle height in metres in the launch site's local coordinates.
+ group.groundHeightAt=(x,z)=>{
+  if(!group.visible||!grid)return relief.meshHeight(x,z,true);
+  const e=x/R,n=z/R,u=Math.sqrt(1-e*e-n*n);
+  const distance=Math.hypot(e-center.x,u-center.y,n-center.z)*R;
+  if(distance>=2*clipping.uContactRadius.value*R)return relief.meshHeight(x,z,true);
+  const i=Math.floor(x/spacing-grid.x)+40,j=Math.floor(z/spacing-grid.z)+40;
+  const px=e-origin.x,pz=n-origin.z;
+  for(let row=Math.max(0,j-1);row<=Math.min(side-2,j+1);row++)for(let col=Math.max(0,i-1);col<=Math.min(side-2,i+1);col++){
+   const a=(row*side+col)*3,b=a+side*3;
+   for(const [v,w] of [[b,b+3],[b+3,a+3]]){
+    const ax=positions[a],az=positions[a+2],vx=positions[v]-ax,vz=positions[v+2]-az,wx=positions[w]-ax,wz=positions[w+2]-az;
+    const det=vx*wz-vz*wx,p=((px-ax)*wz-(pz-az)*wx)/det,q=(vx*(pz-az)-vz*(px-ax))/det;
+    if(p>=-1e-8&&q>=-1e-8&&p+q<=1+1e-8){
+     const height=(origin.y-1+positions[a+1]*(1-p-q)+positions[v+1]*p+positions[w+1]*q)*R;
+     return distance<clipping.uContactRadius.value*R?height:Math.max(height,relief.meshHeight(x,z,true));
+    }
+   }
+  }
+  return relief.meshHeight(x,z,true);
+ };
  const basis=[[1,0,0],[0,1,0],[0,0,1]].map(q=>{const [lon,lat]=S.geographic(...q).map(a=>a*Math.PI/180);return new THREE.Vector3(Math.cos(lat)*Math.cos(lon),Math.sin(lat),Math.cos(lat)*Math.sin(lon));}),point=new THREE.Vector3();
  group.clipping=clipping;group.update=(flight,enabled,quality=0)=>{
-  const agl=flight?S.clearance(flight.state,flight.t):0,radius=enabled?2000*(1-THREE.MathUtils.smoothstep(agl,600,2400)):0;group.visible=radius>0;clipping.uContactRadius.value=radius/R;group.userData.radius=radius;if(!group.visible)return;
+  const agl=flight?S.clearance(flight.state,flight.t):0,radius=enabled?2000*(1-THREE.MathUtils.smoothstep(agl,600,2400)):0;
+  if(group.visible!==(radius>0))group.userData.placementRevision++;
+  group.visible=radius>0;clipping.uContactRadius.value=radius/R;group.userData.radius=radius;if(!group.visible)return;
   const detailOpacity=1-THREE.MathUtils.smoothstep(S.clearance(flight.state,flight.t),1200,2000);rocks.visible=quality<2&&detailOpacity>0;rocks.material.opacity=detailOpacity;
   n.set(...S.direction(flight.state,flight.t));const levels=relief.userData.levels.join(',')+'|'+(world?.userData.active.join(',')||'');if(last.distanceToSquared(n)*R*R<10000&&levels===lastLevels&&Math.abs(radius-lastRadius)<20)return;lastLevels=levels;lastRadius=radius;group.userData.detailRadius=radius;last.copy(n);center.copy(n);origin.copy(center);for(const child of group.children)child.position.copy(origin);east.set(0,1,0).cross(center);if(east.lengthSq()<.001)east.set(1,0,0).cross(center);east.normalize();row.crossVectors(east,center).normalize();
   // Relative vertices preserve centimetre detail instead of rounding near the Earth's radius.
   const regional=center.y>.99&&Math.max(Math.abs(center.x),Math.abs(center.z))*R<230000,cxGrid=Math.round(center.x*R/spacing),czGrid=Math.round(center.z*R/spacing);
+  grid=regional?{x:cxGrid,z:czGrid}:null;
   for(let j=0;j<side;j++)for(let i=0;i<side;i++){
    const index=j*side+i,x=(cxGrid+i-40)*spacing,z=(czGrid+j-40)*spacing;
    if(regional)n.set(x/R,Math.sqrt(1-(x*x+z*z)/(R*R)),z/R);else n.copy(center).addScaledVector(east,(i-40)*spacing/R).addScaledVector(row,(j-40)*spacing/R).normalize();
@@ -38,9 +62,9 @@ export function createContactGround(sun,colorAt,site,relief,world){
   setTerrainNormals(geometry,origin);geometry.attributes.position.needsUpdate=geometry.attributes.color.needsUpdate=true;
   const [lon,lat]=S.geographic(center.x,center.y,center.z),step=.0015,cx=Math.floor(lon/step),cy=Math.floor(lat/step);rocks.count=0;
   for(let y=cy-4;y<=cy+4;y++)for(let x=cx-4;x<=cx+4;x++){const seed=THREE.MathUtils.euclideanModulo(Math.sin(x*127.1+y*311.7)*43758.5453,1),a=(x+.2+seed*.6)*step*Math.PI/180,b=THREE.MathUtils.clamp((y+.2+seed*.6)*step,-89.999,89.999)*Math.PI/180;point.set(Math.cos(b)*Math.cos(a),Math.sin(b),Math.cos(b)*Math.sin(a));n.set(point.dot(basis[0]),point.dot(basis[1]),point.dot(basis[2]));if(S.waterAt(n.x,n.y,n.z)||n.distanceTo(center)*R<35)continue;if(seed<.86)continue;const size=2+seed*4,height=S.heightAt(n.x,n.y,n.z)+size*.3;transform.position.copy(n).multiplyScalar(1+height/R).sub(origin);transform.quaternion.setFromUnitVectors(up,n);transform.scale.set(size/R,size/R,size*.8/R);transform.updateMatrix();rocks.setMatrixAt(rocks.count++,transform.matrix);}
-  rocks.instanceMatrix.needsUpdate=true;group.userData.props=rocks.count;group.userData.rebuilds++;
+  rocks.instanceMatrix.needsUpdate=true;group.userData.props=rocks.count;group.userData.rebuilds++;group.userData.placementRevision++;
  };
- group.userData={triangles:indices.length/3,rebuilds:0,props:0};return group;
+ group.userData={triangles:indices.length/3,rebuilds:0,placementRevision:0,props:0};return group;
 }
 export function clipContact(material,uniforms,local=false){
  const compile=material.onBeforeCompile;material.onBeforeCompile=shader=>{compile(shader);Object.assign(shader.uniforms,uniforms);shader.vertexShader='varying vec3 vContactDirection;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvContactDirection=normalize(position'+(local?'+vec3(0.0,6371000.0,0.0)':'')+');');shader.fragmentShader=siteSurfaceShader+'uniform vec3 uContactCenter;uniform float uContactRadius;varying vec3 vContactDirection;\n'+shader.fragmentShader.replace('#include <clipping_planes_fragment>','#include <clipping_planes_fragment>\nif(uContactRadius>0.0&&distance(normalize(vContactDirection),uContactCenter)<uContactRadius)discard;if(siteOpening(normalize(vContactDirection)))discard;');};material.customProgramCacheKey=()=>local?'rocket-contact-local-site':'rocket-contact-global-site';

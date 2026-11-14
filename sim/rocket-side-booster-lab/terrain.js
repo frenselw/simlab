@@ -61,10 +61,12 @@ export function orientGroundSphere(geometry,direction){
  const target=direction.clone().applyAxisAngle(new THREE.Vector3(0,1,0),-.7),rotation=new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),target),p=new THREE.Vector3(),positions=geometry.attributes.position,normals=geometry.attributes.normal;
  for(let i=0;i<positions.count;i++){p.fromArray(data.groundBase,i*3).applyQuaternion(rotation);positions.setXYZ(i,p.x,p.y,p.z);normals.setXYZ(i,p.x,p.y,p.z);}positions.needsUpdate=normals.needsUpdate=true;geometry.boundingSphere=new THREE.Sphere(new THREE.Vector3(),1);return true;
 }
-export const surfaceUniforms={uWorldSurface:worldSurfaceTexture,uDetailEnabled:{value:0},uDetailAtlas:{value:null},uDetailLookup:{value:null},uRegionalSurface:regionalSurfaceTexture,uRegionalSurfaceReady:{value:0},uSurfaceMap:{value:surfaceTexture},uSurfaceTime:{value:0},uSurfaceDetail:{value:1},uSurfaceRotation:{value:new THREE.Matrix3()},uSurfaceStrength:{value:1},uOrbitalMap:{value:null},uOrbitalBlend:{value:0}};
+export const surfaceUniforms={uWorldSurface:worldSurfaceTexture,uDetailEnabled:{value:0},uDetailAtlas:{value:null},uDetailLookup:{value:null},uRegionalSurface:regionalSurfaceTexture,uRegionalSurfaceReady:{value:0},uSurfaceMap:{value:surfaceTexture},uSiteRoads:{value:null},uSiteRoadBounds:{value:new THREE.Vector4()},uSurfaceTime:{value:0},uSurfaceDetail:{value:1},uSurfaceRotation:{value:new THREE.Matrix3()},uSurfaceStrength:{value:1},uOrbitalMap:{value:null},uOrbitalBlend:{value:0}};
 export const groundLight=`
 uniform float uSlopeDetail,uSurfaceTime,uSurfaceDetail,uSurfaceStrength;
-uniform sampler2D uSurfaceMap,uRegionalSurface,uWorldSurface,uDetailAtlas,uDetailLookup;uniform float uDetailEnabled,uRegionalSurfaceReady;uniform mat3 uSurfaceRotation;
+uniform sampler2D uSurfaceMap,uRegionalSurface,uWorldSurface,uDetailAtlas,uDetailLookup,uSiteRoads;
+uniform vec4 uSiteRoadBounds;
+uniform float uDetailEnabled,uRegionalSurfaceReady;uniform mat3 uSurfaceRotation;
 vec3 geographicDirection(vec3 p){
  float lat=.605629,lon=-2.101376;
  vec3 up=vec3(cos(lat)*cos(lon),sin(lat),cos(lat)*sin(lon)),east=vec3(-sin(lon),0.0,cos(lon)),north=vec3(-sin(lat)*cos(lon),cos(lat),-sin(lat)*sin(lon));
@@ -132,7 +134,13 @@ vec3 shadeSurface(vec3 base,vec3 normal,vec3 radial,vec3 point,vec3 world,vec3 s
   float trees=texture2D(uRegionalSurface,(uv*2048.0+.5)/2049.0).b,h=regionalHeight(uv),dry=1.0-smoothstep(.15,.45,trees),rock=smoothstep(1100.0,2500.0,h)*.65;
   vec3 biome=mix(vec3(.24,.37,.22),vec3(.075,.19,.12),trees*.6);biome=mix(biome,vec3(.43,.37,.25),dry*.4);biome=mix(biome,vec3(.34,.32,.26),rock);base=mix(base,biome,weight);
  }
- float footprint=max(length(dFdx(metres)),length(dFdy(metres))),detail=(1.0-smoothstep(12.0,110.0,footprint))*uSurfaceDetail;
+ vec2 dx=dFdx(metres),dy=dFdy(metres);
+ vec2 roadUv=(point.xz*6371000.0-uSiteRoadBounds.xy)*uSiteRoadBounds.zw;
+ if(water<.5&&p.y>.99&&all(greaterThan(roadUv,vec2(0.0)))&&all(lessThan(roadUv,vec2(1.0)))){
+  vec4 road=textureGrad(uSiteRoads,roadUv,dx*uSiteRoadBounds.zw,dy*uSiteRoadBounds.zw);
+  base=mix(base,road.rgb,road.a);
+ }
+ float footprint=max(length(dx),length(dy)),detail=(1.0-smoothstep(12.0,110.0,footprint))*uSurfaceDetail;
  vec3 color=base*terrainIrradiance(normal,radial,sun);
  if(uSurfaceStrength<=0.0)return color;
  if(water>.5){

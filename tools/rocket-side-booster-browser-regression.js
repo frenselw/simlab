@@ -3,7 +3,7 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto'),{spawn}=require('node:child_process'),AdmZip=require('adm-zip'),H=require('./position-time-browser-regression'),Pack=require('./package-rocket-explorer'),M=require('../sim/rocket-side-booster-lab/model'),P=require('../sim/rocket-side-booster-lab/parts'),O=require('../sim/rocket-side-booster-lab/orbit'),T=require('../sim/rocket-side-booster-lab/test-support');
 const World=require('./rocket-world-browser-cases');
 const Sky=require('./rocket-sky-browser-cases');
-const root=path.resolve(__dirname,'..'),slug='rocket-side-booster-lab',out=path.join(root,'output/playwright',slug),temp=fs.realpathSync(os.tmpdir()),caseNames=['layout','assembly','controls','flight','return','effects','parachute','cameras','warp','surface','landing','visual','readouts','terrain','sample','world','detail','sky','preparation','events','local-transfer','pad-quality'];
+const root=path.resolve(__dirname,'..'),slug='rocket-side-booster-lab',out=path.join(root,'output/playwright',slug),temp=fs.realpathSync(os.tmpdir()),caseNames=['layout','assembly','controls','flight','return','effects','parachute','cameras','warp','surface','landing','visual','readouts','terrain','sample','world','detail','sky','preparation','events','local-transfer','pad-quality','site-ground'];
 const report={kind:'standalone',flows:[],errors:[],loads:[],completed:false};let cdp,chrome,server,profile,extracted,touchId=1;
 const call=code=>H.evaluate(cdp,`(()=>{const app=window.__rocketApp,d=document;${code}})()`);
 async function wait(fn,label){return H.waitForCondition(fn,label,15000);}
@@ -254,6 +254,58 @@ async function readouts(base,label){
   await shot(label+'-readout-orbit-'+width);if(width===390||width===1024){await click('#fullscreenButton');await stable();await click('#fullscreenButton');await stable();}
   const nextWidth=width===390?844:390;await viewport(nextWidth,nextWidth===844?390:844);await H.evaluate(cdp,'new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');await stable();await viewport(width,height);await H.delay(60);await stable();report.flows.push({label,case:'readouts',width,height,normal,variants,resize:true,fullscreen:width===390||width===1024,bodyAndCameraSwitch:true});
  }
+}
+
+async function siteGround(base,label){
+ const state=M.change(T.reachOrbit(),{type:'capsule-separate'}),f=state.flight;
+ f.state=[P.R+116.2,0,0,-4.9,0,0];f.t=2639.7;f.attitude=0;f.capsule.fuel=0;f.capsule.chute={armed:true,phase:'main',since:2106.6};
+ f.upperStage.auto.mode='manual';
+ await viewport(390,844);await open(base,state);
+ const results=await H.evaluate(cdp,`(async()=>{
+  const s=__rocketApp.getScene(),T=await import("./vendor/three-0.185.1/three.module.min.js"),{surfaceUniforms:u}=await import("./terrain.js");
+  const R=RocketParts.R,road=u.uSiteRoads.value.image,[west,south,ux,uz]=u.uSiteRoadBounds.value.toArray();
+  const pixels=road.getContext("2d").getImageData(0,0,road.width,road.height).data;
+  const alpha=(x,z)=>pixels[(Math.floor((1-(z-south)*uz)*road.height)*road.width+Math.floor((x-west)*ux*road.width))*4+3];
+  let roadSamples=0,roadGaps=0;
+  for(const route of [...s.landscape.userData.accessRoads,[[320,-1800],[320,2400]]]){
+   for(let i=1;i<route.length;i++){
+    const [x,z]=route[i-1],[a,b]=route[i];
+    for(let k=0;k<=40;k++){roadSamples++;if(alpha(x+(a-x)*k/40,z+(b-z)*k/40)<230)roadGaps++;}
+   }
+  }
+  const results=[],matrix=new T.Matrix4(),ray=new T.Raycaster(new T.Vector3(),new T.Vector3(0,-1,0));
+  for(const [quality,altitude] of [[0,116.2],[1,116.2],[2,116.2],[0,850],[0,0],[0,116.2]]){
+   const f=__rocketApp.controller.state.flight;
+   s.quality=quality;f.state[0]=R+altitude;s.yaw=-.65;s.pitch=.19;__rocketApp.controller.emit();
+   const before=JSON.stringify(__rocketApp.getState());
+   const contact=s.contactGround,mesh=contact.children[0],original=contact.matrixWorld.clone();
+   let sampleError=0;
+   contact.matrixWorld.identity();mesh.updateMatrixWorld(true);
+   for(const [x,z] of [[100,0],[320,60],[500,60],[650,247],[-601,175],[980,190]]){
+    ray.ray.origin.set(x/R,1.001,z/R);
+    const hit=ray.intersectObject(mesh)[0];
+    if(hit&&Math.hypot(x,z)<contact.userData.radius)sampleError=Math.max(sampleError,Math.abs((hit.point.y-1)*R-contact.groundHeightAt(x,z)));
+   }
+   contact.matrixWorld.copy(original);contact.updateMatrixWorld(true);
+   let maxRootGap=0;
+   const trunk=s.landscape.nearDetails[0];
+   for(let i=0;trunk.visible&&i<trunk.count;i++){
+    trunk.getMatrixAt(i,matrix);
+    const m=matrix.elements,y=contact.groundHeightAt(m[12],m[14]);
+    if(Number.isFinite(y))maxRootGap=Math.max(maxRootGap,Math.abs(y-(m[13]-.4375*m[5])));
+   }
+   const mid=s.forest.children[0];
+   let maxTree=0;
+   for(let i=0;i<mid.count;i++){mid.getMatrixAt(i,matrix);maxTree=Math.max(maxTree,R*matrix.elements[5]);}
+   const shader=s.renderer.info.programs.every(p=>p.diagnostics?.runnable!==false);
+   results.push({quality,altitude,sampleError,trunksVisible:trunk.visible,maxRootGap,midTrees:mid.count,maxTree,shader,unchanged:before===JSON.stringify(__rocketApp.getState())});
+  }
+  return {roadSamples,roadGaps,results};
+ })()`);
+ assert(results.roadSamples>300&&results.roadGaps===0,JSON.stringify(results));
+ assert(results.results.every(r=>r.sampleError<.002&&r.maxRootGap<.002&&r.midTrees>0&&r.maxTree<26&&r.trunksVisible===(r.quality<2)&&r.shader&&r.unchanged),JSON.stringify(results));
+ await shot(label+'-site-ground-116m');
+ report.flows.push({label,case:'site-ground',...results});
 }
 
 async function terrainForest(base,label){
@@ -508,6 +560,6 @@ async function events(base,label){
 }
 function selection(args){if(args.length>2)throw Error("Expected cases and optional delivery");const cases=args[0]?args[0].split(","):caseNames,delivery=args[1]||null;if(cases.some(name=>!caseNames.includes(name))||new Set(cases).size!==cases.length)throw Error("Unknown or repeated explorer case");if(delivery&&!["source","standalone"].includes(delivery))throw Error("Unknown explorer delivery");return{cases,delivery};}
 async function main(){const scope=selection(process.argv.slice(2));report.cases=scope.cases;report.delivery=scope.delivery;fs.mkdirSync(out,{recursive:true});try{const packageFile=Pack.build();extracted=fs.mkdtempSync(path.join(temp,'simlab-rocket-explorer-package-'));new AdmZip(packageFile).extractAllTo(extracted,true);for(const f of Pack.assets.files)assert(fs.readFileSync(path.join(root,'sim',f)).equals(fs.readFileSync(path.join(extracted,f))));const runtimeHasher=crypto.createHash('sha256');for(const f of Pack.assets.files)runtimeHasher.update(fs.readFileSync(path.join(root,'sim',f)));report.runtimeHash=runtimeHasher.digest('hex');profile=fs.mkdtempSync(path.join(temp,'simlab-rocket-explorer-chrome-'));chrome=spawn(H.findBrowser(),['--headless=new','--remote-debugging-address=127.0.0.1','--remote-debugging-port=0','--user-data-dir='+profile,'--no-first-run','--no-default-browser-check','--disable-background-networking','--use-angle=swiftshader','--enable-unsafe-swiftshader','about:blank'],{stdio:['ignore','ignore','pipe'],windowsHide:true});chrome.stderr.resume();const port=await H.devToolsPort(profile,chrome),{body:target}=await H.fetchJson('http://127.0.0.1:'+port+'/json/new?about:blank',{method:'PUT'});cdp=new H.CdpClient(target.webSocketDebuggerUrl,WebSocket,30000);await cdp.send('Page.enable');await cdp.send('Runtime.enable');cdp.on('Runtime.consoleAPICalled',e=>{if(e.type==='error')report.errors.push(e.args.map(a=>a.description||a.value||'').join(' '));});await cdp.send('Network.enable');await cdp.send('Page.bringToFront');report.engine=await cdp.send('Browser.getVersion');cdp.on('Runtime.exceptionThrown',e=>report.errors.push(e.exceptionDetails?.exception?.description||e.exceptionDetails?.text));cdp.on('Network.responseReceived',e=>{if(e.response.status>=400&&!e.response.url.endsWith('/favicon.ico'))report.loads.push(e.response.url+' '+e.response.status);});await cdp.send('Page.addScriptToEvaluateOnNewDocument',{source:'window.__lmsReads=window.__lmsWrites=window.__storageReads=window.__storageWrites=0;for(const name of ["API","API_1484_11"])Object.defineProperty(window,name,{get(){window.__lmsReads++;return new Proxy({},{get(){return()=>{window.__lmsWrites++;return "true";};}});}});for(const [method,key]of [["getItem","__storageReads"],["setItem","__storageWrites"]]){const original=Storage.prototype[method];Storage.prototype[method]=function(...args){window[key]++;return original.apply(this,args);};}'});
-for(const [label,directory]of [['source',path.join(root,'sim')],['standalone',extracted]]){if(scope.delivery&&label!==scope.delivery)continue;server=H.createServer(directory);await H.listenServer(server);const base='http://127.0.0.1:'+server.address().port;console.log('Explorer browser: '+label);const tests={layout,assembly,controls,flight,return:returnFlight,effects,parachute,cameras,warp:parachuteWarp,surface:surfaceShading,landing:capsuleLanding,visual:visualConsistency,readouts,terrain:terrainForest,sample:terrainSample,world,detail,sky,preparation,events,'local-transfer':localTransfer,'pad-quality':padQuality};for(const name of scope.cases){const test=tests[name];console.log('Explorer case '+label+' '+name);await test(base,label);assert(await call('return window.__lmsReads===0&&window.__lmsWrites===0&&window.__storageReads===0&&window.__storageWrites===0;'));}await cdp.send('Page.navigate',{url:'about:blank'});await H.closeServer(server);server=null;}assert.deepEqual(report.errors,[]);assert.deepEqual(report.loads,[]);report.completed=true;console.log('Rocket explorer source and standalone passed.');
+for(const [label,directory]of [['source',path.join(root,'sim')],['standalone',extracted]]){if(scope.delivery&&label!==scope.delivery)continue;server=H.createServer(directory);await H.listenServer(server);const base='http://127.0.0.1:'+server.address().port;console.log('Explorer browser: '+label);const tests={layout,assembly,controls,flight,return:returnFlight,effects,parachute,cameras,warp:parachuteWarp,surface:surfaceShading,landing:capsuleLanding,visual:visualConsistency,readouts,terrain:terrainForest,sample:terrainSample,world,detail,sky,preparation,events,'local-transfer':localTransfer,'pad-quality':padQuality,'site-ground':siteGround};for(const name of scope.cases){const test=tests[name];console.log('Explorer case '+label+' '+name);await test(base,label);assert(await call('return window.__lmsReads===0&&window.__lmsWrites===0&&window.__storageReads===0&&window.__storageWrites===0;'));}await cdp.send('Page.navigate',{url:'about:blank'});await H.closeServer(server);server=null;}assert.deepEqual(report.errors,[]);assert.deepEqual(report.loads,[]);report.completed=true;console.log('Rocket explorer source and standalone passed.');
 }finally{if(!report.completed&&cdp)try{await shot('explorer-failure');}catch(_){}fs.writeFileSync(path.join(out,'explorer-report.json'),JSON.stringify(report,null,2));await H.stopChrome(chrome,cdp);cdp?.close();if(server)await H.closeServer(server);for(const [dir,pattern]of [[profile,/^simlab-rocket-explorer-chrome-[A-Za-z0-9]+$/],[extracted,/^simlab-rocket-explorer-package-[A-Za-z0-9]+$/]])if(dir&&fs.existsSync(dir)){const safe=H.validateOwnedDirectory(dir,temp,pattern,'rocket explorer browser');fs.rmSync(safe,{recursive:true,force:false,maxRetries:5,retryDelay:200});}}}
 module.exports={caseNames,selection};if(require.main===module)main().catch(e=>{console.error(e);process.exitCode=1;});
