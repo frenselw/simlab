@@ -9,7 +9,7 @@ const viewAxis=new THREE.Vector3(0,0,1),northAxis=new THREE.Vector3(...S.fromGeo
 function vectorArrow(color){const group=new THREE.Group(),mat=new THREE.MeshBasicMaterial({color,transparent:true,depthTest:false,depthWrite:false,toneMapped:false}),shaft=new THREE.Mesh(new THREE.CylinderGeometry(.026,.026,.74,8),mat),head=new THREE.Mesh(new THREE.ConeGeometry(.09,.26,10),mat);shaft.position.y=.37;head.position.y=.87;shaft.renderOrder=head.renderOrder=10;group.add(shaft,head);return group;}
 export class RocketScene{
   constructor(host,onFault){
-    this.host=host;this.onFault=onFault;this.renderCount=0;this.quality=0;this.frameSamples=[];this.sampleAfter=0;this.renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,logarithmicDepthBuffer:true});this.renderer.setPixelRatio(Math.min(devicePixelRatio,innerWidth<960||matchMedia('(pointer: coarse)').matches?1.5:2));this.configureRenderer();host.append(this.renderer.domElement);
+    this.host=host;this.onFault=onFault;this.renderCount=0;this.quality=0;this.highQuality=false;this.frameSamples=[];this.sampleAfter=0;this.renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,logarithmicDepthBuffer:true});this.configureRenderer();host.append(this.renderer.domElement);
     this.scene=new THREE.Scene();this.camera=new THREE.PerspectiveCamera(40,1,.01,50000);this.ambient=new THREE.HemisphereLight('#fafff3','#64818d',1.65);this.sunLight=new THREE.DirectionalLight('#fff5e5',2.4);this.sunLight.position.set(30,40,40);this.fillLight=new THREE.DirectionalLight('#a4cce7',.6);this.fillLight.position.set(-20,10,-30);this.scene.add(this.ambient,this.sunLight,this.fillLight);
     this.studio=createPad();this.scene.add(this.studio);
     this.siteSurface={uLaunchCut:{value:0}};
@@ -41,8 +41,24 @@ export class RocketScene{
     try{restoreArtTextures();this.renderer.resetState();this.configureRenderer();this.lost=false;this.draw();if(!this.lost)this.onFault('restored');}
     catch(_){this.lost=true;this.onFault('restore-failed');}
   }
-  resize(){const {width,height}=this.host.getBoundingClientRect();if(!width||!height)return;this.deviceRatio=devicePixelRatio;const ratio=Math.min(this.deviceRatio,(innerWidth<960||matchMedia('(pointer: coarse)').matches?[1.5,1.25,1]:[2,1.5,1.25])[this.quality]);if(this.renderer.getPixelRatio()!==ratio)this.renderer.setPixelRatio(ratio);this.starPixelRatio.value=ratio;this.renderer.setSize(width,height,false);this.camera.aspect=width/height;this.camera.updateProjectionMatrix();this.draw();}
+  resize(){
+    const {width,height}=this.host.getBoundingClientRect();if(!width||!height)return;
+    this.deviceRatio=devicePixelRatio;
+    const compact=innerWidth<960||matchMedia('(pointer: coarse)').matches;
+    const maxRatio=this.highQuality?2.5:(compact?[2,1.75,1.5]:[2,1.5,1.25])[this.quality];
+    const ratio=Math.min(this.deviceRatio,maxRatio);
+    if(this.renderer.getPixelRatio()!==ratio)this.renderer.setPixelRatio(ratio);
+    this.starPixelRatio.value=ratio;this.renderer.setSize(width,height,false);
+    this.camera.aspect=width/height;this.camera.updateProjectionMatrix();this.draw();
+  }
+  setHighQuality(enabled){
+    this.highQuality=enabled;
+    this.quality=0;
+    this.resetFrameSample();
+    this.resize();
+  }
   observeFrame(milliseconds,now){
+    if(this.highQuality)return;
     if(!this.sampleAfter){this.sampleAfter=now+2000;return;}
     if(now<this.sampleAfter||milliseconds<=0||milliseconds>250||this.quality>=2)return;
     this.frameSamples.push(milliseconds);if(this.frameSamples.length<120)return;
@@ -312,8 +328,14 @@ export class RocketScene{
     this.camera.lookAt(target);this.camera.updateProjectionMatrix();this.camera.updateMatrixWorld();
     this.sky.position.copy(this.camera.position);this.sky.scale.setScalar(this.camera.far*.48);
     this.drawSky(skyFrame,space,angle);
-    const pixelsPerUnit=this.host.clientHeight/(2*Math.tan(THREE.MathUtils.degToRad(this.camera.fov)/2)*distance),groundDetails=f&&!space&&pixelsPerUnit*.001>.02&&this.quality<2;this.studio.workshopFloor.visible=factory||!f;for(const mesh of this.studio.nearDetails)mesh.visible=factory||!f||groundDetails;for(const mesh of this.landscape.nearDetails)mesh.visible=groundDetails;for(const mesh of this.landscape.landmarks)mesh.visible=Boolean(f&&!space);for(const rocket of [this.rocket,this.assemblyPreview])for(const mesh of rocket?.microDetails||[])mesh.visible=pixelsPerUnit*this.rocket.scale.y>18&&this.quality<2;
-    this.studio.workshopFixtures.visible=factory||!f;this.studio.launchFixtures.visible=Boolean(f&&!factory&&groundDetails);this.studio.apron.visible=!factory;this.studio.flameTrench.visible=this.studio.trenchGrates.visible=Boolean(f&&!factory&&groundDetails);if(!f?.separated)this.studio.launchTower.scale.y=Math.max(.3,height/26);this.siteSurface.uLaunchCut.value=Number(Boolean(f&&!factory&&!space&&this.studio.visible&&groundDetails&&localOpacity>=.999));
+    const pixelsPerUnit=this.host.clientHeight/(2*Math.tan(THREE.MathUtils.degToRad(this.camera.fov)/2)*distance);
+    const padDetails=Boolean(local&&!factory&&pixelsPerUnit*.001>.02),groundDetails=padDetails&&this.quality<2;
+    this.studio.workshopFloor.visible=factory||!f;
+    for(const mesh of this.studio.nearDetails)mesh.visible=factory||!f||padDetails;
+    for(const mesh of this.landscape.nearDetails)mesh.visible=groundDetails;
+    for(const mesh of this.landscape.landmarks)mesh.visible=Boolean(f&&!space);
+    for(const rocket of [this.rocket,this.assemblyPreview])for(const mesh of rocket?.microDetails||[])mesh.visible=pixelsPerUnit*this.rocket.scale.y>18&&this.quality<2;
+    this.studio.workshopFixtures.visible=factory||!f;this.studio.launchFixtures.visible=padDetails;this.studio.apron.visible=!factory;this.studio.flameTrench.visible=this.studio.trenchGrates.visible=padDetails;if(!f?.separated)this.studio.launchTower.scale.y=Math.max(.3,height/26);this.siteSurface.uLaunchCut.value=Number(padDetails&&localOpacity>=.999);
     const atPad=Boolean(f&&this.data.live&&!factory&&['pad','flying'].includes(f.status)&&Math.abs(theta)*P.R<80&&agl<70),emitting=atPad&&M.thrust(f)>0?Math.min(1.3,M.thrust(f)/600000):0;
     if(emitting&&!this.launchStarted){this.launchStarted=true;this.effectClock=performance.now();}this.launchEffects.emitting=emitting;const arm=Math.min(1,this.launchArmAge/(this.reducedMotion?.25:1.1));this.studio.serviceArms.rotation.y=Math.PI/2*(1-(1-arm)**3);
     this.relief.updateDetail(this.camera,this.host.clientHeight/(2*Math.tan(THREE.MathUtils.degToRad(this.camera.fov)/2)),this.quality,Boolean(f&&!factory&&!space));

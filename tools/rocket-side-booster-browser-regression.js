@@ -3,7 +3,7 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto'),{spawn}=require('node:child_process'),AdmZip=require('adm-zip'),H=require('./position-time-browser-regression'),Pack=require('./package-rocket-explorer'),M=require('../sim/rocket-side-booster-lab/model'),P=require('../sim/rocket-side-booster-lab/parts'),O=require('../sim/rocket-side-booster-lab/orbit'),T=require('../sim/rocket-side-booster-lab/test-support');
 const World=require('./rocket-world-browser-cases');
 const Sky=require('./rocket-sky-browser-cases');
-const root=path.resolve(__dirname,'..'),slug='rocket-side-booster-lab',out=path.join(root,'output/playwright',slug),temp=fs.realpathSync(os.tmpdir()),caseNames=['layout','assembly','controls','flight','return','effects','parachute','cameras','warp','surface','landing','visual','readouts','terrain','sample','world','detail','sky','preparation','events','local-transfer'];
+const root=path.resolve(__dirname,'..'),slug='rocket-side-booster-lab',out=path.join(root,'output/playwright',slug),temp=fs.realpathSync(os.tmpdir()),caseNames=['layout','assembly','controls','flight','return','effects','parachute','cameras','warp','surface','landing','visual','readouts','terrain','sample','world','detail','sky','preparation','events','local-transfer','pad-quality'];
 const report={kind:'standalone',flows:[],errors:[],loads:[],completed:false};let cdp,chrome,server,profile,extracted,touchId=1;
 const call=code=>H.evaluate(cdp,`(()=>{const app=window.__rocketApp,d=document;${code}})()`);
 async function wait(fn,label){return H.waitForCondition(fn,label,15000);}
@@ -141,6 +141,62 @@ async function capsuleLanding(base,label){
   if(safe)assert(hit.visible&&hit.readout.includes('接地總速率'));
   report.flows.push({label,case:'landing',unarmed:true,speed,hit});
  }
+}
+
+async function padQuality(base,label){
+ await viewport(390,844);
+ await cdp.send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:3,mobile:true});
+ let state=M.change(M.change(T.launched(1,2),{type:'workshop'}),{type:'part',stage:1,part:'engine',value:0});
+ state=M.change(state,{type:'boosters'});state=M.change(state,{type:'boosters'});
+ state=M.change(M.change(state,{type:'launch'}),{type:'ignite'});
+ const advanceUntil=done=>{
+  for(let i=0;i<1000&&!done();i++){
+   if(state.flight.fuel[0]===0&&!state.flight.separated){
+    if(P.attached(state.flight))state=M.change(state,{type:'jettison'});
+    state=M.change(M.change(state,{type:'separate'}),{type:'ignite'});
+   }
+   M.advance(state,10,20000);
+  }
+  assert(done(),'The vertical flight must reach the requested phase');
+ };
+ advanceUntil(()=>O.elements(state.flight.state).radial<0||state.phase==='ended');
+ assert(state.flight.maxHeight>5e6,'The vertical flight must climb above 5,000 km');
+ await open(base,state);
+ const sample=()=>call('const s=app.getScene(),studio=s.studio;return {stage:studio.visible,deck:studio.padDeck.visible,tower:studio.launchFixtures.visible,cut:s.siteSurface.uLaunchCut.value,quality:s.quality,dpr:s.renderer.getPixelRatio(),width:s.renderer.domElement.width,cssWidth:s.host.getBoundingClientRect().width};');
+ const apex=await sample();
+ assert(!apex.stage,'The pad is out of reach at apogee');
+ await call('const s=app.getScene();s.resetFrameSample();s.observeFrame(0,1);for(let i=0;i<120;i++)s.observeFrame(50,2100+i*50);for(let i=0;i<120;i++)s.observeFrame(50,14000+i*50);');
+ assert.equal((await sample()).quality,2,'Sustained slow frames must exercise the lowest automatic tier');
+ advanceUntil(()=>O.elements(state.flight.state).height<40000);
+ await call('app.controller.state='+JSON.stringify(state)+';app.controller.emit();');
+ assert((await sample()).stage,'The pad returns to the scene on descent');
+ advanceUntil(()=>state.phase==='ended');
+ assert.equal(state.flight.status,'impact');
+ await call('app.controller.state='+JSON.stringify(state)+';app.controller.emit();');
+ const returned=await sample();
+ assert(returned.stage&&returned.deck&&returned.tower,'Launchpad geometry remains visible on return at the lowest tier');
+ await call('d.getElementById("returnWorkshop").click();');
+ assert.equal(await call('return app.getState().phase;'),'workshop');
+ await click('#launchButton');
+ assert.equal(await call('return app.getState().phase;'),'pad');
+ const low=await sample();
+ assert(low.stage&&low.deck&&low.tower&&low.cut===1,'Retry shows deck, fixtures, and the matching terrain opening');
+ assert.equal(low.quality,2);
+ assert.equal(low.dpr,1.5);
+ await shot(label+'-pad-quality-auto');
+ const before=await call('return app.getState();');
+ await call('d.getElementById("graphicsSettings").querySelector("summary").click();');
+ await call('const select=d.getElementById("graphicsQuality");select.value="high";select.dispatchEvent(new Event("change",{bubbles:true}));');
+ await call('const s=app.getScene();for(let i=0;i<250;i++)s.observeFrame(60,30000+i*60);');
+ const high=await sample();
+ assert.equal(high.quality,0);
+ assert.equal(high.dpr,2.5);
+ assert(Math.abs(high.width-high.cssWidth*2.5)<=1&&high.width>low.width);
+ assert.deepEqual(await call('return app.getState();'),before);
+ await shot(label+'-pad-quality-high');
+ await call('const select=d.getElementById("graphicsQuality");select.value="auto";select.dispatchEvent(new Event("change",{bubbles:true}));');
+ assert.equal((await sample()).dpr,2);
+ report.flows.push({label,case:'pad-quality',apogee:state.flight.maxHeight,returned,low,high});
 }
 
 async function visualConsistency(base,label){
@@ -452,6 +508,6 @@ async function events(base,label){
 }
 function selection(args){if(args.length>2)throw Error("Expected cases and optional delivery");const cases=args[0]?args[0].split(","):caseNames,delivery=args[1]||null;if(cases.some(name=>!caseNames.includes(name))||new Set(cases).size!==cases.length)throw Error("Unknown or repeated explorer case");if(delivery&&!["source","standalone"].includes(delivery))throw Error("Unknown explorer delivery");return{cases,delivery};}
 async function main(){const scope=selection(process.argv.slice(2));report.cases=scope.cases;report.delivery=scope.delivery;fs.mkdirSync(out,{recursive:true});try{const packageFile=Pack.build();extracted=fs.mkdtempSync(path.join(temp,'simlab-rocket-explorer-package-'));new AdmZip(packageFile).extractAllTo(extracted,true);for(const f of Pack.assets.files)assert(fs.readFileSync(path.join(root,'sim',f)).equals(fs.readFileSync(path.join(extracted,f))));const runtimeHasher=crypto.createHash('sha256');for(const f of Pack.assets.files)runtimeHasher.update(fs.readFileSync(path.join(root,'sim',f)));report.runtimeHash=runtimeHasher.digest('hex');profile=fs.mkdtempSync(path.join(temp,'simlab-rocket-explorer-chrome-'));chrome=spawn(H.findBrowser(),['--headless=new','--remote-debugging-address=127.0.0.1','--remote-debugging-port=0','--user-data-dir='+profile,'--no-first-run','--no-default-browser-check','--disable-background-networking','--use-angle=swiftshader','--enable-unsafe-swiftshader','about:blank'],{stdio:['ignore','ignore','pipe'],windowsHide:true});chrome.stderr.resume();const port=await H.devToolsPort(profile,chrome),{body:target}=await H.fetchJson('http://127.0.0.1:'+port+'/json/new?about:blank',{method:'PUT'});cdp=new H.CdpClient(target.webSocketDebuggerUrl,WebSocket,30000);await cdp.send('Page.enable');await cdp.send('Runtime.enable');cdp.on('Runtime.consoleAPICalled',e=>{if(e.type==='error')report.errors.push(e.args.map(a=>a.description||a.value||'').join(' '));});await cdp.send('Network.enable');await cdp.send('Page.bringToFront');report.engine=await cdp.send('Browser.getVersion');cdp.on('Runtime.exceptionThrown',e=>report.errors.push(e.exceptionDetails?.exception?.description||e.exceptionDetails?.text));cdp.on('Network.responseReceived',e=>{if(e.response.status>=400&&!e.response.url.endsWith('/favicon.ico'))report.loads.push(e.response.url+' '+e.response.status);});await cdp.send('Page.addScriptToEvaluateOnNewDocument',{source:'window.__lmsReads=window.__lmsWrites=window.__storageReads=window.__storageWrites=0;for(const name of ["API","API_1484_11"])Object.defineProperty(window,name,{get(){window.__lmsReads++;return new Proxy({},{get(){return()=>{window.__lmsWrites++;return "true";};}});}});for(const [method,key]of [["getItem","__storageReads"],["setItem","__storageWrites"]]){const original=Storage.prototype[method];Storage.prototype[method]=function(...args){window[key]++;return original.apply(this,args);};}'});
-for(const [label,directory]of [['source',path.join(root,'sim')],['standalone',extracted]]){if(scope.delivery&&label!==scope.delivery)continue;server=H.createServer(directory);await H.listenServer(server);const base='http://127.0.0.1:'+server.address().port;console.log('Explorer browser: '+label);const tests={layout,assembly,controls,flight,return:returnFlight,effects,parachute,cameras,warp:parachuteWarp,surface:surfaceShading,landing:capsuleLanding,visual:visualConsistency,readouts,terrain:terrainForest,sample:terrainSample,world,detail,sky,preparation,events,'local-transfer':localTransfer};for(const name of scope.cases){const test=tests[name];console.log('Explorer case '+label+' '+name);await test(base,label);assert(await call('return window.__lmsReads===0&&window.__lmsWrites===0&&window.__storageReads===0&&window.__storageWrites===0;'));}await cdp.send('Page.navigate',{url:'about:blank'});await H.closeServer(server);server=null;}assert.deepEqual(report.errors,[]);assert.deepEqual(report.loads,[]);report.completed=true;console.log('Rocket explorer source and standalone passed.');
+for(const [label,directory]of [['source',path.join(root,'sim')],['standalone',extracted]]){if(scope.delivery&&label!==scope.delivery)continue;server=H.createServer(directory);await H.listenServer(server);const base='http://127.0.0.1:'+server.address().port;console.log('Explorer browser: '+label);const tests={layout,assembly,controls,flight,return:returnFlight,effects,parachute,cameras,warp:parachuteWarp,surface:surfaceShading,landing:capsuleLanding,visual:visualConsistency,readouts,terrain:terrainForest,sample:terrainSample,world,detail,sky,preparation,events,'local-transfer':localTransfer,'pad-quality':padQuality};for(const name of scope.cases){const test=tests[name];console.log('Explorer case '+label+' '+name);await test(base,label);assert(await call('return window.__lmsReads===0&&window.__lmsWrites===0&&window.__storageReads===0&&window.__storageWrites===0;'));}await cdp.send('Page.navigate',{url:'about:blank'});await H.closeServer(server);server=null;}assert.deepEqual(report.errors,[]);assert.deepEqual(report.loads,[]);report.completed=true;console.log('Rocket explorer source and standalone passed.');
 }finally{if(!report.completed&&cdp)try{await shot('explorer-failure');}catch(_){}fs.writeFileSync(path.join(out,'explorer-report.json'),JSON.stringify(report,null,2));await H.stopChrome(chrome,cdp);cdp?.close();if(server)await H.closeServer(server);for(const [dir,pattern]of [[profile,/^simlab-rocket-explorer-chrome-[A-Za-z0-9]+$/],[extracted,/^simlab-rocket-explorer-package-[A-Za-z0-9]+$/]])if(dir&&fs.existsSync(dir)){const safe=H.validateOwnedDirectory(dir,temp,pattern,'rocket explorer browser');fs.rmSync(safe,{recursive:true,force:false,maxRetries:5,retryDelay:200});}}}
 module.exports={caseNames,selection};if(require.main===module)main().catch(e=>{console.error(e);process.exitCode=1;});
