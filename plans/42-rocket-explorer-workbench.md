@@ -20,6 +20,10 @@
 
 最終源碼與解壓獨立版的特效流程均通過，HTTP 及 JavaScript 錯誤各 0，四組截圖逐位元相同。證據為同目錄的 `boosted-propulsion-report.json`。390 px 截圖為 Chrome 手機尺寸模擬，實體手機幀時間待驗。
 
+起飛跟隨鏡頭按目前畫面比例和縮放限制發射台偏移，並隨高度、時間及離台水平距離平滑淡出。保留最初離地的地面參照，維持快升火箭的艙頂畫面空間。純探索，評核、存檔及 SCORM N/A。以短火箭及四助推器火箭檢查手機、桌面與放大時的逐幀構圖。
+
+源碼與解壓獨立版在 390×844／1280×800、1×／1.75× 鏡頭縮放共擷取 336 次構圖，最小艙頂空間為畫幅 4.3%，連續樣本的最大中心位移為畫幅 5.7%。JavaScript 及 HTTP 錯誤皆為零，`check:tests`（307 entries）與 runtime 測試通過。證據見 `output/playwright/rocket-side-booster-lab/launch-camera-report.json`。
+
 ## 其他現行專項
 
 ### 發射場道路取樣與等離子光強度

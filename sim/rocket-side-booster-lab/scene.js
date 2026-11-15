@@ -341,7 +341,14 @@ export class RocketScene{
       target.multiplyScalar(this.rocket.scale.y).applyQuaternion(this.rocket.quaternion).add(this.rocket.position);
       if(landingTarget)target.copy(landingTarget);
       if(this.view==='follow'&&!f.separated&&!f.capsule?.detached&&f.t<8&&Math.abs(theta)*P.R<80){
-        target.y-=Math.max(0,agl)*(1-THREE.MathUtils.smoothstep(agl,7,52))*.001;
+        // Reserve room above the rocket even when the player zooms in near the pad.
+        const halfFrame=distance*Math.tan(Math.PI/9)/this.zoom;
+        const headroom=Math.min(halfFrame*.4,halfFrame*.88-displayHeight*.00055);
+        if(headroom>0){
+          const release=THREE.MathUtils.smoothstep;
+          const padWeight=(1-release(agl,7,52))*(1-release(f.t,6,8))*(1-release(Math.abs(theta)*P.R,45,80));
+          target.y-=headroom*Math.tanh(Math.max(0,agl)*.001/headroom)*padWeight;
+        }
       }
     }
     if(space&&f&&O.elements(f.state).r>2*P.R)distance=Math.max(distance,(O.elements(f.state).r*3/P.R+1)/Math.tan(Math.PI/9)*1.1);
