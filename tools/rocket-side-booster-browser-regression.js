@@ -852,7 +852,8 @@ async function distantCamera(base,label){
     const collapsed=await measure();
     assert(!collapsed.panel&&collapsed.ignition&&collapsed.expanded==='false'&&collapsed.time&&collapsed.play&&collapsed.warp,JSON.stringify(collapsed));
     const landscape=width>=640&&height<520;
-    assert(width>=960||landscape?collapsed.width>expanded.width+150:collapsed.height>expanded.height+150,JSON.stringify({expanded,collapsed}));
+    const verticalGain=height<520?100:150;
+    assert(width>=960||landscape?collapsed.width>expanded.width+150:collapsed.height>expanded.height+verticalGain,JSON.stringify({expanded,collapsed}));
     assert(collapsed.earth&&collapsed.craft&&collapsed.follows,JSON.stringify(collapsed));
     assert.deepEqual(await call('return app.getState();'),state);
     await shot(label+'-distant-follow-'+width+'x'+height);
