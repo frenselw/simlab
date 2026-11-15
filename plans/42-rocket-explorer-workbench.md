@@ -1,5 +1,27 @@
 # 小小航天家：火箭升空與返航
 
+## 發射煙霧、低空尾流及再入光效原型
+
+範圍為本工作台的 `scene.js` 與 `scene-art.js`。沿用 Three.js、程序煙霧貼圖、場景畫質級別及既有推力、大氣密度、姿態與熱流數據。全程零新增網絡素材及請求；首屏 JavaScript 增量以 gzip 後 5 KiB 為上限。純探索，評核、rubric、權威快照及 SCORM 皆 N/A。發射、飛行、再入的視覺資料暫存於場景，運行中推進，暫停時停止，回工廠及新試飛清除。
+
+點火後在導焰槽入口和出口生成不同速度及大小的煙團，槽口煙沿地面擴散並升起；推力與近地高度控制新煙。飛行尾焰沿噴嘴，形狀隨油門和空氣密度連續調整；尾流粒子保留噴出時的地面參考位置和方向。助推器附著及分離後沿各自噴嘴繪製。太空艙再入分成迎風弓形光層、沿艙流走的尾流及盾面餘熱；只在飛行且傘收妥時呈現等離子光。視覺參考為 [Falcon Heavy 發射](https://science.nasa.gov/image-detail/europa-clipper-lifts-off-on-a-spacex-falcon-heavy-rocket/)、[尾流隨高度變化](https://aviationsystems.arc.nasa.gov/publications/2014/NASA-TM-2014-216622.pdf#page=50)及 [Orion 再入](https://www.nasa.gov/news-release/video-gives-astronauts-eye-view-inside-nasas-orion-spacecraft/)。
+
+驗證用既有火箭瀏覽器 job 對照源碼／解壓獨立版：0／2／4 助推器、地面煙消散、低空轉向／關機／分離、稀薄大氣、正向與偏斜再入／減速、低畫質及暫停。記錄可信操作、相同鏡位前後截圖、冷載入請求及程式碼體積；實機幀時間待實體手機確認。
+
+實測源碼與解壓獨立版共 8 個瀏覽器流程，JavaScript／HTTP 錯誤各 0。四組新版截圖在兩種交付逐位元一致。低畫質煙團上限 20，正常畫質上限 56。首屏 JavaScript 及獨立 ZIP 各增 2,093 bytes（壓縮後），首屏兩版各 31 個請求。附帶執行 activity art／recovery／runtime、獨立包契約、`check` 及 `check:tests`（307 entries）。本地工作樹相對 `07286ed1` 的選取預覽為 affected／單一活動／265 entries，見 `output/reports/rocket-propulsion-selection.json`。截圖及瀏覽器紀錄在 `output/playwright/rocket-side-booster-lab/`，其中 `propulsion-regression-report.json` 為新版測試，`propulsion-comparison-report.json` 為同鏡位對照。
+
+獨立執行的冷載入對照使用 Chrome 390×844、70 ms 延遲與 1 MiB/s 下載；兩版各五次，工廠可組裝中位時間由 2,066 ms 到 2,141 ms，完成飛行準備前的資源路徑集合相同。完整數字見 `propulsion-startup-report.json`。桌面同鏡位的四助推器發射 draw calls 由 108 到 106，低空由 96 到 95；實體手機及平板的幀時間待驗。
+
+### 發射節奏及再入迎風面修訂
+
+點火後在台上預備 1.5 秒並建立蒸汽雲，離台首 6 秒保持 1×，近地跟隨鏡頭從以發射台為參照逐漸接回火箭。預備屬播放流程，解鎖後開始飛行時間與燃料積分。沿用煙池大小，放大近火箭的蒸汽團並保留槽口煙，目標是離地初段遮住約半支火箭。再入尾跡沿現有氣流方向，發光層在艙側與隔熱盾附近隨入射角變形。純探索，評核、存檔及 SCORM N/A。驗證暫停續播、離地加速及倍率，擷取發射台與 45° 手機截圖，核對粒子上限及零新增網絡素材。
+
+四助推器對照在點火定格及 T+0.9 秒可見蒸汽遮罩，T+2.1 秒火箭已穿出煙團並升到 28.9 m。圖組在 `output/playwright/rocket-side-booster-lab/` 的 `source-boosted-*.png`。以 `07286ed1` 為基準，累計首屏 JavaScript gzip 增量 2,765 bytes，資產清單相同。Node runtime、model、recovery 及 `check:tests`（307 entries）通過。工作樹選取預覽 affected／265 entries，見 `output/reports/rocket-boosted-propulsion-selection.json`。物理參考為 [NASA Falcon 9 發射程序](https://www.nasa.gov/commercial-crew-program-press-kit/)與 [Orion 艙體 Mach 5 風洞圖組](https://ntrs.nasa.gov/citations/20140007360)。
+
+最終源碼與解壓獨立版的特效流程均通過，HTTP 及 JavaScript 錯誤各 0，四組截圖逐位元相同。證據為同目錄的 `boosted-propulsion-report.json`。390 px 截圖為 Chrome 手機尺寸模擬，實體手機幀時間待驗。
+
+## 其他現行專項
+
 [地形下載精簡與畫質保留計劃](42-rocket-explorer-terrain-download-optimization.md) 記錄 5 MB 地形容量目標、多層格點壓縮、近場精度、無損法線補載及畫質與碰撞驗收。實際格式、格點誤差及交付證據記在該專項的實作紀錄。
 
 [飛行事件與分段載入計劃](42-rocket-explorer-flight-events-and-loading.md) 記錄三種尺寸的事件列、工廠先行及按視角補載的實作與驗收決定。

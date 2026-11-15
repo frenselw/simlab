@@ -117,15 +117,44 @@ export function createParachute(){
  return group;
 }
 export function createReentryEffects(){
- const group=new THREE.Group();group.position.y=1.4;group.userData.recoveryDecoration=true;
- const glow=new THREE.Mesh(new THREE.SphereGeometry(1.7,32,12,0,Math.PI*2,Math.PI/2,Math.PI/2),new THREE.MeshBasicMaterial({color:'#ff8b42',transparent:true,opacity:0,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false}));glow.scale.y=.35;glow.position.y=-1.45;glow.name='reentry-bow';
+ const group=new THREE.Group();group.position.y=1.4;
+ const time={value:0},level={value:0};
+ const plasma=(profile,wake)=>{
+   const mat=new THREE.MeshBasicMaterial({transparent:true,side:wake?THREE.DoubleSide:THREE.FrontSide,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false});
+   mat.customProgramCacheKey=()=>wake?'entry-wake':'entry-shock';
+   mat.onBeforeCompile=shader=>{
+     shader.uniforms.uEntryTime=time;shader.uniforms.uEntryLevel=level;
+     shader.vertexShader='varying vec2 vPlasma; varying float vFacing;\n'+shader.vertexShader.replace('#include <project_vertex>',`#include <project_vertex>
+       vPlasma=uv;
+       vFacing=abs(dot(normalize(normalMatrix*normal),normalize(mvPosition.xyz)));`);
+     shader.fragmentShader='uniform float uEntryTime,uEntryLevel; varying vec2 vPlasma; varying float vFacing;\n'+shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
+       float a=vPlasma.x*6.2831853, s=vPlasma.y;
+       float wave=sin(a*7.0+s*12.0-uEntryTime)+.55*sin(a*13.0-s*18.0+uEntryTime*.7);
+       float bands=smoothstep(.0,1.25,wave);
+       ${wake?`
+       float fade=smoothstep(0.0,.17,s)*pow(1.0-s,1.9);
+       diffuseColor.rgb=mix(vec3(1.0,.09,.027),vec3(1.0,.38,.12),bands);
+       diffuseColor.a*=uEntryLevel*fade*(.055+.24*bands)*(.65+.35*vFacing);
+       `:`
+       float fade=smoothstep(0.0,.18,s)*(1.0-smoothstep(.66,1.0,s));
+       float rim=smoothstep(.025,.24,vFacing)*(1.0-smoothstep(.33,.94,vFacing));
+       diffuseColor.rgb=mix(vec3(1.0,.11,.03),vec3(1.0,.59,.27),
+         clamp((.30+.32*bands)*uEntryLevel,0.0,1.0));
+       diffuseColor.a*=uEntryLevel*fade*(.045+.45*rim)*(.60+.40*bands);
+       `}`);
+   };
+   return new THREE.Mesh(new THREE.LatheGeometry(profile.map(([r,y])=>new THREE.Vector2(r,y)),32),mat);
+ };
+ const glow=plasma([[0,-1.92],[.7,-1.88],[1.28,-1.73],[1.62,-1.52],[1.81,-1.22],[1.90,-.82],[1.97,-.35]],false);
+ glow.name='reentry-bow';
  const flow={value:new THREE.Vector3(0,-1,0)},skinMaterial=new THREE.MeshBasicMaterial({color:'#ff8c42',transparent:true,opacity:0,depthWrite:false,blending:THREE.NormalBlending,toneMapped:false});
  skinMaterial.onBeforeCompile=shader=>{shader.uniforms.uEntryFlow=flow;shader.vertexShader='varying vec3 vEntryNormal;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvEntryNormal=normal;');shader.fragmentShader='uniform vec3 uEntryFlow;varying vec3 vEntryNormal;\n'+shader.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\ndiffuseColor.a*=pow(max(0.0,dot(normalize(vEntryNormal),uEntryFlow)),1.5);');};
  const skin=new THREE.Mesh(new THREE.CylinderGeometry(1.27,1.42,2.02,32,1,true),skinMaterial),nose=new THREE.Mesh(new THREE.SphereGeometry(1.27,32,16,0,Math.PI*2,0,Math.PI/2),skinMaterial);skin.position.y=-.4;nose.position.y=.6;skin.name='reentry-skin';nose.name='reentry-nose';
- const wakeFrame=new THREE.Group(),wake=new THREE.Mesh(new THREE.CylinderGeometry(2.3,1.7,4.8,32,1,true),new THREE.MeshBasicMaterial({color:'#ec6035',transparent:true,opacity:0,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false}));wake.position.y=.95;wake.name='reentry-wake';
- wake.material.onBeforeCompile=shader=>{shader.vertexShader='varying float vTrail;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvTrail=uv.y;');shader.fragmentShader='varying float vTrail;\n'+shader.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\ndiffuseColor.a*=pow(1.0-vTrail,2.0);');};
- const points=[],colors=[];for(let i=0;i<12;i++){const a=i*Math.PI/6;for(let j=0;j<4;j++)for(const t of [j/4,(j+1)/4]){const r=1.7+.6*t+.08*Math.sin(t*Math.PI*2+i);points.push(new THREE.Vector3(r*Math.cos(a),-1.45+4.8*t,r*Math.sin(a)));const fade=(1-t)**2;colors.push(fade,fade,fade);}}
- const trailGeometry=new THREE.BufferGeometry().setFromPoints(points);trailGeometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));const trails=new THREE.LineSegments(trailGeometry,new THREE.LineBasicMaterial({color:'#ffbb73',vertexColors:true,transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false}));trails.name='reentry-trails';wakeFrame.add(wake,trails);group.add(glow,skin,nose,wakeFrame);group.userData={recoveryDecoration:true,flow,skinMaterial,glow,wake,trails,wakeFrame};return group;
+ const wakeFrame=new THREE.Group(),wake=plasma([[1.77,-1.25],[1.84,-.78],[1.72,-.05],[1.47,.9],[1.36,2.2],[1.45,4.1],[1.75,6],[2.1,8.5]],true);
+ wake.name='reentry-wake';
+ wakeFrame.add(glow,wake);group.add(skin,nose,wakeFrame);
+ group.userData={recoveryDecoration:true,time,level,flow,skinMaterial,glow,wake,wakeFrame};
+ return group;
 }
 export function fadeEnvironment(group,opacity){
  if(group.artOpacity===opacity)return;group.artOpacity=opacity;
@@ -301,14 +330,160 @@ export function createPad(){
  group.nearDetails=group.children.filter(o=>o!==floor&&o!==apron);group.userData={flameTrench:true,anchorCount:4,assemblyClearRadius:6,serviceTower:true,waterTower:true};return group;
 }
 export function createLaunchEffects(){
- const root=new THREE.Group(),size=32,geometry=new THREE.PlaneGeometry(1,1),alpha=new THREE.InstancedBufferAttribute(new Float32Array(size),1);geometry.setAttribute('aOpacity',alpha);
- const map=canvasMap('launch-vapour',128,128,(x,w,h)=>{const data=x.createImageData(w,h);for(let y=0;y<h;y++)for(let i=0;i<w;i++){const a=(i+.5)/w*2-1,b=(y+.5)/h*2-1,r=Math.hypot(a,b),edge=Math.max(0,1-r),density=Math.exp(-r*r*3)*Math.min(1,edge*5)*(.76+.16*Math.sin(a*9+Math.sin(b*7))+.08*Math.cos(b*13-a*4)),k=(y*w+i)*4,shade=238-25*(b+1)/2;data.data.set([shade,shade+4,shade+5,Math.round(Math.max(0,density)*210)],k);}x.putImageData(data,0,0);});
- const mat=new THREE.MeshLambertMaterial({map,transparent:true,depthWrite:false,alphaTest:.015,color:'#ffffff'});mat.onBeforeCompile=shader=>{shader.vertexShader='attribute float aOpacity;varying float vOpacity;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvOpacity=aOpacity;');shader.fragmentShader='varying float vOpacity;\n'+shader.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\ndiffuseColor.a*=vOpacity;');};
- const mesh=new THREE.InstancedMesh(geometry,mat,size),pose=new THREE.Object3D(),rotation=new THREE.Quaternion(),particles=Array.from({length:size},(_,i)=>({age:-1,seed:i}));mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);mesh.frustumCulled=false;root.add(mesh);root.emitting=0;root.userData={active:0,emitted:0};let carry=0;
- root.clear=()=>{for(const p of particles)p.age=-1;carry=0;root.emitting=0;root.userData.active=0;root.userData.emitted=0;mesh.count=0;root.visible=false;};
- root.advance=dt=>{let changed=false;for(const p of particles)if(p.age>=0){p.age+=dt;if(p.age>3.4)p.age=-1;changed=true;}if(root.emitting>0){carry+=dt*(8+8*root.emitting);while(carry>=1){carry--;const p=particles.find(p=>p.age<0)||particles.reduce((a,b)=>a.age>b.age?a:b);p.age=0;p.strength=root.emitting;root.userData.emitted++;changed=true;}}return changed;};
- root.update=camera=>{root.updateWorldMatrix(true,false);rotation.copy(root.getWorldQuaternion(rotation)).invert().multiply(camera.quaternion);let count=0;for(const p of particles)if(p.age>=0){const a=p.age,entry=p.seed%4===0,spread=Math.sin(p.seed*2.399),scale=(entry?1.4:2.3)+a*(3.2+p.seed%3*.4);pose.position.set(spread*(1+a*.9),entry?-1.2+a*1.8:.4+a*2.5,entry?-1-a*11:-26-a*(2+p.seed%3));pose.quaternion.copy(rotation);pose.scale.set(scale,scale*.8,1);pose.updateMatrix();mesh.setMatrixAt(count,pose.matrix);alpha.setX(count,.7*Math.pow(1-a/3.4,1.4)*Math.min(1,p.strength));count++;}mesh.count=count;mesh.instanceMatrix.needsUpdate=alpha.needsUpdate=true;root.visible=count>0;root.userData.active=count;};root.clear();return root;
+ const root=new THREE.Group(),size=56,geometry=new THREE.PlaneGeometry(1,1),alpha=new THREE.InstancedBufferAttribute(new Float32Array(size),1);geometry.setAttribute('aOpacity',alpha);
+ const map=canvasMap('launch-vapour',128,128,(ctx,w,h,rng)=>{
+   for(let i=0;i<24;i++){
+     const angle=rng()*Math.PI*2,distance=rng()*.33,radius=w*(.13+rng()*.17);
+     const x=w*(.5+Math.cos(angle)*distance),y=h*(.5+Math.sin(angle)*distance),shade=218+Math.round(34*rng());
+     const cloud=ctx.createRadialGradient(x,y,0,x,y,radius);
+     cloud.addColorStop(0,`rgba(${shade},${shade+3},${shade+5},.8)`);
+     cloud.addColorStop(1,`rgba(${shade},${shade+3},${shade+5},0)`);
+     ctx.fillStyle=cloud;ctx.fillRect(x-radius,y-radius,radius*2,radius*2);
+   }
+   const edge=ctx.createRadialGradient(w/2,h/2,w*.35,w/2,h/2,w*.5);
+   edge.addColorStop(0,'#fff');edge.addColorStop(1,'#fff0');
+   ctx.globalCompositeOperation='destination-in';ctx.fillStyle=edge;ctx.fillRect(0,0,w,h);
+ });
+ const mat=new THREE.MeshLambertMaterial({map,transparent:true,depthWrite:false,alphaTest:.015,color:'#ffffff'});
+ mat.onBeforeCompile=shader=>{
+   shader.vertexShader='attribute float aOpacity; varying float vOpacity,vVapourHeight;\n'+shader.vertexShader.replace('#include <begin_vertex>',`#include <begin_vertex>
+     vOpacity=aOpacity;
+     vVapourHeight=(instanceMatrix*vec4(position,1.0)).y;`);
+   shader.fragmentShader='varying float vOpacity,vVapourHeight;\n'+shader.fragmentShader.replace('#include <color_fragment>',
+     '#include <color_fragment>\ndiffuseColor.a*=vOpacity*smoothstep(.16,1.55,vVapourHeight);');
+ };
+ const mesh=new THREE.InstancedMesh(geometry,mat,size),pose=new THREE.Object3D(),rotation=new THREE.Quaternion(),end=new THREE.Vector3(),inverse=new THREE.Matrix4(),axis=new THREE.Vector3(0,0,1);
+ const particles=Array.from({length:size},()=>({age:-1,origin:new THREE.Vector3(),velocity:new THREE.Vector3()})),sources=new Map();
+ mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);mesh.frustumCulled=false;root.add(mesh);
+ root.userData={active:0,ground:0,air:0,emitted:0};let carry=0,cursor=0,randomize;
+ root.clear=()=>{
+   for(const p of particles)p.age=-1;
+   sources.clear();carry=cursor=0;randomize=random(83);root.emitting=0;
+   Object.assign(root.userData,{active:0,ground:0,air:0,emitted:0});
+   mesh.count=0;root.visible=false;
+ };
+ root.begin=air=>{
+   for(const source of sources.values())source.active=false;
+   if(air){root.updateWorldMatrix(true,false);inverse.copy(root.matrixWorld).invert();}
+ };
+ root.sample=(nozzle,strength,t)=>{
+   let s=sources.get(nozzle);
+   if(!s){
+     s={point:new THREE.Vector3(),last:new THREE.Vector3(),direction:new THREE.Vector3(),time:-1,carry:0};
+     sources.set(nozzle,s);
+   }
+   s.active=true;s.strength=strength;s.t=t;
+   s.point.copy(nozzle.localToWorld(end.set(0,0,0))).applyMatrix4(inverse);
+   s.direction.copy(nozzle.localToWorld(end.set(0,-1,0))).applyMatrix4(inverse).sub(s.point).normalize();
+ };
+ root.advance=(dt,quality,reduced)=>{
+   if(!root.emitting&&!sources.size&&!root.userData.active)return false;
+   const budget=[56,36,20][quality],rate=[1,.65,.42][quality];
+   let changed=false;
+   for(let i=0;i<particles.length;i++){
+     const p=particles[i];
+     if(p.age<0)continue;
+     p.age+=dt;if(p.age>=p.life||i>=budget)p.age=-1;changed=true;
+   }
+   const spawn=(life,strength,ground)=>{
+     const p=particles[cursor++%budget];p.age=0;p.life=life;p.strength=strength;p.ground=ground;
+     p.angle=randomize()*Math.PI*2;p.spin=(randomize()-.5)*1.1*Number(!reduced);p.size=.8+randomize()*.45;
+     root.userData.emitted++;changed=true;return p;
+   };
+   if(root.emitting>0){
+     carry+=dt*(12+17*root.emitting)*rate;
+     while(carry>=1){
+       carry--;
+       const p=spawn(2.7+randomize()*1.3,root.emitting,true),outlet=randomize()<.36,spread=randomize()*Math.PI*2;
+       const scale=root.padScale,radial=7+randomize()*13;
+       p.size*=scale*(outlet?.78:1);
+       p.origin.set(Math.cos(spread)*3*scale,outlet?.6:2.8*scale,(outlet?-25.4:0)+Math.sin(spread)*4*scale);
+       p.velocity.set(Math.cos(spread)*radial,outlet?1.8:5.5*scale,Math.sin(spread)*radial-(outlet?13:0));
+     }
+   }else carry=0;
+   for(const [nozzle,s] of sources){
+     if(!s.active){sources.delete(nozzle);continue;}
+     if(s.t===s.time)continue;
+     // shortcut: smoke samples 1× flight; use time-resolved exhaust history if higher warp needs trails.
+     const continuous=s.time>=0&&s.t>s.time&&s.t-s.time<=Math.max(.05,dt*2)&&s.last.distanceToSquared(s.point)<90**2;
+     if(continuous){
+       const total=s.carry+dt*28*rate,number=Math.floor(total);
+       for(let i=0;i<number;i++){
+         const p=spawn(.55+randomize()*.35,s.strength,false);
+         p.origin.copy(s.last).lerp(s.point,(i+1-s.carry)/(total-s.carry)).addScaledVector(s.direction,3);
+         p.velocity.copy(s.direction).multiplyScalar(13+randomize()*10);
+       }
+       s.carry=total-number;
+     }else s.carry=0;
+     s.last.copy(s.point);s.time=s.t;
+   }
+   return changed;
+ };
+ root.update=camera=>{
+   if(!root.userData.active&&!particles.some(p=>p.age>=0))return;
+   root.getWorldQuaternion(rotation).invert().multiply(camera.quaternion);
+   let count=0,ground=0;
+   for(const p of particles)if(p.age>=0){
+     const a=p.age,progress=a/p.life,advance=p.ground?Math.log1p(a*1.5)/1.5:a;
+     pose.position.copy(p.origin).addScaledVector(p.velocity,advance);
+     if(p.ground){ground++;pose.position.y+=a*a*1.05;}
+     const width=p.size*(p.ground?17+a*11:2.8+a*8);
+     pose.quaternion.copy(rotation);pose.rotateOnAxis(axis,p.angle+a*p.spin);
+     pose.scale.set(width,width*(p.ground?.88:.95),1);pose.updateMatrix();
+     mesh.setMatrixAt(count,pose.matrix);
+     alpha.setX(count,Math.min(1,p.strength)*Math.pow(1-progress,1.35)*(p.ground?.94:.46));
+     count++;
+   }
+   mesh.count=count;mesh.instanceMatrix.needsUpdate=alpha.needsUpdate=true;root.visible=count>0;
+   Object.assign(root.userData,{active:count,ground,air:count-ground});
+ };
+ root.clear();return root;
 }
+
+function exhaustGeometry(){
+ return new THREE.LatheGeometry([[.025,-1],[.22,-.89],[.62,-.67],[1,-.43],[.97,-.24],[.76,-.09],[.66,0]].map(([r,y])=>new THREE.Vector2(r,y)),16);
+}
+function exhaustMaterial(color){
+ return new THREE.ShaderMaterial({
+   transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false,
+   uniforms:{edge:{value:new THREE.Color(color)},jet:{value:new THREE.Vector4(1,5,0,0)}},
+   vertexShader:`
+     #include <common>
+     #include <logdepthbuf_pars_vertex>
+     uniform vec4 jet;
+     varying vec3 vExhaust;
+     void main(){
+       float along=-position.y;
+       float flare=1.0+jet.z*along*2.7;
+       float ripple=1.0+along*.08*step(.0001,jet.w)*sin(uv.x*50.2655+along*19.0-jet.w);
+       vec4 p=vec4(position.x*jet.x*flare*ripple,position.y*jet.y,position.z*jet.x*flare*ripple,1.0);
+       #ifdef USE_INSTANCING
+         p=instanceMatrix*p;
+       #endif
+       vec4 view=modelViewMatrix*p;
+       gl_Position=projectionMatrix*view;
+       #include <logdepthbuf_vertex>
+       vExhaust=vec3(along,uv.x,abs(dot(normalize(normalMatrix*normal),normalize(view.xyz))));
+     }`,
+   fragmentShader:`
+     #include <common>
+     #include <logdepthbuf_pars_fragment>
+     uniform vec3 edge;
+     uniform vec4 jet;
+     varying vec3 vExhaust;
+     void main(){
+       #include <logdepthbuf_fragment>
+       float along=vExhaust.x, facing=vExhaust.z;
+       float stream=.84+.16*sin(along*25.0+sin(vExhaust.y*37.699)*.8-jet.w);
+       float hot=pow(1.0-along,1.5)*(.46+.54*facing);
+       vec3 color=mix(edge,vec3(1.0,.81,.52),hot);
+       float glow=pow(1.0-along,1.08)*(.26+.62*facing)*stream;
+       gl_FragColor=vec4(color,glow);
+       #include <colorspace_fragment>
+     }`
+ });
+}
+
 export function createLandscape(){
  const group=new THREE.Group(),groundY=(x,z)=>Math.sqrt(P.R*P.R-x*x-z*z)-P.R+window.RocketSurface.heightAt(x/P.R,Math.sqrt(1-(x*x+z*z)/(P.R*P.R)),z/P.R);
  group.landmarks=[];
@@ -543,7 +718,7 @@ export function buildRocket(c,separated,capsuleOnly=false){
     mesh(new THREE.CylinderGeometry(.65,.65,5.6,20),white,x*2.4,3.4,z*2.4,boosters);mesh(new THREE.ConeGeometry(.65,1,20),orange,x*2.4,6.7,z*2.4,boosters);mesh(new THREE.CylinderGeometry(.35,.5,.6,16),dark,x*2.4,.3,z*2.4,boosters);
     const braces=instances(boosters,new THREE.BoxGeometry(1.1,.15,.2),metal,[ranges[0].joins[0]+.2,Math.min(ranges[0].joins[1]-.2,5.9)].map(h=>[x*1.9,h,z*1.9,1,1,1,0,z?Math.PI/2:0,0]));braces.name='booster-brace';
     for(const child of boosters.children.slice(start))child.userData.booster=i;
-    const flame=new THREE.Mesh(new THREE.ConeGeometry(.45,4,16).rotateZ(Math.PI),new THREE.MeshBasicMaterial({color:'#ffc270',transparent:true,opacity:.8,depthWrite:false}));flame.position.set(x*2.4,-2,z*2.4);flame.visible=false;flame.name='booster-flame';group.add(flame);boosterFlames.push(flame);
+    const flame=new THREE.Mesh(exhaustGeometry(),exhaustMaterial('#ff9436'));flame.position.set(x*2.4,0,z*2.4);flame.visible=false;flame.frustumCulled=false;flame.name='booster-flame';group.add(flame);boosterFlames.push(flame);
   }group.add(boosters);parts.push(boosters);}
   if(P.hasCapsule(c)){partParent=new THREE.Group();partParent.userData.part={stage:c.stages.length-1,part:'capsule',ordinal:0,index:null};group.add(partParent);parts.push(partParent);
   recessedShell(1.25,1.4,2,10,[[1,capsuleOnly?'upper':null],[8,capsuleOnly?'lower':'upper']],c.boosters&&!separated&&!capsuleOnly?4:0,skin,y+1);
@@ -568,10 +743,16 @@ export function buildRocket(c,separated,capsuleOnly=false){
   }
   for(const jets of rcs){jets.visible=false;group.add(jets);}
   const flame=new THREE.Group(),clustered=capsuleOnly||c.stages[separated?1:0].engine===0,exits=capsuleOnly?capsulePorts:clustered?[[-.61,-.61],[-.61,.61],[.61,-.61],[.61,.61]]:[[0,0]];flame.position.y=capsuleOnly?0:-.04;flame.userData.ports=capsuleOnly?capsulePorts:null;
-  for(const [radius,length,color,opacity]of capsuleOnly?[[.13,.65,'#58b9ec',.5],[.085,.42,'#a9e7ff',.65],[.045,.24,'#fff4d8',.9]]:clustered?[[.43,4.2,'#ffad52',.45],[.27,3.1,'#b4e8ff',.8],[.13,1.8,'#fff8e7',1]]:[[.9,5.4,'#69b9ff',.45],[.52,4,'#b4e8ff',.8],[.25,2.4,'#fff8e7',1]]){
-    const plume=instances(flame,new THREE.ConeGeometry(radius,length,20).rotateZ(Math.PI),new THREE.MeshBasicMaterial({color,transparent:true,opacity,blending:capsuleOnly&&radius>.1?THREE.NormalBlending:THREE.AdditiveBlending,depthWrite:false,toneMapped:false}),exits.map(p=>capsuleOnly?[p[0]+Math.sin(p[3])*length/2,p[1]-Math.cos(p[3])*length/2,p[2],1,1,1,0,0,p[3]]:[p[0],-length/2,p[1],1,1,1]));
-    // Keep full-width bounds while throttle only narrows the individual plumes.
-    plume.computeBoundingSphere();
+  if(capsuleOnly){
+    for(const [radius,length,color,opacity]of [[.13,.65,'#58b9ec',.5],[.085,.42,'#a9e7ff',.65],[.045,.24,'#fff4d8',.9]]){
+      const plume=instances(flame,new THREE.ConeGeometry(radius,length,20).rotateZ(Math.PI),new THREE.MeshBasicMaterial({color,transparent:true,opacity,blending:radius>.1?THREE.NormalBlending:THREE.AdditiveBlending,depthWrite:false,toneMapped:false}),exits.map(([x,y,z,angle])=>[x+Math.sin(angle)*length/2,y-Math.cos(angle)*length/2,z,1,1,1,0,0,angle]));
+      plume.computeBoundingSphere();
+    }
+  }else{
+    const plume=instances(flame,exhaustGeometry(),exhaustMaterial(clustered?'#ffa74b':'#72b5ed'),exits.map(([x,z])=>[x,0,z,1,1,1]));
+    plume.frustumCulled=false;
+    flame.userData.jet=plume.material.uniforms.jet.value;
+    flame.userData.clustered=clustered;
   }
   flame.visible=false;group.add(flame);group.microDetails=microDetails;group.userData={...group.userData,slots,parts,ranges,separatorY,bodyTop,height:Math.max(y+(P.hasCapsule(c)?4.4:0),c.boosters&&!separated?7.2:0),flame,rcs,boosters,boosterFlames};group.updateMatrixWorld(true);const bounds=new THREE.Box3();for(const part of parts)bounds.union(new THREE.Box3().setFromObject(part));group.userData.partBounds=bounds;return group;
 }

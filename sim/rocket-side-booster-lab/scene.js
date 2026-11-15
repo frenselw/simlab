@@ -25,13 +25,12 @@ export class RocketScene{
     const planet=await createPlanet();this.relief=await createRelief(planet.sun);this.landscape=createLandscape();this.sky=createSky();this.sky.renderOrder=-10;
     this.earth=planet.earth;this.clouds=planet.clouds;this.halo=planet.halo;this.planetSun=planet.sun;this.planetOpacity=planet.opacity;this.earthMap=this.earth.material.uniforms.uMap.value;this.oceanDepth=new THREE.Mesh(this.earth.geometry,new THREE.MeshBasicMaterial({colorWrite:false,depthWrite:true,depthTest:true}));this.oceanDepth.renderOrder=-.5;this.shadowUniforms={uShadowPlanetCenter:{value:this.earth.position},uShadowPlanetRadius:{value:1},uShadowSun:{value:this.planetSun},uShadowEnabled:{value:0}};this.globalTerrain=planet.globalTerrain;this.globalTerrain.onChange=()=>this.draw();this.contactGround=createContactGround(planet.sun,this.globalTerrain.colorAt,this.siteSurface,this.relief,this.globalTerrain);this.forest=createForest(this.relief,this.globalTerrain,this.contactGround,this.landscape.occupied);this.globalTerrain.add(this.forest);const materials=new Set();this.relief.traverse(o=>{if(o.material&&o.geometry?.attributes.landFade)materials.add(o.material);});for(const material of materials)clipContact(material,this.contactGround.clipping,true);clipContact(this.globalTerrain.children[0].material,this.contactGround.clipping);
     Object.assign(this.earth.material.uniforms,this.contactGround.clipping);this.earth.material.fragmentShader=siteSurfaceShader+'uniform vec3 uContactCenter;uniform float uContactRadius;\n'+this.earth.material.fragmentShader.replace('/* ground-contact-cut */','if(siteOpening(point)||(uContactRadius>0.0&&distance(normalize(point),uContactCenter)<uContactRadius))discard;');
-    this.launchEffects=createLaunchEffects();this.launchArmAge=0;this.launchStarted=false;this.impacts=createImpactEffects();this.effectClock=0;
+    this.launchArmAge=0;this.launchStarted=false;this.impacts=createImpactEffects();this.effectClock=0;
     const coords=[],starColors=[],sizes=[],rng=(()=>{let t=512;return()=>{t=(t*1664525+1013904223)>>>0;return t/4294967296;};})();
     for(let i=0;i<1050;i++){const a=rng()*Math.PI*2,latitude=i%4===0?(rng()-.5)*.26+Math.sin(a)*.35:Math.asin(2*rng()-1),bright=rng();coords.push(70*Math.cos(latitude)*Math.cos(a),70*Math.sin(latitude),70*Math.cos(latitude)*Math.sin(a));const color=new THREE.Color(i%7===0?'#a9d0fa':i%11===0?'#ffe0af':'#e1edf5').multiplyScalar(.35+bright*.65);starColors.push(color.r,color.g,color.b);sizes.push(bright>.97?2.4:bright>.8?1.4:.65+bright*.6);}
     const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(coords,3));geo.setAttribute('color',new THREE.Float32BufferAttribute(starColors,3));geo.setAttribute('aSize',new THREE.Float32BufferAttribute(sizes,1));this.stars=new THREE.Points(geo,new THREE.PointsMaterial({vertexColors:true,size:1,sizeAttenuation:false,transparent:true,depthWrite:false}));
     // Clip stars analytically to the globe, including cameras inside its atmosphere.
     const {uCelestial,uSunDisc,uMoonDisc}=this.sky.material.uniforms;this.starOcclusion={uPlanetCenter:{value:this.earth.position},uPlanetRadius:{value:0},uCelestial,uSunDisc,uMoonDisc};this.stars.material.onBeforeCompile=shader=>{Object.assign(shader.uniforms,this.starOcclusion,{uPixelRatio:this.starPixelRatio});shader.vertexShader='attribute float aSize;uniform float uPixelRatio;varying vec3 vStarWorld;\n'+shader.vertexShader;shader.vertexShader=shader.vertexShader.replace('gl_PointSize = size;','gl_PointSize = aSize * uPixelRatio;');shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvStarWorld=(modelMatrix*vec4(position,1.0)).xyz;');shader.fragmentShader='varying vec3 vStarWorld;uniform vec3 uPlanetCenter;uniform float uPlanetRadius,uCelestial;uniform vec4 uSunDisc,uMoonDisc;\n'+skyDisc+'\n'+shader.fragmentShader;shader.fragmentShader=shader.fragmentShader.replace('#include <alphatest_fragment>','diffuseColor.a *= 1.0-smoothstep(.12,.5,length(gl_PointCoord-.5));\n#include <alphatest_fragment>');shader.fragmentShader=shader.fragmentShader.replace('#include <clipping_planes_fragment>','#include <clipping_planes_fragment>\nvec3 center=uPlanetCenter-cameraPosition;vec3 ray=normalize(vStarWorld-cameraPosition);if(uCelestial>.5&&(discOffset(ray,uSunDisc)<uSunDisc.w||discOffset(ray,uMoonDisc)<uMoonDisc.w))discard;float along=dot(ray,center);float radius2=uPlanetRadius*uPlanetRadius;if(uPlanetRadius>0.0&&(dot(center,center)<radius2||(along>0.0&&dot(center,center)-along*along<radius2)))discard;');};this.stars.material.customProgramCacheKey=()=> 'rocket-painted-stars';
-    this.studio.add(this.launchEffects);
     this.scene.add(this.relief,this.landscape,this.sky,this.earth,this.clouds,this.halo,this.oceanDepth,this.globalTerrain,this.contactGround,this.impacts,this.stars);
     this.flightReady=true;
   }
@@ -144,6 +143,7 @@ export class RocketScene{
         const dx=piece.coast.state[0]-f.state[0],dy=piece.coast.state[1]-f.state[1],offset=new THREE.Vector3(dy*Math.cos(angle)-dx*Math.sin(angle),dx*Math.cos(angle)+dy*Math.sin(angle),piece.coast.state[2]-f.state[2]);
         piece.body.position.copy(this.rocket.position).addScaledVector(offset,units);piece.body.scale.setScalar(scale);
         const age=piece.coast.t-drop.start,base=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,0,1),angle-drop.attitude),tilt=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(piece.mount[1],0,-piece.mount[0]),M.boosterTilt(age));piece.body.quaternion.copy(base.multiply(tilt));piece.flame.visible=piece.coast.fuel>0&&piece.coast.status==='flying';
+        if(piece.flame.visible)this.drawBoosterJet(piece.flame,Math.hypot(piece.coast.state[0],piece.coast.state[1],piece.coast.state[2])-P.R,piece.coast.t);
         piece.body.visible=piece.coast.status==='flying';
         if(piece.coast.status==='impact'&&!piece.impact){piece.impact=true;this.impacts.emit(piece.coast.state,piece.coast.t,Math.max(.006,scale*6.6));}
       }
@@ -167,12 +167,32 @@ export class RocketScene{
     const old=this.lines[name];if(old){this.scene.remove(old);old.geometry.dispose();old.material.dispose();delete this.lines[name];}if(points.length<2)return;
     const geometry=new THREE.BufferGeometry().setFromPoints(points.map(q=>new THREE.Vector3(q[1]*3/P.R,q[0]*3/P.R,q[2]*3/P.R))),mat=dashed?new THREE.LineDashedMaterial({color,dashSize:.035,gapSize:.025,transparent:true,opacity:.9}):new THREE.LineBasicMaterial({color,transparent:true,opacity:.9}),line=new THREE.Line(geometry,mat);if(dashed)line.computeLineDistances();this.scene.add(line);this.lines[name]=line;
   }
-  drawEngine(rocket,f){const flame=rocket.userData.flame,lit=Boolean(f&&M.coreThrust(f)>0);flame.visible=lit;if(!lit)return;
-    const capsule=Boolean(f.capsule?.detached),throttle=f.controls.throttle,width=capsule ? .35+.65*throttle : .65+.35*throttle;
-    const lengthScale=(capsule ? .2+.8*throttle : .4+.7*throttle)*(this.reducedMotion?.9:.9+(capsule ? .03 : .08)*Math.sin(f.t*(capsule?16:9)));
-    if(capsule){const matrix=new THREE.Matrix4(),scale=new THREE.Vector3(width,lengthScale,width);for(const plume of flame.children){const half=plume.geometry.parameters.height*lengthScale/2;flame.userData.ports.forEach(([x,y,z,angle],i)=>{matrix.makeRotationZ(angle).scale(scale).setPosition(x+Math.sin(angle)*half,y-Math.cos(angle)*half,z);plume.setMatrixAt(i,matrix);});plume.instanceMatrix.needsUpdate=true;}flame.userData.width=width;return;}
-    flame.scale.y=lengthScale;
-    if(flame.userData.width!==width){const matrix=new THREE.Matrix4();for(const plume of flame.children){for(let i=0;i<plume.count;i++){plume.getMatrixAt(i,matrix);matrix.elements[0]=matrix.elements[10]=width;plume.setMatrixAt(i,matrix);}plume.instanceMatrix.needsUpdate=true;}flame.userData.width=width;}
+  drawJet(nozzle,jet,throttle,width,length,height,t){
+    const air=Math.sqrt(M.atmosphere(height)/1.225),expansion=1-air;
+    jet.set(width*(.75+.25*throttle),length*(.28+.72*Math.sqrt(throttle))*(1+.65*expansion),expansion,this.reducedMotion?0:(t%1000)*18);
+    const smoke=this.airExhaust*air*throttle;
+    if(smoke>.1)this.launchEffects?.sample(nozzle,smoke,t);
+  }
+  drawBoosterJet(flame,height,t){
+    this.drawJet(flame,flame.material.uniforms.jet.value,1,.67,8.5,height,t);
+  }
+  drawEngine(rocket,f){
+    const flame=rocket.userData.flame;
+    flame.visible=Boolean(f&&M.coreThrust(f)>0);
+    if(!flame.visible)return;
+    const throttle=f.controls.throttle,{jet,clustered,ports}=flame.userData;
+    if(jet){
+      const height=Math.hypot(f.state[0],f.state[1],f.state[2])-P.R;
+      this.drawJet(flame,jet,throttle,clustered?.46:.92,clustered?10:13,height,f.t);
+      return;
+    }
+    const width=.35+.65*throttle,length=(.2+.8*throttle)*(this.reducedMotion?.9:.9+.03*Math.sin(f.t*16));
+    const matrix=new THREE.Matrix4(),scale=new THREE.Vector3(width,length,width);
+    for(const plume of flame.children){
+      const half=plume.geometry.parameters.height*length/2;
+      ports.forEach(([x,y,z,angle],i)=>{matrix.makeRotationZ(angle).scale(scale).setPosition(x+Math.sin(angle)*half,y-Math.cos(angle)*half,z);plume.setMatrixAt(i,matrix);});
+      plume.instanceMatrix.needsUpdate=true;
+    }
   }
   drawRcs(rocket,f){
     if(!rocket)return;
@@ -184,10 +204,33 @@ export class RocketScene{
     }
   }
   drawThermal(rocket,f){
-    if(!rocket||!f?.capsule?.detached)return;const shield=rocket.userData.heatShield,e=window.RocketRecovery.reentry(f,M.atmosphere),level=f.status==='flying'&&f.capsule.chute.phase==='stowed'?Math.min(1,e.flux*100):0;
-    if(!rocket.userData.reentryEffects){rocket.userData.reentryEffects=createReentryEffects();rocket.add(rocket.userData.reentryEffects);}const effects=rocket.userData.reentryEffects;effects.visible=level>.005;const art=effects.userData;art.wakeFrame.rotation.z=f.attitude-Math.atan2(f.state[4],f.state[3])-Math.PI;art.flow.value.set(-Math.sin(f.attitude)*f.state[3]+Math.cos(f.attitude)*f.state[4],Math.cos(f.attitude)*f.state[3]+Math.sin(f.attitude)*f.state[4],0).normalize();
-    art.glow.material.opacity=level*.45*Math.max(0,-art.flow.value.y);art.skinMaterial.opacity=level*.55;art.wake.material.opacity=level*.085;art.trails.material.opacity=level*.3;
-    if(shield){const remaining=1-f.capsule.heat;shield.material.color.setRGB(.035+.045*remaining,.025+.025*remaining,.02+.015*remaining);shield.material.emissiveIntensity=level*Math.max(0,Math.cos(e.shieldAngle*Math.PI/180));}
+    if(!rocket||!f?.capsule?.detached)return;
+    const shield=rocket.userData.heatShield,e=window.RocketRecovery.reentry(f,M.atmosphere);
+    const flux=f.status==='flying'&&f.capsule.chute.phase==='stowed'?e.flux:0,level=flux/(.004+flux);
+    if(shield){
+      const remaining=1-f.capsule.heat;
+      shield.material.color.setRGB(.035+.045*remaining,.025+.025*remaining,.02+.015*remaining);
+      shield.material.emissiveIntensity=level*.38*Math.max(0,Math.cos(e.shieldAngle*Math.PI/180));
+    }
+    if(level>.01&&!rocket.userData.reentryEffects){
+      rocket.userData.reentryEffects=createReentryEffects();rocket.add(rocket.userData.reentryEffects);
+    }
+    const effects=rocket.userData.reentryEffects;
+    if(!effects)return;
+    effects.visible=level>.01;
+    const art=effects.userData;
+    art.wakeFrame.rotation.z=f.attitude-Math.atan2(f.state[4],f.state[3])-Math.PI;
+    art.flow.value.set(Math.sin(art.wakeFrame.rotation.z),-Math.cos(art.wakeFrame.rotation.z),0);
+    // Shape the leading layer around the tilted shield while the trailing gas stays in the airflow.
+    const crossflow=art.flow.value.x;
+    art.glow.position.set(-.42*crossflow,-.24*Math.max(0,art.flow.value.y)-.18*Math.abs(crossflow),0);
+    art.glow.rotation.z=-.48*crossflow;
+    art.wake.position.x=-.20*crossflow;
+    art.wakeFrame.scale.x=1+.20*Math.abs(art.flow.value.x);
+    art.wake.visible=this.quality<2;
+    art.level.value=level;
+    art.time.value=this.reducedMotion?0:(f.t%1000)*7;
+    art.skinMaterial.opacity=level*(.24+.14*Math.abs(crossflow));
   }
   drawLandingPose(rocket,f,space,primary=false){
     if(!rocket||!f?.capsule?.detached)return;if(f.status!=='landed'){delete rocket.userData.landingMotion;if(rocket.userData.landingRipple)rocket.userData.landingRipple.visible=false;return;}
@@ -294,6 +337,9 @@ export class RocketScene{
       if(separation&&blend<1){const initial=separation.body.userData.partBounds.getCenter(new THREE.Vector3());initial.y-=separation.join;target.lerp(initial,1-blend);}
       target.multiplyScalar(this.rocket.scale.y).applyQuaternion(this.rocket.quaternion).add(this.rocket.position);
       if(landingTarget)target.copy(landingTarget);
+      if(this.view==='follow'&&!f.separated&&!f.capsule?.detached&&f.t<8&&Math.abs(theta)*P.R<80){
+        target.y-=Math.max(0,agl)*(1-THREE.MathUtils.smoothstep(agl,7,52))*.001;
+      }
     }
     if(space&&f&&O.elements(f.state).r>2*P.R)distance=Math.max(distance,(O.elements(f.state).r*3/P.R+1)/Math.tan(Math.PI/9)*1.1);
     this.earth.rotation.y=.7;this.earth.rotation.z=space?0:theta;this.clouds.position.copy(this.earth.position);this.clouds.scale.copy(this.earth.scale).multiplyScalar(1.0018);this.clouds.rotation.copy(this.earth.rotation);this.clouds.rotateY(.025);
@@ -333,8 +379,19 @@ export class RocketScene{
     for(const mesh of this.landscape.landmarks)mesh.visible=Boolean(f&&!space);
     for(const rocket of [this.rocket,this.assemblyPreview])for(const mesh of rocket?.microDetails||[])mesh.visible=pixelsPerUnit*this.rocket.scale.y>18&&this.quality<2;
     this.studio.workshopFixtures.visible=factory||!f;this.studio.launchFixtures.visible=padDetails;this.studio.apron.visible=!factory;this.studio.flameTrench.visible=this.studio.trenchGrates.visible=padDetails;if(!f?.separated)this.studio.launchTower.scale.y=Math.max(.3,height/26);this.siteSurface.uLaunchCut.value=Number(padDetails&&localOpacity>=.999);
-    const atPad=Boolean(f&&this.data.live&&!factory&&['pad','flying'].includes(f.status)&&Math.abs(theta)*P.R<80&&agl<70),emitting=atPad&&M.thrust(f)>0?Math.min(1.3,M.thrust(f)/600000):0;
-    if(emitting&&!this.launchStarted){this.launchStarted=true;this.effectClock=performance.now();}this.launchEffects.emitting=emitting;const arm=Math.min(1,this.launchArmAge/(this.reducedMotion?.25:1.1));this.studio.serviceArms.rotation.y=Math.PI/2*(1-(1-arm)**3);
+    const atPad=Boolean(f&&this.data.live&&!factory&&['pad','flying'].includes(f.status)&&Math.abs(theta)*P.R<80&&agl<70);
+    const thrust=f?M.thrust(f):0,emitting=atPad?Math.min(1.65,thrust/600000)*(1-THREE.MathUtils.smoothstep(agl,16,70)):0;
+    this.airExhaust=local&&this.data.live&&altitude<18000?THREE.MathUtils.smoothstep(agl,28,55):0;
+    if(!this.launchEffects&&(emitting||this.airExhaust&&(thrust>0||this.data.other&&M.coreThrust(this.data.other)>0))){
+      this.launchEffects=createLaunchEffects();this.studio.add(this.launchEffects);
+    }
+    if(emitting&&!this.launchStarted){this.launchStarted=true;this.effectClock=performance.now();}
+    if(this.launchEffects){
+      this.launchEffects.emitting=emitting;
+      this.launchEffects.padScale=THREE.MathUtils.clamp(height/30,.7,1.8);
+      this.launchEffects.begin(this.airExhaust>0);
+    }
+    const arm=Math.min(1,this.launchArmAge/(this.reducedMotion?.25:1.1));this.studio.serviceArms.rotation.y=Math.PI/2*(1-(1-arm)**3);
     this.relief.updateDetail(this.camera,this.host.clientHeight/(2*Math.tan(THREE.MathUtils.degToRad(this.camera.fov)/2)),this.quality,Boolean(f&&!factory&&!space));
     const halfDiagonal=Math.atan(Math.tan(THREE.MathUtils.degToRad(this.camera.fov)/2)*Math.hypot(1,this.camera.aspect));
     const groundInView=!observing||this.camera.getWorldDirection(new THREE.Vector3()).y<Math.sin(halfDiagonal);
@@ -344,7 +401,12 @@ export class RocketScene{
     this.globalTerrain.precise?.update(this.camera,this.host.clientHeight/(2*Math.tan(THREE.MathUtils.degToRad(this.camera.fov)/2)),this.earth.visible&&Boolean(f),this.contactGround.clipping,f);
     this.starOcclusion.uPlanetRadius.value=this.earth.visible?this.earth.scale.x:0;this.stars.visible=space||Boolean(f&&(altitude>25000||daylight<.15));this.stars.material.transparent=true;this.stars.material.opacity=space?1:Math.max(THREE.MathUtils.smoothstep(altitude,25000,120000),(1-daylight)*.5);this.stars.material.depthWrite=false;this.stars.position.copy(this.camera.position);this.stars.scale.setScalar(this.camera.far/140);
     this.rocket.visible=(!space||Boolean(f))&&!this.assemblyPreview?.visible;
-    if(this.assemblyPreview?.visible){this.assemblyPreview.position.copy(this.rocket.position);this.assemblyPreview.quaternion.copy(this.rocket.quaternion);this.assemblyPreview.scale.copy(this.rocket.scale);}for(const flame of this.rocket.userData.boosterFlames)flame.visible=Boolean(f&&P.burning(f));this.drawEngine(this.rocket,f);
+    if(this.assemblyPreview?.visible){this.assemblyPreview.position.copy(this.rocket.position);this.assemblyPreview.quaternion.copy(this.rocket.quaternion);this.assemblyPreview.scale.copy(this.rocket.scale);}
+    for(const flame of this.rocket.userData.boosterFlames){
+      flame.visible=Boolean(f&&P.burning(f));
+      if(flame.visible)this.drawBoosterJet(flame,altitude,f.t);
+    }
+    this.drawEngine(this.rocket,f);
     this.drawEffects(f,space,theta);
     if(this.pendingImpact){this.impacts.emit(f.state,f.t,Math.max(.015,displayHeight*this.rocket.scale.y*.8),true);this.pendingImpact=false;this.impacted=true;this.effectClock=performance.now();}
     if(this.pendingBurnup){this.impacts.emit(f.state,f.t,this.rocket.scale.y*this.rocket.userData.height*.7,true,this.rocket);this.pendingBurnup=false;this.effectClock=performance.now();}
@@ -358,10 +420,10 @@ export class RocketScene{
         arrow.position.copy(center).addScaledVector(side,sign*(support+8*pixelWorld));arrow.scale.set(width,length,width);arrow.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),direction);
       }
     }
-    this.launchEffects.update(this.camera);
+    this.launchEffects?.update(this.camera);
     this.renderFrame(space,f);
   }
-  animateEffects(now){const elapsed=this.effectClock?Math.max(0,(now-this.effectClock)/1000):0,delta=Math.min(.05,elapsed);this.effectClock=now;if(!this.flightReady||this.lost||document.hidden||!this.data?.live)return false;if((this.data.running||this.rocket?.userData.landingMotion?.water)&&!this.reducedMotion&&this.quality<2&&this.data.flight&&O.elements(this.data.flight.state).height<20000)surfaceUniforms.uSurfaceTime.value=(surfaceUniforms.uSurfaceTime.value+delta)%1000;let settling=this.globalTerrain.advanceDetail(now);const frame=this.followFrame;if(frame&&frame.distance!==frame.goal){const difference=frame.goal-frame.distance;frame.distance=Math.abs(difference)<frame.goal*1e-5?frame.goal:frame.distance+difference*(1-Math.exp(-delta/(this.reducedMotion?.06:.25)));settling=true;}if(this.lastChutePhase!=='stowed'&&this.chuteFrameAge<(this.reducedMotion?.25:1.2)){this.chuteFrameAge=Math.min(this.reducedMotion?.25:1.2,this.chuteFrameAge+delta);settling=true;}for(const rocket of [this.rocket,this.otherRocket]){if(rocket?.userData.parachute?.advance(delta))settling=true;const motion=rocket?.userData.landingMotion;if(motion){const limit=this.reducedMotion?.45:6,before=motion.age;motion.age=motion.water&&!this.reducedMotion?motion.age+delta:Math.min(limit,motion.age+delta);const floating=motion.water&&!this.reducedMotion&&rocket===this.rocket&&this.view==='follow';if(before<limit||floating&&now-motion.lastDraw>=1000/(this.quality?20:30)){settling=true;motion.lastDraw=now;}}}if(settling)this.draw();if(this.data.running===false&&!['impact','destroyed'].includes(this.data.flight?.status)&&!['impact','destroyed'].includes(this.data.other?.status))return Boolean(settling);const transition=this.separation,separating=transition&&this.data.running!==false&&transition.visualAge<.6;if(separating)transition.visualAge=Math.min(.6,transition.visualAge+elapsed);const releasing=this.launchStarted&&this.launchArmAge<(this.reducedMotion?.25:1.1);if(releasing)this.launchArmAge+=delta;const vapour=this.launchEffects.advance(delta);if(this.impacts.advance(delta)||separating||releasing||vapour){this.draw();return true;}return false;}
+  animateEffects(now){const elapsed=this.effectClock?Math.max(0,(now-this.effectClock)/1000):0,delta=Math.min(.05,elapsed);this.effectClock=now;if(!this.flightReady||this.lost||document.hidden||!this.data?.live)return false;if((this.data.running||this.rocket?.userData.landingMotion?.water)&&!this.reducedMotion&&this.quality<2&&this.data.flight&&O.elements(this.data.flight.state).height<20000)surfaceUniforms.uSurfaceTime.value=(surfaceUniforms.uSurfaceTime.value+delta)%1000;let settling=this.globalTerrain.advanceDetail(now);const frame=this.followFrame;if(frame&&frame.distance!==frame.goal){const difference=frame.goal-frame.distance;frame.distance=Math.abs(difference)<frame.goal*1e-5?frame.goal:frame.distance+difference*(1-Math.exp(-delta/(this.reducedMotion?.06:.25)));settling=true;}if(this.lastChutePhase!=='stowed'&&this.chuteFrameAge<(this.reducedMotion?.25:1.2)){this.chuteFrameAge=Math.min(this.reducedMotion?.25:1.2,this.chuteFrameAge+delta);settling=true;}for(const rocket of [this.rocket,this.otherRocket]){if(rocket?.userData.parachute?.advance(delta))settling=true;const motion=rocket?.userData.landingMotion;if(motion){const limit=this.reducedMotion?.45:6,before=motion.age;motion.age=motion.water&&!this.reducedMotion?motion.age+delta:Math.min(limit,motion.age+delta);const floating=motion.water&&!this.reducedMotion&&rocket===this.rocket&&this.view==='follow';if(before<limit||floating&&now-motion.lastDraw>=1000/(this.quality?20:30)){settling=true;motion.lastDraw=now;}}}if(settling)this.draw();if(this.data.running===false&&!['impact','destroyed'].includes(this.data.flight?.status)&&!['impact','destroyed'].includes(this.data.other?.status))return Boolean(settling);const transition=this.separation,separating=transition&&this.data.running!==false&&transition.visualAge<.6;if(separating)transition.visualAge=Math.min(.6,transition.visualAge+elapsed);const releasing=this.launchStarted&&this.launchArmAge<(this.reducedMotion?.25:1.1);if(releasing)this.launchArmAge+=delta;const vapour=this.launchEffects?.advance(delta,Math.max(this.quality,Number(this.reducedMotion)),this.reducedMotion);if(this.impacts.advance(delta)||separating||releasing||vapour){this.draw();return true;}return false;}
   project(position){const p=position.clone().project(this.camera);const r=this.host.getBoundingClientRect();return {x:(p.x+1)*r.width/2,y:(1-p.y)*r.height/2,visible:p.z>=-1&&p.z<=1&&Math.abs(p.x)<.98&&Math.abs(p.y)<.98};}
   slotPoints(part=null,source=null){
     if(!this.rocket)return [];this.rocket.updateMatrixWorld();const engine=part?.startsWith('engine-'),tank=['small','medium','large'].includes(part);

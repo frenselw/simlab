@@ -3,7 +3,7 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto'),{spawn}=require('node:child_process'),AdmZip=require('adm-zip'),H=require('./position-time-browser-regression'),Pack=require('./package-rocket-explorer'),M=require('../sim/rocket-side-booster-lab/model'),P=require('../sim/rocket-side-booster-lab/parts'),O=require('../sim/rocket-side-booster-lab/orbit'),T=require('../sim/rocket-side-booster-lab/test-support');
 const World=require('./rocket-world-browser-cases');
 const Sky=require('./rocket-sky-browser-cases');
-const root=path.resolve(__dirname,'..'),slug='rocket-side-booster-lab',out=path.join(root,'output/playwright',slug),temp=fs.realpathSync(os.tmpdir()),caseNames=['layout','assembly','controls','flight','return','effects','parachute','cameras','warp','surface','landing','visual','readouts','terrain','sample','world','detail','sky','preparation','events','local-transfer','pad-quality','site-ground'];
+const root=path.resolve(__dirname,'..'),slug='rocket-side-booster-lab',out=path.join(root,'output/playwright',slug),temp=fs.realpathSync(os.tmpdir()),caseNames=['layout','assembly','controls','flight','return','effects','parachute','cameras','warp','surface','landing','visual','readouts','terrain','sample','world','detail','sky','preparation','events','local-transfer','pad-quality','site-ground','propulsion-art'];
 const report={kind:'standalone',flows:[],errors:[],loads:[],completed:false};let cdp,chrome,server,profile,extracted,touchId=1;
 const call=code=>H.evaluate(cdp,`(()=>{const app=window.__rocketApp,d=document;${code}})()`);
 async function wait(fn,label){return H.waitForCondition(fn,label,15000);}
@@ -173,6 +173,116 @@ async function parachute(base,label){
     const positions=await call('return Array.from(window.__landingHarness.cloth.geometry.attributes.position.array);');if(width===1280)finals.push(positions);await call('const h=window.__landingHarness;h.s.animateEffects=h.animate;h.s.effectClock=performance.now();delete window.__landingHarness;');report.flows.push({label,case:'parachute',width,height,fps,reduced,first,stages});
   }
   let difference=0;for(let i=0;i<finals[0].length;i++)difference=Math.max(difference,Math.abs(finals[0][i]-finals[1][i]));assert(difference<1e-5,'30/60 FPS landing difference '+difference);
+}
+
+async function propulsionArt(base,label){
+  const launch=(boosters,ignite=true)=>{
+    let state=M.change(T.launched(),{type:'workshop'});
+    for(let count=0;count<boosters;count+=2)state=M.change(state,{type:'boosters'});
+    state=M.change(state,{type:'launch'});
+    return ignite?M.change(state,{type:'ignite'}):state;
+  };
+  async function setup(state,width,height,yaw,pitch,zoom){
+    await viewport(width,height);await open(base,state);
+    await call(`const s=app.getScene();window.__propulsionClock=s.animateEffects.bind(s);s.animateEffects=()=>false;
+      s.quality=0;s.yaw=${yaw};s.pitch=${pitch};s.setZoom(${zoom});s.draw();`);
+  }
+  async function step(frames,physics=true){
+    return call(`const s=app.getScene(),render=s.renderer.render,draw=s.draw,c=app.controller;
+      c.running=s.data.running=true;s.effectClock=1000;s.renderer.render=()=>{};s.draw=()=>{};
+      try{
+        for(let i=1;i<=${frames};i++){
+          if(${physics})RocketRuntime.advanceFrame(c,.05,1);
+          if(${physics})draw.call(s);
+          window.__propulsionClock(1000+i*50);
+        }
+      }finally{s.draw=draw;s.renderer.render=render;c.running=s.data.running=false;}
+      app.controller.emit();s.draw();
+      const f=c.state.flight,o=RocketOrbit.elements(f.state);
+      return {...s.launchEffects?.userData,t:f.t,altitude:o.height,vertical:o.radial,emitting:s.launchEffects?.emitting,drawCalls:s.renderer.info.render.calls};`);
+  }
+  const pad=[];
+  for(const count of [0,2,4]){
+    await setup(launch(count,false),1280,800,2.45,.15,.94);
+    assert(await call('return app.command({type:"ignite"});'));
+    const hold=await step(26);
+    assert(hold.t===0&&hold.altitude===0&&hold.ground>0);
+    if(count===4)await shot(label+'-boosted-ignition');
+    const smoke=await step(22);
+    const paused=await call('const s=app.getScene(),before=s.launchEffects.userData.emitted;window.__propulsionClock(2800);return before===s.launchEffects.userData.emitted;');
+    pad.push({...smoke,paused});
+    if(count===4)await shot(label+'-boosted-liftoff');
+  }
+  const climbing=await step(23);
+  assert(climbing.altitude>pad[2].altitude&&climbing.vertical>pad[2].vertical);
+  await shot(label+'-boosted-climb');
+  await call('app.getScene().quality=2;');
+  const compact=await step(1,false);
+  await call('app.controller.state.flight.state[0]+=100;app.command({type:"stop"});');
+  const faded=await step(80,false);
+  await call('app.command({type:"workshop"});');
+  const reset=await call('return app.getScene().launchEffects.userData.active;');
+
+  const low=launch(4);M.advance(low,4.8);
+  low.flight.controls.angle=35;
+  await setup(low,1280,800,-.34,.08,.95);
+  const air=await step(26);
+  await shot(label+'-propulsion-ascent');
+  const trailPinned=await call(`const s=app.getScene(),mesh=s.launchEffects.children[0],f=app.controller.state.flight;
+    const centers=()=>Array.from({length:mesh.count},(_,i)=>Array.from(mesh.instanceMatrix.array.slice(i*16+12,i*16+15)));
+    const before=JSON.stringify(centers()),attitude=f.attitude;
+    f.attitude+=Math.PI/4;app.controller.emit();
+    const pinned=before===JSON.stringify(centers());
+    f.attitude=attitude;app.controller.emit();
+    return pinned;`);
+  const jet=await call(`const s=app.getScene(),f=app.getState().flight,flame=s.rocket.userData.flame;
+    const {jet}=flame.userData;if(!jet)return {};
+    const local=jet.clone();
+    const original=JSON.stringify(app.getState());
+    s.drawJet(flame,jet,1,.46,10,40000,f.t);const spread=jet.z,extended=jet.y;
+    s.drawJet(flame,jet,.25,.46,10,40000,f.t);const shorter=jet.y;
+    s.draw();
+    return {spread,local:local.z,shorter,extended,sameState:original===JSON.stringify(app.getState())};`);
+  await call('app.command({type:"jettison"});');
+  await step(12);
+  const boost=await call('const s=app.getScene();return s.boosterDrop?.pieces.map(p=>({lit:p.flame.visible,ownJet:p.flame.material.uniforms?.jet?.value.z>0}));');
+  await call('app.command({type:"stop"});');
+  const remaining=await step(22,false);
+  const stopped=await call('const s=app.getScene();return !s.rocket.userData.flame.visible&&s.rocket.userData.boosterFlames.every(p=>!p.visible);');
+
+  const entry=M.change(T.reachOrbit(),{type:'capsule-separate'}),f=entry.flight;
+  f.state=[P.R+57000,0,0,-730,7200,0];f.attitude=O.wrap(Math.atan2(f.state[4],f.state[3])+Math.PI);f.t=280;
+  f.upperStage.status='escaped';f.upperStage.controls.lit=false;f.capsule.heat=.24;
+  const entryRead=()=>call(`const s=app.getScene(),e=s.rocket.userData.reentryEffects,art=e?.userData;
+    return {visible:e?.visible,rotation:art?.wakeFrame.rotation.z,bowBend:art?.glow.rotation.z,bowShift:art?.glow.position.x,brightness:art?.level?.value,wake:art?.wake.visible,
+      shield:s.rocket.userData.heatShield.material.emissiveIntensity};`);
+  await setup(entry,1280,800,.38,.12,1.8);
+  const normal=await entryRead();await shot(label+'-propulsion-entry');
+  await setup(entry,390,844,.28,.11,1.45);
+  await call('app.controller.state.flight.attitude+=Math.PI/4;app.controller.emit();');
+  const tilted=await entryRead();await shot(label+'-boosted-entry-mobile');
+  await call('const s=app.getScene();s.quality=2;s.reducedMotion=true;s.draw();');
+  const reduced=await entryRead();
+  await call('const f=app.controller.state.flight;f.state[3]/=20;f.state[4]/=20;app.controller.emit();');
+  const slow=await entryRead();
+  const sample={label,case:'propulsion-art',pad,compact,faded,reset,air,trailPinned,jet,boost,remaining,stopped,normal,tilted,reduced,slow};
+  report.flows.push(sample);
+  assertPropulsionArt(sample);
+}
+
+function assertPropulsionArt({pad,compact,faded,reset,air,trailPinned,jet,boost,remaining,stopped,normal,tilted,reduced,slow}){
+  assert(pad.every(p=>p.ground>0&&p.active<=56&&p.paused));
+  assert(pad[0].emitted<pad[1].emitted&&pad[1].emitted<pad[2].emitted);
+  assert(compact.active>0&&compact.active<=20);
+  assert.equal(faded.active,0);assert.equal(reset,0);
+  assert(air.air>0&&air.active<=56&&trailPinned);
+  assert(jet.spread>jet.local&&jet.shorter<jet.extended&&jet.sameState);
+  assert(boost?.length===4&&boost.every(b=>b.lit&&b.ownJet));
+  assert(remaining.emitting===0&&stopped);
+  assert(normal.visible&&normal.brightness>.5&&normal.shield>tilted.shield);
+  assert(tilted.visible&&Math.abs(tilted.rotation-normal.rotation-Math.PI/4)<1e-8);
+  assert(tilted.bowBend<-.25&&tilted.bowShift<-.25&&Math.abs(normal.bowBend)<1e-8);
+  assert(reduced.visible&&!reduced.wake&&!slow.visible);
 }
 
 
@@ -673,6 +783,6 @@ async function events(base,label){
 }
 function selection(args){if(args.length>2)throw Error("Expected cases and optional delivery");const cases=args[0]?args[0].split(","):caseNames,delivery=args[1]||null;if(cases.some(name=>!caseNames.includes(name))||new Set(cases).size!==cases.length)throw Error("Unknown or repeated explorer case");if(delivery&&!["source","standalone"].includes(delivery))throw Error("Unknown explorer delivery");return{cases,delivery};}
 async function main(){const scope=selection(process.argv.slice(2));report.cases=scope.cases;report.delivery=scope.delivery;fs.mkdirSync(out,{recursive:true});try{const packageFile=Pack.build();extracted=fs.mkdtempSync(path.join(temp,'simlab-rocket-explorer-package-'));new AdmZip(packageFile).extractAllTo(extracted,true);for(const f of Pack.assets.files)assert(fs.readFileSync(path.join(root,'sim',f)).equals(fs.readFileSync(path.join(extracted,f))));const runtimeHasher=crypto.createHash('sha256');for(const f of Pack.assets.files)runtimeHasher.update(fs.readFileSync(path.join(root,'sim',f)));report.runtimeHash=runtimeHasher.digest('hex');profile=fs.mkdtempSync(path.join(temp,'simlab-rocket-explorer-chrome-'));chrome=spawn(H.findBrowser(),['--headless=new','--remote-debugging-address=127.0.0.1','--remote-debugging-port=0','--user-data-dir='+profile,'--no-first-run','--no-default-browser-check','--disable-background-networking','--use-angle=swiftshader','--enable-unsafe-swiftshader','about:blank'],{stdio:['ignore','ignore','pipe'],windowsHide:true});chrome.stderr.resume();const port=await H.devToolsPort(profile,chrome),{body:target}=await H.fetchJson('http://127.0.0.1:'+port+'/json/new?about:blank',{method:'PUT'});cdp=new H.CdpClient(target.webSocketDebuggerUrl,WebSocket,30000);await cdp.send('Page.enable');await cdp.send('Runtime.enable');cdp.on('Runtime.consoleAPICalled',e=>{if(e.type==='error')report.errors.push(e.args.map(a=>a.description||a.value||'').join(' '));});await cdp.send('Network.enable');await cdp.send('Page.bringToFront');report.engine=await cdp.send('Browser.getVersion');cdp.on('Runtime.exceptionThrown',e=>report.errors.push(e.exceptionDetails?.exception?.description||e.exceptionDetails?.text));cdp.on('Network.responseReceived',e=>{if(e.response.status>=400&&!e.response.url.endsWith('/favicon.ico'))report.loads.push(e.response.url+' '+e.response.status);});await cdp.send('Page.addScriptToEvaluateOnNewDocument',{source:'window.__lmsReads=window.__lmsWrites=window.__storageReads=window.__storageWrites=0;for(const name of ["API","API_1484_11"])Object.defineProperty(window,name,{get(){window.__lmsReads++;return new Proxy({},{get(){return()=>{window.__lmsWrites++;return "true";};}});}});for(const [method,key]of [["getItem","__storageReads"],["setItem","__storageWrites"]]){const original=Storage.prototype[method];Storage.prototype[method]=function(...args){window[key]++;return original.apply(this,args);};}'});
-for(const [label,directory]of [['source',path.join(root,'sim')],['standalone',extracted]]){if(scope.delivery&&label!==scope.delivery)continue;server=H.createServer(directory);await H.listenServer(server);const base='http://127.0.0.1:'+server.address().port;console.log('Explorer browser: '+label);const tests={layout,assembly,controls,flight,return:returnFlight,effects,parachute,cameras,warp:parachuteWarp,surface:surfaceShading,landing:capsuleLanding,visual:visualConsistency,readouts,terrain:terrainForest,sample:terrainSample,world,detail,sky,preparation,events,'local-transfer':localTransfer,'pad-quality':padQuality,'site-ground':siteGround};for(const name of scope.cases){const test=tests[name];console.log('Explorer case '+label+' '+name);await test(base,label);assert(await call('return window.__lmsReads===0&&window.__lmsWrites===0&&window.__storageReads===0&&window.__storageWrites===0;'));}await cdp.send('Page.navigate',{url:'about:blank'});await H.closeServer(server);server=null;}assert.deepEqual(report.errors,[]);assert.deepEqual(report.loads,[]);report.completed=true;console.log('Rocket explorer source and standalone passed.');
+for(const [label,directory]of [['source',path.join(root,'sim')],['standalone',extracted]]){if(scope.delivery&&label!==scope.delivery)continue;server=H.createServer(directory);await H.listenServer(server);const base='http://127.0.0.1:'+server.address().port;console.log('Explorer browser: '+label);const tests={layout,assembly,controls,flight,return:returnFlight,effects,parachute,cameras,warp:parachuteWarp,surface:surfaceShading,landing:capsuleLanding,visual:visualConsistency,readouts,terrain:terrainForest,sample:terrainSample,world,detail,sky,preparation,events,'local-transfer':localTransfer,'pad-quality':padQuality,'site-ground':siteGround,'propulsion-art':propulsionArt};for(const name of scope.cases){const test=tests[name];console.log('Explorer case '+label+' '+name);await test(base,label);assert(await call('return window.__lmsReads===0&&window.__lmsWrites===0&&window.__storageReads===0&&window.__storageWrites===0;'));}await cdp.send('Page.navigate',{url:'about:blank'});await H.closeServer(server);server=null;}assert.deepEqual(report.errors,[]);assert.deepEqual(report.loads,[]);report.completed=true;console.log('Rocket explorer source and standalone passed.');
 }finally{if(!report.completed&&cdp)try{await shot('explorer-failure');}catch(_){}fs.writeFileSync(path.join(out,'explorer-report.json'),JSON.stringify(report,null,2));await H.stopChrome(chrome,cdp);cdp?.close();if(server)await H.closeServer(server);for(const [dir,pattern]of [[profile,/^simlab-rocket-explorer-chrome-[A-Za-z0-9]+$/],[extracted,/^simlab-rocket-explorer-package-[A-Za-z0-9]+$/]])if(dir&&fs.existsSync(dir)){const safe=H.validateOwnedDirectory(dir,temp,pattern,'rocket explorer browser');fs.rmSync(safe,{recursive:true,force:false,maxRetries:5,retryDelay:200});}}}
 module.exports={caseNames,selection};if(require.main===module)main().catch(e=>{console.error(e);process.exitCode=1;});
