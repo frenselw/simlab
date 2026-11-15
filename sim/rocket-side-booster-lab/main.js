@@ -80,6 +80,13 @@ function attach(index=selectedStage,at){const s=controller.state;if(selectedPart
 
 function transfer(source,to,at){if(!source)return;selectedStage=to??source.stage;if(to===source.stage&&at===undefined){assemblyHint('零件已放回原位。');return;}const changed=command({type:'transfer',from:source.stage,to,part:source.part,ordinal:source.ordinal,at});if(!changed&&source.part==='separator')assemblyWarning('先取下太空艙及上級零件，再移除分離器。');assemblyHint(changed?stageName(source.part)+(to===null?'已放回元件箱。':'已移至'+assemblyName(to)+'。'):'這個位置未能接合，零件已放回原位。');render();}
 
+function setControlsCollapsed(collapsed){
+  d.app.classList.toggle('controls-collapsed',collapsed);
+  d.controlPanel.hidden=collapsed;
+  d.toggleFlightControls.setAttribute('aria-expanded',String(!collapsed));
+  d.toggleFlightControls.textContent=collapsed?'顯示控制':'收起控制';
+}
+
 function render(){
   if(!controller.running){physicsTime=0;warpSeconds=warpElapsed=0;}else if(!physicsTime)physicsTime=performance.now();
   const s=controller.state,editable=controller.editable,phase=EDIT_PHASE();
@@ -87,6 +94,8 @@ function render(){
   const invalidSky=Boolean(skyData&&departure()===null);
   d.skyDate.setAttribute('aria-invalid',String(invalidSky));d.skyTime.setAttribute('aria-invalid',String(invalidSky));d.skyError.hidden=!invalidSky;
   d.workshopPanel.hidden=!s||phase!=='workshop';d.flightPanel.hidden=!s||phase==='workshop';d.flightDeck.hidden=d.flightReadoutBar.hidden=d.flightPanel.hidden;if(d.flightDeck.hidden){closeWarpMenu();closeBodyMenu();}d.learningNotes.hidden=!s;
+  d.toggleFlightControls.hidden=!s?.flight||s.flight.status==='pad';
+  if(d.toggleFlightControls.hidden&&d.controlPanel.hidden)setControlsCollapsed(false);
   d.partsGrid.querySelectorAll('[data-part]').forEach(b=>b.setAttribute('aria-pressed',String(selectedPart===b.dataset.part)));
   if(s){d.payloadMass.textContent=210;
     if(!d.workshopPanel.hidden){selectedStage=Math.min(selectedStage,s.craft.stages.length-1);const complete=P.complete(s.craft),mass=P.mass({capsule:RocketRecovery.fresh(),craft:s.craft,separated:false,boosters:s.craft.boosters?{status:'ready',fuel:P.BOOSTER.fuel}:null,fuel:s.craft.stages.map(P.capacity)}),twr=P.twr(s.craft);d.massValue.textContent=fmt(mass,0)+' kg';d.launchThrustValue.textContent=complete?fmt((P.ENGINES[s.craft.stages[0].engine].thrust+((s.craft.boosters||0)*P.BOOSTER.thrust))/1000,0)+' kN':'—';d.twrValue.textContent=complete?fmt(twr,2):'—';d.launchButton.disabled=!complete||!launchAllowed();d.clearCraft.disabled=renderLost||!s.craft.separator&&!P.hasCapsule(s.craft)&&s.craft.stages.every(st=>st.engine===null&&st.small+(st.medium||0)+st.large===0);const missing=s.craft.stages.findIndex(st=>!P.stageComplete(st));d.designHint.textContent=missing>=0?(assemblyName(missing)+(s.craft.stages[missing].engine===null?'：先安裝引擎。':'：向上加至少一個燃料箱。')):!P.hasCapsule(s.craft)?(s.craft.stages.length===1?'可加燃料箱或分離器；最後裝太空艙。':'上級已齊備；最後裝上太空艙即可發射。'):twr<=1?'推力暫時未能克服重量。可以照樣試點火，或調整設計。':'可以試飛了！燃料更多亦會令火箭更重，試試找平衡。';}
@@ -193,7 +202,7 @@ function positionTargets(workshop){
 
 function togglePlay(){if(controller.running)controller.pause();else if(!renderLost)controller.play();}
 function controls(key,value){command({type:'control',key,value});}
-d.launchButton.addEventListener('click',()=>{if(!launchAllowed())return;const utc=departure();if(skyData&&utc===null){d.skySettings.open=true;(d.skyDate.validity.valid&&d.skyDate.value?d.skyTime:d.skyDate).focus();return;}skyStart=utc??Sky.DEFAULT_START;if(command({type:'launch'})){setView('follow');toast('已到發射台。按「點火」，開始試飛。');}});d.returnWorkshop.addEventListener('click',()=>{if(command({type:'workshop'})){setView('factory');render();}});
+d.launchButton.addEventListener('click',()=>{if(!launchAllowed())return;const utc=departure();if(skyData&&utc===null){d.skySettings.open=true;(d.skyDate.validity.valid&&d.skyDate.value?d.skyTime:d.skyDate).focus();return;}skyStart=utc??Sky.DEFAULT_START;if(command({type:'launch'})){setView('follow',true);toast('已到發射台。按「點火」，開始試飛。');}});d.returnWorkshop.addEventListener('click',()=>{if(command({type:'workshop'})){setView('factory');render();}});
 for(const input of [d.skyDate,d.skyTime])input.addEventListener('input',render);
 d.clearCraft.addEventListener('click',()=>{if(command({type:'clear-craft'})){selectedStage=0;selectedPart=null;assemblyHint('已拆除全部元件，可以重新組裝。');render();d.partsGrid.querySelector('[data-part="engine-0"]').focus({preventScroll:true});}});
 [d.slot0,d.slot1].forEach((b,i)=>b.addEventListener('click',()=>{selectedInstalled=null;selectStage(scene?.slotPoints(selectedPart)[i]?.stage??i);}));
@@ -243,7 +252,8 @@ document.addEventListener('pointerdown',e=>{if(!d.timeWarpControl.contains(e.tar
 for(const event of ['fullscreenchange','webkitfullscreenchange'])document.addEventListener(event,()=>closeWarpMenu());
 window.addEventListener('resize',()=>closeWarpMenu());
 window.addEventListener('blur',()=>closeWarpMenu());
-document.querySelectorAll('[data-camera-view]').forEach(b=>b.addEventListener('click',()=>{interaction?.cancel();setView(b.dataset.cameraView);}));
+d.toggleFlightControls.addEventListener('click',()=>{interaction?.cancel();setControlsCollapsed(!d.controlPanel.hidden);});
+document.querySelectorAll('[data-camera-view]').forEach(b=>b.addEventListener('click',()=>{interaction?.cancel();setView(b.dataset.cameraView,b.dataset.cameraView==='follow');}));
 // Visible iframe/native-control focus changes must not stop flight; visibility owns background pause.
 window.addEventListener('blur',()=>interaction?.cancel());document.addEventListener('visibilitychange',()=>{lastFrame=0;if(document.hidden){interaction?.cancel();if(controller.running)controller.pause();closeSound();}syncSound();});window.addEventListener('resize',()=>{interaction?.cancel();renderScene();});
 controller.start();view='factory';

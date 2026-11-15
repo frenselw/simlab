@@ -168,6 +168,20 @@
 
 @media(min-width:640px) and (max-width:959px) and (max-height:519px){.workspace{grid-template-rows:minmax(0,1fr)}}
 
+#toggleFlightControls{position:absolute;right:8px;bottom:calc(60px + env(safe-area-inset-bottom));z-index:12;min-height:44px;padding:4px 8px;font-size:12px;white-space:nowrap;background:#fffefaed}
+.controls-collapsed .workspace{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto}
+.controls-collapsed .controls-pane{border-left:0}
+.controls-collapsed .deck-readouts{max-width:480px;margin-inline:auto}
+.controls-collapsed .flight-toolbar .primary-actions{display:none}
+@media(max-width:639px) and (max-height:519px){
+ #toggleFlightControls{bottom:max(8px,env(safe-area-inset-bottom))}
+ .stage:has(#toggleFlightControls:not([hidden])) .direction-legend{display:none}
+}
+@media(max-width:719px){
+ .controls-collapsed .sim-header:has(.flight-toolbar:not([hidden])){grid-template-rows:44px}
+ .controls-collapsed .sim-header:has(.flight-toolbar:not([hidden]))>#fullscreenStatus{grid-row:2}
+}
+
 /* Keep camera controls inside the visible WebGL stage, above its drawing layer. */
 .stage-footer{z-index:12;bottom:max(8px,env(safe-area-inset-bottom))}.orbit-legend{bottom:calc(51px + max(8px,env(safe-area-inset-bottom)))}
 .sky-settings label{display:block;font-size:14px;margin-top:6px}

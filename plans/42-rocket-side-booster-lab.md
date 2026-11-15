@@ -133,3 +133,11 @@ variant固定0；records=[record|null]，未作答合法。
 使用者已選定固定推力固體助推器、手動分離及主引擎獨立油門，並要求新增一種燃料箱與一款引擎。完整設計已移至[擴充實施計劃](42-rocket-side-booster-expansion-plan.md)，取代本頁先前助推器分析；包含候選數值、操作限制、實際影響範圍、phase／schema／legacy政策及驗收。
 
 本頁上方實測及hash仍屬未擴充副本；同名交付ZIP現已重建，請以擴充計劃及最新報告的hash核對。
+
+## 高空跟隨與收合控制台
+
+現行獨立版以同一個地球模型呈現高空跟隨。地球邊緣接近鏡框時，自動跟隨逐步向地球傾斜，遠裁切隨實際位置涵蓋地球。手動轉鏡從當前畫面開始，重按「跟隨」恢復自動構圖。全景與軌道正視以可用闊高容納地球及當前飛船位置。
+
+離台後可用「收起控制／顯示控制」切換。收合時保留飛行時間、軌道讀數、暫停、時間倍率及鏡頭掣；控制台收合屬當前頁面的顯示狀態。飛行模型、素材及獨立版打包依賴沿用現行版本。
+
+沿用現有測試登記的 `rocket-side-booster-browser-regression.js`，新增 `distant-camera` 案例。驗證來源與解壓獨立版的 98,500 km 跟隨、手動轉鏡及重置、軌道正視、手機直橫向與桌面收合／展開、暫停與時間倍率。受影響測試選取及實測證據留於 `output/reports/rocket-distant-camera-committed-selection.txt` 和 `output/playwright/rocket-side-booster-lab/explorer-report.json`。

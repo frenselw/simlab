@@ -65,9 +65,15 @@ export class RocketScene{
     if(slow){this.quality++;this.sampleAfter=now+5000;this.resize();}
   }
   resetFrameSample(){this.frameSamples.length=0;this.sampleAfter=0;}
-  setView(view,reset=false){if(view==='factory'&&reset)this.factoryHeight=13;this.cameraViews.set(this.view,{yaw:this.yaw,pitch:this.pitch,zoom:this.zoom});const saved=!reset&&this.cameraViews.get(view);this.view=view;Object.assign(this,saved||{yaw:view==='sky'?0:view==='plane'?0:view==='orbit'?.7:view==='follow'?-.65:.55,pitch:view==='sky'?1.0:view==='plane'?0:view==='orbit'?.48:.18,zoom:1});this.draw();}
+  setView(view,reset=false){if(view==='factory'&&reset)this.factoryHeight=13;if(view==='follow'&&reset)this.followManual=false;this.cameraViews.set(this.view,{yaw:this.yaw,pitch:this.pitch,zoom:this.zoom});const saved=!reset&&this.cameraViews.get(view);this.view=view;Object.assign(this,saved||{yaw:view==='sky'?0:view==='plane'?0:view==='orbit'?.7:view==='follow'?-.65:.55,pitch:view==='sky'?1.0:view==='plane'?0:view==='orbit'?.48:.18,zoom:1});this.draw();}
   setZoom(value){if(Number.isFinite(value)){const next=Math.max(.4,Math.min(2.5,value));if(next!==this.zoom){this.zoom=next;this.cameraDirty=true;}}return this.zoom;}
-  rotate(dx,dy,draw=true){this.yaw+=dx*.008;const observing=this.view==='sky',limit=observing?1.56:1.5;this.pitch=Math.max(-limit,Math.min(limit,this.pitch+(observing?-dy:dy)*.006));this.cameraDirty=true;if(draw)this.draw();}
+  rotate(dx,dy,draw=true){
+    if(this.view==='follow'&&!this.followManual&&(dx||dy)){
+      this.pitch=this.followPitch??this.pitch;
+      this.followManual=true;
+    }
+    this.yaw+=dx*.008;const observing=this.view==='sky',limit=observing?1.56:1.5;this.pitch=Math.max(-limit,Math.min(limit,this.pitch+(observing?-dy:dy)*.006));this.cameraDirty=true;if(draw)this.draw();
+  }
   drawSky(frame,space,angle){
     const u=this.sky.material.uniforms;
     u.uCelestial.value=Number(Boolean(frame));
@@ -351,7 +357,11 @@ export class RocketScene{
         }
       }
     }
-    if(space&&f&&O.elements(f.state).r>2*P.R)distance=Math.max(distance,(O.elements(f.state).r*3/P.R+1)/Math.tan(Math.PI/9)*1.1);
+    if(space){
+      const halfFrame=Math.atan(Math.tan(Math.PI/9)*Math.min(1,this.camera.aspect));
+      const radius=Math.max(3.4,this.rocket.position.distanceTo(target)+.6);
+      distance=Math.max(distance,radius/Math.sin(halfFrame));
+    }
     this.earth.rotation.y=.7;this.earth.rotation.z=space?0:theta;this.clouds.position.copy(this.earth.position);this.clouds.scale.copy(this.earth.scale).multiplyScalar(1.0018);this.clouds.rotation.copy(this.earth.rotation);this.clouds.rotateY(.025);
     const angle=space?0:theta,{mission,skyStart,skyData}=this.data;
     this.skyUtc=mission?skyStart+mission.t*1000:null;
@@ -365,7 +375,14 @@ export class RocketScene{
     this.globalTerrain.position.copy(this.earth.position);this.globalTerrain.scale.copy(this.earth.scale);this.globalTerrain.rotation.copy(this.earth.rotation);this.globalTerrain.rotateY(-.7);this.globalTerrain.updateMatrixWorld(true);surfaceUniforms.uSurfaceRotation.value.setFromMatrix4(this.globalTerrain.matrixWorld).multiplyScalar(1/this.globalTerrain.scale.x);surfaceUniforms.uSurfaceDetail.value=[1,.55,0][this.quality];
     // Keep model scale and staging independent of the user camera distance.
     const observing=this.view==='sky'&&Boolean(f),follow=observing?this.cameraViews.get('follow'):null;
-    const cameraYaw=observing?follow?.yaw??-.65:this.yaw,cameraPitch=observing?follow?.pitch??.18:this.pitch;
+    const cameraYaw=observing?follow?.yaw??-.65:this.yaw;
+    let cameraPitch=observing?follow?.pitch??.18:this.pitch;
+    if(f&&this.view==='follow'&&!this.followManual){
+      const earthRadius=Math.asin(P.R/(P.R+altitude));
+      // Keep the limb below the craft as the globe recedes.
+      cameraPitch=Math.max(cameraPitch,Math.PI/2-earthRadius-THREE.MathUtils.degToRad(7));
+    }
+    if(this.view==='follow')this.followPitch=cameraPitch;
     distance/=observing?follow?.zoom??1:this.zoom;
     const positionCamera=pitch=>this.camera.position.copy(target).add(new THREE.Vector3(Math.sin(cameraYaw)*Math.cos(pitch)*distance,Math.sin(pitch)*distance,Math.cos(cameraYaw)*Math.cos(pitch)*distance));positionCamera(cameraPitch);
     let cameraClearance=Infinity;
@@ -375,7 +392,8 @@ export class RocketScene{
       cameraClearance=clearance();
       if(cameraClearance<margin){let low=cameraPitch,high=Math.PI/2;for(let i=0;i<16;i++){const pitch=(low+high)/2;positionCamera(pitch);if(clearance()<margin)low=pitch;else high=pitch;}positionCamera(high);cameraClearance=clearance();}
     }
-    this.camera.near=space?.05:factory||!f?.1:Math.max(.0001,Math.min(distance*.05,cameraClearance*.25));this.camera.far=space?Math.max(150,distance*4):factory||!f?500:Math.max(20000,distance*6);
+    this.camera.near=space?.05:factory||!f?.1:Math.max(.0001,Math.min(distance*.05,cameraClearance*.25));
+    this.camera.far=space?Math.max(150,distance*4):factory||!f?500:Math.max(20000,this.camera.position.distanceTo(this.earth.position)+this.halo.scale.x);
     this.camera.fov=observing?40/Math.sqrt(this.zoom):40;
     if(observing)target.copy(this.camera.position).add(new THREE.Vector3(Math.sin(this.yaw)*Math.cos(this.pitch),Math.sin(this.pitch),Math.cos(this.yaw)*Math.cos(this.pitch)));
     this.camera.lookAt(target);this.camera.updateProjectionMatrix();this.camera.updateMatrixWorld();
