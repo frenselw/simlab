@@ -108,12 +108,11 @@
       c.touchdown=contactVelocity(next,f.t+used);
       f.status=Math.hypot(next[3],next[4])<20?'landed':'impact';
       const r=Math.hypot(next[0],next[1]),ground=S.radius(next,f.t+used);next[0]*=ground/r;next[1]*=ground/r;next[3]=next[4]=0;break;}}}
-    if(Math.hypot(next[0],next[1])>P.R+1e8){let lo=0,hi=h;for(let j=0;j<32;j++){const mid=(lo+hi)/2;if(Math.hypot(...integrate(mid).slice(0,2))<=P.R+1e8)lo=mid;else hi=mid;}used=lo;next=integrate(lo);f.status='escaped';}
     f.state=next;f.t+=dt;c.fuel=Math.max(0,c.fuel-flow*used);
     const end=O.elements(next),entry=reentry(f,atmosphere);
     // shortcut: normalized thermal dose, not material temperature; recalibrate for lifting reentry.
     c.heat=Math.min(1,c.heat+entry.flux*used*(entry.protected?.15:1.5));
-    if(c.heat>=1)f.status='destroyed';if(end.height>=1e8){f.status='escaped';}
+    if(c.heat>=1)f.status='destroyed';
     if(terminal(f)||c.fuel<=1e-8)f.controls.lit=false;
     if(f.status==='destroyed')report?.(f.status,f.t,f);
     else if(f.status==='landed'||f.status==='impact')report?.(f.status,startTime+used,f);
@@ -133,7 +132,7 @@
     if(f.t-u.auto.separatedAt<10||gap<50){u.auto.mode='waiting';return;}
     u.controls.mode='retrograde';const error=Math.abs(angleDelta(targetAttitude(u),u.attitude));u.auto.mode=error>5*Math.PI/180?'turning':'burning';u.controls.lit=u.auto.mode==='burning';u.controls.throttle=Math.min(.2,Math.max(.005,(o.hp-60000)/1e6));
   }
-  function advance(s,seconds,budget,step,atmosphere,report){const f=s.flight,start=f.t,target=Math.min(604800,start+seconds);let steps=0;
+  function advance(s,seconds,budget,step,atmosphere,report){const f=s.flight,start=f.t,target=start+seconds;let steps=0;
     while(f.t<target-1e-9&&steps<budget){const u=f.upperStage,wasLit=u?.controls.lit;program(f);if(u?.controls.lit&&!wasLit)report?.('ignite',f.t,u);const bodies=[f,u].filter(b=>b&&!terminal(b)),fine=bodies.some(b=>b.controls.lit||O.elements(b.state).height<=120000)||['waiting','turning','burning'].includes(u?.auto.mode);let dt=Math.min(fine?.1:2,target-f.t);if(u&&!terminal(f)&&!terminal(u)){const distance=Math.hypot(f.state[0]-u.state[0],f.state[1]-u.state[1]),reach=stageHeight(u)+10;const relative=Math.hypot(f.state[3]-u.state[3],f.state[4]-u.state[4]);if(distance<=reach+1)dt=Math.min(dt,.02,.25/Math.max(1,relative));else if(relative>0)dt=Math.min(dt,(distance-reach)/relative);}for(const b of bodies){const o=O.elements(b.state);if(o.height>120000&&o.radial<0)dt=Math.min(dt,Math.max(.001,(o.height-120000)/-o.radial));}stepCapsule(f,dt,atmosphere,report);if(u&&!terminal(u)){for(let j=0;j<3&&u.t<f.t-1e-9&&!terminal(u);j++)step(u,Math.min(dt,f.t-u.t));const hitTime=u.t;u.t=f.t;const o=O.elements(u.state);u.heat=Math.min(1,u.heat+Math.sqrt(atmosphere(o.height))*(o.speed/7800)**3*dt*.25);if(u.heat>=1){u.status='destroyed';u.controls.lit=false;}if(u.status==='destroyed')report?.(u.status,u.t,u);else if(u.status==='impact')report?.(u.status,hitTime,u);if(terminal(u))u.auto.mode='done';}if(u){u.t=f.t;settle(u);}resolveContact(f);steps++;if(terminal(f)&&(!u||terminal(u))){s.phase='ended';break;}}
     return {elapsed:f.t-start,steps,limited:f.t<target-1e-7};
   }

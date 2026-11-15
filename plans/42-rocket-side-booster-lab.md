@@ -141,3 +141,11 @@ variant固定0；records=[record|null]，未作答合法。
 離台後可用「收起控制／顯示控制」切換。收合時保留飛行時間、軌道讀數、暫停、時間倍率及鏡頭掣；控制台收合屬當前頁面的顯示狀態。飛行模型、素材及獨立版打包依賴沿用現行版本。
 
 沿用現有測試登記的 `rocket-side-booster-browser-regression.js`，新增 `distant-camera` 案例。驗證來源與解壓獨立版的 98,500 km 跟隨、手動轉鏡及重置、軌道正視、手機直橫向與桌面收合／展開、暫停與時間倍率。受影響測試選取及實測證據留於 `output/reports/rocket-distant-camera-committed-selection.txt` 和 `output/playwright/rocket-side-booster-lab/explorer-report.json`。
+
+現行深空航行移除 100,000 km 和七個模擬日的截停。全景與軌道正視使用正交投影；預測橢圓以偏近點角取樣，虛線以畫面像素定長，飛船圖示維持可辨尺寸。雙指移動中點可平移，拉開可在中點縮放；「地球／飛船」可定位，重按當前鏡頭回到自動構圖。手機仍先載入 2K 地球貼圖，放大至足夠尺寸時按需換成現有 4K 貼圖。
+
+在原 `distant-camera` 和模型測試覆蓋越過舊界線、325,400 km 長橢圓、原生兩點觸控平移及縮放、定位與 4K 按需載入。軌道正視保留實際比例的地球和軌道；飛船模型按畫面尺寸放大，逃逸路徑預覽隨當前距離延展。
+
+本機驗證報告為 `output/reports/rocket-deep-orbit-browser.json`（來源與獨立版）及 `output/reports/rocket-deep-orbit-world.json`（地球渲染與平板畫素倍率）。
+
+飛行工具列並排點火、分離、降落傘及「收起／顯示控制」。手機將四個操作等寬放在頂部第二行，維持至少 44px 的觸控高度；收合時仍可從工具列操作。

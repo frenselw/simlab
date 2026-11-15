@@ -21,14 +21,14 @@ async function layout(base,label){
     const r=await call('const rect=e=>e.getBoundingClientRect().toJSON(),header=rect(d.querySelector("header"));return{header,stage:rect(d.getElementById("stage")),panel:rect(d.getElementById("controlPanel")),title:d.title,text:d.body.textContent,root:[d.scrollingElement.scrollWidth,d.scrollingElement.scrollHeight],controls:["soundButton","fullscreenButton"].map(id=>rect(d.getElementById(id))),assessment:d.querySelectorAll("#taskNav,#taskBrief,#recordsPanel,#attemptStatus,#checkButton,#submitButton,#recordA").length,scripts:[...d.scripts].map(e=>e.src),guide:d.getElementById("learningNotes").open};');
     assert.equal(r.title,'小小航天家：火箭升空與返航');assert.equal(r.assessment,0);assert(!/提交|計分|滿分|分數|評分|尚未提交|Moodle|側助推器實驗版/.test(r.text));assert(!r.scripts.some(s=>/scorm|activity-flow|scoring|persistence/.test(s)));assert(r.header.height<=54,JSON.stringify(r.header));assert(r.root[0]<=width+1&&r.root[1]<=height+1);assert(r.stage.height>100&&r.panel.height>=100);for(const b of r.controls)assert(b.width>=44&&b.height>=44&&b.right<=width&&b.bottom<=r.header.bottom);assert(!r.guide);await shot(label+'-explorer-workshop-'+width+'x'+height);report.flows.push({label,case:'layout',phase:'workshop',width,height,header:r.header,stage:r.stage,panel:r.panel});
     const state=M.change(T.reachOrbit(),{type:'capsule-separate'});state.flight.upperStage.auto.mode='manual';await open(base,state);
-    const f=await call('const rect=e=>e.getBoundingClientRect().toJSON(),panel=d.getElementById("controlPanel"),header=d.querySelector("header");return{header:rect(header),identity:rect(header.querySelector("h1")),stage:rect(d.getElementById("stage")),panel:rect(panel),controls:["bodySelect","playButton","igniteButton","separateButton","chuteArm","timeWarp","soundButton","fullscreenButton"].map(id=>({id,rect:rect(d.getElementById(id)),inHeader:header.contains(d.getElementById(id))})),first:d.getElementById("flightPanel").firstElementChild.id,scroll:panel.scrollTop,root:[d.scrollingElement.scrollWidth,d.scrollingElement.scrollHeight]};');
+    const f=await call('const rect=e=>e.getBoundingClientRect().toJSON(),panel=d.getElementById("controlPanel"),header=d.querySelector("header");return{header:rect(header),identity:rect(header.querySelector("h1")),stage:rect(d.getElementById("stage")),panel:rect(panel),controls:["bodySelect","playButton","igniteButton","separateButton","chuteArm","toggleFlightControls","timeWarp","soundButton","fullscreenButton"].map(id=>({id,rect:rect(d.getElementById(id)),inHeader:header.contains(d.getElementById(id))})),first:d.getElementById("flightPanel").firstElementChild.id,scroll:panel.scrollTop,root:[d.scrollingElement.scrollWidth,d.scrollingElement.scrollHeight]};');
     assert.equal(f.first,'flightControls');assert.equal(f.scroll,0);assert(f.stage.height>100&&f.panel.height>=100,JSON.stringify(f));assert(f.root[0]<=width+1&&f.root[1]<=height+1);assert(f.header.height<=(width<720?100:width<960?104:54),JSON.stringify(f.header));
     for(const b of f.controls){const q=b.rect;assert(b.inHeader&&q.width>=44&&q.height>=44&&q.left>=0&&q.right<=width&&q.top>=f.header.top&&q.bottom<=f.header.bottom,JSON.stringify(b));for(const other of f.controls){if(b===other)continue;const z=other.rect;assert(Math.min(q.right,z.right)-Math.max(q.left,z.left)<=.5||Math.min(q.bottom,z.bottom)-Math.max(q.top,z.top)<=.5,'Overlapping '+b.id+' '+other.id);}}
-    if(width<720){const byId=Object.fromEntries(f.controls.map(c=>[c.id,c.rect])),top=byId.bodySelect.top;for(const id of ['playButton','timeWarp','soundButton','fullscreenButton'])assert(Math.abs(byId[id].top-top)<1);assert(f.identity.right<=byId.bodySelect.left&&f.identity.top>=top&&f.identity.bottom<=byId.bodySelect.bottom);for(const id of ['igniteButton','separateButton','chuteArm'])assert(byId[id].top>=byId.bodySelect.bottom&&Math.abs(byId[id].top-byId.igniteButton.top)<1);}
+    if(width<720){const byId=Object.fromEntries(f.controls.map(c=>[c.id,c.rect])),top=byId.bodySelect.top;for(const id of ['playButton','timeWarp','soundButton','fullscreenButton'])assert(Math.abs(byId[id].top-top)<1);assert(f.identity.right<=byId.bodySelect.left&&f.identity.top>=top&&f.identity.bottom<=byId.bodySelect.bottom);const actions=['igniteButton','separateButton','chuteArm','toggleFlightControls'].map(id=>byId[id]);assert(actions.every((q,i)=>q.top>=byId.bodySelect.bottom&&Math.abs(q.top-actions[0].top)<1&&Math.abs(q.width-actions[0].width)<1&&(!i||q.left>=actions[i-1].right-.5)),JSON.stringify(actions));}
     await click('#timeWarp');await click('[data-time-warp="1000"]');const longLabel=await call('const b=d.getElementById("timeWarp").getBoundingClientRect(),t=d.getElementById("timeWarpLabel").getBoundingClientRect();return{button:b.toJSON(),text:t.toJSON(),value:d.getElementById("timeWarp").value};');assert.equal(longLabel.value,'1000');assert(longLabel.text.left>=longLabel.button.left&&longLabel.text.right<=longLabel.button.right);await click('#timeWarp');await click('[data-time-warp="1"]');
     if(width<720){const stable=await call('const h=d.querySelector("header"),before=h.getBoundingClientRect().height,row=h.classList.contains("sim-fullscreen-header-row");h.classList.toggle("sim-fullscreen-header-row",!row);const after=h.getBoundingClientRect().height;h.classList.toggle("sim-fullscreen-header-row",row);return before===after;');assert(stable);}
     await shot(label+'-explorer-toolbar-'+width+'x'+height);await call('d.getElementById("controlPanel").scrollTop=10000;');const after=await call('return d.getElementById("igniteButton").getBoundingClientRect().top;');assert.equal(after,f.controls.find(b=>b.id==='igniteButton').rect.top);await call('d.getElementById("controlPanel").scrollTop=0;');
-    await click('#bodySelect');assert(await call('return !d.getElementById("bodyMenu").hidden;'));await click('[data-control-body="upper"]');assert(await call('return app.getState().flight.controlled==="upper"&&d.getElementById("chuteArm").disabled&&d.getElementById("controlPanel").scrollTop===0;'));await click('#bodySelect');await click('[data-control-body="main"]');await click('#chuteArm');assert(await call('return app.getState().flight.capsule.chute.armed&&d.getElementById("chuteArm").disabled;'));
+    await click('#bodySelect');assert(await call('return !d.getElementById("bodyMenu").hidden;'));await click('[data-control-body="upper"]');assert(await call('return app.getState().flight.controlled==="upper"&&d.getElementById("chuteArm").disabled&&d.getElementById("controlPanel").scrollTop===0;'));await click('#bodySelect');await click('[data-control-body="main"]');await click('#chuteArm');assert(await call('return app.getState().flight.capsule.chute.armed&&d.getElementById("chuteArm").disabled;'));if(width<720)assert(await call('const button=d.getElementById("chuteArm"),box=button.getBoundingClientRect(),range=d.createRange();range.selectNodeContents(button);const label=range.getBoundingClientRect();return label.left>=box.left&&label.right<=box.right;'));
     if(width===1280||width===390&&height===844){await click('#fullscreenButton');assert(await call('return Boolean(d.fullscreenElement);'));await click('#timeWarp');await click('[data-time-warp="20"]');assert(await call('return Boolean(d.fullscreenElement)&&d.getElementById("timeWarp").value==="20";'));await click('#bodySelect');await click('[data-control-body="upper"]');assert(await call('return Boolean(d.fullscreenElement)&&app.getState().flight.controlled==="upper";'));await click('#bodySelect');await click('[data-control-body="main"]');await click('#fullscreenButton');assert(!await call('return Boolean(d.fullscreenElement);'));}
     report.flows.push({label,case:'layout',phase:'detached',width,height,...f,toolbarFixedOnScroll:true,nativeBodyAndChute:true});
   }
@@ -840,8 +840,8 @@ async function distantCamera(base,label){
     const measure=()=>call(`const s=app.getScene(),camera=s.camera,canvas=s.host.getBoundingClientRect(),V=camera.position.constructor;
       s.draw();const earth=s.earth.position.clone().project(camera),craft=s.rocket.userData.partBounds.getCenter(new V()).applyMatrix4(s.rocket.matrixWorld).project(camera);
       const earthRadius=s.earth.scale.x,earthDistance=camera.position.distanceTo(s.earth.position);
-      const projectedRadius=earthRadius/(earthDistance*Math.tan(camera.fov*Math.PI/360));
-      const visible=(p,margin=0)=>Math.abs(p.x)+margin/camera.aspect<1&&Math.abs(p.y)+margin<1&&p.z>=-1&&p.z<=1;
+      const projectedRadius=camera.isOrthographicCamera?earthRadius/camera.top:earthRadius/(earthDistance*Math.tan(camera.fov*Math.PI/360));
+      const visible=(p,margin=0)=>Math.abs(p.x)+margin/s.perspectiveCamera.aspect<1&&Math.abs(p.y)+margin<1&&p.z>=-1&&p.z<=1;
       return{width:canvas.width,height:canvas.height,earth:visible(earth,projectedRadius),craft:visible(craft),y:earth.y,far:camera.far,
         follows:s.rocket.scale.x===.001,pitch:s.followPitch,manual:!!s.followManual,
         panel:!d.getElementById('controlPanel').hidden,expanded:d.getElementById('toggleFlightControls').getAttribute('aria-expanded'),
@@ -850,7 +850,7 @@ async function distantCamera(base,label){
     const expanded=await measure();assert(expanded.earth&&expanded.craft&&expanded.follows&&expanded.y<-.3&&expanded.far>100000&&expanded.panel,JSON.stringify(expanded));
     await click('#toggleFlightControls');
     const collapsed=await measure();
-    assert(!collapsed.panel&&!collapsed.ignition&&collapsed.expanded==='false'&&collapsed.time&&collapsed.play&&collapsed.warp,JSON.stringify(collapsed));
+    assert(!collapsed.panel&&collapsed.ignition&&collapsed.expanded==='false'&&collapsed.time&&collapsed.play&&collapsed.warp,JSON.stringify(collapsed));
     const landscape=width>=640&&height<520;
     assert(width>=960||landscape?collapsed.width>expanded.width+150:collapsed.height>expanded.height+150,JSON.stringify({expanded,collapsed}));
     assert(collapsed.earth&&collapsed.craft&&collapsed.follows,JSON.stringify(collapsed));
@@ -866,10 +866,62 @@ async function distantCamera(base,label){
       await click('#timeWarp');await click('[data-time-warp="100"]');
       await click('#playButton');await wait(()=>call('return app.controller.running&&app.getState().flight.t>46500;'),'distant coast');
       await click('#playButton');assert(!await call('return app.controller.running;'));
+      await distantNavigation(base,label,state);
     }
     await click('#toggleFlightControls');assert((await measure()).panel);
     report.flows.push({label,case:'distant-camera',width,height,expanded,collapsed,orbit});
   }
+}
+
+async function distantNavigation(base,label,state){
+  const rp=P.R+123000,ra=P.R+325400000,r=P.R+99999000,e=(ra-rp)/(ra+rp),p=rp*(1+e);
+  const angle=Math.acos((p/r-1)/e),v=Math.sqrt(P.MU/p),f=state.flight;
+  f.t=604799;f.state=[r*Math.cos(angle),r*Math.sin(angle),0,-v*Math.sin(angle),v*(e+Math.cos(angle)),0];
+  await open(base,state);
+  await click('#toggleFlightControls');await click('[data-camera-view="plane"]');
+  await wait(()=>call('return app.getScene().lines.predicted?.geometry.attributes.position.count===385;'),'full eccentric curve');
+  const snapshot=()=>call(`const s=app.getScene(),r=s.host.getBoundingClientRect(),camera=s.camera;
+    const point=o=>{const p=o.position.clone().project(camera);return{x:r.left+r.width*(1+p.x)/2,y:r.top+r.height*(1-p.y)/2};};
+    return {earth:point(s.earth),craft:point(s.rocket),center:{x:r.left+r.width/2,y:r.top+r.height/2},zoom:s.zoom,
+      marker:s.rocket.scale.x*s.rocket.userData.height*s.orbitFrame.pixelsPerUnit,
+      dash:s.lines.predicted.material.dashSize*s.orbitFrame.pixelsPerUnit,flat:camera.isOrthographicCamera,
+      texture:s.earthMap.image.width,pinch:app.diagnostics().interaction.pinch};`);
+  const start=await snapshot();
+  assert(start.flat&&Math.abs(start.marker-24)<.01&&Math.abs(start.dash-5)<.01&&start.texture===2048);
+  assert(Math.hypot(start.earth.x-start.center.x,start.earth.y-start.center.y)>20,JSON.stringify(start));
+  const gesture=async(from,to,initialSpread,finalSpread)=>{
+    const ids=[touchId++,touchId++],pair=(middle,spread)=>ids.map((id,i)=>({id,x:middle.x+(i===0?-spread:spread),y:middle.y,radiusX:2,radiusY:2,force:1}));
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:pair(from,initialSpread)});
+    for(let i=1;i<=5;i++){
+      const frac=i/5,point={x:from.x+(to.x-from.x)*frac,y:from.y+(to.y-from.y)*frac};
+      await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:pair(point,initialSpread+(finalSpread-initialSpread)*frac)});
+    }
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await H.delay(80);
+  };
+  await gesture(start.center,{x:start.center.x+52,y:start.center.y+35},34,34);
+  const panned=await snapshot();
+  assert(panned.pinch>start.pinch&&Math.abs(panned.zoom-start.zoom)<.01&&Math.abs(panned.earth.x-start.earth.x-52)<3&&Math.abs(panned.earth.y-start.earth.y-35)<3,JSON.stringify({start,panned}));
+  const anchor={x:start.center.x-38,y:start.center.y+42};
+  const relative={x:panned.earth.x-anchor.x,y:panned.earth.y-anchor.y};
+  await gesture(anchor,anchor,32,64);
+  const zoomed=await snapshot();
+  assert(Math.abs(zoomed.zoom-panned.zoom*2)<.02&&Math.abs(zoomed.marker-panned.marker)<.01);
+  assert(Math.abs(zoomed.earth.x-anchor.x-relative.x*2)<3&&Math.abs(zoomed.earth.y-anchor.y-relative.y*2)<3,JSON.stringify({panned,zoomed}));
+  await click('[data-orbit-focus="earth"]');
+  await wait(()=>call('return app.getScene().earthMap.image.width===4096;'),'lazy 4K globe');
+  const earth=await snapshot();assert(Math.hypot(earth.earth.x-earth.center.x,earth.earth.y-earth.center.y)<1,JSON.stringify(earth));
+  await shot(label+'-deep-orbit-earth-390x844');
+  await click('[data-orbit-focus="craft"]');
+  const craft=await snapshot();assert(Math.hypot(craft.craft.x-craft.center.x,craft.craft.y-craft.center.y)<1,JSON.stringify(craft));
+  await click('[data-camera-view="plane"]');
+  assert.deepEqual((await snapshot()).earth,start.earth);
+  assert.deepEqual(await call('return app.getState();'),state);
+  await click('[data-camera-view="orbit"]');
+  await click('#timeWarp');await click('[data-time-warp="1000"]');await click('#playButton');
+  await wait(()=>call(`const f=app.getState().flight;return app.controller.running&&f.t>604800&&RocketOrbit.elements(f.state).height>1e8&&Number(d.getElementById('heightValue').textContent.replaceAll(',',''))>=100000;`),'live flight beyond old boundaries');
+  await click('#playButton');
+  await shot(label+'-deep-orbit-over-100000km-390x844');
+  report.flows.push({label,case:'distant-navigation',start,panned,zoomed,earth,craft,altitude:await call('return RocketOrbit.elements(app.getState().flight.state).height/1000;')});
 }
 
 function selection(args){if(args.length>2)throw Error("Expected cases and optional delivery");const cases=args[0]?args[0].split(","):caseNames,delivery=args[1]||null;if(cases.some(name=>!caseNames.includes(name))||new Set(cases).size!==cases.length)throw Error("Unknown or repeated explorer case");if(delivery&&!["source","standalone"].includes(delivery))throw Error("Unknown explorer delivery");return{cases,delivery};}

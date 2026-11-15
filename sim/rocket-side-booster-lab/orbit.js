@@ -9,7 +9,29 @@
   function safe(q){const o=elements(q);return o.bound&&o.hp>=150000-1;}
   function operable(q){const o=elements(q);return o.bound&&o.hp>=150000-1&&o.ha<=20000000;}
   function atAngle(o,angle){const radius=o.a*(1-o.e*o.e)/(1+o.e*Math.cos(angle-o.peri));return [radius*Math.cos(angle),radius*Math.sin(angle),0];}
-  function path(q,count=180){const o=elements(q);if(Math.abs(o.momentum)<1)return [];if(o.bound&&o.e<.99999)return Array.from({length:count+1},(_,i)=>atAngle(o,TAU*i/count));if(o.bound)return [];const p=o.momentum**2/P.MU,nu=Math.atan2(Math.sin(Math.atan2(q[1],q[0])-o.peri),Math.cos(Math.atan2(q[1],q[0])-o.peri)),limit=Math.acos(Math.max(-1,Math.min(1,(p/(P.R+1e8)-1)/o.e))),end=Math.sign(o.momentum)*limit,points=[];for(let i=0;i<=count;i++){const angle=nu+(end-nu)*i/count,r=p/(1+o.e*Math.cos(angle));if(!Number.isFinite(r)||r<=0)break;points.push([r*Math.cos(angle+o.peri),r*Math.sin(angle+o.peri),0]);if(r<P.R)break;}return points;}
+  function path(q,count=384){
+    const o=elements(q);
+    if(Math.abs(o.momentum)<1)return [];
+    if(o.bound){
+      const minor=Math.abs(o.momentum)*Math.sqrt(o.a/P.MU),c=Math.cos(o.peri),s=Math.sin(o.peri);
+      // Eccentric anomaly spaces vertices around the ellipse rather than crowding the periapsis.
+      return Array.from({length:count+1},(_,i)=>{
+        const angle=TAU*i/count,x=o.a*(Math.cos(angle)-o.e),y=minor*Math.sin(angle);
+        return [x*c-y*s,x*s+y*c,0];
+      });
+    }
+    const p=o.momentum**2/P.MU,heading=Math.atan2(q[1],q[0])-o.peri;
+    const start=Math.atan2(Math.sin(heading),Math.cos(heading));
+    const previewRadius=Math.max(P.R*8,o.r*2);
+    const limit=Math.acos(Math.max(-1,Math.min(1,(p/previewRadius-1)/o.e))),end=Math.sign(o.momentum)*limit,points=[];
+    for(let i=0;i<=count;i++){
+      const angle=start+(end-start)*i/count,r=p/(1+o.e*Math.cos(angle));
+      if(!Number.isFinite(r)||r<=0)break;
+      points.push([r*Math.cos(angle+o.peri),r*Math.sin(angle+o.peri),0]);
+      if(r<P.R)break;
+    }
+    return points;
+  }
   function timeToAngle(q,angle){
     const o=elements(q);if(!o.bound||Math.abs(o.momentum)<1)return null;
     const meanAt=a=>{const nu=wrap(a-o.peri),E=2*Math.atan2(Math.sqrt(1-o.e)*Math.sin(nu/2),Math.sqrt(1+o.e)*Math.cos(nu/2));return wrap(E-o.e*Math.sin(E));};

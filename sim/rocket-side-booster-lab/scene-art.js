@@ -22,7 +22,7 @@ async function compactAsset(name,signal,cacheMode,limit){
  const compressed=await RocketSurfaceCodec.readBytes(response.body,limit);
  return (await RocketSurfaceCodec.gunzip(compressed,limit)).slice().buffer;
 }
-let dayMap,weatherTexture,starMap,geography,terrainBuffer,globalBuffer,baseAttempted=false;
+let dayMap,weatherTexture,starMap,geography,terrainBuffer,globalBuffer,baseAttempted=false,detailedEarth;
 export async function loadFlightArt(){
  const cacheMode=baseAttempted?'reload':'default';
  baseAttempted=true;
@@ -41,6 +41,16 @@ export async function loadFlightArt(){
   surfaceUniforms.uOrbitalMap.value=dayMap;
   if(!cache.has('world-surface'))cache.set('world-surface',createWorldSurfaceTexture());
  }catch(error){abort.abort();throw error;}
+}
+export function loadDetailedEarth(){
+ if(dayMap.image.width>=4096)return Promise.resolve(dayMap);
+ detailedEarth??=artTexture('earth-4k.webp').then(texture=>{
+  texture.colorSpace=THREE.SRGBColorSpace;texture.wrapS=THREE.RepeatWrapping;
+  cache.set('earth-4k.webp',texture);cache.delete('earth-2k.webp');
+  dayMap.dispose();dayMap=surfaceUniforms.uOrbitalMap.value=texture;
+  return texture;
+ }).catch(()=>null);
+ return detailedEarth;
 }
 export async function loadRegionalSurface(signal){
  const texture=await createRegionalSurfaceTexture(signal);

@@ -1,6 +1,14 @@
  'use strict';
 const assert=require('node:assert/strict'),P=require('./parts'),M=require('./model'),O=require('./orbit'),R=require('./recovery'),T=require('./test-support');
 const q=O.circular(300000),o=O.elements(q);assert(Math.abs(o.hp-300000)<1e-6&&Math.abs(o.ha-300000)<1e-6);assert(o.e<1e-12);assert(O.safe(q));
+const peri=P.R+123000,apo=P.R+325400000,v=Math.sqrt(P.MU*(2/peri-2/(peri+apo)));
+const eccentric=[peri,0,0,0,v,0],curve=O.path(eccentric),ellipse=O.elements(eccentric);
+assert.equal(curve.length,385);
+assert(Math.abs(Math.max(...curve.map(([x,y])=>Math.hypot(x,y)))-apo)<1e-3);
+assert(curve.every((point,i)=>i===0||Math.hypot(point[0]-curve[i-1][0],point[1]-curve[i-1][1])<ellipse.a*.02));
+const escaping=O.path([P.R+300000000,0,0,3000,2000,0]);
+assert(escaping.length>2&&escaping.every(p=>p.every(Number.isFinite)));
+assert(Math.hypot(...escaping.at(-1))>P.R+300000000);
 const f=M.flight(T.launched().craft,'own',q);f.status='flying';for(let i=0;i<Math.ceil(o.period*10/2);i++)M.step(f,2);const after=O.elements(f.state);assert(Math.abs(after.energy/o.energy-1)<1e-8);assert(Math.abs(after.momentum/o.momentum-1)<1e-8);
 let s=T.reachOrbit();const before=O.elements(s.flight.state);M.advance(s,before.period+1);assert(O.safe(s.flight.state));assert(Math.abs(O.elements(s.flight.state).hp-before.hp)<.1);
 s=T.launched();s=M.change(s,{type:'control',key:'angle',value:90});M.advance(s,.1);assert(s.flight.attitude<=12*Math.PI/180*.1+1e-12);

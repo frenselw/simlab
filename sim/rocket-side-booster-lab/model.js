@@ -31,10 +31,8 @@
     else{const interval=contactInterval(y,next,dt,f,angle,options);if(interval){
       let [lo,hi]=interval;for(let i=0;i<32;i++){const mid=(lo+hi)/2,q=rk4(y,mid,f,angle,options);if(clearance(q,f.t+mid)>0)lo=mid;else hi=mid;}usedDt=hi;next=rk4(y,hi,f,angle,options);const r=Math.hypot(next[0],next[1]),ground=S.radius(next,f.t+hi);next[0]*=ground/r;next[1]*=ground/r;f.status='impact';f.controls.lit=false;next[3]=next[4]=next[5]=0;
     }else f.status='flying';}
-    if(Math.hypot(next[0],next[1])>P.R+1e8){let lo=0,hi=dt;for(let i=0;i<32;i++){const mid=(lo+hi)/2,q=rk4(y,mid,f,angle,options);if(Math.hypot(q[0],q[1])<=P.R+1e8)lo=mid;else hi=mid;}usedDt=lo;next=rk4(y,lo,f,angle,options);f.status=O.elements(next).energy>=0?'escaped':'flying';f.controls.lit=false;}
     f.state=next.slice(0,6);f.fuel[f.active]=Math.max(0,next[6]);if(f.boosters){f.boosters.fuel=Math.max(0,next[7]);if(f.boosters.status==='burning'&&f.boosters.fuel<1e-8){f.boosters.fuel=0;f.boosters.status='spent';}}f.t+=usedDt;f.maxHeight=Math.max(f.maxHeight||0,O.elements(f.state).height);
     if(f.fuel[f.active]<1e-8){f.fuel[f.active]=0;f.controls.lit=false;}
-    const o=O.elements(f.state);if(o.energy>=0&&o.radial>0&&o.height>=1e8-.01){f.status='escaped';f.controls.lit=false;}
     if(R.terminal(f))R.stopTurn(f);
     if(report){
       if(previousStatus==='pad'&&f.status==='flying')report('liftoff',f.t,f);
@@ -68,10 +66,9 @@
   function stop(s){if(s.flight)s.flight.controls.lit=false;if(s.flight&&s.flight.status==='flying')s.phase=P.burning(s.flight)?'ascent':'coast';}
   function advance(s,seconds,budget=20000,report){
     const f=s.flight;if(f?.capsule?.detached&&['ascent','coast'].includes(s.phase))return R.advance(s,seconds,budget,step,atmosphere,report);if(!f||!['pad','ascent','coast'].includes(s.phase)||['impact','escaped'].includes(f.status))return {elapsed:0,steps:0,limited:false};
-    const target=Math.min(f.t+seconds,604800),start=f.t;let steps=0;
+    const target=f.t+seconds,start=f.t;let steps=0;
     while(f.t<target-1e-9&&steps<budget){
       step(f,Math.min(target-f.t,thrust(f)>0||O.elements(f.state).height<120000?.1:2),undefined,report);steps++;
-      if(O.elements(f.state).height>=1e8-.01&&f.status==='flying')break;
       if(['impact','escaped'].includes(f.status)){s.phase='ended';break;}
     }
     if(f.status==='flying'&&!f.controls.lit&&!P.burning(f))s.phase='coast';

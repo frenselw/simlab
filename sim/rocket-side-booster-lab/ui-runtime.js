@@ -34,7 +34,7 @@
         this.emit();return true;
       }catch(_){this.notice='這個操作未能完成，請再試一次。';this.emit();return false;}
     }
-    tick(seconds,budget){if(!this.running)return null;const before=this.state.flight?.status,result=M.advance(this.state,seconds,budget,this.record);if(before==='flying'&&this.state.flight.status==='landed'||this.state.phase==='ended'||this.state.flight.t>=604800||this.state.flight.status==='flying'&&Math.hypot(...this.state.flight.state.slice(0,2))>=P.R+1e8-.01)this.running=false;return result;}
+    tick(seconds,budget){if(!this.running)return null;const before=this.state.flight?.status,result=M.advance(this.state,seconds,budget,this.record);if(before==='flying'&&this.state.flight.status==='landed'||this.state.phase==='ended')this.running=false;return result;}
     pause(){this.running=false;this.emit();}
     play(){if(this.state.flight&&!['ended','workshop'].includes(this.state.phase)){this.running=true;this.emit();}}
   }

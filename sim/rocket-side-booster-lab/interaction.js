@@ -9,12 +9,12 @@
     function down(e,kind,part){
       if(blocked||pinch||nativeGesture||touches.size>1)return;if(active){cancel();return;}if(e.isPrimary===false)return;draggedCard=null;if(e.button!==0||!api.allowed(kind)||kind==='part'&&e.pointerType==='touch'&&!e.target.closest('[data-part-handle]'))return;
       let source=null;if(kind==='installed'){const r=d.stage.getBoundingClientRect();source=api.pickPart(e.clientX-r.left,e.clientY-r.top,e.pointerType==='touch');if(source)part=source.part;else{kind='camera';if(!api.allowed(kind))return;}}
-      e.preventDefault();active={id:e.pointerId,kind,part,source,target:e.currentTarget,x:e.clientX,y:e.clientY,lastX:e.clientX,lastY:e.clientY,touch:e.pointerType==='touch',moved:false,snap:null,angle:null,returning:false,blank:kind==='camera'&&!api.pickPart(e.clientX-d.stage.getBoundingClientRect().left,e.clientY-d.stage.getBoundingClientRect().top,false),started:performance.now()};if(kind!=='camera')lastTap=null;e.currentTarget.setPointerCapture(e.pointerId);diagnostics.down++;if(e.isTrusted&&active.touch)diagnostics.trustedTouch++;
+      e.preventDefault();active={id:e.pointerId,kind,part,source,target:e.currentTarget,x:e.clientX,y:e.clientY,lastX:e.clientX,lastY:e.clientY,touch:e.pointerType==='touch',pan:e.shiftKey,moved:false,snap:null,angle:null,returning:false,blank:kind==='camera'&&!api.pickPart(e.clientX-d.stage.getBoundingClientRect().left,e.clientY-d.stage.getBoundingClientRect().top,false),started:performance.now()};if(kind!=='camera')lastTap=null;e.currentTarget.setPointerCapture(e.pointerId);diagnostics.down++;if(e.isTrusted&&active.touch)diagnostics.trustedTouch++;
       if(part){api.select(part,source);const art=d.partsGrid.querySelector('[data-part="'+part+'"] .part-art');d.dragPartGhost.replaceChildren(art.cloneNode(true),document.createElement('span'));d.dragPartGhost.lastChild.textContent=api.label(part);}
     }
     function move(e){
       if(!active||e.pointerId!==active.id)return;const a=active,rect=d.stage.getBoundingClientRect(),x=e.clientX-rect.left,y=e.clientY-rect.top;a.moved ||= Math.hypot(e.clientX-a.x,e.clientY-a.y)>6;diagnostics.move++;if(a.moved){lastTap=null;suppressClick=true;}if(a.kind==='part'&&a.moved)draggedCard=a.target;
-      if(a.kind==='camera')api.rotate(e.clientX-a.lastX,e.clientY-a.lastY);
+      if(a.kind==='camera'&&!(a.pan&&api.transformOrbit?.(1,{x:a.lastX,y:a.lastY},{x:e.clientX,y:e.clientY})))api.rotate(e.clientX-a.lastX,e.clientY-a.lastY);
       if(a.part&&a.moved){
         const panel=d.controlPanel.getBoundingClientRect();a.returning=Boolean(a.source&&e.clientX>=panel.left&&e.clientX<=panel.right&&e.clientY>=panel.top&&e.clientY<=panel.bottom);
         a.snap=a.returning?null:nearest(api.slots(a.part,a.source),x,y,30);
@@ -34,7 +34,8 @@
     function releaseTouches(){for(const id of touches.keys())try{d.cameraSurface.releasePointerCapture(id);}catch(_){}}
     function cancel(){const had=Boolean(active||pinch||nativeGesture);pinch=nativeGesture=null;lastTap=null;blocked=touches.size>0;if(had){diagnostics.cancel++;suppressClick=true;release();releaseTouches();api.end();}}
     function central(e){const r=d.cameraSurface.getBoundingClientRect();return [d.cameraSurface,d.rocketGrip,d.sceneHost,d.sceneHost.firstElementChild].includes(e.target)&&e.clientX>=r.left&&e.clientX<r.right&&e.clientY>=r.top&&e.clientY<r.bottom;}
-    function distance(){const [a,b]=[...touches.values()];return Math.hypot(a.x-b.x,a.y-b.y);}
+    function touchPair(){const [a,b]=[...touches.values()];return {x:(a.x+b.x)/2,y:(a.y+b.y)/2,span:Math.hypot(a.x-b.x,a.y-b.y)};}
+    function zoomAt(factor,origin,target=origin){if(!api.transformOrbit?.(factor,origin,target)&&factor!==1)api.zoom(api.zoom()*factor);}
     document.addEventListener('pointerdown',e=>{
       if(e.pointerType!=='touch'){if(touches.size||nativeGesture||active&&active.id!==e.pointerId){cancel();return;}suppressClick=false;if(!central(e))lastTap=null;return;}
       // A new primary touch also clears an interrupted browser sequence.
@@ -43,7 +44,7 @@
       touches.set(e.pointerId,{x:e.clientX,y:e.clientY,central:central(e)});
       if(!central(e))lastTap=null;
       if(touches.size===2&&!blocked&&[...touches.values()].every(p=>p.central)&&api.allowed('camera')){
-        const span=distance();pinch={distance:span>=24?span:null};blocked=true;suppressClick=true;lastTap=null;nativeGesture=null;release();api.end();
+        pinch=touchPair();blocked=true;suppressClick=true;lastTap=null;nativeGesture=null;release();api.end();
         for(const id of touches.keys())try{d.cameraSurface.setPointerCapture(id);}catch(_){cancel();return;}
         diagnostics.pinch++;e.preventDefault();return;
       }
@@ -51,8 +52,9 @@
     },true);
     document.addEventListener('pointermove',e=>{
       const point=touches.get(e.pointerId);if(!point)return;point.x=e.clientX;point.y=e.clientY;
-      if(!pinch)return;const span=distance();e.preventDefault();
-      if(span>=24){if(pinch.distance!==null)api.zoom(api.zoom()*span/pinch.distance);pinch.distance=span;}else pinch.distance=null;
+      if(!pinch)return;const next=touchPair();e.preventDefault();
+      const factor=next.span>=24&&pinch.span>=24?next.span/pinch.span:1;
+      zoomAt(factor,pinch,next);pinch=next;
     },{capture:true,passive:false});
     document.addEventListener('pointerup',e=>{if(pinch){pinch=null;suppressClick=true;releaseTouches();}touches.delete(e.pointerId);if(!touches.size)blocked=false;},true);
     document.addEventListener('pointercancel',e=>{touches.delete(e.pointerId);cancel();if(!touches.size)blocked=false;},true);
@@ -61,17 +63,17 @@
     d.partsGrid.addEventListener('click',e=>{if(suppressClick&&e.detail!==0){e.preventDefault();e.stopImmediatePropagation();}},true);
     d.stage.addEventListener('wheel',e=>{
       if(!central(e)||!api.allowed('camera'))return;e.preventDefault();lastTap=null;
-      if(active||touches.size||nativeGesture)return;const factor=wheelFactor(e.deltaY,e.deltaMode,d.cameraSurface.clientHeight);if(factor===1)return;api.zoom(api.zoom()*factor);diagnostics.wheel++;
+      if(active||touches.size||nativeGesture)return;const factor=wheelFactor(e.deltaY,e.deltaMode,d.cameraSurface.clientHeight);if(factor===1)return;zoomAt(factor,{x:e.clientX,y:e.clientY});diagnostics.wheel++;
     },{passive:false});
     d.stage.addEventListener('gesturestart',e=>{
       if(!central(e)||!api.allowed('camera'))return;e.preventDefault();lastTap=null;
-      if(active||touches.size||blocked)return;nativeGesture={scale:1};
+      if(active||touches.size||blocked)return;nativeGesture={x:e.clientX,y:e.clientY,scale:1};
     },{passive:false});
-    d.stage.addEventListener('gesturechange',e=>{if(!nativeGesture)return;e.preventDefault();if(Number.isFinite(e.scale)&&e.scale>0){api.zoom(api.zoom()*e.scale/nativeGesture.scale);nativeGesture.scale=e.scale;}},{passive:false});
+    d.stage.addEventListener('gesturechange',e=>{if(!nativeGesture)return;e.preventDefault();if(Number.isFinite(e.scale)&&e.scale>0){const next={x:e.clientX,y:e.clientY,scale:e.scale};zoomAt(next.scale/nativeGesture.scale,nativeGesture,next);nativeGesture=next;}},{passive:false});
     d.stage.addEventListener('gestureend',e=>{if(nativeGesture){e.preventDefault();nativeGesture=null;}},{passive:false});
     function bind(target,kind,part){target.addEventListener('pointerdown',e=>down(e,kind,part));target.addEventListener('pointermove',move);target.addEventListener('pointerup',up);target.addEventListener('pointercancel',cancel);target.addEventListener('lostpointercapture',e=>{if(active?.id===e.pointerId&&!active.target.hasPointerCapture(e.pointerId))cancel();});}
     d.partsGrid.querySelectorAll('[data-part]').forEach(b=>{bind(b,'part',b.dataset.part);b.addEventListener('click',e=>{if(e.detail!==0&&(draggedCard===b||e.target.closest('[data-part-handle]'))){draggedCard=null;return;}if(api.allowed('part')){api.select(b.dataset.part,null);api.attach();api.end();}});});bind(d.rocketGrip,'installed');bind(d.cameraSurface,'camera');
-    d.cameraSurface.addEventListener('keydown',e=>{if(!api.allowed('camera')||e.ctrlKey||e.metaKey||e.altKey)return;const delta={ArrowLeft:[-14,0],ArrowRight:[14,0],ArrowUp:[0,-14],ArrowDown:[0,14]}[e.key];if(delta||['+','=','-','Home'].includes(e.key)){e.preventDefault();cancel();if(delta)api.rotate(...delta);else if(e.key==='Home')api.resetCamera();else api.zoom(api.zoom()*(e.key==='-'?1/1.2:1.2));}});
+    d.cameraSurface.addEventListener('keydown',e=>{if(!api.allowed('camera')||e.ctrlKey||e.metaKey||e.altKey)return;const delta={ArrowLeft:[-14,0],ArrowRight:[14,0],ArrowUp:[0,-14],ArrowDown:[0,14]}[e.key];if(delta||['+','=','-','Home'].includes(e.key)){e.preventDefault();cancel();if(delta){const [dx,dy]=delta,r=d.cameraSurface.getBoundingClientRect(),from={x:r.left+r.width/2,y:r.top+r.height/2};if(!e.shiftKey||!api.transformOrbit?.(1,from,{x:from.x+dx,y:from.y+dy}))api.rotate(...delta);}else if(e.key==='Home')api.resetCamera();else api.zoom(api.zoom()*(e.key==='-'?1/1.2:1.2));}});
     document.addEventListener('keydown',e=>{if(e.key==='Escape'&&(active||pinch||nativeGesture)){e.preventDefault();cancel();}});
     return {cancel,diagnostics,get active(){return active;}};
   }

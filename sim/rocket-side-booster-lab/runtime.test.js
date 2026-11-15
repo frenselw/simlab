@@ -70,4 +70,14 @@ events.start();events.state=T.singlePad();events.command({type:'ignite'});events
 assert(events.command({type:'stop'}));assert(events.command({type:'capsule-separate'}));
 assert(events.command({type:'select-body',value:'upper'}));assert(events.command({type:'ignite'}));
 assert.equal(events.events[0].body,'core');
+for(const detached of [false,true])for(const outboundSpeed of [1000,3500]){
+ const coast=new Controller();
+ coast.state=detached?M.change(T.reachOrbit(),{type:'capsule-separate'}):T.reachOrbit();
+ const f=coast.state.flight;coast.state.phase='coast';f.controls.lit=false;f.t=604799;
+ f.state=[P.R+99999000,0,0,outboundSpeed,1500,0];
+ if(detached){f.capsule.fuel=0;f.upperStage.status='impact';f.upperStage.auto.mode='done';}
+ coast.play();assert(Math.abs(advanceFrame(coast,.02,1000)-1000)<1e-6);
+ assert(coast.running&&f.status==='flying'&&f.t>604800&&O.elements(f.state).height>100000000);
+ T.validate(coast.state);
+}
 console.log('Explorer controller: fresh start, repeatable flights, explicit pause, invalid actions, unchanged physics bounded real-time warp, all parachute rates and stopped high-warp touchdown passed.');
