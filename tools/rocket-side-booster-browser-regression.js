@@ -265,12 +265,17 @@ async function propulsionArt(base,label){
   const reduced=await entryRead();
   await call('const f=app.controller.state.flight;f.state[3]/=20;f.state[4]/=20;app.controller.emit();');
   const slow=await entryRead();
-  const sample={label,case:'propulsion-art',pad,compact,faded,reset,air,trailPinned,jet,boost,remaining,stopped,normal,tilted,reduced,slow};
+  await call('const f=app.controller.state.flight;f.state[3]=500;f.state[4]=2400;app.controller.emit();');
+  const ascent=await entryRead();
+  await shot(label+'-ordinary-ascent-57km');
+  await call('const f=app.controller.state.flight;f.state[4]=7200;app.controller.emit();');
+  const fastAscent=await entryRead();
+  const sample={label,case:'propulsion-art',pad,compact,faded,reset,air,trailPinned,jet,boost,remaining,stopped,normal,tilted,reduced,slow,ascent,fastAscent};
   report.flows.push(sample);
   assertPropulsionArt(sample);
 }
 
-function assertPropulsionArt({pad,compact,faded,reset,air,trailPinned,jet,boost,remaining,stopped,normal,tilted,reduced,slow}){
+function assertPropulsionArt({pad,compact,faded,reset,air,trailPinned,jet,boost,remaining,stopped,normal,tilted,reduced,slow,ascent,fastAscent}){
   assert(pad.every(p=>p.ground>0&&p.active<=56&&p.paused));
   assert(pad[0].emitted<pad[1].emitted&&pad[1].emitted<pad[2].emitted);
   assert(compact.active>0&&compact.active<=20);
@@ -283,6 +288,7 @@ function assertPropulsionArt({pad,compact,faded,reset,air,trailPinned,jet,boost,
   assert(tilted.visible&&Math.abs(tilted.rotation-normal.rotation-Math.PI/4)<1e-8);
   assert(tilted.bowBend<-.25&&tilted.bowShift<-.25&&Math.abs(normal.bowBend)<1e-8);
   assert(reduced.visible&&!reduced.wake&&!slow.visible);
+  assert(!ascent.visible&&ascent.shield===0&&fastAscent.visible&&fastAscent.brightness>.8);
 }
 
 
@@ -486,9 +492,11 @@ async function siteGround(base,label){
  await viewport(390,844);await open(base,state);
  const results=await H.evaluate(cdp,`(async()=>{
   const s=__rocketApp.getScene(),T=await import("./vendor/three-0.185.1/three.module.min.js"),{surfaceUniforms:u}=await import("./terrain.js");
-  const R=RocketParts.R,road=u.uSiteRoads.value.image,[west,south,ux,uz]=u.uSiteRoadBounds.value.toArray();
+  const R=RocketParts.R,texture=u.uSiteRoads.value,road=texture.image,[west,south,ux,uz]=u.uSiteRoadBounds.value.toArray();
   const pixels=road.getContext("2d").getImageData(0,0,road.width,road.height).data;
-  const alpha=(x,z)=>pixels[(Math.floor((1-(z-south)*uz)*road.height)*road.width+Math.floor((x-west)*ux*road.width))*4+3];
+  const pixel=(x,z)=>(Math.floor((1-(z-south)*uz)*road.height)*road.width+Math.floor((x-west)*ux*road.width))*4;
+  const alpha=(x,z)=>pixels[pixel(x,z)+3];
+  const roadTexture={width:road.width,height:road.height,anisotropy:texture.anisotropy,dashContrast:pixels[pixel(320,-1795)]-pixels[pixel(320,-1784)]};
   let roadSamples=0,roadGaps=0;
   for(const route of [...s.landscape.userData.accessRoads,[[320,-1800],[320,2400]]]){
    for(let i=1;i<route.length;i++){
@@ -523,11 +531,12 @@ async function siteGround(base,label){
    const shader=s.renderer.info.programs.every(p=>p.diagnostics?.runnable!==false);
    results.push({quality,altitude,sampleError,trunksVisible:trunk.visible,maxRootGap,midTrees:mid.count,maxTree,shader,unchanged:before===JSON.stringify(__rocketApp.getState())});
   }
-  return {roadSamples,roadGaps,results};
+  return {roadSamples,roadGaps,roadTexture,results};
  })()`);
  assert(results.roadSamples>300&&results.roadGaps===0,JSON.stringify(results));
+ assert(results.roadTexture.width===512&&results.roadTexture.height===2048&&results.roadTexture.anisotropy===8&&results.roadTexture.dashContrast>70,JSON.stringify(results.roadTexture));
  assert(results.results.every(r=>r.sampleError<.002&&r.maxRootGap<.002&&r.midTrees>0&&r.maxTree<26&&r.trunksVisible===(r.quality<2)&&r.shader&&r.unchanged),JSON.stringify(results));
- await shot(label+'-site-ground-116m');
+ await shot(label+'-sharper-road-116m');
  report.flows.push({label,case:'site-ground',...results});
 }
 

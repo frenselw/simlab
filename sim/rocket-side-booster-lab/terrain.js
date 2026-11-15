@@ -136,8 +136,9 @@ vec3 shadeSurface(vec3 base,vec3 normal,vec3 radial,vec3 point,vec3 world,vec3 s
  }
  vec2 dx=dFdx(metres),dy=dFdy(metres);
  vec2 roadUv=(point.xz*6371000.0-uSiteRoadBounds.xy)*uSiteRoadBounds.zw;
+ vec2 roadDx=dFdx(roadUv),roadDy=dFdy(roadUv);
  if(water<.5&&p.y>.99&&all(greaterThan(roadUv,vec2(0.0)))&&all(lessThan(roadUv,vec2(1.0)))){
-  vec4 road=textureGrad(uSiteRoads,roadUv,dx*uSiteRoadBounds.zw,dy*uSiteRoadBounds.zw);
+  vec4 road=textureGrad(uSiteRoads,roadUv,roadDx,roadDy);
   base=mix(base,road.rgb,road.a);
  }
  float footprint=max(length(dx),length(dy)),detail=(1.0-smoothstep(12.0,110.0,footprint))*uSurfaceDetail;

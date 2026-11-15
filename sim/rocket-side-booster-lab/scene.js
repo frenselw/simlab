@@ -206,7 +206,10 @@ export class RocketScene{
   drawThermal(rocket,f){
     if(!rocket||!f?.capsule?.detached)return;
     const shield=rocket.userData.heatShield,e=window.RocketRecovery.reentry(f,M.atmosphere);
-    const flux=f.status==='flying'&&f.capsule.chute.phase==='stowed'?e.flux:0,level=flux/(.004+flux);
+    const flux=f.status==='flying'&&f.capsule.chute.phase==='stowed'?e.flux:0;
+    // The heating proxy is nonzero at speeds that are too low for visible entry glow.
+    const glowSpeed=THREE.MathUtils.smoothstep(Math.hypot(f.state[3],f.state[4]),3000,5000);
+    const level=glowSpeed*flux/(.004+flux);
     if(shield){
       const remaining=1-f.capsule.heat;
       shield.material.color.setRGB(.035+.045*remaining,.025+.025*remaining,.02+.015*remaining);

@@ -22,6 +22,12 @@
 
 ## 其他現行專項
 
+### 發射場道路取樣與等離子光強度
+
+各尺寸共用 512×2048 程序道路貼圖，使用道路座標導數及斜視角取樣，保留原道路位置。等離子外觀以速度平滑修正熱流亮度，普通上升速度時淡出，高速下降及高速上升仍可顯示。3–5 km/s 是視覺漸變區間。純探索，評核、存檔及 SCORM N/A。測試道路連通、貼地及手機取樣，對照同高度的普通上升、高速上升與再入。
+
+源碼及解壓獨立版各通過 574 個道路中心取樣，斷點為零。57 km 的 2.45 km/s 上升案例無等離子光，高速上升及 7.24 km/s 再入案例仍顯示。測試報告位於 `output/playwright/rocket-side-booster-lab/` 的 `road-and-plasma-report.json` 及最終共用貼圖的 `sharper-road-final-report.json`。本輪 JavaScript gzip 增量 103 bytes，程序道路貼圖 mipmap 預算增約 2.7 MiB。Recovery、`check` 及 `check:tests` 通過。實體手機渲染效能待驗。
+
 [地形下載精簡與畫質保留計劃](42-rocket-explorer-terrain-download-optimization.md) 記錄 5 MB 地形容量目標、多層格點壓縮、近場精度、無損法線補載及畫質與碰撞驗收。實際格式、格點誤差及交付證據記在該專項的實作紀錄。
 
 [飛行事件與分段載入計劃](42-rocket-explorer-flight-events-and-loading.md) 記錄三種尺寸的事件列、工廠先行及按視角補載的實作與驗收決定。

@@ -490,18 +490,19 @@ export function createLandscape(){
  const plans=[['assembly',650,200,130,42,90],['logistics',850,260,90,18,60],['control',580,-480,80,22,50],['utility',720,420,42,12,30]];
  const links=[[[15,5],[50,12],[200,60],[320,60]],[[320,60],[500,60],[650,247]],[[320,260],[650,260],[850,292]],[[320,-450],[450,-450],[580,-453]],[[320,420],[650,420],[720,437]],[[320,-950],[800,-950],[1025,-950]]];
  const roads=[...links,[[320,-1800],[320,2400]]];
- const roadMap=canvasMap('site-roads',512,1024,(ctx,w,h)=>{
+ const roadMap=canvasMap('site-roads',512,2048,(ctx,w,h)=>{
   ctx.setTransform(w/1280,0,0,-h/4352,w/20,2496*h/4352);
   ctx.lineJoin='round';ctx.lineCap='round';
   for(const [index,points]of roads.entries()){
    ctx.beginPath();ctx.moveTo(...points[0]);for(const point of points.slice(1))ctx.lineTo(...point);
    ctx.strokeStyle='#485253';ctx.lineWidth=index===roads.length-1?18:12;ctx.setLineDash([]);ctx.stroke();
   }
-  ctx.lineCap='butt';ctx.strokeStyle='#ddd1a2';ctx.lineWidth=1.6;ctx.setLineDash([11,13]);
+  ctx.lineCap='butt';ctx.strokeStyle='#ddd1a2';ctx.lineWidth=2.2;ctx.setLineDash([11,13]);
   for(const points of roads){
    ctx.beginPath();ctx.moveTo(...points[0]);for(const point of points.slice(1))ctx.lineTo(...point);ctx.stroke();
   }
  });
+ roadMap.anisotropy=8;
  surfaceUniforms.uSiteRoads.value=roadMap;
  surfaceUniforms.uSiteRoadBounds.value.set(-64,-1856,1/1280,1/4352);
  const occupied=(x,z)=>Math.abs(x-320)<22&&z>=-1815&&z<=2415||plans.some(([,a,b,w,,d])=>Math.abs(x-a)<w/2+20&&Math.abs(z-b)<d/2+20)||Math.abs(x-1100)<90&&Math.abs(z+950)<75||links.some(path=>path.some((b,i)=>{if(!i)return false;const a=path[i-1],dx=b[0]-a[0],dz=b[1]-a[1],t=Math.max(0,Math.min(1,((x-a[0])*dx+(z-a[1])*dz)/(dx*dx+dz*dz)));return Math.hypot(x-a[0]-t*dx,z-a[1]-t*dz)<18;}));
