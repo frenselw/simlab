@@ -39,12 +39,22 @@ async function run({base,label,P,T,H,cdp,call,viewport,open,wait,shot,click,poin
   assert(await call('return performance.getEntriesByType("resource").filter(e=>e.name.includes("ephemeris")).map(e=>e.name).every(name=>new URL(name).origin===location.origin);'));
   await H.evaluate(cdp,'(async()=>{window.__skyThree=await import("./vendor/three-0.185.1/three.module.min.js");})()');
   await call(`const s=app.getScene(),T=window.__skyThree;app.view('sky');
-    window.__skyPixels=(hours,aim)=>{
+    window.__skyPixels=(hours,aim,view='sky',zoom=1,pan=0)=>{
       const f=app.controller.state.flight;f.t=hours*3600;app.controller.emit();
+      const orbit=view==='orbit'||view==='plane';
+      if(s.view!==view||orbit)app.view(view,true);
       const u=s.sky.material.uniforms,vec=v=>new T.Vector3(v.x,v.y,v.z);
       const sun=vec(u.uSunDisc.value),moon=vec(u.uMoonDisc.value);
-      const look=aim==='both'?sun.clone().add(moon).normalize():aim==='sun'?sun:aim==='moon'?moon:new T.Vector3(0,.65,.76).normalize();
+      const look=aim==='both'?sun.clone().add(moon).normalize():aim==='sun'?sun.clone():aim==='moon'?moon.clone():new T.Vector3(0,.65,.76).normalize();
+      if(orbit)look.negate();
       s.yaw=Math.atan2(look.x,look.z);s.pitch=Math.asin(look.y);s.draw();
+      if(orbit){
+        s.setZoom(zoom);s.draw();
+        if(pan){
+          const r=s.host.getBoundingClientRect(),center={x:r.left+r.width/2,y:r.top+r.height/2};
+          s.transformOrbit(1,center,{x:center.x+r.width*pan,y:center.y});s.draw();
+        }
+      }
       const size=512,target=new T.WebGLRenderTarget(size,size),previous=s.renderer.getRenderTarget(),frames=[];
       target.texture.colorSpace=T.SRGBColorSpace;
       try{
@@ -52,7 +62,8 @@ async function run({base,label,P,T,H,cdp,call,viewport,open,wait,shot,click,poin
         for(const on of [1,0]){u.uCelestial.value=on;s.renderer.render(s.scene,s.camera);const pixels=new Uint8Array(size*size*4);s.renderer.readRenderTargetPixels(target,0,0,size,size,pixels);frames.push(pixels);}
       }finally{u.uCelestial.value=1;s.renderer.setRenderTarget(previous);target.dispose();s.draw();}
       const sample=direction=>{
-        const p=direction.clone().multiplyScalar(100).add(s.camera.position).project(s.camera),x=Math.round((p.x+1)*size/2),y=Math.round((p.y+1)*size/2);
+        const p=direction.clone().transformDirection(s.camera.matrixWorldInverse),span=u.uSkyTangent.value;
+        const x=Math.round((1-p.x/(p.z*span.x))*size/2),y=Math.round((1-p.y/(p.z*span.y))*size/2);
         let max=0;
         for(let j=y-6;j<=y+6;j++)for(let i=x-6;i<=x+6;i++)if(i>=0&&i<size&&j>=0&&j<size){
           const at=(j*size+i)*4;for(let k=0;k<3;k++)max=Math.max(max,Math.abs(frames[0][at+k]-frames[1][at+k]));
@@ -75,6 +86,16 @@ async function run({base,label,P,T,H,cdp,call,viewport,open,wait,shot,click,poin
   const orbital=await call('const state=app.controller.state,f=state.flight;state.phase="coast";f.state=RocketOrbit.circular(400000);f.status="flying";f.controls.lit=false;return window.__skyPixels(17,"sun");');
   assert(orbital.daylight===0&&orbital.direct===1&&orbital.sunElevation<0&&orbital.sun.max>50,JSON.stringify(orbital));
   await shot(label+'-sky-orbital-dawn');
+  for(const view of ['orbit','plane']){
+    const close=await call(`return window.__skyPixels(0,'both','${view}',4,4);`);
+    const wide=await call(`return window.__skyPixels(0,'both','${view}',.05,.3);`);
+    for(const frame of [close,wide])assert(frame.sun.max>50&&frame.moon.max>8,JSON.stringify({view,frame}));
+    assert.deepEqual([close.sun,close.moon,close.observer],[wide.sun,wide.moon,wide.observer]);
+    await shot(label+'-'+view+'-sun-and-moon');
+    const behind=await call(`return window.__skyPixels(0,'sun','${view}',1);`);
+    assert.equal(behind.sun.max,0,JSON.stringify(behind));
+    report.flows.push({label,case:'orbit-sky',view,close,wide,behind});
+  }
   await click('#returnWorkshop');
   await call('d.getElementById("skyDate").value="2026-04-02";d.getElementById("skyTime").value="05:00";');
   await click('#launchButton');await click('[data-camera-view="sky"]');
@@ -127,8 +148,7 @@ async function run({base,label,P,T,H,cdp,call,viewport,open,wait,shot,click,poin
     await wait(()=>call('return d.getElementById("skyAvailability").textContent.includes("暫不可用");'),'invalid ephemeris fallback');
     assert(await call('return d.querySelector("[data-camera-view=sky]").disabled&&app.getScene().sky.material.uniforms.uCelestial.value===0;'));
     await click('#igniteButton');
-    await wait(()=>call('return app.getState().flight.t>0;'),'flight without ephemeris');
-    await call('app.controller.pause();');
+    assert(await call('const c=app.controller;if(!c.running)return false;RocketRuntime.advanceFrame(c,2,1);c.pause();return c.state.flight.t>0&&c.state.flight.controls.lit;'));
   }finally{await cdp.send('Page.removeScriptToEvaluateOnNewDocument',{identifier:mock.identifier});}
   report.flows.push({label,case:'sky-fallback'});
 }

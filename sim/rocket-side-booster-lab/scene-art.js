@@ -198,12 +198,11 @@ float discOffset(vec3 ray, vec4 disc){
  return dot(ray,disc.xyz)>0.0 ? length(cross(ray,disc.xyz)) : 1.0;
 }`;
 export function createSky(){
- return new THREE.Mesh(new THREE.SphereGeometry(1,32,16),new THREE.ShaderMaterial({
-  uniforms:{uMap:{value:starMap},uSpace:{value:0},uDaylight:{value:1},uCelestial:{value:0},uSunDisc:{value:new THREE.Vector4()},uMoonDisc:{value:new THREE.Vector4()},uMoonLight:{value:new THREE.Vector3()},uObserver:{value:new THREE.Vector3()},uStarFrame:{value:new THREE.Matrix3()}},side:THREE.BackSide,depthWrite:false,depthTest:false,
-  // Keep the background inside the far clip plane even with sub-metre camera near planes.
-  vertexShader:`varying vec3 vDirection;void main(){vDirection=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);gl_Position.z=gl_Position.w;}`,
+ const sky=new THREE.Mesh(new THREE.PlaneGeometry(2,2),new THREE.ShaderMaterial({
+  uniforms:{uMap:{value:starMap},uSpace:{value:0},uOrbitSky:{value:0},uSkyTangent:{value:new THREE.Vector2()},uSkyBasis:{value:new THREE.Matrix3()},uDaylight:{value:1},uCelestial:{value:0},uSunDisc:{value:new THREE.Vector4()},uMoonDisc:{value:new THREE.Vector4()},uMoonLight:{value:new THREE.Vector3()},uObserver:{value:new THREE.Vector3()},uStarFrame:{value:new THREE.Matrix3()}},depthWrite:false,depthTest:false,
+  vertexShader:`uniform mat3 uSkyBasis;uniform vec2 uSkyTangent;varying vec3 vDirection;void main(){vDirection=uSkyBasis*vec3(position.xy*uSkyTangent,-1.0);gl_Position=vec4(position.xy,1.0,1.0);}`,
   fragmentShader:`uniform sampler2D uMap;
-uniform float uSpace,uDaylight,uCelestial;
+uniform float uSpace,uOrbitSky,uDaylight,uCelestial;
 uniform vec4 uSunDisc,uMoonDisc;
 uniform vec3 uMoonLight,uObserver;
 uniform mat3 uStarFrame;
@@ -218,7 +217,7 @@ void main(){
   float sun=discOffset(ray,uSunDisc),moon=discOffset(ray,uMoonDisc);
   float sunEdge=fwidth(sun)*.5,moonEdge=fwidth(moon)*.5;
   float along=-dot(uObserver,ray);
-  bool blocked=along>0.0 && along*along>max(0.0,dot(uObserver,uObserver)-1.0);
+  bool blocked=uOrbitSky<.5 && along>0.0 && along*along>max(0.0,dot(uObserver,uObserver)-1.0);
   if(!blocked){
    if(moon<uMoonDisc.w+moonEdge){
     vec3 offset=(ray-dot(ray,uMoonDisc.xyz)*uMoonDisc.xyz)/uMoonDisc.w;
@@ -238,6 +237,8 @@ void main(){
 #include <tonemapping_fragment>
 #include <colorspace_fragment>}`
  }));
+ sky.frustumCulled=false;
+ return sky;
 }
 function planetGeometry(segments=compact?96:128){
  const rings=[0,.01,.1,1,10,100,300,800,2000,5000,12000,32000,60000,120000,240000,480000,960000,1280000].map(r=>r/P.R),edge=rings.at(-1);for(let i=1;i<=64;i++)rings.push(edge+(Math.PI-edge)*i/64);
@@ -247,7 +248,7 @@ function planetGeometry(segments=compact?96:128){
 }
 const planetVertex=`#include <common>
 #include <logdepthbuf_pars_vertex>
-varying vec2 vUv;varying vec3 vNormal;varying vec3 vWorld;varying vec3 vSurface;void main(){vUv=uv;vSurface=position;vec4 world=modelMatrix*vec4(position,1.0);vWorld=world.xyz;vNormal=normalize(mat3(modelMatrix)*normal);gl_Position=projectionMatrix*viewMatrix*world;
+varying vec2 vUv;varying vec3 vNormal;varying vec3 vWorld;varying vec3 vSurface;void main(){vUv=uv;vSurface=position;vec4 world=modelMatrix*vec4(position,1.0);vWorld=world.xyz;vNormal=normalize(mat3(modelMatrix)*normal);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);
 #include <logdepthbuf_vertex>
 }`;
 export async function createPlanet(){

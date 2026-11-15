@@ -3,13 +3,17 @@
   function nearest(points,x,y,radius){let best=null,distance=radius;points.forEach((p,i)=>{if(!p?.visible||p.compatible===false)return;const body=Number.isFinite(p.bodyX)&&Number.isFinite(p.bodyY)?Math.hypot(p.bodyX-x,p.bodyY-y):Infinity,d=Math.min(Math.hypot(p.x-x,p.y-y),body);if(d<=distance){best=i;distance=d;}});return best;}
   function wheelFactor(delta,mode,height){const pixels=delta*(mode===1?16:mode===2?height:1);return Number.isFinite(pixels)?Math.exp(-Math.max(-600,Math.min(600,pixels))*.0015):1;}
   function install(d,api){
-    let active=null,draggedCard=null,pinch=null,blocked=false,suppressClick=false,lastTap=null,nativeGesture=null;const touches=new Map(),diagnostics={down:0,move:0,up:0,cancel:0,trustedTouch:0,pinch:0,wheel:0,reset:0};
+    let active=null,draggedCard=null,pinch=null,blocked=false,suppressClick=false,lastTap=null,nativeGesture=null,panMode=false;const touches=new Map(),diagnostics={down:0,move:0,up:0,cancel:0,trustedTouch:0,pinch:0,wheel:0,reset:0};
+    function setPanMode(value){panMode=value;d.cameraSurface.classList.toggle('camera-pan',value);}
     Object.defineProperties(diagnostics,{touchCount:{enumerable:true,get:()=>touches.size},touchBlocked:{enumerable:true,get:()=>blocked},pinching:{enumerable:true,get:()=>Boolean(pinch)}});
     const release=()=>{if(!active)return;const a=active;active=null;try{a.target.releasePointerCapture(a.id);}catch(_){}d.dragPartGhost.hidden=true;d.touchPreview.hidden=true;d.returnZone.hidden=true;d.controlPanel.classList.remove('return-active');[d.slot0,d.slot1].forEach(b=>b.classList.remove('snap'));if(a.part)api.drag(null);};
     function down(e,kind,part){
       if(blocked||pinch||nativeGesture||touches.size>1)return;if(active){cancel();return;}if(e.isPrimary===false)return;draggedCard=null;if(e.button!==0||!api.allowed(kind)||kind==='part'&&e.pointerType==='touch'&&!e.target.closest('[data-part-handle]'))return;
       let source=null;if(kind==='installed'){const r=d.stage.getBoundingClientRect();source=api.pickPart(e.clientX-r.left,e.clientY-r.top,e.pointerType==='touch');if(source)part=source.part;else{kind='camera';if(!api.allowed(kind))return;}}
-      e.preventDefault();active={id:e.pointerId,kind,part,source,target:e.currentTarget,x:e.clientX,y:e.clientY,lastX:e.clientX,lastY:e.clientY,touch:e.pointerType==='touch',pan:e.shiftKey,moved:false,snap:null,angle:null,returning:false,blank:kind==='camera'&&!api.pickPart(e.clientX-d.stage.getBoundingClientRect().left,e.clientY-d.stage.getBoundingClientRect().top,false),started:performance.now()};if(kind!=='camera')lastTap=null;e.currentTarget.setPointerCapture(e.pointerId);diagnostics.down++;if(e.isTrusted&&active.touch)diagnostics.trustedTouch++;
+      const stage=d.stage.getBoundingClientRect(),now=performance.now(),touch=e.pointerType==='touch',blank=kind==='camera'&&!api.pickPart(e.clientX-stage.left,e.clientY-stage.top,false);
+      const doublePan=blank&&!touch&&api.canPan?.()&&lastTap&&!lastTap.touch&&now-lastTap.time<=320&&Math.hypot(e.clientX-lastTap.x,e.clientY-lastTap.y)<=24;
+      if(doublePan){setPanMode(!panMode);lastTap=null;}
+      e.preventDefault();active={id:e.pointerId,kind,part,source,target:e.currentTarget,x:e.clientX,y:e.clientY,lastX:e.clientX,lastY:e.clientY,touch,pan:e.shiftKey||(!touch&&panMode),doublePan,moved:false,snap:null,angle:null,returning:false,blank,started:now};if(kind!=='camera')lastTap=null;e.currentTarget.setPointerCapture(e.pointerId);diagnostics.down++;if(e.isTrusted&&active.touch)diagnostics.trustedTouch++;
       if(part){api.select(part,source);const art=d.partsGrid.querySelector('[data-part="'+part+'"] .part-art');d.dragPartGhost.replaceChildren(art.cloneNode(true),document.createElement('span'));d.dragPartGhost.lastChild.textContent=api.label(part);}
     }
     function move(e){
@@ -27,7 +31,8 @@
     }
     function up(e){
       if(!active||e.pointerId!==active.id)return;const a=active,target=a.snap===null?null:api.slots(a.part,a.source)[a.snap];diagnostics.up++;release();if(a.moved)suppressClick=true;
-      if(a.blank&&!a.moved&&performance.now()-a.started<=320){const now=performance.now();if(lastTap&&now-lastTap.time<=320&&Math.hypot(e.clientX-lastTap.x,e.clientY-lastTap.y)<=24){lastTap=null;suppressClick=true;diagnostics.reset++;api.resetCamera();}else lastTap={time:now,x:e.clientX,y:e.clientY};}
+      if(a.doublePan)suppressClick=true;
+      else if(a.blank&&!a.moved&&performance.now()-a.started<=320){const now=performance.now();if(lastTap&&lastTap.touch===a.touch&&now-lastTap.time<=320&&Math.hypot(e.clientX-lastTap.x,e.clientY-lastTap.y)<=24){lastTap=null;suppressClick=true;diagnostics.reset++;api.resetCamera();}else lastTap={time:now,x:e.clientX,y:e.clientY,touch:a.touch};}
       if(a.part){if(!a.moved){if(a.source)api.selectedInstalled(a.source);}else if(a.returning)api.transfer(a.source,null);else if(a.snap!==null){if(a.source)api.transfer(a.source,target.stage,target.at);else api.attach(target.stage,target.at);}else{const r=d.stage.getBoundingClientRect();if(a.lastX>=r.left&&a.lastX<=r.right&&a.lastY>=r.top&&a.lastY<=r.bottom)api.missed();}}
       api.end();
     }
@@ -63,7 +68,16 @@
     d.partsGrid.addEventListener('click',e=>{if(suppressClick&&e.detail!==0){e.preventDefault();e.stopImmediatePropagation();}},true);
     d.stage.addEventListener('wheel',e=>{
       if(!central(e)||!api.allowed('camera'))return;e.preventDefault();lastTap=null;
-      if(active||touches.size||nativeGesture)return;const factor=wheelFactor(e.deltaY,e.deltaMode,d.cameraSurface.clientHeight);if(factor===1)return;zoomAt(factor,{x:e.clientX,y:e.clientY});diagnostics.wheel++;
+      if(active||touches.size||nativeGesture)return;
+      const origin={x:e.clientX,y:e.clientY},mode=e.deltaMode,dx=e.deltaX,dy=e.deltaY;
+      // Precision trackpads send pixel scrolls; pinch is marked as Ctrl-wheel by Chromium.
+      if(api.canPan?.()&&!e.ctrlKey&&(e.shiftKey||dx!==0||mode===0&&Math.abs(dy)<60)){
+        const unit=mode===1?16:mode===2?d.cameraSurface.clientHeight:1;
+        api.transformOrbit(1,origin,{x:origin.x-(e.shiftKey?dx||dy:dx)*unit,y:origin.y-(e.shiftKey?0:dy)*unit});
+      }else{
+        const factor=wheelFactor(dy,mode,d.cameraSurface.clientHeight);if(factor!==1)zoomAt(factor,origin);
+      }
+      diagnostics.wheel++;
     },{passive:false});
     d.stage.addEventListener('gesturestart',e=>{
       if(!central(e)||!api.allowed('camera'))return;e.preventDefault();lastTap=null;
@@ -74,8 +88,8 @@
     function bind(target,kind,part){target.addEventListener('pointerdown',e=>down(e,kind,part));target.addEventListener('pointermove',move);target.addEventListener('pointerup',up);target.addEventListener('pointercancel',cancel);target.addEventListener('lostpointercapture',e=>{if(active?.id===e.pointerId&&!active.target.hasPointerCapture(e.pointerId))cancel();});}
     d.partsGrid.querySelectorAll('[data-part]').forEach(b=>{bind(b,'part',b.dataset.part);b.addEventListener('click',e=>{if(e.detail!==0&&(draggedCard===b||e.target.closest('[data-part-handle]'))){draggedCard=null;return;}if(api.allowed('part')){api.select(b.dataset.part,null);api.attach();api.end();}});});bind(d.rocketGrip,'installed');bind(d.cameraSurface,'camera');
     d.cameraSurface.addEventListener('keydown',e=>{if(!api.allowed('camera')||e.ctrlKey||e.metaKey||e.altKey)return;const delta={ArrowLeft:[-14,0],ArrowRight:[14,0],ArrowUp:[0,-14],ArrowDown:[0,14]}[e.key];if(delta||['+','=','-','Home'].includes(e.key)){e.preventDefault();cancel();if(delta){const [dx,dy]=delta,r=d.cameraSurface.getBoundingClientRect(),from={x:r.left+r.width/2,y:r.top+r.height/2};if(!e.shiftKey||!api.transformOrbit?.(1,from,{x:from.x+dx,y:from.y+dy}))api.rotate(...delta);}else if(e.key==='Home')api.resetCamera();else api.zoom(api.zoom()*(e.key==='-'?1/1.2:1.2));}});
-    document.addEventListener('keydown',e=>{if(e.key==='Escape'&&(active||pinch||nativeGesture)){e.preventDefault();cancel();}});
-    return {cancel,diagnostics,get active(){return active;}};
+    document.addEventListener('keydown',e=>{if(e.key==='Escape'&&(active||pinch||nativeGesture||panMode)){e.preventDefault();cancel();setPanMode(false);}});
+    return {cancel,resetPan:()=>setPanMode(false),diagnostics,get active(){return active;}};
   }
   return Object.freeze({nearest,wheelFactor,install});
 });

@@ -869,9 +869,86 @@ async function distantCamera(base,label){
       await click('#playButton');assert(!await call('return app.controller.running;'));
       await distantNavigation(base,label,state);
     }
+    if(width===1280)await desktopOrbitPan();
     await click('#toggleFlightControls');assert((await measure()).panel);
     report.flows.push({label,case:'distant-camera',width,height,expanded,collapsed,orbit});
   }
+  await cameraFreedom(base,label);
+}
+
+async function desktopOrbitPan(){
+  const frame=()=>call(`const s=app.getScene(),r=s.host.getBoundingClientRect(),earth=s.earth.position.clone().project(s.camera);
+    return{x:r.left+r.width/2,y:r.top+r.height/2,earthX:r.width*(earth.x+1)/2,earthY:r.height*(1-earth.y)/2,
+      zoom:s.zoom,panning:d.getElementById('cameraSurface').classList.contains('camera-pan'),yaw:s.yaw};`);
+  const start=await frame(),at={x:start.x,y:start.y};
+  await pointer(at,at,false);await pointer(at,at,false);
+  assert((await frame()).panning);
+  await pointer(at,{x:at.x+60,y:at.y-32},false);
+  const drag=await frame();assert(Math.abs(drag.earthX-start.earthX-60)<2&&Math.abs(drag.earthY-start.earthY+32)<2&&drag.yaw===start.yaw,JSON.stringify({start,drag}));
+  await cdp.send('Input.dispatchMouseEvent',{type:'mouseWheel',...at,deltaX:14,deltaY:19});
+  await wait(async()=>Math.abs((await frame()).earthX-drag.earthX+14)<2,'trackpad pixel pan');
+  const scroll=await frame();assert(Math.abs(scroll.earthY-drag.earthY+19)<2&&scroll.zoom===start.zoom);
+  await cdp.send('Input.dispatchMouseEvent',{type:'mouseWheel',...at,deltaX:0,deltaY:-125,modifiers:2});
+  await wait(async()=>(await frame()).zoom>start.zoom,'trackpad pinch zoom');
+  await call('const s=app.getScene();s.setZoom(.001);s.draw();');assert.equal((await frame()).zoom,.05);
+  await click('[data-camera-view="plane"]');assert(!(await frame()).panning&&(await frame()).zoom===1);
+}
+
+async function cameraFreedom(base,label){
+  await viewport(1100,765);
+  const state=M.change(T.reachOrbit(),{type:'capsule-separate'}),f=state.flight,r=P.R+10421000,a=1.2;
+  f.state=[r*Math.cos(a),r*Math.sin(a),0,4870*Math.cos(a)-4170*Math.sin(a),4870*Math.sin(a)+4170*Math.cos(a),0];
+  f.t=2200;f.capsule.fuel=0;f.controls.lit=false;f.upperStage.status='impact';f.upperStage.auto.mode='done';
+  await open(base,state);await click('#toggleFlightControls');
+  const result=await H.evaluate(cdp,`(async()=>{
+    const T=await import('./vendor/three-0.185.1/three.module.min.js'),s=window.__rocketApp.getScene(),renderer=s.renderer,
+      width=s.host.clientWidth,height=s.host.clientHeight,target=new T.WebGLRenderTarget(width,height),scene=s.scene,globe=s.earth,
+      prior=renderer.getRenderTarget(),clear=renderer.getClearColor(new T.Color()),original=globe.material,materials=new T.MeshBasicMaterial({color:'white',toneMapped:false}),
+      layers=scene.children.map(node=>[node,node.visible]),rows=[];
+    target.texture.colorSpace=T.SRGBColorSpace;
+    try{
+      for(const shift of [-.14,0,.14]){
+        s.yaw=-.65+shift;s.draw();
+        for(const [node]of layers)node.visible=node===globe;
+        renderer.setRenderTarget(target);renderer.setClearColor('#ff00ff');
+        const pixels=[new Uint8Array(width*height*4),new Uint8Array(width*height*4)];
+        for(let i=0;i<2;i++){
+          globe.material=i?materials:original;renderer.render(scene,s.camera);
+          renderer.readRenderTargetPixels(target,0,0,width,height,pixels[i]);
+        }
+        const white=i=>pixels[1][i]===255&&pixels[1][i+1]===255&&pixels[1][i+2]===255;
+        let holes=0,inside=0;
+        for(let y=2;y<height-2;y++)for(let x=2;x<width-2;x++){
+          const i=4*(y*width+x);if(!white(i)||!white(i-8)||!white(i+8)||!white(i-8*width)||!white(i+8*width))continue;
+          inside++;
+          if(pixels[0][i]===255&&pixels[0][i+1]===0&&pixels[0][i+2]===255)holes++;
+        }
+        rows.push({shift,inside,holes});
+        globe.material=original;renderer.setRenderTarget(prior);renderer.setClearColor(clear);
+        for(const [node,visible]of layers)node.visible=visible;
+      }
+    }finally{globe.material=original;renderer.setRenderTarget(prior);renderer.setClearColor(clear);target.dispose();materials.dispose();}
+    s.draw();return rows;
+  })()`);
+  assert(result.every(row=>row.inside>10000&&row.holes===0),JSON.stringify(result));
+  await shot(label+'-earth-clear-10421km');
+  const rotation=()=>call(`const s=app.getScene(),c=s.camera,n=c.position.clone();
+    return{pitch:s.pitch,forward:c.getWorldDirection(n).toArray(),up:c.up.toArray(),
+      clearance:(()=>{const p=s.globalTerrain.worldToLocal(c.position.clone()),r=p.length();p.normalize();return r*(RocketParts.R-5)-RocketParts.R-RocketSurface.heightAt(p.x,p.y,p.z);})()};`);
+  for(const view of ['follow','orbit','plane','sky']){
+    const sign=view==='sky'?-1:1;
+    await call(`app.view(${JSON.stringify(view)},true);const s=app.getScene(),pitch=s.view==='follow'?s.followPitch:s.pitch;s.rotate(0,${sign}*(1.48-pitch)/.006);`);
+    const before=await rotation();
+    await call(`app.getScene().rotate(0,${sign*40});`);
+    const after=await rotation();
+    const aligned=(a,b)=>a.reduce((sum,v,i)=>sum+v*b[i],0)>.95;
+    assert(before.pitch<Math.PI/2&&after.pitch>Math.PI/2&&aligned(before.forward,after.forward)&&aligned(before.up,after.up),JSON.stringify({view,before,after}));
+  }
+  await open(base,T.singlePad());
+  await call('app.view("follow",true);const s=app.getScene();s.rotate(0,-270);');
+  const before=await rotation();await call('app.getScene().rotate(0,-70);');const after=await rotation();
+  assert(before.clearance>=1.99&&after.clearance>=1.99&&Math.abs(after.pitch-before.pitch+.42)<.01&&before.forward[2]*after.forward[2]<0,JSON.stringify({before,after}));
+  report.flows.push({label,case:'camera-freedom',pixels:result,ground:[before,after]});
 }
 
 async function distantNavigation(base,label,state){
@@ -908,11 +985,15 @@ async function distantNavigation(base,label,state){
   const zoomed=await snapshot();
   assert(Math.abs(zoomed.zoom-panned.zoom*2)<.02&&Math.abs(zoomed.marker-panned.marker)<.01);
   assert(Math.abs(zoomed.earth.x-anchor.x-relative.x*2)<3&&Math.abs(zoomed.earth.y-anchor.y-relative.y*2)<3,JSON.stringify({panned,zoomed}));
-  await click('[data-orbit-focus="earth"]');
+  assert(await call('return !d.querySelector("[data-orbit-focus]");'));
+  await click('[data-camera-view="plane"]');
+  await call(`const s=app.getScene();s.transformOrbit(1,${JSON.stringify(start.earth)},${JSON.stringify(start.center)});s.draw();
+    s.transformOrbit(16,${JSON.stringify(start.center)},${JSON.stringify(start.center)});s.draw();`);
   await wait(()=>call('return app.getScene().earthMap.image.width===4096;'),'lazy 4K globe');
   const earth=await snapshot();assert(Math.hypot(earth.earth.x-earth.center.x,earth.earth.y-earth.center.y)<1,JSON.stringify(earth));
   await shot(label+'-deep-orbit-earth-390x844');
-  await click('[data-orbit-focus="craft"]');
+  await click('[data-camera-view="plane"]');
+  await call(`const s=app.getScene();s.transformOrbit(1,${JSON.stringify(start.craft)},${JSON.stringify(start.center)});s.draw();`);
   const craft=await snapshot();assert(Math.hypot(craft.craft.x-craft.center.x,craft.craft.y-craft.center.y)<1,JSON.stringify(craft));
   await click('[data-camera-view="plane"]');
   assert.deepEqual((await snapshot()).earth,start.earth);

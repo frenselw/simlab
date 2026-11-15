@@ -7,6 +7,7 @@ import {createImpactEffects,hullPoints,hullMinimum,hullClearance} from './impact
 const P=window.RocketParts,O=window.RocketOrbit,M=window.RocketModel,S=window.RocketSurface,L=window.RocketLighting,Sky=window.RocketSky;
 const viewAxis=new THREE.Vector3(0,0,1),northAxis=new THREE.Vector3(...S.fromGeocentric(0,0,1));
 const isOrbitView=view=>view==='orbit'||view==='plane';
+const orbitUp=(yaw,pitch)=>new THREE.Vector3(-Math.sin(yaw)*Math.sin(pitch),Math.cos(pitch),-Math.cos(yaw)*Math.sin(pitch));
 function vectorArrow(color){const group=new THREE.Group(),mat=new THREE.MeshBasicMaterial({color,transparent:true,depthTest:false,depthWrite:false,toneMapped:false}),shaft=new THREE.Mesh(new THREE.CylinderGeometry(.026,.026,.74,8),mat),head=new THREE.Mesh(new THREE.ConeGeometry(.09,.26,10),mat);shaft.position.y=.37;head.position.y=.87;shaft.renderOrder=head.renderOrder=10;group.add(shaft,head);return group;}
 export class RocketScene{
   constructor(host,onFault){
@@ -32,7 +33,20 @@ export class RocketScene{
     for(let i=0;i<1050;i++){const a=rng()*Math.PI*2,latitude=i%4===0?(rng()-.5)*.26+Math.sin(a)*.35:Math.asin(2*rng()-1),bright=rng();coords.push(70*Math.cos(latitude)*Math.cos(a),70*Math.sin(latitude),70*Math.cos(latitude)*Math.sin(a));const color=new THREE.Color(i%7===0?'#a9d0fa':i%11===0?'#ffe0af':'#e1edf5').multiplyScalar(.35+bright*.65);starColors.push(color.r,color.g,color.b);sizes.push(bright>.97?2.4:bright>.8?1.4:.65+bright*.6);}
     const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(coords,3));geo.setAttribute('color',new THREE.Float32BufferAttribute(starColors,3));geo.setAttribute('aSize',new THREE.Float32BufferAttribute(sizes,1));this.stars=new THREE.Points(geo,new THREE.PointsMaterial({vertexColors:true,size:1,sizeAttenuation:false,transparent:true,depthWrite:false}));
     // Clip stars analytically to the globe, including cameras inside its atmosphere.
-    const {uCelestial,uSunDisc,uMoonDisc}=this.sky.material.uniforms;this.starOcclusion={uPlanetCenter:{value:this.earth.position},uPlanetRadius:{value:0},uCelestial,uSunDisc,uMoonDisc};this.stars.material.onBeforeCompile=shader=>{Object.assign(shader.uniforms,this.starOcclusion,{uPixelRatio:this.starPixelRatio});shader.vertexShader='attribute float aSize;uniform float uPixelRatio;varying vec3 vStarWorld;\n'+shader.vertexShader;shader.vertexShader=shader.vertexShader.replace('gl_PointSize = size;','gl_PointSize = aSize * uPixelRatio;');shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvStarWorld=(modelMatrix*vec4(position,1.0)).xyz;');shader.fragmentShader='varying vec3 vStarWorld;uniform vec3 uPlanetCenter;uniform float uPlanetRadius,uCelestial;uniform vec4 uSunDisc,uMoonDisc;\n'+skyDisc+'\n'+shader.fragmentShader;shader.fragmentShader=shader.fragmentShader.replace('#include <alphatest_fragment>','diffuseColor.a *= 1.0-smoothstep(.12,.5,length(gl_PointCoord-.5));\n#include <alphatest_fragment>');shader.fragmentShader=shader.fragmentShader.replace('#include <clipping_planes_fragment>','#include <clipping_planes_fragment>\nvec3 center=uPlanetCenter-cameraPosition;vec3 ray=normalize(vStarWorld-cameraPosition);if(uCelestial>.5&&(discOffset(ray,uSunDisc)<uSunDisc.w||discOffset(ray,uMoonDisc)<uMoonDisc.w))discard;float along=dot(ray,center);float radius2=uPlanetRadius*uPlanetRadius;if(uPlanetRadius>0.0&&(dot(center,center)<radius2||(along>0.0&&dot(center,center)-along*along<radius2)))discard;');};this.stars.material.customProgramCacheKey=()=> 'rocket-painted-stars';
+    const {uCelestial,uSunDisc,uMoonDisc,uSkyTangent,uOrbitSky}=this.sky.material.uniforms;
+    this.starOcclusion={uPlanetCenter:{value:this.earth.position},uPlanetRadius:{value:0},uCelestial,uSunDisc,uMoonDisc,uSkyTangent,uOrbitSky};
+    this.stars.material.onBeforeCompile=shader=>{
+      Object.assign(shader.uniforms,this.starOcclusion,{uPixelRatio:this.starPixelRatio});
+      shader.vertexShader='attribute float aSize;uniform float uPixelRatio,uOrbitSky;uniform vec2 uSkyTangent;varying vec3 vStarWorld;\n'+shader.vertexShader;
+      shader.vertexShader=shader.vertexShader.replace('gl_PointSize = size;','gl_PointSize = aSize * uPixelRatio;');
+      shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvStarWorld=(modelMatrix*vec4(position,1.0)).xyz;');
+      // Project orbital sky points in the same angular view as the background.
+      shader.vertexShader=shader.vertexShader.replace('#include <project_vertex>','#include <project_vertex>\nif(uOrbitSky>.5){vec3 ray=mat3(viewMatrix)*normalize(vStarWorld-cameraPosition);gl_Position=vec4(ray.xy/uSkyTangent,-ray.z,-ray.z);}');
+      shader.fragmentShader='varying vec3 vStarWorld;uniform vec3 uPlanetCenter;uniform float uPlanetRadius,uCelestial,uOrbitSky;uniform vec4 uSunDisc,uMoonDisc;\n'+skyDisc+'\n'+shader.fragmentShader;
+      shader.fragmentShader=shader.fragmentShader.replace('#include <alphatest_fragment>','diffuseColor.a *= 1.0-smoothstep(.12,.5,length(gl_PointCoord-.5));\n#include <alphatest_fragment>');
+      shader.fragmentShader=shader.fragmentShader.replace('#include <clipping_planes_fragment>','#include <clipping_planes_fragment>\nvec3 center=uPlanetCenter-cameraPosition;vec3 ray=normalize(vStarWorld-cameraPosition);if(uCelestial>.5&&(discOffset(ray,uSunDisc)<uSunDisc.w||discOffset(ray,uMoonDisc)<uMoonDisc.w))discard;float along=dot(ray,center);float radius2=uPlanetRadius*uPlanetRadius;if(uOrbitSky<.5&&uPlanetRadius>0.0&&(dot(center,center)<radius2||(along>0.0&&dot(center,center)-along*along<radius2)))discard;');
+    };
+    this.stars.material.customProgramCacheKey=()=> 'rocket-painted-stars';
     this.scene.add(this.relief,this.landscape,this.sky,this.earth,this.clouds,this.halo,this.oceanDepth,this.globalTerrain,this.contactGround,this.impacts,this.stars);
     this.flightReady=true;
   }
@@ -77,8 +91,8 @@ export class RocketScene{
   }
   setZoom(value){
     if(Number.isFinite(value)){
-      const max=this.orbitFrame?Math.max(16,this.orbitFrame.halfHeight/.8):2.5;
-      const next=THREE.MathUtils.clamp(value,.4,max);
+      const max=this.orbitFrame?Math.max(32,this.orbitFrame.halfHeight/.4):2.5;
+      const next=THREE.MathUtils.clamp(value,this.orbitFrame ? .05 : .4,max);
       if(next!==this.zoom){this.lockOrbitFrame();this.zoom=next;this.cameraDirty=true;}
     }
     return this.zoom;
@@ -96,26 +110,29 @@ export class RocketScene{
     target.addScaledVector(right,(from.x-x)*before-(to.x-x)*after).addScaledVector(up,(to.y-y)*after-(from.y-y)*before);
     this.cameraDirty=true;return true;
   }
-  focusOrbit(body){
-    if(!isOrbitView(this.view)||!this.orbitFrame)return;
-    const target=(body==='craft'?this.rocket:this.earth).position.clone();
-    this.orbitFocus={target,halfHeight:(body==='craft'?2.5:4)/Math.min(1,this.perspectiveCamera.aspect)};
-    this.zoom=1;this.draw();
-  }
   rotate(dx,dy,draw=true){
     if(this.view==='follow'&&!this.followManual&&(dx||dy)){
       this.pitch=this.followPitch??this.pitch;
       this.followManual=true;
     }
-    this.yaw+=dx*.008;const observing=this.view==='sky',limit=observing?1.56:1.5;this.pitch=Math.max(-limit,Math.min(limit,this.pitch+(observing?-dy:dy)*.006));this.cameraDirty=true;if(draw)this.draw();
+    this.yaw=O.wrap(this.yaw+dx*.008);
+    const pitch=this.pitch+(this.view==='sky'?-dy:dy)*.006;
+    this.pitch=this.view==='factory'?THREE.MathUtils.clamp(pitch,-1.5,1.5):O.wrap(pitch+Math.PI)-Math.PI;
+    this.cameraDirty=true;if(draw)this.draw();
   }
   drawSky(frame,space,angle){
     const u=this.sky.material.uniforms;
+    u.uOrbitSky.value=Number(space);
+    const orbitTangent=Math.tan(Math.PI/6),projection=this.camera.projectionMatrix.elements;
+    if(space)u.uSkyTangent.value.set(orbitTangent*this.perspectiveCamera.aspect,orbitTangent);
+    else u.uSkyTangent.value.set(1/projection[0],1/projection[5]);
+    u.uSkyBasis.value.setFromMatrix4(this.camera.matrixWorld);
     u.uCelestial.value=Number(Boolean(frame));
     this.stars.quaternion.identity();
     if(!frame){u.uStarFrame.value.identity();return;}
-    const scale=space?P.R/3000:1;
-    const observer=u.uObserver.value.copy(this.camera.position).sub(this.earth.position).multiplyScalar(scale);
+    const observer=u.uObserver.value,flight=this.data.flight;
+    if(space&&flight)observer.set(flight.state[1],flight.state[0],flight.state[2]).multiplyScalar(.001);
+    else observer.copy(this.camera.position).sub(this.earth.position);
     const result=Sky.observe(frame,observer.clone().applyAxisAngle(viewAxis,-angle).toArray());
     observer.divideScalar(P.R/1000);
     const vector=new THREE.Vector3();
@@ -312,8 +329,7 @@ export class RocketScene{
   frameOrbit(f,target){
     const {yaw,pitch}=this,aspect=this.perspectiveCamera.aspect;
     const right=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw));
-    const backward=new THREE.Vector3(Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),Math.cos(yaw)*Math.cos(pitch));
-    const up=backward.cross(right),point=new THREE.Vector3();
+    const up=orbitUp(yaw,pitch),point=new THREE.Vector3();
     let left=-3.05,rightEdge=3.05,bottom=-3.05,top=3.05,range=Math.max(3.05,this.rocket.position.length());
     const include=point=>{const x=point.dot(right),y=point.dot(up);left=Math.min(left,x);rightEdge=Math.max(rightEdge,x);bottom=Math.min(bottom,y);top=Math.max(top,y);};
     include(this.rocket.position);
@@ -334,7 +350,7 @@ export class RocketScene{
     const displayHeight=fit.halfHeight/this.zoom;
     this.orbitFrame={...fit,right,up,pixelsPerUnit:this.host.clientHeight/(2*displayHeight)};
     Object.assign(this.orbitCamera,{left:-displayHeight*aspect,right:displayHeight*aspect,top:displayHeight,bottom:-displayHeight});
-    return Math.max(30,2*range+15);
+    return Math.max(30,2*range+15,2*displayHeight*Math.hypot(1,aspect));
   }
   updateEarthDetail(pixelsPerUnit){
     if(this.earthMap.image.width>=4096||this.earthDetailRequested||!this.orbitFocus||pixelsPerUnit*6<200||this.renderer.capabilities.maxTextureSize<4096)return;
@@ -467,14 +483,21 @@ export class RocketScene{
       const inverse=this.globalTerrain.matrixWorld.clone().invert(),point=new THREE.Vector3(),margin=factory||!f?.2:.002;
       const clearance=()=>{if(factory||!f)return this.camera.position.y+.8;point.copy(this.camera.position).applyMatrix4(inverse);const radius=point.length();point.divideScalar(radius);return (radius*(P.R-5)-P.R-S.heightAt(point.x,point.y,point.z))/1000;};
       cameraClearance=clearance();
-      if(cameraClearance<margin){let low=cameraPitch,high=Math.PI/2;for(let i=0;i<16;i++){const pitch=(low+high)/2;positionCamera(pitch);if(clearance()<margin)low=pitch;else high=pitch;}positionCamera(high);cameraClearance=clearance();}
+      if(cameraClearance<margin){
+        if(factory||!f){let low=cameraPitch,high=Math.PI/2;for(let i=0;i<16;i++){const pitch=(low+high)/2;positionCamera(pitch);if(clearance()<margin)low=pitch;else high=pitch;}positionCamera(high);cameraClearance=clearance();}
+        else{
+          // Lift both the eye and its target out of terrain without clamping the viewing angle.
+          const correction=this.camera.position.clone().sub(this.earth.position).setLength(margin-cameraClearance);
+          this.camera.position.add(correction);target.add(correction);cameraClearance=margin;
+        }
+      }
     }
     this.camera.near=space?.05:factory||!f?.1:Math.max(.0001,Math.min(distance*.05,cameraClearance*.25));
     this.camera.far=space?Math.max(150,distance*4):factory||!f?500:Math.max(20000,this.camera.position.distanceTo(this.earth.position)+this.halo.scale.x);
     if(!space)this.camera.fov=observing?40/Math.sqrt(this.zoom):40;
     if(observing)target.copy(this.camera.position).add(new THREE.Vector3(Math.sin(this.yaw)*Math.cos(this.pitch),Math.sin(this.pitch),Math.cos(this.yaw)*Math.cos(this.pitch)));
+    this.camera.up.copy(observing?orbitUp(this.yaw,this.pitch):orbitUp(cameraYaw,cameraPitch));
     this.camera.lookAt(target);this.camera.updateProjectionMatrix();this.camera.updateMatrixWorld();
-    this.sky.position.copy(this.camera.position);this.sky.scale.setScalar(this.camera.far*.48);
     this.drawSky(skyFrame,space,angle);
     const tanHalfFov=Math.tan(THREE.MathUtils.degToRad(this.perspectiveCamera.fov)/2);
     const pixelsPerUnit=space?this.orbitFrame.pixelsPerUnit:this.host.clientHeight/(2*tanHalfFov*distance);
