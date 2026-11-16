@@ -1,128 +1,148 @@
 'use strict';
 const assert=require('node:assert/strict');
-const Sky=require('../sim/rocket-side-booster-lab/sky');
-const skyData=require('../sim/rocket-side-booster-lab/assets/sky-ephemeris.json');
-async function run({base,label,P,T,H,cdp,call,viewport,open,wait,shot,report}){
- for(const [width,height]of [[390,844],[1024,768]])for(const sign of [1,-1]){
-  await viewport(width,height);const fixture=T.launched();fixture.phase='coast';fixture.flight.status='flying';fixture.flight.controls.lit=false;await open(base,fixture);
-  for(const seconds of [0,30,60]){
-   const angle=.25+sign*7800*seconds/(P.R+50000),radius=P.R+50000;
-   const cold=await call(`const f=app.controller.state.flight;f.state=[${radius*Math.cos(angle)},${radius*Math.sin(angle)},0,${-sign*7800*Math.sin(angle)},${sign*7800*Math.cos(angle)},0];f.t=${seconds};f.attitude=${angle+sign*Math.PI/2};app.controller.emit();const s=app.getScene();s.animateEffects=()=>false;s.yaw=${-sign*Math.PI/2};s.pitch=.12;s.draw();window.__aheadModel=JSON.stringify(app.getState());return {...s.globalTerrain.userData};`);assert(cold.pending<=2&&cold.desired.length<=4&&cold.prefetch.length<=2);if(!seconds)assert(cold.coarseTriangles>0,'Coarse fallback must remain during initial requests');
-   await wait(()=>call('return app.getScene().globalTerrain.userData.pending===0;'),'forward ground '+width+' '+sign+' '+seconds);
-   const hot=await call('const s=app.getScene();return{...s.globalTerrain.userData,unchanged:window.__aheadModel===JSON.stringify(app.getState()),shaders:s.renderer.info.programs.every(p=>p.diagnostics?.runnable!==false)};');assert(hot.unchanged&&hot.shaders&&hot.desired.length>0&&hot.loaded<=6&&hot.active.length<=4&&hot.pending===0&&hot.failures.length===0);assert(hot.desired.every(id=>hot.active.includes(id)),'Front-facing detail must be ready');const tangent=[sign*Math.cos(angle),-sign*Math.sin(angle),0];assert(hot.focus.reduce((sum,v,i)=>sum+v*tangent[i],0)>0,'Ground detail must follow the forward view');await shot(label+'-terrain-ahead-'+width+'-'+sign+'-'+seconds);report.flows.push({label,case:'terrain-ahead',width,height,sign,seconds,cold,hot});
-  }
- }
- await viewport(1024,768);
- const state=T.launched(),angle=1000000/P.R,r=P.R+12000;state.phase='coast';state.flight.status='flying';state.flight.controls.lit=false;state.flight.attitude=angle;state.flight.state=[r*Math.cos(angle),r*Math.sin(angle),0,0,0,0];await open(base,state);
- await H.evaluate(cdp,'(async()=>{window.__worldThree=await import("./vendor/three-0.185.1/three.module.min.js");window.__worldTerrain=await import("./terrain.js");})()');
- await call(`window.__worldPixels=()=>{const s=app.getScene(),T=window.__worldThree,target=new T.WebGLRenderTarget(160,120),previous=s.renderer.getRenderTarget(),pixels=new Uint8Array(160*120*4);target.texture.colorSpace=T.SRGBColorSpace;try{s.renderer.setRenderTarget(target);s.renderer.render(s.scene,s.camera);s.renderer.readRenderTargetPixels(target,0,0,160,120,pixels);}finally{s.renderer.setRenderTarget(previous);target.dispose();}let sum=0,square=0,bright=0,sky=0,skyCount=0;for(let y=0;y<120;y++)for(let x=0;x<160;x++){const i=(y*160+x)*4,v=(pixels[i]+pixels[i+1]+pixels[i+2])/765;sum+=v;square+=v*v;if(v>.6)bright++;if(y>92&&x>45&&x<115){sky+=v;skyCount++;}}return{mean:sum/19200,deviation:Math.sqrt(Math.max(0,square/19200-(sum/19200)**2)),brightFraction:bright/19200,sky:sky/skyCount};};return true;`);
- const probe=await call('const s=app.getScene();s.animateEffects=()=>false;s.draw();const before=window.__worldPixels();s.oceanDepth.visible=false;const without=window.__worldPixels();s.oceanDepth.visible=true;return{before,without,colorWrite:s.oceanDepth.material.colorWrite,slope:window.__worldTerrain.terrainSlopeDetail.value,diagnostics:s.diagnostics()};');report.flows.push({label,case:'world-probe',probe});await shot(label+'-world-probe');
- const heightProbe=await call(`const s=app.getScene(),T=window.__worldThree,map=window.__worldTerrain.worldSurfaceTexture.value,scene=new T.Scene(),camera=new T.OrthographicCamera(-1,1,1,-1,0,1),material=new T.ShaderMaterial({uniforms:{map:{value:map}},vertexShader:'void main(){gl_Position=vec4(position.xy,0.,1.);}',fragmentShader:'uniform sampler2D map;void main(){float x=1518.+floor(gl_FragCoord.x);gl_FragColor=vec4(texture2D(map,vec2((x+.5)/2048.,(671.+.5)/1025.)).rg,0.,1.);}'}),plane=new T.PlaneGeometry(2,2),target=new T.WebGLRenderTarget(5,1),prior=s.renderer.getRenderTarget(),pixels=new Uint8Array(20);scene.add(new T.Mesh(plane,material));try{s.renderer.setRenderTarget(target);s.renderer.render(scene,camera);s.renderer.readRenderTargetPixels(target,0,0,5,1,pixels);}finally{s.renderer.setRenderTarget(prior);target.dispose();plane.dispose();material.dispose();}return{gpu:Array.from({length:5},(_,i)=>pixels[i*4]*256+pixels[i*4+1]),cpu:Array.from({length:5},(_,i)=>map.image.data[(671*2048+1518+i)*2]*256+map.image.data[(671*2048+1518+i)*2+1])};`);assert.deepEqual(heightProbe.gpu,heightProbe.cpu);report.flows.push({label,case:'world-gpu-height',heightProbe});
- const skies=[],sun=Sky.at(skyData,Sky.DEFAULT_START).sun,sunAngle=Math.atan2(sun[0],sun[1]);
- for(const [name,a]of [['day',sunAngle],['twilight',sunAngle+Math.PI/2],['night',sunAngle+Math.PI]]){
-  const fixture=T.launched(),q=[P.R*Math.cos(a),P.R*Math.sin(a),0,0,0,0],Surface=require('../sim/rocket-side-booster-lab/surface'),radius=Surface.radius(q)+1500;fixture.phase='coast';fixture.flight.status='flying';fixture.flight.controls.lit=false;fixture.flight.attitude=a;fixture.flight.state=[radius*Math.cos(a),radius*Math.sin(a),0,0,0,0];await open(base,fixture);
-  await wait(()=>call('return d.getElementById("skyAvailability").hidden;'),'world lighting ephemeris');
-  await H.evaluate(cdp,'(async()=>{window.__worldThree=await import("./vendor/three-0.185.1/three.module.min.js");})()');
-  const frame=await call('const s=app.getScene(),T=window.__worldThree,model=JSON.stringify(app.getState()),target=new T.WebGLRenderTarget(160,120),previous=s.renderer.getRenderTarget();target.texture.colorSpace=T.SRGBColorSpace;s.animateEffects=()=>false;s.yaw=-.7;s.pitch=.35;s.draw();const p=new Uint8Array(160*120*4);try{s.renderer.setRenderTarget(target);s.renderer.render(s.scene,s.camera);s.renderer.readRenderTargetPixels(target,0,0,160,120,p);}finally{s.renderer.setRenderTarget(previous);target.dispose();}let sky=0,count=0,bright=0;for(let y=94;y<118;y++)for(let x=45;x<115;x++){const i=(y*160+x)*4,v=(p[i]+p[i+1]+p[i+2])/765;sky+=v;count++;if(v>.6)bright++;}return{sky:sky/count,brightFraction:bright/count,lighting:s.lighting,unchanged:model===JSON.stringify(app.getState()),diagnostics:s.diagnostics()};');assert(frame.unchanged);await shot(label+'-world-sky-'+name);skies.push({name,...frame});
- }
- assert(skies[2].sky<skies[0].sky*.3&&skies[2].brightFraction<.03,JSON.stringify(skies.map(f=>({name:f.name,sky:f.sky,bright:f.brightFraction}))));report.flows.push({label,case:'world-skies',skies});
- // A close diagnostic camera checks geography independently of the fixed flight plane.
- await open(base,T.reachOrbit());await call('app.view("orbit");');
- await H.evaluate(cdp,'(async()=>{window.__worldThree=await import("./vendor/three-0.185.1/three.module.min.js");window.__worldTerrain=await import("./terrain.js");})()');
- await call(`const s=app.getScene(),T=window.__worldThree,basis=[[1,0,0],[0,1,0],[0,0,1]].map(q=>{const [lon,lat]=RocketSurface.geographic(...q).map(v=>v*Math.PI/180);return new T.Vector3(Math.cos(lat)*Math.cos(lon),Math.sin(lat),Math.cos(lat)*Math.sin(lon));}),draw=s.draw.bind(s),render=s.renderer.render;window.__worldRig={lon:86.9,lat:28,night:false};s.animateEffects=()=>false;s.draw=()=>{const update=s.globalTerrain.updateDetail;s.globalTerrain.updateDetail=()=>{};s.renderer.render=()=>{};try{draw();}finally{s.renderer.render=render;s.globalTerrain.updateDetail=update;}const {lon,lat,night}=window.__worldRig,a=lon*Math.PI/180,b=lat*Math.PI/180,geo=new T.Vector3(Math.cos(b)*Math.cos(a),Math.sin(b),Math.cos(b)*Math.sin(a)),n=new T.Vector3(...basis.map(v=>v.dot(geo))),east=new T.Vector3(0,1,0).cross(n).normalize(),h=RocketSurface.heightAt(n.x,n.y,n.z),target=n.clone().multiplyScalar(3*(1+h/RocketParts.R));s.earth.geometry=s.earth.userData.nearGeometry;window.__worldTerrain.orientGroundSphere(s.earth.geometry,n);s.oceanDepth.geometry=s.earth.geometry;s.perspectiveCamera.position.copy(target).addScaledVector(n,20000*3/RocketParts.R).addScaledVector(east,35000*3/RocketParts.R);s.perspectiveCamera.near=.00005;s.perspectiveCamera.far=100;s.perspectiveCamera.lookAt(target);s.perspectiveCamera.updateProjectionMatrix();s.perspectiveCamera.updateMatrixWorld();s.planetSun.copy(n).multiplyScalar(.55).addScaledVector(east,.83).normalize().multiplyScalar(night?-1:1);s.clouds.visible=s.halo.visible=s.relief.visible=s.contactGround.visible=s.rocket.visible=false;if(s.otherRocket)s.otherRocket.visible=false;s.contactGround.clipping.uContactRadius.value=0;s.globalTerrain.updateDetail(s.perspectiveCamera,s.host.clientHeight/(2*Math.tan(T.MathUtils.degToRad(s.perspectiveCamera.fov)/2)),0,true,false,true);render.call(s.renderer,s.scene,s.perspectiveCamera);};return true;`);
- for(const [name,lon,lat]of [['himalaya',86.9,28],['alps',10.5,46.8],['andes',-70,-30],['sahara',14,23],['australia',133,-25],['antarctic',0,-85],['arctic',-45,78],['date-line',179.8,66]]){
-  await call(`Object.assign(window.__worldRig,{lon:${lon},lat:${lat},night:false});app.getScene().draw();`);await wait(()=>call('const s=app.getScene();s.draw();return s.globalTerrain.userData.pending===0&&!s.globalTerrain.userData.detailPending&&!s.globalTerrain.userData.detail?.fading;'),'world detail '+name);await shot(label+'-world-'+name+'-day');
-  if(name==='himalaya'||name==='alps'){await call(`const s=app.getScene(),materials=new Set(s.globalTerrain.children.filter(o=>o.isMesh).map(o=>o.material));window.__worldMaterials=[...materials].map(m=>({m,compile:m.onBeforeCompile,key:m.customProgramCacheKey}));for(const {m,compile,key}of window.__worldMaterials){m.onBeforeCompile=shader=>{compile.call(m,shader);shader.fragmentShader=shader.fragmentShader.replace(' return color;\\n}',' return normalize(normal)*.5+.5;\\n}');};m.customProgramCacheKey=()=>key.call(m)+'-world-normal';m.needsUpdate=true;}s.draw();return true;`);await shot(label+'-world-'+name+'-normal');await call('for(const {m,compile,key}of window.__worldMaterials){m.onBeforeCompile=compile;m.customProgramCacheKey=key;m.needsUpdate=true;}delete window.__worldMaterials;app.getScene().draw();');}
-  const frames=[];for(const night of [false,true]){const frame=await call(`window.__worldRig.night=${night};const s=app.getScene(),T=window.__worldThree,model=JSON.stringify(app.getState());s.draw();const target=new T.WebGLRenderTarget(160,120),previous=s.renderer.getRenderTarget(),pixels=new Uint8Array(160*120*4);target.texture.colorSpace=T.SRGBColorSpace;try{s.renderer.setRenderTarget(target);s.renderer.render(s.scene,s.perspectiveCamera);s.renderer.readRenderTargetPixels(target,0,0,160,120,pixels);}finally{s.renderer.setRenderTarget(previous);target.dispose();}let sum=0,bright=0;for(let y=5;y<110;y++)for(let x=5;x<155;x++){const i=(y*160+x)*4,v=(pixels[i]+pixels[i+1]+pixels[i+2])/765;sum+=v;if(v>.6)bright++;}return{night:${night},mean:sum/15750,brightFraction:bright/15750,diagnostics:s.diagnostics(),slope:window.__worldTerrain.terrainSlopeDetail.value,unchanged:model===JSON.stringify(app.getState()),shaders:s.renderer.info.programs.every(p=>p.diagnostics?.runnable!==false)};`);assert(frame.unchanged&&frame.shaders&&frame.diagnostics.globalTerrain.detail.visible>0);frames.push(frame);if(night)await shot(label+'-world-'+name+'-night');}
-  assert(frames[1].mean<frames[0].mean*.25&&frames[1].brightFraction<.02,name+' '+JSON.stringify(frames.map(f=>[f.mean,f.brightFraction])));report.flows.push({label,case:'world-region',name,lon,lat,frames});
- }
- await viewport(1194,834);await cdp.send('Emulation.setDeviceMetricsOverride',{width:1194,height:834,deviceScaleFactor:2,mobile:false});await open(base,T.reachOrbit());await call('app.view("orbit");');const budget=await call('const s=app.getScene(),coarse=matchMedia("(pointer: coarse)").matches,pixelRatio=s.renderer.getPixelRatio(),quality=s.quality;let adaptivePixelRatio=null;if(coarse){s.quality=2;s.resize();adaptivePixelRatio=s.renderer.getPixelRatio();s.quality=quality;s.resize();}return{coarse,pixelRatio,adaptivePixelRatio,textureBytes:s.diagnostics().textureBytes,earthWidth:s.diagnostics().earthMapWidth,gridBytes:RocketSurface.surfaceGrid().data.byteLength};');if(budget.coarse)assert(budget.pixelRatio<=2&&budget.adaptivePixelRatio<=1.5&&budget.earthWidth===2048,JSON.stringify(budget));assert(budget.textureBytes<100e6&&budget.gridBytes===67133442,JSON.stringify(budget));await shot(label+'-world-ipad-landscape');report.flows.push({label,case:'world-budget',budget});
+const surface=require('../sim/rocket-side-booster-lab/surface');
+const sky=require('../sim/rocket-side-booster-lab/sky');
+const ephemeris=require('../sim/rocket-side-booster-lab/assets/sky-ephemeris.json');
+
+function moveFlight(flight, angle, altitude, radius) {
+  const n=[Math.cos(angle),Math.sin(angle)];
+  const ground=surface.radius([radius*n[0],radius*n[1],0]);
+  flight.status='flying';flight.controls.lit=false;flight.attitude=angle;
+  flight.state=[(ground+altitude)*n[0],(ground+altitude)*n[1],0,0,0,0];
 }
-async function detailSeam(H,cdp){
- const result=await H.evaluate(cdp,`(()=>{
-  const T=window.__detailThree,M=window.__detailTerrain,renderer=window.__rocketApp.getScene().renderer;
-  const pixels=new Uint8Array(144*72*4),lookup=new T.DataTexture(pixels,144,72);
-  const scene=new T.Scene(),camera=new T.OrthographicCamera(-1,1,1,-1,0,1);
-  const uv={value:new T.Vector2()},material=new T.ShaderMaterial({
-   uniforms:{...M.surfaceUniforms,uDetailLookup:{value:lookup},uProbeUv:uv},
-   vertexShader:'void main(){gl_Position=vec4(position.xy,0.,1.);}',
-   fragmentShader:M.groundLight+'uniform vec2 uProbeUv;void main(){gl_FragColor=vec4(vec3(detailedNormal(uProbeUv).a),1.);}',
-   toneMapped:false
-  });
-  const geometry=new T.PlaneGeometry(2,2),target=new T.WebGLRenderTarget(1,1),previous=renderer.getRenderTarget();
-  scene.add(new T.Mesh(geometry,material));
-  const read=(x,y)=>{
-   uv.value.set(x/144,y/72);
-   renderer.render(scene,camera);
-   const sample=new Uint8Array(4);
-   renderer.readRenderTargetPixels(target,0,0,1,1,sample);
-   return sample[0];
-  };
-  const row=30;
-  try{
-   renderer.setRenderTarget(target);
-   pixels.set([1,255,0,255],(row*144+143)*4);lookup.needsUpdate=true;
-   const isolated=[read(143.5,row+.5),read(143.99999,row+.5),read(.00001,row+.5)];
-   pixels.set([2,128,0,255],row*144*4);lookup.needsUpdate=true;
-   const midFade=[read(143.5,row+.5),read(143.99999,row+.5),read(.00001,row+.5)];
-   return {isolated,midFade};
-  }finally{renderer.setRenderTarget(previous);target.dispose();lookup.dispose();geometry.dispose();material.dispose();}
- })()`);
- assert.deepEqual(result.isolated,[255,0,0],'An absent neighbor blends into the same coarse normal across the date line');
- assert.deepEqual(result.midFade,[255,128,128],'Both sides share the lower opacity while a tile fades in');
- return result;
-}
-async function detail({base,label,P,T,H,cdp,call,viewport,open,wait,shot,report}){
- await viewport(1413,923);await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:false});
- const orbital=T.launched();orbital.phase='coast';orbital.flight.status='flying';orbital.flight.controls.lit=false;
- await open(base,orbital);
- for(const [height,arc] of [[282100,-.065],[816900,.27]]){
-  const radius=P.R+height,cos=Math.cos(arc),sin=Math.sin(arc);
-  await call(`const s=app.getScene(),f=app.controller.state.flight;f.state=[${radius*cos},${radius*sin},0,${1510*cos-3050*sin},${1510*sin+3050*cos},0];f.attitude=${arc+1.2};app.controller.emit();s.observeFrame=()=>{};s.quality=0;s.yaw=-1.1;s.pitch=.75;s.draw();window.__orbitModel=JSON.stringify(app.getState());`);
-  await wait(()=>call('const s=app.getScene();s.draw();return s.globalTerrain.userData.pending===0&&s.globalTerrain.userData.detail&&!s.globalTerrain.userData.detail.fading;'),'orbital coast '+height);
-  for(const quality of [0,2]){
-   const frame=await call(`const s=app.getScene();s.quality=${quality};s.draw();const {orbitalBlend,coarseTriangles,fineTriangles,detail}=s.globalTerrain.userData;return{orbitalBlend,coarseTriangles,fineTriangles,detail:detail.visible,atlas:s.diagnostics().earthMapWidth,modelUnchanged:window.__orbitModel===JSON.stringify(app.getState()),shaders:s.renderer.info.programs.every(p=>p.diagnostics?.runnable!==false)};`);
-   assert.equal(frame.orbitalBlend,1);assert.equal(frame.coarseTriangles+frame.fineTriangles,0);assert(frame.modelUnchanged&&frame.shaders&&frame.detail>0&&frame.atlas===4096,JSON.stringify(frame));
-   await shot(label+'-orbital-coast-'+height+'-quality-'+quality);report.flows.push({label,case:'orbital-coast',height,quality,...frame});
-  }
- }
- for(const [width,height]of [[390,844],[1024,768]]){
-  await viewport(width,height);const fixture=T.launched();fixture.phase='coast';fixture.flight.status='flying';fixture.flight.controls.lit=false;await open(base,fixture);
-  await H.evaluate(cdp,'(async()=>{window.__detailTerrain=await import("./terrain.js");window.__detailThree=await import("./vendor/three-0.185.1/three.module.min.js");})()');
-  for(const metres of [140000,210000,250000,350000,600000,1000000]){
-   const a=metres/P.R,r=P.R+144700;
-   await call(`const f=app.controller.state.flight;f.state=[${r*Math.cos(a)},${r*Math.sin(a)},0,${403*Math.cos(a)-3440*Math.sin(a)},${403*Math.sin(a)+3440*Math.cos(a)},0];f.attitude=${a+1.25};app.controller.emit();const s=app.getScene();s.quality=0;s.observeFrame=()=>{};s.yaw=-1.1;s.pitch=1;s.draw();window.__detailModel=JSON.stringify(app.getState());`);
-   await wait(()=>call('const s=app.getScene();s.draw();return s.globalTerrain.userData.pending===0&&s.globalTerrain.userData.detail&&!s.globalTerrain.userData.detail.fading;'),'global slope readiness '+metres);
-   const frame=await call(`const s=app.getScene(),T=window.__detailThree,u=window.__detailTerrain.surfaceUniforms,target=new T.WebGLRenderTarget(240,160),previous=s.renderer.getRenderTarget(),enabled=u.uDetailEnabled.value;target.texture.colorSpace=T.SRGBColorSpace;const images=[];try{for(const on of [1,0]){u.uDetailEnabled.value=on;s.renderer.setRenderTarget(target);s.renderer.render(s.scene,s.camera);const p=new Uint8Array(240*160*4);s.renderer.readRenderTargetPixels(target,0,0,240,160,p);images.push(p);}}finally{u.uDetailEnabled.value=enabled;s.renderer.setRenderTarget(previous);target.dispose();}let sum=0,square=0,count=0;for(let y=5;y<140;y++)for(let x=5;x<235;x++)for(let k=0;k<3;k++){const d=(images[0][(y*240+x)*4+k]-images[1][(y*240+x)*4+k])/255;sum+=Math.abs(d);square+=d*d;count++;}s.renderer.render(s.scene,s.camera);return{meanDifference:sum/count,rmsDifference:Math.sqrt(square/count),stats:JSON.parse(JSON.stringify(s.globalTerrain.userData)),textureBytes:s.diagnostics().textureBytes,unchanged:window.__detailModel===JSON.stringify(app.getState()),shaders:s.renderer.info.programs.every(p=>p.diagnostics?.runnable!==false)};`);
-   assert(frame.unchanged&&frame.shaders&&frame.stats.detail.visible>0&&frame.stats.detail.loaded<=12&&frame.stats.loaded<=6&&frame.stats.active.length<=4&&frame.stats.pending===0&&frame.stats.normalFailures.length===0);assert(frame.textureBytes<100e6);await shot(label+'-global-detail-'+width+'-'+metres);report.flows.push({label,case:'global-detail',width,height,metres,...frame});
-  }
-  const outside=report.flows.filter(f=>f.label===label&&f.case==='global-detail'&&f.width===width&&f.metres>=350000);assert(outside.some(f=>f.rmsDifference>.001),'The world outside the launch region must visibly use the streamed slope data');
-  const ready=await call('const s=app.getScene();s.quality=2;s.draw();return JSON.parse(JSON.stringify(s.globalTerrain.userData));');assert(ready.active.length===0&&ready.detail.visible>0,'Low quality must retain global slope detail while simplifying geometry');await shot(label+'-global-detail-low-'+width);await call('app.getScene().quality=0;app.getScene().draw();');
-  const chosen=await H.evaluate(cdp,`(async()=>{
-   const s=window.__rocketApp.getScene(),stats=s.globalTerrain.userData.detail;
-   const lookup=window.__detailTerrain.surfaceUniforms.uDetailLookup.value.image.data;
-   for(const id of stats.ids){
-    const [x,y]=id.split('-').map(Number);
-    if(lookup[(y*144+x)*4+1]!==255)continue;
-    const west=x*2.5-180,south=y*2.5-90;
-    if(west>-125&&west< -110&&south>30&&south<40)continue;
-    const response=await fetch("./assets/global-detail/normal-"+id+".webp");
-    const bitmap=await createImageBitmap(await response.blob(),{colorSpaceConversion:"none",premultiplyAlpha:"none"});
-    const canvas=document.createElement("canvas");canvas.width=canvas.height=259;
-    const ctx=canvas.getContext("2d");ctx.drawImage(bitmap,0,0);bitmap.close();
-    const pixels=ctx.getImageData(0,0,259,259).data;
-    for(let row=32;row<230;row+=16)for(let col=32;col<230;col+=16){
-     const i=(row*259+col)*4;
-     if(Math.abs(pixels[i]-128)<8)continue;
-     return {id,probe:{rgb:Array.from(pixels.slice(i,i+3))},lon:west+(col-1)*2.5/256,lat:south+(row-1)*2.5/256};
+
+async function run({base,label,P,T,H,cdp,call,viewport,open,wait,shot,report}) {
+  for(const [width,height] of [[390,844],[1280,800]]) {
+    await viewport(width,height);
+    if(width>=960)await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:false});
+    await open(base,T.reachOrbit());
+    await wait(()=>call('return d.getElementById("skyAvailability").hidden;'),'world ephemeris');
+    await call('app.view("orbit");');
+    const orbit=await call('const s=app.getScene();return {width:s.earthMap.image.width,clouds:s.clouds.material.uniforms.uMap.value.image.width,earth:s.earth.visible,textures:s.diagnostics().textureBytes};');
+    assert.equal(orbit.width, width<960?1024:2048);
+    assert(orbit.earth&&orbit.clouds===512&&orbit.textures<50e6,JSON.stringify(orbit));
+    await shot(label+'-procedural-orbit-'+width);
+    if(width>=960){
+      await cdp.send('Network.emulateNetworkConditions',{offline:true,latency:0,downloadThroughput:-1,uploadThroughput:-1});
+      try{
+        const zoom=await call('const s=app.getScene(),r=s.host.getBoundingClientRect(),p=s.project(s.earth.position),c={x:r.left+r.width/2,y:r.top+r.height/2};s.transformOrbit(1000/(6*s.orbitFrame.pixelsPerUnit),{x:r.left+p.x,y:r.top+p.y},c);s.draw();return{requested:s.earthDetailRequested,diameter:s.orbitFrame.pixelsPerUnit*6};');
+        assert(zoom.requested&&zoom.diameter>=900,JSON.stringify(zoom));
+        await H.waitForCondition(()=>call('return app.getScene().earthMap.image.width===4096;'),'4K Earth while offline',40000);
+        orbit.detailWidth=4096;
+        await shot(label+'-procedural-orbit-coast-4k');
+      }finally{
+        await cdp.send('Network.emulateNetworkConditions',{offline:false,latency:0,downloadThroughput:-1,uploadThroughput:-1});
+      }
     }
-   }
-  })()`);
-  assert(chosen,'A ready nonregional, east-west slope is required for the GPU check');
-  const probe=await call(`const {probe,lon,lat}=${JSON.stringify(chosen)},s=app.getScene(),T=window.__detailThree,M=window.__detailTerrain,basis=[[1,0,0],[0,1,0],[0,0,1]].map(q=>{const [a,b]=RocketSurface.geographic(...q).map(v=>v*Math.PI/180);return new T.Vector3(Math.cos(b)*Math.cos(a),Math.sin(b),Math.cos(b)*Math.sin(a));}),a=lon*Math.PI/180,b=lat*Math.PI/180,up=new T.Vector3(Math.cos(b)*Math.cos(a),Math.sin(b),Math.cos(b)*Math.sin(a)),east=new T.Vector3(-Math.sin(a),0,Math.cos(a)),north=new T.Vector3(-Math.sin(b)*Math.cos(a),Math.cos(b),-Math.sin(b)*Math.sin(a)),convert=v=>new T.Vector3(...basis.map(row=>row.dot(v))),components=probe.rgb.map(v=>(v-128)/127),expected=convert(east.multiplyScalar(components[0]).addScaledVector(north,components[1]).addScaledVector(up,components[2])).normalize(),point=convert(up),priorRotation=M.surfaceUniforms.uSurfaceRotation.value;M.surfaceUniforms.uSurfaceRotation.value=new T.Matrix3();const scene=new T.Scene(),camera=new T.OrthographicCamera(-1,1,1,-1,0,1),geometry=new T.PlaneGeometry(2,2),material=new T.ShaderMaterial({uniforms:{...M.surfaceUniforms,uSlopeDetail:{value:1},uPoint:{value:point}},vertexShader:'void main(){gl_Position=vec4(position.xy,0.,1.);}',fragmentShader:M.groundLight.replace(' return color;\\n}',' return normal*.5+.5;\\n}')+'uniform vec3 uPoint;void main(){vec3 p=normalize(uPoint);gl_FragColor=vec4(shadeSurface(vec3(.4),p,p,p,p,normalize(vec3(.3,.5,1.)),0.),1.);}',toneMapped:false}),target=new T.WebGLRenderTarget(1,1),previous=s.renderer.getRenderTarget(),pixel=new Uint8Array(4);scene.add(new T.Mesh(geometry,material));try{s.renderer.setRenderTarget(target);s.renderer.render(scene,camera);s.renderer.readRenderTargetPixels(target,0,0,1,1,pixel);}finally{s.renderer.setRenderTarget(previous);M.surfaceUniforms.uSurfaceRotation.value=priorRotation;target.dispose();material.dispose();geometry.dispose();}return{pixel:Array.from(pixel),expected:expected.toArray().map(v=>Math.round((v*.5+.5)*255))};`);
-  assert(probe.expected.every((v,i)=>Math.abs(v-probe.pixel[i])<=3),'Actual global shader must preserve the source normal direction '+JSON.stringify(probe));report.flows.push({label,case:'global-detail-gpu',width,...chosen,...probe});
-  if(width===1024)report.flows.push({label,case:'global-detail-seam',...await detailSeam(H,cdp)});
-  if(width===1024){await call('app.getScene().renderer.forceContextLoss();');await wait(()=>call('return app.getScene().lost;'),'detail context loss');await call('app.getScene().renderer.forceContextRestore();');await wait(()=>call('return !app.getScene().lost;'),'detail context restore');const restored=await call('const s=app.getScene();s.draw();return{loaded:s.globalTerrain.userData.detail.loaded,visible:s.globalTerrain.userData.detail.visible,shaders:s.renderer.info.programs.every(p=>p.diagnostics?.runnable!==false)};');assert(restored.loaded>0&&restored.visible>0&&restored.shaders);await shot(label+'-global-detail-restored');report.flows.push({label,case:'global-detail-restore',restored});}
- }
+    const [east,up]=sky.at(ephemeris,sky.DEFAULT_START).sun, day=Math.atan2(east,up);
+    const frames=[];
+    for(const [name,angle] of [['day',day],['night',day+Math.PI]]) {
+      const state=T.launched();state.phase='coast';moveFlight(state.flight,angle,5000,P.R);
+      const frame=await call('app.controller.state='+JSON.stringify(state)+';app.controller.emit();app.view("follow");const s=app.getScene();return {agl:RocketSurface.clearance(s.data.flight.state),lighting:s.lighting,world:s.globalTerrain.userData,lost:s.lost};');
+      assert(Math.abs(frame.agl-5000)<.001&&!frame.lost,JSON.stringify(frame));
+      await shot(label+'-procedural-'+name+'-'+width);
+      frames.push(frame);
+    }
+    assert(frames[0].lighting.daylight>frames[1].lighting.daylight);
+    report.flows.push({label,case:'world',width,orbit,frames});
+  }
 }
-module.exports={run,detail};
+
+async function detail({base,label,P,T,cdp,call,viewport,open,wait,shot,report}) {
+  await viewport(1024,768);
+  const state=T.launched();state.phase='coast';moveFlight(state.flight, .113, 5000, P.R);
+  await open(base,state);
+  await wait(()=>call('return app.getScene().globalTerrain.userData.active.length>0;'),'generated mountain mesh');
+  const first=await call('const s=app.getScene(),model=JSON.stringify(app.getState());s.yaw+=.2;s.draw();return{...s.globalTerrain.userData,unchanged:JSON.stringify(app.getState())===model};');
+  assert(first.procedural&&first.fineTriangles>=8192&&first.centerSpacing<600&&first.unchanged,JSON.stringify(first));
+  moveFlight(state.flight, .117, 6500, P.R);
+  await cdp.send('Network.emulateNetworkConditions',{offline:true,latency:0,downloadThroughput:-1,uploadThroughput:-1});
+  try {
+    await call('app.controller.state='+JSON.stringify(state)+';app.controller.emit();app.view("follow",true);const s=app.getScene();s.pitch=.38;s.yaw=2.9;s.draw();');
+    await wait(()=>call('return app.getScene().globalTerrain.userData.rebuilds>'+first.rebuilds+';'),'next mountain mesh while offline');
+    const second=await call('const s=app.getScene();return{...s.globalTerrain.userData,shaders:s.renderer.info.programs.every(p=>p.diagnostics?.runnable!==false)};');
+    assert(second.fineTriangles===first.fineTriangles&&second.shaders);
+    await shot(label+'-procedural-remote-ground-detail');
+    moveFlight(state.flight, -20100/P.R, 4100, P.R);
+    await call('app.controller.state='+JSON.stringify(state)+';app.controller.emit();const s=app.getScene();s.pitch=.32;s.yaw=-.18;s.draw();');
+    await shot(label+'-procedural-coast-detail');
+    report.flows.push({label,case:'detail',first,second,offline:true});
+  } finally {
+    await cdp.send('Network.emulateNetworkConditions',{offline:false,latency:0,downloadThroughput:-1,uploadThroughput:-1});
+  }
+}
+async function distantGlobe({base,label,P,T,cdp,call,viewport,open,shot,report}){
+  const state=T.reachOrbit(),f=state.flight,sun=sky.at(ephemeris,sky.DEFAULT_START).sun;
+  const angle=Math.atan2(sun[0],sun[1])+.32;
+  f.t=0;f.controls.lit=false;state.phase='coast';
+  moveFlight(f,angle,30000000,P.R);
+  await viewport(390,844);await open(base,state);
+  await call('d.getElementById("toggleFlightControls").click();');
+  const rows=await call(`return (async()=>{
+    const T=await import('./vendor/three-0.185.1/three.module.min.js'),s=app.getScene(),r=s.renderer,
+      scene=s.scene,earth=s.earth,original=earth.material,prior=r.getRenderTarget(),clear=r.getClearColor(new T.Color()),
+      {x:width,y:height}=r.getDrawingBufferSize(new T.Vector2()),gl=r.getContext(),
+      pixels=new Uint8Array(width*height*4),mask=pixels.slice(),flight=app.controller.state.flight;
+    const maskMaterial=new T.ShaderMaterial({uniforms:{uSun:{value:s.planetSun},uDistantGlobe:{value:1}},vertexShader:original.vertexShader,
+      fragmentShader:'varying vec3 vNormal;uniform vec3 uSun;void main(){if(dot(normalize(vNormal),uSun)<.4)discard;gl_FragColor=vec4(1.0);}'});
+    const layers=scene.children.map(node=>[node,node.visible]),rows=[];
+    try{
+      for(const km of [17000,30000,57000,98500]){
+        const radius=RocketParts.R+km*1000;
+        flight.state=[radius*Math.cos(${angle}),radius*Math.sin(${angle}),0,0,0,0];
+        app.controller.emit();s.followManual=true;
+        for(const [yaw,pitch,zoom] of [[-.65,1.35,1],[-.36,1.51,1.8],[1.1,1.60,.7]]){
+          s.yaw=yaw;s.pitch=pitch;s.setZoom(zoom);s.draw();
+          if(s.distantGlobe.value!==1||!earth.material.depthWrite||s.oceanDepth.visible)throw Error('Distant perspective depth was not enabled');
+          const visibility=layers.map(([node])=>node.visible);
+          // Use the visible framebuffer to exercise the browser's real clip and resolve path.
+          r.setRenderTarget(null);r.setClearColor('#ff00ff');
+          for(const [node] of layers)node.visible=node===earth;
+          earth.material=maskMaterial;r.render(scene,s.camera);gl.readPixels(0,0,width,height,gl.RGBA,gl.UNSIGNED_BYTE,mask);
+          earth.material=original;
+          for(const useFixedClip of km===30000&&yaw===-.65?[true,false]:[true]){
+            for(const [i,[node]] of layers.entries())node.visible=visibility[i];
+            s.distantGlobe.value=Number(useFixedClip);
+            earth.material.depthWrite=useFixedClip;
+            s.oceanDepth.visible=!useFixedClip;
+            s.rocket.visible=s.velocityArrow.visible=s.thrustArrow.visible=false;
+            r.render(scene,s.camera);gl.readPixels(0,0,width,height,gl.RGBA,gl.UNSIGNED_BYTE,pixels);
+            let lit=0,dark=0,holes=0;
+            const white=i=>mask[i]===255&&mask[i+1]===255&&mask[i+2]===255;
+            for(let y=2;y<height-2;y++)for(let x=2;x<width-2;x++){
+              const i=(y*width+x)*4;if(!white(i)||!white(i-8)||!white(i+8)||!white(i-8*width)||!white(i+8*width))continue;
+              lit++;if(Math.max(pixels[i],pixels[i+1],pixels[i+2])<28)dark++;
+              if(pixels[i]===255&&pixels[i+1]===0&&pixels[i+2]===255)holes++;
+            }
+            rows.push({km,yaw,pitch,zoom,useFixedClip,lit,dark,holes});
+          }
+          r.setRenderTarget(prior);
+          for(const [i,[node]] of layers.entries())node.visible=visibility[i];
+        }
+      }
+    }finally{
+      r.setRenderTarget(prior);r.setClearColor(clear);earth.material=original;s.distantGlobe.value=1;original.depthWrite=true;
+      for(const [node,visible] of layers)node.visible=visible;
+      maskMaterial.dispose();
+    }
+    return rows;
+  })();`);
+  const fixed=rows.filter(row=>row.useFixedClip&&row.lit>1000);
+  assert([17000,30000,57000,98500].every(km=>fixed.filter(row=>row.km===km).length>=2),JSON.stringify(rows));
+  assert(fixed.every(row=>row.dark===0&&row.holes===0),JSON.stringify(rows));
+  await call(`const s=app.getScene(),f=app.controller.state.flight,r=RocketParts.R+30000000;f.state=[r*Math.cos(${angle}),r*Math.sin(${angle}),0,0,0,0];app.controller.emit();s.yaw=-.65;s.pitch=1.35;s.setZoom(1);s.draw();`);
+  const after=await shot(label+'-distant-globe-30000km');
+  await call('const s=app.getScene();s.distantGlobe.value=0;s.earth.material.depthWrite=false;s.oceanDepth.visible=true;s.renderer.render(s.scene,s.camera);');
+  const before=await shot(label+'-distant-globe-30000km-without-clip-fix');
+  await call('app.getScene().draw();');
+  const screenPixels=async encoded=>call(`return (async()=>{
+    const img=new Image();img.src="data:image/png;base64,${encoded}";await img.decode();
+    const canvas=document.createElement('canvas');canvas.width=img.width;canvas.height=img.height;
+    const ctx=canvas.getContext('2d');ctx.drawImage(img,0,0);
+    return [[48,616],[36,630],[26,703]].map(([x,y])=>Array.from(ctx.getImageData(x,y,1,1).data.slice(0,3)));
+  })();`);
+  const recoveredPixels={before:await screenPixels(before),after:await screenPixels(after)};
+  assert(recoveredPixels.after.every(rgb=>Math.max(...rgb)>55),JSON.stringify(recoveredPixels));
+  report.flows.push({label,case:'distant-globe',rows,recoveredPixels});
+}
+module.exports={run,detail,distantGlobe};

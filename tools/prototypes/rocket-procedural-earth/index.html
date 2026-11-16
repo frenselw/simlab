@@ -1,0 +1,8 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>程序生成地球 · 視覺原型</title>
+<link rel="stylesheet" href="../../../sim/shared/styles.css"><link rel="stylesheet" href="styles.css"><script src="../../../sim/shared/fullscreen.js" defer></script></head>
+<body><main data-sim-fullscreen-target><header data-sim-fullscreen><h1>程序生成地球 <small>視覺原型</small></h1></header>
+<section id="stage" aria-label="三維地球與地形預覽"><canvas id="scene" tabindex="0" aria-label="拖曳旋轉，Shift 拖曳平移，滾輪或雙指縮放。方向鍵旋轉，加減鍵縮放。"></canvas><p id="loading" role="status">正在運算地球表面…</p><div id="caption"><strong id="place">地球全貌</strong><span>公式生成地形、顏色及雲層</span></div></section>
+<nav aria-label="觀察位置"><button data-view="globe" aria-pressed="true">地球</button><button data-view="mountains" aria-pressed="false">雪山</button><button data-view="forest" aria-pressed="false">森林</button><button data-view="desert" aria-pressed="false">沙漠</button><label><input id="clouds" type="checkbox" checked> 雲層</label></nav>
+<footer><p>拖曳旋轉 · 雙指平移及縮放 · Shift 拖曳平移 · 滾輪縮放</p><output id="metrics" aria-live="polite"></output></footer>
+</main><script type="module" src="main.mjs"></script></body></html>

@@ -59,7 +59,7 @@ async function prepareFlight(){
     d.flightPreparation.textContent='飛行地形已就緒。';
   }catch(error){
     console.warn('Flight preparation failed',error);
-    d.flightPreparation.textContent='未能載入飛行地形。你可以繼續組裝，或重試。';
+    d.flightPreparation.textContent='未能生成飛行地形。你可以繼續組裝，或重試。';
     d.retryFlightPreparation.hidden=false;
   }finally{
     d.retryFlightPreparation.disabled=false;render();
@@ -87,7 +87,7 @@ function setControlsCollapsed(collapsed){
   d.toggleFlightControls.textContent=collapsed?'顯示控制':'收起控制';
 }
 
-function render(){
+function render(drawScene=true){
   if(!controller.running){physicsTime=0;warpSeconds=warpElapsed=0;}else if(!physicsTime)physicsTime=performance.now();
   const s=controller.state,editable=controller.editable,phase=EDIT_PHASE();
   d.notice.hidden=!controller.notice;d.notice.textContent=controller.notice;
@@ -112,7 +112,7 @@ function render(){
 
 
   }
-  renderFlightEvents();renderRecovery();renderScene();
+  renderFlightEvents();renderRecovery();renderScene(drawScene);
 }
 
 function renderRecovery(){const f=controller.state?.flight,c=f?.capsule,detached=c?.detached,body=RocketRecovery.selected(f),editable=controller.editable;
@@ -149,13 +149,13 @@ function recoveryHUD(){const f=selectedFlight();if(!f?.capsule?.detached)return;
 d.chuteArm.addEventListener('click',()=>command({type:'chute-arm'}));d.autoDispose.addEventListener('click',()=>command({type:'auto-dispose'}));
 
 function displayMission(){return Boolean(controller.state?.flight?.upperStage);}
-function renderScene(){
+function renderScene(draw=true){
   const s=controller.state,f=selectedFlight(),workshop=controller.editable&&EDIT_PHASE()==='workshop',space=['orbit','plane'].includes(view),other=displayMission()?(f===s.flight?s.flight.upperStage:s.flight):null;d.stage.classList.toggle('is-flight',Boolean(f));d.stage.classList.toggle('is-space',space||Boolean(f&&O.elements(f.state).height>70000));d.flightReadouts.hidden=d.telemetry.hidden=!f;d.directionLegend.hidden=!f;d.orbitLegend.hidden=!f||!space||renderLost;d.cameraSurface.hidden=renderLost||!s;d.renderFault.hidden=!renderMessage;d.renderFault.textContent=renderMessage;
   document.querySelectorAll('[data-camera-view]').forEach(b=>{const key=b.dataset.cameraView;b.disabled=renderLost||(key==='factory'?!workshop:key==='follow'?!f:key==='sky'?(!f||!skyData):!scene?.flightReady);b.setAttribute('aria-pressed',String(view===key));});d.scaleNote.textContent=space?'飛船圖示非同比例':workshop?'3D 裝配間':'跟隨鏡頭 · 同比例近景';
   d.skyReadout.hidden=!f||!skyData;
   if(!d.skyReadout.hidden){const value=new Date(skyStart+s.flight.t*1000).toISOString().slice(0,19).replace('T',' ')+' UTC';if(d.skyUtc.textContent!==value)d.skyUtc.textContent=value;}
   if(f){d.boosterFuelStage.hidden=!f.boosters;if(f.boosters){d.boosterFuelStage.firstElementChild.textContent=f.craft.boosters===4?'固體兩對':'固體一對';d.boosterFuelValue.textContent=f.boosters.status==='jettisoned'?'已分離':fmt(100*f.boosters.fuel/P.BOOSTER.fuel,0)+'%';d.boosterFuelBar.style.width=(100*f.boosters.fuel/P.BOOSTER.fuel)+'%';}const o=O.elements(f.state);const agl=Math.max(0,RocketSurface.clearance(f.state,f.t));d.heightValue.textContent=fmt(agl<1000?agl:agl/1000,agl>=10000000?0:1);d.heightUnit.textContent=agl<1000?'m':'km';d.surfaceAltitude.textContent=agl<10000?'海拔 '+fmt(Math.abs(o.height)<.05?0:o.height)+' m':'';for(const [id,value]of [['totalSpeed',o.speed],['verticalSpeed',Math.abs(o.radial)],['speed',Math.abs(o.tangential)]]){const shown=value,km=shown>=1000;d[id+'Value'].textContent=fmt(km?shown/1000:shown,km?2:1);d[id+'Unit'].textContent=km?'km/s':'m/s';}d.fuelLabel0.textContent=f.craft.stages.length===2?'下級':'主級';d.fuelStage1.hidden=f.craft.stages.length!==2;for(const [i,value,bar]of [[0,d.fuelValue,d.fuelBar],[1,d.upperFuelValue,d.upperFuelBar]]){if(!f.craft.stages[i])continue;const removed=i===0&&f.separated,percent=100*(f.fuel[i]||0)/P.capacity(f.craft.stages[i]);value.textContent=removed?'已分離':fmt(percent,0)+'%';bar.style.width=(removed?0:percent)+'%';d['fuelStage'+i].dataset.active=String(i===f.active&&!removed);}}
-  if(scene){if(performance.now()-lastPaths>900){let prediction=[];if(f){d.boosterFuelStage.hidden=!f.boosters;if(f.boosters){d.boosterFuelStage.firstElementChild.textContent=f.craft.boosters===4?'固體兩對':'固體一對';d.boosterFuelValue.textContent=f.boosters.status==='jettisoned'?'已分離':fmt(100*f.boosters.fuel/P.BOOSTER.fuel,0)+'%';d.boosterFuelBar.style.width=(100*f.boosters.fuel/P.BOOSTER.fuel)+'%';}const o=O.elements(f.state);if(o.height>=120000)prediction=O.path(f.state);if(!prediction.length)prediction=coastPath(f);}scene.setPaths(trail,prediction,other?.status==='flying'?O.path(other.state):[]);lastPaths=performance.now();}scene.setData({craft:workshop?s.craft:f?.craft||s?.craft||P.emptyCraft(s?.variant||0),flight:f,other,workshop,mission:s?.flight,skyStart,skyData,running:controller.running,live:controller.editable});positionTargets(workshop);}
+  if(scene){if(performance.now()-lastPaths>900){let prediction=[];if(f){d.boosterFuelStage.hidden=!f.boosters;if(f.boosters){d.boosterFuelStage.firstElementChild.textContent=f.craft.boosters===4?'固體兩對':'固體一對';d.boosterFuelValue.textContent=f.boosters.status==='jettisoned'?'已分離':fmt(100*f.boosters.fuel/P.BOOSTER.fuel,0)+'%';d.boosterFuelBar.style.width=(100*f.boosters.fuel/P.BOOSTER.fuel)+'%';}const o=O.elements(f.state);if(o.height>=120000)prediction=O.path(f.state);if(!prediction.length)prediction=coastPath(f);}scene.setPaths(trail,prediction,other?.status==='flying'?O.path(other.state):[]);lastPaths=performance.now();}scene.setData({craft:workshop?s.craft:f?.craft||s?.craft||P.emptyCraft(s?.variant||0),flight:f,other,workshop,mission:s?.flight,skyStart,skyData,running:controller.running,live:controller.editable},draw!==false);if(draw!==false)positionTargets(workshop);}
   d.otherOrbitLegend.hidden=!space||!displayMission();d.otherOrbitLegend.lastChild.textContent=f?.capsule?.detached?'二級軌道':'太空艙軌道';
   recoveryHUD();fitOrbitReadouts();const heat=f?.capsule?.detached?RocketRecovery.reentry(f,M.atmosphere):null;d.reentryGauge.hidden=!heat||f.capsule.chute.phase!=='stowed'||!['flying','destroyed'].includes(f.status)||heat.flux<.0001;if(!d.reentryGauge.hidden){d.reentryGauge.classList.toggle('warning',!heat.protected);d.heatReadout.textContent='盾偏 '+fmt(heat.shieldAngle,0)+'° · 防護 '+fmt((1-f.capsule.heat)*100,0)+'%';d.heatTarget.textContent=f.status==='destroyed'?'熱防護耗盡 · 再入解體':'目標 β '+fmt(Math.round(heat.targetAngle)%360,0)+'°';}
   if(displayMission()&&f===s.flight.upperStage){d.fuelLabel0.textContent='二級';const u=f,o=O.elements(u.state),auto=u.auto.mode!=='manual';d.flightHint.textContent=RocketRecovery.terminal(u)?'二級已結束：'+(u.status==='destroyed'?'再入解體':u.status==='impact'?'已觸地':'離開範圍'):auto?'二級自動離軌：'+({waiting:'等待10秒及50m安全距離',turning:'調整減速朝向',burning:'減速中',coasting:'已進入再入軌道','no-fuel':'燃料耗盡，無法繼續減速'})[u.auto.mode]+'。近地點 '+(o.bound?fmt(o.hp/1000)+' km':'—')+'；目標≤60 km。':'二級由你手動操控；可按恢復自動離軌。';}
@@ -188,7 +188,7 @@ document.addEventListener('pointerdown',e=>{if(!d.soundControl.contains(e.target
 d.soundControl.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();closeSound(true);}});
 for(const event of ['resize','blur'])window.addEventListener(event,()=>closeSound());
 for(const event of ['fullscreenchange','webkitfullscreenchange'])document.addEventListener(event,()=>closeSound());
-function coastPath(f){const copy=P.clone(f);copy.controls={...copy.controls,lit:false};if(P.burning(copy))return [];const points=[copy.state.slice()];for(let i=0;i<4000&&!['impact','escaped'].includes(copy.status);i++){M.step(copy,O.elements(copy.state).height<120000?.1:2);if(i%10===0)points.push(copy.state.slice());}return points;}
+function coastPath(f){if(f.status==='pad')return [];const copy=P.clone(f);copy.controls={...copy.controls,lit:false};if(P.burning(copy))return [];const points=[copy.state.slice()];for(let i=0;i<4000&&!['impact','escaped'].includes(copy.status);i++){M.step(copy,O.elements(copy.state).height<120000?.1:2);if(i%10===0)points.push(copy.state.slice());}return points;}
 function positionTargets(workshop){
   targetFrame=scene.renderCount;targetUpdates++;
   const part=assemblyDrag?.part,source=assemblyDrag?.source,points=scene.slotPoints(part,source),assembling=workshop&&view==='factory';
@@ -272,12 +272,13 @@ const updateGraphicsQuality=()=>scene?.setHighQuality(d.graphicsQuality.value===
 d.graphicsQuality.addEventListener('change',updateGraphicsQuality);
 if(d.graphicsQuality.value==='high')updateGraphicsQuality();
 window.__rocketApp={controller,getAudio:()=>sound,getState:()=>P.clone(controller.state),getScene:()=>scene,diagnostics:()=>({interaction:interaction.diagnostics,scene:scene?.diagnostics(),frameCount,targetUpdates,actualWarp,view}),getGeometry:(part,source)=>({slots:scene?.slotPoints(part,source),parts:scene?.partPoints(),grip:scene?.gripRect()}),command,view:setView};
-function animate(now){const drawn=scene?.renderCount,interval=lastFrame?now-lastFrame:0;const physicsNow=performance.now(),elapsed=controller.running&&physicsTime?(physicsNow-physicsTime)/1000:0;physicsTime=controller.running?physicsNow:0;lastFrame=now;frameCount++;
+function animate(now){const interval=lastFrame?now-lastFrame:0;const physicsNow=performance.now(),elapsed=controller.running&&physicsTime?(physicsNow-physicsTime)/1000:0;physicsTime=controller.running?physicsNow:0;lastFrame=now;frameCount++;
   // Display scale can change without CSS resize or a resolution event.
   if(scene&&scene.deviceRatio!==devicePixelRatio)scene.resize();
-  if(controller.running&&controller.state?.flight&&!renderLost){const f=RocketRecovery.selected(controller.state.flight);const step=RocketRuntime.warpLimit(controller.state.flight)===1?Math.min(.05,elapsed):elapsed;const rate=RocketRuntime.advanceFrame(controller,step,warp);warpSeconds+=elapsed;warpElapsed+=rate*step;if(warpSeconds>=.5){actualWarp=warpElapsed/warpSeconds;warpSeconds=warpElapsed=0;}if(f.t-trailTime>=1){trail.push(f.state.slice(0,3));if(trail.length>600)trail.shift();trailTime=f.t;}if(now-lastHud>100||!controller.running){lastHud=now;render();}}
-  scene?.animateEffects(now);if(scene?.cameraDirty)scene.draw();
-  if(controller.running){if(scene&&scene.renderCount===drawn)scene.draw();scene?.observeFrame(interval,now);}else scene?.resetFrameSample();syncSound();if(controller.editable&&scene&&targetFrame!==scene.renderCount)positionTargets(EDIT_PHASE()==='workshop');requestAnimationFrame(animate);
+  if(controller.running&&controller.state?.flight&&!renderLost){const f=RocketRecovery.selected(controller.state.flight);const step=RocketRuntime.warpLimit(controller.state.flight)===1?Math.min(controller.ignitionHold+.05,elapsed):elapsed;const rate=RocketRuntime.advanceFrame(controller,step,warp);warpSeconds+=elapsed;warpElapsed+=rate*step;if(warpSeconds>=.5){actualWarp=warpElapsed/warpSeconds;warpSeconds=warpElapsed=0;}if(f.t-trailTime>=1){trail.push(f.state.slice(0,3));if(trail.length>600)trail.shift();trailTime=f.t;}if(now-lastHud>100||!controller.running){lastHud=now;render(false);}}
+  const effects=scene?.animateEffects(now,false);
+  if(scene&&(effects||scene.cameraDirty||controller.running))scene.draw();
+  if(controller.running)scene?.observeFrame(interval,now);else scene?.resetFrameSample();syncSound();if(controller.editable&&scene&&targetFrame!==scene.renderCount)positionTargets(EDIT_PHASE()==='workshop');requestAnimationFrame(animate);
 }
 const cameraTip=matchMedia('(any-pointer:coarse)').matches?'單指轉動・雙指縮放・雙點空白回正':'拖動轉動・滾輪縮放・雙擊空白回正';d.cameraHint.textContent=cameraTip;setTimeout(()=>{if(view!=='sky')d.cameraHint.hidden=true;},3000);
 render();requestAnimationFrame(animate);

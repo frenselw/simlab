@@ -4,7 +4,7 @@ const root=path.resolve(__dirname,'../..'),dir=path.join(__dirname,'assets'),g=r
 const hash=b=>crypto.createHash('sha256').update(b).digest('hex');
 let bytes=0;
 for(const [name,a]of Object.entries(g.assets)){
- const b=fs.readFileSync(path.join(dir,name));assert.equal(hash(b),a.sha256,name+' must match the inspected atlas');assert.equal(b.length,a.bytes);assert.equal(b.toString('ascii',0,4),'RIFF');assert.equal(b.toString('ascii',8,12),'WEBP');assert(manifest.includes('rocket-side-booster-lab/assets/'+name));bytes+=b.length;
+ const b=fs.readFileSync(path.join(dir,name));assert.equal(hash(b),a.sha256,name+' must match the inspected atlas');assert.equal(b.length,a.bytes);assert.equal(b.toString('ascii',0,4),'RIFF');assert.equal(b.toString('ascii',8,12),'WEBP');assert.equal(manifest.includes('rocket-side-booster-lab/assets/'+name),name==='starfield.webp');bytes+=b.length;
 }
 assert(bytes<1024*1024);const zlib=require('node:zlib'),codec=require('./surface-codec');
 const compact=file=>zlib.gunzipSync(fs.readFileSync(path.join(dir,file)));
@@ -29,8 +29,8 @@ for(const {file} of worldRecords){
  const packedFile=file+'.gz',data=compact(packedFile),length=data.readUInt32LE(),offset=4+Math.ceil(length/4)*4;
  const header=JSON.parse(data.toString('utf8',4,4+length));
  assert.equal(header.version,2);assert.equal(offset+header.vertexCount*8+header.indexCount*4,data.length);
- assert(header.cells.every(c=>!c.file||manifestFiles.includes('rocket-side-booster-lab/assets/global/'+c.file)));
- assert(manifestFiles.includes('rocket-side-booster-lab/assets/'+packedFile));
+ assert(header.cells.every(c=>!c.file||fs.existsSync(path.join(dir,'global',c.file))));
+ assert(!manifestFiles.includes('rocket-side-booster-lab/assets/'+packedFile));
  const directions=[];
  for(let i=0,lon=0,lat=0;i<header.vertexCount;i++){
   lon+=data.readInt32LE(offset+i*4);lat+=data.readInt32LE(offset+(header.vertexCount+i)*4);
@@ -55,7 +55,7 @@ for(const {file} of worldRecords){
 }
 assert(geometryBytes<10e6,'Streamed geometry must not carry duplicate heights, normals and colors');
 assert(!manifestFiles.some(f=>f.endsWith('/regional-surface.png')||f.endsWith('/terrain.bin')));
-const Surface=require('./surface'),surfaceData=require('./surface-data'),surfaceBytes=fs.readFileSync(path.join(__dirname,g.surface.file));assert(surfaceBytes.length<2000);assert.equal(surfaceData.version,2);assert.equal(Surface.height([6371000,0],0),0);assert(!Surface.isWater([6371000,0],0));for(let i=0;i<2000;i++){const angle=i*.117,t=i*173,q=[6371000*Math.cos(angle),6371000*Math.sin(angle),0],height=Surface.height(q,t);assert(Number.isFinite(height)&&height>=0&&height<=Surface.MAX_HEIGHT);if(Surface.isWater(q,t))assert.equal(height,0);assert(Math.abs(Surface.clearance([q[0]*(1+height/6371000),q[1]*(1+height/6371000)],t))<.00001);}for(const file of ['surface-data.js','surface.js','contact-ground.js','impact-effects.js'])assert(manifest.includes('/'+file));console.log('Shared surface: pinned compact grids, finite elevations, water at zero, exact radial clearance, launch and package dependencies passed.');
+const Surface=require('./survey-surface'),surfaceData=require('./surface-data'),surfaceBytes=fs.readFileSync(path.join(__dirname,g.surface.file));assert(surfaceBytes.length<2000);assert.equal(surfaceData.version,2);assert.equal(Surface.height([6371000,0],0),0);assert(!Surface.isWater([6371000,0],0));for(let i=0;i<2000;i++){const angle=i*.117,t=i*173,q=[6371000*Math.cos(angle),6371000*Math.sin(angle),0],height=Surface.height(q,t);assert(Number.isFinite(height)&&height>=0&&height<=Surface.MAX_HEIGHT);if(Surface.isWater(q,t))assert.equal(height,0);assert(Math.abs(Surface.clearance([q[0]*(1+height/6371000),q[1]*(1+height/6371000)],t))<.00001);}for(const file of ['procedural-earth.js','surface.js','contact-ground.js','impact-effects.js'])assert(manifest.includes('/'+file));console.log('Shared surface: pinned compact grids, finite elevations, water at zero, exact radial clearance, launch and package dependencies passed.');
 
 const R=6371000,field=(x,z=0)=>Surface.heightAt(x/R,Math.sqrt(1-(x*x+z*z)/(R*R)),z/R);
 const world=Surface.surfaceGrid();assert.equal(world.width,8193);assert.equal(world.height,4097);assert.equal(world.data.byteLength,67133442);assert.equal(hash(fs.readFileSync(path.join(__dirname,surfaceData.world.file))),surfaceData.world.sha256);
@@ -66,7 +66,7 @@ for(const [name,lon,lat,low,high]of [['Himalaya',86.9,28,4500,9000],['Andes',-70
 assert(Surface.waterAt(...directionAt(-150,0)));assert.equal(Surface.heightAt(...directionAt(-150,0)),0);assert(Surface.forestAt(...directionAt(14,23))<.1,'Sahara must not become a dense forest');assert(Math.abs(Surface.heightAt(...directionAt(-180+1e-7,66))-Surface.heightAt(...directionAt(180-1e-7,66)))<.1);
 const worldSource=require('../../tools/rocket-art/sources/explorer-world-terrain/source.json');assert.equal(hash(fs.readFileSync(path.join(root,'tools/rocket-art/sources/explorer-world-terrain/height-land-8k.png'))),worldSource.derivativeSha256);assert.equal(g.globalTerrain.illustrative,false);assert.equal(g.reliefModel.globalIllustrative,false);
 assert.equal(surfaceData.fine.width,4097);assert.equal(g.reliefModel.localSpacingMetres,117.1875);assert.equal(Surface.MAX_HEIGHT,9000);
-const fine=fs.readFileSync(path.join(__dirname,surfaceData.fine.file));assert.equal(hash(fine),surfaceData.fine.sha256);assert.equal(require('node:zlib').gunzipSync(fine).length,surfaceData.fine.decodedBytes);assert(manifest.includes(surfaceData.fine.file));
+const fine=fs.readFileSync(path.join(__dirname,surfaceData.fine.file));assert.equal(hash(fine),surfaceData.fine.sha256);assert.equal(require('node:zlib').gunzipSync(fine).length,surfaceData.fine.decodedBytes);assert(!manifest.includes(surfaceData.fine.file));
 assert(g.reliefModel.fine.maximumMetres>3500&&g.reliefModel.fine.maximumMetres<Surface.MAX_HEIGHT,'Real summits are not clipped to the historical ceiling');
 const demPath=path.join(root,'tools/rocket-art/sources/explorer-natural-region/usgs-region-dem.tif');assert.equal(hash(fs.readFileSync(demPath)),g.reliefModel.source.sha256);assert(g.reliefModel.noDataFraction<.02);
 const sampleBytes=fs.readFileSync(path.join(dir,'terrain-sample/sample.bin')),sample=require('./terrain-sample-data').decode(sampleBytes.buffer.slice(sampleBytes.byteOffset,sampleBytes.byteOffset+sampleBytes.length));
@@ -79,7 +79,7 @@ const unit=480000/4096,x=30000,z=10000,i=Math.floor((x+240000)/unit),j=Math.floo
 const blend=.5*field(gx,gz)+.25*field(gx+unit,gz)+.25*field(gx,gz-unit);assert(Math.abs(field(gx+unit*.25,gz-unit*.25)-blend)<1e-6);
 console.log(JSON.stringify({acceptedSampleError95Metres:errors[Math.floor(errors.length*.95)],fineDecodedBytes:4097**2*2}));
 (async()=>{
- const vm=require('node:vm'),code=fs.readFileSync(path.join(__dirname,'surface.js'),'utf8'),heightRequests=[];
+ const vm=require('node:vm'),code=fs.readFileSync(path.join(__dirname,'survey-surface.js'),'utf8'),heightRequests=[];
  const raw=Buffer.alloc(1230),compressed=zlib.gzipSync(raw);
  const fixture={codec:'pyramid-i8-v1',width:33,height:33,step:80,maximum:9000,decodedBytes:raw.length,bytes:compressed.length};
  assert.equal(codec.decode(raw,fixture).length,1089);

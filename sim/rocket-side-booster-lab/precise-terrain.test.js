@@ -23,7 +23,7 @@ test('terrain cancels obsolete work and retries transient failures while paused'
   const requests=[];
   let worker,now=0;
   t.mock.method(performance,'now',()=>now);
-  globalThis.window={RocketSurface:require('./surface')};
+  globalThis.window={RocketSurface:require('./survey-surface')};
   globalThis.Worker=class{
     constructor(){worker=this;}
     postMessage(patch){requests.push(patch);}

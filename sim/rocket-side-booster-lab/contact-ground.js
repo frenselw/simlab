@@ -10,8 +10,16 @@ export function clipPadSurface(material,uniforms,flat=false){
 }
 export function createContactGround(sun,colorAt,site,relief,world){
  const group=new THREE.Group(),side=81,spacing=480000/4096,vertices=side*side,positions=new Float32Array(vertices*3),colors=new Float32Array(vertices*3),indices=[];
+ const middle=(side-1)/2,regularAxis=Array.from({length:side},(_,i)=>(i-middle)*spacing);
+ const launchAxis=regularAxis.map(value=>value*(.10+.90*(value/regularAxis.at(-1))**2));
+ function cell(axis,value){
+  let low=0,high=side-1;
+  while(high-low>1){const mid=(high+low)>>1;if(value<axis[mid])high=mid;else low=mid;}
+  return low;
+ }
  for(let j=0;j<side-1;j++)for(let i=0;i<side-1;i++){const a=j*side+i,b=a+side;indices.push(a,b,b+1,a,b+1,a+1);}
  const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.BufferAttribute(positions,3).setUsage(THREE.DynamicDrawUsage));geometry.setAttribute('normal',new THREE.BufferAttribute(new Float32Array(vertices*3),3).setUsage(THREE.DynamicDrawUsage));geometry.setAttribute('color',new THREE.BufferAttribute(colors,3).setUsage(THREE.DynamicDrawUsage));
+ const waterMask=new Float32Array(vertices);geometry.setAttribute('surfaceWater',new THREE.BufferAttribute(waterMask,1).setUsage(THREE.DynamicDrawUsage));
  const center=new THREE.Vector3(),origin=new THREE.Vector3(),east=new THREE.Vector3(),row=new THREE.Vector3(),n=new THREE.Vector3(),last=new THREE.Vector3(10,0,0),color=new THREE.Color();
  // The contact footprint and the cutout below it share one radius; the surrounding ground stays visible.
  const clipping={uContactCenter:{value:center},uContactRadius:{value:0},...site};
@@ -26,7 +34,7 @@ export function createContactGround(sun,colorAt,site,relief,world){
   const e=x/R,n=z/R,u=Math.sqrt(1-e*e-n*n);
   const distance=Math.hypot(e-center.x,u-center.y,n-center.z)*R;
   if(distance>=2*clipping.uContactRadius.value*R)return relief.meshHeight(x,z,true);
-  const i=Math.floor(x/spacing-grid.x)+40,j=Math.floor(z/spacing-grid.z)+40;
+  const i=cell(grid.axis,x-grid.x),j=cell(grid.axis,z-grid.z);
   const px=e-origin.x,pz=n-origin.z;
   for(let row=Math.max(0,j-1);row<=Math.min(side-2,j+1);row++)for(let col=Math.max(0,i-1);col<=Math.min(side-2,i+1);col++){
    const a=(row*side+col)*3,b=a+side*3;
@@ -49,17 +57,23 @@ export function createContactGround(sun,colorAt,site,relief,world){
   const detailOpacity=1-THREE.MathUtils.smoothstep(S.clearance(flight.state,flight.t),1200,2000);rocks.visible=quality<2&&detailOpacity>0;rocks.material.opacity=detailOpacity;
   n.set(...S.direction(flight.state,flight.t));const levels=relief.userData.levels.join(',')+'|'+(world?.userData.active.join(',')||'');if(last.distanceToSquared(n)*R*R<10000&&levels===lastLevels&&Math.abs(radius-lastRadius)<20)return;lastLevels=levels;lastRadius=radius;group.userData.detailRadius=radius;last.copy(n);center.copy(n);origin.copy(center);for(const child of group.children)child.position.copy(origin);east.set(0,1,0).cross(center);if(east.lengthSq()<.001)east.set(1,0,0).cross(center);east.normalize();row.crossVectors(east,center).normalize();
   // Relative vertices preserve centimetre detail instead of rounding near the Earth's radius.
-  const regional=center.y>.99&&Math.max(Math.abs(center.x),Math.abs(center.z))*R<230000,cxGrid=Math.round(center.x*R/spacing),czGrid=Math.round(center.z*R/spacing);
-  grid=regional?{x:cxGrid,z:czGrid}:null;
+  const regional=center.y>.99&&Math.max(Math.abs(center.x),Math.abs(center.z))*R<230000;
+  const launch=Boolean(S.sampleAt)&&regional&&Math.hypot(center.x,center.z)*R<9500;
+  const axis=launch?launchAxis:regularAxis,snap=launch?12:spacing,cxGrid=Math.round(center.x*R/snap)*snap,czGrid=Math.round(center.z*R/snap)*snap;
+  grid=regional?{x:cxGrid,z:czGrid,axis}:null;
+  group.userData.centerSpacing=axis[middle+1];
   for(let j=0;j<side;j++)for(let i=0;i<side;i++){
-   const index=j*side+i,x=(cxGrid+i-40)*spacing,z=(czGrid+j-40)*spacing;
-   if(regional)n.set(x/R,Math.sqrt(1-(x*x+z*z)/(R*R)),z/R);else n.copy(center).addScaledVector(east,(i-40)*spacing/R).addScaledVector(row,(j-40)*spacing/R).normalize();
+   const index=j*side+i,x=cxGrid+axis[i],z=czGrid+axis[j];
+   if(regional)n.set(x/R,Math.sqrt(1-(x*x+z*z)/(R*R)),z/R);else n.copy(center).addScaledVector(east,axis[i]/R).addScaledVector(row,axis[j]/R).normalize();
    let height=S.heightAt(n.x,n.y,n.z);const water=S.waterAt(n.x,n.y,n.z),distance=n.distanceTo(center)*R;
    if(distance>radius*.55){const base=regional?relief.groundHeight(x,z,true):world?.surfaceHeight(n),weight=THREE.MathUtils.smoothstep(distance,radius*.55,radius*.9);if(Number.isFinite(base))height+=(base-height)*weight;}
-   if(water)color.setRGB(.035,.19,.25);else color.setRGB(...S.colorAt(n.x,n.y,n.z));positions.set([n.x-origin.x+n.x*height/R,n.y-origin.y+n.y*height/R,n.z-origin.z+n.z*height/R],index*3);colors.set([color.r,color.g,color.b],index*3);
+   waterMask[index]=Number(water);
+   if(water&&!S.sampleAt)color.setRGB(.035,.19,.25);else color.setRGB(...S.colorAt(n.x,n.y,n.z));positions.set([n.x-origin.x+n.x*height/R,n.y-origin.y+n.y*height/R,n.z-origin.z+n.z*height/R],index*3);colors.set([color.r,color.g,color.b],index*3);
   }
 
-  setTerrainNormals(geometry,origin);geometry.attributes.position.needsUpdate=geometry.attributes.color.needsUpdate=true;
+  if(S.sampleAt){geometry.computeVertexNormals();geometry.attributes.surfaceWater.needsUpdate=true;}
+  else setTerrainNormals(geometry,origin);
+  geometry.attributes.position.needsUpdate=geometry.attributes.color.needsUpdate=true;
   const [lon,lat]=S.geographic(center.x,center.y,center.z),step=.0015,cx=Math.floor(lon/step),cy=Math.floor(lat/step);rocks.count=0;
   for(let y=cy-4;y<=cy+4;y++)for(let x=cx-4;x<=cx+4;x++){const seed=THREE.MathUtils.euclideanModulo(Math.sin(x*127.1+y*311.7)*43758.5453,1),a=(x+.2+seed*.6)*step*Math.PI/180,b=THREE.MathUtils.clamp((y+.2+seed*.6)*step,-89.999,89.999)*Math.PI/180;point.set(Math.cos(b)*Math.cos(a),Math.sin(b),Math.cos(b)*Math.sin(a));n.set(point.dot(basis[0]),point.dot(basis[1]),point.dot(basis[2]));if(S.waterAt(n.x,n.y,n.z)||n.distanceTo(center)*R<35)continue;if(seed<.86)continue;const size=2+seed*4,height=S.heightAt(n.x,n.y,n.z)+size*.3;transform.position.copy(n).multiplyScalar(1+height/R).sub(origin);transform.quaternion.setFromUnitVectors(up,n);transform.scale.set(size/R,size/R,size*.8/R);transform.updateMatrix();rocks.setMatrixAt(rocks.count++,transform.matrix);}
   rocks.instanceMatrix.needsUpdate=true;group.userData.props=rocks.count;group.userData.rebuilds++;group.userData.placementRevision++;

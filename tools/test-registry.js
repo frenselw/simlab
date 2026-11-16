@@ -5,6 +5,8 @@ const {groups:dcGroups}=require('./circuit-test-groups');
 const root=path.resolve(__dirname,'..');
 
 const registeredTests = [
+  {file:'tools/prototypes/rocket-procedural-earth/terrain.test.js',kind:'node',scope:'rocket-side-booster-lab'},
+  {file:'tools/prototypes/rocket-procedural-earth/verify-browser.js',kind:'browser',scope:'rocket-side-booster-lab'},
   'tools/pages.test.js',
   {file:'tools/pages-browser-regression.js',kind:'browser',scope:'shared-pages'},
   'sim/circuit-dc-wire-match/native-wire.test.js',

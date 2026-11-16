@@ -1,0 +1,19 @@
+html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; }
+main { height: 100dvh; display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto; }
+header { display: flex; align-items: center; min-height: 58px; padding: 6px 18px; gap: 12px; background: #f8faf8; }
+h1 { font-size: 19px; margin: 0; font-weight: 650; color: #193f40; }
+h1 small { font-size: 13px; font-weight: 400; color: #667875; margin-left: 8px; }
+#stage { position: relative; overflow: hidden; background: #030912; }
+canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+canvas:active { cursor: grabbing; }
+#loading { position: absolute; top: 45%; left: 12%; right: 12%; text-align: center; color: white; }
+#caption { position: absolute; left: 24px; bottom: 22px; color: white; pointer-events: none; text-shadow: 0 2px 8px #000; }
+#caption strong { display: block; font-size: 24px; margin-bottom: 6px; }
+#caption span { font-size: 13px; }
+nav { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: center; padding: 10px 8px; background: #f8faf8; }
+nav button { min-width: 70px; min-height: 44px; border: 1px solid #bdcfcb; border-radius: 8px; background: white; color: #244b48; font-size: 15px; }
+nav button[aria-pressed="true"] { background: #1e7169; color: white; border-color: #1e7169; }
+nav label { display: flex; align-items: center; min-height: 44px; padding: 0 6px; gap: 5px; color: #244b48; font-size: 14px; }
+footer { padding: 0 12px 10px; text-align: center; font-size: 12px; color: #536665; background: #f8faf8; }
+footer p { margin: 0 0 4px; }
+@media (max-width: 480px) { header { padding: 4px 10px; } h1 { font-size: 16px; } h1 small { font-size: 11px; } nav { gap: 4px; padding: 6px 4px; } nav button { min-width: 52px; } #caption { left: 16px; bottom: 16px; } footer { font-size: 11px; } }

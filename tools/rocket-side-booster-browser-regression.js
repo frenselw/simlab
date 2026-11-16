@@ -3,13 +3,13 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto'),{spawn}=require('node:child_process'),AdmZip=require('adm-zip'),H=require('./position-time-browser-regression'),Pack=require('./package-rocket-explorer'),M=require('../sim/rocket-side-booster-lab/model'),P=require('../sim/rocket-side-booster-lab/parts'),O=require('../sim/rocket-side-booster-lab/orbit'),T=require('../sim/rocket-side-booster-lab/test-support');
 const World=require('./rocket-world-browser-cases');
 const Sky=require('./rocket-sky-browser-cases');
-const root=path.resolve(__dirname,'..'),slug='rocket-side-booster-lab',out=path.join(root,'output/playwright',slug),temp=fs.realpathSync(os.tmpdir()),caseNames=['layout','assembly','controls','flight','return','effects','parachute','cameras','warp','surface','landing','visual','readouts','terrain','sample','world','detail','sky','preparation','events','local-transfer','pad-quality','site-ground','propulsion-art','launch-camera','distant-camera'];
+const root=path.resolve(__dirname,'..'),slug='rocket-side-booster-lab',out=path.join(root,'output/playwright',slug),temp=fs.realpathSync(os.tmpdir()),caseNames=['layout','assembly','controls','flight','return','effects','parachute','cameras','warp','surface','landing','visual','readouts','terrain','sample','world','detail','sky','preparation','events','local-transfer','pad-quality','site-ground','propulsion-art','launch-camera','distant-camera','distant-globe'];
 const report={kind:'standalone',flows:[],errors:[],loads:[],completed:false};let cdp,chrome,server,profile,extracted,touchId=1;
 const call=code=>H.evaluate(cdp,`(()=>{const app=window.__rocketApp,d=document;${code}})()`);
 async function wait(fn,label){return H.waitForCondition(fn,label,15000);}
 async function viewport(width,height){await cdp.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:width<600});await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:2});}
 async function open(base,state){await cdp.send('Page.navigate',{url:base+'/'+slug+'/index.html'});await wait(()=>call('return Boolean(app?.getScene()?.flightReady)&&d.readyState==="complete";'),'explorer startup');if(state)await call(`app.controller.state=${JSON.stringify(state)};app.controller.emit();app.view('follow');`);assert(await call('return window.__lmsReads===0&&window.__lmsWrites===0&&window.__storageReads===0&&window.__storageWrites===0;'));}
-async function shot(name){const r=await cdp.send('Page.captureScreenshot',{format:'png'});fs.writeFileSync(path.join(out,name+'.png'),Buffer.from(r.data,'base64'));}
+async function shot(name){const r=await cdp.send('Page.captureScreenshot',{format:'png'});fs.writeFileSync(path.join(out,name+'.png'),Buffer.from(r.data,'base64'));return r.data;}
 async function pointer(from,to=from,touch=true,cancel=false){if(touch){const id=touchId++,point=p=>({...p,id,radiusX:2,radiusY:2,force:1});await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[point(from)]});if(to!==from)for(let i=1;i<=6;i++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[point({x:from.x+(to.x-from.x)*i/6,y:from.y+(to.y-from.y)*i/6})]});await H.delay(15);}await cdp.send('Input.dispatchTouchEvent',{type:cancel?'touchCancel':'touchEnd',touchPoints:[]});}else{await cdp.send('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,...from});if(to!==from)await cdp.send('Input.dispatchMouseEvent',{type:'mouseMoved',button:'left',buttons:1,...to});await cdp.send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,...to});}await H.delay(40);}
 async function click(selector,useTouch){const p=await call(`const e=d.querySelector(${JSON.stringify(selector)});if(!e||e.disabled||e.hidden)throw Error('Unavailable '+${JSON.stringify(selector)});e.scrollIntoView({block:'nearest'});const r=e.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2,touch:innerWidth<960};`);await pointer({x:p.x,y:p.y},undefined,useTouch??p.touch);if(selector==='#fullscreenButton')await H.evaluate(cdp,'new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');}
 async function key(name){const event=name==='Enter'?{key:name,code:name,windowsVirtualKeyCode:13}:{key:name};await cdp.send('Input.dispatchKeyEvent',{type:'keyDown',...event,...(name==='Enter'?{text:'\r'}:{})});await cdp.send('Input.dispatchKeyEvent',{type:'keyUp',...event});}
@@ -181,6 +181,7 @@ async function launchCamera(base,label){
   for(let i=0;i<2;i++)tall=M.change(tall,{type:'boosters'});
   tall=M.change(M.change(tall,{type:'launch'}),{type:'ignite'});
   for(const [width,height,state,zooms]of [[390,844,short,[1,1.75]],[1280,800,tall,[1,1.75]]]){
+    if(width===390)await launchGroundMotion(base,label);
     await viewport(width,height);await open(base,state);
     const rows=await call(`const s=app.getScene(),c=app.controller,initial=app.getState(),render=s.renderer.render,rows=[];
       let capture=null;
@@ -212,6 +213,25 @@ async function launchCamera(base,label){
     await shot(label+'-launch-follow-'+width);
     report.flows.push({label,case:'launch-camera',width,height,rows});
   }
+}
+
+async function launchGroundMotion(base,label){
+  await viewport(390,844);
+  await open(base,T.singlePad());
+  await call(`const s=app.getScene(),draw=s.draw,rows=[];
+    s.draw=function(){const start=performance.now();draw.call(s);rows.push({ms:performance.now()-start,frame:app.diagnostics().frameCount,t:s.data.flight?.t});};
+    window.__launchTiming=rows;window.__restoreLaunchDraw=()=>{s.draw=draw;};`);
+  assert(await call('d.getElementById("igniteButton").click();return app.controller.running;'));
+  await H.delay(3800);
+  await call('window.__restoreLaunchDraw();app.controller.pause();');
+  const flightTiming=await call(`const rows=window.__launchTiming.slice(2),perFrame={};for(const row of rows)perFrame[row.frame]=(perFrame[row.frame]||0)+1;const times=rows.map(r=>r.ms).sort((a,b)=>a-b);return{draws:rows.length,maxDrawsPerFrame:Math.max(...Object.values(perFrame)),duplicateFrames:Object.values(perFrame).filter(n=>n>1).length,p90:times[Math.floor(times.length*.9)],max:times.at(-1),time:app.getState().flight.t};`);
+  assert(flightTiming.draws>4&&flightTiming.time>.25&&flightTiming.duplicateFrames===0,JSON.stringify(flightTiming));
+  const landscape=await call(`const s=app.getScene(),f=app.controller.state.flight,a=4100/RocketParts.R,e=Math.sin(a),u=Math.cos(a),r=RocketParts.R+RocketSurface.heightAt(e,u,0)+820;
+    f.state=[r*u,r*e,0,0,0,0];f.fuel=${JSON.stringify(T.singlePad().flight.fuel)};f.status='flying';f.controls.lit=false;app.controller.emit();s.yaw=-1.1;s.pitch=.57;s.draw();return s.diagnostics().forest;`);
+  await shot(label+'-low-flight-surface-390');
+  await call('const s=app.getScene();s.forest.visible=false;s.landscape.visible=false;s.renderer.render(s.scene,s.camera);');
+  await shot(label+'-low-flight-surface-no-trees-390');
+  report.flows.push({label,case:'launch-ground-motion',flightTiming,landscape});
 }
 
 async function propulsionArt(base,label){
@@ -385,7 +405,7 @@ async function surfaceShading(base,label){
 async function capsuleLanding(base,label){
  const Surface=require('../sim/rocket-side-booster-lab/surface'),rootState=M.change(T.reachOrbit(),{type:'capsule-separate'}),hill=T.remoteHill();
  for(const [width,height,fps]of [[390,844,30],[1024,768,60]])for(const [name,lateral,water]of [['soft',.3,false],['left',-4.4,false],['right',4.4,false],['water',3.5,true],['impact',50,false]]){
-  const state=P.clone(rootState),f=state.flight,theta=water?-50000/P.R:Math.atan2(hill[1],hill[0]),q=[P.R*Math.cos(theta),P.R*Math.sin(theta),0,0,0,0];f.t=0;const contact=require('../sim/rocket-side-booster-lab/recovery').contactVelocity(q,0),slope=contact.slope,n=Math.sqrt(1+slope*slope),vr=(-5.2+slope*lateral)/n,vt=(lateral+5.2*slope)/n,r=Surface.radius(q,0)+.35;f.state=[r*Math.cos(theta),r*Math.sin(theta),0,vr*Math.cos(theta)-vt*Math.sin(theta),vr*Math.sin(theta)+vt*Math.cos(theta),0];f.attitude=theta-Math.atan2(vt,-vr);f.controls.lit=false;f.capsule.chute={armed:true,phase:'main',since:-10};f.upperStage.status='impact';f.upperStage.controls.lit=false;f.upperStage.auto.mode='done';f.upperStage.t=0;await viewport(width,height);await open(base,state);
+  const state=P.clone(rootState),f=state.flight,theta=water?-50000/P.R:Math.atan2(hill[1],hill[0]),q=[P.R*Math.cos(theta),P.R*Math.sin(theta),0,0,0,0];f.t=0;const contact=require('../sim/rocket-side-booster-lab/recovery').contactVelocity(q,0),slope=contact.slope,n=Math.sqrt(1+slope*slope),vr=(-5.2+slope*lateral)/n,vt=(lateral+5.2*slope)/n,r=Surface.radius(q,0)+.35;f.state=[r*Math.cos(theta),r*Math.sin(theta),0,vr*Math.cos(theta)-vt*Math.sin(theta),vr*Math.sin(theta)+vt*Math.cos(theta),0];f.attitude=theta-Math.atan2(vt,-vr);f.controls.lit=false;f.capsule.chute=name==='impact'?{armed:false,phase:'stowed',since:null}:{armed:true,phase:'main',since:-10};f.upperStage.status='impact';f.upperStage.controls.lit=false;f.upperStage.auto.mode='done';f.upperStage.t=0;await viewport(width,height);await open(base,state);
   const first=await call('const s=app.getScene(),animate=s.animateEffects;s.animateEffects=()=>false;app.controller.play();app.controller.tick(.2,20000);app.controller.pause();const motion=s.rocket.userData.landingMotion;s.effectClock=1000;window.__touchdownHarness={s,animate,motion,now:1000,model:JSON.stringify(app.getState())};return{status:app.getState().flight.status,hit:app.getState().flight.capsule.touchdown,pose:motion?.pose,age:motion?.age};');if(name==='impact'){assert.equal(first.status,'impact');assert.equal(first.pose,undefined);await call('const h=window.__touchdownHarness;h.animate.call(h.s,1300);h.s.draw();h.s.animateEffects=h.animate;h.s.effectClock=performance.now();delete window.__touchdownHarness;');assert(await call('return !app.getScene().rocket.visible&&app.getScene().impacts.userData.count===1;'));report.flows.push({label,case:'landing',name,width,height,fps,first,impactUnchanged:true});continue;}assert.equal(first.status,'landed');assert.equal(first.age,0);assert.equal(first.pose.angle,0);assert.equal(first.pose.heave,0);
   async function sample(seconds){return call('const h=window.__touchdownHarness,render=h.s.renderer.render;h.s.renderer.render=()=>{};try{for(let i=0;i<'+Math.round(seconds*fps)+';i++){h.now+=1000/'+fps+';h.animate.call(h.s,h.now);}}finally{h.s.renderer.render=render;}h.s.draw();const root=h.s.rocket,m=root.userData.landingMotion,plane=m.plane,points=root.hullPoints,v=new (plane.normal.constructor)();root.updateMatrixWorld(true);let hullMin=Infinity,chuteMin=Infinity;for(let i=0;i<points.length;i+=3){v.fromArray(points,i).applyMatrix4(root.matrixWorld);hullMin=Math.min(hullMin,plane.distanceToPoint(v)/root.scale.y);}const canopy=root.userData.parachute;for(const name of ["parachute-cloth","parachute-lines"]){const p=canopy.getObjectByName(name).geometry.attributes.position;for(let i=0;i<p.count;i++){v.fromBufferAttribute(p,i).applyMatrix4(canopy.matrixWorld);chuteMin=Math.min(chuteMin,plane.distanceToPoint(v)/root.scale.y);}}return{age:m.age,pose:m.pose,angle:root.rotation.z,hullMin,chuteMin,unchanged:h.model===JSON.stringify(app.getState())};');}
   const stages=[];for(const [seconds,stage]of [[.2,'touch'],[.8,'rock'],[2,'settle'],[3,'rest']]){const sampleState=await sample(seconds);assert(sampleState.unchanged);assert(sampleState.chuteMin>=-1e-4,JSON.stringify(sampleState));if(!water)assert(sampleState.hullMin>=-1e-4,JSON.stringify(sampleState));stages.push(sampleState);await shot(label+'-landing-'+name+'-'+stage+'-'+width);if(stage==='rock'){const age=sampleState.age;await click('#bodySelect');await click('[data-control-body="upper"]');await click('#bodySelect');await click('[data-control-body="main"]');assert(await call('return app.getScene().rocket.userData.landingMotion===window.__touchdownHarness.motion&&Math.abs(app.getScene().rocket.userData.landingMotion.age-'+age+')<1e-8;'));}}
@@ -525,25 +545,36 @@ async function readouts(base,label){
 }
 
 async function siteGround(base,label){
+ await viewport(390,844);await open(base,T.launched());
+ await shot(label+'-launch-ground-pad-390');
+ const launch=await call('const s=app.getScene(),r=RocketParts.R,S=RocketSurface,height=(x,z)=>S.heightAt(x/r,Math.sqrt(1-(x*x+z*z)/(r*r)),z/r);return{height:height(0,0),apron:height(30,22),hill:height(245,-205),westHill:height(-160,-150),spacing:s.contactGround.userData.centerSpacing,shrubs:s.landscape.userData.shrubs};');
+ assert(launch.height===0&&launch.apron===0&&launch.hill>50&&launch.westHill>30&&launch.spacing<12&&launch.shrubs>80,JSON.stringify(launch));
  const state=M.change(T.reachOrbit(),{type:'capsule-separate'}),f=state.flight;
  f.state=[P.R+116.2,0,0,-4.9,0,0];f.t=2639.7;f.attitude=0;f.capsule.fuel=0;f.capsule.chute={armed:true,phase:'main',since:2106.6};
  f.upperStage.auto.mode='manual';
  await viewport(390,844);await open(base,state);
  const results=await H.evaluate(cdp,`(async()=>{
-  const s=__rocketApp.getScene(),T=await import("./vendor/three-0.185.1/three.module.min.js"),{surfaceUniforms:u}=await import("./terrain.js");
-  const R=RocketParts.R,texture=u.uSiteRoads.value,road=texture.image,[west,south,ux,uz]=u.uSiteRoadBounds.value.toArray();
-  const pixels=road.getContext("2d").getImageData(0,0,road.width,road.height).data;
-  const pixel=(x,z)=>(Math.floor((1-(z-south)*uz)*road.height)*road.width+Math.floor((x-west)*ux*road.width))*4;
-  const alpha=(x,z)=>pixels[pixel(x,z)+3];
-  const roadTexture={width:road.width,height:road.height,anisotropy:texture.anisotropy,dashContrast:pixels[pixel(320,-1795)]-pixels[pixel(320,-1784)]};
-  let roadSamples=0,roadGaps=0;
-  for(const route of [...s.landscape.userData.accessRoads,[[320,-1800],[320,2400]]]){
-   for(let i=1;i<route.length;i++){
-    const [x,z]=route[i-1],[a,b]=route[i];
-    for(let k=0;k<=40;k++){roadSamples++;if(alpha(x+(a-x)*k/40,z+(b-z)*k/40)<230)roadGaps++;}
-   }
-  }
+  const s=__rocketApp.getScene(),T=await import("./vendor/three-0.185.1/three.module.min.js"),{siteRoadShader}=await import("./terrain.js");
+  const R=RocketParts.R,probe=new T.WebGLRenderTarget(128,132),roadScene=new T.Scene(),camera=new T.Camera();
+  const geometry=new T.PlaneGeometry(2,2),material=new T.ShaderMaterial({
+   vertexShader:"varying vec2 vRoadUv;void main(){vRoadUv=uv;gl_Position=vec4(position,1.0);}",
+   fragmentShader:siteRoadShader+"varying vec2 vRoadUv;void main(){vec2 p=vec2(308.0,-1799.0)+vRoadUv*vec2(24.0,44.0);gl_FragColor=vec4(paintSiteRoad(vec3(.46,.74,.38),p,.15),1.0);}"
+  });
+  const pixels=new Uint8Array(128*132*4),previous=s.renderer.getRenderTarget();
+  roadScene.add(new T.Mesh(geometry,material));
+  try{s.renderer.setRenderTarget(probe);s.renderer.render(roadScene,camera);s.renderer.readRenderTargetPixels(probe,0,0,128,132,pixels);}
+  finally{s.renderer.setRenderTarget(previous);material.dispose();geometry.dispose();probe.dispose();}
+  const red=(x,z)=>pixels[(Math.floor((z+1799)*3)*128+Math.floor((x-308)/24*128))*4];
+  const road={stripe:red(320,-1789),dashGap:red(320,-1780),inside:red(327,-1789),outside:red(330,-1789)};
   const results=[],matrix=new T.Matrix4(),ray=new T.Raycaster(new T.Vector3(),new T.Vector3(0,-1,0));
+  let terrainError=0;
+  for(const [x,z] of [[0,420],[-340,600],[3975,-1055],[9500,4390]]){
+   ray.set(s.relief.localToWorld(new T.Vector3(x,3500,z)),new T.Vector3(0,-1,0).transformDirection(s.relief.matrixWorld));
+   const hit=ray.intersectObjects(s.relief.children.filter(mesh=>mesh.geometry?.attributes.landFade))[0];
+   if(!hit)throw Error('Missing regional ground at '+x+','+z);
+   terrainError=Math.max(terrainError,Math.abs(s.relief.worldToLocal(hit.point).y-s.relief.meshHeight(x,z,true)));
+  }
+  ray.ray.direction.set(0,-1,0);
   for(const [quality,altitude] of [[0,116.2],[1,116.2],[2,116.2],[0,850],[0,0],[0,116.2]]){
    const f=__rocketApp.controller.state.flight;
    s.quality=quality;f.state[0]=R+altitude;s.yaw=-.65;s.pitch=.19;__rocketApp.controller.emit();
@@ -570,13 +601,16 @@ async function siteGround(base,label){
    const shader=s.renderer.info.programs.every(p=>p.diagnostics?.runnable!==false);
    results.push({quality,altitude,sampleError,trunksVisible:trunk.visible,maxRootGap,midTrees:mid.count,maxTree,shader,unchanged:before===JSON.stringify(__rocketApp.getState())});
   }
-  return {roadSamples,roadGaps,roadTexture,results};
+  return {road,terrainError,results};
  })()`);
- assert(results.roadSamples>300&&results.roadGaps===0,JSON.stringify(results));
- assert(results.roadTexture.width===512&&results.roadTexture.height===2048&&results.roadTexture.anisotropy===8&&results.roadTexture.dashContrast>70,JSON.stringify(results.roadTexture));
+ const {stripe,dashGap,inside,outside}=results.road;
+ assert(stripe-dashGap>80&&outside-inside>70&&Math.abs(dashGap-inside)<10,JSON.stringify(results.road));
+ assert(results.terrainError<.002,JSON.stringify(results.terrainError));
  assert(results.results.every(r=>r.sampleError<.002&&r.maxRootGap<.002&&r.midTrees>0&&r.maxTree<26&&r.trunksVisible===(r.quality<2)&&r.shader&&r.unchanged),JSON.stringify(results));
  await shot(label+'-sharper-road-116m');
- report.flows.push({label,case:'site-ground',...results});
+ await call('const s=app.getScene(),f=app.controller.state.flight;f.state[0]=RocketParts.R+420;app.controller.emit();s.pitch=.55;s.yaw=-.65;s.draw();');
+ await shot(label+'-launch-ground-foothills-390');
+ report.flows.push({label,case:'site-ground',launch,...results});
 }
 
 async function terrainForest(base,label){
@@ -589,7 +623,7 @@ async function terrainForest(base,label){
    await open(base,state);
    if(name==='global-mountain')await wait(()=>call('return app.getScene().globalTerrain.userData.active.length>0;'),'global mountain detail');
    const result=await call('const s=app.getScene(),f=s.data.flight,model=JSON.stringify(app.getState()),THREE=s.rocket.position.constructor;const animate=s.animateEffects;s.animateEffects=()=>false;s.yaw=-1.0;s.pitch=.35;s.draw();const before=s.forest.children.filter(o=>o.isInstancedMesh&&o.visible).map(o=>Array.from(o.instanceMatrix.array));const origin=s.globalTerrain.matrixWorld.clone(),p=new THREE(0,1,0).applyMatrix4(origin);f.t+=500;s.draw();const after=s.forest.children.filter(o=>o.isInstancedMesh&&o.visible).map(o=>Array.from(o.instanceMatrix.array)),drift=p.distanceTo(new THREE(0,1,0).applyMatrix4(s.globalTerrain.matrixWorld));f.t-=500;s.draw();const diagnostics=s.diagnostics(),normal=s.relief.children.filter(o=>o.geometry?.attributes.landFade).length;s.animateEffects=animate;return{diagnostics,drift,stable:JSON.stringify(before)===JSON.stringify(after),unchanged:model===JSON.stringify(app.getState()),normal,fineDepth:s.globalTerrain.children.filter(o=>o.isMesh&&o!==s.globalTerrain.children[0]).every(o=>o.material.depthTest),shaders:s.renderer.info.programs.every(p=>p.diagnostics?.runnable!==false)};');
-   assert(result.stable&&result.unchanged&&result.shaders&&result.drift<1e-10,JSON.stringify(result));assert(result.diagnostics.forest.cached<=12&&result.diagnostics.forest.nearTrees<=1296&&result.diagnostics.forest.canopies<=256);assert(result.normal===48);if(name==='global-mountain')assert(result.fineDepth,'Fine mountain faces require depth occlusion');if(name==='forest')assert(result.diagnostics.forest.nearTrees>0,'Near forest missing '+JSON.stringify(result));await shot(label+'-terrain-'+name+'-'+width);report.flows.push({label,case:'terrain',width,height,name,x,agl,...result});
+   assert(result.stable&&result.unchanged&&result.shaders&&result.drift<1e-10,JSON.stringify(result));assert(result.diagnostics.forest.cached<=12&&result.diagnostics.forest.nearTrees<=1296&&result.diagnostics.forest.canopies<=256);assert(result.normal===16);if(name==='global-mountain')assert(result.fineDepth,'Fine mountain faces require depth occlusion');if(name==='forest')assert(result.diagnostics.forest.nearTrees>0,'Near forest missing '+JSON.stringify(result));await shot(label+'-terrain-'+name+'-'+width);report.flows.push({label,case:'terrain',width,height,name,x,agl,...result});
   }
   const cache=await call('const s=app.getScene(),f=s.data.flight,original=f.state.slice(),render=s.renderer.render,now=performance.now(),samples=[];s.renderer.render=()=>{};try{for(let i=0;i<24;i++){const a=(10000+i*1800)/RocketParts.R,r=RocketParts.R+RocketSurface.heightAt(Math.sin(a),Math.cos(a),0)+300;f.state=[r*Math.cos(a),r*Math.sin(a),0,0,0,0];const t=performance.now();s.draw();samples.push(performance.now()-t);if(s.forest.userData.cached>12)throw Error("Unbounded forest cache");}s.quality=2;s.draw();const low=!s.forest.visible;s.quality=0;s.reducedMotion=true;s.draw();return{low,ms:performance.now()-now,samples,forest:s.forest.userData};}finally{f.state=original;s.renderer.render=render;s.reducedMotion=false;s.draw();}');assert(cache.low&&cache.forest.cached<=12);report.flows.push({label,case:'terrain-cache',width,height,...cache});
   if(width===1024){
@@ -597,13 +631,13 @@ async function terrainForest(base,label){
    const layers=[];
    for(const mode of ['natural','gray','normal','second-sun','opposite']){
     const frame=await call(`const s=app.getScene();s.animateEffects=()=>false;s.yaw=${mode==='opposite'?1.5:-1.1};s.pitch=.15;s.draw();const materials=new Set([s.earth.material,s.contactGround.children[0].material,...s.relief.children.filter(o=>o.geometry?.attributes.landFade).map(o=>o.material),...s.globalTerrain.children.filter(o=>o.material).map(o=>o.material)]),saved=[...materials].map(m=>({m,compile:m.onBeforeCompile,key:m.customProgramCacheKey})),mode=${JSON.stringify(mode)},forest=s.forest.visible;if(mode==='gray'||mode==='normal'){s.forest.visible=false;for(const row of saved){const {m,compile,key}=row;m.onBeforeCompile=shader=>{compile.call(m,shader);shader.fragmentShader=mode==='gray'?shader.fragmentShader.replace(' float footprint=max(length(dFdx(metres)),',' base=vec3(.42);float footprint=max(length(dFdx(metres)),'):shader.fragmentShader.replace(' return color;\\n}',' return normalize(normal)*.5+.5;\\n}');};m.customProgramCacheKey=()=>key.call(m)+':terrain-check-'+mode;m.needsUpdate=true;}}if(mode==='second-sun'){s.planetSun.set(.7,.8,-.4).normalize();s.sunLight.position.copy(s.planetSun);}s.renderer.render(s.scene,s.camera);const result={mode,diagnostics:s.diagnostics(),heap:performance.memory?.usedJSHeapSize,coarsePointer:matchMedia('(pointer: coarse)').matches,shaders:s.renderer.info.programs.every(p=>p.diagnostics?.runnable!==false)};window.__terrainLayerRestore=()=>{for(const {m,compile,key}of saved){m.onBeforeCompile=compile;m.customProgramCacheKey=key;m.needsUpdate=true;}s.forest.visible=forest;};return result;`);
-    assert(frame.shaders);assert.equal(frame.diagnostics.contact.triangles,12800);if(frame.coarsePointer)assert.equal(frame.diagnostics.earthMapWidth,2048);await shot(label+'-natural-region-'+mode+'-1024');await call('window.__terrainLayerRestore();delete window.__terrainLayerRestore;');layers.push(frame);
+    assert(frame.shaders);assert.equal(frame.diagnostics.contact.triangles,12800);if(frame.coarsePointer)assert.equal(frame.diagnostics.earthMapWidth,1024);await shot(label+'-natural-region-'+mode+'-1024');await call('window.__terrainLayerRestore();delete window.__terrainLayerRestore;');layers.push(frame);
    }
    if(label==='source'){
     await call('const s=app.getScene(),f=app.controller.state.flight,a=28000/RocketParts.R,r=RocketParts.R+RocketSurface.heightAt(Math.sin(a),Math.cos(a),0)+1500;f.state=[r*Math.cos(a),r*Math.sin(a),0,-150*Math.sin(a),150*Math.cos(a),0];s.quality=0;s.yaw=-1.1;s.pitch=.15;window.__terrainObserve=s.observeFrame;s.observeFrame=()=>{};app.controller.emit();app.controller.play();');
     const video=await H.evaluate(cdp,'new Promise(resolve=>{const s=window.__rocketApp.getScene(),stream=s.renderer.domElement.captureStream(24),recorder=new MediaRecorder(stream,{mimeType:"video/webm"}),chunks=[];recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};recorder.onstop=()=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result.split(",")[1]);reader.readAsDataURL(new Blob(chunks,{type:"video/webm"}));for(const t of stream.getTracks())t.stop();};recorder.start();setTimeout(()=>recorder.stop(),7000);})');fs.writeFileSync(path.join(out,'natural-region-flight.webm'),Buffer.from(video,'base64'));await call('app.controller.pause();const s=app.getScene();s.observeFrame=window.__terrainObserve;delete window.__terrainObserve;');
    }
-   const lod=await call('const s=app.getScene(),rows=[];for(const quality of [0,1,2,0]){s.quality=quality;s.draw();rows.push({quality,levels:s.relief.userData.levels.slice(),contactRebuilds:s.contactGround.userData.rebuilds,trees:s.forest.visible});}return rows;');assert(lod[2].levels.every(level=>level===2)&&!lod[2].trees);assert(lod[3].contactRebuilds>lod[0].contactRebuilds);report.flows.push({label,case:'terrain-layers',width,height,layers,lod});
+   const lod=await call('const s=app.getScene(),rows=[];for(const quality of [0,1,2,0]){s.quality=quality;s.draw();rows.push({quality,levels:s.relief.userData.levels.slice(),contactRebuilds:s.contactGround.userData.rebuilds,trees:s.forest.visible});}return rows;');assert(lod[2].levels.every(level=>level===0)&&!lod[2].trees);assert.equal(lod[3].contactRebuilds,lod[0].contactRebuilds);report.flows.push({label,case:'terrain-layers',width,height,layers,lod});
   }
  }
 }
@@ -644,11 +678,7 @@ async function localTransfer(base,label){
   server.prependListener('request',measure);
   const traffic=async()=>{
    const ms=await call('return Math.round(performance.now());');
-   const files=delivered.filter(([path])=>{
-   const name=path.split('/').at(-1);
-   return path.includes("/assets/global/")||path.includes("/assets/global-detail/")||name.startsWith("surface")||
-    name.endsWith("-v2.gz")||name.startsWith("earth-")||["clouds.webp","starfield.webp"].includes(name);
-   });
+   const files=delivered.filter(([path])=>/\/assets\/(?:global(?:-detail)?\/|(?:region|world|geography|earth-|clouds|precise-terrain))|\/terrain-relay/.test(path));
    return {ms,bodyBytes:files.reduce((n,[,bytes])=>n+bytes,0),allBodyBytes:delivered.reduce((n,[,bytes])=>n+bytes,0),files};
   };
   try{
@@ -662,13 +692,12 @@ async function localTransfer(base,label){
       const factory=await traffic();
       await wait(()=>call('return app.getScene().flightReady;'),'cold flight ready');
       const ready=await traffic();
-      for(const name of ['region-v2.gz','world-v2.gz','region-mesh-v2.gz','coarse.bin.gz','earth-4k.webp']){
-        assert(ready.files.some(([file])=>file.endsWith('/'+name)),'Missing measured terrain resource '+name);
-      }
-      assert(ready.bodyBytes<=5000000,JSON.stringify(ready));
+      assert.equal(ready.bodyBytes,0,JSON.stringify(ready));
+      assert(ready.allBodyBytes<1500000,JSON.stringify(ready));
       cold.push({factory,ready});
     }
     const pad=T.singlePad(0,1,0);
+    await cdp.send('Network.emulateNetworkConditions',{offline:true,latency:0,downloadThroughput:-1,uploadThroughput:-1});
     await call('app.controller.state='+JSON.stringify(pad)+';app.controller.emit();app.view("follow");');
     assert(await call('return app.command({type:"ignite"});'));
     await call('app.controller.play();app.controller.tick(3,20000);app.controller.pause();');
@@ -679,9 +708,11 @@ async function localTransfer(base,label){
     }
     assert.equal(await call('return app.getState().flight.status;'),'landed');
     await call('const s=app.getScene();s.yaw+=Math.PI/2;s.draw();');
-    await H.delay(30000);
+    await shot(label+'-procedural-landing');
+    await H.delay(500);
     const landed=await traffic();
-    assert(landed.bodyBytes<=5000000,JSON.stringify(landed));
+    assert.equal(landed.bodyBytes,0,JSON.stringify(landed));
+    assert.equal(landed.allBodyBytes,cold.at(-1).ready.allBodyBytes);
     report.flows.push({label,case:'local-transfer',cold,landed});
   }finally{
     server.removeListener('request',measure);
@@ -690,27 +721,21 @@ async function localTransfer(base,label){
 }
 async function preparation(base,label){
   await viewport(390,844);
-  const {identifier}=await cdp.send('Page.addScriptToEvaluateOnNewDocument',{source:`(()=>{
-    const original=window.fetch,requests=[];
-    window.__flightAssetGate=requests;
-    window.fetch=(input,options={})=>{
-      const kind=['world-v2.gz','region-v2.gz','global-detail/tiles.json.gz'].find(name=>String(input).endsWith(name));
-      if(!kind)return original(input,options);
-      return new Promise((resolve,reject)=>{
-        const entry={kind,done:false,aborted:false,release(mode){
-          this.done=true;
-          if(mode==='bad-gzip')resolve(new Response(new Uint8Array(window.RocketSurfaceData.fine.bytes)));
-          else if(mode==='unavailable')resolve(new Response(null,{status:404}));
-          else original(input,options).then(resolve,reject);
-        }};
-        requests.push(entry);
-        options.signal.addEventListener('abort',()=>{entry.aborted=true;reject(options.signal.reason);},{once:true});
-      });
+  const {identifier}=await cdp.send('Page.addScriptToEvaluateOnNewDocument',{source:`(() => {
+    const NativeWorker=window.Worker;
+    window.__flightWorkerGate=[];
+    window.Worker=class extends NativeWorker {
+      postMessage(data){
+        window.__flightWorkerGate.push({
+          release:()=>super.postMessage(data),
+          fail:()=>this.onmessage({data:{requestId:data.requestId,error:"Injected generation failure"}})
+        });
+      }
     };
   })()`});
   try{
     await cdp.send('Page.navigate',{url:base+'/'+slug+'/index.html'});
-    await wait(()=>call('return app?.getScene()?.renderCount>0&&window.__flightAssetGate.length===2;'),'factory with both heights held');
+    await wait(()=>call('return app?.getScene()?.renderCount>0&&window.__flightWorkerGate.length===1;'),'factory with world generation held');
     assert(await call('return d.getElementById("launchButton").disabled&&!app.getScene().flightReady;'));
     assert(await call('app.view("orbit");return app.diagnostics().view==="factory"&&d.querySelector("[data-camera-view=orbit]").disabled&&d.querySelector("[data-camera-view=plane]").disabled;'));
     await call('window.__assemblyTouches=[];d.addEventListener("pointerdown",e=>window.__assemblyTouches.push([e.isTrusted,e.pointerType]));');
@@ -724,58 +749,23 @@ async function preparation(base,label){
     const craft=await call('return app.getState().craft;');
     assert(P.complete(craft));
     assert(await call('return !app.command({type:"launch"})&&!app.controller.command({type:"launch"})&&app.getState().phase==="workshop";'));
-    await shot(label+'-explorer-factory-before-heights');
-    await call('window.__flightAssetGate.find(r=>r.kind==="world-v2.gz").release("unavailable");');
-    await wait(()=>call('return !d.getElementById("retryFlightPreparation").hidden&&window.__flightAssetGate[1].aborted&&window.__flightAssetGate[0].aborted;'),'failed batch aborts both requests');
+    await shot(label+'-procedural-factory-before-generation');
+    await call('window.__flightWorkerGate[0].fail();');
+    await wait(()=>call('return !d.getElementById("retryFlightPreparation").hidden;'),'generation retry available');
     assert.deepEqual(await call('return app.getState().craft;'),craft);
     await click('#retryFlightPreparation');
-    await wait(()=>call('return window.__flightAssetGate.length===4;'),'new pair of height requests');
-    await call('d.getElementById("retryFlightPreparation").click();window.__flightAssetGate.find(r=>r.kind==="region-v2.gz"&&!r.aborted).release("bad-gzip");');
-    await wait(()=>call('return !d.getElementById("retryFlightPreparation").hidden;'),'malformed gzip is rejected');
-    assert(await call('return window.__flightAssetGate.length===4&&d.getElementById("launchButton").disabled&&RocketSurface.surfaceGrid().width<8193;'));
+    await wait(()=>call('return window.__flightWorkerGate.length===2;'),'new generation worker');
+    assert(await call('return d.getElementById("launchButton").disabled&&!app.getScene().flightReady;'));
+    await call('window.__flightWorkerGate[1].release();');
+    await wait(()=>call('return !d.getElementById("launchButton").disabled;'),'generated terrain ready');
     assert.deepEqual(await call('return app.getState().craft;'),craft);
-    await call('app.getScene().renderer.forceContextLoss();');
-    await wait(()=>call('return app.getScene().lost;'),'factory WebGL lost');
-    await call('app.getScene().renderer.forceContextRestore();');
-    await wait(()=>call('return !app.getScene().lost;'),'factory WebGL restored');
-    await click('#retryFlightPreparation');
-    await wait(()=>call('return window.__flightAssetGate.length===6;'),'third pair of height requests');
-    await call('window.__flightAssetGate.findLast(r=>r.kind==="world-v2.gz").release();');
-    await wait(()=>call('return performance.getEntriesByType("resource").some(e=>e.name.endsWith("world-v2.gz"));'),'world heights respond first');
-    assert(await call('return d.getElementById("launchButton").disabled&&RocketSurface.surfaceGrid().width<8193;'));
-    await call('window.__flightAssetGate.findLast(r=>r.kind==="region-v2.gz").release();');
-    await wait(()=>call('return !d.getElementById("launchButton").disabled;'),'both validated heights and base scene');
-    assert.deepEqual(await call('return app.getState().craft;'),craft);
-    assert(await call('return RocketSurface.surfaceGrid().width===8193&&window.__flightAssetGate.length===6;'));
-    assert(await call('return !d.querySelector("[data-camera-view=orbit]").disabled&&!d.querySelector("[data-camera-view=plane]").disabled;'));
-    await call(`const scheduler=window.scheduler,original=scheduler.yield;
-      scheduler.yield=function(){
-       if(!app.getScene().regionalRequest)return original.call(scheduler);
-       window.__regionalAtPad=app.getScene().regionalRequest;
-       return new Promise(resolve=>{window.__resumeRegion=()=>{scheduler.yield=original;resolve();};});
-      };`);
     await click('#launchButton');
-    await wait(()=>call('return Boolean(window.__resumeRegion);'),'regional texture generation starts');
-    await call('app.view("sky");');
-    await wait(()=>call('return window.__regionalAtPad.signal.aborted;'),'leaving the ground view cancels regional texture generation');
-    await call('window.__resumeRegion();');
+    assert(await call('return app.getState().phase==="pad"&&RocketSurface.clearance(app.getState().flight.state)===0;'));
+    await shot(label+'-procedural-pad');
     await click('#igniteButton');
-    await wait(()=>call('return app.getState().flight.status==="flying";'),'liftoff while regional texture is absent');
-    await click('#playButton');
-    assert(await call('return !app.controller.running&&!app.getScene().diagnostics().regionalSurfaceReady;'));
-    const probe='const f=app.getState().flight,s=app.getScene();return {flight:f,agl:RocketSurface.clearance(f.state,f.t),position:s.rocket.position.toArray()};';
-    await call('app.view("follow");');
-    const before=await call(probe);
-    await wait(()=>call('return app.getScene().diagnostics().regionalSurfaceReady;'),'regional texture generated on revisiting');
-    assert.deepEqual(await call(probe),before);
-    await call('const s=app.getScene(),f=app.controller.state.flight,a=.17,r=RocketParts.R+50000;f.state=[r*Math.cos(a),r*Math.sin(a),0,0,2300,0];s.yaw=-1.1;s.pitch=.75;app.controller.emit();');
-    await wait(()=>call('return window.__flightAssetGate.some(r=>r.kind==="global-detail/tiles.json.gz");'),'global detail requested by distant ground view');
-    await call('app.command({type:"workshop"});app.view("factory");');
-    assert(await call('return window.__flightAssetGate.find(r=>r.kind==="global-detail/tiles.json.gz").aborted&&app.getScene().globalTerrain.userData.pending<=2;'));
-    await cdp.send('Page.reload');
-    await wait(()=>call('return app?.getScene()?.renderCount>0;'),'factory refresh');
-    assert.deepEqual(await call('return app.getState();'),M.fresh());
-    report.flows.push({label,case:'preparation',trustedDrag:true,httpAndGzipRetry:true,preservedCraft:true,contextRestored:true,visualFallback:true,unchangedFlight:true,globalCancel:true});
+    assert(await call('return app.getState().flight.controls.lit;'));
+    assert(await call('app.controller.tick(1,20000);app.controller.pause();return app.getState().flight.status==="flying";'));
+    report.flows.push({label,case:'preparation',trustedDrag:true,generationRetry:true,preservedCraft:true,liftoff:true});
   }finally{await cdp.send('Page.removeScriptToEvaluateOnNewDocument',{identifier});}
 }
 async function events(base,label){
@@ -965,7 +955,7 @@ async function distantNavigation(base,label,state){
       dash:s.lines.predicted.material.dashSize*s.orbitFrame.pixelsPerUnit,flat:camera.isOrthographicCamera,
       texture:s.earthMap.image.width,pinch:app.diagnostics().interaction.pinch};`);
   const start=await snapshot();
-  assert(start.flat&&Math.abs(start.marker-24)<.01&&Math.abs(start.dash-5)<.01&&start.texture===2048);
+  assert(start.flat&&Math.abs(start.marker-24)<.01&&Math.abs(start.dash-5)<.01&&start.texture===1024);
   assert(Math.hypot(start.earth.x-start.center.x,start.earth.y-start.center.y)>20,JSON.stringify(start));
   const gesture=async(from,to,initialSpread,finalSpread)=>{
     const ids=[touchId++,touchId++],pair=(middle,spread)=>ids.map((id,i)=>({id,x:middle.x+(i===0?-spread:spread),y:middle.y,radiusX:2,radiusY:2,force:1}));
@@ -989,7 +979,7 @@ async function distantNavigation(base,label,state){
   await click('[data-camera-view="plane"]');
   await call(`const s=app.getScene();s.transformOrbit(1,${JSON.stringify(start.earth)},${JSON.stringify(start.center)});s.draw();
     s.transformOrbit(16,${JSON.stringify(start.center)},${JSON.stringify(start.center)});s.draw();`);
-  await wait(()=>call('return app.getScene().earthMap.image.width===4096;'),'lazy 4K globe');
+  await wait(()=>call('return app.getScene().earthMap.image.width===2048;'),'on-demand procedural globe detail');
   const earth=await snapshot();assert(Math.hypot(earth.earth.x-earth.center.x,earth.earth.y-earth.center.y)<1,JSON.stringify(earth));
   await shot(label+'-deep-orbit-earth-390x844');
   await click('[data-camera-view="plane"]');
@@ -1008,6 +998,6 @@ async function distantNavigation(base,label,state){
 
 function selection(args){if(args.length>2)throw Error("Expected cases and optional delivery");const cases=args[0]?args[0].split(","):caseNames,delivery=args[1]||null;if(cases.some(name=>!caseNames.includes(name))||new Set(cases).size!==cases.length)throw Error("Unknown or repeated explorer case");if(delivery&&!["source","standalone"].includes(delivery))throw Error("Unknown explorer delivery");return{cases,delivery};}
 async function main(){const scope=selection(process.argv.slice(2));report.cases=scope.cases;report.delivery=scope.delivery;fs.mkdirSync(out,{recursive:true});try{const packageFile=Pack.build();extracted=fs.mkdtempSync(path.join(temp,'simlab-rocket-explorer-package-'));new AdmZip(packageFile).extractAllTo(extracted,true);for(const f of Pack.assets.files)assert(fs.readFileSync(path.join(root,'sim',f)).equals(fs.readFileSync(path.join(extracted,f))));const runtimeHasher=crypto.createHash('sha256');for(const f of Pack.assets.files)runtimeHasher.update(fs.readFileSync(path.join(root,'sim',f)));report.runtimeHash=runtimeHasher.digest('hex');profile=fs.mkdtempSync(path.join(temp,'simlab-rocket-explorer-chrome-'));chrome=spawn(H.findBrowser(),['--headless=new','--remote-debugging-address=127.0.0.1','--remote-debugging-port=0','--user-data-dir='+profile,'--no-first-run','--no-default-browser-check','--disable-background-networking','--use-angle=swiftshader','--enable-unsafe-swiftshader','about:blank'],{stdio:['ignore','ignore','pipe'],windowsHide:true});chrome.stderr.resume();const port=await H.devToolsPort(profile,chrome),{body:target}=await H.fetchJson('http://127.0.0.1:'+port+'/json/new?about:blank',{method:'PUT'});cdp=new H.CdpClient(target.webSocketDebuggerUrl,WebSocket,30000);await cdp.send('Page.enable');await cdp.send('Runtime.enable');cdp.on('Runtime.consoleAPICalled',e=>{if(e.type==='error')report.errors.push(e.args.map(a=>a.description||a.value||'').join(' '));});await cdp.send('Network.enable');await cdp.send('Page.bringToFront');report.engine=await cdp.send('Browser.getVersion');cdp.on('Runtime.exceptionThrown',e=>report.errors.push(e.exceptionDetails?.exception?.description||e.exceptionDetails?.text));cdp.on('Network.responseReceived',e=>{if(e.response.status>=400&&!e.response.url.endsWith('/favicon.ico'))report.loads.push(e.response.url+' '+e.response.status);});await cdp.send('Page.addScriptToEvaluateOnNewDocument',{source:'window.__lmsReads=window.__lmsWrites=window.__storageReads=window.__storageWrites=0;for(const name of ["API","API_1484_11"])Object.defineProperty(window,name,{get(){window.__lmsReads++;return new Proxy({},{get(){return()=>{window.__lmsWrites++;return "true";};}});}});for(const [method,key]of [["getItem","__storageReads"],["setItem","__storageWrites"]]){const original=Storage.prototype[method];Storage.prototype[method]=function(...args){window[key]++;return original.apply(this,args);};}'});
-for(const [label,directory]of [['source',path.join(root,'sim')],['standalone',extracted]]){if(scope.delivery&&label!==scope.delivery)continue;server=H.createServer(directory);await H.listenServer(server);const base='http://127.0.0.1:'+server.address().port;console.log('Explorer browser: '+label);const tests={layout,assembly,controls,flight,return:returnFlight,effects,parachute,cameras,warp:parachuteWarp,surface:surfaceShading,landing:capsuleLanding,visual:visualConsistency,readouts,terrain:terrainForest,sample:terrainSample,world,detail,sky,preparation,events,'local-transfer':localTransfer,'pad-quality':padQuality,'site-ground':siteGround,'propulsion-art':propulsionArt,'launch-camera':launchCamera,'distant-camera':distantCamera};for(const name of scope.cases){const test=tests[name];console.log('Explorer case '+label+' '+name);await test(base,label);assert(await call('return window.__lmsReads===0&&window.__lmsWrites===0&&window.__storageReads===0&&window.__storageWrites===0;'));}await cdp.send('Page.navigate',{url:'about:blank'});await H.closeServer(server);server=null;}assert.deepEqual(report.errors,[]);assert.deepEqual(report.loads,[]);report.completed=true;console.log('Rocket explorer source and standalone passed.');
+for(const [label,directory]of [['source',path.join(root,'sim')],['standalone',extracted]]){if(scope.delivery&&label!==scope.delivery)continue;server=H.createServer(directory);await H.listenServer(server);const base='http://127.0.0.1:'+server.address().port;console.log('Explorer browser: '+label);const tests={layout,assembly,controls,flight,return:returnFlight,effects,parachute,cameras,warp:parachuteWarp,surface:surfaceShading,landing:capsuleLanding,visual:visualConsistency,readouts,terrain:terrainForest,sample:terrainSample,world,detail,sky,preparation,events,'local-transfer':localTransfer,'pad-quality':padQuality,'site-ground':siteGround,'propulsion-art':propulsionArt,'launch-camera':launchCamera,'distant-camera':distantCamera,'distant-globe':(base,label)=>World.distantGlobe({base,label,P,T,cdp,call,viewport,open,shot,report})};for(const name of scope.cases){const test=tests[name];console.log('Explorer case '+label+' '+name);await test(base,label);assert(await call('return window.__lmsReads===0&&window.__lmsWrites===0&&window.__storageReads===0&&window.__storageWrites===0;'));}await cdp.send('Page.navigate',{url:'about:blank'});await H.closeServer(server);server=null;}assert.deepEqual(report.errors,[]);assert.deepEqual(report.loads,[]);report.completed=true;console.log('Rocket explorer source and standalone passed.');
 }finally{if(!report.completed&&cdp)try{await shot('explorer-failure');}catch(_){}fs.writeFileSync(path.join(out,'explorer-report.json'),JSON.stringify(report,null,2));await H.stopChrome(chrome,cdp);cdp?.close();if(server)await H.closeServer(server);for(const [dir,pattern]of [[profile,/^simlab-rocket-explorer-chrome-[A-Za-z0-9]+$/],[extracted,/^simlab-rocket-explorer-package-[A-Za-z0-9]+$/]])if(dir&&fs.existsSync(dir)){const safe=H.validateOwnedDirectory(dir,temp,pattern,'rocket explorer browser');fs.rmSync(safe,{recursive:true,force:false,maxRetries:5,retryDelay:200});}}}
 module.exports={caseNames,selection};if(require.main===module)main().catch(e=>{console.error(e);process.exitCode=1;});

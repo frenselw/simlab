@@ -1,8 +1,6 @@
 import * as THREE from './vendor/three-0.185.1/three.module.min.js';
-import {createTerrain,groundLight,orbitalLighting,terrainSlopeDetail,surfaceUniforms,surfaceTextureBytes,regionalSurfaceTexture,createRegionalSurfaceTexture,createWorldSurfaceTexture} from './terrain.js';
-import {createGlobalTerrain} from './global-terrain.js';
-import {createTerrainDetail} from './terrain-detail.js';
-import {createPreciseTerrain} from './precise-terrain.js';
+import {createTerrain,groundLight,orbitalLighting,terrainSlopeDetail,surfaceUniforms,surfaceTextureBytes,requestProceduralWorld,siteAccessRoads,siteMainRoad} from './terrain.js';
+import {createProceduralTerrain} from './procedural-terrain.js';
 const P=window.RocketParts,cache=new Map(),canvasMaps=new Map(),lostCanvases=new Set();
 export const artRecovery=new EventTarget();
 export function artTexturesReady(){return lostCanvases.size===0&&[...canvasMaps.keys()].every(c=>!c.getContext('2d')?.isContextLost?.());}
@@ -17,54 +15,30 @@ async function artTexture(name,signal,cacheMode){
  const url=URL.createObjectURL(await (await asset(name,signal,cacheMode)).blob());
  try{return await loader.loadAsync(url);}finally{URL.revokeObjectURL(url);}
 }
-async function compactAsset(name,signal,cacheMode,limit){
- const response=await asset(name,signal,cacheMode);
- const compressed=await RocketSurfaceCodec.readBytes(response.body,limit);
- return (await RocketSurfaceCodec.gunzip(compressed,limit)).slice().buffer;
+function worldTexture({pixels,width,height}) {
+ const texture=new THREE.DataTexture(pixels,width,height);
+ texture.colorSpace=THREE.SRGBColorSpace;texture.wrapS=THREE.RepeatWrapping;
+ texture.magFilter=THREE.LinearFilter;texture.minFilter=THREE.LinearMipmapLinearFilter;
+ texture.generateMipmaps=true;texture.needsUpdate=true;return texture;
 }
-let dayMap,weatherTexture,starMap,geography,terrainBuffer,globalBuffer,baseAttempted=false,detailedEarth;
-export async function loadFlightArt(){
- const cacheMode=baseAttempted?'reload':'default';
- baseAttempted=true;
- const abort=new AbortController(),{signal}=abort;
- const names=[compact?'earth-2k.webp':'earth-4k.webp','clouds.webp','starfield.webp'];
- try{
-  const [textures,site,region,global]=await Promise.all([
-   Promise.all(names.map(name=>artTexture(name,signal,cacheMode))),
-   compactAsset('geography-v2.gz',signal,cacheMode,32768).then(b=>JSON.parse(new TextDecoder().decode(b))),
-   compactAsset('region-mesh-v2.gz',signal,cacheMode,1200000),
-   compactAsset('global/coarse.bin.gz',signal,cacheMode,2200000),
-   window.RocketSurface.ready()
-  ]);
-  [dayMap,weatherTexture,starMap]=textures;geography=site;terrainBuffer=region;globalBuffer=global;
-  textures.forEach((texture,i)=>{texture.colorSpace=THREE.SRGBColorSpace;texture.wrapS=THREE.RepeatWrapping;cache.get(names[i])?.dispose();cache.set(names[i],texture);});
-  surfaceUniforms.uOrbitalMap.value=dayMap;
-  if(!cache.has('world-surface'))cache.set('world-surface',createWorldSurfaceTexture());
- }catch(error){abort.abort();throw error;}
+let dayMap,weatherTexture,starMap,detailedEarth;
+export async function loadFlightArt() {
+ if(dayMap)return;
+ const [world,stars]=await Promise.all([requestProceduralWorld({width:compact?512:1024,includeWeather:true}),artTexture('starfield.webp')]);
+ dayMap=worldTexture(world.globe);weatherTexture=worldTexture(world.weather);
+ starMap=stars;starMap.colorSpace=THREE.SRGBColorSpace;starMap.wrapS=THREE.RepeatWrapping;
+ cache.set('world',dayMap);cache.set('weather',weatherTexture);cache.set('stars',starMap);
+ surfaceUniforms.uOrbitalMap.value=dayMap;
+ surfaceUniforms.uProceduralSurface.value=1;
 }
-export function loadDetailedEarth(){
- if(dayMap.image.width>=4096)return Promise.resolve(dayMap);
- detailedEarth??=artTexture('earth-4k.webp').then(texture=>{
-  texture.colorSpace=THREE.SRGBColorSpace;texture.wrapS=THREE.RepeatWrapping;
-  cache.set('earth-4k.webp',texture);cache.delete('earth-2k.webp');
-  dayMap.dispose();dayMap=surfaceUniforms.uOrbitalMap.value=texture;
-  return texture;
- }).catch(()=>null);
+export function loadDetailedEarth(width){
+ if(dayMap.image.width>=width)return Promise.resolve(dayMap);
+ detailedEarth??=requestProceduralWorld({width:width/2}).then(({globe})=>{
+  const previous=dayMap;
+  dayMap=surfaceUniforms.uOrbitalMap.value=worldTexture(globe);
+  cache.set('world',dayMap);previous.dispose();return dayMap;
+ }).catch(()=>{detailedEarth=null;return null;});
  return detailedEarth;
-}
-export async function loadRegionalSurface(signal){
- const texture=await createRegionalSurfaceTexture(signal);
- if(!texture)return;
- if(signal.aborted){texture.dispose();return;}
- cache.set('regional-surface',texture);regionalSurfaceTexture.value=texture;surfaceUniforms.uRegionalSurfaceReady.value=1;
-}
-async function loadGlobalDetail(signal){
- const metadata=JSON.parse(new TextDecoder().decode(await compactAsset('global-detail/tiles.json.gz',signal,'default',200000)));
- if(signal.aborted)throw new DOMException('Cancelled','AbortError');
- const detail=createTerrainDetail(metadata),[atlas,lookup]=detail.textures;
- surfaceUniforms.uDetailAtlas.value=atlas;surfaceUniforms.uDetailLookup.value=lookup;surfaceUniforms.uDetailEnabled.value=1;
- cache.set('global-normal-atlas',atlas);cache.set('global-normal-lookup',lookup);
- return detail;
 }
 export function textureBudget(){return surfaceTextureBytes+[...cache.values()].reduce((bytes,t)=>bytes+t.image.width*t.image.height*(t.format===THREE.RGFormat?2:4)*(t.generateMipmaps?4/3:1),0);}
 
@@ -191,8 +165,7 @@ function surface(key){return canvasMap(key,compact?256:512,compact?256:512,(x,w,
  });}
 function instances(parent,geometry,mat,rows){const mesh=new THREE.InstancedMesh(geometry,mat,rows.length),o=new THREE.Object3D();rows.forEach((r,i)=>{o.position.set(r[0],r[1],r[2]);o.scale.set(r[3],r[4],r[5]);o.rotation.set(r[6]||0,r[7]||0,r[8]||0);o.updateMatrix();mesh.setMatrixAt(i,o.matrix);if(r[9])mesh.setColorAt(i,new THREE.Color(r[9]));});mesh.instanceMatrix.needsUpdate=true;if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;parent.add(mesh);return mesh;}
 
-export function createRelief(sun){return createTerrain(terrainBuffer,sun);}
-function coast(z){const rows=geography.coastRows;let i=0;while(i<rows.length-2&&rows[i+1].z<z)i++;const a=rows[i],b=rows[i+1],t=THREE.MathUtils.clamp((z-a.z)/(b.z-a.z),0,1);return THREE.MathUtils.lerp(a.x??-120000,b.x??-120000,t);}
+export function createRelief(sun){return createTerrain(null,sun);}
 export const skyDisc=`
 float discOffset(vec3 ray, vec4 disc){
  return dot(ray,disc.xyz)>0.0 ? length(cross(ray,disc.xyz)) : 1.0;
@@ -248,12 +221,17 @@ function planetGeometry(segments=compact?96:128){
 }
 const planetVertex=`#include <common>
 #include <logdepthbuf_pars_vertex>
+uniform float uDistantGlobe;
 varying vec2 vUv;varying vec3 vNormal;varying vec3 vWorld;varying vec3 vSurface;void main(){vUv=uv;vSurface=position;vec4 world=modelMatrix*vec4(position,1.0);vWorld=world.xyz;vNormal=normalize(mat3(modelMatrix)*normal);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);
 #include <logdepthbuf_vertex>
+#ifdef USE_LOGARITHMIC_DEPTH_BUFFER
+ // Distant triangles can round out of the clip volume before logarithmic depth is written.
+ if(uDistantGlobe>.5)gl_Position.z=0.0;
+#endif
 }`;
-export async function createPlanet(){
- const sun=new THREE.Vector3(-.5,.3,1).normalize(),opacity={value:1};
- const shader=(map,cloud)=>new THREE.ShaderMaterial({uniforms:{...surfaceUniforms,uMap:{value:map},uSun:{value:sun},uSlopeDetail:terrainSlopeDetail,uCloud:{value:cloud?1:0},uOpacity:opacity},vertexShader:planetVertex,fragmentShader:groundLight+orbitalLighting+`
+export function createPlanet(sun){
+ const opacity={value:1},distantGlobe={value:0};
+ const shader=(map,cloud)=>new THREE.ShaderMaterial({uniforms:{...surfaceUniforms,uMap:{value:map},uSun:{value:sun},uSlopeDetail:terrainSlopeDetail,uCloud:{value:cloud?1:0},uOpacity:opacity,uDistantGlobe:distantGlobe},vertexShader:planetVertex,fragmentShader:groundLight+orbitalLighting+`
 #include <logdepthbuf_pars_fragment>
 uniform sampler2D uMap;
 uniform vec3 uSun;
@@ -269,11 +247,8 @@ void main(){
   vec4 tex=texture2D(uMap,geographicUv(normalize(geographicDirection(normalize(point)))));
   color=tex.rgb*mix(vec3(.0015,.0025,.004),vec3(1.0),light);
   alpha=tex.a*.64*uOpacity;
- }else if(uOrbitalBlend>=1.0){
-  color=shadeOrbitalSurface(n,point,vWorld,uSun);
  }else{
-  color=shadeSurface(oceanAlbedo,n,n,point,vWorld,uSun,1.0);
-  if(uOrbitalBlend>0.0)color=mix(color,shadeOrbitalSurface(n,point,vWorld,uSun),uOrbitalBlend);
+  color=shadeOrbitalSurface(n,point,vWorld,uSun);
  }
  float rim=pow(1.0-max(0.0,dot(n,eye)),4.0);
  color+=vec3(.025,.12,.24)*rim*light*(uCloud>.5?1.0:uOrbitalBlend);
@@ -281,21 +256,12 @@ void main(){
 #include <logdepthbuf_fragment>
 #include <tonemapping_fragment>\n#include <colorspace_fragment>}`,transparent:cloud,depthWrite:!cloud});
  const earth=new THREE.Mesh(planetGeometry(),shader(dayMap,false)),clouds=new THREE.Mesh(new THREE.SphereGeometry(1,96,48),shader(weatherTexture,true));earth.rotation.z=0;clouds.renderOrder=-1;
- const halo=new THREE.Mesh(new THREE.SphereGeometry(1,64,32),new THREE.ShaderMaterial({uniforms:{uSun:{value:sun},uOpacity:opacity},vertexShader:planetVertex,fragmentShader:`#include <logdepthbuf_pars_fragment>
+ const halo=new THREE.Mesh(new THREE.SphereGeometry(1,64,32),new THREE.ShaderMaterial({uniforms:{uSun:{value:sun},uOpacity:opacity,uDistantGlobe:distantGlobe},vertexShader:planetVertex,fragmentShader:`#include <logdepthbuf_pars_fragment>
 uniform vec3 uSun;uniform float uOpacity;varying vec3 vNormal;varying vec3 vWorld;void main(){vec3 n=normalize(vNormal);float rim=pow(1.0-abs(dot(n,normalize(cameraPosition-vWorld))),2.4);float sun=smoothstep(-.15,.15,dot(n,uSun))*(.25+.75*max(0.0,dot(n,uSun)));gl_FragColor=vec4(.16,.52,.92,rim*sun*.36*uOpacity);\n#include <logdepthbuf_fragment>
 #include <tonemapping_fragment>\n#include <colorspace_fragment>}`,side:THREE.BackSide,transparent:true,depthWrite:false}));
  earth.userData.farGeometry=earth.geometry;earth.userData.nearGeometry=compact?planetGeometry(48):earth.geometry;
- const globalTerrain=await createGlobalTerrain(globalBuffer,sun,loadGlobalDetail);
- if(window.RocketPreciseTerrainEndpoint){
-  const endpoint=new URL(window.RocketPreciseTerrainEndpoint,location.href);
-  if(endpoint.origin===location.origin){
-   const precise=createPreciseTerrain(sun,endpoint.href),advance=globalTerrain.advanceDetail;
-   precise.onChange=()=>globalTerrain.onChange?.();globalTerrain.precise=precise;globalTerrain.add(precise);
-   globalTerrain.userData.precise=precise.userData;
-   globalTerrain.advanceDetail=now=>{const previous=advance(now);return precise.advance(now)||previous;};
-  }
- }
- earth.rotation.order='ZYX';return {earth,clouds,halo,sun,opacity,globalTerrain};
+ const globalTerrain=createProceduralTerrain(sun);
+ earth.rotation.order='ZYX';return {earth,clouds,halo,sun,opacity,distantGlobe,globalTerrain};
 }
 export function createPad(){
  const group=new THREE.Group(),add=(g,m,x,y,z)=>{const mesh=new THREE.Mesh(g,m);mesh.position.set(x,y,z);group.add(mesh);return mesh;},concrete=new THREE.MeshLambertMaterial({color:'#b8c6c5',map:surface('concrete')}),steel=material('#71848b',{map:surface('metal'),metalness:.7,roughness:.42});
@@ -499,24 +465,8 @@ export function createLandscape(){
  const group=new THREE.Group(),groundY=(x,z)=>Math.sqrt(P.R*P.R-x*x-z*z)-P.R+window.RocketSurface.heightAt(x/P.R,Math.sqrt(1-(x*x+z*z)/(P.R*P.R)),z/P.R);
  group.landmarks=[];
  const plans=[['assembly',650,200,130,42,90],['logistics',850,260,90,18,60],['control',580,-480,80,22,50],['utility',720,420,42,12,30]];
- const links=[[[15,5],[50,12],[200,60],[320,60]],[[320,60],[500,60],[650,247]],[[320,260],[650,260],[850,292]],[[320,-450],[450,-450],[580,-453]],[[320,420],[650,420],[720,437]],[[320,-950],[800,-950],[1025,-950]]];
- const roads=[...links,[[320,-1800],[320,2400]]];
- const roadMap=canvasMap('site-roads',512,2048,(ctx,w,h)=>{
-  ctx.setTransform(w/1280,0,0,-h/4352,w/20,2496*h/4352);
-  ctx.lineJoin='round';ctx.lineCap='round';
-  for(const [index,points]of roads.entries()){
-   ctx.beginPath();ctx.moveTo(...points[0]);for(const point of points.slice(1))ctx.lineTo(...point);
-   ctx.strokeStyle='#485253';ctx.lineWidth=index===roads.length-1?18:12;ctx.setLineDash([]);ctx.stroke();
-  }
-  ctx.lineCap='butt';ctx.strokeStyle='#ddd1a2';ctx.lineWidth=2.2;ctx.setLineDash([11,13]);
-  for(const points of roads){
-   ctx.beginPath();ctx.moveTo(...points[0]);for(const point of points.slice(1))ctx.lineTo(...point);ctx.stroke();
-  }
- });
- roadMap.anisotropy=8;
- surfaceUniforms.uSiteRoads.value=roadMap;
- surfaceUniforms.uSiteRoadBounds.value.set(-64,-1856,1/1280,1/4352);
- const occupied=(x,z)=>Math.abs(x-320)<22&&z>=-1815&&z<=2415||plans.some(([,a,b,w,,d])=>Math.abs(x-a)<w/2+20&&Math.abs(z-b)<d/2+20)||Math.abs(x-1100)<90&&Math.abs(z+950)<75||links.some(path=>path.some((b,i)=>{if(!i)return false;const a=path[i-1],dx=b[0]-a[0],dz=b[1]-a[1],t=Math.max(0,Math.min(1,((x-a[0])*dx+(z-a[1])*dz)/(dx*dx+dz*dz)));return Math.hypot(x-a[0]-t*dx,z-a[1]-t*dz)<18;}));
+ const links=siteAccessRoads,roads=[...links,siteMainRoad];
+ const occupied=(x,z)=>plans.some(([,a,b,w,,d])=>Math.abs(x-a)<w/2+20&&Math.abs(z-b)<d/2+20)||Math.abs(x-1100)<90&&Math.abs(z+950)<75||roads.some(path=>path.some((b,i)=>{if(!i)return false;const a=path[i-1],dx=b[0]-a[0],dz=b[1]-a[1],t=Math.max(0,Math.min(1,((x-a[0])*dx+(z-a[1])*dz)/(dx*dx+dz*dz)));return Math.hypot(x-a[0]-t*dx,z-a[1]-t*dz)<18;}));
  group.nearDetails=[];
  const anchors=[],transform=new THREE.Matrix4(),roots=[];
  function anchored(geometry,mat,rows,anchorAt){
@@ -529,12 +479,12 @@ export function createLandscape(){
   roots.push({x,z,y,current:y});
   return roots.length-1;
  };
- const trunks=[],cones=[],leaves=[],trunkRoots=[],coneRoots=[],leafRoots=[];
+ const trunks=[],cones=[],leaves=[],shrubs=[],trunkRoots=[],coneRoots=[],leafRoots=[],shrubRoots=[];
  let treeMin=Infinity,buildingMin=Infinity;
  for(let i=0;i<256;i++){
   const a=i*2.399,r=450+i%24*250;
   let x=Math.cos(a)*r,z=Math.sin(a)*r;
-  if(x<coast(z)+300)x=coast(z)+500;
+  const e=x/P.R,n=z/P.R;if(window.RocketSurface.waterAt(e,Math.sqrt(1-e*e-n*n),n))continue;
   if(occupied(x,z))continue;
   const root=addRoot(x,z),y=roots[root].y,t=.8+i%7*.12;
   treeMin=Math.min(treeMin,Math.hypot(x,z));
@@ -545,9 +495,17 @@ export function createLandscape(){
    (i%2?coneRoots:leafRoots).push(root);
   }
  }
+ const cover=[[67,-83],[-92,-66],[-75,85],[116,87],[212,-127],[-168,-146],[-215,122],[248,180],[198,-310],[-390,-193],[505,-210],[370,534]];
+ for(const [k,[cx,cz]] of cover.entries())for(let i=0;i<11;i++){
+  const angle=i*2.399+k,spread=4+7*i,x=cx+Math.cos(angle)*spread*.7,z=cz+Math.sin(angle)*spread*.5;
+  if(Math.hypot(x,z)<53||occupied(x,z))continue;
+  const root=addRoot(x,z),y=roots[root].y,size=1.25+(i%5)*.61;
+  shrubs.push([x,y+size*.55,z,size*1.2,size,size,0,angle,0,i%4===0?'#83a55d':i%3?'#52794b':'#6e914f']);shrubRoots.push(root);
+ }
  anchored(new THREE.CylinderGeometry(1,1,1,5),new THREE.MeshLambertMaterial({color:'#756457'}),trunks,(_,i)=>trunkRoots[i]);
  anchored(new THREE.ConeGeometry(1,1,7),new THREE.MeshLambertMaterial({color:'#ffffff'}),cones,(_,i)=>coneRoots[i]);
  anchored(new THREE.IcosahedronGeometry(1,0),new THREE.MeshLambertMaterial({color:'#ffffff'}),leaves,(_,i)=>leafRoots[i]);
+ anchored(new THREE.IcosahedronGeometry(1,0),new THREE.MeshLambertMaterial({color:'#ffffff'}),shrubs,(_,i)=>shrubRoots[i]);
  const wallMap=canvasMap('buildings',256,256,(x,w,h)=>{x.fillStyle='#c2cdcc';x.fillRect(0,0,w,h);x.fillStyle='#5d7880';x.fillRect(20,75,216,180);x.fillStyle='#8fa6a9';for(let y=80;y<h;y+=12)x.fillRect(20,y,216,2);x.fillStyle='#aec9cb';for(let a=22;a<240;a+=36)x.fillRect(a,28,27,20);});
  const walls=[],roofs=[],windows=[],foundations=[],details=[],facilities=[],buildingRoots=[],detailRoots=[];
  for(const [name,x,z,w,h,d]of plans){
@@ -616,7 +574,7 @@ export function createLandscape(){
   for(const [j,dx,dy,dz]of [[0,-1200,0,0],[1,-520,280,-160],[2,150,440,100],[3,830,150,-100],[4,1400,-50,80]]){const scale=.85+i%3*.16;clouds.push([cx+dx*scale,groundY(cx+dx*scale,cz+dz)+h+dy*scale,cz+dz,(720+j%3*150)*scale,(290+j%3*60)*scale,(650+j%2*140)*scale,0,a,0]);}
  }
  const weather=instances(group,new THREE.SphereGeometry(1,8,5),new THREE.MeshLambertMaterial({color:'#f2f3eb'}),clouds);group.landmarks.push(weather);group.weather=weather;
- group.userData={clearRadius:300,treeMin,buildingMin,trees:trunks.length,buildings:plans.length,facilities,accessRoads:links,serviceRoads:links.length,tankBase,mountains:geography.ridges,river:false,coast:true,cloudClearRadius:5000,cloudCenters};return group;
+ group.userData={clearRadius:300,treeMin,buildingMin,trees:trunks.length,shrubs:shrubs.length,buildings:plans.length,facilities,accessRoads:links,serviceRoads:links.length,tankBase,river:false,coast:true,cloudClearRadius:5000,cloudCenters};return group;
 }
 
 const hullAzimuth=-Math.PI/32;

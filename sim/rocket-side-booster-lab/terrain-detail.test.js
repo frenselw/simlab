@@ -26,9 +26,9 @@ const assert=require('node:assert/strict'),path=require('node:path'),{pathToFile
   assert.equal(b.toString('ascii',8,16),'WEBPVP8L');assert.equal(b.length,size);
   const [x,y]=id.split('-').map(Number);
   assert(parents.has(Math.floor(x/4)+'-'+Math.floor(y/4)));
-  assert(manifest.includes('rocket-side-booster-lab/assets/global-detail/'+file));
+  assert(!manifest.includes('rocket-side-booster-lab/assets/global-detail/'+file));
   bytes+=size;
  }
- assert.equal(bytes,index.bytes);assert(bytes<145e6);assert(manifest.includes('rocket-side-booster-lab/assets/global-detail/tiles.json.gz'));
+ assert.equal(bytes,index.bytes);assert(bytes<145e6);assert(!manifest.includes('rocket-side-booster-lab/assets/global-detail/tiles.json.gz'));
  console.log('Global detail atlas: bounded slots, geographic reuse, smooth readiness, exact opaque decoding, abort/failure cleanup and mobile texture limits passed.');
 })().catch(error=>{console.error(error);process.exitCode=1;});
