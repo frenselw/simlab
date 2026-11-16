@@ -138,6 +138,16 @@ console.log(JSON.stringify({acceptedSampleError95Metres:errors[Math.floor(errors
  const texture=createWorldSurfaceTexture();assert.equal(texture.image.data.length,2048*1025*2);assert.equal(texture.generateMipmaps,false);assert.equal(texture.image.width,2048);assert.equal(texture.wrapS,THREE.RepeatWrapping);for(const [x,y]of [[0,0],[1024,512],[2047,1024],[1234,800]])assert.equal(texture.image.data[(y*2048+x)*2]*256+texture.image.data[(y*2048+x)*2+1],world.data[(4096-y*4)*8193+x*4]&32767);
  const sphere=new THREE.SphereGeometry(1,24,12),target=new THREE.Vector3(...directionAt(86.9,28));assert(orientGroundSphere(sphere,target));const before=sphere.attributes.position.array.slice();assert.equal(orientGroundSphere(sphere,target),false);assert.deepEqual(sphere.attributes.position.array,before);assert(orientGroundSphere(sphere,new THREE.Vector3(...directionAt(10,47))));sphere.dispose();texture.dispose();
  const {createGlobalTerrain}=await import(pathToFileURL(path.join(__dirname,'global-terrain.js'))),globe=await createGlobalTerrain(coarseBytes.buffer.slice(coarseBytes.byteOffset,coarseBytes.byteOffset+coarseBytes.length),new THREE.Vector3(0,1,0));for(const [lon,lat]of [[86.9,28],[-70,-30],[10.5,46.8],[133,-25]])assert(Number.isFinite(globe.surfaceHeight(new THREE.Vector3(...directionAt(lon,lat)))));assert(globe.userData.heightCells<=8);
+ const offshore=createContactGround(new THREE.Vector3(0,1,0),null,{uLaunchCut:{value:0}},relief,globe);
+ const angle=-1000000/R,wetRadius=R+416.5;
+ offshore.update({state:[wetRadius*Math.cos(angle),wetRadius*Math.sin(angle),0],t:0},true);
+ const wetMesh=offshore.children[0],wetPoints=wetMesh.geometry.attributes.position,water=wetMesh.geometry.attributes.surfaceWater,vertex=new THREE.Vector3();
+ assert.equal(offshore.userData.radius,2000);
+ for(let i=0;i<wetPoints.count;i++){
+  assert.equal(water.getX(i),1);
+  const height=(vertex.fromBufferAttribute(wetPoints,i).add(wetMesh.position).length()-1)*R;
+  assert(Math.abs(height)<.001,`Offshore vertex ${i} sank to ${height} m inside the ocean depth layer`);
+ }
  // Real camera rays must select ahead of a trailing camera, with route tiles cached before use.
  const nativeFetch=globalThis.fetch,requests=[];globalThis.fetch=(url,{signal})=>new Promise((resolve,reject)=>{const item={url,resolve,signal};requests.push(item);signal.addEventListener('abort',()=>reject(new DOMException('Cancelled','AbortError')),{once:true});});
  try{

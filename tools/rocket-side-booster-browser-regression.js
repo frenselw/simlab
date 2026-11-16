@@ -530,19 +530,29 @@ async function siteGround(base,label){
  f.upperStage.auto.mode='manual';
  await viewport(390,844);await open(base,state);
  const results=await H.evaluate(cdp,`(async()=>{
-  const s=__rocketApp.getScene(),T=await import("./vendor/three-0.185.1/three.module.min.js"),{surfaceUniforms:u}=await import("./terrain.js");
-  const R=RocketParts.R,texture=u.uSiteRoads.value,road=texture.image,[west,south,ux,uz]=u.uSiteRoadBounds.value.toArray();
-  const pixels=road.getContext("2d").getImageData(0,0,road.width,road.height).data;
-  const pixel=(x,z)=>(Math.floor((1-(z-south)*uz)*road.height)*road.width+Math.floor((x-west)*ux*road.width))*4;
-  const alpha=(x,z)=>pixels[pixel(x,z)+3];
-  const roadTexture={width:road.width,height:road.height,anisotropy:texture.anisotropy,dashContrast:pixels[pixel(320,-1795)]-pixels[pixel(320,-1784)]};
-  let roadSamples=0,roadGaps=0;
-  for(const route of [...s.landscape.userData.accessRoads,[[320,-1800],[320,2400]]]){
+  const s=__rocketApp.getScene(),T=await import("./vendor/three-0.185.1/three.module.min.js"),{launchSiteShader,launchRoads}=await import("./terrain.js");
+  const R=RocketParts.R,probes=[];
+  for(const route of launchRoads){
    for(let i=1;i<route.length;i++){
     const [x,z]=route[i-1],[a,b]=route[i];
-    for(let k=0;k<=40;k++){roadSamples++;if(alpha(x+(a-x)*k/40,z+(b-z)*k/40)<230)roadGaps++;}
+    for(let k=0;k<=40;k++)probes.push([x+(a-x)*k/40,z+(b-z)*k/40]);
    }
   }
+  const roadSamples=probes.length;
+  probes.push([320,-1789.5],[320,-1800],[328.2,-1600],[327,-1600],[333,-1600]);
+  const samples=new T.DataTexture(new Float32Array(probes.flatMap(([x,z])=>[x,z,0,1])),probes.length,1,T.RGBAFormat,T.FloatType);
+  samples.needsUpdate=true;
+  const target=new T.WebGLRenderTarget(probes.length,1),material=new T.ShaderMaterial({
+   uniforms:{samples:{value:samples}},vertexShader:'void main(){gl_Position=vec4(position.xy,0.,1.);}',
+   fragmentShader:launchSiteShader+'uniform sampler2D samples;void main(){vec2 point=texelFetch(samples,ivec2(int(gl_FragCoord.x),0),0).xy;gl_FragColor=vec4(siteRoadColor(vec3(.30,.42,.32),point,.05),1.);}'
+  });
+  const probeScene=new T.Scene(),geometry=new T.PlaneGeometry(2,2),camera=new T.OrthographicCamera(-1,1,1,-1,0,1);
+  probeScene.add(new T.Mesh(geometry,material));
+  const buffer=new Uint8Array(probes.length*4),previous=s.renderer.getRenderTarget();
+  try{s.renderer.setRenderTarget(target);s.renderer.render(probeScene,camera);s.renderer.readRenderTargetPixels(target,0,0,probes.length,1,buffer);}
+  finally{s.renderer.setRenderTarget(previous);geometry.dispose();material.dispose();target.dispose();samples.dispose();}
+  const red=i=>buffer[i*4],roadGaps=probes.slice(0,roadSamples).filter((_,i)=>Math.abs(red(i)-77)<3).length;
+  const [dash,asphalt,edge,inner,grass]=Array.from({length:5},(_,i)=>red(roadSamples+i));
   const results=[],matrix=new T.Matrix4(),ray=new T.Raycaster(new T.Vector3(),new T.Vector3(0,-1,0));
   for(const [quality,altitude] of [[0,116.2],[1,116.2],[2,116.2],[0,850],[0,0],[0,116.2]]){
    const f=__rocketApp.controller.state.flight;
@@ -570,10 +580,10 @@ async function siteGround(base,label){
    const shader=s.renderer.info.programs.every(p=>p.diagnostics?.runnable!==false);
    results.push({quality,altitude,sampleError,trunksVisible:trunk.visible,maxRootGap,midTrees:mid.count,maxTree,shader,unchanged:before===JSON.stringify(__rocketApp.getState())});
   }
-  return {roadSamples,roadGaps,roadTexture,results};
+  return {roadSamples,roadGaps,dash,asphalt,edge,inner,grass,results};
  })()`);
  assert(results.roadSamples>300&&results.roadGaps===0,JSON.stringify(results));
- assert(results.roadTexture.width===512&&results.roadTexture.height===2048&&results.roadTexture.anisotropy===8&&results.roadTexture.dashContrast>70,JSON.stringify(results.roadTexture));
+ assert(results.dash-results.asphalt>100&&results.edge-results.inner>70&&Math.abs(results.grass-77)<3,JSON.stringify(results));
  assert(results.results.every(r=>r.sampleError<.002&&r.maxRootGap<.002&&r.midTrees>0&&r.maxTree<26&&r.trunksVisible===(r.quality<2)&&r.shader&&r.unchanged),JSON.stringify(results));
  await shot(label+'-sharper-road-116m');
  report.flows.push({label,case:'site-ground',...results});

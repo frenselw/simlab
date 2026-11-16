@@ -55,7 +55,8 @@ export function createContactGround(sun,colorAt,site,relief,world){
    const index=j*side+i,x=(cxGrid+i-40)*spacing,z=(czGrid+j-40)*spacing;
    if(regional)n.set(x/R,Math.sqrt(1-(x*x+z*z)/(R*R)),z/R);else n.copy(center).addScaledVector(east,(i-40)*spacing/R).addScaledVector(row,(j-40)*spacing/R).normalize();
    let height=S.heightAt(n.x,n.y,n.z);const water=S.waterAt(n.x,n.y,n.z),distance=n.distanceTo(center)*R;
-   if(distance>radius*.55){const base=regional?relief.groundHeight(x,z,true):world?.surfaceHeight(n),weight=THREE.MathUtils.smoothstep(distance,radius*.55,radius*.9);if(Number.isFinite(base))height+=(base-height)*weight;}
+   // The coarse terrain can lie below the ocean depth mesh, which still covers the contact cutout.
+   if(!water&&distance>radius*.55){const base=regional?relief.groundHeight(x,z,true):world?.surfaceHeight(n),weight=THREE.MathUtils.smoothstep(distance,radius*.55,radius*.9);if(Number.isFinite(base))height+=(base-height)*weight;}
    if(water)color.setRGB(.035,.19,.25);else color.setRGB(...S.colorAt(n.x,n.y,n.z));positions.set([n.x-origin.x+n.x*height/R,n.y-origin.y+n.y*height/R,n.z-origin.z+n.z*height/R],index*3);colors.set([color.r,color.g,color.b],index*3);
   }
 

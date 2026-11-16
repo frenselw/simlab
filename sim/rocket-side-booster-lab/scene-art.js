@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three-0.185.1/three.module.min.js';
-import {createTerrain,groundLight,orbitalLighting,terrainSlopeDetail,surfaceUniforms,surfaceTextureBytes,regionalSurfaceTexture,createRegionalSurfaceTexture,createWorldSurfaceTexture} from './terrain.js';
+import {createTerrain,groundLight,orbitalLighting,terrainSlopeDetail,surfaceUniforms,surfaceTextureBytes,regionalSurfaceTexture,createRegionalSurfaceTexture,createWorldSurfaceTexture,launchFacilities,launchRoads} from './terrain.js';
 import {createGlobalTerrain} from './global-terrain.js';
 import {createTerrainDetail} from './terrain-detail.js';
 const P=window.RocketParts,cache=new Map(),canvasMaps=new Map(),lostCanvases=new Set();
@@ -310,8 +310,25 @@ export function createPad(){
  for(let y=4;y<28;y+=6)for(const z of [-1.5,1.5])box(frame,0,y,z,.14,Math.hypot(3,6),.14,'#7f999e',0,0,(y%12===4?1:-1)*Math.atan(.5));
  box(frame,0,30,0,4.8,.35,4.8,'#c4d6cf');box(frame,0,29.7,2.2,4.5,.2,.25,'#d9b669');instances(tower,boxGeometry,fixtureMaterial,frame);
  const armRows=[];for(const y of [10,23]){box(armRows,4,y,1.6,8,.22,.6,'#d9b669',0,-.38);box(armRows,4,y+.7,1.6,8,.1,.12,'#c7d6d0',0,-.38);}instances(arms,boxGeometry,fixtureMaterial,armRows);
- const support=[],pipes=[];box(support,28,1.9,20,8,3.8,6,'#b8cbc3');box(support,28,4,20,9,.4,7,'#527b83');box(support,28,2,23.05,3,2.8,.12,'#41646c');
+ const support=[],pipes=[];
+ box(support,28,.15,20,8.8,.3,6.8,'#84958d');
+ box(support,28,2.05,20,8,3.5,6,'#c6d4c7');
+ box(support,28,3.68,20,8.15,.25,6.2,'#77a7a0');
+ box(support,28,3.98,20,9.1,.37,7.1,'#496c75');
+ box(support,28,1.4,23.08,2.3,2.6,.18,'#38585f');
+ box(support,28,2.95,23.38,3.5,.22,.95,'#d9ba78');
+ for(const x of [25.45,30.55]){
+  box(support,x,2.35,23.12,1.65,1.18,.24,'#486a71');
+  box(support,x,2.38,23.27,1.35,.88,.08,'#92bbc3');
+  box(support,x,2.38,23.32,.08,.92,.045,'#dee6d9');
+ }
+ box(support,23.94,2.35,20,.14,1.1,3.7,'#496e78');
+ box(support,23.84,2.44,20,.08,.76,3.45,'#aacdd0');
  for(const x of [32,38])for(const z of [23,29])box(support,x,6.8,z,.4,13.6,.4);
+ for(const y of [4.4,9])for(const z of [23,29]){
+  box(support,35,y,z,6.2,.26,.26,'#789598');
+  box(support,35,y+1.7,z,.2,Math.hypot(6,3.4),.2,'#6a878d',0,0,(z===23?1:-1)*Math.atan2(6,3.4));
+ }
  box(support,35,13.3,26,8,.35,8,'#6b8c91');pipes.push([35,16,26,4.3,5,4.3,0,0,0,'#d7e1d9']);pipes.push([35,18.8,26,4.6,.3,4.6,0,0,0,'#61948e']);
  pipes.push([20,.4,14,.16,22,.16,Math.PI/2,0,Math.PI/2,'#5f9e9b']);pipes.push([31,.4,20,.16,12,.16,Math.PI/2,0,0,'#5f9e9b']);pipes.push([33,.4,26,.16,4,.16,Math.PI/2,0,Math.PI/2,'#5f9e9b']);pipes.push([35,7,26,.16,14,.16,0,0,0,'#5f9e9b']);
  box(support,0,.05,-27,5,.12,1,'#4c6268');
@@ -478,24 +495,7 @@ function exhaustMaterial(color){
 export function createLandscape(){
  const group=new THREE.Group(),groundY=(x,z)=>Math.sqrt(P.R*P.R-x*x-z*z)-P.R+window.RocketSurface.heightAt(x/P.R,Math.sqrt(1-(x*x+z*z)/(P.R*P.R)),z/P.R);
  group.landmarks=[];
- const plans=[['assembly',650,200,130,42,90],['logistics',850,260,90,18,60],['control',580,-480,80,22,50],['utility',720,420,42,12,30]];
- const links=[[[15,5],[50,12],[200,60],[320,60]],[[320,60],[500,60],[650,247]],[[320,260],[650,260],[850,292]],[[320,-450],[450,-450],[580,-453]],[[320,420],[650,420],[720,437]],[[320,-950],[800,-950],[1025,-950]]];
- const roads=[...links,[[320,-1800],[320,2400]]];
- const roadMap=canvasMap('site-roads',512,2048,(ctx,w,h)=>{
-  ctx.setTransform(w/1280,0,0,-h/4352,w/20,2496*h/4352);
-  ctx.lineJoin='round';ctx.lineCap='round';
-  for(const [index,points]of roads.entries()){
-   ctx.beginPath();ctx.moveTo(...points[0]);for(const point of points.slice(1))ctx.lineTo(...point);
-   ctx.strokeStyle='#485253';ctx.lineWidth=index===roads.length-1?18:12;ctx.setLineDash([]);ctx.stroke();
-  }
-  ctx.lineCap='butt';ctx.strokeStyle='#ddd1a2';ctx.lineWidth=2.2;ctx.setLineDash([11,13]);
-  for(const points of roads){
-   ctx.beginPath();ctx.moveTo(...points[0]);for(const point of points.slice(1))ctx.lineTo(...point);ctx.stroke();
-  }
- });
- roadMap.anisotropy=8;
- surfaceUniforms.uSiteRoads.value=roadMap;
- surfaceUniforms.uSiteRoadBounds.value.set(-64,-1856,1/1280,1/4352);
+ const plans=launchFacilities,links=launchRoads.slice(0,-1);
  const occupied=(x,z)=>Math.abs(x-320)<22&&z>=-1815&&z<=2415||plans.some(([,a,b,w,,d])=>Math.abs(x-a)<w/2+20&&Math.abs(z-b)<d/2+20)||Math.abs(x-1100)<90&&Math.abs(z+950)<75||links.some(path=>path.some((b,i)=>{if(!i)return false;const a=path[i-1],dx=b[0]-a[0],dz=b[1]-a[1],t=Math.max(0,Math.min(1,((x-a[0])*dx+(z-a[1])*dz)/(dx*dx+dz*dz)));return Math.hypot(x-a[0]-t*dx,z-a[1]-t*dz)<18;}));
  group.nearDetails=[];
  const anchors=[],transform=new THREE.Matrix4(),roots=[];
@@ -528,17 +528,28 @@ export function createLandscape(){
  anchored(new THREE.CylinderGeometry(1,1,1,5),new THREE.MeshLambertMaterial({color:'#756457'}),trunks,(_,i)=>trunkRoots[i]);
  anchored(new THREE.ConeGeometry(1,1,7),new THREE.MeshLambertMaterial({color:'#ffffff'}),cones,(_,i)=>coneRoots[i]);
  anchored(new THREE.IcosahedronGeometry(1,0),new THREE.MeshLambertMaterial({color:'#ffffff'}),leaves,(_,i)=>leafRoots[i]);
- const wallMap=canvasMap('buildings',256,256,(x,w,h)=>{x.fillStyle='#c2cdcc';x.fillRect(0,0,w,h);x.fillStyle='#5d7880';x.fillRect(20,75,216,180);x.fillStyle='#8fa6a9';for(let y=80;y<h;y+=12)x.fillRect(20,y,216,2);x.fillStyle='#aec9cb';for(let a=22;a<240;a+=36)x.fillRect(a,28,27,20);});
- const walls=[],roofs=[],windows=[],foundations=[],details=[],facilities=[],buildingRoots=[],detailRoots=[];
+ const walls=[],roofs=[],windows=[],windowRoots=[],foundations=[],details=[],facilities=[],buildingRoots=[],detailRoots=[];
  for(const [name,x,z,w,h,d]of plans){
   const root=addRoot(x,z),corners=[[-1,-1],[-1,1],[1,-1],[1,1]].map(([a,b])=>[x+a*(w+4)/2,z+b*(d+4)/2]);
   const initial=corners.map(([px,pz])=>groundY(px,pz)),top=Math.max(...initial)+.3,bottom=Math.min(...initial)-.3;
   roots[root].corners=corners;roots[root].top=top;roots[root].bottom=bottom;
   buildingRoots.push(root);buildingMin=Math.min(buildingMin,Math.hypot(x,z));facilities.push({name,x,z,top,bottom,corners:initial});
-  foundations.push([x,(top+bottom)/2,z,w+4,top-bottom,d+4]);walls.push([x,top+h/2,z,w,h,d]);roofs.push([x,top+h+1.5,z,w+4,3,d+4]);
-  for(let j=0;j<4;j++)windows.push([x-w*.35+j*w*.23,top+h*.72,z+d/2+.12,w*.14,3,.15]);
+  foundations.push([x,(top+bottom)/2,z,w+4,top-bottom,d+4]);
+  walls.push([x,top+h/2,z,w,h,d,0,0,0,name==='control'?'#9abbb7':'#d3d6c7']);
+  roofs.push([x,top+h+.75,z,w+4,1.5,d+4,0,0,0,name==='assembly'?'#506b78':'#618487']);
   const first=details.length;
-  details.push([x,top+h*.28,z+d/2+.2,w*.35,h*.55,.3,0,0,0,'#3c626a']);details.push([x,top+h*.58,z+d/2+1,w*.42,.6,3,0,0,0,'#6e9697']);
+  const trim=(x,y,z,w,h,d,color)=>details.push([x,y,z,w,h,d,0,0,0,color]);
+  const glass=(x,y,z,w,h,d)=>{windows.push([x,y,z,w,h,d]);windowRoots.push(root);};
+  trim(x,top+1,z,w+.6,2,d+.6,'#6b7e78');
+  trim(x,top+h*.82,z,w+.7,1.2,d+.7,'#5d8885');
+  trim(x,top+h*.28,z+d/2+.2,w*.35,h*.55,.4,'#344c58');
+  for(let j=1;j<=4;j++)trim(x,top+h*.1+j*h*.09,z+d/2+.45,w*.34,.18,.14,'#688790');
+  trim(x,top+h*.58,z+d/2+1.8,w*.42,.6,4,'#a9b9ad');
+  for(const side of [-1,1]){
+   for(let j=0;j<4;j++)glass(x+w*(j-1.5)*.21,top+h*.72,z+side*(d/2+.18),w*.14,Math.min(3,h*.14),.35);
+   for(let j=0;j<3;j++)glass(x+side*(w/2+.18),top+h*.72,z+d*(j-1)*.25,.35,Math.min(3,h*.14),d*.17);
+  }
+  for(const side of [-1,1])trim(x+side*w*.47,top+h*.5,z,1.4,h,d+.3,'#b3c2b7');
   if(name==='assembly'){for(const side of [-1,1])details.push([x+side*w*.46,top+h/2,z,2,h+1,d+2,0,0,0,'#6b9e98']);details.push([x,top+h+4,z,w*.35,5,d*.6,0,0,0,'#a8beb8']);}
   if(name==='control')details.push([x,top+h+7,z,.6,14,.6,0,0,0,'#567e86']);
   for(let i=first;i<details.length;i++)detailRoots.push(root);
@@ -546,9 +557,9 @@ export function createLandscape(){
  const box=new THREE.BoxGeometry(1,1,1);
  anchored(box,material('#acb5a7'),foundations,(_,i)=>buildingRoots[i]);
  const baseMesh=anchors[anchors.length-1].mesh;
- anchored(box,material('#ffffff',{map:wallMap}),walls,(_,i)=>buildingRoots[i]);
- anchored(box,material('#6f858a',{metalness:.4}),roofs,(_,i)=>buildingRoots[i]);
- anchored(box,material('#a2ced2',{emissive:'#3c6265',emissiveIntensity:.18}),windows,(_,i)=>buildingRoots[Math.floor(i/4)]);
+ anchored(box,material('#ffffff',{roughness:.85}),walls,(_,i)=>buildingRoots[i]);
+ anchored(box,material('#ffffff',{metalness:.35}),roofs,(_,i)=>buildingRoots[i]);
+ anchored(box,material('#8fb6c2',{roughness:.26,metalness:.4,emissive:'#233f4b',emissiveIntensity:.14}),windows,(_,i)=>windowRoots[i]);
  anchored(box,material('#ffffff'),details,(_,i)=>detailRoots[i]);
  const storage=[],caps=[],tankRoot=addRoot(1100,-950);
  const tankCorners=[[-75,-60],[-75,60],[75,-60],[75,60]].map(([x,z])=>[1100+x,-950+z]);

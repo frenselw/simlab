@@ -61,12 +61,65 @@ export function orientGroundSphere(geometry,direction){
  const target=direction.clone().applyAxisAngle(new THREE.Vector3(0,1,0),-.7),rotation=new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),target),p=new THREE.Vector3(),positions=geometry.attributes.position,normals=geometry.attributes.normal;
  for(let i=0;i<positions.count;i++){p.fromArray(data.groundBase,i*3).applyQuaternion(rotation);positions.setXYZ(i,p.x,p.y,p.z);normals.setXYZ(i,p.x,p.y,p.z);}positions.needsUpdate=normals.needsUpdate=true;geometry.boundingSphere=new THREE.Sphere(new THREE.Vector3(),1);return true;
 }
-export const surfaceUniforms={uWorldSurface:worldSurfaceTexture,uDetailEnabled:{value:0},uDetailAtlas:{value:null},uDetailLookup:{value:null},uRegionalSurface:regionalSurfaceTexture,uRegionalSurfaceReady:{value:0},uSurfaceMap:{value:surfaceTexture},uSiteRoads:{value:null},uSiteRoadBounds:{value:new THREE.Vector4()},uSurfaceTime:{value:0},uSurfaceDetail:{value:1},uSurfaceRotation:{value:new THREE.Matrix3()},uSurfaceStrength:{value:1},uOrbitalMap:{value:null},uOrbitalBlend:{value:0},uAerialDensity:{value:0}};
+export const launchFacilities=[['assembly',650,200,130,42,90],['logistics',850,260,90,18,60],['control',580,-480,80,22,50],['utility',720,420,42,12,30]];
+export const launchRoads=[[[15,5],[50,12],[200,60],[320,60]],[[320,60],[500,60],[650,247]],[[320,260],[650,260],[850,292]],[[320,-450],[450,-450],[580,-453]],[[320,420],[650,420],[720,437]],[[320,-950],[800,-950],[1025,-950]],[[320,-1800],[320,2400]]];
+const glNumber=n=>n.toFixed(3);
+const roadSegments=launchRoads.flatMap((points,index)=>{
+ let travelled=0;
+ return points.slice(1).map(([x,z],i)=>{
+  const [a,b]=points[i],length=Math.hypot(x-a,z-b),width=index===launchRoads.length-1?9:6;
+  const segment=`roadSegment(p,vec2(${glNumber(a)},${glNumber(b)}),vec2(${glNumber((x-a)/length)},${glNumber((z-b)/length)}),${glNumber(length)},${glNumber(width)},${glNumber(travelled)},aa,nearest);`;
+  travelled+=length;
+  return segment;
+ });
+}).join('\n');
+const siteShadows=[[-10,-6,4,30,4],[28,20,8,4,6],[35,26,8,18,8],...launchFacilities.map(([, ...shape])=>shape)];
+export const launchSiteShader=`
+void roadSegment(vec2 p,vec2 a,vec2 tangent,float span,float width,float start,float aa,inout vec3 nearest){
+ vec2 offset=p-a;
+ float along=clamp(dot(offset,tangent),0.0,span);
+ vec2 delta=offset-tangent*along;
+ float reach=width+2.0+aa;
+ if(dot(delta,delta)>reach*reach)return;
+ float distanceToLine=length(delta);
+ if(distanceToLine-width<nearest.x-nearest.y)nearest=vec3(distanceToLine,width,start+along);
+}
+vec3 siteRoadColor(vec3 base,vec2 p,float aa){
+ if(p.x< -2.0||p.x>1050.0||p.y< -1820.0||p.y>2420.0||aa>=5.0)return base;
+ vec3 nearest=vec3(1e6,0.0,0.0);
+ ${roadSegments}
+ float edge=nearest.x-nearest.y;
+ float shoulder=1.0-smoothstep(1.45-aa,1.45+aa,edge);
+ float asphalt=1.0-smoothstep(-aa,aa,edge);
+ float side=1.0-smoothstep(.20-aa,.20+aa,abs(edge+.80));
+ float stripe=1.0-smoothstep(.42-aa,.42+aa,nearest.x);
+ float dash=1.0-smoothstep(4.8-aa,4.8+aa,abs(mod(nearest.z,21.0)-10.5));
+ float marks=1.0-smoothstep(.45,1.8,aa);
+ vec3 road=mix(vec3(.060,.071,.078),vec3(.55,.59,.57),side*.82*marks);
+ road=mix(road,vec3(.80,.65,.33),stripe*dash*marks);
+ vec3 surface=mix(base,vec3(.24,.28,.26),shoulder);
+ surface=mix(surface,road,asphalt);
+ return mix(surface,base,smoothstep(2.5,5.0,aa));
+}
+float buildingShadow(vec2 point,vec2 center,vec2 size,float height,vec2 direction){
+ vec2 projected=direction*height;
+ vec2 edge=abs(point-center-projected*.5)-(size+abs(projected))*.5;
+ return 1.0-smoothstep(-.45,2.2,max(edge.x,edge.y));
+}
+float siteShadow(vec2 p,vec3 localSun){
+ if(p.x< -100.0||p.x>1020.0||p.y< -670.0||p.y>600.0)return 1.0;
+ vec2 direction=clamp(-localSun.xz/max(.28,localSun.y),vec2(-2.4),vec2(2.4));
+ float shadow=0.0;
+ ${siteShadows.map(([x,z,w,h,d])=>`shadow=max(shadow,buildingShadow(p,vec2(${glNumber(x)},${glNumber(z)}),vec2(${glNumber(w)},${glNumber(d)}),${glNumber(h)},direction));`).join('\n')}
+ return 1.0-.29*shadow*smoothstep(.02,.22,localSun.y);
+}
+`;
+export const surfaceUniforms={uWorldSurface:worldSurfaceTexture,uDetailEnabled:{value:0},uDetailAtlas:{value:null},uDetailLookup:{value:null},uRegionalSurface:regionalSurfaceTexture,uRegionalSurfaceReady:{value:0},uSurfaceMap:{value:surfaceTexture},uSurfaceTime:{value:0},uSurfaceDetail:{value:1},uSurfaceRotation:{value:new THREE.Matrix3()},uSurfaceStrength:{value:1},uOrbitalMap:{value:null},uOrbitalBlend:{value:0},uAerialDensity:{value:0}};
 export const groundLight=`
 uniform float uSlopeDetail,uSurfaceTime,uSurfaceDetail,uSurfaceStrength,uAerialDensity;
-uniform sampler2D uSurfaceMap,uRegionalSurface,uWorldSurface,uDetailAtlas,uDetailLookup,uSiteRoads;
-uniform vec4 uSiteRoadBounds;
+uniform sampler2D uSurfaceMap,uRegionalSurface,uWorldSurface,uDetailAtlas,uDetailLookup;
 uniform float uDetailEnabled,uRegionalSurfaceReady;uniform mat3 uSurfaceRotation;
+${launchSiteShader}
 vec3 geographicDirection(vec3 p){
  float lat=.605629,lon=-2.101376;
  vec3 up=vec3(cos(lat)*cos(lon),sin(lat),cos(lat)*sin(lon)),east=vec3(-sin(lon),0.0,cos(lon)),north=vec3(-sin(lat)*cos(lon),cos(lat),-sin(lat)*sin(lon));
@@ -146,13 +199,12 @@ vec3 shadeSurface(vec3 base,vec3 normal,vec3 radial,vec3 point,vec3 world,vec3 s
   vec3 biome=mix(vec3(.24,.37,.22),vec3(.075,.19,.12),trees*.6);biome=mix(biome,vec3(.43,.37,.25),dry*.4);biome=mix(biome,vec3(.34,.32,.26),rock);base=mix(base,biome,weight);
  }
  vec2 dx=dFdx(metres),dy=dFdy(metres);
- vec2 roadUv=(point.xz*6371000.0-uSiteRoadBounds.xy)*uSiteRoadBounds.zw;
- vec2 roadDx=dFdx(roadUv),roadDy=dFdy(roadUv);
- if(water<.5&&p.y>.99&&all(greaterThan(roadUv,vec2(0.0)))&&all(lessThan(roadUv,vec2(1.0)))){
-  vec4 road=textureGrad(uSiteRoads,roadUv,roadDx,roadDy);
-  base=mix(base,road.rgb,road.a);
- }
  float footprint=max(length(dx),length(dy)),detail=(1.0-smoothstep(12.0,110.0,footprint))*uSurfaceDetail;
+ if(water<.5&&p.y>.99&&footprint<10.0){
+  vec2 sitePoint=point.xz*6371000.0;
+  base=siteRoadColor(base,sitePoint,max(.035,.55*footprint));
+  base*=mix(siteShadow(sitePoint,transpose(uSurfaceRotation)*sun),1.0,smoothstep(5.0,10.0,footprint));
+ }
  vec3 color=base*terrainIrradiance(normal,radial,sun);
  vec3 toEye=cameraPosition-world;
  if(uSurfaceStrength<=0.0)return aerialColor(color,radial,sun,length(toEye));
