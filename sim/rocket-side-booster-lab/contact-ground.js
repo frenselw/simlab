@@ -15,10 +15,33 @@ export function createContactGround(sun,colorAt,site,relief,world){
  const center=new THREE.Vector3(),origin=new THREE.Vector3(),east=new THREE.Vector3(),row=new THREE.Vector3(),n=new THREE.Vector3(),last=new THREE.Vector3(10,0,0),color=new THREE.Color();
  // The contact footprint and the cutout below it share one radius; the surrounding ground stays visible.
  const clipping={uContactCenter:{value:center},uContactRadius:{value:0},...site};
- const material=new THREE.MeshBasicMaterial({vertexColors:true,transparent:true,depthWrite:true});material.onBeforeCompile=shader=>{Object.assign(shader.uniforms,surfaceUniforms,clipping,{uSun:{value:sun},uSlopeDetail:terrainSlopeDetail,uGroundOrigin:{value:origin}});shader.vertexShader='attribute float surfaceWater;varying float vSurfaceWater;varying vec3 vGroundWorld;\nuniform vec3 uGroundOrigin;varying vec3 vRadial,vSlope,vGroundPoint;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvSurfaceWater=surfaceWater;vGroundWorld=(modelMatrix*vec4(position,1.0)).xyz;vGroundPoint=position+uGroundOrigin;vSlope=normalize(mat3(modelMatrix)*normal);vRadial=normalize(mat3(modelMatrix)*normalize(vGroundPoint));');shader.fragmentShader=siteSurfaceShader+groundLight+'varying float vSurfaceWater;varying vec3 vGroundWorld;\nuniform vec3 uSun,uContactCenter;uniform float uContactRadius;varying vec3 vRadial,vSlope,vGroundPoint;\n'+shader.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\nfloat coverage=1.0-smoothstep(uContactRadius,2.0*uContactRadius,distance(normalize(vGroundPoint),uContactCenter));if(coverage<=0.0||siteOpening(normalize(vGroundPoint)))discard;diffuseColor.a*=coverage;'+terrainLighting);};
- geometry.setIndex(indices);const mesh=new THREE.Mesh(geometry,material);mesh.renderOrder=-1;mesh.frustumCulled=false;group.add(mesh);
+ const material=new THREE.MeshLambertMaterial({vertexColors:true,transparent:true,depthWrite:true});
+ material.onBeforeCompile=shader=>{
+  Object.assign(shader.uniforms,surfaceUniforms,clipping,{uSun:{value:sun},uSlopeDetail:terrainSlopeDetail,uGroundOrigin:{value:origin}});
+  shader.vertexShader='attribute float surfaceWater;varying float vSurfaceWater;varying vec3 vGroundWorld;\nuniform vec3 uGroundOrigin;varying vec3 vRadial,vSlope,vGroundPoint;\n'+shader.vertexShader.replace('#include <begin_vertex>',`#include <begin_vertex>
+   vSurfaceWater=surfaceWater;
+   vGroundWorld=(modelMatrix*vec4(position,1.0)).xyz;
+   vGroundPoint=position+uGroundOrigin;
+   vSlope=normalize(mat3(modelMatrix)*normal);
+   vRadial=normalize(mat3(modelMatrix)*normalize(vGroundPoint));`);
+  shader.fragmentShader=siteSurfaceShader+groundLight+'varying float vSurfaceWater;varying vec3 vGroundWorld;\nuniform vec3 uSun,uContactCenter;uniform float uContactRadius;varying vec3 vRadial,vSlope,vGroundPoint;\n'+shader.fragmentShader
+   .replace('#include <shadowmap_pars_fragment>','#include <shadowmap_pars_fragment>\n#include <shadowmask_pars_fragment>')
+   .replace('#include <color_fragment>',`#include <color_fragment>
+    float coverage=1.0-smoothstep(uContactRadius,2.0*uContactRadius,distance(normalize(vGroundPoint),uContactCenter));
+    if(coverage<=0.0||siteOpening(normalize(vGroundPoint)))discard;
+    diffuseColor.a*=coverage;
+    #if defined(USE_SHADOWMAP) && NUM_DIR_LIGHT_SHADOWS > 0
+     vec2 edge=min(vDirectionalShadowCoord[0].xy,1.0-vDirectionalShadowCoord[0].xy);
+     float mapCoverage=smoothstep(0.0,.055,min(edge.x,edge.y));
+     groundSunVisibility=mix(1.0,getShadowMask(),mapCoverage);
+     siteShadowWeight=1.0-mapCoverage;
+    #endif
+    ${terrainLighting}`)
+   .replace('vec3 outgoingLight = reflectedLight.directDiffuse + reflectedLight.indirectDiffuse + totalEmissiveRadiance;','vec3 outgoingLight = diffuseColor.rgb;');
+ };
+ geometry.setIndex(indices);const mesh=new THREE.Mesh(geometry,material);mesh.renderOrder=-1;mesh.frustumCulled=false;mesh.receiveShadow=true;group.add(mesh);
  const rocks=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1,0),new THREE.MeshLambertMaterial({color:'#9b9a85',flatShading:true,transparent:true}),81),transform=new THREE.Object3D(),up=new THREE.Vector3(0,1,0);
- rocks.instanceMatrix.setUsage(THREE.DynamicDrawUsage);rocks.frustumCulled=false;group.add(rocks);
+ rocks.instanceMatrix.setUsage(THREE.DynamicDrawUsage);rocks.frustumCulled=false;group.add(rocks);group.rocks=rocks;
  let lastLevels='',lastRadius=-100,grid;
  // Return the visible triangle height in metres in the launch site's local coordinates.
  group.groundHeightAt=(x,z)=>{

@@ -58,6 +58,7 @@ export function createForest(relief,world,contact,occupied){
  }
  function build(x,y){
   const started=performance.now(),latitude=(y+.5)*step,dx=step/Math.max(.15,Math.cos(latitude*Math.PI/180)),mesh=new THREE.InstancedMesh(geometry,material,144);mesh.count=0;
+  mesh.castShadow=true;
   const accepted=[],roots=[];
   for(let i=0;i<260&&mesh.count<144;i++){
    const a=seed(x*311+i,y*17+91),b=seed(y*197+i,x*31+17),lon=(x+.02+a*.96)*dx,lat=(y+.02+b*.96)*step;

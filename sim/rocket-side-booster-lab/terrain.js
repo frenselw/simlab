@@ -73,7 +73,7 @@ const roadSegments=launchRoads.flatMap((points,index)=>{
   return segment;
  });
 }).join('\n');
-const siteShadows=[[-10,-6,4,30,4],[28,20,8,4,6],[35,26,8,18,8],...launchFacilities.map(([, ...shape])=>shape)];
+const siteShadows=launchFacilities.map(([, ...shape])=>shape);
 export const launchSiteShader=`
 void roadSegment(vec2 p,vec2 a,vec2 tangent,float span,float width,float start,float aa,inout vec3 nearest){
  vec2 offset=p-a;
@@ -119,6 +119,7 @@ export const groundLight=`
 uniform float uSlopeDetail,uSurfaceTime,uSurfaceDetail,uSurfaceStrength,uAerialDensity;
 uniform sampler2D uSurfaceMap,uRegionalSurface,uWorldSurface,uDetailAtlas,uDetailLookup;
 uniform float uDetailEnabled,uRegionalSurfaceReady;uniform mat3 uSurfaceRotation;
+float groundSunVisibility=1.0,siteShadowWeight=1.0;
 ${launchSiteShader}
 vec3 geographicDirection(vec3 p){
  float lat=.605629,lon=-2.101376;
@@ -155,7 +156,7 @@ vec3 terrainIrradiance(vec3 normal,vec3 radial,vec3 sun){
  float incidence=dot(normal,sun);
  float slope=incidence-elevation;
  float direct=max(0.0,incidence+.55*slope);
- return ambient+sunColor*min(direct,1.1)*.94*smoothstep(-.03,.02,elevation);
+ return ambient+sunColor*min(direct,1.1)*.94*smoothstep(-.03,.02,elevation)*groundSunVisibility;
 }
 vec3 aerialColor(vec3 color,vec3 radial,vec3 sun,float distanceKm){
  if(uAerialDensity<=0.0||distanceKm<=1.0)return color;
@@ -203,7 +204,7 @@ vec3 shadeSurface(vec3 base,vec3 normal,vec3 radial,vec3 point,vec3 world,vec3 s
  if(water<.5&&p.y>.99&&footprint<10.0){
   vec2 sitePoint=point.xz*6371000.0;
   base=siteRoadColor(base,sitePoint,max(.035,.55*footprint));
-  base*=mix(siteShadow(sitePoint,transpose(uSurfaceRotation)*sun),1.0,smoothstep(5.0,10.0,footprint));
+  base*=mix(1.0,siteShadow(sitePoint,transpose(uSurfaceRotation)*sun),siteShadowWeight*(1.0-smoothstep(5.0,10.0,footprint)));
  }
  vec3 color=base*terrainIrradiance(normal,radial,sun);
  vec3 toEye=cameraPosition-world;
@@ -225,7 +226,7 @@ vec3 shadeSurface(vec3 base,vec3 normal,vec3 radial,vec3 point,vec3 world,vec3 s
   vec3 skyColor=mix(vec3(.31,.49,.59),vec3(.11,.28,.48),skyHeight)*day;
   waterColor=mix(waterColor,skyColor,min(.58,fresnel*.62));
   float highlight=max(0.0,dot(n,normalize(sun+eye+vec3(.000001))));
-  float glint=(.13*pow(highlight,23.0)+.26*detail*pow(highlight,95.0))*smoothstep(-.03,.06,elevation);
+  float glint=(.13*pow(highlight,23.0)+.26*detail*pow(highlight,95.0))*smoothstep(-.03,.06,elevation)*groundSunVisibility;
   color=mix(color,waterColor+vec3(1.0,.93,.78)*glint,uSurfaceStrength);
  }else{
   float regional=p.y>0.0?1.0-smoothstep(175000.0,239000.0,length(metres)):0.0;

@@ -586,7 +586,33 @@ async function siteGround(base,label){
  assert(results.dash-results.asphalt>100&&results.edge-results.inner>70&&Math.abs(results.grass-77)<3,JSON.stringify(results));
  assert(results.results.every(r=>r.sampleError<.002&&r.maxRootGap<.002&&r.midTrees>0&&r.maxTree<26&&r.trunksVisible===(r.quality<2)&&r.shader&&r.unchanged),JSON.stringify(results));
  await shot(label+'-sharper-road-116m');
- report.flows.push({label,case:'site-ground',...results});
+ await call(`app.controller.state=${JSON.stringify(T.singlePad(0,0,3))};app.controller.emit();app.view('follow',true);
+  const s=app.getScene();s.yaw=-2.45;s.pitch=.42;s.setZoom(.78);s.draw();`);
+ const shadow=await H.evaluate(cdp,`(async()=>{
+  const s=__rocketApp.getScene(),T=await import('./vendor/three-0.185.1/three.module.min.js');
+  const width=240,height=160,target=new T.WebGLRenderTarget(width,height),previous=s.renderer.getRenderTarget(),casters=[];
+  target.texture.colorSpace=T.SRGBColorSpace;
+  s.rocket.traverseVisible(mesh=>{if(mesh.castShadow)casters.push(mesh);});
+  const read=()=>{const pixels=new Uint8Array(width*height*4);s.renderer.render(s.scene,s.camera);s.renderer.readRenderTargetPixels(target,0,0,width,height,pixels);return pixels;};
+  let groundPixels=0;
+  try{
+   s.renderer.setRenderTarget(target);
+   const shaded=read();for(const mesh of casters)mesh.castShadow=false;const lit=read();
+   for(let y=0;y<height;y++)for(let x=0;x<width;x++){
+    if(y>=height*.42&&x>=width*.38&&x<=width*.62)continue;
+    const i=4*(y*width+x);
+    if(lit[i]+lit[i+1]+lit[i+2]-shaded[i]-shaded[i+1]-shaded[i+2]>18)groundPixels++;
+   }
+  }finally{
+   for(const mesh of casters)mesh.castShadow=true;
+   s.renderer.setRenderTarget(previous);target.dispose();s.draw();
+  }
+  const active=s.sunLight.castShadow,mapSize=s.sunLight.shadow.map?.width;
+  s.quality=2;s.draw();const lowest=s.sunLight.castShadow;
+  return {active,mapSize,groundPixels,lowest};
+ })()`);
+ assert(shadow.active&&shadow.mapSize===512&&shadow.groundPixels>3&&!shadow.lowest,JSON.stringify(shadow));
+ report.flows.push({label,case:'site-ground',...results,shadow});
 }
 
 async function terrainForest(base,label){

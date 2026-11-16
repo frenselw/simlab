@@ -334,6 +334,8 @@ export function createPad(){
  box(support,0,.05,-27,5,.12,1,'#4c6268');
  instances(launch,boxGeometry,fixtureMaterial,support);instances(launch,cylinderGeometry,fixtureMaterial,pipes);
  const shadowMat=new THREE.MeshBasicMaterial({map:shadow,transparent:true,depthWrite:false});instances(workshop,new THREE.PlaneGeometry(1,1),shadowMat,[[-9,-.77,0,6,4,1,-Math.PI/2],[9.5,-.77,-5.5,5,5,1,-Math.PI/2],[9,-.77,3,4,3,1,-Math.PI/2]]);
+ launch.traverse(mesh=>{if(mesh.isMesh)mesh.castShadow=mesh.receiveShadow=true;});
+ for(const receiver of [apron,deck,side,grates])receiver.receiveShadow=true;
  group.workshopFloor=floor;group.workshopFixtures=workshop;group.launchFixtures=launch;group.launchTower=tower;group.serviceArms=arms;group.apron=apron;group.padDeck=deck;group.padAnchors=anchors;group.flameTrench=trench;group.trenchGrates=grates;
  group.nearDetails=group.children.filter(o=>o!==floor&&o!==apron);group.userData={flameTrench:true,anchorCount:4,assemblyClearRadius:6,serviceTower:true,waterTower:true};return group;
 }
@@ -501,6 +503,7 @@ export function createLandscape(){
  const anchors=[],transform=new THREE.Matrix4(),roots=[];
  function anchored(geometry,mat,rows,anchorAt){
   const mesh=instances(group,geometry,mat,rows);
+  mesh.castShadow=mesh.receiveShadow=true;
   group.nearDetails.push(mesh);
   anchors.push({mesh,positions:rows.map((row,i)=>[row[1],anchorAt(row,i)])});
  }
@@ -757,5 +760,8 @@ export function buildRocket(c,separated,capsuleOnly=false){
     flame.userData.jet=plume.material.uniforms.jet.value;
     flame.userData.clustered=clustered;
   }
+  for(const part of parts)part.traverse(mesh=>{
+    if(mesh.isMesh&&!microDetails.includes(mesh)&&(mesh.material.isMeshPhongMaterial||mesh.material.isMeshLambertMaterial))mesh.castShadow=mesh.receiveShadow=true;
+  });
   flame.visible=false;group.add(flame);group.microDetails=microDetails;group.userData={...group.userData,slots,parts,ranges,separatorY,bodyTop,height:Math.max(y+(P.hasCapsule(c)?4.4:0),c.boosters&&!separated?7.2:0),flame,rcs,boosters,boosterFlames};group.updateMatrixWorld(true);const bounds=new THREE.Box3();for(const part of parts)bounds.union(new THREE.Box3().setFromObject(part));group.userData.partBounds=bounds;return group;
 }

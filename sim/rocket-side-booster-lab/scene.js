@@ -13,6 +13,10 @@ export class RocketScene{
   constructor(host,onFault){
     this.host=host;this.onFault=onFault;this.renderCount=0;this.quality=0;this.highQuality=false;this.frameSamples=[];this.sampleAfter=0;this.renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,logarithmicDepthBuffer:true});this.configureRenderer();host.append(this.renderer.domElement);
     this.scene=new THREE.Scene();this.camera=new THREE.PerspectiveCamera(40,1,.01,50000);this.ambient=new THREE.HemisphereLight('#fafff3','#64818d',1.65);this.sunLight=new THREE.DirectionalLight('#fff5e5',2.4);this.sunLight.position.set(30,40,40);this.fillLight=new THREE.DirectionalLight('#a4cce7',.6);this.fillLight.position.set(-20,10,-30);this.scene.add(this.ambient,this.sunLight,this.fillLight);
+    this.scene.add(this.sunLight.target);
+    const shadow=this.sunLight.shadow;
+    shadow.mapSize.setScalar(matchMedia('(pointer: coarse)').matches?512:1024);
+    shadow.bias=-.00015;shadow.normalBias=.00035;shadow.radius=1.1;
     this.perspectiveCamera=this.camera;this.orbitCamera=new THREE.OrthographicCamera();this.orbitFocus=null;
     this.studio=createPad();this.scene.add(this.studio);
     this.siteSurface={uLaunchCut:{value:0}};
@@ -50,7 +54,7 @@ export class RocketScene{
     this.scene.add(this.relief,this.landscape,this.sky,this.earth,this.clouds,this.halo,this.oceanDepth,this.globalTerrain,this.contactGround,this.impacts,this.stars);
     this.flightReady=true;
   }
-  configureRenderer(){this.renderer.setClearColor('#dbece2');this.renderer.outputColorSpace=THREE.SRGBColorSpace;this.renderer.toneMapping=THREE.ACESFilmicToneMapping;this.renderer.toneMappingExposure=1.15;}
+  configureRenderer(){this.renderer.setClearColor('#dbece2');this.renderer.outputColorSpace=THREE.SRGBColorSpace;this.renderer.toneMapping=THREE.ACESFilmicToneMapping;this.renderer.toneMappingExposure=1.15;this.renderer.shadowMap.enabled=true;this.renderer.shadowMap.type=THREE.PCFShadowMap;}
   restoreGraphics(){
     if(this.webglLost||!artTexturesReady())return;
     try{restoreArtTextures();this.renderer.resetState();this.configureRenderer();this.lost=false;this.draw();if(!this.lost)this.onFault('restored');}
@@ -384,6 +388,20 @@ export class RocketScene{
       if(this.regionalRequest===request)this.regionalRequest=null;
     });
   }
+  updateSunShadow(agl,eligible){
+    const smooth=THREE.MathUtils.smoothstep,sun=this.planetSun,shadow=this.sunLight.shadow;
+    const strength=eligible ? .82*smooth(sun.y,.16,.29)*(1-smooth(agl,230,520)) : 0;
+    this.sunLight.castShadow=strength>0;
+    const target=this.sunLight.target.position;
+    if(!this.sunLight.castShadow){target.set(0,0,0);return;}
+    shadow.intensity=strength;
+    target.copy(this.rocket.position);
+    const camera=shadow.camera,extent=THREE.MathUtils.lerp(.085,.17,smooth(agl,10,280));
+    camera.left=camera.bottom=-extent;camera.right=camera.top=extent;
+    camera.near=.01;camera.far=.27+(Math.max(0,agl)/1000+.18)/Math.max(.16,sun.y);
+    camera.updateProjectionMatrix();
+    this.sunLight.position.copy(target).addScaledVector(sun,.24);
+  }
   renderFrame(space,f){
     try{this.drawRecovery(space,f);this.renderer.render(this.scene,this.camera);this.renderCount++;}catch(_){this.lost=true;this.onFault('render');}
   }
@@ -451,7 +469,7 @@ export class RocketScene{
     this.planetSun.fromArray(skyFrame?.sun||L.fixedSun).normalize();
     const worldSun=this.planetSun.toArray();
     this.planetSun.applyAxisAngle(viewAxis,angle);
-    this.lighting=f?L.solar(f.state,worldSun):{daylight:1,sunlight:1,elevation:1};const daylight=factory||!f?1:this.lighting.daylight;this.sky.material.uniforms.uDaylight.value=daylight;this.shadowUniforms.uShadowEnabled.value=Number(Boolean(f&&!factory));this.shadowUniforms.uShadowPlanetRadius.value=space?3:P.R/1000;L.shade(this.studio,this.shadowUniforms);L.shade(this.landscape,this.shadowUniforms);L.shade(this.relief,this.shadowUniforms);L.shade(this.contactGround,this.shadowUniforms);L.shade(this.rocket,this.shadowUniforms,this.lighting.sunlight);if(this.otherRocket&&this.data.other)L.shade(this.otherRocket,this.shadowUniforms,L.solar(this.data.other.state,worldSun).sunlight);if(this.separation)L.shade(this.separation.body,this.shadowUniforms);if(this.boosterDrop)L.shade(this.boosterDrop.body,this.shadowUniforms);this.oceanDepth.geometry=this.earth.geometry;this.oceanDepth.position.copy(this.earth.position);this.oceanDepth.rotation.copy(this.earth.rotation);this.oceanDepth.scale.copy(this.earth.scale);this.oceanDepth.visible=this.earth.visible;
+    this.lighting=f?L.solar(f.state,worldSun):{daylight:1,sunlight:1,elevation:1};const daylight=factory||!f?1:this.lighting.daylight;this.sky.material.uniforms.uDaylight.value=daylight;this.shadowUniforms.uShadowEnabled.value=Number(Boolean(f&&!factory));this.shadowUniforms.uShadowPlanetRadius.value=space?3:P.R/1000;L.shade(this.studio,this.shadowUniforms);L.shade(this.landscape,this.shadowUniforms);L.shade(this.relief,this.shadowUniforms);L.shade(this.contactGround.rocks,this.shadowUniforms);L.shade(this.rocket,this.shadowUniforms,this.lighting.sunlight);if(this.otherRocket&&this.data.other)L.shade(this.otherRocket,this.shadowUniforms,L.solar(this.data.other.state,worldSun).sunlight);if(this.separation)L.shade(this.separation.body,this.shadowUniforms);if(this.boosterDrop)L.shade(this.boosterDrop.body,this.shadowUniforms);this.oceanDepth.geometry=this.earth.geometry;this.oceanDepth.position.copy(this.earth.position);this.oceanDepth.rotation.copy(this.earth.rotation);this.oceanDepth.scale.copy(this.earth.scale);this.oceanDepth.visible=this.earth.visible;
     this.sunLight.position.copy(factory||!f?new THREE.Vector3(30,40,40):this.planetSun);
     const atmosphere=1-THREE.MathUtils.smoothstep(altitude,0,65000);
     const lowSun=f&&!factory?atmosphere*(1-THREE.MathUtils.smoothstep(this.lighting.elevation,-.04,.35)):0;
@@ -529,6 +547,7 @@ export class RocketScene{
     // Flight uses the startup terrain so camera changes cannot fetch detail tiles.
     this.globalTerrain.updateDetail(this.camera,detailPixels,this.quality,this.earth.visible,this.relief.visible&&this.relief.userData.opacity>=.999,false);
     this.contactGround.position.copy(this.globalTerrain.position);this.contactGround.rotation.copy(this.globalTerrain.rotation);this.contactGround.scale.copy(this.globalTerrain.scale).multiplyScalar(space?1:P.R/(P.R-5));this.contactGround.update(f,Boolean(f&&!factory&&!space),this.quality);this.contactGround.updateMatrixWorld(true);if(groundDetails)this.landscape.updateGround(this.contactGround,this.relief);this.forest.update(f,this.camera,detailPixels,this.quality,Boolean(f&&!factory&&!space));L.shade(this.forest,this.shadowUniforms);
+    this.updateSunShadow(agl,Boolean(f&&this.contactGround.visible&&this.quality<2));
     this.starOcclusion.uPlanetRadius.value=this.earth.visible?this.earth.scale.x:0;this.stars.visible=space||Boolean(f&&(altitude>25000||daylight<.15));this.stars.material.transparent=true;this.stars.material.opacity=space?1:Math.max(THREE.MathUtils.smoothstep(altitude,25000,120000),(1-daylight)*.5);this.stars.material.depthWrite=false;this.stars.position.copy(this.camera.position);this.stars.scale.setScalar(this.camera.far/140);
     this.rocket.visible=(!space||Boolean(f))&&!this.assemblyPreview?.visible;
     if(this.assemblyPreview?.visible){this.assemblyPreview.position.copy(this.rocket.position);this.assemblyPreview.quaternion.copy(this.rocket.quaternion);this.assemblyPreview.scale.copy(this.rocket.scale);}
