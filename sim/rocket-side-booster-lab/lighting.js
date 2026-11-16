@@ -7,6 +7,10 @@
   const elevation=(sun[0]*q[1]+sun[1]*q[0]+sun[2]*(q[2]||0))/radius,horizon=-Math.sqrt(Math.max(0,1-(P.R/radius)**2));
   return {elevation,daylight:smooth(-.12,.18,elevation),sunlight:smooth(horizon-.005,horizon+.005,elevation),horizon};
  }
+ function exposure(altitude,daylight){
+  const space=smooth(8000,95000,altitude);
+  return 1.15-.13*space+.10*(1-space)*(1-daylight);
+ }
  const shaded=new WeakMap();
  function shade(group,uniforms,bodyVisibility=-1){
   const seen=new Set();group?.traverse(object=>{for(const material of [].concat(object.material||[])){
@@ -27,5 +31,5 @@
    visibility.value=bodyVisibility;
   }});
  }
- return Object.freeze({solar,shade,fixedSun});
+ return Object.freeze({solar,exposure,shade,fixedSun});
 });

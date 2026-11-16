@@ -2,7 +2,6 @@ import * as THREE from './vendor/three-0.185.1/three.module.min.js';
 import {createTerrain,groundLight,orbitalLighting,terrainSlopeDetail,surfaceUniforms,surfaceTextureBytes,regionalSurfaceTexture,createRegionalSurfaceTexture,createWorldSurfaceTexture} from './terrain.js';
 import {createGlobalTerrain} from './global-terrain.js';
 import {createTerrainDetail} from './terrain-detail.js';
-import {createPreciseTerrain} from './precise-terrain.js';
 const P=window.RocketParts,cache=new Map(),canvasMaps=new Map(),lostCanvases=new Set();
 export const artRecovery=new EventTarget();
 export function artTexturesReady(){return lostCanvases.size===0&&[...canvasMaps.keys()].every(c=>!c.getContext('2d')?.isContextLost?.());}
@@ -22,7 +21,7 @@ async function compactAsset(name,signal,cacheMode,limit){
  const compressed=await RocketSurfaceCodec.readBytes(response.body,limit);
  return (await RocketSurfaceCodec.gunzip(compressed,limit)).slice().buffer;
 }
-let dayMap,weatherTexture,starMap,geography,terrainBuffer,globalBuffer,baseAttempted=false,detailedEarth;
+let dayMap,weatherTexture,starMap,geography,terrainBuffer,globalBuffer,baseAttempted=false;
 export async function loadFlightArt(){
  const cacheMode=baseAttempted?'reload':'default';
  baseAttempted=true;
@@ -41,16 +40,6 @@ export async function loadFlightArt(){
   surfaceUniforms.uOrbitalMap.value=dayMap;
   if(!cache.has('world-surface'))cache.set('world-surface',createWorldSurfaceTexture());
  }catch(error){abort.abort();throw error;}
-}
-export function loadDetailedEarth(){
- if(dayMap.image.width>=4096)return Promise.resolve(dayMap);
- detailedEarth??=artTexture('earth-4k.webp').then(texture=>{
-  texture.colorSpace=THREE.SRGBColorSpace;texture.wrapS=THREE.RepeatWrapping;
-  cache.set('earth-4k.webp',texture);cache.delete('earth-2k.webp');
-  dayMap.dispose();dayMap=surfaceUniforms.uOrbitalMap.value=texture;
-  return texture;
- }).catch(()=>null);
- return detailedEarth;
 }
 export async function loadRegionalSurface(signal){
  const texture=await createRegionalSurfaceTexture(signal);
@@ -267,7 +256,7 @@ void main(){
  vec3 color;
  if(uCloud>.5){
   vec4 tex=texture2D(uMap,geographicUv(normalize(geographicDirection(normalize(point)))));
-  color=tex.rgb*mix(vec3(.0015,.0025,.004),vec3(1.0),light);
+  color=tex.rgb*terrainIrradiance(n,n,uSun);
   alpha=tex.a*.64*uOpacity;
  }else if(uOrbitalBlend>=1.0){
   color=shadeOrbitalSurface(n,point,vWorld,uSun);
@@ -286,15 +275,6 @@ uniform vec3 uSun;uniform float uOpacity;varying vec3 vNormal;varying vec3 vWorl
 #include <tonemapping_fragment>\n#include <colorspace_fragment>}`,side:THREE.BackSide,transparent:true,depthWrite:false}));
  earth.userData.farGeometry=earth.geometry;earth.userData.nearGeometry=compact?planetGeometry(48):earth.geometry;
  const globalTerrain=await createGlobalTerrain(globalBuffer,sun,loadGlobalDetail);
- if(window.RocketPreciseTerrainEndpoint){
-  const endpoint=new URL(window.RocketPreciseTerrainEndpoint,location.href);
-  if(endpoint.origin===location.origin){
-   const precise=createPreciseTerrain(sun,endpoint.href),advance=globalTerrain.advanceDetail;
-   precise.onChange=()=>globalTerrain.onChange?.();globalTerrain.precise=precise;globalTerrain.add(precise);
-   globalTerrain.userData.precise=precise.userData;
-   globalTerrain.advanceDetail=now=>{const previous=advance(now);return precise.advance(now)||previous;};
-  }
- }
  earth.rotation.order='ZYX';return {earth,clouds,halo,sun,opacity,globalTerrain};
 }
 export function createPad(){

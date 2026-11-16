@@ -1,6 +1,6 @@
 import {surfaceUniforms,surfaceTextureBytes,orientGroundSphere} from './terrain.js';
 import * as THREE from './vendor/three-0.185.1/three.module.min.js';
-import {material,dispose,fadeEnvironment,buildRocket,createPad,createLaunchEffects,createRelief,createLandscape,createPlanet,createSky,skyDisc,createParachute,createReentryEffects,loadFlightArt,loadDetailedEarth,loadRegionalSurface,textureBudget,artRecovery,artTexturesReady,restoreArtTextures} from './scene-art.js';
+import {material,dispose,fadeEnvironment,buildRocket,createPad,createLaunchEffects,createRelief,createLandscape,createPlanet,createSky,skyDisc,createParachute,createReentryEffects,loadFlightArt,loadRegionalSurface,textureBudget,artRecovery,artTexturesReady,restoreArtTextures} from './scene-art.js';
 import {createContactGround,clipContact,siteSurfaceShader,clipPadSurface} from './contact-ground.js';
 import {createForest} from './forest.js';
 import {createImpactEffects,hullPoints,hullMinimum,hullClearance} from './impact-effects.js';
@@ -352,17 +352,6 @@ export class RocketScene{
     Object.assign(this.orbitCamera,{left:-displayHeight*aspect,right:displayHeight*aspect,top:displayHeight,bottom:-displayHeight});
     return Math.max(30,2*range+15,2*displayHeight*Math.hypot(1,aspect));
   }
-  updateEarthDetail(pixelsPerUnit){
-    if(this.earthMap.image.width>=4096||this.earthDetailRequested||!this.orbitFocus||pixelsPerUnit*6<200||this.renderer.capabilities.maxTextureSize<4096)return;
-    const center=this.earth.position.clone().project(this.camera),radius=pixelsPerUnit*3*2/this.host.clientHeight;
-    if(Math.abs(center.y)>1+radius||Math.abs(center.x)>1+radius/this.perspectiveCamera.aspect)return;
-    this.earthDetailRequested=true;
-    loadDetailedEarth().then(map=>{
-      if(!map)return;
-      map.anisotropy=Math.min(4,this.renderer.capabilities.getMaxAnisotropy());
-      this.earthMap=this.earth.material.uniforms.uMap.value=map;this.draw();
-    });
-  }
   frameFactory(target,height){
     this.rocket.scale.setScalar(1);this.rocket.position.set(0,0,0);this.rocket.rotation.z=0;
     this.factoryHeight=this.factoryHeight||13;
@@ -463,7 +452,15 @@ export class RocketScene{
     const worldSun=this.planetSun.toArray();
     this.planetSun.applyAxisAngle(viewAxis,angle);
     this.lighting=f?L.solar(f.state,worldSun):{daylight:1,sunlight:1,elevation:1};const daylight=factory||!f?1:this.lighting.daylight;this.sky.material.uniforms.uDaylight.value=daylight;this.shadowUniforms.uShadowEnabled.value=Number(Boolean(f&&!factory));this.shadowUniforms.uShadowPlanetRadius.value=space?3:P.R/1000;L.shade(this.studio,this.shadowUniforms);L.shade(this.landscape,this.shadowUniforms);L.shade(this.relief,this.shadowUniforms);L.shade(this.contactGround,this.shadowUniforms);L.shade(this.rocket,this.shadowUniforms,this.lighting.sunlight);if(this.otherRocket&&this.data.other)L.shade(this.otherRocket,this.shadowUniforms,L.solar(this.data.other.state,worldSun).sunlight);if(this.separation)L.shade(this.separation.body,this.shadowUniforms);if(this.boosterDrop)L.shade(this.boosterDrop.body,this.shadowUniforms);this.oceanDepth.geometry=this.earth.geometry;this.oceanDepth.position.copy(this.earth.position);this.oceanDepth.rotation.copy(this.earth.rotation);this.oceanDepth.scale.copy(this.earth.scale);this.oceanDepth.visible=this.earth.visible;
-    this.sunLight.position.copy(factory||!f?new THREE.Vector3(30,40,40):this.planetSun);this.sunLight.intensity=factory||!f?2.4:2;this.ambient.intensity=factory||!f?1.65:space?.85:THREE.MathUtils.lerp(.12,1,daylight);this.ambient.position.copy(space?this.rocket.position:new THREE.Vector3(0,1,0));this.fillLight.intensity=factory||!f?.6:0;
+    this.sunLight.position.copy(factory||!f?new THREE.Vector3(30,40,40):this.planetSun);
+    const atmosphere=1-THREE.MathUtils.smoothstep(altitude,0,65000);
+    const lowSun=f&&!factory?atmosphere*(1-THREE.MathUtils.smoothstep(this.lighting.elevation,-.04,.35)):0;
+    this.sunLight.color.setRGB(1,.96-.16*lowSun,.86-.27*lowSun);
+    this.sunLight.intensity=factory||!f?2.4:1.95;
+    this.ambient.intensity=factory||!f?1.65:THREE.MathUtils.lerp(.72,THREE.MathUtils.lerp(.15,1.18,daylight),atmosphere);
+    this.ambient.position.copy(space?this.rocket.position:new THREE.Vector3(0,1,0));this.fillLight.intensity=factory||!f?.6:0;
+    this.renderer.toneMappingExposure=L.exposure(altitude,daylight);
+    surfaceUniforms.uAerialDensity.value=f&&!space&&!factory?atmosphere:0;
     if(factory||!f){this.studio.scale.setScalar(1);this.studio.position.set(0,0,0);this.studio.rotation.z=0;}
     this.globalTerrain.position.copy(this.earth.position);this.globalTerrain.scale.copy(this.earth.scale);this.globalTerrain.rotation.copy(this.earth.rotation);this.globalTerrain.rotateY(-.7);this.globalTerrain.updateMatrixWorld(true);surfaceUniforms.uSurfaceRotation.value.setFromMatrix4(this.globalTerrain.matrixWorld).multiplyScalar(1/this.globalTerrain.scale.x);surfaceUniforms.uSurfaceDetail.value=[1,.55,0][this.quality];
     // Keep model scale and staging independent of the user camera distance.
@@ -503,7 +500,6 @@ export class RocketScene{
     const pixelsPerUnit=space?this.orbitFrame.pixelsPerUnit:this.host.clientHeight/(2*tanHalfFov*distance);
     const detailPixels=pixelsPerUnit*(space?this.camera.position.distanceTo(this.earth.position):distance);
     if(space){
-      this.updateEarthDetail(pixelsPerUnit);
       for(const line of Object.values(this.lines))if(line.material.isLineDashedMaterial){line.material.dashSize=5/pixelsPerUnit;line.material.gapSize=3/pixelsPerUnit;}
     }
     const padDetails=Boolean(local&&!factory&&pixelsPerUnit*.001>.02),groundDetails=padDetails&&this.quality<2;
@@ -530,9 +526,9 @@ export class RocketScene{
     const halfDiagonal=Math.atan(tanHalfFov*Math.hypot(1,this.perspectiveCamera.aspect));
     const groundInView=!observing||this.camera.getWorldDirection(new THREE.Vector3()).y<Math.sin(halfDiagonal);
     this.updateRegionalSurface(Boolean(f&&!space&&this.relief.visible&&groundInView));
-    this.globalTerrain.updateDetail(this.camera,detailPixels,this.quality,this.earth.visible,this.relief.visible&&this.relief.userData.opacity>=.999,Boolean(f&&!factory&&(space||altitude>20000||Math.abs(theta)*P.R>175000)),f);
+    // Flight uses the startup terrain so camera changes cannot fetch detail tiles.
+    this.globalTerrain.updateDetail(this.camera,detailPixels,this.quality,this.earth.visible,this.relief.visible&&this.relief.userData.opacity>=.999,false);
     this.contactGround.position.copy(this.globalTerrain.position);this.contactGround.rotation.copy(this.globalTerrain.rotation);this.contactGround.scale.copy(this.globalTerrain.scale).multiplyScalar(space?1:P.R/(P.R-5));this.contactGround.update(f,Boolean(f&&!factory&&!space),this.quality);this.contactGround.updateMatrixWorld(true);if(groundDetails)this.landscape.updateGround(this.contactGround,this.relief);this.forest.update(f,this.camera,detailPixels,this.quality,Boolean(f&&!factory&&!space));L.shade(this.forest,this.shadowUniforms);
-    this.globalTerrain.precise?.update(this.camera,detailPixels,this.earth.visible&&Boolean(f),this.contactGround.clipping,f);
     this.starOcclusion.uPlanetRadius.value=this.earth.visible?this.earth.scale.x:0;this.stars.visible=space||Boolean(f&&(altitude>25000||daylight<.15));this.stars.material.transparent=true;this.stars.material.opacity=space?1:Math.max(THREE.MathUtils.smoothstep(altitude,25000,120000),(1-daylight)*.5);this.stars.material.depthWrite=false;this.stars.position.copy(this.camera.position);this.stars.scale.setScalar(this.camera.far/140);
     this.rocket.visible=(!space||Boolean(f))&&!this.assemblyPreview?.visible;
     if(this.assemblyPreview?.visible){this.assemblyPreview.position.copy(this.rocket.position);this.assemblyPreview.quaternion.copy(this.rocket.quaternion);this.assemblyPreview.scale.copy(this.rocket.scale);}
@@ -596,5 +592,5 @@ export class RocketScene{
   magnify(canvas,x,y){const source=this.renderer.domElement,rect=this.host.getBoundingClientRect(),ratio=source.width/rect.width,context=canvas.getContext('2d');this.draw();context.clearRect(0,0,canvas.width,canvas.height);context.drawImage(source,(x-45)*ratio,(y-30)*ratio,90*ratio,60*ratio,0,0,canvas.width,canvas.height);context.strokeStyle='#eeaf42';context.lineWidth=3;context.beginPath();context.arc(canvas.width/2,canvas.height/2,12,0,Math.PI*2);context.moveTo(canvas.width/2-18,canvas.height/2);context.lineTo(canvas.width/2+18,canvas.height/2);context.moveTo(canvas.width/2,canvas.height/2-18);context.lineTo(canvas.width/2,canvas.height/2+18);context.stroke();}
   diagnostics(){
     if(!this.flightReady)return {flightReady:false,renderCount:this.renderCount,lost:this.lost,parts:this.rocket?.userData.parts.length||0,ghostVisible:Boolean(this.dragGhost?.visible),assemblyPreviewVisible:Boolean(this.assemblyPreview?.visible),assemblyPreviewCraft:this.assemblyPreviewKey?JSON.parse(this.assemblyPreviewKey):null};
-    return {flightReady:true,regionalSurfaceReady:surfaceUniforms.uRegionalSurfaceReady.value===1,lighting:this.lighting,oceanAnchor:this.earth.userData.nearGeometry.userData.groundAnchor?.toArray(),surface:{time:surfaceUniforms.uSurfaceTime.value,detail:surfaceUniforms.uSurfaceDetail.value,textureBytes:surfaceTextureBytes},renderCount:this.renderCount,quality:this.quality,textureBytes:textureBudget()+(this.globalTerrain.precise?.userData.textureBytes||0),starCount:this.stars.geometry.attributes.position.count,webgl2:this.renderer.capabilities.isWebGL2!==false,drawCalls:this.renderer.info.render.calls,triangles:this.renderer.info.render.triangles,geometries:this.renderer.info.memory.geometries,textures:this.renderer.info.memory.textures,programs:this.renderer.info.programs.length,earthAngle:this.earth.rotation.y,earthMapWidth:this.earthMap.image.width,earthSegments:this.earth.geometry.parameters.widthSegments,pixelRatio:this.renderer.getPixelRatio(),lost:this.lost,separatedStage:Boolean(this.separation),rcsDirection:this.rocket?.userData.rcs.some(j=>j.visible)?this.rcsDirection:0,skyFraction:this.skyFraction,landscapeVisible:this.landscape.visible,globalTerrain:this.globalTerrain.userData,contactGround:this.contactGround.visible,contact:this.contactGround.userData,forest:this.forest.userData,impacts:this.impacts.userData,terrainVisible:this.relief.visible,terrain:this.relief.userData,environmentOpacity:this.environmentOpacity,padVisible:this.studio.visible,padPosition:this.studio.position.toArray(),launchArea:this.landscape.userData,parts:this.rocket?.userData.parts.length||0,ghostVisible:Boolean(this.dragGhost?.visible),assemblyPreviewVisible:Boolean(this.assemblyPreview?.visible),assemblyPreviewCraft:this.assemblyPreviewKey?JSON.parse(this.assemblyPreviewKey):null};}
+    return {flightReady:true,regionalSurfaceReady:surfaceUniforms.uRegionalSurfaceReady.value===1,lighting:this.lighting,oceanAnchor:this.earth.userData.nearGeometry.userData.groundAnchor?.toArray(),surface:{time:surfaceUniforms.uSurfaceTime.value,detail:surfaceUniforms.uSurfaceDetail.value,textureBytes:surfaceTextureBytes},renderCount:this.renderCount,quality:this.quality,textureBytes:textureBudget(),starCount:this.stars.geometry.attributes.position.count,webgl2:this.renderer.capabilities.isWebGL2!==false,drawCalls:this.renderer.info.render.calls,triangles:this.renderer.info.render.triangles,geometries:this.renderer.info.memory.geometries,textures:this.renderer.info.memory.textures,programs:this.renderer.info.programs.length,earthAngle:this.earth.rotation.y,earthMapWidth:this.earthMap.image.width,earthSegments:this.earth.geometry.parameters.widthSegments,pixelRatio:this.renderer.getPixelRatio(),lost:this.lost,separatedStage:Boolean(this.separation),rcsDirection:this.rocket?.userData.rcs.some(j=>j.visible)?this.rcsDirection:0,skyFraction:this.skyFraction,landscapeVisible:this.landscape.visible,globalTerrain:this.globalTerrain.userData,contactGround:this.contactGround.visible,contact:this.contactGround.userData,forest:this.forest.userData,impacts:this.impacts.userData,terrainVisible:this.relief.visible,terrain:this.relief.userData,environmentOpacity:this.environmentOpacity,padVisible:this.studio.visible,padPosition:this.studio.position.toArray(),launchArea:this.landscape.userData,parts:this.rocket?.userData.parts.length||0,ghostVisible:Boolean(this.dragGhost?.visible),assemblyPreviewVisible:Boolean(this.assemblyPreview?.visible),assemblyPreviewCraft:this.assemblyPreviewKey?JSON.parse(this.assemblyPreviewKey):null};}
 }

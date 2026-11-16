@@ -587,7 +587,6 @@ async function terrainForest(base,label){
    const state=T.launched(),theta=x/P.R,q=[P.R*Math.cos(theta),P.R*Math.sin(theta),0,0,0,0],r=Surface.radius(q)+agl;
    state.phase=agl?'coast':'pad';state.flight.status=agl?'flying':'pad';state.flight.controls.lit=false;state.flight.state=[r*Math.cos(theta),r*Math.sin(theta),0,0,0,0];
    await open(base,state);
-   if(name==='global-mountain')await wait(()=>call('return app.getScene().globalTerrain.userData.active.length>0;'),'global mountain detail');
    const result=await call('const s=app.getScene(),f=s.data.flight,model=JSON.stringify(app.getState()),THREE=s.rocket.position.constructor;const animate=s.animateEffects;s.animateEffects=()=>false;s.yaw=-1.0;s.pitch=.35;s.draw();const before=s.forest.children.filter(o=>o.isInstancedMesh&&o.visible).map(o=>Array.from(o.instanceMatrix.array));const origin=s.globalTerrain.matrixWorld.clone(),p=new THREE(0,1,0).applyMatrix4(origin);f.t+=500;s.draw();const after=s.forest.children.filter(o=>o.isInstancedMesh&&o.visible).map(o=>Array.from(o.instanceMatrix.array)),drift=p.distanceTo(new THREE(0,1,0).applyMatrix4(s.globalTerrain.matrixWorld));f.t-=500;s.draw();const diagnostics=s.diagnostics(),normal=s.relief.children.filter(o=>o.geometry?.attributes.landFade).length;s.animateEffects=animate;return{diagnostics,drift,stable:JSON.stringify(before)===JSON.stringify(after),unchanged:model===JSON.stringify(app.getState()),normal,fineDepth:s.globalTerrain.children.filter(o=>o.isMesh&&o!==s.globalTerrain.children[0]).every(o=>o.material.depthTest),shaders:s.renderer.info.programs.every(p=>p.diagnostics?.runnable!==false)};');
    assert(result.stable&&result.unchanged&&result.shaders&&result.drift<1e-10,JSON.stringify(result));assert(result.diagnostics.forest.cached<=12&&result.diagnostics.forest.nearTrees<=1296&&result.diagnostics.forest.canopies<=256);assert(result.normal===48);if(name==='global-mountain')assert(result.fineDepth,'Fine mountain faces require depth occlusion');if(name==='forest')assert(result.diagnostics.forest.nearTrees>0,'Near forest missing '+JSON.stringify(result));await shot(label+'-terrain-'+name+'-'+width);report.flows.push({label,case:'terrain',width,height,name,x,agl,...result});
   }
@@ -668,6 +667,7 @@ async function localTransfer(base,label){
       assert(ready.bodyBytes<=5000000,JSON.stringify(ready));
       cold.push({factory,ready});
     }
+    const readyTraffic=await traffic();
     const pad=T.singlePad(0,1,0);
     await call('app.controller.state='+JSON.stringify(pad)+';app.controller.emit();app.view("follow");');
     assert(await call('return app.command({type:"ignite"});'));
@@ -679,10 +679,16 @@ async function localTransfer(base,label){
     }
     assert.equal(await call('return app.getState().flight.status;'),'landed');
     await call('const s=app.getScene();s.yaw+=Math.PI/2;s.draw();');
+    for(const [distance,height] of [[1800000,30000],[2700000,250000],[5700000,100000000]]){
+      const a=distance/P.R,r=P.R+height;
+      await call(`const f=app.controller.state.flight,s=app.getScene();f.status='flying';f.state=[${r*Math.cos(a)},${r*Math.sin(a)},0,0,2800,0];
+        app.controller.emit();app.view('follow');s.yaw=-1.1;s.pitch=.75;s.draw();`);
+    }
+    await call('app.view("plane",true);const s=app.getScene();s.setZoom(12);s.draw();app.view("orbit",true);s.draw();');
     await H.delay(30000);
     const landed=await traffic();
-    assert(landed.bodyBytes<=5000000,JSON.stringify(landed));
-    report.flows.push({label,case:'local-transfer',cold,landed});
+    assert.equal(landed.allBodyBytes,readyTraffic.allBodyBytes,'Flight and camera changes must not transfer any further files');
+    report.flows.push({label,case:'local-transfer',cold,landed,flightBodyBytes:landed.allBodyBytes-readyTraffic.allBodyBytes});
   }finally{
     server.removeListener('request',measure);
     await cdp.send('Network.emulateNetworkConditions',{offline:false,latency:0,downloadThroughput:-1,uploadThroughput:-1});
@@ -769,13 +775,13 @@ async function preparation(base,label){
     await wait(()=>call('return app.getScene().diagnostics().regionalSurfaceReady;'),'regional texture generated on revisiting');
     assert.deepEqual(await call(probe),before);
     await call('const s=app.getScene(),f=app.controller.state.flight,a=.17,r=RocketParts.R+50000;f.state=[r*Math.cos(a),r*Math.sin(a),0,0,2300,0];s.yaw=-1.1;s.pitch=.75;app.controller.emit();');
-    await wait(()=>call('return window.__flightAssetGate.some(r=>r.kind==="global-detail/tiles.json.gz");'),'global detail requested by distant ground view');
+    assert(await call('return !window.__flightAssetGate.some(r=>r.kind==="global-detail/tiles.json.gz")&&app.getScene().globalTerrain.userData.pending===0;'));
     await call('app.command({type:"workshop"});app.view("factory");');
-    assert(await call('return window.__flightAssetGate.find(r=>r.kind==="global-detail/tiles.json.gz").aborted&&app.getScene().globalTerrain.userData.pending<=2;'));
+    assert(await call('return window.__flightAssetGate.length===6&&app.getScene().globalTerrain.userData.pending===0;'));
     await cdp.send('Page.reload');
     await wait(()=>call('return app?.getScene()?.renderCount>0;'),'factory refresh');
     assert.deepEqual(await call('return app.getState();'),M.fresh());
-    report.flows.push({label,case:'preparation',trustedDrag:true,httpAndGzipRetry:true,preservedCraft:true,contextRestored:true,visualFallback:true,unchangedFlight:true,globalCancel:true});
+    report.flows.push({label,case:'preparation',trustedDrag:true,httpAndGzipRetry:true,preservedCraft:true,contextRestored:true,visualFallback:true,unchangedFlight:true,noGlobalRequests:true});
   }finally{await cdp.send('Page.removeScriptToEvaluateOnNewDocument',{identifier});}
 }
 async function events(base,label){
@@ -956,6 +962,7 @@ async function distantNavigation(base,label,state){
   const angle=Math.acos((p/r-1)/e),v=Math.sqrt(P.MU/p),f=state.flight;
   f.t=604799;f.state=[r*Math.cos(angle),r*Math.sin(angle),0,-v*Math.sin(angle),v*(e+Math.cos(angle)),0];
   await open(base,state);
+  const initialMapWidth=await call('return app.getScene().earthMap.image.width;');
   await click('#toggleFlightControls');await click('[data-camera-view="plane"]');
   await wait(()=>call('return app.getScene().lines.predicted?.geometry.attributes.position.count===385;'),'full eccentric curve');
   const snapshot=()=>call(`const s=app.getScene(),r=s.host.getBoundingClientRect(),camera=s.camera;
@@ -989,7 +996,7 @@ async function distantNavigation(base,label,state){
   await click('[data-camera-view="plane"]');
   await call(`const s=app.getScene();s.transformOrbit(1,${JSON.stringify(start.earth)},${JSON.stringify(start.center)});s.draw();
     s.transformOrbit(16,${JSON.stringify(start.center)},${JSON.stringify(start.center)});s.draw();`);
-  await wait(()=>call('return app.getScene().earthMap.image.width===4096;'),'lazy 4K globe');
+  assert.equal(await call('return app.getScene().earthMap.image.width;'),initialMapWidth);
   const earth=await snapshot();assert(Math.hypot(earth.earth.x-earth.center.x,earth.earth.y-earth.center.y)<1,JSON.stringify(earth));
   await shot(label+'-deep-orbit-earth-390x844');
   await click('[data-camera-view="plane"]');

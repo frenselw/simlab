@@ -9,7 +9,10 @@ async function run({base,label,P,T,H,cdp,call,viewport,open,wait,shot,report}){
    const angle=.25+sign*7800*seconds/(P.R+50000),radius=P.R+50000;
    const cold=await call(`const f=app.controller.state.flight;f.state=[${radius*Math.cos(angle)},${radius*Math.sin(angle)},0,${-sign*7800*Math.sin(angle)},${sign*7800*Math.cos(angle)},0];f.t=${seconds};f.attitude=${angle+sign*Math.PI/2};app.controller.emit();const s=app.getScene();s.animateEffects=()=>false;s.yaw=${-sign*Math.PI/2};s.pitch=.12;s.draw();window.__aheadModel=JSON.stringify(app.getState());return {...s.globalTerrain.userData};`);assert(cold.pending<=2&&cold.desired.length<=4&&cold.prefetch.length<=2);if(!seconds)assert(cold.coarseTriangles>0,'Coarse fallback must remain during initial requests');
    await wait(()=>call('return app.getScene().globalTerrain.userData.pending===0;'),'forward ground '+width+' '+sign+' '+seconds);
-   const hot=await call('const s=app.getScene();return{...s.globalTerrain.userData,unchanged:window.__aheadModel===JSON.stringify(app.getState()),shaders:s.renderer.info.programs.every(p=>p.diagnostics?.runnable!==false)};');assert(hot.unchanged&&hot.shaders&&hot.desired.length>0&&hot.loaded<=6&&hot.active.length<=4&&hot.pending===0&&hot.failures.length===0);assert(hot.desired.every(id=>hot.active.includes(id)),'Front-facing detail must be ready');const tangent=[sign*Math.cos(angle),-sign*Math.sin(angle),0];assert(hot.focus.reduce((sum,v,i)=>sum+v*tangent[i],0)>0,'Ground detail must follow the forward view');await shot(label+'-terrain-ahead-'+width+'-'+sign+'-'+seconds);report.flows.push({label,case:'terrain-ahead',width,height,sign,seconds,cold,hot});
+   const hot=await call('const s=app.getScene();return{...s.globalTerrain.userData,unchanged:window.__aheadModel===JSON.stringify(app.getState()),shaders:s.renderer.info.programs.every(p=>p.diagnostics?.runnable!==false)};');
+   assert(hot.unchanged&&hot.shaders&&hot.coarseTriangles>0);
+   assert(hot.desired.length===0&&hot.prefetch.length===0&&hot.loaded===0&&hot.pending===0&&!hot.detail);
+   await shot(label+'-terrain-ahead-'+width+'-'+sign+'-'+seconds);report.flows.push({label,case:'terrain-ahead',width,height,sign,seconds,cold,hot});
   }
  }
  await viewport(1024,768);
@@ -73,9 +76,13 @@ async function detailSeam(H,cdp){
  return result;
 }
 async function detail({base,label,P,T,H,cdp,call,viewport,open,wait,shot,report}){
+ // Exercise the legacy tile renderer directly. Normal flight keeps streaming disabled.
+ const enableTileDiagnostics=()=>call(`const terrain=app.getScene().globalTerrain,update=terrain.updateDetail;
+  terrain.updateDetail=(camera,pixels,quality,enabled,local,_,flight)=>update(camera,pixels,quality,enabled,local,true,flight);`);
  await viewport(1413,923);await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:false});
  const orbital=T.launched();orbital.phase='coast';orbital.flight.status='flying';orbital.flight.controls.lit=false;
  await open(base,orbital);
+ await enableTileDiagnostics();
  for(const [height,arc] of [[282100,-.065],[816900,.27]]){
   const radius=P.R+height,cos=Math.cos(arc),sin=Math.sin(arc);
   await call(`const s=app.getScene(),f=app.controller.state.flight;f.state=[${radius*cos},${radius*sin},0,${1510*cos-3050*sin},${1510*sin+3050*cos},0];f.attitude=${arc+1.2};app.controller.emit();s.observeFrame=()=>{};s.quality=0;s.yaw=-1.1;s.pitch=.75;s.draw();window.__orbitModel=JSON.stringify(app.getState());`);
@@ -88,6 +95,7 @@ async function detail({base,label,P,T,H,cdp,call,viewport,open,wait,shot,report}
  }
  for(const [width,height]of [[390,844],[1024,768]]){
   await viewport(width,height);const fixture=T.launched();fixture.phase='coast';fixture.flight.status='flying';fixture.flight.controls.lit=false;await open(base,fixture);
+  await enableTileDiagnostics();
   await H.evaluate(cdp,'(async()=>{window.__detailTerrain=await import("./terrain.js");window.__detailThree=await import("./vendor/three-0.185.1/three.module.min.js");})()');
   for(const metres of [140000,210000,250000,350000,600000,1000000]){
    const a=metres/P.R,r=P.R+144700;

@@ -61,9 +61,9 @@ export function orientGroundSphere(geometry,direction){
  const target=direction.clone().applyAxisAngle(new THREE.Vector3(0,1,0),-.7),rotation=new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),target),p=new THREE.Vector3(),positions=geometry.attributes.position,normals=geometry.attributes.normal;
  for(let i=0;i<positions.count;i++){p.fromArray(data.groundBase,i*3).applyQuaternion(rotation);positions.setXYZ(i,p.x,p.y,p.z);normals.setXYZ(i,p.x,p.y,p.z);}positions.needsUpdate=normals.needsUpdate=true;geometry.boundingSphere=new THREE.Sphere(new THREE.Vector3(),1);return true;
 }
-export const surfaceUniforms={uWorldSurface:worldSurfaceTexture,uDetailEnabled:{value:0},uDetailAtlas:{value:null},uDetailLookup:{value:null},uRegionalSurface:regionalSurfaceTexture,uRegionalSurfaceReady:{value:0},uSurfaceMap:{value:surfaceTexture},uSiteRoads:{value:null},uSiteRoadBounds:{value:new THREE.Vector4()},uSurfaceTime:{value:0},uSurfaceDetail:{value:1},uSurfaceRotation:{value:new THREE.Matrix3()},uSurfaceStrength:{value:1},uOrbitalMap:{value:null},uOrbitalBlend:{value:0}};
+export const surfaceUniforms={uWorldSurface:worldSurfaceTexture,uDetailEnabled:{value:0},uDetailAtlas:{value:null},uDetailLookup:{value:null},uRegionalSurface:regionalSurfaceTexture,uRegionalSurfaceReady:{value:0},uSurfaceMap:{value:surfaceTexture},uSiteRoads:{value:null},uSiteRoadBounds:{value:new THREE.Vector4()},uSurfaceTime:{value:0},uSurfaceDetail:{value:1},uSurfaceRotation:{value:new THREE.Matrix3()},uSurfaceStrength:{value:1},uOrbitalMap:{value:null},uOrbitalBlend:{value:0},uAerialDensity:{value:0}};
 export const groundLight=`
-uniform float uSlopeDetail,uSurfaceTime,uSurfaceDetail,uSurfaceStrength;
+uniform float uSlopeDetail,uSurfaceTime,uSurfaceDetail,uSurfaceStrength,uAerialDensity;
 uniform sampler2D uSurfaceMap,uRegionalSurface,uWorldSurface,uDetailAtlas,uDetailLookup,uSiteRoads;
 uniform vec4 uSiteRoadBounds;
 uniform float uDetailEnabled,uRegionalSurfaceReady;uniform mat3 uSurfaceRotation;
@@ -94,10 +94,21 @@ vec4 detailedNormal(vec2 uv){
 }
 vec3 terrainIrradiance(vec3 normal,vec3 radial,vec3 sun){
  normal=normalize(mix(radial,normal,uSlopeDetail));
- float day=smoothstep(-.12,.25,dot(radial,sun));
- float sky=.5+.5*max(0.0,dot(normal,radial));
- vec3 ambient=mix(vec3(.0015,.0025,.005),vec3(.22,.28,.34),day)*(.7+.3*sky);
- return ambient+vec3(1.0,.95,.83)*(.92*max(0.0,dot(normal,sun)))*smoothstep(-.03,.02,dot(radial,sun));
+ float elevation=dot(radial,sun),day=smoothstep(-.12,.18,elevation);
+ float sky=clamp(dot(normal,radial),0.0,1.0);
+ vec3 ambient=mix(vec3(.0015,.0025,.005),vec3(.20,.27,.35),day)*mix(.56,1.0,sky*sky);
+ float lowSun=1.0-smoothstep(-.04,.35,elevation);
+ vec3 sunColor=vec3(1.0,.96-.16*lowSun,.86-.27*lowSun);
+ float incidence=dot(normal,sun);
+ float slope=incidence-elevation;
+ float direct=max(0.0,incidence+.55*slope);
+ return ambient+sunColor*min(direct,1.1)*.94*smoothstep(-.03,.02,elevation);
+}
+vec3 aerialColor(vec3 color,vec3 radial,vec3 sun,float distanceKm){
+ if(uAerialDensity<=0.0||distanceKm<=1.0)return color;
+ float day=smoothstep(-.12,.18,dot(radial,sun));
+ float haze=uAerialDensity*.33*(1.0-exp(-(distanceKm-1.0)/38.0));
+ return mix(color,vec3(.29,.48,.62),haze*day);
 }
 vec3 landSurfaceTint(vec3 point){
  vec3 metres=normalize(point)*6371000.0;
@@ -122,7 +133,7 @@ vec3 shadeSurface(vec3 base,vec3 normal,vec3 radial,vec3 point,vec3 world,vec3 s
   vec3 geo=normalize(geographicDirection(p));
   vec2 uv=geographicUv(geo),delta=vec2(1.0/2048.0,1.0/1024.0);
   vec3 east=normalize(cross(p,vec3(0.0,sin(.605629),cos(.605629)))+vec3(.0000001,0.0,0.0)),north=cross(east,p);vec4 fine=detailedNormal(uv);
-  if(fine.a<1.0){float dx=(worldHeight(uv+vec2(delta.x,0.0))-worldHeight(uv-vec2(delta.x,0.0)))/(39091.966*max(.03,sqrt(max(0.0,1.0-geo.y*geo.y)))),dz=(worldHeight(uv+vec2(0.0,delta.y))-worldHeight(uv-vec2(0.0,delta.y)))/39091.966;normal=normalize(uSurfaceRotation*normalize(p-east*dx-north*dz));}
+  if(fine.a<1.0){float dx=(worldHeight(uv+vec2(delta.x,0.0))-worldHeight(uv-vec2(delta.x,0.0)))/(39091.966*max(.03,sqrt(max(0.0,1.0-geo.y*geo.y)))),dz=(worldHeight(uv+vec2(0.0,delta.y))-worldHeight(uv-vec2(0.0,delta.y)))/39091.966;normal=normalize(mix(normal,uSurfaceRotation*normalize(p-east*dx-north*dz),.55));}
   if(fine.a>0.0)normal=normalize(mix(normal,uSurfaceRotation*(east*fine.x+north*fine.y+p*fine.z),fine.a));
  }
  if(uRegionalSurfaceReady>.5&&water<.5&&p.y>.99&&max(abs(metres.x),abs(metres.y))<239000.0){
@@ -143,29 +154,34 @@ vec3 shadeSurface(vec3 base,vec3 normal,vec3 radial,vec3 point,vec3 world,vec3 s
  }
  float footprint=max(length(dx),length(dy)),detail=(1.0-smoothstep(12.0,110.0,footprint))*uSurfaceDetail;
  vec3 color=base*terrainIrradiance(normal,radial,sun);
- if(uSurfaceStrength<=0.0)return color;
+ vec3 toEye=cameraPosition-world;
+ if(uSurfaceStrength<=0.0)return aerialColor(color,radial,sun,length(toEye));
  if(water>.5){
   vec3 n=radial;
   if(detail>.001){
-   vec2 a=texture2D(uSurfaceMap,metres/92.0+vec2(.009,-.006)*uSurfaceTime).rg*2.0-1.0;
-   vec2 b=mat2(.8,-.6,.6,.8)*(texture2D(uSurfaceMap,mat2(.8,.6,-.6,.8)*(metres/57.0)+vec2(-.005,.008)*uSurfaceTime).rg*2.0-1.0);
-   vec3 east=normalize(cross(abs(p.z)<.9?vec3(0.0,0.0,1.0):vec3(0.0,1.0,0.0),p)),north=cross(p,east);vec2 slope=(a+b*.55)*(.13*detail);
+   mat2 rotation=mat2(.8,.6,-.6,.8);
+   vec2 a=textureGrad(uSurfaceMap,metres/110.0+vec2(.012,-.007)*uSurfaceTime,dx/110.0,dy/110.0).rg*2.0-1.0;
+   vec2 crossWave=rotation*metres/61.0+vec2(-.009,.011)*uSurfaceTime+.14*a;
+   vec2 b=transpose(rotation)*(textureGrad(uSurfaceMap,crossWave,rotation*dx/61.0,rotation*dy/61.0).rg*2.0-1.0);
+   vec3 east=normalize(cross(abs(p.z)<.9?vec3(0.0,0.0,1.0):vec3(0.0,1.0,0.0),p)),north=cross(p,east);vec2 slope=(a+b*.55)*(.19*detail);
    n=normalize(radial+uSurfaceRotation*(east*slope.x+north*slope.y));
   }
-  vec3 eye=normalize(cameraPosition-world);float day=smoothstep(-.12,.25,dot(radial,sun)),fresnel=pow(1.0-max(0.0,dot(n,eye)),5.0);
-  vec3 waterColor=base*terrainIrradiance(n,radial,sun);
+  vec3 eye=normalize(toEye);float elevation=dot(radial,sun),day=smoothstep(-.12,.18,elevation);
+  float fresnel=.02+.98*pow(1.0-max(0.0,dot(n,eye)),5.0);
+  vec3 waterColor=base*terrainIrradiance(radial,radial,sun);
   float skyHeight=smoothstep(-.15,.6,dot(reflect(-eye,n),radial));
-  vec3 skyColor=mix(vec3(.08,.15,.22),vec3(.32,.43,.50),skyHeight)*day;
-  waterColor=mix(waterColor,skyColor,.06+.16*fresnel);
-  float glint=pow(max(0.0,dot(n,normalize(sun+eye))),80.0)*.12*day;
-  color=mix(color,waterColor+vec3(1.0,.96,.86)*glint,uSurfaceStrength);
+  vec3 skyColor=mix(vec3(.31,.49,.59),vec3(.11,.28,.48),skyHeight)*day;
+  waterColor=mix(waterColor,skyColor,min(.58,fresnel*.62));
+  float highlight=max(0.0,dot(n,normalize(sun+eye+vec3(.000001))));
+  float glint=(.13*pow(highlight,23.0)+.26*detail*pow(highlight,95.0))*smoothstep(-.03,.06,elevation);
+  color=mix(color,waterColor+vec3(1.0,.93,.78)*glint,uSurfaceStrength);
  }else{
   float regional=p.y>0.0?1.0-smoothstep(175000.0,239000.0,length(metres)):0.0;
   float variation=texture2D(uSurfaceMap,metres/2800.0).b-.5;
   vec3 regionalTint=vec3(1.0)+variation*vec3(.18,.035,-.10)*detail*uSurfaceStrength;
   color*=mix(landTint,regionalTint,regional);
  }
- return color;
+ return aerialColor(color,radial,sun,length(toEye));
 }
 `;
 export const terrainLighting='diffuseColor.rgb=shadeSurface(diffuseColor.rgb,normalize(vSlope),normalize(vRadial),vGroundPoint,vGroundWorld,uSun,vSurfaceWater);';
