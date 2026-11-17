@@ -58,6 +58,14 @@
     if(norm(lateral)<.5)lateral=unit(cross(from,Math.abs(from[0])<.8?[1,0,0]:[0,1,0]));
     return unit(add(scale(from,Math.cos(limit)),lateral,Math.sin(limit)));
   }
+  function pointBody(body,axis){
+    const from=body.axis,right=body.bodyRight,turn=cross(from,axis),cosine=dot(from,axis);
+    // Transport the transverse axis with the nose instead of rebuilding roll from local vertical.
+    const moved=cosine>-1+1e-12?add(add(right,cross(turn,right)),cross(turn,cross(turn,right)),1/(1+cosine)):right;
+    body.bodyRight=unit(add(moved,axis,-dot(moved,axis)));
+    body.axis=axis;
+    return unit(turn);
+  }
   function surfaceVector(frame,v){
     const [east,up,north]=S.fromGeocentric(...C.toColumns(frame,v));
     return [up,east,north];
@@ -86,6 +94,7 @@
       body.attitude=Math.atan2(axis[1],axis[0]);
       body.pitch=Math.acos(Math.max(-1,Math.min(1,dot(unit(r),body.axis))))/DEG;
       body.axisSurface=axis;
+      body.rightSurface=surfaceVector(frame,body.bodyRight);
       body.orbit=elements(body.eci);
     }
     const moonState=table.body(epoch(f)+f.t,0);
@@ -107,6 +116,7 @@
     const frame=C.earthFrame(LAUNCH),up=C.fromColumns(frame,station),r=scale(up,P.R);
     f.eci=[...r,...C.spin(frame[2],r)];
     f.axis=up;
+    f.bodyRight=unit(cross(frame[2],up));
     const lower=P.ENGINES[craft.stages[0].engine],upper=P.ENGINES[craft.stages[1].engine];
     const stage=f.fuel[0]/flow(lower.thrust,lower.isp),cutoff=stage+f.fuel[1]/flow(upper.thrust,upper.isp);
     const ignite=cutoff+12,stop=ignite+INSERTION_FUEL/flow(THRUST,ISP);
@@ -163,6 +173,7 @@
       body.capsule=null;
       body.eci=f.eci.slice();
       body.axis=f.axis;
+      body.bodyRight=f.bodyRight;
       body.t=f.t;
       body.status='flying';
       body.fuel=[fuel,null];
@@ -415,14 +426,15 @@
       f.status='flying';
       report?.('liftoff',t+h,f);
     }
-    f.rcsDirection=0;
+    const attitude=guidedAscent||guidedInjection?axis(t+h,q):h===dt?nextAxis:slew(f.axis,target,h);
+    const torque=pointBody(f,attitude);
+    f.rcsAxes=null;f.rcsDirection=0;
     if(turning){
-      // shortcut: show the nearest existing jet pair until the capsule has a three-axis nozzle model.
-      const turn=cross(f.axis,nextAxis),radial=unit(f.eci.slice(0,3));
-      const pitchAxis=cross(radial,localAxis(f.eci.slice(0,3),l.pole,90,l.bearing));
-      f.rcsDirection=Math.sign(dot(turn,pitchAxis))||1;
+      // The scene uses east/up/north. Reverse the axial-vector sign across that reflection.
+      const x=dot(torque,f.bodyRight),z=-dot(torque,cross(f.bodyRight,f.axis));
+      f.rcsAxes=[x,z];
+      f.rcsDirection=Math.sign(Math.abs(x)>Math.abs(z)?x:z);
     }
-    f.axis=guidedAscent||guidedInjection?axis(t+h,q):nextAxis;
     advanceDrops(f,table,t,h);
     f.eci=q;
     f.t=t+h;
@@ -491,7 +503,8 @@
     if(freeReturn){
       const f=s.flight;
       f.eci=RETURN_STATE.slice();
-      f.axis=unit(f.eci.slice(3));
+      pointBody(f,unit(f.eci.slice(3)));
+      f.controls.mode='hold';
       f.active=1;
       f.separated=f.capsule.detached=true;
       f.capsule.fuel=30-INSERTION_FUEL;

@@ -9,6 +9,12 @@ const P=window.RocketParts,O=window.RocketOrbit,M=window.RocketModel,S=window.Ro
 const viewAxis=new THREE.Vector3(0,0,1),northAxis=new THREE.Vector3(...S.fromGeocentric(0,0,1));
 const upAxis=new THREE.Vector3(0,1,0);
 const worldVector=q=>new THREE.Vector3(q[1],q[0],q[2]);
+function lunarPose(rocket,body,rotation){
+  const right=worldVector(body.rightSurface).applyQuaternion(rotation);
+  const up=worldVector(body.axisSurface).applyQuaternion(rotation);
+  const depth=new THREE.Vector3().crossVectors(right,up);
+  rocket.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(right,up,depth));
+}
 const isOrbitView=view=>view==='orbit'||view==='plane';
 const orbitUp=(yaw,pitch)=>new THREE.Vector3(-Math.sin(yaw)*Math.sin(pitch),Math.cos(pitch),-Math.cos(yaw)*Math.sin(pitch));
 function vectorArrow(color){const group=new THREE.Group(),mat=new THREE.MeshBasicMaterial({color,transparent:true,depthTest:false,depthWrite:false,toneMapped:false}),shaft=new THREE.Mesh(new THREE.CylinderGeometry(.026,.026,.74,8),mat),head=new THREE.Mesh(new THREE.ConeGeometry(.09,.26,10),mat);shaft.position.y=.37;head.position.y=.87;shaft.renderOrder=head.renderOrder=10;group.add(shaft,head);return group;}
@@ -198,7 +204,7 @@ export class RocketScene{
   clearSeparation(){if(this.separation){this.scene.remove(this.separation.body);dispose(this.separation.body);this.separation=null;}}
   clearBoosterDrop(){if(this.boosterDrop){this.scene.remove(this.boosterDrop.body);dispose(this.boosterDrop.body);this.boosterDrop=null;}}
   setData(data){
-    const previous=this.data?.flight,f=data.flight,craft=JSON.stringify(data.craft),key=JSON.stringify([data.craft,f?.separated,f?.capsule?.detached]);
+    const previous=this.data?.flight,f=data.flight,craft=JSON.stringify(data.craft),key=JSON.stringify([data.craft,f?.separated,f?.capsule?.detached,Boolean(f?.lunar)]);
     if(previous?.lunar!==f?.lunar){
       this.cameraViews.delete('orbit');this.cameraViews.delete('plane');
       this.orbitFocus=null;
@@ -226,7 +232,7 @@ export class RocketScene{
           this.rocket.hullPoints=null;
         }else{this.scene.remove(this.rocket);dispose(this.rocket);}
       }
-      this.canopy=null;this.rocket=buildRocket(data.craft,Boolean(f?.separated),Boolean(f?.capsule?.detached));this.scene.add(this.rocket);this.craftKey=key;
+      this.canopy=null;this.rocket=buildRocket(data.craft,Boolean(f?.separated),Boolean(f?.capsule?.detached),Boolean(f?.lunar));this.scene.add(this.rocket);this.craftKey=key;
     }
     if(this.boosterDrop&&(!data.live||!f||f.t<this.boosterDrop.start||craft!==this.effectCraft))this.clearBoosterDrop();
     if(data.live&&this.data?.live&&!f?.lunar&&f?.boosters?.status==='jettisoned'&&['burning','spent'].includes(this.lastBoosterStatus)&&this.rocket){
@@ -314,9 +320,13 @@ export class RocketScene{
     if(!rocket)return;
     const direction=this.data.live?RocketRecovery.rcsDirection(f):0;
     if(rocket===this.rocket)this.rcsDirection=direction;
-    for(const [i,jets]of rocket.userData.rcs.entries()){
-      jets.visible=direction===[-1,1][i];
-      if(jets.visible)for(const plume of jets.children)plume.material.opacity=plume.userData.baseOpacity*(this.reducedMotion?1:.85+.15*Math.sin(f.t*70));
+    const [x,z]=direction?(f.rcsAxes??[0,direction]):[0,0];
+    for(const [groups,amount]of [[rocket.userData.rcs,z],[rocket.userData.crossRcs,x]]){
+      for(const [i,jets]of groups.entries()){
+        const strength=amount*(i?1:-1);
+        jets.visible=strength>1e-4;
+        if(jets.visible)for(const plume of jets.children)plume.material.opacity=plume.userData.baseOpacity*strength*(this.reducedMotion?1:.85+.15*Math.sin(f.t*70));
+      }
     }
   }
   drawThermal(rocket,f){
@@ -382,7 +392,7 @@ export class RocketScene{
         const offset=worldVector(other.state).sub(worldVector(f.state)).applyQuaternion(this.worldRotation);
         this.otherRocket.position.copy(this.rocket.position).addScaledVector(offset,space?3/P.R:.001);
         this.otherRocket.scale.setScalar(space?16/(this.orbitFrame.pixelsPerUnit*this.otherRocket.userData.height):.001);
-        this.otherRocket.quaternion.setFromUnitVectors(upAxis,worldVector(other.axisSurface).applyQuaternion(this.worldRotation).normalize());
+        lunarPose(this.otherRocket,other,this.worldRotation);
         this.otherRocket.visible=other.status==='flying';
         this.drawEngine(this.otherRocket,other);
       }
@@ -566,7 +576,7 @@ export class RocketScene{
         }
       }
     }
-    if(lunar)this.rocket.quaternion.setFromUnitVectors(upAxis,worldVector(f.axisSurface).applyQuaternion(worldRotation).normalize());
+    if(lunar)lunarPose(this.rocket,f,worldRotation);
     else if(f)this.rocket.rotation.set(0,0,(space?0:theta)-f.attitude);
     if(space||factory||!f)this.followFrame=null;
     if(f&&!factory&&!space&&agl<500){const blend=1-THREE.MathUtils.smoothstep(agl,200,500),minimum=hullMinimum(this.rocket,this.rocket.rotation.z);let offset=-minimum*this.rocket.scale.y*blend+Math.max(0,-agl)/1000;if(agl<10&&!lunar){const key=[f.t,f.attitude,this.rocket.scale.y].join(',');if(this.rocket.contactKey!==key){this.rocket.contactKey=key;this.rocket.contactOffset=(Math.max(0,agl)-hullClearance(this.rocket,f,this.rocket.rotation.z))/1000;}offset=this.rocket.contactOffset;}this.rocket.position.y+=offset;}
@@ -609,7 +619,7 @@ export class RocketScene{
     this.fillLight.intensity=factory||!f ? .6 : lunar?.entry ? .32*(1-daylight) : 0;
     this.renderer.toneMappingExposure=L.exposure(altitude,daylight);
     surfaceUniforms.uAerialDensity.value=f&&!space&&!factory?atmosphere:0;
-    if(factory||!f){this.studio.scale.setScalar(1);this.studio.position.set(0,0,0);this.studio.rotation.z=0;}
+    if(factory||!f){this.studio.scale.setScalar(1);this.studio.position.set(0,0,0);this.studio.quaternion.identity();}
     this.globalTerrain.position.copy(this.earth.position);this.globalTerrain.scale.copy(this.earth.scale);this.globalTerrain.rotation.copy(this.earth.rotation);this.globalTerrain.rotateY(-.7);this.globalTerrain.updateMatrixWorld(true);surfaceUniforms.uSurfaceRotation.value.setFromMatrix4(this.globalTerrain.matrixWorld).multiplyScalar(1/this.globalTerrain.scale.x);surfaceUniforms.uSurfaceDetail.value=[1,.55,0][this.quality];
     // Keep model scale and staging independent of the user camera distance.
     const cameraYaw=this.yaw;

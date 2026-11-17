@@ -614,7 +614,7 @@ export function createLandscape(){
 }
 
 const hullAzimuth=-Math.PI/32;
-function rcsShell(top,bottom,height,rows,portRows,offset){
+function rcsShell(top,bottom,height,rows,portRows,offset,crossJets){
   const shell=new THREE.CylinderGeometry(top,bottom,height,32,rows,false,hullAzimuth);
   const {position,normal,uv}=shell.attributes,index=shell.index.array;
   const skinIndices=[],skinPositions=Array.from(position.array),skinNormals=Array.from(normal.array),skinUvs=Array.from(uv.array);
@@ -622,14 +622,16 @@ function rcsShell(top,bottom,height,rows,portRows,offset){
   const rimColor=new THREE.Color('#85959b'),innerColor=new THREE.Color('#303b42'),floorColor=new THREE.Color('#17232b');
   const cuts=new Set();
   const segments=16,radius=.073,depth=.042;
-  for(const column of [8-offset,24+offset])for(const [row,station]of portRows){
+  const columns=[[8-offset,false],[24+offset,false]];
+  if(crossJets)columns.push([0,true],[16,true]);
+  for(const [column,crossJet]of columns)for(const [row,station]of portRows){
     const start=6*(column*rows+row),ids=[0,1,4,2].map(i=>index[start+i]);
     const corners=ids.map(i=>new THREE.Vector3().fromBufferAttribute(position,i));
     cuts.add(start);
     const at=(u,v)=>corners[0].clone().lerp(corners[3],u).lerp(corners[1].clone().lerp(corners[2],u),v);
     const mouth=at(.5,.5),across=at(1,.5).sub(mouth),vertical=at(.5,1).sub(mouth);
     const outward=vertical.clone().cross(across).normalize(),base=vertices.length/3,skinBase=skinPositions.length/3;
-    mouths.push({position:mouth,station});
+    mouths.push({position:mouth,station,crossJet});
     const ring=[];
     // Match the rectangular panel's corners while keeping the actual opening circular.
     const halfWidth=across.length(),halfHeight=vertical.length(),cornerAngle=Math.atan2(halfHeight,halfWidth);
@@ -672,17 +674,17 @@ function rcsShell(top,bottom,height,rows,portRows,offset){
   return {shell,recess,mouths};
 }
 
-export function buildRocket(c,separated,capsuleOnly=false){
+export function buildRocket(c,separated,capsuleOnly=false,lunar=false){
   const group=new THREE.Group(),white=material('#edf1eb',{roughness:.42}),skin=material('#ffffff',{map:surface('payload'),roughness:.5}),shell=material('#ffffff',{map:surface('separator'),roughness:.55,metalness:.25}),dark=material('#4b535c',{map:surface('metal'),metalness:.78,roughness:.36,side:THREE.DoubleSide}),metal=material('#a2b3b9',{map:surface('metal'),metalness:.7,roughness:.38}),mint=material('#318d84',{metalness:.3}),orange=material('#d59257',{metalness:.3}),slots=[],parts=[],ranges=[],capsulePorts=[];let y=0,partParent=group,separatorY=null;
   const mesh=(geometry,mat,x,yy,z,parent=partParent)=>{const m=new THREE.Mesh(geometry,mat);m.position.set(x,yy,z);parent.add(m);return m;};
   const rcsMouths=[],hasCapsule=P.hasCapsule(c),activeTanks=c.stages.flatMap((s,i)=>capsuleOnly||separated&&i===0?[]:P.tanks(s).map((_,j)=>[i,j]));
   const [firstStage,firstTank]=activeTanks[0]||[],[lastStage,lastTank]=activeTanks.at(-1)||[];
   const recessMaterial=material('#ffffff',{vertexColors:true,roughness:.7});
   const recessedShell=(top,bottom,height,rows,ports,offset,mat,center)=>{
-    const {shell,recess,mouths}=rcsShell(top,bottom,height,rows,ports,offset);
+    const {shell,recess,mouths}=rcsShell(top,bottom,height,rows,ports,offset,capsuleOnly&&lunar);
     mesh(shell,mat,0,center,0).name='rcs-hull';
     mesh(recess,recessMaterial,0,center,0).name='rcs-recesses';
-    for(const {position,station}of mouths){position.y+=center;rcsMouths.push({position,station});}
+    for(const mouth of mouths){mouth.position.y+=center;rcsMouths.push(mouth);}
   };
   const microDetails=[],bolts=new THREE.IcosahedronGeometry(1,0),pipe=new THREE.CylinderGeometry(1,1,1,8),band=new THREE.CylinderGeometry(1,1,1,32,1,false,hullAzimuth),tankMats=Object.fromEntries(['small','medium','large'].map(k=>[k,material('#ffffff',{map:surface(k),roughness:.55,metalness:.22})])),batch=(g,m,rows)=>{const mesh=instances(partParent,g,m,rows);if(g===bolts||g.type==='TorusGeometry')microDetails.push(mesh);return mesh;};
   c.stages.forEach((s,i)=>{
@@ -737,17 +739,20 @@ export function buildRocket(c,separated,capsuleOnly=false){
   }
   partParent=group;
   if(capsuleOnly){const underside=parts.find(p=>p.userData.part.part==='capsule'),shield=mesh(new THREE.CylinderGeometry(1.4,1.3,.25,48),material('#40382f',{roughness:.96,metalness:0,emissive:'#ff6622',emissiveIntensity:0}),0,.05,0,underside);shield.name='capsule-heat-shield';group.userData.heatShield=shield;}
-  const rcs=[new THREE.Group(),new THREE.Group()];
-  for(const {position,station}of rcsMouths){
+  const rcs=[new THREE.Group(),new THREE.Group()],crossRcs=capsuleOnly&&lunar?[new THREE.Group(),new THREE.Group()]:[];
+  for(const {position,station,crossJet}of rcsMouths){
     if(!station)continue;
-    const side=Math.sign(position.x),direction=station==='upper'?-side:side,jets=rcs[direction===1?1:0];
+    const side=Math.sign(crossJet?-position.z:position.x),direction=station==='upper'?-side:side;
+    const jets=(crossJet?crossRcs:rcs)[direction===1?1:0];
     for(const [radius,length,opacity,color]of [[.18,1.65,.45,'#7bc9ff'],[.085,1.05,.9,'#e1f6ff']]){
       const geometry=new THREE.LatheGeometry([[.037,0],[radius,length*.28],[radius*.5,length*.68],[0,length]].map(([r,h])=>new THREE.Vector2(r,h)),10).translate(0,-length/2,0);
-      const plume=mesh(geometry,new THREE.MeshBasicMaterial({color,transparent:true,opacity,blending:THREE.AdditiveBlending,depthWrite:false,toneMapped:false}),position.x+side*length/2,position.y,position.z,jets);
-      plume.rotation.z=-side*Math.PI/2;plume.userData.baseOpacity=opacity;
+      const plume=mesh(geometry,new THREE.MeshBasicMaterial({color,transparent:true,opacity,blending:THREE.AdditiveBlending,depthWrite:false,toneMapped:false}),
+        position.x+(crossJet?0:side*length/2),position.y,position.z-(crossJet?side*length/2:0),jets);
+      plume.rotation[crossJet?'x':'z']=-side*Math.PI/2;plume.userData.baseOpacity=opacity;
     }
   }
-  for(const jets of rcs){jets.visible=false;group.add(jets);}
+  for(const jets of [...rcs,...crossRcs]){jets.visible=false;group.add(jets);}
+  group.userData.crossRcs=crossRcs;
   const flame=new THREE.Group(),clustered=capsuleOnly||c.stages[separated?1:0].engine===0,exits=capsuleOnly?capsulePorts:clustered?[[-.61,-.61],[-.61,.61],[.61,-.61],[.61,.61]]:[[0,0]];flame.position.y=capsuleOnly?0:-.04;flame.userData.ports=capsuleOnly?capsulePorts:null;
   if(capsuleOnly){
     for(const [radius,length,color,opacity]of [[.13,.65,'#58b9ec',.5],[.085,.42,'#a9e7ff',.65],[.045,.24,'#fff4d8',.9]]){

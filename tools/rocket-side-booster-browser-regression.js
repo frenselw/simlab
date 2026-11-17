@@ -1217,6 +1217,14 @@ async function lunarReturn(base,label){
   assert(await call('return app.getScene().lines.actual.geometry.attributes.position.count===app.controller.state.flight.lunar.trail.length+1;'));
   await wait(()=>call('return !d.getElementById("mapMoon").hidden;'),'Moon label in distant overview');
   await shot(label+'-lunar-return-overview-'+width+'x'+height);
+  const inertialSide=()=>call(`const s=app.getScene(),f=app.controller.state.flight;
+    const side=s.camera.position.clone().set(1,0,0).applyQuaternion(s.rocket.quaternion).applyQuaternion(s.worldRotation.clone().invert());
+    return f.sky.mapBasis.map(axis=>side.dot(s.camera.position.clone().fromArray(axis)));`);
+  const cruiseSide=await inertialSide();
+  const assertCruiseSide=async()=>{
+    const side=await inertialSide();
+    assert(cruiseSide.reduce((dot,value,i)=>dot+value*side[i],0)>1-1e-10,JSON.stringify({cruiseSide,side}));
+  };
   const near=await advance(365000);
   assert.equal(near.view,'follow');
   assert(Math.abs(near.closest.height-9262600)<25);
@@ -1225,12 +1233,15 @@ async function lunarReturn(base,label){
     const center=craft.localToWorld(craft.userData.partBounds.getCenter(s.camera.position.clone()));
     return {visible:globe.visible,lock:s.cameraLock,moon:globe.position.clone().project(s.camera).toArray(),craft:center.project(s.camera).toArray()};`);
   assert(sky.lock==='moon'&&sky.visible&&Math.hypot(sky.moon[0]-.45,sky.moon[1]-.38)<.002&&Math.hypot(sky.craft[0],sky.craft[1])<.002,JSON.stringify(sky));
+  await assertCruiseSide();
   await shot(label+'-lunar-return-moon-'+width+'x'+height);
   await call('app.getScene().renderer.forceContextLoss();');
   await wait(()=>call('return app.getScene().lost;'),'lost lunar WebGL context');
   await call('app.getScene().renderer.forceContextRestore();');
   await wait(()=>call('return !app.getScene().lost;'),'restored lunar WebGL context');
   assert(await call(`return app.getState().flight.t===${near.t}&&app.getScene().moonGlobe.userData.detailed.value===1;`));
+  await advance(375600);
+  await assertCruiseSide();
   const entry=await advance(724630);
   assert.equal(entry.view,'follow');assert(entry.thermal.protected&&entry.thermal.flux>.005,JSON.stringify(entry));
   await shot(label+'-lunar-return-entry-'+width+'x'+height);
@@ -1293,13 +1304,35 @@ async function lunarReturn(base,label){
   await call('d.getElementById("pitchDial").focus();');
   await key('ArrowRight');
   assert(await call('const f=app.controller.state.flight;return f.controls.mode==="tilt"&&RocketRuntime.warpLimit(f)===5;'));
+  const axis=await call('return app.controller.state.flight.axis;');
   const turn=await advance(900000.2);
   const jet=await call('return app.getScene().diagnostics().rcsDirection;');
   assert((jet===1||jet===-1)&&turn.fuel===0);
+  const jetAlignment=await call(`const C=RocketCelestial,s=app.getScene(),f=app.controller.state.flight,craft=s.rocket;
+    const groups=[...craft.userData.rcs,...craft.userData.crossRcs].filter(group=>group.visible);
+    const torque=craft.position.clone().set(0,0,0),center=craft.userData.partBounds.getCenter(torque.clone());
+    for(const group of groups)for(const plume of group.children){
+      const force=torque.clone().set(0,-1,0).applyQuaternion(plume.quaternion);
+      torque.addScaledVector(plume.position.clone().sub(center).cross(force),plume.material.opacity/plume.userData.baseOpacity);
+    }
+    const rotation=C.cross(${JSON.stringify(axis)},f.axis);
+    const expected=torque.clone().set(-C.dot(rotation,f.bodyRight),0,C.dot(rotation,C.cross(f.bodyRight,f.axis))).normalize();
+    return torque.normalize().dot(expected);`);
+  assert(jetAlignment>.99,JSON.stringify({jetAlignment}));
   await shot(label+'-lunar-rcs-after-day-ten-'+width+'x'+height);
   const settled=await advance(900020);
   assert(settled.phase==='coast'&&settled.fuel===0&&await call('return app.getScene().diagnostics().rcsDirection===0;'));
-  report.flows.push({case:'lunar-return',label,width,height,cold,early,loaded,near,sky,contextRestored:true,entry,descent,landing,arrival,fallback,continued,jet,settled});
+  await click('#cameraFollow',mobile);await click('[data-camera-lock="moon"]',mobile);
+  assert(await call(`const s=app.getScene(),q=s.studio.quaternion;return s.cameraLock==='moon'&&Math.hypot(q.x,q.y)>.01;`));
+  await click('#returnWorkshop',mobile);
+  await click('[data-part="engine-0"]',mobile);
+  const workshop=await call(`const s=app.getScene(),up=s.studio.position.clone().set(0,1,0);
+    return {phase:app.getState().phase,view:s.view,lock:s.cameraLock,engine:app.getState().craft.stages[0].engine,
+      floorUp:up.clone().applyQuaternion(s.studio.quaternion).toArray(),
+      rocketUp:up.clone().applyQuaternion(s.rocket.quaternion).toArray()};`);
+  assert.deepEqual(workshop,{phase:'workshop',view:'factory',lock:null,engine:0,floorUp:[0,1,0],rocketUp:[0,1,0]});
+  await shot(label+'-lunar-return-workshop-'+width+'x'+height);
+  report.flows.push({case:'lunar-return',label,width,height,cold,early,loaded,near,sky,cruiseSide,contextRestored:true,entry,descent,landing,arrival,fallback,continued,jet,jetAlignment,settled,workshop});
 }
 
 function selection(args){if(args.length>2)throw Error("Expected cases and optional delivery");const cases=args[0]?args[0].split(","):caseNames,delivery=args[1]||null;if(cases.some(name=>!caseNames.includes(name))||new Set(cases).size!==cases.length)throw Error("Unknown or repeated explorer case");if(delivery&&!["source","standalone"].includes(delivery))throw Error("Unknown explorer delivery");return{cases,delivery};}
