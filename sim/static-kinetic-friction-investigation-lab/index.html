@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>靜摩擦力與滑動摩擦力探究實驗室</title>
   <link rel="stylesheet" href="../shared/styles.css">
-  <link rel="stylesheet" href="styles.css?v=54">
+  <link rel="stylesheet" href="styles.css?v=55">
   <script src="../shared/fullscreen.js" defer></script>
 </head>
 <body>
@@ -44,7 +44,7 @@
         <button type="button" id="maximumStaticFrictionMarker" class="drag-target graph-handle analysis-marker analysis-marker-maximum is-hidden" data-drag-target="maximum-static-friction-marker" aria-label="最大靜摩擦力位置標記"></button>
         <button type="button" id="kineticFrictionMarker" class="drag-target graph-handle analysis-marker analysis-marker-kinetic is-hidden" data-drag-target="kinetic-friction-marker" aria-label="滑動摩擦力位置標記"></button>
       </div>
-      <p id="stageDescription" class="sr-only">Part A 只分析水平方向的力。Part B 開始記錄後，按住舞台上的物體中央向右拖動，逐漸增加拉力直到物體開始滑動；向左移只會減少向右拉力，不會施加向左拉力。物體開始滑動後，系統會自動調節拉力，使物體保持接近勻速運動。物體下方同步顯示 0 至 30 秒的 <var>F</var><sub>拉</sub>–<var>t</var> 圖。</p>
+      <p id="stageDescription" class="sr-only">Part A 只分析水平方向的力。Part B 開始記錄後，按住舞台上的物體中央向右拖動，逐漸增加拉力直到物體開始滑動；向左移只會減少向右拉力，不會施加向左拉力。物體開始滑動後可以放手，系統會自動調節拉力，再記錄最多 10 秒。物體下方同步顯示 0 至 30 秒的 <var>F</var><sub>拉</sub>–<var>t</var> 圖。</p>
       <p id="predictionReadout" class="prediction-readout is-hidden" aria-live="off"></p>
     </section>
 
@@ -115,7 +115,7 @@
         <p class="section-label">第二階段・直接拖動物體</p>
         <h2>B：拉動物體，觀察 <var>F</var><sub>拉</sub>–<var>t</var> 圖</h2>
           <p><strong>活動簡介：</strong>在 30 秒內逐漸增加向右拉力，記錄物體由靜止到開始滑動過程中的 <var>F</var><sub>拉</sub>–<var>t</var> 圖。圖中顯示測力計所量得的拉力；摩擦力大小不會直接顯示。物體開始滑動後，系統會自動調節拉力，使物體作近似勻速運動。</p>
-          <div class="experiment-instruction"><strong>操作：</strong>按「開始 30 秒記錄」，再按住物體中央向右拖動，逐漸增加拉力。</div>
+          <div class="experiment-instruction"><strong>操作：</strong>按「開始 30 秒記錄」，再按住物體中央向右拖動，逐漸增加拉力。物體開始滑動後即可放手，系統會再記錄最多 10 秒。</div>
         <div id="experimentRunActions" class="button-row"><button type="button" id="startRecording" data-action="start-recording" class="primary-button">開始 30 秒記錄</button><button type="button" id="stopRecording" data-action="stop-recording">停止並保存記錄</button><button type="button" id="requestRedoExperiment" data-action="request-redo-experiment" class="secondary-button">重新開始</button></div>
         <p id="experimentStatus" class="neutral-status" aria-live="polite">尚未開始記錄。</p>
         <button type="button" data-action="to-analysis" class="primary-button next-button">前往 Part C：分析這張 <var>F</var><sub>拉</sub>–<var>t</var> 圖</button>
@@ -167,12 +167,12 @@
 <script src="../config.js"></script>
 <script src="../shared/scorm.js"></script>
 <script src="../shared/activity-flow.js"></script>
-<script src="generator.js?v=54"></script>
-<script src="physics.js?v=54"></script>
-<script src="measurement.js?v=54"></script>
-<script src="graph.js?v=54"></script>
-<script src="scoring.js?v=54"></script>
-<script src="persistence.js?v=54"></script>
-<script src="main.js?v=54"></script>
+<script src="generator.js?v=55"></script>
+<script src="physics.js?v=55"></script>
+<script src="measurement.js?v=55"></script>
+<script src="graph.js?v=55"></script>
+<script src="scoring.js?v=55"></script>
+<script src="persistence.js?v=55"></script>
+<script src="main.js?v=55"></script>
 </body>
 </html>

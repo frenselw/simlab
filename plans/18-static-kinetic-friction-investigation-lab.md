@@ -112,7 +112,7 @@
 - A3 不設向左／向右／重新試拉按鈕；直接拖動物體中央的拉力箭頭，箭頭端點即時跟隨手指／滑鼠，拉力可隨時向左／向右及改變大小；放手後拉力歸零，物體仍按當時速度及摩擦力連續運動；
 - 獨立的 A、B→C 實驗分析組及 D 可切換；C 使用 B 的 trace，組內按 B→C 操作，不提供 C 的獨立任意跳轉。沒有 trace 時由 B 開始；D 可先完成預測；
 - Part B 只使用舞台上的 `experimentOrigin` 直接拖動 target；物體由舞台最左位置開始，拉力只可向右；學生逐漸向右移動手指增加拉力，直到物體開始滑動；breakaway 後 target 隱藏，由系統自動調節拉力，使物體保持接近勻速運動；
-- breakaway 後由系統自動調節拉力，學生不需要自行追蹤速度或再次調整拉力；記錄仍可在 30 秒內停止並保存或重新開始；
+- 物體開始滑動後可以放手。系統自動調節拉力，再記錄最多 10 秒。學生亦可提前停止並保存或重新開始。
 - 30 秒時間上限、超時提示及重新開始記錄；
 - 物體尚未開始滑動時提示逐漸增加拉力；開始滑動後提示系統正自動調節拉力，使物體保持接近勻速運動；
 - 只顯示與測力計等效的拉力及 `F拉–t` 圖，不顯示摩擦力數值；
@@ -481,11 +481,11 @@ B 是 30 秒限時記錄舞台，空白、recording 及保存後都保留 `0–3
 3. breakaway event 發生後，runtime 將 learner target 隱藏，先以短暫、低幅度的系統啟動過渡令物體的滑動清楚可見，再在每個 physics tick 以當前位置的 `kineticFrictionAt(x)` 作為向右拉力；整段過渡均使用 `F_{\mathrm{net}}=F_{\mathrm{拉}}-f_k=ma`，過渡完成後速度保持近似不變。學生不需要自行保持勻速或再調整拉力；
 4. 系統自動維持的拉力只存在於本次 transient recording，不寫入 snapshot；學生可在系統維持平台後按「停止並保存記錄」，或按「重新開始」重新嘗試。
 
-記錄時間不可超過 `30 s`。若時間達到上限，立即停止物理更新並評估 trial：有效 trial 自動保存並可前往 C；不合格或沒有 sample 的 trial 才顯示：
+系統在物體開始滑動後滿 10 秒，或整段記錄滿 30 秒時，自動停止並評估記錄，以先到者為準。有效記錄自動保存，可前往 C。整段記錄超時且未能保存時會提示重新開始：
 
 > 30 秒記錄已結束。請按「重新開始」，再在 30 秒內完成一份可分析的實驗記錄。
 
-只有不合格的超時記錄不會成為 C 的資料；有效的 30 秒記錄與手動停止所得的有效記錄使用同一 accepted-trial contract。評估後的無效記錄直接顯示重新開始提示：未開始滑動時要求重新逐漸增加拉力，滑動後記錄不足時要求重新開始並稍候片刻，超出量程時要求減少拉力。學生按「重新開始」後，物體、時間及 `F拉–t` 圖全部回到空白狀態。學生可以無限重試，不因超時扣分。
+自動與手動停止採用同樣的保存條件。評估後的無效記錄直接顯示重新開始提示：未開始滑動時要求重新逐漸增加拉力，滑動後記錄不足時要求重新開始並稍候片刻，超出量程時要求減少拉力。學生按「重新開始」後，物體、時間及 `F拉–t` 圖全部回到空白狀態。學生可以無限重試，不因超時扣分。
 
 ### 7.3 即時輔助提示
 
@@ -493,7 +493,7 @@ B 是 30 秒限時記錄舞台，空白、recording 及保存後都保留 `0–3
 
 - 尚未開始滑動：「慢慢增加拉力，直到物體開始滑動。」
 - 已開始滑動：「物體已開始滑動；系統正自動調節拉力，使物體保持接近勻速運動。」
-- 系統接手後不再要求學生根據速度自行加力或減力；`experimentStatus` 只顯示目前記錄狀態，不另設重複的即時說明。
+- 系統接手時提示學生可以放手，並顯示滑動後最多再記錄 10 秒。
 
 直接拖動的水平位移映射只用於 breakaway 前的逐漸加力；A、B、C、D 仍共用同一個 seeded 靜摩擦／滑動摩擦模型，不另設 B 專用摩擦力或人為阻尼。
 
@@ -553,6 +553,10 @@ C 維持 `schemaVersion=6`、`WIRE_VERSION="s6"`、`rubricVersion=3`，draft wor
 2. 若畫出箭頭，在控制欄選擇靜摩擦力或滑動摩擦力；方向及大小以舞台箭頭為準，控制欄只顯示同步讀數，不提供另一個可輸入大小；
 3. 選擇運動結果：保持靜止、開始滑動、加速或減速；
 4. 按「保存 Dn 答案」後保存該題；可按上方 D1–D4 題目按鈕切換其他題。已保存的題目在 review 可逐題返回修改；未保存題目不會被系統補上預設答案。
+
+「摩擦力類型」與「運動結果」各用一組題卡內單選按鈕，可直接點按或用鍵盤選擇。兩組均可選「未作答」。改選時暫存草稿，按「保存 Dn 答案」後才更新已保存答案。切換題目時焦點移到新題的標題。
+
+2026-11-17 本地 Chrome 驗證通過。源碼及解壓 SCORM 的手機尺寸測試均以可信觸控各點一次完成兩欄，確認每次變更只暫存一次。另通過鍵盤改選、切題後恢復已保存選項、檢查頁修改及取消流程。
 
 Part D 的「前往提交前檢查」按鈕不受 A、B、C 或 D 完成度限制；未完成項目進入 review 後按未作答計分。進入 review 時只保留已保存的 prediction authority；其餘 slots 為 `null`，每個空白 slot 的 Part D 5 分全部為 0。
 
@@ -1080,7 +1084,7 @@ function animationFrame(nowMs) {
 
 Pointer、keyboard 及 coalesced input 必須用 `event.timeStamp` 經固定 page-time→simulation-time offset 轉成 simulation-clock timestamp 並進入 queue；每個 physics tick 使用該 tick 時刻以前的最後 target（zero-order hold）。同 timestamp 依 browser event order，舊 queue entries 在所有較早 ticks 消費後才移除。不可把最新 target 追溯套用到積壓 ticks。
 
-第一個 delivered recording frame 同時建立 physics clock baseline 及固定 page-time→simulation-time input offset，不累積 physics time，也不參與 stall 判定；確認重做、authority transition及完整 render所需時間不得被算入 trial。第一幀前已收到的 input 依 event order deterministic 地映射到 simulation time 0；第一幀後 input 以新 offset 排程。建立 baseline 後的第一個 startup frame interval 只作啟動緩衝，不會因確認／render hand-off 的短暫延遲而中止；其後相鄰 frame gap 超過 `50 ms` 時明確丟棄，不作 catch-up；若正在記錄，該次 trial 以中性技術原因作廢並返回 recording 前 checkpoint。相同 seed、相同相對 timestamped input path 和相同 versions，首幀為 0 ms 或延遲 120 ms，以及 60／90／120 Hz、coalesced events及含短 stall 的 render schedules，必須產生同一 canonical trace。
+第一個 recording frame 建立物理和輸入時鐘基準。第一幀前收到的輸入按順序映射至模擬時間 0。之後，最多 250 ms 的畫面間隔按原時間戳以固定物理步長補算。更長的間隔會暫停模擬時鐘，將間隔內的待處理輸入依序套用於恢復時，保留原有樣本與拖曳。相同種子及相對時間戳輸入應在 60／90／120 Hz、合併事件或短暫掉幀時產生同一份 trace。
 
 ---
 
@@ -2738,10 +2742,12 @@ same seed reproduces same scenario
 16. tautening／slack release 邊界連續且無單步 impulse；
 17. `0.06 m/s` slow-handle approach 的首個 taut substep 不會單靠 dashpot 觸發 breakaway，damping由0單調engage；
 18. 相同 timestamped input path 在 60／90／120 Hz、coalescing 及短 stall schedules 產生同一 canonical trace；
-19. 超過 50 ms stall 令 running trial 中性作廢而不 catch-up；
+19. 畫面間隔超過 250 ms 時暫停模擬時鐘，恢復後可繼續並保存同一段記錄。以瀏覽器可信觸控在短暫掉幀前後保持拖曳，滑動後放手，驗證再記錄 10 秒後自動保存，並可在 Part C 顯示曲線。晚開始滑動時，仍以總長 30 秒為上限。
 20. physics 結果不受 sensor noise 影響；
 21. 無 NaN／Infinity；
 22. energy／速度不會數值爆炸。
+
+2026-11-17 本地驗證通過。Chrome 可信觸控覆蓋源碼及解壓 SCORM，驗證掉幀後續拉、滑動後 10 秒自動保存、30 秒總上限及 Part C 曲線。活動的 10 項 Node 測試、`npm run check` 與 `npm run check:tests`（307 項登記）均通過。
 
 ### 27.3 Measurement tests
 

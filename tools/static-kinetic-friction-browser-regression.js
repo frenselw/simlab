@@ -6,7 +6,7 @@ const path = require("node:path");
 const os = require("node:os");
 const { spawn } = require("node:child_process");
 const { XMLParser } = require("fast-xml-parser");
-const { CdpClient, buildAndExtractPackage, cleanupResources, createServer, delay, devToolsPort, evaluate, fetchJson, findBrowser, listenServer, validateOwnedProfile, withTimeout } = require("./position-time-browser-regression.js");
+const { CdpClient, buildAndExtractPackage, cleanupResources, createServer, delay, devToolsPort, evaluate, fetchJson, findBrowser, listenServer, validateOwnedProfile, waitForCondition, withTimeout } = require("./position-time-browser-regression.js");
 const root = path.resolve(__dirname, "..");
 const slug = "static-kinetic-friction-investigation-lab";
 function parity() {
@@ -116,8 +116,11 @@ function frameSchedule(totalMs, pattern) {
   }
   return durations;
 }
+function experimentForceRamp(offsetMs = 0) {
+  return Array.from({ length: 41 }, (_, index) => ({ timeStampMs: offsetMs + index * 50, forceN: Number((index * .2).toFixed(2)) }));
+}
 function productionExperimentScript(frameDurationsMs, options = {}) {
-  const inputs = Array.from({ length: 41 }, (_, index) => ({ timeStampMs: index * 50, forceN: Number((index * .2).toFixed(2)) }));
+  const inputs = experimentForceRamp(options.inputOffsetMs);
   return `(() => {
     const app=window.__staticKineticFrictionApp,P=window.StaticKineticFrictionPersistence;
     const blank=P.freshState(12345);
@@ -138,7 +141,8 @@ async function productionExperimentRegression(cdp, url, label) {
   const schedules = [
     { name: "60 Hz", pattern: [16, 17, 17], batchSize: 41 },
     { name: "90 Hz batched", pattern: [11, 11, 11, 12], batchSize: 7 },
-    { name: "120 Hz coalesced", pattern: [8, 8, 9], batchSize: 3 }
+    { name: "120 Hz coalesced", pattern: [8, 8, 9], batchSize: 3 },
+    { name: "dropped frames", pattern: [16, 120, 17, 80, 250], batchSize: 5 }
   ];
   const traces = [];
   for (const schedule of schedules) {
@@ -151,6 +155,7 @@ async function productionExperimentRegression(cdp, url, label) {
   }
   assert.equal(JSON.stringify(traces[1]), JSON.stringify(traces[0]), `${label}: production 60/90 Hz schedules produce the same packed canonical trace`);
   assert.equal(JSON.stringify(traces[2]), JSON.stringify(traces[0]), `${label}: production 60/120 Hz and coalesced batching produce the same packed canonical trace`);
+  assert.deepEqual(traces[3], traces[0], `${label}: short frame gaps preserve the timestamped trace`);
 
   await tapSelector(cdp, "#requestRedoExperiment");
   const pendingRedo = await evaluate(cdp, `(() => ({ dialogVisible:!document.getElementById('redoExperimentConfirm').classList.contains('is-hidden'), trial:window.__staticKineticFrictionApp.getState().trial }))()`);
@@ -159,8 +164,7 @@ async function productionExperimentRegression(cdp, url, label) {
   await tapSelector(cdp, "[data-action='cancel-redo-experiment']");
   assert.deepEqual(await evaluate(cdp, "window.__staticKineticFrictionApp.getState().trial"), traces[2], `${label}: cancelling the redo preserves the accepted B authority`);
   await tapSelector(cdp, "#requestRedoExperiment");
-  // Observe the atomic restart in the trusted click task. Separate timing-gap
-  // tests cover the 50 ms animation watchdog on a stalled/busy machine.
+  // Observe the atomic restart in the trusted click task.
   await evaluate(cdp, `(() => {
     window.__confirmedRedo = null;
     document.addEventListener('click', function observeRedo(event) {
@@ -174,7 +178,7 @@ async function productionExperimentRegression(cdp, url, label) {
   assert.deepEqual(confirmedRedo, { trial: null, running: true, dialogHidden: true }, `${label}: confirming the redo atomically clears the accepted trial and starts a new recording`);
 
   await navigate(cdp, url);
-  const validTimeout = await evaluate(cdp, productionExperimentScript(frameSchedule(30000, [40]), { batchSize: 5, finalize: false }));
+  const validTimeout = await evaluate(cdp, productionExperimentScript(frameSchedule(30000, [40]), { inputOffsetMs: 23000, batchSize: 5, finalize: false }));
   assert.ok(validTimeout.trial, `${label}: a valid trial auto-saves at the 30 second boundary`);
   assert.equal(validTimeout.timedOut, true, `${label}: valid automatic stop records the timeout boundary`);
   assert.match(validTimeout.status, /這次記錄符合要求/, `${label}: valid automatic stop reports saved data`);
@@ -200,28 +204,52 @@ async function productionExperimentRegression(cdp, url, label) {
 
   await navigate(cdp, url);
   const delayedFirstFrame = await evaluate(cdp, `(() => { const app=window.__staticKineticFrictionApp; app.routeAttempt({state:'new'}); document.querySelector('[data-action="navigate-phase"][data-phase="experiment"]').click(); app.regression.startExperiment(0); const result=app.regression.advanceExperimentFrame(120); return {result,running:app.interactionEvidence().recorderRunning,status:document.getElementById('experimentStatus').textContent}; })()`);
-  assert.equal(delayedFirstFrame.result.abortedOnStall, false, `${label}: a delayed first recording frame only establishes the clock`);
+  assert.equal(delayedFirstFrame.result.steps, 0, `${label}: a delayed first recording frame only establishes the clock`);
   assert.equal(delayedFirstFrame.running, true, `${label}: confirmation/render delay cannot stop a newly started recorder`);
 
   await navigate(cdp, url);
-  const realStartup = await evaluate(cdp, `(() => {
-    const app=window.__staticKineticFrictionApp; app.routeAttempt({state:'new'});
-    document.querySelector('[data-action="navigate-phase"][data-phase="experiment"]').click();
-    const started=app.regression.startExperimentReal();
-    const block=(durationMs)=>{const end=performance.now()+durationMs;while(performance.now()<end){}};
-    requestAnimationFrame(()=>setTimeout(()=>{block(80);requestAnimationFrame(()=>block(80));},0));
-    return {started,running:app.interactionEvidence().recorderRunning};
+  await evaluate(cdp, `(() => {
+    const app=window.__staticKineticFrictionApp, P=window.StaticKineticFrictionPersistence;
+    app.routeAttempt({state:'draft',snapshot:{version:1,activity:'${slug}',kind:'draft',answer:P.encodeDraft(P.freshState(12345))}});
   })()`);
-  assert.deepEqual(realStartup, { started: true, running: true }, `${label}: real recording starts before the startup-gap regression`);
-  await delay(350);
-  const realStartupAfterGap = await evaluate(cdp, `(() => ({ running:window.__staticKineticFrictionApp.interactionEvidence().recorderRunning, trial:window.__staticKineticFrictionApp.getState().trial, status:document.getElementById('experimentStatus').textContent }))()`);
-  assert.equal(realStartupAfterGap.running, false, `${label}: a real post-baseline gap still arms the 50 ms watchdog after one startup interval`);
-  assert.equal(realStartupAfterGap.trial, null, `${label}: the real startup-gap regression creates no authority trace`);
-  assert.match(realStartupAfterGap.status, /這次記錄中斷，資料未能保存/, `${label}: the real startup-gap regression reports a neutral timing interruption`);
+  await tapSelector(cdp, "[data-action='navigate-phase'][data-phase='experiment']");
+  await tapSelector(cdp, "#startRecording");
+  const target = await evaluate(cdp, `(() => {
+    const origin=document.getElementById('experimentOrigin').getBoundingClientRect();
+    const svg=document.getElementById('apparatusSvg'), rect=svg.getBoundingClientRect(), view=svg.viewBox.baseVal;
+    return { x:origin.left+origin.width/2, y:origin.top+origin.height/2,
+      pxPerN:30*Math.min(rect.width/view.width,rect.height/view.height) };
+  })()`);
+  await touchStartMove(cdp, target, { x: target.x + 2 * target.pxPerN, y: target.y });
+  await evaluate(cdp, `(() => {
+    const end=performance.now()+100;
+    while (performance.now()<end) {}
+    return true;
+  })()`);
+  await delay(100);
+  const held = await evaluate(cdp, "window.__staticKineticFrictionApp.interactionEvidence()");
+  assert.ok(held.recorderRunning && held.dragging && !held.experiment.autoKineticHold && held.experiment.appliedForceN > 1,
+    `${label}: a trusted touch still applies force across the dropped frame ${JSON.stringify(held)}`);
+  await cdp.send("Input.dispatchTouchEvent", {
+    type: "touchMove", touchPoints: [{ id: 17, x: target.x + 11 * target.pxPerN, y: target.y, force: 1 }]
+  });
+  await waitForCondition(() => evaluate(cdp, "window.__staticKineticFrictionApp.interactionEvidence().experiment?.autoKineticHold"), `${label}: automatic hold after the continued drag`);
+  const coachCopy = await evaluate(cdp, "document.getElementById('stageCoach').textContent");
+  assert.match(coachCopy, /可以放手.*最多 10 秒/s);
+  await touchEnd(cdp);
+  await waitForCondition(() => evaluate(cdp, "!window.__staticKineticFrictionApp.interactionEvidence().recorderRunning"), `${label}: real recording reaches the 10-second sliding limit`, 20000, 250);
+  const completed = await evaluate(cdp, `(() => {
+    const app=window.__staticKineticFrictionApp, evidence=app.interactionEvidence(), trial=app.getState().trial;
+    return { saved:Boolean(trial), slidingTime:evidence.experiment?.timeS - trial?.breakaway?.timeMs / 1000, timedOut:evidence.experiment?.timedOut };
+  })()`);
+  assert.ok(completed.saved && !completed.timedOut && Math.abs(completed.slidingTime - 10) < .001,
+    `${label}: the recording saves ten seconds after breakaway even after releasing the touch ${JSON.stringify(completed)}`);
+  await tapSelector(cdp, "[data-action='navigate-phase'][data-phase='analysis']");
+  assert.equal(await evaluate(cdp, "Boolean(document.querySelector('#graphSvg .analysis-force-line'))"), true, `${label}: Part C shows the automatically saved trace`);
 
   const baselineAlignedTraces = await evaluate(cdp, `(() => {
     const app=window.__staticKineticFrictionApp,P=window.StaticKineticFrictionPersistence;
-    const relativeInputs=${JSON.stringify(Array.from({ length: 41 }, (_, index) => ({ timeStampMs: index * 50, forceN: Number((index * .2).toFixed(2)) })))};
+    const relativeInputs=${JSON.stringify(experimentForceRamp())};
     const durations=${JSON.stringify(frameSchedule(4500, [16, 17, 17]))};
     const run=(firstFrameMs)=>{
       const blank=P.freshState(12345);
@@ -241,12 +269,33 @@ async function productionExperimentRegression(cdp, url, label) {
   assert.deepEqual(baselineAlignedTraces[1], baselineAlignedTraces[0], `${label}: rebased timestamped input produces the same packed trace after a 0 or 120 ms first frame`);
 
   await navigate(cdp, url);
-  const stalled = await evaluate(cdp, `(() => { const app=window.__staticKineticFrictionApp; app.routeAttempt({state:'new'}); document.querySelector('[data-action="navigate-phase"][data-phase="experiment"]').click(); app.regression.startExperiment(0); app.regression.advanceExperimentFrame(0); app.regression.advanceExperimentFrame(16); const result=app.regression.advanceExperimentFrame(76); return {result,state:app.getState(),evidence:app.interactionEvidence(),status:document.getElementById('experimentStatus').textContent,startDisabled:document.getElementById('startRecording').disabled}; })()`);
-  assert.equal(stalled.result.abortedOnStall, true, `${label}: a production frame gap over 50 ms aborts without catch-up`);
-  assert.equal(stalled.evidence.recorderRunning, false, `${label}: timing-gap abort stops the production recorder`);
-  assert.equal(stalled.state.trial, null, `${label}: timing-gap abort creates no authority trace`);
-  assert.equal(stalled.startDisabled, false, `${label}: timing-gap abort fully refreshes the controls`);
-  assert.match(stalled.status, /這次記錄中斷，資料未能保存/, `${label}: timing-gap abort is distinguished from normal timeout`);
+  const stalled = await evaluate(cdp, `(() => {
+    const app=window.__staticKineticFrictionApp, P=window.StaticKineticFrictionPersistence;
+    const run=(gap)=>{
+      app.routeAttempt({state:'draft',snapshot:{version:1,activity:'${slug}',kind:'draft',answer:P.encodeDraft(P.freshState(12345))}});
+      document.querySelector('[data-action="navigate-phase"][data-phase="experiment"]').click();
+      app.regression.startExperiment(0);
+      app.regression.advanceExperimentFrame(0);
+      app.regression.advanceExperimentFrame(16);
+      const inputs=${JSON.stringify(experimentForceRamp(16))};
+      app.regression.queueExperimentForces(inputs.map(input=>({...input,timeStampMs:input.timeStampMs+gap})));
+      const before=app.interactionEvidence().experiment.timeS;
+      const pause=gap ? app.regression.advanceExperimentFrame(16+gap) : null;
+      const after=app.interactionEvidence().experiment.timeS;
+      let now=16+gap;
+      for(const duration of ${JSON.stringify(frameSchedule(4500, [16, 17, 17]))}) {
+        now+=duration;
+        app.regression.advanceExperimentFrame(now);
+      }
+      app.regression.finalizeExperiment(false);
+      return {before,after,pause,trial:app.getState().trial};
+    };
+    return {baseline:run(0),paused:run(32000)};
+  })()`);
+  assert.deepEqual(stalled.paused.pause, { running: true, steps: 0 }, `${label}: long stalls pause the recorder without catch-up`);
+  assert.equal(stalled.paused.after, stalled.paused.before, `${label}: a stalled frame adds no simulated time`);
+  assert.ok(stalled.baseline.trial, `${label}: the baseline creates a valid trace`);
+  assert.deepEqual(stalled.paused.trial, stalled.baseline.trial, `${label}: recording and timestamped input resume after a long gap`);
 
   await navigate(cdp, url);
   await evaluate(cdp, `(() => { const app=window.__staticKineticFrictionApp; app.routeAttempt({state:'new'}); document.querySelector('[data-action="navigate-phase"][data-phase="experiment"]').click(); app.regression.startExperiment(performance.now()); return true; })()`);
@@ -527,14 +576,14 @@ async function semanticSmoke(cdp, url, label) {
   assert.equal(draggedMarker.commits, 1, `${label}: one C pointerup checkpoints the marker draft exactly once`);
   await evaluate(cdp, analysisFixtureScript(0));
   await tapSelector(cdp, "[data-action='navigate-phase'][data-phase='predict']");
-  const earlyPrediction = await evaluate(cdp, "(() => { const card=document.querySelector('#predictionCards .prediction-card[data-prediction-index=\"0\"]'); const steps=[...document.querySelectorAll('.prediction-progress-step')]; return { phase:window.__staticKineticFrictionApp.getState().phase, cards:document.querySelectorAll('#predictionCards .prediction-card[data-prediction-index]').length, firstEnabled:!card.querySelector('select').disabled, progress:steps.length, progressButtons:steps.every(node=>node.tagName==='BUTTON'&&node.dataset.action==='select-prediction'), numericInput:Boolean(card.querySelector('input[type=number]')) }; })()");
+  const earlyPrediction = await evaluate(cdp, "(() => { const card=document.querySelector('#predictionCards .prediction-card[data-prediction-index=\"0\"]'); const steps=[...document.querySelectorAll('.prediction-progress-step')]; return { phase:window.__staticKineticFrictionApp.getState().phase, cards:document.querySelectorAll('#predictionCards .prediction-card[data-prediction-index]').length, firstEnabled:!card.querySelector('input[type=radio]').disabled, progress:steps.length, progressButtons:steps.every(node=>node.tagName==='BUTTON'&&node.dataset.action==='select-prediction'), numericInput:Boolean(card.querySelector('input[type=number]')) }; })()");
   assert.deepEqual(earlyPrediction, { phase: "predict", cards: 1, firstEnabled: true, progress: 4, progressButtons: true, numericInput: false }, `${label}: Part D exposes four interactive question tabs while Part C is still incomplete`);
   await tapSelector(cdp, "[data-action='select-prediction'][data-prediction-index='3']");
   const switchedPrediction = await evaluate(cdp, "(() => ({ active:window.__staticKineticFrictionApp.getState().working.activePredictionIndex, card:Number(document.querySelector('#predictionCards .prediction-card[data-prediction-index]')?.dataset.predictionIndex), title:document.querySelector('#predictionCards .task-title')?.textContent }))()");
   assert.deepEqual(switchedPrediction, { active: 3, card: 3, title: "D4：根據圖示作答" }, `${label}: Part D can switch directly to D4 before saving the earlier questions`);
   await pressKeyOn(cdp, "[data-action='select-prediction'][data-prediction-index='3']", "Enter");
-  const keyboardPredictionFocus = await evaluate(cdp, "(() => { const node=document.activeElement; return { active:window.__staticKineticFrictionApp.getState().working.activePredictionIndex, inCard:Boolean(node?.closest('#predictionCards .prediction-card[data-prediction-index=\"3\"]')), inNavigation:Boolean(node?.matches('[data-action=\"select-prediction\"][data-prediction-index=\"3\"]')) }; })()");
-  assert.deepEqual(keyboardPredictionFocus, { active: 3, inCard: true, inNavigation: false }, `${label}: keyboard activation of a D tab preserves focus inside the new active card`);
+  const keyboardPredictionFocus = await evaluate(cdp, "document.activeElement.matches('#predictionCards .prediction-card[data-prediction-index=\"3\"] .task-title')");
+  assert.equal(keyboardPredictionFocus, true, `${label}: keyboard activation focuses the new question heading without activating either choice`);
   await tapSelector(cdp, "[data-action='select-prediction'][data-prediction-index='0']");
   assert.equal(await evaluate(cdp, "window.__staticKineticFrictionApp.getState().working.activePredictionIndex"), 0, `${label}: Part D can switch back to D1 without leaving the activity`);
   const predictionStageLayout = await evaluate(cdp, "(() => { const stage=document.getElementById('stage'),coach=document.getElementById('stageCoach'),readout=document.getElementById('predictionReadout'),block=document.querySelector('#apparatusSvg .apparatus-block'),surface=document.querySelector('#apparatusSvg .apparatus-surface'),blockRect=block?.getBoundingClientRect(),surfaceRect=surface?.getBoundingClientRect(); return { stagePrediction:stage.classList.contains('has-prediction'), coachHidden:coach.classList.contains('is-hidden'), coachDisplay:getComputedStyle(coach).display, readoutHidden:readout.classList.contains('is-hidden'), readoutDisplay:getComputedStyle(readout).display, blockTop:blockRect?.top, surfaceTop:surfaceRect?.top }; })()");
@@ -547,17 +596,37 @@ async function semanticSmoke(cdp, url, label) {
   const drawnPrediction = await evaluate(cdp, `(() => { const state=window.__staticKineticFrictionApp.getState(),draft=state.working.predictionDraft[0],label=document.querySelector('#apparatusSvg text.force-builder-label'),output=document.querySelector('[data-prediction-magnitude-readout]'); return { direction:draft?.direction, magnitudeCN:draft?.magnitudeCN, canonical:state.predictions[0], arrow:Boolean(document.querySelector('.prediction-friction-arrow')), readout:output?.textContent, forceLabelFont:label ? parseFloat(getComputedStyle(label).fontSize) : 0, readoutFont:output ? parseFloat(getComputedStyle(output).fontSize) : 0 }; })()`);
   assert.ok(drawnPrediction.direction === "left" && drawnPrediction.magnitudeCN > 0 && drawnPrediction.arrow && /N/.test(drawnPrediction.readout), `${label}: dragging the Part D target draws a leftward force and synchronises the readout ${JSON.stringify(drawnPrediction)}`);
   assert.ok(drawnPrediction.forceLabelFont >= 26 && drawnPrediction.readoutFont >= 18, `${label}: mobile force labels and numeric readouts are large enough to read ${JSON.stringify(drawnPrediction)}`);
-  await evaluate(cdp, `(() => { const card=document.querySelector('#predictionCards .prediction-card[data-prediction-index="0"]'); const set=(field,value)=>{const node=card.querySelector('[data-prediction-field="'+field+'"]');node.value=value;node.dispatchEvent(new Event('change',{bubbles:true}))};set('frictionType','static');set('motionOutcome','speed-up');return true; })()`);
+  await evaluate(cdp, `(() => {
+    const original=window.SimScorm.saveDraft;
+    window.__predictionChoiceProbe={original,saves:0,card:document.querySelector('.prediction-card-active')};
+    window.SimScorm.saveDraft=(...args)=>{window.__predictionChoiceProbe.saves+=1;return original(...args)};
+  })()`);
+  await tapSelector(cdp, "#predictionCards label:has([data-prediction-field='frictionType'][value='static'])");
+  await tapSelector(cdp, "#predictionCards label:has([data-prediction-field='motionOutcome'][value='speed-up'])");
+  const selectedPrediction = await evaluate(cdp, `(() => {
+    const {original,saves,card}=window.__predictionChoiceProbe;
+    window.SimScorm.saveDraft=original;
+    delete window.__predictionChoiceProbe;
+    const draft=window.__staticKineticFrictionApp.getState().working.predictionDraft[0];
+    return {saves, sameCard:card.isConnected, popups:card.querySelectorAll('select').length,
+      first:card.querySelector('[name="frictionType"]:checked')?.value,
+      second:card.querySelector('[name="motionOutcome"]:checked')?.value,
+      draft:[draft.frictionType,draft.motionOutcome]};
+  })()`);
+  assert.deepEqual(selectedPrediction, { saves: 2, sameCard: true, popups: 0, first: "static", second: "speed-up", draft: ["static", "speed-up"] },
+    `${label}: two trusted taps select both values directly and checkpoint each change once without rebuilding the active card`);
   await tapSelector(cdp, "[data-action='save-prediction']");
   const savedPrediction = await evaluate(cdp, `(() => { const state=window.__staticKineticFrictionApp.getState(),step=document.querySelector('.prediction-progress-step[data-prediction-index="0"]'); return { canonical:state.predictions[0], draft:state.working.predictionDraft[0], label:step?.textContent }; })()`);
   assert.ok(savedPrediction.canonical?.committed === true && savedPrediction.draft === null && /目前・已保存/.test(savedPrediction.label), `${label}: saving D1 creates canonical authority and marks the active tab as saved ${JSON.stringify(savedPrediction)}`);
   await tapSelector(cdp, "[data-action='select-prediction'][data-prediction-index='1']");
   await tapSelector(cdp, "[data-action='select-prediction'][data-prediction-index='0']");
-  await evaluate(cdp, `(() => { const card=document.querySelector('#predictionCards .prediction-card[data-prediction-index="0"]'),node=card.querySelector('[data-prediction-field="frictionType"]'); node.value='kinetic';node.dispatchEvent(new Event('change',{bubbles:true}));return true; })()`);
+  assert.deepEqual(await evaluate(cdp, "[...document.querySelectorAll('.prediction-card-active input[type=radio]:checked')].map(node=>node.value)"), ["static", "speed-up"], `${label}: revisiting D1 restores both saved choices`);
+  await pressKeyOn(cdp, "[data-prediction-field='frictionType'][value='static']", "ArrowRight");
   await tapSelector(cdp, "[data-action='select-prediction'][data-prediction-index='3']");
   const preservedPrediction = await evaluate(cdp, `(() => { const state=window.__staticKineticFrictionApp.getState(),step=document.querySelector('.prediction-progress-step[data-prediction-index="0"]'); return { active:state.working.activePredictionIndex, canonical:state.predictions[0], draft:state.working.predictionDraft[0], label:step?.textContent }; })()`);
   assert.deepEqual(preservedPrediction.canonical, savedPrediction.canonical, `${label}: switching away from a dirty D1 keeps its last saved canonical answer`);
   assert.equal(preservedPrediction.draft.committed, false, `${label}: switching away from D1 keeps the unsaved edit as a working draft`);
+  assert.equal(preservedPrediction.draft.frictionType, "kinetic", `${label}: the native radio group supports keyboard selection`);
   assert.match(preservedPrediction.label, /有未保存修改/, `${label}: a dirty D tab is visibly distinguished from its saved state`);
   await tapSelector(cdp, "[data-action='to-review']");
   const dReview = await evaluate(cdp, `(() => { const state=window.__staticKineticFrictionApp.getState(); return { phase:state.phase, canonical:state.predictions[0], predictionDraft:state.working?.predictionDraft, presentation:window.__staticKineticFrictionApp.getPresentation(), predictHidden:document.getElementById('predictPanel').classList.contains('is-hidden'), reviewVisible:!document.getElementById('reviewPanel').classList.contains('is-hidden'), submitDisabled:document.getElementById('submit').disabled }; })()`);
@@ -668,7 +737,7 @@ async function semanticSmoke(cdp, url, label) {
   const beforePrediction = predictionVisualBefore.magnitude;
   assert.equal(predictionDraft.target, 1, `${label}: prediction drag targets the active semantic card`); assert.equal(predictionDraft.authority, beforePrediction, `${label}: prediction review drag leaves authority immutable`); assert.notEqual(predictionDraft.draft, beforePrediction, `${label}: prediction drag persists a working draft`);
   assert.equal(predictionVisualBefore.arrow && predictionDraft.arrow, true, `${label}: Part D renders the learner friction arrow`); assert.notEqual(predictionDraft.handleX, predictionVisualBefore.handleX, `${label}: Part D arrowhead moves with learner magnitude`); assert.match(predictionDraft.readout, /畫出的摩擦力/, `${label}: Part D stage exposes learner-readable force text`);
-  await evaluate(cdp, `(() => { const select=document.querySelector('[data-prediction-index="1"] [data-prediction-field="frictionType"]');select.value='';select.dispatchEvent(new Event('change',{bubbles:true}));return true })()`);
+  await tapSelector(cdp, "#predictionCards label:has([data-prediction-field='frictionType'][value=''])");
   await tapSelector(cdp, "[data-prediction-index='1'] [data-action='save-prediction']");
   const validation = await evaluate(cdp, `(() => { const node=document.getElementById('validationStatus');return {visible:!node.classList.contains('is-hidden'),text:node.textContent,focused:document.activeElement===node} })()`);
   assert.equal(validation.visible, true, `${label}: invalid prediction shows a visible validation message`); assert.match(validation.text, /畫出摩擦力.*類型.*運動結果/, `${label}: validation message identifies the stage force and control choices`); assert.equal(validation.focused, true, `${label}: validation error has a deterministic screen-reader focus target`);

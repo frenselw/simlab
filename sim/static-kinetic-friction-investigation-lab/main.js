@@ -27,6 +27,8 @@
   const EXPERIMENT_START_POSITION_M = 0;
   const EXPERIMENT_FORCE_SCALE_PX_PER_N = 30;
   const EXPERIMENT_MAX_FORCE_N = 12;
+  const EXPERIMENT_MAX_CATCHUP_MS = 250;
+  const EXPERIMENT_MAX_SLIDING_RECORD_S = 10;
   // The B physics remains the ordinary fixed-kinetic-friction Newton model.
   // Keep the visual track close to the physical track so the automatically
   // maintained post-breakaway motion is clearly visible within 30 seconds.
@@ -126,7 +128,6 @@
     let experimentTimedOut = false;
     let experimentStatusOverride = null;
     let previousFrameMs = null;
-    let experimentStartupGraceFrames = 0;
     let experimentInputQueue = null;
     let experimentInputPageOriginMs = 0;
     let experimentInputSimulationOriginS = 0;
@@ -413,8 +414,10 @@
           title = "30 秒記錄已結束"; text = "請按「重新開始」，再在 30 秒內完成一份可分析的實驗記錄。";
         } else if (experimentQuality && !experimentQuality.valid) {
           title = "這次記錄未能保存"; text = "請按「開始 30 秒記錄」重新嘗試；只需逐漸增加拉力，直到物體開始滑動。";
+        } else if (recorder?.running && experimentAutoKineticHold) {
+          title = "物體已開始滑動，可以放手"; text = "系統會自動調節拉力，再記錄最多 10 秒。";
         } else if (recorder?.running) {
-          title = "記錄中：逐漸增加拉力至物體開始滑動"; text = experimentAutoKineticHold ? "物體已開始滑動；系統會自動調節拉力，使物體保持接近勻速運動。" : "按住中央小圓點向右拖，逐漸增加拉力，直到物體開始滑動；之後由系統自動調節拉力。";
+          title = "記錄中：逐漸增加拉力至物體開始滑動"; text = "按住中央小圓點向右拖，逐漸增加拉力，直到物體開始滑動。";
         } else {
           title = "先按「開始 30 秒記錄」"; text = "開始後按住物體中央的小圓點向右拖動，逐漸增加拉力，直到物體開始滑動。";
         }
@@ -471,7 +474,6 @@
       experimentTimedOut = false;
       experimentStatusOverride = null;
       previousFrameMs = null;
-      experimentStartupGraceFrames = 0;
       experimentInputQueue = null;
       experimentInputPageOriginMs = 0;
       experimentInputSimulationOriginS = 0;
@@ -508,7 +510,7 @@
     }
     function inputSimulationTimeS(eventTimestampMs) {
       const elapsedS = Math.max(0, (normalizeInputTimestampMs(eventTimestampMs) - experimentInputPageOriginMs) / 1000);
-      return clamp(experimentInputSimulationOriginS + elapsedS, experimentInputSimulationOriginS, Measurement.MAX_TRIAL_DURATION_S);
+      return experimentInputSimulationOriginS + elapsedS;
     }
     function handleTargetForForce(forceN) {
       if (!scenario) return 0.18;
@@ -529,22 +531,18 @@
       for (const input of experimentPendingInputs) {
         const elapsedS = Math.max(0, (input.pageTimeMs - experimentInputPageOriginMs) / 1000);
         Physics.enqueueInput(experimentInputQueue, {
-          timeS: clamp(experimentInputSimulationOriginS + elapsedS, experimentInputSimulationOriginS, Measurement.MAX_TRIAL_DURATION_S),
+          timeS: experimentInputSimulationOriginS + elapsedS,
           handleTargetPositionM: input.handleTargetPositionM
         });
       }
       experimentPendingInputs = [];
     }
-    function rebaseExperimentInputClock(pageNowMs) {
-      const nextPageOriginMs = normalizeInputTimestampMs(pageNowMs);
-      const elapsedS = Math.max(0, (nextPageOriginMs - experimentInputPageOriginMs) / 1000);
-      const nextSimulationOriginS = finite(directExperimentState?.timeS, 0);
-      if (experimentInputQueue && elapsedS > 0) {
-        for (const entry of experimentInputQueue.entries) entry.timeS = Math.max(nextSimulationOriginS, entry.timeS - elapsedS);
-        experimentInputQueue.entries.sort((a, b) => a.timeS - b.timeS || a.order - b.order);
+    function skipExperimentFrameGap(gapMs) {
+      experimentInputPageOriginMs += gapMs;
+      const pauseTimeS = directExperimentState.timeS + experimentAccumulatorS;
+      for (const entry of experimentInputQueue.entries) {
+        entry.timeS = Math.max(pauseTimeS, entry.timeS - gapMs / 1000);
       }
-      experimentInputPageOriginMs = nextPageOriginMs;
-      experimentInputSimulationOriginS = nextSimulationOriginS;
     }
     function setExperimentAppliedForce(value, eventTimestampMs = currentPageClockMs()) {
       if (experimentAutoKineticHold) return;
@@ -679,7 +677,7 @@
       if (state?.trial) return "記錄已保存，可以前往 Part C。";
       if (experimentTimedOut) return "30 秒記錄已結束。請按「重新開始」，再在 30 秒內完成一份可分析的實驗記錄。";
       if (!recorder?.running || !directExperimentState) return "尚未開始記錄。";
-      if (experimentAutoKineticHold) return "物體已開始滑動；系統正自動調節拉力，使物體保持接近勻速運動。";
+      if (experimentAutoKineticHold) return "物體已開始滑動，可以放手。系統正自動調節拉力，使物體保持接近勻速運動，並繼續記錄。";
       return "記錄中：逐漸增加拉力。";
     }
     function predictionPullText(spec) {
@@ -910,52 +908,28 @@
       }
       previousFrameMs = null;
     }
-    function abortExperimentForTimingGap() {
-      if (recorder) { recorder.stalled = true; recorder.running = false; }
-      stopLoop();
-      markRecordingActive(false);
-      recorder = null;
-      experimentInputQueue = null;
-      experimentInputClockReady = false;
-      experimentPendingInputs = [];
-      experimentAppliedForceN = 0;
-      experimentAutoKineticHold = false;
-      experimentAutoHoldElapsedS = 0;
-      experimentStartupGraceFrames = 0;
-      experimentStatusOverride = "這次記錄中斷，資料未能保存。請重新開始。";
-      setText("experimentStatus", experimentStatusOverride);
-      announce("記錄中斷，請重新開始");
-      render();
-      return { running: false, abortedOnStall: true, steps: 0 };
-    }
     function advanceExperimentFrame(nowMs, options = {}) {
-      if (!recorder?.running || !scenario || !directExperimentState) return { running: false, abortedOnStall: false, steps: 0 };
+      if (!recorder?.running || !scenario || !directExperimentState) return { running: false, steps: 0 };
       const normalizedNowMs = normalizeInputTimestampMs(nowMs);
-      const firstDeliveredFrame = previousFrameMs == null;
-      if (firstDeliveredFrame) {
-        previousFrameMs = normalizedNowMs;
+      if (previousFrameMs == null) {
+        // The first delivered frame establishes the recording clock.
         establishExperimentInputClock(normalizedNowMs);
       }
-      const frameDurationMs = Math.max(0, normalizedNowMs - previousFrameMs);
+      const frameDurationMs = Math.max(0, normalizedNowMs - (previousFrameMs ?? normalizedNowMs));
       previousFrameMs = normalizedNowMs;
-      if (firstDeliveredFrame) {
-        // Establishing the clock is not a physics frame.  Keep one startup
-        // grace interval for a slow confirmation/render hand-off.
-      } else if (frameDurationMs > 50) {
-        if (experimentStartupGraceFrames > 0) {
-          experimentStartupGraceFrames -= 1;
-          rebaseExperimentInputClock(normalizedNowMs);
-          experimentAccumulatorS = 0;
-        } else {
-          return abortExperimentForTimingGap();
-        }
+      if (frameDurationMs > EXPERIMENT_MAX_CATCHUP_MS) {
+        // Pause across long gaps to avoid replaying an unseen stretch of motion.
+        skipExperimentFrameGap(frameDurationMs);
       } else {
-        experimentStartupGraceFrames = 0;
         experimentAccumulatorS += frameDurationMs / 1000;
       }
+      let endTimeS = Measurement.MAX_TRIAL_DURATION_S;
+      if (experimentAutoKineticHold) {
+        endTimeS = Math.min(endTimeS, directExperimentState.timeS - experimentAutoHoldElapsedS + EXPERIMENT_MAX_SLIDING_RECORD_S);
+      }
       let steps = 0;
-      while (experimentAccumulatorS >= Physics.PHYSICS_DT_S - 1e-9 && directExperimentState.timeS < Measurement.MAX_TRIAL_DURATION_S - 1e-9) {
-        const stepS = Math.min(Physics.PHYSICS_DT_S, Measurement.MAX_TRIAL_DURATION_S - directExperimentState.timeS);
+      while (experimentAccumulatorS >= Physics.PHYSICS_DT_S - 1e-9 && directExperimentState.timeS < endTimeS - 1e-9) {
+        const stepS = Math.min(Physics.PHYSICS_DT_S, endTimeS - directExperimentState.timeS);
         const previousPhysical = directExperimentState;
         const previousMeasurement = measurementState;
         const tickTimeS = directExperimentState.timeS + stepS;
@@ -977,12 +951,12 @@
           if (event.type === "breakaway" && !breakawayAnnounced) {
             breakawayAnnounced = true;
             experimentAutoKineticHold = true;
-            experimentAutoHoldElapsedS = 0;
+            experimentAutoHoldElapsedS = nextPhysical.timeS - event.timeS;
+            endTimeS = Math.min(endTimeS, event.timeS + EXPERIMENT_MAX_SLIDING_RECORD_S);
             experimentAppliedForceN = experimentKineticHoldForceN();
             if (experimentInputQueue) experimentInputQueue.entries.length = 0;
             experimentPendingInputs = [];
-            announce("物體已開始滑動；系統正自動調節拉力，使物體保持接近勻速運動");
-            setText("experimentStatus", "物體已開始滑動；系統正自動調節拉力，使物體保持接近勻速運動。");
+            announce("物體已開始滑動，可以放手。系統會繼續記錄。");
           }
         }
         directExperimentState = nextPhysical;
@@ -990,12 +964,13 @@
         experimentAccumulatorS -= stepS;
         steps += 1;
       }
-      if (directExperimentState.timeS >= Measurement.MAX_TRIAL_DURATION_S - 1e-9) {
-        timeoutExperiment();
-        return { running: false, abortedOnStall: false, steps };
+      if (directExperimentState.timeS >= endTimeS - 1e-9) {
+        if (endTimeS === Measurement.MAX_TRIAL_DURATION_S) timeoutExperiment();
+        else stopRecording();
+        return { running: false, steps };
       }
       if (options.renderFrame !== false) renderApparatus();
-      return { running: Boolean(recorder?.running), abortedOnStall: false, steps };
+      return { running: Boolean(recorder?.running), steps };
     }
     function startLoop() {
       stopLoop();
@@ -1027,11 +1002,6 @@
       setText("experimentStatus", "記錄中：逐漸增加拉力。");
       renderApparatus();
       if (!options.manualClock && !options.deferLoop) startLoop();
-      // The first delivered frame establishes the recording clock. The first
-      // interval after that baseline is the only startup hand-off grace; the
-      // normal 50 ms stall watchdog applies from the next interval onward.
-      previousFrameMs = null;
-      experimentStartupGraceFrames = 1;
       return true;
     }
     function hideRedoExperimentConfirmation() {
@@ -1319,6 +1289,10 @@
       analysisDraft = null;
       return true;
     }
+    function predictionChoices(field, title, selected, options) {
+      const choices = Object.entries(options).map(([value, label]) => `<label><input type="radio" name="${field}" data-prediction-field="${field}" value="${value}"${value === (selected ?? "") ? " checked" : ""}> ${label}</label>`);
+      return `<fieldset class="prediction-choices"><legend>${title}</legend><div>${choices.join("")}</div></fieldset>`;
+    }
     function renderPredictions() {
       const host = q("predictionCards"); if (!host || !scenario) return;
       host.replaceChildren();
@@ -1355,7 +1329,21 @@
       const card = document.createElement("article");
       card.className = "prediction-card prediction-card-active";
       card.dataset.predictionIndex = activeIndex;
-      card.innerHTML = `<div class="prediction-card-heading"><p class="task-title">${spec.id}：根據圖示作答</p><span class="prediction-step-label">第 ${activeIndex + 1} 題／共 4 題</span></div><p class="prediction-prompt">請根據以下情境表示你判斷的摩擦力，並選擇摩擦力類型及運動結果。</p>${kineticPrompt ? `<p class="prediction-average-prompt">${kineticPrompt}</p>` : ""}<p class="prediction-scenario">${predictionPullMarkup(spec)}；${velocityText}</p><input type="hidden" data-prediction-field="direction" value="${response.direction || ""}"><input type="hidden" data-prediction-field="magnitudeCN" value="${magnitude == null ? "" : magnitude}"><p class="prediction-force-readout">${forceReadoutLabel}：<output data-prediction-magnitude-readout>${magnitudeText}</output></p><label>摩擦力類型<select data-prediction-field="frictionType"><option value="">請選擇</option><option value="none" ${response.frictionType === "none" ? "selected" : ""}>沒有摩擦力</option><option value="static" ${response.frictionType === "static" ? "selected" : ""}>靜摩擦力</option><option value="kinetic" ${response.frictionType === "kinetic" ? "selected" : ""}>滑動摩擦力</option></select></label><label>運動結果<select data-prediction-field="motionOutcome"><option value="">請選擇</option><option value="remain-still" ${response.motionOutcome === "remain-still" ? "selected" : ""}>保持靜止</option><option value="start-sliding" ${response.motionOutcome === "start-sliding" ? "selected" : ""}>開始滑動</option><option value="speed-up" ${response.motionOutcome === "speed-up" ? "selected" : ""}>加速</option><option value="slow-down" ${response.motionOutcome === "slow-down" ? "selected" : ""}>減速</option></select></label><div class="save-action-row"><button type="button" data-action="save-prediction" class="primary-button">${state.fromReview ? `保存 D${activeIndex + 1} 修改` : `保存 D${activeIndex + 1} 答案`}</button></div>`;
+      card.innerHTML = `
+        <div class="prediction-card-heading"><p class="task-title">${spec.id}：根據圖示作答</p><span class="prediction-step-label">第 ${activeIndex + 1} 題／共 4 題</span></div>
+        <p class="prediction-prompt">請根據以下情境表示你判斷的摩擦力，並選擇摩擦力類型及運動結果。</p>
+        ${kineticPrompt ? `<p class="prediction-average-prompt">${kineticPrompt}</p>` : ""}
+        <p class="prediction-scenario">${predictionPullMarkup(spec)}；${velocityText}</p>
+        <input type="hidden" data-prediction-field="direction" value="${response.direction || ""}">
+        <input type="hidden" data-prediction-field="magnitudeCN" value="${magnitude == null ? "" : magnitude}">
+        <p class="prediction-force-readout">${forceReadoutLabel}：<output data-prediction-magnitude-readout>${magnitudeText}</output></p>
+        ${predictionChoices("frictionType", "摩擦力類型", response.frictionType, {
+          "": "未作答", none: "沒有摩擦力", static: "靜摩擦力", kinetic: "滑動摩擦力"
+        })}
+        ${predictionChoices("motionOutcome", "運動結果", response.motionOutcome, {
+          "": "未作答", "remain-still": "保持靜止", "start-sliding": "開始滑動", "speed-up": "加速", "slow-down": "減速"
+        })}
+        <div class="save-action-row"><button type="button" data-action="save-prediction" class="primary-button">${state.fromReview ? `保存 D${activeIndex + 1} 修改` : `保存 D${activeIndex + 1} 答案`}</button></div>`;
       if (response.committed && !state.fromReview && activeIndex < scenario.predictions.length - 1) card.insertAdjacentHTML("beforeend", `<button type="button" data-action="advance-prediction" class="next-button">下一題 D${activeIndex + 2}</button>`);
       if (response.committed && !state.fromReview && activeIndex >= scenario.predictions.length - 1) card.insertAdjacentHTML("beforeend", `<p class="neutral-status">四題已保存；亦可直接前往提交前檢查。</p>`);
       host.append(card);
@@ -1364,12 +1352,19 @@
       q("to-review")?.toggleAttribute("disabled", false);
       q("to-review")?.classList.toggle("is-hidden", Boolean(state.fromReview));
     }
+    function predictionValues(card) {
+      const values = {};
+      card.querySelectorAll("[data-prediction-field]:checked, input[type='hidden'][data-prediction-field]").forEach((input) => {
+        values[input.dataset.predictionField] = input.value || null;
+      });
+      values.magnitudeCN = values.magnitudeCN == null ? null : Math.round(Number(values.magnitudeCN));
+      return values;
+    }
     function collectPredictionDraft(card) {
       if (!card || !state || !scenario) return;
       const index = Number(card.dataset.predictionIndex);
       if (!Number.isInteger(index)) return;
-      const values = {};
-      card.querySelectorAll("[data-prediction-field]").forEach((input) => { values[input.dataset.predictionField] = input.dataset.predictionField === "magnitudeCN" ? (input.value === "" ? null : Math.round(Number(input.value))) : (input.value || null); });
+      const values = predictionValues(card);
       try {
         state = Persistence.transitions.setPrediction(state, index, { id: scenario.predictions[index].id, scenarioId: scenario.predictions[index].scenarioId, frictionType: values.frictionType, direction: values.direction, magnitudeCN: values.magnitudeCN, motionOutcome: values.motionOutcome, committed: false });
         saveDraft();
@@ -1483,7 +1478,7 @@
     }
     function applyAttempt(attempt) {
       const interruptedRecording = consumeInterruptedRecording();
-      stopLoop(); cancelBalanceMotion(); recorder = null; previousFrameMs = null; experimentStartupGraceFrames = 0; dragging = null; breakawayAnnounced = false; directExperimentState = null; experimentAppliedForceN = 0; experimentAutoKineticHold = false; experimentAutoHoldElapsedS = 0; experimentAccumulatorS = 0; experimentInputQueue = null; experimentInputPageOriginMs = 0; experimentInputSimulationOriginS = 0; experimentInputClockReady = false; experimentPendingInputs = []; experimentQuality = null; experimentTimedOut = false; experimentStatusOverride = null; balanceDirectState = null; balanceForceEndpointX = null; balanceOffscreen = false; balanceDrawingsSource = null; balanceDrawings = { applied: null, friction: null };
+      stopLoop(); cancelBalanceMotion(); recorder = null; previousFrameMs = null; dragging = null; breakawayAnnounced = false; directExperimentState = null; experimentAppliedForceN = 0; experimentAutoKineticHold = false; experimentAutoHoldElapsedS = 0; experimentAccumulatorS = 0; experimentInputQueue = null; experimentInputPageOriginMs = 0; experimentInputSimulationOriginS = 0; experimentInputClockReady = false; experimentPendingInputs = []; experimentQuality = null; experimentTimedOut = false; experimentStatusOverride = null; balanceDirectState = null; balanceForceEndpointX = null; balanceOffscreen = false; balanceDrawingsSource = null; balanceDrawings = { applied: null, friction: null };
       const startup = routeStartup(attempt);
       if (startup === "review") {
         try {
@@ -1541,12 +1536,11 @@
       if (["confirm-redo-experiment", "cancel-redo-experiment"].includes(action)) { focusPhase(); return; }
       if (["navigate-phase", "to-experiment", "to-analysis", "to-predict", "to-review", "edit-balance", "edit-balance-task", "edit-analysis", "edit-predict", "cancel-review-edit"].includes(action)) { focusPhase(); return; }
       if (action === "select-analysis-task") { focusNode(q(currentAnalysisKey() ? ANALYSIS_MARKER_META.find((marker) => marker.key === currentAnalysisKey())?.id : null)); return; }
-      if (action === "select-prediction") { focusNode(predictionCardAt()?.querySelector("select")); return; }
+      if (["select-prediction", "advance-prediction"].includes(action)) { focusNode(predictionCardAt()?.querySelector(".task-title")); return; }
       if (action === "save-zero-force") { focusNode(q("draw-applied")); return; }
       if (action === "save-static-force") { focusNode(q("balanceOrigin")); return; }
       if (action === "save-breakaway-answer") { focusNode(q("to-experiment")); return; }
       if (action === "save-analysis") { focusNode(q("analysisTasks")); return; }
-      if (action === "advance-prediction") { focusNode(predictionCardAt()?.querySelector("select")); return; }
       if (action === "request-redo-experiment") focusNode(q("experimentOrigin") || q("startRecording"));
     }
     function validationMessage(action) {
@@ -1601,9 +1595,8 @@
           else if (action === "save-analysis") { const draft = collectAnalysisDraft(); if (!commitAnalysisDraft(draft)) throw new Error("complete the active analysis task before saving"); saveDraft(); announce("三個標記已保存"); }
           else if (action === "to-predict") navigateToPhase("predict");
           else if (action === "save-prediction") {
-            const card = event.target.closest("[data-prediction-index]"); const index = Number(card.dataset.predictionIndex); const values = {};
-            card.querySelectorAll("[data-prediction-field]").forEach((input) => { values[input.dataset.predictionField] = input.dataset.predictionField === "magnitudeCN" ? (input.value === "" ? null : Number(input.value)) : input.value || null; });
-            const magnitudeCN = values.magnitudeCN == null ? 0 : Math.round(Number(values.magnitudeCN));
+            const card = event.target.closest("[data-prediction-index]"); const index = Number(card.dataset.predictionIndex); const values = predictionValues(card);
+            const magnitudeCN = values.magnitudeCN ?? 0;
             if (!values.frictionType || !values.motionOutcome) throw new Error("complete the drawn force type and motion result");
             if (values.frictionType === "none") {
               if (magnitudeCN !== 0) throw new Error("no-friction answer cannot contain an arrow");
@@ -1633,7 +1626,6 @@
       // The panel's own overflow and overscroll containment own touch scrolling.
       // Never lock or restore the enclosing player: delayed host unlocks race
       // consecutive touches and can leave its original overflow permanently hidden.
-      document.addEventListener("input", (event) => { if (event.target.dataset?.predictionField) collectPredictionDraft(event.target.closest("[data-prediction-index]")); });
       document.addEventListener("change", (event) => { if (event.target.dataset?.predictionField) collectPredictionDraft(event.target.closest("[data-prediction-index]")); });
       document.addEventListener("keydown", (event) => {
         const target = event.target;
@@ -1695,8 +1687,7 @@
       if (!Number.isInteger(index)) return;
       const direction = force?.direction || "none";
       const magnitudeCN = force?.magnitudeCN || 0;
-      const frictionType = card.querySelector("[data-prediction-field='frictionType']")?.value || null;
-      const motionOutcome = card.querySelector("[data-prediction-field='motionOutcome']")?.value || null;
+      const { frictionType, motionOutcome } = predictionValues(card);
       const directionInput = card.querySelector("[data-prediction-field='direction']");
       const magnitudeInput = card.querySelector("[data-prediction-field='magnitudeCN']");
       if (directionInput) directionInput.value = direction;
@@ -1916,7 +1907,6 @@
     }
     const regression = Object.freeze({
       startExperiment: (pageNowMs = 0) => startRecording({ manualClock: true, pageNowMs }),
-      startExperimentReal: () => startRecording(),
       queueExperimentForce: (forceN, eventTimestampMs) => setExperimentAppliedForce(forceN, eventTimestampMs),
       queueExperimentForces: (entries) => { for (const entry of entries || []) setExperimentAppliedForce(entry.forceN, entry.timeStampMs); return experimentInputQueue?.entries.length || 0; },
       advanceExperimentFrame: (nowMs) => advanceExperimentFrame(nowMs, { renderFrame: false }),
