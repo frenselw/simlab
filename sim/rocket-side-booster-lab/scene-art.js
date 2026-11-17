@@ -208,7 +208,7 @@ void main(){
   float along=-dot(uObserver,ray);
   bool blocked=uOrbitSky<.5 && along>0.0 && along*along>max(0.0,dot(uObserver,uObserver)-1.0);
   if(!blocked){
-   if(moon<uMoonDisc.w+moonEdge){
+   if(uMoonDisc.w>0.0&&moon<uMoonDisc.w+moonEdge){
     vec3 offset=(ray-dot(ray,uMoonDisc.xyz)*uMoonDisc.xyz)/uMoonDisc.w;
     vec3 normal=offset-uMoonDisc.xyz*sqrt(max(0.0,1.0-dot(offset,offset)));
     float diffuse=max(0.0,dot(normal,uMoonLight));

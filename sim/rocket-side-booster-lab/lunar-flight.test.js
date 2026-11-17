@@ -2,7 +2,7 @@
 const assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path'),zlib=require('node:zlib');
 const C=require('./celestial'),L=require('./lunar-flight'),P=require('./parts');
-const {Controller,advanceFrame}=require('./ui-runtime');
+const {Controller,advanceFrame,warpLimit}=require('./ui-runtime');
 const references=require('../../tools/rocket-art/lunar-flyby-results.json');
 const bytes=zlib.gunzipSync(fs.readFileSync(path.join(__dirname,'assets/lunar-ephemeris.bin.gz')));
 const table=C.ephemeris(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength));
@@ -50,7 +50,8 @@ assert(!corrected.command({...burn,start:341}));
 assert(corrected.command(burn));
 until(corrected,C.DAY-.05);
 const f=corrected.state.flight, before=f.eci.slice();
-advanceFrame(corrected,.2,1000);
+assert.equal(warpLimit(f),20);
+advanceFrame(corrected,.2,10000);
 assert(f.t>C.DAY+.1);
 const [start,stop]=f.lunar.events.filter(e=>e.type.startsWith('correction'));
 assert(Math.abs(start.t-C.DAY)<1e-8&&Math.abs(stop.t-C.DAY-.1)<1e-8);
@@ -70,4 +71,58 @@ const cut=until(manual,13);
 assert(!cut.controls.lit&&P.burning(cut));
 assert.equal(cut.lunar.events.at(-1).type,'cutoff');
 assert(Math.abs(cut.lunar.events.at(-1).t-12.27)<1e-8);
+
+const shortcut=new Controller();
+shortcut.lunarTable=table;
+assert(shortcut.command({type:'part',stage:0,part:'engine',value:2}));
+const design=structuredClone(shortcut.state.craft);
+assert(shortcut.command({type:'lunar-transfer'}));
+assert.deepEqual(shortcut.state.craft,design);
+const ship=shortcut.state.flight;
+assert.equal(shortcut.state.phase,'coast');
+assert(!shortcut.running&&ship.capsule.detached&&!ship.controls.lit);
+assert.equal(ship.t,7200);
+assert.equal(warpLimit(ship),10000);
+assert(Math.abs(ship.capsule.fuel-reference.capsuleFuelKg)<1e-7);
+shortcut.play();
+let slowed=false,resumed=false,wall=0;
+for(;shortcut.running&&wall<100;wall+=.1){
+  advanceFrame(shortcut,.1,10000);
+  const limit=warpLimit(ship);
+  if(limit===1000){
+    assert(ship.moon.height<=20000000);
+    slowed=true;
+  }else if(slowed&&limit===10000)resumed=true;
+}
+assert(slowed&&resumed&&ship.lunar.outcome==='flyby'&&wall<90);
+assert(Math.abs(ship.lunar.closest.height-complete.lunar.closest.height)<10);
+assert(Math.abs(ship.capsule.fuel-complete.capsule.fuel)<1e-8);
+assert(shortcut.command({type:'workshop'}));
+assert.deepEqual(shortcut.state.craft,design);
+
+const demo=new Controller();
+demo.lunarTable=table;
+assert(demo.command({type:'lunar-return'}));
+const returning=demo.state.flight,initialFuel=returning.capsule.fuel;
+assert.equal(returning.t,7200);
+assert(returning.lunar.freeReturn&&returning.capsule.detached&&!returning.controls.lit);
+const steps=L.forecast(returning,table);
+let next;
+do{next=steps.next();}while(!next.done);
+const predicted=next.value;
+assert(predicted.points.length>500&&predicted.closest&&predicted.entry);
+demo.play();
+until(demo,10*C.DAY);
+const {closest,entry,events,outcome}=returning.lunar;
+assert.equal(outcome,'landed');
+assert(Math.abs(closest.height-9262600)<25,JSON.stringify(closest));
+assert(Math.abs(closest.height-predicted.closest.height)<50);
+assert(Math.abs(entry.t-predicted.entry.t)<1);
+assert(Math.abs(entry.speed-10588.39)<1&&Math.abs(entry.angle+5.925)<.01);
+assert.deepEqual(events.map(e=>e.type),['return-coast','return-entry','drogue-opening','main-opening','landed']);
+assert.equal(returning.capsule.fuel,initialFuel);
+assert(returning.capsule.heat>0&&returning.capsule.heat<1);
+assert(Math.abs(Math.hypot(returning.capsule.touchdown.normal,returning.capsule.touchdown.tangent)-5.084)<.1);
+console.log('Lunar free return:',JSON.stringify({closest,entry,events,outcome,fuelKg:initialFuel,
+  heat:returning.capsule.heat,touchdown:returning.capsule.touchdown}));
 console.log('Lunar replay, time warp correction, exact cutoff and flyby fuel passed');

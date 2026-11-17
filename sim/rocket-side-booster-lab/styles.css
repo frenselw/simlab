@@ -209,6 +209,7 @@
 .lunar-panel input,.lunar-panel select{min-width:0;width:100%;min-height:44px;font:inherit}
 .lunar-panel label{min-width:0}
 .lunar-panel button,.lunar-actions button{min-height:44px}
+.lunar-transfer-hint{margin:4px 0 10px}
 .lunar-inputs{margin:6px 0 8px}
 @media(max-width:375px){.lunar-inputs{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:719px){.lunar-flight .flight-toolbar .primary-actions{grid-template-columns:repeat(3,minmax(0,1fr))}}
