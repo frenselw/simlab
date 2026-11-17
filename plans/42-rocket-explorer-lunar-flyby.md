@@ -341,4 +341,10 @@ Chrome 冷載入測試記錄三個新增腳本及星曆共 102,596 bytes 回應�
 - Chrome 以 390×844 觸控源碼及 1000×700 解壓獨立版，重播一鍵自由返回、原發射台飛掠、原飛掠快捷入口、地球返航及日月鏡頭。獨立版逐檔與源碼比對。自由返回以可信觸控或滑鼠啟動，時間推進使用生產控制器。兩版都驗證 WebGL 恢復時保留飛行時刻及月面圖，手機尺寸源碼另封鎖月面圖請求，確認只嘗試一次，保留基本球體且仍能降落。
 - 兩版量到相同的月球功能回應內容。開啟工廠 11,458 bytes，進入航線後至近月圖觸發前累計 115,006 bytes，含一次星曆。近月後共 572,948 bytes。切回工廠與 WebGL 恢復未重複下載。數字只計月球功能腳本、星曆及月面圖的 HTTP body。
 - `node --test` 的 18 個火箭相關測試、`npm run check:tests`（309 項）、`npm run check` 及 `git diff --check` 通過。瀏覽器報告在 `output/playwright/rocket-side-booster-lab/lunar-free-return-browser.json`，同目錄另有航線、近月、再入、開傘及降落截圖。
-- 真機效能、其他瀏覽器、提交後的選測預覽及站點發佈仍待驗。
+- 真機效能、非 Chromium 瀏覽器及站點發佈仍待驗。
+
+### 提交後的測試選擇預覽
+
+`npm run test:affected -- --base=dac798f9 --head=e2e0073e --plan` 比較月球分支與 `main` 的共同祖先。選擇器將 `tools/rocket-art/build-lunar-ephemeris.py` 判為未知依賴，選出全部 309 個登記測試及全部套件，其中包括 `tools/rocket-side-booster-browser-regression.js`。本次執行的 20 項火箭相關 Node 測試及測試登記檢查均通過。
+
+Edge 157 使用 390×844 觸控源碼版與 1000×700 解壓獨立版，均通過發射台飛掠、奔月快捷入口及自由返回。自由返回最近月面 9,262.596 km，著陸速度 5.084 m/s，月球功能回應共 572,948 bytes。兩版均通過 WebGL 恢復，來源版也在封鎖月面貼圖後成功降落。獨立 ZIP 已重建並逐檔比對源碼。瀏覽器報告在 `output/playwright/rocket-side-booster-lab/lunar-edge-browser.json`，`npm run check` 亦通過。
