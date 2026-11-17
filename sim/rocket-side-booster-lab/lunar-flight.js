@@ -71,6 +71,12 @@
   }
   function sync(f,table){
     const frame=C.earthFrame(epoch(f)+f.t);
+    if(!f.lunar.mapAxes){
+      const approach=table.body(epoch(f)+(f.lunar.freeReturn?4.2:5.2)*C.DAY,0);
+      // Match the east/up/north handedness of the existing scene.
+      const right=unit(approach.slice(0,3)),depth=unit(cross(approach.slice(3),right));
+      f.lunar.mapAxes=[right,cross(right,depth),depth];
+    }
     for(const body of [f,f.upperStage].filter(Boolean)){
       const r=body.eci.slice(0,3),v=body.eci.slice(3,6);
       const position=surfaceVector(frame,r),velocity=surfaceVector(frame,v),axis=surfaceVector(frame,body.axis);
@@ -87,6 +93,7 @@
     }));
     const [up,east,north]=surfaceVector(frame,unit(cross(moonState.slice(0,3),moonState.slice(3,6))));
     f.sky.moonNorth=[east,up,north];
+    f.sky.mapBasis=f.lunar.mapAxes.map(axis=>S.fromGeocentric(...C.toColumns(frame,axis)));
     const sample=lunarDistance(table,f,f.t,f.eci);
     f.moon={height:sample.height,speed:sample.speed};
   }
@@ -468,7 +475,7 @@
       f.boosters.status='jettisoned';
       f.fuel=[0,0];
       f.status='flying';
-      Object.assign(f.lunar,{freeReturn:true,epoch:RETURN_EPOCH,pole:C.earthFrame(RETURN_EPOCH)[2],
+      Object.assign(f.lunar,{freeReturn:true,epoch:RETURN_EPOCH,pole:C.earthFrame(RETURN_EPOCH)[2],mapAxes:null,
         guided:false,sequence:[],trail:[f.eci.slice(0,3)]});
       sync(f,table);
     }else command(s,{type:'ignite'},table);
@@ -538,7 +545,7 @@
     const start=f.t,l=f.lunar,position=q=>q.slice(0,3);
     const derivative=(t,q)=>[...q.slice(3),...C.gravity(table,epoch(f)+t,position(q))];
     let t=start,q=f.eci.slice(),moon=lunarDistance(table,f,t,q),closest=null,entry=null;
-    const points=[position(q)];
+    const points=[position(q)],times=[t];
     let sampled=start,count=0;
     while(t<MAX_FLIGHT){
       const earth=norm(position(q))-P.R;
@@ -555,7 +562,8 @@
           }
           entry={t:t+hi};
           points.push(position(at(hi)));
-        }else points.push(position(next));
+          times.push(entry.t);
+        }else{points.push(position(next));times.push(t+dt);}
         break;
       }
       if(moon.rate<0&&sample.rate>=0){
@@ -565,19 +573,23 @@
           if(lunarDistance(table,f,t+mid,at(mid)).rate>=0)hi=mid;
           else lo=mid;
         }
-        const minimum={...lunarDistance(table,f,t+hi,at(hi)),t:t+hi};
+        const nearest=at(hi);
+        const minimum={...lunarDistance(table,f,t+hi,nearest),t:t+hi,position:position(nearest)};
         if(!closest||minimum.height<closest.height)closest=minimum;
       }
       const ends=!l.freeReturn&&closest?.height<=NEAR&&moon.height<=NEAR&&sample.height>NEAR;
       t+=dt;q=next;moon=sample;
-      if(t-sampled>=900||ends){points.push(position(q));sampled=t;}
+      if(t-sampled>=900||ends){points.push(position(q));times.push(t);sampled=t;}
       if(ends)break;
       if(++count%48===0)yield;
     }
-    return {points,closest,entry};
+    return {points,times,closest,entry};
   }
   function skyFrame(f){return {sun:f.sky.sun,moon:f.sky.moon,moonNorth:f.sky.moonNorth,angle:0};}
-  function trajectory(f,points){const frame=C.earthFrame(epoch(f)+f.t);return points.map(point=>surfaceVector(frame,point));}
+  function trajectory(f,points){return points.map(point=>{
+    const [right,up,depth]=C.toColumns(f.lunar.mapAxes,point);
+    return [up,right,depth];
+  });}
   const flightUtc=f=>C.utc(epoch(f)+f.t);
   return Object.freeze({LAUNCH,FAST_WARP,MOON_RADIUS:C.MOON_RADIUS,utc:C.utc,flightUtc,preset,compatible,open,transfer,advance,command,warpLimit,guidanceLocked,skyFrame,trajectory,forecast});
 });

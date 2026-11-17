@@ -213,3 +213,13 @@
 .lunar-inputs{margin:6px 0 8px}
 @media(max-width:375px){.lunar-inputs{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:719px){.lunar-flight .flight-toolbar .primary-actions{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.moon-locator,.map-label{position:absolute;z-index:4;pointer-events:none;white-space:nowrap;color:#fff8df;background:#10232dec;border:1px solid #b6c6c2;border-radius:6px;font-size:12px;line-height:1.2}
+.moon-locator{display:flex;align-items:center;gap:5px;padding:5px 8px;transform:translate(-50%,11px)}
+.moon-locator[data-edge=true]{transform:translate(-50%,-50%)}
+.moon-locator span{width:9px;height:9px;border:1px solid #f3d182;border-radius:50%}
+.moon-locator[data-edge=true] span{border:0;border-radius:0;background:#f3d182;clip-path:polygon(0 0,100% 50%,0 100%);transform:rotate(var(--moon-bearing))}
+.map-label{padding:3px 5px;transform:translate(-50%,10px)}
+.map-label::before{content:"";position:absolute;top:-8px;left:50%;height:7px;border-left:1px solid currentColor}
+.map-label[data-above=true]{transform:translate(-50%,calc(-100% - 9px))}
+.map-label[data-above=true]::before{top:100%}
+.map-label.encounter{color:#b0e3d4}

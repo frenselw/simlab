@@ -18,7 +18,10 @@
     }
     function move(e){
       if(!active||e.pointerId!==active.id)return;const a=active,rect=d.stage.getBoundingClientRect(),x=e.clientX-rect.left,y=e.clientY-rect.top;a.moved ||= Math.hypot(e.clientX-a.x,e.clientY-a.y)>6;diagnostics.move++;if(a.moved){lastTap=null;suppressClick=true;}if(a.kind==='part'&&a.moved)draggedCard=a.target;
-      if(a.kind==='camera'&&!(a.pan&&api.transformOrbit?.(1,{x:a.lastX,y:a.lastY},{x:e.clientX,y:e.clientY})))api.rotate(e.clientX-a.lastX,e.clientY-a.lastY);
+      if(a.kind==='camera'){
+        if(!a.moved)return;
+        if(!(a.pan&&api.transformOrbit?.(1,{x:a.lastX,y:a.lastY},{x:e.clientX,y:e.clientY})))api.rotate(e.clientX-a.lastX,e.clientY-a.lastY);
+      }
       if(a.part&&a.moved){
         const panel=d.controlPanel.getBoundingClientRect();a.returning=Boolean(a.source&&e.clientX>=panel.left&&e.clientX<=panel.right&&e.clientY>=panel.top&&e.clientY<=panel.bottom);
         a.snap=a.returning?null:nearest(api.slots(a.part,a.source),x,y,30);
@@ -70,8 +73,8 @@
       if(!central(e)||!api.allowed('camera'))return;e.preventDefault();lastTap=null;
       if(active||touches.size||nativeGesture)return;
       const origin={x:e.clientX,y:e.clientY},mode=e.deltaMode,dx=e.deltaX,dy=e.deltaY;
-      // Precision trackpads send pixel scrolls; pinch is marked as Ctrl-wheel by Chromium.
-      if(api.canPan?.()&&!e.ctrlKey&&(e.shiftKey||dx!==0||mode===0&&Math.abs(dy)<60)){
+      // Horizontal scroll pans; vertical wheel and Ctrl-wheel pinch zoom.
+      if(api.canPan?.()&&!e.ctrlKey&&(e.shiftKey||dx!==0)){
         const unit=mode===1?16:mode===2?d.cameraSurface.clientHeight:1;
         api.transformOrbit(1,origin,{x:origin.x-(e.shiftKey?dx||dy:dx)*unit,y:origin.y-(e.shiftKey?0:dy)*unit});
       }else{
