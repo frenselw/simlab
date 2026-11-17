@@ -34,6 +34,7 @@ const registeredTests = [
   'sim/rocket-side-booster-lab/audio.test.js',
   'sim/rocket-side-booster-lab/lighting.test.js',
   'sim/rocket-side-booster-lab/sky.test.js',
+  {file:'tools/rocket-art/lunar-ephemeris.test.js',kind:'node',scope:'rocket-side-booster-lab'},
   'sim/rocket-side-booster-lab/terrain-detail.test.js',
   'sim/rocket-side-booster-lab/precise-terrain.test.js',
   'sim/rocket-side-booster-lab/model.test.js',
