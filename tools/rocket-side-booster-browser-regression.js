@@ -1281,7 +1281,27 @@ async function lunarReturn(base,label){
       await cdp.send('Network.setCacheDisabled',{cacheDisabled:false});
     }
   }
-  report.flows.push({case:'lunar-return',label,width,height,cold,early,loaded,near,sky,contextRestored:true,entry,descent,landing,fallback});
+  await open(base);
+  await click('#lunarReturn',mobile);
+  await wait(()=>call('return app.controller.running&&app.getState().flight?.lunar.freeReturn;'),'manual continuation flight');
+  await click('#playButton',mobile);
+  await advance(400000);
+  assert(await call('return app.command({type:"control",key:"mode",value:"radial-out"});'));
+  await advance(400020);
+  await click('#igniteButton',mobile);
+  const continued=await advance(900000);
+  assert(continued.phase==='coast'&&continued.outcome===null&&continued.fuel===0&&continued.t===900000);
+  await click('[data-camera-view="follow"]',mobile);
+  await call('d.getElementById("pitchDial").focus();');
+  await key('ArrowRight');
+  assert(await call('const f=app.controller.state.flight;return f.controls.mode==="tilt"&&RocketRuntime.warpLimit(f)===5;'));
+  const turn=await advance(900000.2);
+  const jet=await call('return app.getScene().diagnostics().rcsDirection;');
+  assert((jet===1||jet===-1)&&turn.fuel===0);
+  await shot(label+'-lunar-rcs-after-day-ten-'+width+'x'+height);
+  const settled=await advance(900020);
+  assert(settled.phase==='coast'&&settled.fuel===0&&await call('return app.getScene().diagnostics().rcsDirection===0;'));
+  report.flows.push({case:'lunar-return',label,width,height,cold,early,loaded,near,sky,contextRestored:true,entry,descent,landing,fallback,continued,jet,settled});
 }
 
 function selection(args){if(args.length>2)throw Error("Expected cases and optional delivery");const cases=args[0]?args[0].split(","):caseNames,delivery=args[1]||null;if(cases.some(name=>!caseNames.includes(name))||new Set(cases).size!==cases.length)throw Error("Unknown or repeated explorer case");if(delivery&&!["source","standalone"].includes(delivery))throw Error("Unknown explorer delivery");return{cases,delivery};}

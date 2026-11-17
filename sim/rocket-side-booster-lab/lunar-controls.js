@@ -1,8 +1,8 @@
 const ephemerisFile=new URL('./assets/lunar-ephemeris.bin.gz',import.meta.url);
 const transferHint='由奔月途中開始。掠過月球後，借引力返地球並開傘降落。';
 const outcomes={flyby:'已完成月球飛掠','lunar-pass':'已掠過月球，最近高度超出目標範圍',
-  'moon-impact':'撞擊月球','earth-impact':'撞擊地球','earth-entry':'到達地球大氣邊界',
-  'time-limit':'已到達示範時間上限',landed:'已安全降落','destroyed':'隔熱防護耗盡'};
+  'moon-impact':'撞擊月球','earth-impact':'撞擊地球',
+  'ephemeris-end':'已到達日月星曆終點',landed:'已安全降落','destroyed':'隔熱防護耗盡'};
 
 export function installLunarControls(d,{controller,launchAllowed,command,setView,fmt}){
   const L=()=>window.RocketLunar;
@@ -89,12 +89,15 @@ export function installLunarControls(d,{controller,launchAllowed,command,setView
     }
     if(!l)return;
     const ended=s.phase==='ended',locked=L().guidanceLocked(f),m=l.maneuver;
+    const latest=(Math.floor(L().flightLimit(f)*100)/100).toFixed(2);
+    for(const input of [d.lunarCutoffAt,d.lunarBurnAt,d.lunarBurnDuration])if(input.max!==latest)input.max=latest;
     const lastCorrection=l.events.findLast(event=>event.type==='correction-stop');
     const distance=fmt(Math.max(0,f.moon.height)/1000,0)+' km';
     const entryPhase={'stowed':'再入大氣層','drogue-opening':'張開減速傘',drogue:'減速傘下降',
       'main-opening':'張開主降落傘',main:'主傘下降'}[f.capsule.chute.phase];
-    const phase=outcomes[l.outcome]||(l.entry?entryPhase:l.returning?'返地球途中':l.freeReturn?'自由返回 · 奔月途中':locked?'示範引導中':'三維飛行');
-    if(l.freeReturn)d.lunarMilestone.textContent=l.entry||l.returning?phase:f.moon.height<=80000000?'距月面 '+distance:'自由返回 · 奔月途中';
+    const coast=l.returning?(f.orbit.radial<0?'接近地球':'飛掠後滑行'):'自由返回 · 奔月途中';
+    const phase=outcomes[l.outcome]||(l.entry?entryPhase:l.freeReturn?coast:locked?'示範引導中':'三維飛行');
+    if(l.freeReturn)d.lunarMilestone.textContent=l.outcome||l.entry||l.returning?phase:f.moon.height<=80000000?'距月面 '+distance:'自由返回 · 奔月途中';
     d.lunarReadout.textContent=phase+' · 距月面 '+distance+
       ' · 月球相對速率 '+fmt(f.moon.speed/1000,2)+' km/s'+
       (l.closest?.height<=80000000?' · 最近 '+fmt(l.closest.height/1000,1)+' km':'')+
@@ -129,7 +132,7 @@ export function installLunarControls(d,{controller,launchAllowed,command,setView
     d.igniteButton.disabled ||= ended||Boolean(l.entry)||locked&&f.status!=='pad'&&!f.controls.lit||Boolean(m&&!m.active);
     d.orbitStatus.textContent=phase;
     d.flightHint.textContent=l.outcome==='landed'?'安全降落 · 接地速率 '+fmt(Math.hypot(f.capsule.touchdown.normal,f.capsule.touchdown.tangent),1)+' m/s':
-      outcomes[l.outcome]||(l.freeReturn?'太空艙借地月引力返回；再入時自動調整隔熱盾及開傘。':
+      outcomes[l.outcome]||(l.freeReturn?'航線隨飛行速度和地月引力改變。再入時自動調整隔熱盾及開傘。':
         locked?'示範程序會自動分級、點火及精準關機。':'以發射時間 T+ 預約關機或航線修正。');
   };
 }

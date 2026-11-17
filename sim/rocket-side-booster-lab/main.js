@@ -28,9 +28,9 @@ const EDIT_PHASE=()=>controller.state?.phase;
 const stageName=part=>({'engine-0':'大推力引擎','engine-1':'高效率引擎','engine-2':'均衡型引擎',medium:'中燃料箱',boosters:'固體助推器',small:'小燃料箱',large:'大燃料箱',separator:'分離器',capsule:'太空艙'}[part]||'零件');
 const wideFlightEvents=matchMedia('(min-width: 1200px) and (not (any-pointer: coarse))');
 const eventNames={ignite:'點火',liftoff:'火箭離地','booster-spent':'助推器燃盡',jettison:'助推器分離',separate:'級間分離','capsule-separate':'太空艙分離','drogue-opening':'減速傘開始張開','main-opening':'主傘開始張開',landed:'安全着陸',impact:'撞地',destroyed:'隔熱防護耗盡',
-  'lunar-transfer':'進入奔月軌道','lunar-return':'開始自由返回示範','return-coast':'飛掠後返地球','return-entry':'進入地球大氣層',cutoff:'精準關機',injection:'奔月點火','correction-start':'航線修正點火','correction-stop':'航線修正關機',
+  'lunar-transfer':'進入奔月軌道','lunar-return':'開始自由返回示範','return-coast':'飛掠後繼續滑行','return-entry':'進入地球大氣層',cutoff:'精準關機',injection:'奔月點火','correction-start':'航線修正點火','correction-stop':'航線修正關機',
   'lunar-closest':'最近月球','flyby':'完成月球飛掠','lunar-pass':'飛離近月區域','moon-impact':'撞擊月球',
-  'earth-impact':'撞擊地球','earth-entry':'到達地球大氣邊界','time-limit':'到達飛行時間上限'};
+  'earth-impact':'撞擊地球','ephemeris-end':'到達日月星曆終點'};
 let renderedEvents=null,eventsExpanded=false;
 function eventText({type,t,body}){
   const name={capsule:'太空艙',upper:'二級',core:'核心級'}[body]||'';

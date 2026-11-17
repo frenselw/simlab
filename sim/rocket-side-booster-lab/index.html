@@ -58,14 +58,14 @@
           <summary>精準關機與航線修正</summary>
           <form id="lunarCutoffForm">
             <label class="setting-row" for="lunarCutoffAt">關機時刻 T+（秒）
-              <input id="lunarCutoffAt" type="number" min="0" max="864000" step=".01" required></label>
+              <input id="lunarCutoffAt" type="number" min="0" step=".01" required></label>
             <button type="submit" id="lunarCutoffButton">預約關機</button>
           </form>
           <form id="lunarCorrectionForm">
             <p class="small-copy">分艙、奔月關機後可預約修正。太空艙會在點火前先轉向。</p>
             <div class="lunar-inputs">
-              <label for="lunarBurnAt">點火 T+（秒）<input id="lunarBurnAt" type="number" min="0" max="864000" step=".01" value="86400" required></label>
-              <label for="lunarBurnDuration">燃燒時間（秒）<input id="lunarBurnDuration" type="number" min=".01" max="864000" step=".01" value=".10" required></label>
+              <label for="lunarBurnAt">點火 T+（秒）<input id="lunarBurnAt" type="number" min="0" step=".01" value="86400" required></label>
+              <label for="lunarBurnDuration">燃燒時間（秒）<input id="lunarBurnDuration" type="number" min=".01" step=".01" value=".10" required></label>
               <label for="lunarBurnThrottle">油門（%）<input id="lunarBurnThrottle" type="number" min="1" max="100" step="1" value="10" required></label>
               <label for="lunarBurnDirection">方向（相對地球）<select id="lunarBurnDirection">
                 <option value="prograde">順行</option><option value="retrograde">逆行</option>

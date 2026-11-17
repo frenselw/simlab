@@ -129,6 +129,39 @@ assert.deepEqual(events.map(e=>e.type),['return-coast','return-entry','drogue-op
 assert.equal(returning.capsule.fuel,initialFuel);
 assert(returning.capsule.heat>0&&returning.capsule.heat<1);
 assert(Math.abs(Math.hypot(returning.capsule.touchdown.normal,returning.capsule.touchdown.tangent)-5.084)<.1);
+
+const offCourse=new Controller();
+offCourse.lunarTable=table;
+assert(offCourse.command({type:'lunar-return'}));
+offCourse.play();
+const drifting=until(offCourse,400000);
+assert(offCourse.command({type:'control',key:'mode',value:'radial-out'}));
+until(offCourse,400020);
+assert(offCourse.command({type:'ignite'}));
+until(offCourse,900000);
+assert.equal(offCourse.state.phase,'coast');
+assert.equal(drifting.t,900000);
+assert.equal(drifting.lunar.outcome,null);
+assert.equal(drifting.capsule.fuel,0);
+assert(!drifting.controls.lit&&drifting.orbit.height>100e6);
+assert(offCourse.command({type:'control',key:'angle',value:(drifting.pitch+90)%360}));
+assert.equal(warpLimit(drifting),5);
+until(offCourse,900000.2);
+assert(drifting.rcsDirection===1||drifting.rcsDirection===-1);
+until(offCourse,900020);
+assert.equal(drifting.rcsDirection,0);
+assert.equal(drifting.capsule.fuel,0);
+
+// Exercise the data boundary without integrating hundreds of demonstration days.
+const end=L.flightLimit(drifting);
+assert(end>340*C.DAY);
+drifting.t=end-.25;
+const lastForecast=L.forecast(drifting,table).next();
+assert(lastForecast.done&&lastForecast.value.times.at(-1)<=end);
+offCourse.tick(1,900);
+assert.equal(drifting.t,end);
+assert.equal(drifting.lunar.outcome,'ephemeris-end');
+assert.equal(offCourse.state.phase,'ended');
 console.log('Lunar free return:',JSON.stringify({closest,entry,events,outcome,fuelKg:initialFuel,
   heat:returning.capsule.heat,touchdown:returning.capsule.touchdown}));
 console.log('Lunar replay, time warp correction, exact cutoff and flyby fuel passed');
