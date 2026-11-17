@@ -6,7 +6,7 @@ const {join} = require('node:path');
 const {gunzipSync} = require('node:zlib');
 const reference = require('./lunar-ephemeris-reference.json');
 
-const compressed = readFileSync(join(__dirname, 'lunar-ephemeris.bin.gz'));
+const compressed = readFileSync(join(__dirname, '../../sim/rocket-side-booster-lab/assets/lunar-ephemeris.bin.gz'));
 assert(compressed.length <= 75000, 'Packed geometric ephemeris exceeds its size budget');
 assert.equal(createHash('sha256').update(compressed).digest('hex'), reference.sha256);
 const samples = 1545;

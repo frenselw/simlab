@@ -10,7 +10,8 @@ import numpy as np
 from scipy.integrate import solve_ivp
 
 
-DATA = Path(__file__).with_name("lunar-ephemeris.bin.gz")
+HERE = Path(__file__).resolve().parent
+DATA = HERE.parents[1] / "sim/rocket-side-booster-lab/assets/lunar-ephemeris.bin.gz"
 START_JD, STEP, COUNT = 2461041.5, 21600, 1545
 EPOCH = datetime(2026, 1, 1, tzinfo=timezone.utc)
 DAY = 86400

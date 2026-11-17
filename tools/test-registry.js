@@ -26,6 +26,7 @@ const registeredTests = [
   ...['interaction','terrain','flight'].map(group=>({file:'tools/rocket-space-mission-browser-regression.js',kind:'browser',scope:'rocket-space-mission-lab',args:['--group='+group]})),
 
   'sim/rocket-side-booster-lab/runtime.test.js',
+  'sim/rocket-side-booster-lab/lunar-flight.test.js',
   'sim/rocket-side-booster-lab/recovery.test.js',
   'sim/rocket-side-booster-lab/art.test.js',
   'sim/rocket-side-booster-lab/forest.test.js',

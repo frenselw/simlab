@@ -8,7 +8,7 @@ from urllib.request import urlopen
 
 import numpy as np
 
-from lunar_flyby import DATA, START_JD, STEP, COUNT, Ephemeris
+from lunar_flyby import DATA, HERE, START_JD, STEP, COUNT, Ephemeris
 
 
 def query(body):
@@ -66,7 +66,7 @@ def main():
     DATA.write_bytes(compressed)
     report.update(rawBytes=len(raw), gzipBytes=len(compressed),
                   sha256=hashlib.sha256(compressed).hexdigest())
-    DATA.with_name("lunar-ephemeris-reference.json").write_text(
+    (HERE / "lunar-ephemeris-reference.json").write_text(
         json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(report, indent=2))
 

@@ -8,14 +8,14 @@ import numpy as np
 
 from lunar_flyby import (
     CAPSULE_DRY, CAPSULE_FUEL, CAPSULE_ISP, CAPSULE_THRUST, DATA, DAY, EARTH,
-    ENGINE_ISPS, MOON, MOON_RADIUS, Ephemeris,
+    ENGINE_ISPS, HERE, MOON, MOON_RADIUS, Ephemeris,
     ascent, attraction, earth_fixed, earth_frame, encounter, inertial, parts, rk4, tidal,
     utc_time,
 )
 
 
 def check_model(table, catalogue):
-    reference = json.loads(DATA.with_name("lunar-ephemeris-reference.json").read_text())
+    reference = json.loads((HERE / "lunar-ephemeris-reference.json").read_text())
     assert hashlib.sha256(DATA.read_bytes()).hexdigest() == reference["sha256"]
     assert reference["checks"]["moon"]["withheld"]["maxPositionM"] <= 500
     assert reference["checks"]["moon"]["withheld"]["maxSpeedMS"] <= .05
@@ -35,7 +35,7 @@ def check_model(table, catalogue):
                     i*period/1000, orbit, period/1000)
     assert np.linalg.norm(orbit[:3]-state[:3]) < .1
 
-    frames = json.loads(DATA.with_name("lunar-frame-reference.json").read_text())
+    frames = json.loads((HERE / "lunar-frame-reference.json").read_text())
     ground = np.r_[frames["ecefM"], [0, 0, 0]]
     errors = []
     for sample in frames["samples"]:
