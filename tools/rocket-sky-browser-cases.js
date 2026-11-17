@@ -10,86 +10,87 @@ async function run({base,label,P,T,H,cdp,call,viewport,open,wait,shot,click,poin
     await call(`app.controller.state.craft=${JSON.stringify(T.launched().craft)};app.controller.emit();`);
     await click('#launchButton');
     assert.equal(await call('return app.getState().phase;'),'pad');
-    const following=await call('const s=app.getScene();return {origin:s.camera.position.toArray(),elevation:s.camera.getWorldDirection(s.camera.position.clone()).y};');
-    assert.equal(await call('return d.getElementById("cameraCloseLabel").textContent;'),'近景');
-    await click('#cameraClose');
-    const geometry=await call(`const s=app.getScene(),buttons=[...d.querySelectorAll('[data-camera-view]:enabled')].map(b=>b.getBoundingClientRect().toJSON()),stage=d.getElementById('stage').getBoundingClientRect().toJSON();
-      const hint=d.getElementById('cameraHint');
-      return {origin:s.camera.position.toArray(),look:s.camera.getWorldDirection(s.camera.position.clone()).toArray(),hint:hint.hidden?'':hint.textContent,buttons,stage};`);
-    assert.deepEqual(geometry.origin,following.origin);
-    assert(geometry.look[1]>.75&&following.elevation<0&&geometry.hint.includes('原地轉頭'));
-    assert.equal(geometry.buttons.length,4);
+    assert.equal(await call('return d.getElementById("cameraFollowLabel").textContent;'),'跟隨');
+    assert(await call('return d.querySelector("[data-camera-view=factory]").hidden;'));
+    await click('#cameraFollow');
+    const geometry=await call(`const buttons=[...d.querySelectorAll('[data-camera-view]:enabled:not([hidden])')].map(b=>b.getBoundingClientRect().toJSON());
+      return {buttons,stage:d.getElementById('stage').getBoundingClientRect().toJSON()};`);
+    assert.equal(geometry.buttons.length,3);
     for(const b of geometry.buttons)assert(b.width>=44&&b.height>=44&&b.left>=geometry.stage.left&&b.right<=geometry.stage.right);
-    assert.equal(await call('return d.getElementById("cameraCloseLabel").textContent;'),'鎖定');
-    await click('#cameraClose');
+    assert.equal(await call('return d.getElementById("cameraFollowLabel").textContent;'),'鎖定');
+    await click('#cameraFollow');
     const menu=await call('return d.getElementById("cameraLockMenu").getBoundingClientRect().toJSON();');
     assert(menu.width>0&&menu.top>=geometry.stage.top&&menu.bottom<=geometry.stage.bottom&&menu.left>=geometry.stage.left&&menu.right<=geometry.stage.right);
     if(width===390)await shot(label+'-camera-lock-menu-mobile');
-    await click('#cameraClose');
-    await call('d.getElementById("cameraSurface").focus();');
-    await key('ArrowUp');
-    await wait(()=>call(`const s=app.getScene();return s.camera.getWorldDirection(s.camera.position.clone()).y>${geometry.look[1]};`),'keyboard turns sky camera up');
-    const after=await call('const s=app.getScene();return{origin:s.camera.position.toArray(),look:s.camera.getWorldDirection(s.camera.position.clone()).toArray()};');
-    assert.deepEqual(after.origin,geometry.origin);assert(after.look[1]>geometry.look[1]);
-    if(width===390){
-      const {stage}=geometry,x=(stage.left+stage.right)/2,y=stage.top+stage.height*.55;
-      await pointer({x,y},{x:x+35,y:y-35},true);
-      await wait(()=>call(`const s=app.getScene();return s.camera.getWorldDirection(s.camera.position.clone()).y>${after.look[1]};`),'trusted drag turns sky camera up');
-      await H.delay(250);
-    }
+    await click('#cameraFollow');
     if(width===390||width===1280){
+      await call(`const c=app.controller;c.state=RocketModel.change(${JSON.stringify(T.reachOrbit())},{type:'capsule-separate'});
+        const f=c.state.flight;f.t=2200;f.state=RocketOrbit.circular(10421000);c.emit();`);
       for(const target of ['sun','moon','earth']){
-        await click('#cameraClose');
+        await click('#cameraFollow');
         await click(`[data-camera-lock="${target}"]`);
         const locked=await call(`const s=app.getScene(),c=app.controller,button=d.querySelector('[data-camera-lock="${target}"]');
+          const project=()=>{
+            const camera=s.camera,rocket=s.rocket,disc=s.sky.material.uniforms.uSunDisc.value;
+            const craft=rocket.localToWorld(rocket.userData.partBounds.getCenter(camera.position.clone())).project(camera);
+            let body=s.cameraLock==='moon'?s.moonTarget:s.earth.position;
+            if(s.cameraLock==='sun')body=camera.position.clone().add(camera.position.clone().set(disc.x,disc.y,disc.z));
+            return {craft:[craft.x,craft.y],body:body.clone().project(camera).toArray().slice(0,2)};
+          };
+          const before=project();
           c.state.flight.t+=3600;c.emit();
-          const direction=s.camera.position.clone(),disc=s.sky.material.uniforms.uSunDisc.value;
-          if(s.cameraLock==='sun')direction.set(disc.x,disc.y,disc.z);
-          else direction.copy(s.cameraLock==='moon'?s.moonTarget:s.earth.position).sub(s.camera.position);
-          const fov=s.camera.fov;
+          const distance=s.camera.position.distanceTo(s.rocket.position);
           s.setZoom(s.zoom*1.1);s.draw();
-          return {lock:s.cameraLock,aligned:s.camera.getWorldDirection(s.camera.position.clone()).dot(direction.normalize()),
-            zoomed:s.camera.fov<fov,drag:s.rotate(50,20),pressed:button.getAttribute('aria-pressed'),closed:d.getElementById('cameraLockMenu').hidden};`);
+          return {lock:s.cameraLock,frames:[before,project()],zoomed:s.camera.position.distanceTo(s.rocket.position)<distance,
+            drag:s.rotate(50,20),pressed:button.getAttribute('aria-pressed'),closed:d.getElementById('cameraLockMenu').hidden};`);
         assert.equal(locked.lock,target);
-        assert(locked.aligned>.999999&&locked.zoomed&&locked.drag===false&&locked.pressed==='true'&&locked.closed,JSON.stringify(locked));
+        assert(locked.zoomed&&locked.drag===false&&locked.pressed==='true'&&locked.closed,JSON.stringify(locked));
+        for(const {craft,body}of locked.frames)assert(Math.hypot(...craft)<.002&&Math.hypot(body[0]-.45,body[1]-.38)<.002,JSON.stringify(locked));
+        if(width===390&&target==='earth')await shot(label+'-follow-earth-lock-mobile');
       }
-      await click('#cameraClose');
+      await click('#cameraFollow');
       await click('[data-camera-lock=""]');
-      assert(await call('return app.getScene().cameraLock===null&&d.getElementById("cameraHint").textContent.includes("原地轉頭");'));
+      assert(await call('return app.getScene().cameraLock===null&&d.getElementById("cameraHint").hidden;'));
+      await call('d.getElementById("cameraSurface").focus();');
+      await key('ArrowUp');
+      await wait(()=>call('return app.getScene().followManual;'),'keyboard rotates the unlocked follow camera');
     }
-    await click('[data-camera-view="follow"]');
-    await wait(()=>call('return app.getScene().view==="follow";'),'return to follow view');
-    assert.equal(await call('return d.getElementById("cameraCloseLabel").textContent;'),'近景');
-    report.flows.push({label,case:'sky-layout',width,height,buttons:geometry.buttons.length});
+    await click('[data-camera-view="orbit"]');
+    assert.equal(await call('return d.getElementById("cameraFollowLabel").textContent;'),'跟隨');
+    await click('#cameraFollow');
+    assert(await call('return app.getScene().view==="follow"&&d.getElementById("cameraLockMenu").hidden;'));
+    report.flows.push({label,case:'follow-lock-layout',width,height,buttons:geometry.buttons.length});
   }
 
   await viewport(1024,768);await open(base,T.launched());
   await wait(()=>call('return d.getElementById("skyAvailability").hidden;'),'ephemeris for rendering');
   assert(await call('return performance.getEntriesByType("resource").filter(e=>e.name.includes("ephemeris")).map(e=>e.name).every(name=>new URL(name).origin===location.origin);'));
   await H.evaluate(cdp,'(async()=>{window.__skyThree=await import("./vendor/three-0.185.1/three.module.min.js");})()');
-  await call(`const s=app.getScene(),T=window.__skyThree;app.view('sky');
-    window.__skyPixels=(hours,aim,view='sky',zoom=1,pan=0)=>{
+  await call(`const s=app.getScene(),T=window.__skyThree;app.view('follow');
+    window.__skyPixels=(hours,aim,view='follow',zoom=1,pan=0)=>{
       const f=app.controller.state.flight;f.t=hours*3600;app.controller.emit();
       const orbit=view==='orbit'||view==='plane';
       if(s.view!==view||orbit)app.view(view,true);
       const u=s.sky.material.uniforms,vec=v=>new T.Vector3(v.x,v.y,v.z);
       const sun=vec(u.uSunDisc.value),moon=vec(u.uMoonDisc.value);
       const look=aim==='both'?sun.clone().add(moon).normalize():aim==='sun'?sun.clone():aim==='moon'?moon.clone():new T.Vector3(0,.65,.76).normalize();
-      if(orbit)look.negate();
-      s.yaw=Math.atan2(look.x,look.z);s.pitch=Math.asin(look.y);s.draw();
       if(orbit){
+        look.negate();s.yaw=Math.atan2(look.x,look.z);s.pitch=Math.asin(look.y);s.draw();
         s.setZoom(zoom);s.draw();
         if(pan){
           const r=s.host.getBoundingClientRect(),center={x:r.left+r.width/2,y:r.top+r.height/2};
           s.transformOrbit(1,center,{x:center.x+r.width*pan,y:center.y});s.draw();
         }
+      }else{
+        s.camera.up.set(0,1,0);s.camera.lookAt(s.camera.position.clone().add(look));s.camera.updateMatrixWorld(true);
+        u.uSkyBasis.value.setFromMatrix4(s.camera.matrixWorld);
       }
       const size=512,target=new T.WebGLRenderTarget(size,size),previous=s.renderer.getRenderTarget(),frames=[];
       target.texture.colorSpace=T.SRGBColorSpace;
       try{
         s.renderer.setRenderTarget(target);
         for(const on of [1,0]){u.uCelestial.value=on;s.renderer.render(s.scene,s.camera);const pixels=new Uint8Array(size*size*4);s.renderer.readRenderTargetPixels(target,0,0,size,size,pixels);frames.push(pixels);}
-      }finally{u.uCelestial.value=1;s.renderer.setRenderTarget(previous);target.dispose();s.draw();}
+      }finally{u.uCelestial.value=1;s.renderer.setRenderTarget(previous);target.dispose();s.renderer.render(s.scene,s.camera);}
       const sample=direction=>{
         const p=direction.clone().transformDirection(s.camera.matrixWorldInverse),span=u.uSkyTangent.value;
         const x=Math.round((1-p.x/(p.z*span.x))*size/2),y=Math.round((1-p.y/(p.z*span.y))*size/2);
@@ -127,7 +128,7 @@ async function run({base,label,P,T,H,cdp,call,viewport,open,wait,shot,click,poin
   }
   await click('#returnWorkshop');
   await call('d.getElementById("skyDate").value="2026-04-02";d.getElementById("skyTime").value="05:00";');
-  await click('#launchButton');await click('#cameraClose');
+  await click('#launchButton');
   const full=await call('return window.__skyPixels(0,"moon");');
   assert(full.moon.max>50&&full.moonElevation>0,JSON.stringify(full));
   await shot(label+'-sky-full-moon');
@@ -175,7 +176,7 @@ async function run({base,label,P,T,H,cdp,call,viewport,open,wait,shot,click,poin
     const pad=T.launched();pad.phase='pad';pad.flight.controls.lit=false;
     await open(base,pad);
     await wait(()=>call('return d.getElementById("skyAvailability").textContent.includes("暫不可用");'),'invalid ephemeris fallback');
-    await click('#cameraClose');await click('#cameraClose');
+    await click('#cameraFollow');await click('#cameraFollow');
     assert(await call(`return d.querySelector('[data-camera-lock="sun"]').disabled&&d.querySelector('[data-camera-lock="moon"]').disabled&&
       !d.querySelector('[data-camera-lock="earth"]').disabled&&app.getScene().sky.material.uniforms.uCelestial.value===0;`));
     await click('[data-camera-lock="earth"]');

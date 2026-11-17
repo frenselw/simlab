@@ -977,11 +977,10 @@ async function cameraFreedom(base,label){
   const rotation=()=>call(`const s=app.getScene(),c=s.camera,n=c.position.clone();
     return{pitch:s.pitch,forward:c.getWorldDirection(n).toArray(),up:c.up.toArray(),
       clearance:(()=>{const p=s.globalTerrain.worldToLocal(c.position.clone()),r=p.length();p.normalize();return r*(RocketParts.R-5)-RocketParts.R-RocketSurface.heightAt(p.x,p.y,p.z);})()};`);
-  for(const view of ['follow','orbit','plane','sky']){
-    const sign=view==='sky'?-1:1;
-    await call(`app.view(${JSON.stringify(view)},true);const s=app.getScene(),pitch=s.view==='follow'?s.followPitch:s.pitch;s.rotate(0,${sign}*(1.48-pitch)/.006);`);
+  for(const view of ['follow','orbit','plane']){
+    await call(`app.view(${JSON.stringify(view)},true);const s=app.getScene(),pitch=s.view==='follow'?s.followPitch:s.pitch;s.rotate(0,(1.48-pitch)/.006);`);
     const before=await rotation();
-    await call(`app.getScene().rotate(0,${sign*40});`);
+    await call('app.getScene().rotate(0,40);');
     const after=await rotation();
     const aligned=(a,b)=>a.reduce((sum,v,i)=>sum+v*b[i],0)>.95;
     assert(before.pitch<Math.PI/2&&after.pitch>Math.PI/2&&aligned(before.forward,after.forward)&&aligned(before.up,after.up),JSON.stringify({view,before,after}));
@@ -1219,12 +1218,13 @@ async function lunarReturn(base,label){
   await wait(()=>call('return !d.getElementById("mapMoon").hidden;'),'Moon label in distant overview');
   await shot(label+'-lunar-return-overview-'+width+'x'+height);
   const near=await advance(365000);
-  assert.equal(near.view,'sky');
+  assert.equal(near.view,'follow');
   assert(Math.abs(near.closest.height-9262600)<25);
   await wait(()=>call('return app.getScene().moonGlobe?.userData.detailed.value===1;'),'visible near-Moon texture');
-  const sky=await call(`const scene=app.getScene(),globe=scene.moonGlobe,p=scene.project(globe.position);
-    return {visible:globe.visible,lock:scene.cameraLock,screen:p,stage:[scene.host.clientWidth,scene.host.clientHeight]};`);
-  assert(sky.lock==='moon'&&sky.visible&&Math.abs(sky.screen.x-sky.stage[0]/2)<3&&Math.abs(sky.screen.y-sky.stage[1]/2)<3,JSON.stringify(sky));
+  const sky=await call(`const s=app.getScene(),globe=s.moonGlobe,craft=s.rocket;
+    const center=craft.localToWorld(craft.userData.partBounds.getCenter(s.camera.position.clone()));
+    return {visible:globe.visible,lock:s.cameraLock,moon:globe.position.clone().project(s.camera).toArray(),craft:center.project(s.camera).toArray()};`);
+  assert(sky.lock==='moon'&&sky.visible&&Math.hypot(sky.moon[0]-.45,sky.moon[1]-.38)<.002&&Math.hypot(sky.craft[0],sky.craft[1])<.002,JSON.stringify(sky));
   await shot(label+'-lunar-return-moon-'+width+'x'+height);
   await call('app.getScene().renderer.forceContextLoss();');
   await wait(()=>call('return app.getScene().lost;'),'lost lunar WebGL context');
@@ -1266,8 +1266,8 @@ async function lunarReturn(base,label){
       await click('#playButton',mobile);await click('#toggleFlightControls',mobile);
       await advance(365000);
       await wait(()=>call('return window.__moonAttempts===1;'),'one blocked texture request');
-      await click('[data-camera-view="orbit"]',mobile);await click('#cameraClose',mobile);
-      await click('#cameraClose',mobile);await click('[data-camera-lock="moon"]',mobile);
+      await click('[data-camera-view="orbit"]',mobile);await click('#cameraFollow',mobile);
+      await click('#cameraFollow',mobile);await click('[data-camera-lock="moon"]',mobile);
       await H.delay(1200);
       const basic=await call(`const globe=app.getScene().moonGlobe;
         return {attempts:window.__moonAttempts,visible:globe.visible,detailed:globe.userData.detailed.value};`);

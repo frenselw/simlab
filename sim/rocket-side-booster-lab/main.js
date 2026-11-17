@@ -22,6 +22,7 @@ const renderLunar=installLunarControls(d,{controller,launchAllowed,command,setVi
 let returnCamera=null,forecastJob=null,markerFrame=-1,lastLunarTrailSize=0;
 let skyData=null,skyStart=Sky.DEFAULT_START;
 const cameraLockLabels={sun:'太陽',moon:'月球',earth:'地球'};
+let followLockReady=false;
 const departure=()=>Sky.departure(d.skyDate.value,d.skyTime.value);
 let assemblyWarningTimer=null,dialGesture=null;
 let scene=null,view='factory',flightView='follow',selectedPart=null,selectedStage=0,assemblyDrag=null,selectedInstalled=null,lastPaths=-Infinity,lastHud=0,lastFrame=0,physicsTime=0,warp=1,actualWarp=1,warpSeconds=0,warpElapsed=0,trail=[],trailTime=-1,renderLost=false,renderMessage='',interaction=null,frameCount=0,targetFrame=-1,targetUpdates=0;
@@ -75,12 +76,12 @@ async function prepareFlight(){
 d.retryFlightPreparation.addEventListener('click',prepareFlight);
 function toast(message){d.toast.textContent=message;d.toast.hidden=false;}
 function command(action,options){selectedInstalled=null;interaction?.cancel();const before=controller.state,changed=controller.command(action,options);if(changed)sound.action(action,before,controller.state);if(changed&&action.type==='capsule-separate'){lastPaths=-Infinity;setView('follow');}if(changed&&action.type==='select-body'){d.controlPanel.scrollTop=0;trail=[];trailTime=-1;lastPaths=-Infinity;}if(changed&&['launch-lunar','lunar-transfer','lunar-return'].includes(action.type)){warp=action.type==='launch-lunar'?1:RocketLunar.FAST_WARP;warpSeconds=warpElapsed=0;}if(changed&&['launch','launch-lunar','lunar-transfer','lunar-return','workshop'].includes(action.type)){d.controlPanel.scrollTop=0;trail=[];trailTime=-1;lastPaths=-Infinity;releaseReturnCamera();if(action.type==='lunar-return')returnCamera='outbound';}return changed;}
-function setView(next,reset=false,lock=null){interaction?.resetPan();if(['orbit','plane','sky'].includes(next)&&!scene?.flightReady)return;closeCameraLockMenu();if(controller.state?.flight)flightView=next;view=next;scene?.setView(next,reset,lock);renderScene();}
+function setView(next,reset=false,lock=null){interaction?.resetPan();if(['orbit','plane'].includes(next)&&!scene?.flightReady)return;closeCameraLockMenu();if(next!=='follow')followLockReady=false;else if(lock)followLockReady=true;if(controller.state?.flight)flightView=next;view=next;scene?.setView(next,reset,lock);renderScene();}
 function releaseReturnCamera(){returnCamera=null;}
 function directReturnCamera(f){
   if(!returnCamera||!scene||!f?.lunar?.freeReturn)return;
   if(f.lunar.entry){releaseReturnCamera();setView('follow',true);}
-  else if(returnCamera==='outbound'&&f.moon.height<22000000&&!f.lunar.returning){returnCamera='moon';setView('sky',true,'moon');}
+  else if(returnCamera==='outbound'&&f.moon.height<22000000&&!f.lunar.returning){returnCamera='moon';setView('follow',true,'moon');}
   else if((returnCamera==='moon'||returnCamera==='outbound')&&f.lunar.returning){returnCamera='earth';setView('orbit',true);}
 }
 function updateForecast(){
@@ -195,7 +196,7 @@ d.chuteArm.addEventListener('click',()=>command({type:'chute-arm'}));d.autoDispo
 function displayMission(){return Boolean(controller.state?.flight?.upperStage);}
 function renderScene(){
   const s=controller.state,f=selectedFlight(),workshop=controller.editable&&EDIT_PHASE()==='workshop',space=['orbit','plane'].includes(view),other=displayMission()?(f===s.flight?s.flight.upperStage:s.flight):null;d.stage.classList.toggle('is-flight',Boolean(f));d.stage.classList.toggle('is-space',space||Boolean(f&&(f.orbit||O.elements(f.state)).height>70000));d.flightReadouts.hidden=d.telemetry.hidden=!f;d.directionLegend.hidden=!f;d.orbitLegend.hidden=!f||!space||renderLost;d.cameraSurface.hidden=renderLost||!s;d.renderFault.hidden=!renderMessage;d.renderFault.textContent=renderMessage;
-  document.querySelectorAll('[data-camera-view]').forEach(b=>{const key=b.dataset.cameraView;b.disabled=renderLost||(key==='close'?(!workshop&&(!f||!scene?.flightReady)):key==='follow'?!f:!scene?.flightReady);b.setAttribute('aria-pressed',String(view===(key==='close'?(workshop?'factory':'sky'):key)));});d.scaleNote.textContent=space?'飛船圖示非同比例':workshop?'3D 裝配間':'跟隨鏡頭 · 同比例近景';
+  document.querySelectorAll('[data-camera-view]').forEach(b=>{const key=b.dataset.cameraView;b.hidden=key==='factory'&&!workshop;b.disabled=renderLost||(key==='factory'?!workshop:key==='follow'?!f:!scene?.flightReady);b.setAttribute('aria-pressed',String(view===key));});d.scaleNote.textContent=space?'飛船圖示非同比例':workshop?'3D 裝配間':'跟隨鏡頭 · 同比例近景';
   renderCameraLock(f);
   d.skyReadout.hidden=!f||!skyData&&!f.lunar;
   if(!d.skyReadout.hidden){const value=new Date(f.lunar?RocketLunar.flightUtc(f):skyStart+s.flight.t*1000).toISOString().slice(0,19).replace('T',' ')+' UTC';if(d.skyUtc.textContent!==value)d.skyUtc.textContent=value;}
@@ -303,24 +304,24 @@ window.addEventListener('blur',()=>closeWarpMenu());
 function closeCameraLockMenu(focus=false){
   if(d.cameraLockMenu.hidden)return;
   d.cameraLockMenu.hidden=true;
-  d.cameraClose.setAttribute('aria-expanded','false');
-  if(focus)d.cameraClose.focus({preventScroll:true});
+  d.cameraFollow.setAttribute('aria-expanded','false');
+  if(focus)d.cameraFollow.focus({preventScroll:true});
 }
 function renderCameraLock(f){
-  const near=view==='sky'&&Boolean(f)&&!renderLost,target=near?scene?.cameraLock:null;
-  const label=near?'鎖定':'近景';
-  if(d.cameraCloseLabel.textContent!==label)d.cameraCloseLabel.textContent=label;
-  d.cameraLockCaret.hidden=!near;
-  d.cameraClose.setAttribute('aria-label',target?'鎖定：'+cameraLockLabels[target]:near?'鎖定天體':'近景');
-  if(near){
-    d.cameraClose.setAttribute('aria-controls','cameraLockMenu');
-    d.cameraClose.setAttribute('aria-expanded',String(!d.cameraLockMenu.hidden));
+  const ready=view==='follow'&&followLockReady&&Boolean(f)&&!renderLost,target=ready?scene?.cameraLock:null;
+  const label=ready?'鎖定':'跟隨';
+  if(d.cameraFollowLabel.textContent!==label)d.cameraFollowLabel.textContent=label;
+  d.cameraLockCaret.hidden=!ready;
+  d.cameraFollow.setAttribute('aria-label',target?'已鎖定'+cameraLockLabels[target]:ready?'鎖定天體':'跟隨火箭');
+  if(ready){
+    d.cameraFollow.setAttribute('aria-controls','cameraLockMenu');
+    d.cameraFollow.setAttribute('aria-expanded',String(!d.cameraLockMenu.hidden));
   }else{
     closeCameraLockMenu();
-    d.cameraClose.removeAttribute('aria-controls');d.cameraClose.removeAttribute('aria-expanded');
+    d.cameraFollow.removeAttribute('aria-controls');d.cameraFollow.removeAttribute('aria-expanded');
   }
-  d.cameraHint.hidden=!near;
-  const hint=target?'已鎖定'+cameraLockLabels[target]:'近景 · 原地轉頭，可鎖定天體';
+  d.cameraHint.hidden=!target;
+  const hint=target?'已鎖定'+cameraLockLabels[target]:'';
   if(d.cameraHint.textContent!==hint)d.cameraHint.textContent=hint;
   for(const button of d.cameraLockMenu.querySelectorAll('[data-camera-lock]')){
     const key=button.dataset.cameraLock;
@@ -330,26 +331,27 @@ function renderCameraLock(f){
 }
 d.cameraLockMenu.addEventListener('click',event=>{
   const choice=event.target.closest('[data-camera-lock]');
-  if(!choice||choice.disabled||view!=='sky')return;
+  if(!choice||choice.disabled||view!=='follow')return;
   releaseReturnCamera();scene.setCameraLock(choice.dataset.cameraLock||null);
   closeCameraLockMenu(true);renderScene();
 });
-d.cameraCloseControl.addEventListener('keydown',event=>{if(event.key==='Escape'&&!d.cameraLockMenu.hidden){event.preventDefault();event.stopPropagation();closeCameraLockMenu(true);}});
-d.cameraCloseControl.addEventListener('focusout',event=>{if(event.relatedTarget&&!d.cameraCloseControl.contains(event.relatedTarget))closeCameraLockMenu();});
-document.addEventListener('pointerdown',event=>{if(!d.cameraCloseControl.contains(event.target))closeCameraLockMenu();});
+d.cameraFollowControl.addEventListener('keydown',event=>{if(event.key==='Escape'&&!d.cameraLockMenu.hidden){event.preventDefault();event.stopPropagation();closeCameraLockMenu(true);}});
+d.cameraFollowControl.addEventListener('focusout',event=>{if(event.relatedTarget&&!d.cameraFollowControl.contains(event.relatedTarget))closeCameraLockMenu();});
+document.addEventListener('pointerdown',event=>{if(!d.cameraFollowControl.contains(event.target))closeCameraLockMenu();});
 for(const event of ['fullscreenchange','webkitfullscreenchange'])document.addEventListener(event,()=>closeCameraLockMenu());
 window.addEventListener('resize',()=>closeCameraLockMenu());window.addEventListener('blur',()=>closeCameraLockMenu());
 d.toggleFlightControls.addEventListener('click',()=>{interaction?.cancel();setControlsCollapsed(!d.controlPanel.hidden);});
 document.querySelectorAll('[data-camera-view]').forEach(b=>b.addEventListener('click',event=>{
   interaction?.cancel();
-  const key=b.dataset.cameraView,next=key==='close'?(controller.state.flight?'sky':'factory'):key;
-  if(next==='sky'&&view==='sky'){
+  const next=b.dataset.cameraView;
+  if(next==='follow'&&view==='follow'&&followLockReady){
     if(!d.cameraLockMenu.hidden){closeCameraLockMenu();return;}
     closeBodyMenu();closeWarpMenu();closeSound();
-    d.cameraLockMenu.hidden=false;d.cameraClose.setAttribute('aria-expanded','true');
+    d.cameraLockMenu.hidden=false;d.cameraFollow.setAttribute('aria-expanded','true');
     if(event.detail===0)d.cameraLockMenu.querySelector('[aria-pressed="true"]:not(:disabled)')?.focus({preventScroll:true});
     return;
   }
+  if(next==='follow')followLockReady=true;
   releaseReturnCamera();setView(next,next==='follow'||next===view&&['orbit','plane'].includes(next));
 }));
 // Visible iframe/native-control focus changes must not stop flight; visibility owns background pause.
