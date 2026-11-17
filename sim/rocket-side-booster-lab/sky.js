@@ -1,7 +1,7 @@
 (function(root,factory){const node=typeof module==='object'&&module.exports,api=factory(node?require('./surface.js'):root.RocketSurface);if(node)module.exports=api;else root.RocketSky=api;})(typeof window==='undefined'?globalThis:window,function(S){
   'use strict';
   const START=Date.UTC(2026,0,1),YEAR_END=Date.UTC(2027,0,1),DEFAULT_START=Date.UTC(2026,2,20,20);
-  const STEP=21600000,COUNT=1489,DEG=Math.PI/180,DAY=86400000;
+  const STEP=21600000,COUNT=1489,DEG=Math.PI/180,DAY=86400000,MOON_RADIUS_KM=1737.4;
   const unit=v=>{const length=Math.hypot(...v);return v.map(x=>x/length);};
   const delta=(a,b)=>a.map((x,i)=>x-b[i]);
   const dot=(a,b)=>a.reduce((sum,x,i)=>sum+x*b[i],0);
@@ -45,8 +45,8 @@
 
   function observe(frame,observer){
     const toSun=delta(frame.sun,observer),toMoon=delta(frame.moon,observer),sun=unit(toSun),moon=unit(toMoon),moonLight=unit(delta(frame.sun,frame.moon));
-    return {sun,moon,moonLight,sunRadius:695700/Math.hypot(...toSun),moonRadius:1737.4/Math.hypot(...toMoon),phase:(1-dot(moon,moonLight))/2};
+    return {sun,moon,moonLight,sunRadius:695700/Math.hypot(...toSun),moonRadius:MOON_RADIUS_KM/Math.hypot(...toMoon),phase:(1-dot(moon,moonLight))/2};
   }
 
-  return Object.freeze({DEFAULT_START,departure,validate,at,observe});
+  return Object.freeze({DEFAULT_START,MOON_RADIUS_KM,departure,validate,at,observe});
 });

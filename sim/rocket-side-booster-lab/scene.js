@@ -118,7 +118,14 @@ export class RocketScene{
     this.cameraDirty=true;return true;
   }
   rotate(dx,dy,draw=true){
-    if(this.data?.flight?.lunar&&isOrbitView(this.view))this.lockOrbitFrame();
+    if(isOrbitView(this.view)&&this.orbitFrame){
+      this.lockOrbitFrame();
+      const {radius,pixelsPerUnit,target}=this.orbitFrame;
+      // At high magnification, limit how far depth can move the scene per drag pixel.
+      const projectedDepth=(radius+target.length())*pixelsPerUnit;
+      const sensitivity=1/Math.max(1,.005*projectedDepth*(1-1/this.zoom));
+      dx*=sensitivity;dy*=sensitivity;
+    }
     if(this.view==='follow'&&!this.followManual&&(dx||dy)){
       this.pitch=this.followPitch??this.pitch;
       this.followManual=true;
@@ -421,7 +428,7 @@ export class RocketScene{
     const fit=this.orbitFocus||{target:right.clone().multiplyScalar((left+rightEdge)/2).addScaledVector(up,(bottom+top)/2),halfHeight:1.2*Math.max((rightEdge-left)/(2*aspect),(top-bottom)/2)};
     target.copy(fit.target);
     const displayHeight=fit.halfHeight/this.zoom;
-    this.orbitFrame={...fit,right,up,pixelsPerUnit:this.host.clientHeight/(2*displayHeight)};
+    this.orbitFrame={...fit,right,up,radius:range,pixelsPerUnit:this.host.clientHeight/(2*displayHeight)};
     Object.assign(this.orbitCamera,{left:-displayHeight*aspect,right:displayHeight*aspect,top:displayHeight,bottom:-displayHeight});
     return Math.max(30,2*range+15,2*displayHeight*Math.hypot(1,aspect));
   }
@@ -688,9 +695,16 @@ export class RocketScene{
     const left=Math.min(66,width*.22),right=width-left,top=Math.min(115,height*.34),bottom=height-Math.min(72,height*.3);
     const projected=this.project(moon),local=moon.clone().applyMatrix4(this.camera.matrixWorldInverse);
     const direction=moon.clone().sub(this.camera.position).normalize(),earth=this.earth.position.clone().sub(this.camera.position);
-    const along=earth.dot(direction),occluded=along>0&&along<this.camera.position.distanceTo(moon)&&
-      earth.lengthSq()-along*along<this.earth.scale.x**2;
-    if(local.z<0&&projected.x>=left&&projected.x<=right&&projected.y>=top&&projected.y<=bottom){
+    const distance=local.length(),along=earth.dot(direction),radius=Sky.MOON_RADIUS_KM;
+    const separation=Math.atan2(earth.clone().cross(direction).length(),along);
+    const earthAngle=Math.asin(Math.min(1,this.earth.scale.x/earth.length()));
+    const moonAngle=Math.asin(Math.min(1,radius/distance));
+    const occluded=along>0&&along<distance&&separation+moonAngle<=earthAngle;
+    const lens=this.camera.projectionMatrix.elements,depth=-local.z;
+    const inFrame=depth>0&&Math.abs(local.x)*lens[0]<=depth+radius*Math.hypot(1,lens[0])&&
+      Math.abs(local.y)*lens[5]<=depth+radius*Math.hypot(1,lens[5]);
+    if(inFrame&&!occluded)return null;
+    if(inFrame&&projected.x>=left&&projected.x<=right&&projected.y>=top&&projected.y<=bottom){
       return {x:projected.x,y:projected.y,edge:false,angle:0,occluded};
     }
     const x=local.x,y=Math.hypot(local.x,local.y)<1e-8?1:-local.y;

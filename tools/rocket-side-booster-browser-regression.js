@@ -1156,12 +1156,31 @@ async function lunarTransfer(base,label){
   await wait(()=>call(`return app.getScene().zoom>${mouse.zoom};`),'small vertical mouse wheel zoom');
   const anchor=await call(`const s=app.getScene(),r=s.host.getBoundingClientRect(),p=s.project(s.rocket.position);return [p.x+r.left,p.y+r.top];`);
   assert(Math.hypot(anchor[0]-mouse.x,anchor[1]-mouse.y)<2);
+  const rotation=[];
+  for(const view of ['plane','orbit']){
+    await click('[data-camera-view="'+view+'"]',mobile);
+    const before=await call(`const s=app.getScene(),r=s.host.getBoundingClientRect(),ship=s.project(s.rocket.position);
+      const x=r.left+r.width/2,y=r.top+r.height/2;
+      s.transformOrbit(90,{x:r.left+ship.x,y:r.top+ship.y},{x,y});s.draw();
+      return {x,y,zoom:s.zoom,yaw:s.yaw,ship:s.project(s.rocket.position)};`);
+    await pointer({x:before.x,y:before.y},{x:before.x+12,y:before.y+8},false);
+    const after=await call('const s=app.getScene();return {yaw:s.yaw,ship:s.project(s.rocket.position)};');
+    const pixels=Math.hypot(after.ship.x-before.ship.x,after.ship.y-before.ship.y);
+    assert(before.zoom>=40&&after.yaw!==before.yaw&&after.ship.visible&&pixels<26,JSON.stringify({view,before,after,pixels}));
+    rotation.push({view,zoom:before.zoom,pixels});
+  }
   await click('[data-camera-view="follow"]',mobile);
   await wait(()=>call('return !d.getElementById("moonLocator").hidden;'),'follow Moon locator');
   const locator=await call(`const s=app.getScene(),r=s.host.getBoundingClientRect(),b=d.getElementById('moonLocator').getBoundingClientRect(),aim=s.moonDirection();
     return {aim,inside:b.left>=r.left&&b.right<=r.right&&b.top>=r.top&&b.bottom<=r.bottom};`);
   assert(locator.inside&&Number.isFinite(locator.aim.angle));
   await shot(label+'-lunar-follow-moon-locator-'+(mobile?'390x844':'1000x700'));
+  await call(`const s=app.getScene(),direction=s.moonTarget.clone().sub(s.rocket.position).normalize();
+    s.followManual=true;s.yaw=Math.atan2(-direction.x,-direction.z)+.12;s.pitch=Math.asin(-direction.y);s.draw();`);
+  await wait(()=>call('return d.getElementById("moonLocator").hidden;'),'hide locator when the Moon enters view');
+  assert(await call('const s=app.getScene();return s.project(s.moonTarget).visible;'));
+  await call('const s=app.getScene();s.yaw+=Math.PI;s.pitch=-s.pitch;s.draw();');
+  await wait(()=>call('return !d.getElementById("moonLocator").hidden&&d.getElementById("moonLocator").dataset.edge==="true";'),'restore locator when the Moon leaves view');
   const result=await call(`const c=app.controller,f=c.state.flight;
     c.play();let slow=null,resumed=false,frames=0;
     for(;c.running&&frames<1000;frames++){
@@ -1179,7 +1198,7 @@ async function lunarTransfer(base,label){
   await click('#returnWorkshop',mobile);
   assert.deepEqual(await call('return app.getState().craft;'),design);
   assert(await call('return [...d.querySelectorAll("[data-time-warp]")].find(b=>b.value==="10000").hidden;'));
-  report.flows.push({case:'lunar-transfer',label,started,alignment,locator,result});
+  report.flows.push({case:'lunar-transfer',label,started,alignment,locator,rotation,result});
 }
 
 async function lunarReturn(base,label){
