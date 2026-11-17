@@ -1170,17 +1170,7 @@ async function lunarTransfer(base,label){
     rotation.push({view,zoom:before.zoom,pixels});
   }
   await click('[data-camera-view="follow"]',mobile);
-  await wait(()=>call('return !d.getElementById("moonLocator").hidden;'),'follow Moon locator');
-  const locator=await call(`const s=app.getScene(),r=s.host.getBoundingClientRect(),b=d.getElementById('moonLocator').getBoundingClientRect(),aim=s.moonDirection();
-    return {aim,inside:b.left>=r.left&&b.right<=r.right&&b.top>=r.top&&b.bottom<=r.bottom};`);
-  assert(locator.inside&&Number.isFinite(locator.aim.angle));
-  await shot(label+'-lunar-follow-moon-locator-'+(mobile?'390x844':'1000x700'));
-  await call(`const s=app.getScene(),direction=s.moonTarget.clone().sub(s.rocket.position).normalize();
-    s.followManual=true;s.yaw=Math.atan2(-direction.x,-direction.z)+.12;s.pitch=Math.asin(-direction.y);s.draw();`);
-  await wait(()=>call('return d.getElementById("moonLocator").hidden;'),'hide locator when the Moon enters view');
-  assert(await call('const s=app.getScene();return s.project(s.moonTarget).visible;'));
-  await call('const s=app.getScene();s.yaw+=Math.PI;s.pitch=-s.pitch;s.draw();');
-  await wait(()=>call('return !d.getElementById("moonLocator").hidden&&d.getElementById("moonLocator").dataset.edge==="true";'),'restore locator when the Moon leaves view');
+  assert(await call('return !d.getElementById("moonLocator")&&app.getScene().moonGlobe.visible;'));
   const result=await call(`const c=app.controller,f=c.state.flight;
     c.play();let slow=null,resumed=false,frames=0;
     for(;c.running&&frames<1000;frames++){
@@ -1198,7 +1188,7 @@ async function lunarTransfer(base,label){
   await click('#returnWorkshop',mobile);
   assert.deepEqual(await call('return app.getState().craft;'),design);
   assert(await call('return [...d.querySelectorAll("[data-time-warp]")].find(b=>b.value==="10000").hidden;'));
-  report.flows.push({case:'lunar-transfer',label,started,alignment,locator,rotation,result});
+  report.flows.push({case:'lunar-transfer',label,started,alignment,rotation,result});
 }
 
 async function lunarReturn(base,label){
@@ -1251,6 +1241,13 @@ async function lunarReturn(base,label){
   assert.equal(landing.phase,'ended');assert.equal(landing.outcome,'landed');assert.equal(landing.fuel,initialFuel);
   assert(Math.abs(Math.hypot(landing.touchdown.normal,landing.touchdown.tangent)-5.084)<.1);
   await shot(label+'-lunar-return-landing-'+width+'x'+height);
+  await click('[data-camera-view="orbit"]',mobile);
+  const arrival=await call(`const s=app.getScene(),f=app.controller.state.flight,r=s.host.getBoundingClientRect(),p=s.project(s.earth.position);
+    const points=f.lunar.trail.slice(f.lunar.trail.findLastIndex(q=>RocketCelestial.norm(q)>RocketParts.R+3e6)+1);
+    s.transformOrbit(12,{x:r.left+p.x,y:r.top+p.y},{x:r.left+r.width/2,y:r.top+r.height/2});s.draw();
+    return {samples:points.length,linePoints:s.lines.actual.geometry.attributes.position.count,trail:f.lunar.trail.length};`);
+  assert(arrival.samples>30&&arrival.linePoints===arrival.trail+1);
+  await shot(label+'-lunar-earth-approach-'+width+'x'+height);
   await click('#returnWorkshop',mobile);
   const loaded=await resources();
   assert.deepEqual(loaded.filter(([name])=>name.endsWith('.gz')||name.endsWith('.jpg')),
@@ -1301,7 +1298,7 @@ async function lunarReturn(base,label){
   await shot(label+'-lunar-rcs-after-day-ten-'+width+'x'+height);
   const settled=await advance(900020);
   assert(settled.phase==='coast'&&settled.fuel===0&&await call('return app.getScene().diagnostics().rcsDirection===0;'));
-  report.flows.push({case:'lunar-return',label,width,height,cold,early,loaded,near,sky,contextRestored:true,entry,descent,landing,fallback,continued,jet,settled});
+  report.flows.push({case:'lunar-return',label,width,height,cold,early,loaded,near,sky,contextRestored:true,entry,descent,landing,arrival,fallback,continued,jet,settled});
 }
 
 function selection(args){if(args.length>2)throw Error("Expected cases and optional delivery");const cases=args[0]?args[0].split(","):caseNames,delivery=args[1]||null;if(cases.some(name=>!caseNames.includes(name))||new Set(cases).size!==cases.length)throw Error("Unknown or repeated explorer case");if(delivery&&!["source","standalone"].includes(delivery))throw Error("Unknown explorer delivery");return{cases,delivery};}

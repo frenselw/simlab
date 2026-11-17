@@ -11,6 +11,7 @@
   const LAUNCH=3212112.6804642463,BEARING=142.2141656696786;
   const INSERTION_FUEL=30-13.940448204644234,THRUST=3000,ISP=300;
   const NEAR=80000000,FORECAST_SPAN=10*C.DAY,TURN_LEAD=16,TURN_THRESHOLD=Math.cos(.15*DEG);
+  const PATH_SWEEP=DEG,MAX_PATH_POINTS=4096;
   const TRANSFER_START=7200,FAST_WARP=10000,ENCOUNTER_WARP_HEIGHT=20000000;
   // Inertial state obtained by shooting backward from the Moon and targeting both Earth passes.
   const RETURN_EPOCH=3285490.002632308;
@@ -122,6 +123,12 @@
     const dr=add(q.slice(0,3),moon.slice(0,3),-1),dv=add(q.slice(3,6),moon.slice(3,6),-1);
     const distance=norm(dr);
     return {height:distance-C.MOON_RADIUS,rate:dot(dr,dv)/distance,speed:norm(dv)};
+  }
+  function pathSampleDue(q,moon,last,elapsed,maximum,stride){
+    const moonRate=Math.sqrt(Math.max(0,moon.speed**2-moon.rate**2))/(moon.height+C.MOON_RADIUS);
+    if(elapsed>=Math.min(maximum,PATH_SWEEP/moonRate)*stride)return true;
+    const r=q.slice(0,3),sweep=PATH_SWEEP*stride;
+    return sweep<Math.PI&&dot(last,r)<norm(last)*norm(r)*Math.cos(sweep);
   }
   function log(f,type,extra){
     f.lunar.events.push({type,t:f.t,altitude:f.orbit?.height, fuel:f.capsule.fuel,...extra});
@@ -419,10 +426,10 @@
     advanceDrops(f,table,t,h);
     f.eci=q;
     f.t=t+h;
-    if(reason||f.t-l.lastTrail>=(f.t<1000?5:l.trailInterval??1400)){
-      if(l.trail.length>=4096){
+    if(reason||pathSampleDue(q,after,l.trail.at(-1),f.t-l.lastTrail,f.t<1000?5:1400,l.trailStride??1)){
+      if(l.trail.length>=MAX_PATH_POINTS){
         l.trail=l.trail.filter((_,i)=>i%2===0);
-        l.trailInterval=(l.trailInterval??1400)*2;
+        l.trailStride=(l.trailStride??1)*2;
       }
       l.trail.push(q.slice(0,3));
       l.lastTrail=f.t;
@@ -562,8 +569,15 @@
     const start=f.t,end=Math.min(start+FORECAST_SPAN,flightLimit(f)),l=f.lunar,position=q=>q.slice(0,3);
     const derivative=(t,q)=>[...q.slice(3),...C.gravity(table,epoch(f)+t,position(q))];
     let t=start,q=f.eci.slice(),moon=lunarDistance(table,f,t,q),closest=null,entry=null;
-    const points=[position(q)],times=[t];
-    let sampled=start,count=0;
+    let points=[position(q)],times=[t],sampled=start,count=0,stride=1;
+    function record(state,time){
+      if(points.length>=MAX_PATH_POINTS){
+        points=points.filter((_,i)=>i%2===0);
+        times=times.filter((_,i)=>i%2===0);
+        stride*=2;
+      }
+      points.push(position(state));times.push(time);sampled=time;
+    }
     while(t<end){
       const earth=norm(position(q))-P.R;
       const dt=Math.min(end-t,earth<14000000?2:moon.height<NEAR?15:120);
@@ -578,9 +592,8 @@
             else lo=mid;
           }
           entry={t:t+hi};
-          points.push(position(at(hi)));
-          times.push(entry.t);
-        }else{points.push(position(next));times.push(t+dt);}
+          record(at(hi),entry.t);
+        }else record(next,t+dt);
         break;
       }
       if(moon.rate<0&&sample.rate>=0){
@@ -596,7 +609,7 @@
       }
       const ends=!l.freeReturn&&closest?.height<=NEAR&&moon.height<=NEAR&&sample.height>NEAR;
       t+=dt;q=next;moon=sample;
-      if(t-sampled>=900||ends||t>=end){points.push(position(q));times.push(t);sampled=t;}
+      if(ends||t>=end||pathSampleDue(q,moon,points.at(-1),t-sampled,900,stride))record(q,t);
       if(ends)break;
       if(++count%48===0)yield;
     }

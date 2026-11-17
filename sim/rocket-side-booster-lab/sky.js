@@ -48,5 +48,5 @@
     return {sun,moon,moonLight,sunRadius:695700/Math.hypot(...toSun),moonRadius:MOON_RADIUS_KM/Math.hypot(...toMoon),phase:(1-dot(moon,moonLight))/2};
   }
 
-  return Object.freeze({DEFAULT_START,MOON_RADIUS_KM,departure,validate,at,observe});
+  return Object.freeze({DEFAULT_START,departure,validate,at,observe});
 });

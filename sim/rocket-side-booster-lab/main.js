@@ -98,16 +98,8 @@ function updateForecast(){
   }while(performance.now()<deadline);
 }
 function updateNavigationMarkers(){
-  const aim=!renderLost&&scene?.moonDirection(),markers=!renderLost&&scene?scene.mapMarkers():[];
-  d.moonLocator.hidden=!aim;
+  const markers=!renderLost&&scene?scene.mapMarkers():[];
   const place=(element,point)=>{element.style.left=point.x+'px';element.style.top=point.y+'px';};
-  if(aim){
-    place(d.moonLocator,aim);
-    d.moonLocator.dataset.edge=String(aim.edge);
-    d.moonLocator.style.setProperty('--moon-bearing',aim.angle+'rad');
-    const text=aim.occluded?'月球（地球遮擋）':'月球';
-    if(d.moonLocator.lastElementChild.textContent!==text)d.moonLocator.lastElementChild.textContent=text;
-  }
   for(const [i,label] of [d.mapMoon,d.mapEncounter].entries()){
     const point=markers[i];
     label.hidden=!point?.visible;

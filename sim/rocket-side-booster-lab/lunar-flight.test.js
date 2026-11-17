@@ -129,6 +129,14 @@ assert.deepEqual(events.map(e=>e.type),['return-coast','return-entry','drogue-op
 assert.equal(returning.capsule.fuel,initialFuel);
 assert(returning.capsule.heat>0&&returning.capsule.heat<1);
 assert(Math.abs(Math.hypot(returning.capsule.touchdown.normal,returning.capsule.touchdown.tangent)-5.084)<.1);
+function arrivalSampling(path){
+  const arrival=path.slice(path.findLastIndex(point=>C.norm(point)>P.R+3e6)+1);
+  const sweep=arrival.slice(1).map((point,i)=>Math.atan2(C.norm(C.cross(arrival[i],point)),C.dot(arrival[i],point))/C.DEG);
+  return {points:arrival.length,maxSweepDegrees:Math.max(...sweep)};
+}
+const sampling={actual:arrivalSampling(returning.lunar.trail),forecast:arrivalSampling(predicted.points)};
+assert(sampling.actual.points>30&&sampling.forecast.points>20,JSON.stringify(sampling));
+assert(sampling.actual.maxSweepDegrees<1.2&&sampling.forecast.maxSweepDegrees<1.2,JSON.stringify(sampling));
 
 const offCourse=new Controller();
 offCourse.lunarTable=table;
@@ -163,5 +171,5 @@ assert.equal(drifting.t,end);
 assert.equal(drifting.lunar.outcome,'ephemeris-end');
 assert.equal(offCourse.state.phase,'ended');
 console.log('Lunar free return:',JSON.stringify({closest,entry,events,outcome,fuelKg:initialFuel,
-  heat:returning.capsule.heat,touchdown:returning.capsule.touchdown}));
+  heat:returning.capsule.heat,touchdown:returning.capsule.touchdown,sampling}));
 console.log('Lunar replay, time warp correction, exact cutoff and flyby fuel passed');

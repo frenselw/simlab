@@ -688,30 +688,6 @@ export class RocketScene{
   }
   animateEffects(now){const elapsed=this.effectClock?Math.max(0,(now-this.effectClock)/1000):0,delta=Math.min(.05,elapsed);this.effectClock=now;if(!this.flightReady||this.lost||document.hidden||!this.data?.live)return false;if((this.data.running||this.rocket?.userData.landingMotion?.water)&&!this.reducedMotion&&this.quality<2&&this.data.flight&&O.elements(this.data.flight.state).height<20000)surfaceUniforms.uSurfaceTime.value=(surfaceUniforms.uSurfaceTime.value+delta)%1000;let settling=this.globalTerrain.advanceDetail(now);const frame=this.followFrame;if(frame&&frame.distance!==frame.goal){const difference=frame.goal-frame.distance;frame.distance=Math.abs(difference)<frame.goal*1e-5?frame.goal:frame.distance+difference*(1-Math.exp(-delta/(this.reducedMotion?.06:.25)));settling=true;}if(this.lastChutePhase!=='stowed'&&this.chuteFrameAge<(this.reducedMotion?.25:1.2)){this.chuteFrameAge=Math.min(this.reducedMotion?.25:1.2,this.chuteFrameAge+delta);settling=true;}for(const rocket of [this.rocket,this.otherRocket]){if(rocket?.userData.parachute?.advance(delta))settling=true;const motion=rocket?.userData.landingMotion;if(motion){const limit=this.reducedMotion?.45:6,before=motion.age;motion.age=motion.water&&!this.reducedMotion?motion.age+delta:Math.min(limit,motion.age+delta);const floating=motion.water&&!this.reducedMotion&&rocket===this.rocket&&this.view==='follow';if(before<limit||floating&&now-motion.lastDraw>=1000/(this.quality?20:30)){settling=true;motion.lastDraw=now;}}}if(settling)this.draw();if(this.data.running===false&&!['impact','destroyed'].includes(this.data.flight?.status)&&!['impact','destroyed'].includes(this.data.other?.status))return Boolean(settling);const transition=this.separation,separating=transition&&this.data.running!==false&&transition.visualAge<.6;if(separating)transition.visualAge=Math.min(.6,transition.visualAge+elapsed);const releasing=this.launchStarted&&this.launchArmAge<(this.reducedMotion?.25:1.1);if(releasing)this.launchArmAge+=delta;const vapour=this.launchEffects?.advance(delta,Math.max(this.quality,Number(this.reducedMotion)),this.reducedMotion);if(this.impacts.advance(delta)||separating||releasing||vapour){this.draw();return true;}return false;}
   project(position){const p=position.clone().project(this.camera);const r=this.host.getBoundingClientRect();return {x:(p.x+1)*r.width/2,y:(1-p.y)*r.height/2,visible:p.z>=-1&&p.z<=1&&Math.abs(p.x)<.98&&Math.abs(p.y)<.98};}
-  moonDirection(){
-    const moon=this.moonTarget;
-    if(this.view!=='follow'||!moon||this.lost)return null;
-    const width=this.host.clientWidth,height=this.host.clientHeight;
-    const left=Math.min(66,width*.22),right=width-left,top=Math.min(115,height*.34),bottom=height-Math.min(72,height*.3);
-    const projected=this.project(moon),local=moon.clone().applyMatrix4(this.camera.matrixWorldInverse);
-    const direction=moon.clone().sub(this.camera.position).normalize(),earth=this.earth.position.clone().sub(this.camera.position);
-    const distance=local.length(),along=earth.dot(direction),radius=Sky.MOON_RADIUS_KM;
-    const separation=Math.atan2(earth.clone().cross(direction).length(),along);
-    const earthAngle=Math.asin(Math.min(1,this.earth.scale.x/earth.length()));
-    const moonAngle=Math.asin(Math.min(1,radius/distance));
-    const occluded=along>0&&along<distance&&separation+moonAngle<=earthAngle;
-    const lens=this.camera.projectionMatrix.elements,depth=-local.z;
-    const inFrame=depth>0&&Math.abs(local.x)*lens[0]<=depth+radius*Math.hypot(1,lens[0])&&
-      Math.abs(local.y)*lens[5]<=depth+radius*Math.hypot(1,lens[5]);
-    if(inFrame&&!occluded)return null;
-    if(inFrame&&projected.x>=left&&projected.x<=right&&projected.y>=top&&projected.y<=bottom){
-      return {x:projected.x,y:projected.y,edge:false,angle:0,occluded};
-    }
-    const x=local.x,y=Math.hypot(local.x,local.y)<1e-8?1:-local.y;
-    const cx=width/2,cy=(top+bottom)/2;
-    const scale=Math.min((right-cx)/Math.abs(x),(bottom-cy)/Math.abs(y));
-    return {x:cx+x*scale,y:cy+y*scale,edge:true,angle:Math.atan2(y,x),occluded};
-  }
   mapMarkers(){
     const f=this.data?.flight;
     if(!f?.lunar||!isOrbitView(this.view)||!this.moonTarget||this.lost)return [];
