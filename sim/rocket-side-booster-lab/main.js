@@ -110,10 +110,12 @@ function updateNavigationMarkers(){
   }
   for(const [i,label] of [d.mapMoon,d.mapEncounter].entries()){
     const point=markers[i];
-    label.hidden=!point?.visible||point.x<48||point.x>d.stage.clientWidth-48;
+    label.hidden=!point?.visible;
     if(!label.hidden){
+      const x=Math.max(54,Math.min(d.stage.clientWidth-54,point.x));
       label.dataset.above=String(point.y>d.stage.clientHeight-95);
-      place(label,point);
+      label.style.setProperty('--label-tick',point.x-x+'px');
+      place(label,{x,y:point.y});
     }
   }
 }

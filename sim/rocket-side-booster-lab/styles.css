@@ -219,7 +219,7 @@
 .moon-locator span{width:9px;height:9px;border:1px solid #f3d182;border-radius:50%}
 .moon-locator[data-edge=true] span{border:0;border-radius:0;background:#f3d182;clip-path:polygon(0 0,100% 50%,0 100%);transform:rotate(var(--moon-bearing))}
 .map-label{padding:3px 5px;transform:translate(-50%,10px)}
-.map-label::before{content:"";position:absolute;top:-8px;left:50%;height:7px;border-left:1px solid currentColor}
+.map-label::before{content:"";position:absolute;top:-8px;left:calc(50% + var(--label-tick,0px));height:7px;border-left:1px solid currentColor}
 .map-label[data-above=true]{transform:translate(-50%,calc(-100% - 9px))}
 .map-label[data-above=true]::before{top:100%}
 .map-label.encounter{color:#b0e3d4}
