@@ -1146,10 +1146,10 @@ async function lunarTransfer(base,label){
     c.play();c.tick(24000,900);c.pause();c.emit();
     const f=c.state.flight,actual=s.lines.actual.geometry.attributes.position,projected=s.rocket.position.toArray();
     const forecast=s.lines.predicted.geometry,start=forecast.drawRange.start;
-    return {first,after:Array.from(actual.array.slice(0,3)),ship:projected,
+    return {first,after:Array.from(actual.array.slice(0,3)),ship:projected,flushed:actual.count===f.lunar.trail.length+1,
       trail:Array.from(actual.array.slice(-3)),forecast:Array.from(forecast.attributes.position.array.slice(3*start,3*start+3)),start};`);
   assert.deepEqual(alignment.first,alignment.after);
-  assert(alignment.start>0&&[alignment.trail,alignment.forecast].every(p=>p.every((n,i)=>Math.abs(n-alignment.ship[i])<.00002)));
+  assert(alignment.flushed&&alignment.start>0&&[alignment.trail,alignment.forecast].every(p=>p.every((n,i)=>Math.abs(n-alignment.ship[i])<.00002)));
   const mouse=await call(`const s=app.getScene(),r=s.host.getBoundingClientRect(),p=s.project(s.rocket.position);
     return {x:r.left+p.x,y:r.top+p.y,zoom:s.zoom};`);
   await cdp.send('Input.dispatchMouseEvent',{type:'mouseWheel',x:mouse.x,y:mouse.y,deltaX:0,deltaY:-24});
@@ -1206,6 +1206,7 @@ async function lunarReturn(base,label){
       outcome:f.lunar.outcome,chute:f.capsule.chute.phase,fuel:f.capsule.fuel,heat:f.capsule.heat,thermal:f.lunar.thermal,touchdown:f.capsule.touchdown};`);
   const distant=await advance(277000);
   assert.equal(distant.view,'orbit');
+  assert(await call('return app.getScene().lines.actual.geometry.attributes.position.count===app.controller.state.flight.lunar.trail.length+1;'));
   await wait(()=>call('return !d.getElementById("mapMoon").hidden;'),'Moon label in distant overview');
   await shot(label+'-lunar-return-overview-'+width+'x'+height);
   const near=await advance(365000);
