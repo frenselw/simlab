@@ -21,6 +21,7 @@ const controller=new RocketRuntime.Controller(render,launchAllowed);
 const renderLunar=installLunarControls(d,{controller,launchAllowed,command,setView,fmt});
 let returnCamera=null,forecastJob=null,markerFrame=-1,lastLunarTrailSize=0;
 let skyData=null,skyStart=Sky.DEFAULT_START;
+const cameraLockLabels={sun:'太陽',moon:'月球',earth:'地球'};
 const departure=()=>Sky.departure(d.skyDate.value,d.skyTime.value);
 let assemblyWarningTimer=null,dialGesture=null;
 let scene=null,view='factory',flightView='follow',selectedPart=null,selectedStage=0,assemblyDrag=null,selectedInstalled=null,lastPaths=-Infinity,lastHud=0,lastFrame=0,physicsTime=0,warp=1,actualWarp=1,warpSeconds=0,warpElapsed=0,trail=[],trailTime=-1,renderLost=false,renderMessage='',interaction=null,frameCount=0,targetFrame=-1,targetUpdates=0;
@@ -74,13 +75,13 @@ async function prepareFlight(){
 d.retryFlightPreparation.addEventListener('click',prepareFlight);
 function toast(message){d.toast.textContent=message;d.toast.hidden=false;}
 function command(action,options){selectedInstalled=null;interaction?.cancel();const before=controller.state,changed=controller.command(action,options);if(changed)sound.action(action,before,controller.state);if(changed&&action.type==='capsule-separate'){lastPaths=-Infinity;setView('follow');}if(changed&&action.type==='select-body'){d.controlPanel.scrollTop=0;trail=[];trailTime=-1;lastPaths=-Infinity;}if(changed&&['launch-lunar','lunar-transfer','lunar-return'].includes(action.type)){warp=action.type==='launch-lunar'?1:RocketLunar.FAST_WARP;warpSeconds=warpElapsed=0;}if(changed&&['launch','launch-lunar','lunar-transfer','lunar-return','workshop'].includes(action.type)){d.controlPanel.scrollTop=0;trail=[];trailTime=-1;lastPaths=-Infinity;releaseReturnCamera();if(action.type==='lunar-return')returnCamera='outbound';}return changed;}
-function setView(next,reset=false){interaction?.resetPan();if(['orbit','plane'].includes(next)&&!scene?.flightReady)return;if(controller.state?.flight)flightView=next;view=next;scene?.setView(next,reset);d.cameraHint.hidden=view!=='sky';if(view==='sky')d.cameraHint.textContent='望天空 · 原地轉頭，拉近看日月';renderScene();}
-function releaseReturnCamera(){returnCamera=null;if(scene)scene.trackMoon=false;}
+function setView(next,reset=false,lock=null){interaction?.resetPan();if(['orbit','plane','sky'].includes(next)&&!scene?.flightReady)return;closeCameraLockMenu();if(controller.state?.flight)flightView=next;view=next;scene?.setView(next,reset,lock);renderScene();}
+function releaseReturnCamera(){returnCamera=null;}
 function directReturnCamera(f){
   if(!returnCamera||!scene||!f?.lunar?.freeReturn)return;
   if(f.lunar.entry){releaseReturnCamera();setView('follow',true);}
-  else if(returnCamera==='outbound'&&f.moon.height<22000000&&!f.lunar.returning){returnCamera='moon';scene.trackMoon=true;setView('sky',true);}
-  else if((returnCamera==='moon'||returnCamera==='outbound')&&f.lunar.returning){returnCamera='earth';scene.trackMoon=false;setView('orbit',true);}
+  else if(returnCamera==='outbound'&&f.moon.height<22000000&&!f.lunar.returning){returnCamera='moon';setView('sky',true,'moon');}
+  else if((returnCamera==='moon'||returnCamera==='outbound')&&f.lunar.returning){returnCamera='earth';setView('orbit',true);}
 }
 function updateForecast(){
   const f=controller.state?.flight,l=f?.lunar;
@@ -194,7 +195,8 @@ d.chuteArm.addEventListener('click',()=>command({type:'chute-arm'}));d.autoDispo
 function displayMission(){return Boolean(controller.state?.flight?.upperStage);}
 function renderScene(){
   const s=controller.state,f=selectedFlight(),workshop=controller.editable&&EDIT_PHASE()==='workshop',space=['orbit','plane'].includes(view),other=displayMission()?(f===s.flight?s.flight.upperStage:s.flight):null;d.stage.classList.toggle('is-flight',Boolean(f));d.stage.classList.toggle('is-space',space||Boolean(f&&(f.orbit||O.elements(f.state)).height>70000));d.flightReadouts.hidden=d.telemetry.hidden=!f;d.directionLegend.hidden=!f;d.orbitLegend.hidden=!f||!space||renderLost;d.cameraSurface.hidden=renderLost||!s;d.renderFault.hidden=!renderMessage;d.renderFault.textContent=renderMessage;
-  document.querySelectorAll('[data-camera-view]').forEach(b=>{const key=b.dataset.cameraView;b.disabled=renderLost||(key==='factory'?!workshop:key==='follow'?!f:key==='sky'?(!f||!skyData&&!f.lunar):!scene?.flightReady);b.setAttribute('aria-pressed',String(view===key));});d.scaleNote.textContent=space?'飛船圖示非同比例':workshop?'3D 裝配間':'跟隨鏡頭 · 同比例近景';
+  document.querySelectorAll('[data-camera-view]').forEach(b=>{const key=b.dataset.cameraView;b.disabled=renderLost||(key==='close'?(!workshop&&(!f||!scene?.flightReady)):key==='follow'?!f:!scene?.flightReady);b.setAttribute('aria-pressed',String(view===(key==='close'?(workshop?'factory':'sky'):key)));});d.scaleNote.textContent=space?'飛船圖示非同比例':workshop?'3D 裝配間':'跟隨鏡頭 · 同比例近景';
+  renderCameraLock(f);
   d.skyReadout.hidden=!f||!skyData&&!f.lunar;
   if(!d.skyReadout.hidden){const value=new Date(f.lunar?RocketLunar.flightUtc(f):skyStart+s.flight.t*1000).toISOString().slice(0,19).replace('T',' ')+' UTC';if(d.skyUtc.textContent!==value)d.skyUtc.textContent=value;}
   if(f){d.boosterFuelStage.hidden=!f.boosters;if(f.boosters){d.boosterFuelStage.firstElementChild.textContent=f.craft.boosters===4?'固體兩對':'固體一對';d.boosterFuelValue.textContent=f.boosters.status==='jettisoned'?'已分離':fmt(100*f.boosters.fuel/P.BOOSTER.fuel,0)+'%';d.boosterFuelBar.style.width=(100*f.boosters.fuel/P.BOOSTER.fuel)+'%';}const o=f.orbit||O.elements(f.state);const air=f.lunar?.air,landed=f.lunar?.outcome==='landed';const agl=landed?0:Math.max(0,RocketSurface.clearance(f.state,f.t));d.heightValue.textContent=fmt(agl<1000?agl:agl/1000,agl>=10000000?0:1);d.heightUnit.textContent=agl<1000?'m':'km';d.surfaceAltitude.textContent=agl<10000?'海拔 '+fmt(Math.abs(o.height)<.05?0:o.height)+' m':'';for(const [id,value]of [['totalSpeed',landed?0:air?.speed??o.speed],['verticalSpeed',landed?0:Math.abs(air?.radial??o.radial)],['speed',landed?0:air?Math.sqrt(Math.max(0,air.speed**2-air.radial**2)):Math.abs(o.tangential)]]){const shown=value,km=shown>=1000;d[id+'Value'].textContent=fmt(km?shown/1000:shown,km?2:1);d[id+'Unit'].textContent=km?'km/s':'m/s';}d.fuelLabel0.textContent=f.craft.stages.length===2?'下級':'主級';d.fuelStage1.hidden=f.craft.stages.length!==2;for(const [i,value,bar]of [[0,d.fuelValue,d.fuelBar],[1,d.upperFuelValue,d.upperFuelBar]]){if(!f.craft.stages[i])continue;const removed=i===0&&f.separated,percent=100*(f.fuel[i]||0)/P.capacity(f.craft.stages[i]);value.textContent=removed?'已分離':fmt(percent,0)+'%';bar.style.width=(removed?0:percent)+'%';d['fuelStage'+i].dataset.active=String(i===f.active&&!removed);}}
@@ -298,8 +300,58 @@ document.addEventListener('pointerdown',e=>{if(!d.timeWarpControl.contains(e.tar
 for(const event of ['fullscreenchange','webkitfullscreenchange'])document.addEventListener(event,()=>closeWarpMenu());
 window.addEventListener('resize',()=>closeWarpMenu());
 window.addEventListener('blur',()=>closeWarpMenu());
+function closeCameraLockMenu(focus=false){
+  if(d.cameraLockMenu.hidden)return;
+  d.cameraLockMenu.hidden=true;
+  d.cameraClose.setAttribute('aria-expanded','false');
+  if(focus)d.cameraClose.focus({preventScroll:true});
+}
+function renderCameraLock(f){
+  const near=view==='sky'&&Boolean(f)&&!renderLost,target=near?scene?.cameraLock:null;
+  const label=near?'鎖定':'近景';
+  if(d.cameraCloseLabel.textContent!==label)d.cameraCloseLabel.textContent=label;
+  d.cameraLockCaret.hidden=!near;
+  d.cameraClose.setAttribute('aria-label',target?'鎖定：'+cameraLockLabels[target]:near?'鎖定天體':'近景');
+  if(near){
+    d.cameraClose.setAttribute('aria-controls','cameraLockMenu');
+    d.cameraClose.setAttribute('aria-expanded',String(!d.cameraLockMenu.hidden));
+  }else{
+    closeCameraLockMenu();
+    d.cameraClose.removeAttribute('aria-controls');d.cameraClose.removeAttribute('aria-expanded');
+  }
+  d.cameraHint.hidden=!near;
+  const hint=target?'已鎖定'+cameraLockLabels[target]:'近景 · 原地轉頭，可鎖定天體';
+  if(d.cameraHint.textContent!==hint)d.cameraHint.textContent=hint;
+  for(const button of d.cameraLockMenu.querySelectorAll('[data-camera-lock]')){
+    const key=button.dataset.cameraLock;
+    button.disabled=(key==='sun'||key==='moon')&&!skyData&&!f?.lunar;
+    button.setAttribute('aria-pressed',String(key===(target||'')));
+  }
+}
+d.cameraLockMenu.addEventListener('click',event=>{
+  const choice=event.target.closest('[data-camera-lock]');
+  if(!choice||choice.disabled||view!=='sky')return;
+  releaseReturnCamera();scene.setCameraLock(choice.dataset.cameraLock||null);
+  closeCameraLockMenu(true);renderScene();
+});
+d.cameraCloseControl.addEventListener('keydown',event=>{if(event.key==='Escape'&&!d.cameraLockMenu.hidden){event.preventDefault();event.stopPropagation();closeCameraLockMenu(true);}});
+d.cameraCloseControl.addEventListener('focusout',event=>{if(event.relatedTarget&&!d.cameraCloseControl.contains(event.relatedTarget))closeCameraLockMenu();});
+document.addEventListener('pointerdown',event=>{if(!d.cameraCloseControl.contains(event.target))closeCameraLockMenu();});
+for(const event of ['fullscreenchange','webkitfullscreenchange'])document.addEventListener(event,()=>closeCameraLockMenu());
+window.addEventListener('resize',()=>closeCameraLockMenu());window.addEventListener('blur',()=>closeCameraLockMenu());
 d.toggleFlightControls.addEventListener('click',()=>{interaction?.cancel();setControlsCollapsed(!d.controlPanel.hidden);});
-document.querySelectorAll('[data-camera-view]').forEach(b=>b.addEventListener('click',()=>{interaction?.cancel();const next=b.dataset.cameraView;releaseReturnCamera();if(scene&&next==='sky'&&controller.state.flight?.moon?.height<80000000)scene.trackMoon=true;setView(next,next==='follow'||next===view&&['orbit','plane'].includes(next));}));
+document.querySelectorAll('[data-camera-view]').forEach(b=>b.addEventListener('click',event=>{
+  interaction?.cancel();
+  const key=b.dataset.cameraView,next=key==='close'?(controller.state.flight?'sky':'factory'):key;
+  if(next==='sky'&&view==='sky'){
+    if(!d.cameraLockMenu.hidden){closeCameraLockMenu();return;}
+    closeBodyMenu();closeWarpMenu();closeSound();
+    d.cameraLockMenu.hidden=false;d.cameraClose.setAttribute('aria-expanded','true');
+    if(event.detail===0)d.cameraLockMenu.querySelector('[aria-pressed="true"]:not(:disabled)')?.focus({preventScroll:true});
+    return;
+  }
+  releaseReturnCamera();setView(next,next==='follow'||next===view&&['orbit','plane'].includes(next));
+}));
 // Visible iframe/native-control focus changes must not stop flight; visibility owns background pause.
 window.addEventListener('blur',()=>interaction?.cancel());document.addEventListener('visibilitychange',()=>{lastFrame=0;if(document.hidden){interaction?.cancel();if(controller.running)controller.pause();closeSound();}syncSound();});window.addEventListener('resize',()=>{interaction?.cancel();renderScene();});
 controller.start();view='factory';
@@ -312,7 +364,7 @@ fetch(new URL('./assets/sky-ephemeris.json',import.meta.url)).then(response=>{
   d.skyAvailability.textContent='天文資料暫不可用。飛行仍可使用固定光照。';
 });
 try{const {RocketScene}=await import('./scene.js');scene=new RocketScene(d.sceneHost,fault=>{interaction?.cancel();renderLost=fault!=='restored';renderMessage=renderLost?'3D 圖像暫時中斷，飛行已暫停。恢復後請按繼續。':'';controller.pause();render();});scene.setView(view);}catch(_){renderLost=true;renderMessage='3D 圖像或本地材質未能載入。請重新整理頁面再試。';}
-interaction=RocketInteraction.install(d,{allowed:kind=>!renderLost&&Boolean(scene)&&(kind==='camera'?Boolean(controller.state):controller.editable&&(['part','installed'].includes(kind)&&controller.state.phase==='workshop')),select:(part,source)=>{selectedInstalled=null;assemblyWarning();selectedPart=part;assemblyDrag={part,source};if(view!=='factory')setView('factory');assemblyHint('已選'+stageName(part)+'。');render();},label:stageName,pickPart:(x,y,touch)=>scene?.pickPart(x,y,touch),slots:(part,source)=>scene?.slotPoints(part,source)||[],attach,transfer,selectedInstalled:chooseInstalled,missed:()=>{assemblyHint('無法安裝：請對準相容接點；已有引擎或四箱已滿時須先取出零件。');assemblyWarning('無法安裝：位置不合適或已滿，零件已放回原位。');},drag:(part,x,y,snap,source,returning)=>{assemblyDrag=part?{part,source,snap}:null;const invalid=part&&snap===null&&!returning&&x>=0&&y>=0&&x<=d.stage.clientWidth&&y<=d.stage.clientHeight;assemblyWarning(invalid?'無法安裝：請對準相容且未滿的接點。':'',true);const target=part&&snap!==null?scene.slotPoints(part,source)[snap]:null,craft=target?M.change(controller.state,source?{type:'transfer',from:source.stage,to:target.stage,part,ordinal:source.ordinal,at:target.at}:partAction(part,target.stage,target.at)).craft:null;scene?.dragPart(part,x,y,snap,source,craft);if(part)assemblyHint(returning?'可放回元件箱。':snap!==null?'可安裝。':'尚未對準接點。');positionTargets(controller.state?.phase==='workshop');},rotate:(dx,dy)=>{releaseReturnCamera();scene?.rotate(dx,dy,false);},zoom:value=>value===undefined?scene.zoom:scene.setZoom(value),canPan:()=>view==='orbit'||view==='plane',transformOrbit:(factor,from,to)=>{const moved=scene?.transformOrbit(factor,from,to);if(moved)releaseReturnCamera();return moved;},resetCamera:()=>setView(view,true),preview:(x,y,label)=>{const r=d.stage.getBoundingClientRect(),width=parseFloat(getComputedStyle(d.touchPreview).width)||144;if(d.touchPreview.hidden||((parseFloat(d.touchPreview.style.left)||0)<x&&x<(parseFloat(d.touchPreview.style.left)||0)+width))d.touchPreview.style.left=(x>r.width/2?12:r.width-width-12)+'px';d.touchPreview.style.right='auto';d.touchPreview.hidden=false;d.previewLabel.textContent=label;scene?.magnify(d.previewCanvas,x,y);},end:()=>{assemblyDrag=null;renderScene();}});
+interaction=RocketInteraction.install(d,{allowed:kind=>!renderLost&&Boolean(scene)&&(kind==='camera'?Boolean(controller.state):controller.editable&&(['part','installed'].includes(kind)&&controller.state.phase==='workshop')),select:(part,source)=>{selectedInstalled=null;assemblyWarning();selectedPart=part;assemblyDrag={part,source};if(view!=='factory')setView('factory');assemblyHint('已選'+stageName(part)+'。');render();},label:stageName,pickPart:(x,y,touch)=>scene?.pickPart(x,y,touch),slots:(part,source)=>scene?.slotPoints(part,source)||[],attach,transfer,selectedInstalled:chooseInstalled,missed:()=>{assemblyHint('無法安裝：請對準相容接點；已有引擎或四箱已滿時須先取出零件。');assemblyWarning('無法安裝：位置不合適或已滿，零件已放回原位。');},drag:(part,x,y,snap,source,returning)=>{assemblyDrag=part?{part,source,snap}:null;const invalid=part&&snap===null&&!returning&&x>=0&&y>=0&&x<=d.stage.clientWidth&&y<=d.stage.clientHeight;assemblyWarning(invalid?'無法安裝：請對準相容且未滿的接點。':'',true);const target=part&&snap!==null?scene.slotPoints(part,source)[snap]:null,craft=target?M.change(controller.state,source?{type:'transfer',from:source.stage,to:target.stage,part,ordinal:source.ordinal,at:target.at}:partAction(part,target.stage,target.at)).craft:null;scene?.dragPart(part,x,y,snap,source,craft);if(part)assemblyHint(returning?'可放回元件箱。':snap!==null?'可安裝。':'尚未對準接點。');positionTargets(controller.state?.phase==='workshop');},rotate:(dx,dy)=>{if(scene?.rotate(dx,dy,false))releaseReturnCamera();},zoom:value=>value===undefined?scene.zoom:scene.setZoom(value),canPan:()=>view==='orbit'||view==='plane',transformOrbit:(factor,from,to)=>{const moved=scene?.transformOrbit(factor,from,to);if(moved)releaseReturnCamera();return moved;},resetCamera:()=>setView(view,true,scene?.cameraLock),preview:(x,y,label)=>{const r=d.stage.getBoundingClientRect(),width=parseFloat(getComputedStyle(d.touchPreview).width)||144;if(d.touchPreview.hidden||((parseFloat(d.touchPreview.style.left)||0)<x&&x<(parseFloat(d.touchPreview.style.left)||0)+width))d.touchPreview.style.left=(x>r.width/2?12:r.width-width-12)+'px';d.touchPreview.style.right='auto';d.touchPreview.hidden=false;d.previewLabel.textContent=label;scene?.magnify(d.previewCanvas,x,y);},end:()=>{assemblyDrag=null;renderScene();}});
 // Read the control after scene construction in case the browser restores its value.
 const updateGraphicsQuality=()=>scene?.setHighQuality(d.graphicsQuality.value==='high');
 d.graphicsQuality.addEventListener('change',updateGraphicsQuality);
@@ -328,6 +380,5 @@ function animate(now){const drawn=scene?.renderCount,interval=lastFrame?now-last
   if(scene?.renderCount!==markerFrame||renderLost){markerFrame=scene?.renderCount;updateNavigationMarkers();}
   syncSound();if(controller.editable&&scene&&targetFrame!==scene.renderCount)positionTargets(EDIT_PHASE()==='workshop');requestAnimationFrame(animate);
 }
-const cameraTip=matchMedia('(any-pointer:coarse)').matches?'單指轉動・雙指縮放・雙點空白回正':'拖動轉動・滾輪縮放・雙擊空白回正';d.cameraHint.textContent=cameraTip;setTimeout(()=>{if(view!=='sky')d.cameraHint.hidden=true;},3000);
 render();requestAnimationFrame(animate);
 if(scene)requestAnimationFrame(()=>requestAnimationFrame(prepareFlight));

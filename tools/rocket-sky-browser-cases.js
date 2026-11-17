@@ -11,14 +11,22 @@ async function run({base,label,P,T,H,cdp,call,viewport,open,wait,shot,click,poin
     await click('#launchButton');
     assert.equal(await call('return app.getState().phase;'),'pad');
     const following=await call('const s=app.getScene();return {origin:s.camera.position.toArray(),elevation:s.camera.getWorldDirection(s.camera.position.clone()).y};');
-    await click('[data-camera-view="sky"]');
-    const geometry=await call(`const s=app.getScene(),buttons=[...d.querySelectorAll('.camera-controls button:enabled')].map(b=>b.getBoundingClientRect().toJSON()),stage=d.getElementById('stage').getBoundingClientRect().toJSON();
-      d.getElementById('cameraSurface').focus();
+    assert.equal(await call('return d.getElementById("cameraCloseLabel").textContent;'),'近景');
+    await click('#cameraClose');
+    const geometry=await call(`const s=app.getScene(),buttons=[...d.querySelectorAll('[data-camera-view]:enabled')].map(b=>b.getBoundingClientRect().toJSON()),stage=d.getElementById('stage').getBoundingClientRect().toJSON();
       const hint=d.getElementById('cameraHint');
       return {origin:s.camera.position.toArray(),look:s.camera.getWorldDirection(s.camera.position.clone()).toArray(),hint:hint.hidden?'':hint.textContent,buttons,stage};`);
     assert.deepEqual(geometry.origin,following.origin);
     assert(geometry.look[1]>.75&&following.elevation<0&&geometry.hint.includes('原地轉頭'));
+    assert.equal(geometry.buttons.length,4);
     for(const b of geometry.buttons)assert(b.width>=44&&b.height>=44&&b.left>=geometry.stage.left&&b.right<=geometry.stage.right);
+    assert.equal(await call('return d.getElementById("cameraCloseLabel").textContent;'),'鎖定');
+    await click('#cameraClose');
+    const menu=await call('return d.getElementById("cameraLockMenu").getBoundingClientRect().toJSON();');
+    assert(menu.width>0&&menu.top>=geometry.stage.top&&menu.bottom<=geometry.stage.bottom&&menu.left>=geometry.stage.left&&menu.right<=geometry.stage.right);
+    if(width===390)await shot(label+'-camera-lock-menu-mobile');
+    await click('#cameraClose');
+    await call('d.getElementById("cameraSurface").focus();');
     await key('ArrowUp');
     await wait(()=>call(`const s=app.getScene();return s.camera.getWorldDirection(s.camera.position.clone()).y>${geometry.look[1]};`),'keyboard turns sky camera up');
     const after=await call('const s=app.getScene();return{origin:s.camera.position.toArray(),look:s.camera.getWorldDirection(s.camera.position.clone()).toArray()};');
@@ -29,8 +37,29 @@ async function run({base,label,P,T,H,cdp,call,viewport,open,wait,shot,click,poin
       await wait(()=>call(`const s=app.getScene();return s.camera.getWorldDirection(s.camera.position.clone()).y>${after.look[1]};`),'trusted drag turns sky camera up');
       await H.delay(250);
     }
+    if(width===390||width===1280){
+      for(const target of ['sun','moon','earth']){
+        await click('#cameraClose');
+        await click(`[data-camera-lock="${target}"]`);
+        const locked=await call(`const s=app.getScene(),c=app.controller,button=d.querySelector('[data-camera-lock="${target}"]');
+          c.state.flight.t+=3600;c.emit();
+          const direction=s.camera.position.clone(),disc=s.sky.material.uniforms.uSunDisc.value;
+          if(s.cameraLock==='sun')direction.set(disc.x,disc.y,disc.z);
+          else direction.copy(s.cameraLock==='moon'?s.moonTarget:s.earth.position).sub(s.camera.position);
+          const fov=s.camera.fov;
+          s.setZoom(s.zoom*1.1);s.draw();
+          return {lock:s.cameraLock,aligned:s.camera.getWorldDirection(s.camera.position.clone()).dot(direction.normalize()),
+            zoomed:s.camera.fov<fov,drag:s.rotate(50,20),pressed:button.getAttribute('aria-pressed'),closed:d.getElementById('cameraLockMenu').hidden};`);
+        assert.equal(locked.lock,target);
+        assert(locked.aligned>.999999&&locked.zoomed&&locked.drag===false&&locked.pressed==='true'&&locked.closed,JSON.stringify(locked));
+      }
+      await click('#cameraClose');
+      await click('[data-camera-lock=""]');
+      assert(await call('return app.getScene().cameraLock===null&&d.getElementById("cameraHint").textContent.includes("原地轉頭");'));
+    }
     await click('[data-camera-view="follow"]');
     await wait(()=>call('return app.getScene().view==="follow";'),'return to follow view');
+    assert.equal(await call('return d.getElementById("cameraCloseLabel").textContent;'),'近景');
     report.flows.push({label,case:'sky-layout',width,height,buttons:geometry.buttons.length});
   }
 
@@ -98,7 +127,7 @@ async function run({base,label,P,T,H,cdp,call,viewport,open,wait,shot,click,poin
   }
   await click('#returnWorkshop');
   await call('d.getElementById("skyDate").value="2026-04-02";d.getElementById("skyTime").value="05:00";');
-  await click('#launchButton');await click('[data-camera-view="sky"]');
+  await click('#launchButton');await click('#cameraClose');
   const full=await call('return window.__skyPixels(0,"moon");');
   assert(full.moon.max>50&&full.moonElevation>0,JSON.stringify(full));
   await shot(label+'-sky-full-moon');
@@ -146,7 +175,10 @@ async function run({base,label,P,T,H,cdp,call,viewport,open,wait,shot,click,poin
     const pad=T.launched();pad.phase='pad';pad.flight.controls.lit=false;
     await open(base,pad);
     await wait(()=>call('return d.getElementById("skyAvailability").textContent.includes("暫不可用");'),'invalid ephemeris fallback');
-    assert(await call('return d.querySelector("[data-camera-view=sky]").disabled&&app.getScene().sky.material.uniforms.uCelestial.value===0;'));
+    await click('#cameraClose');await click('#cameraClose');
+    assert(await call(`return d.querySelector('[data-camera-lock="sun"]').disabled&&d.querySelector('[data-camera-lock="moon"]').disabled&&
+      !d.querySelector('[data-camera-lock="earth"]').disabled&&app.getScene().sky.material.uniforms.uCelestial.value===0;`));
+    await click('[data-camera-lock="earth"]');
     await click('#igniteButton');
     assert(await call('const c=app.controller;if(!c.running)return false;RocketRuntime.advanceFrame(c,2,1);c.pause();return c.state.flight.t>0&&c.state.flight.controls.lit;'));
   }finally{await cdp.send('Page.removeScriptToEvaluateOnNewDocument',{identifier:mock.identifier});}

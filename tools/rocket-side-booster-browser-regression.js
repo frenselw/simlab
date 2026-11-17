@@ -1223,8 +1223,8 @@ async function lunarReturn(base,label){
   assert(Math.abs(near.closest.height-9262600)<25);
   await wait(()=>call('return app.getScene().moonGlobe?.userData.detailed.value===1;'),'visible near-Moon texture');
   const sky=await call(`const scene=app.getScene(),globe=scene.moonGlobe,p=scene.project(globe.position);
-    return {visible:globe.visible,screen:p,stage:[scene.host.clientWidth,scene.host.clientHeight]};`);
-  assert(sky.visible&&Math.abs(sky.screen.x-sky.stage[0]/2)<3&&Math.abs(sky.screen.y-sky.stage[1]/2)<3,JSON.stringify(sky));
+    return {visible:globe.visible,lock:scene.cameraLock,screen:p,stage:[scene.host.clientWidth,scene.host.clientHeight]};`);
+  assert(sky.lock==='moon'&&sky.visible&&Math.abs(sky.screen.x-sky.stage[0]/2)<3&&Math.abs(sky.screen.y-sky.stage[1]/2)<3,JSON.stringify(sky));
   await shot(label+'-lunar-return-moon-'+width+'x'+height);
   await call('app.getScene().renderer.forceContextLoss();');
   await wait(()=>call('return app.getScene().lost;'),'lost lunar WebGL context');
@@ -1266,7 +1266,8 @@ async function lunarReturn(base,label){
       await click('#playButton',mobile);await click('#toggleFlightControls',mobile);
       await advance(365000);
       await wait(()=>call('return window.__moonAttempts===1;'),'one blocked texture request');
-      await click('[data-camera-view="orbit"]',mobile);await click('[data-camera-view="sky"]',mobile);
+      await click('[data-camera-view="orbit"]',mobile);await click('#cameraClose',mobile);
+      await click('#cameraClose',mobile);await click('[data-camera-lock="moon"]',mobile);
       await H.delay(1200);
       const basic=await call(`const globe=app.getScene().moonGlobe;
         return {attempts:window.__moonAttempts,visible:globe.visible,detailed:globe.userData.detailed.value};`);

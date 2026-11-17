@@ -88,13 +88,22 @@ export class RocketScene{
     if(slow){this.quality++;this.sampleAfter=now+5000;this.resize();}
   }
   resetFrameSample(){this.frameSamples.length=0;this.sampleAfter=0;}
-  setView(view,reset=false){
+  setView(view,reset=false,lock=null){
     if(view==='factory'&&reset)this.factoryHeight=13;
     if(view==='follow'&&reset)this.followManual=false;
     this.cameraViews.set(this.view,{yaw:this.yaw,pitch:this.pitch,zoom:this.zoom,orbitFocus:this.orbitFocus});
     const saved=!reset&&this.cameraViews.get(view);this.view=view;this.orbitFrame=null;
+    this.cameraLock=view==='sky'?lock:null;this.cameraLockUp=null;
     Object.assign(this,saved||{yaw:view==='sky'||view==='plane'?0:view==='orbit'?.45:view==='follow'?-.65:.55,pitch:view==='sky'?1:view==='plane'?0:view==='orbit'?.32:.18,zoom:1,orbitFocus:null});
     this.draw();
+  }
+  setCameraLock(lock){
+    if(lock===this.cameraLock)return;
+    if(!lock&&this.cameraLock){
+      const look=this.camera.getWorldDirection(new THREE.Vector3());
+      this.yaw=Math.atan2(look.x,look.z);this.pitch=Math.asin(THREE.MathUtils.clamp(look.y,-1,1));
+    }
+    this.cameraLock=lock;this.cameraLockUp=null;this.cameraDirty=true;
   }
   setZoom(value){
     if(Number.isFinite(value)){
@@ -118,6 +127,7 @@ export class RocketScene{
     this.cameraDirty=true;return true;
   }
   rotate(dx,dy,draw=true){
+    if(this.view==='sky'&&this.cameraLock)return false;
     if(isOrbitView(this.view)&&this.orbitFrame){
       this.lockOrbitFrame();
       const {radius,pixelsPerUnit,target}=this.orbitFrame;
@@ -134,6 +144,7 @@ export class RocketScene{
     const pitch=this.pitch+(this.view==='sky'?-dy:dy)*.006;
     this.pitch=this.view==='factory'?THREE.MathUtils.clamp(pitch,-1.5,1.5):O.wrap(pitch+Math.PI)-Math.PI;
     this.cameraDirty=true;if(draw)this.draw();
+    return true;
   }
   drawSky(frame,space,rotation){
     const u=this.sky.material.uniforms;
@@ -610,11 +621,28 @@ export class RocketScene{
     const moonPosition=lunar?this.moonTarget:null;
     if(moonPosition)this.camera.far=Math.max(this.camera.far,this.camera.position.distanceTo(moonPosition)+moonRadius+1);
     if(!space)this.camera.fov=observing?40/Math.sqrt(this.zoom):40;
+    if(observing)this.camera.up.copy(orbitUp(this.yaw,this.pitch));
+    else this.camera.up.copy(orbitUp(cameraYaw,cameraPitch));
     if(observing){
-      if(this.trackMoon&&moonPosition)target.copy(moonPosition);
-      else target.copy(this.camera.position).add(new THREE.Vector3(Math.sin(this.yaw)*Math.cos(this.pitch),Math.sin(this.pitch),Math.cos(this.yaw)*Math.cos(this.pitch)));
+      const locked=this.cameraLock==='earth'?this.earth.position:this.cameraLock==='moon'?this.moonTarget:
+        this.cameraLock==='sun'&&skyFrame?new THREE.Vector3(...skyFrame.sun).applyQuaternion(worldRotation).add(this.earth.position):null;
+      if(locked){
+        target.copy(locked);
+        const frame=lunar?new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(...f.sky.mapBasis.map(axis=>new THREE.Vector3(...axis)))):
+          new THREE.Quaternion().setFromAxisAngle(northAxis,skyFrame?.angle??0);
+        frame.premultiply(worldRotation);
+        const inverse=frame.clone().invert(),direction=locked.clone().sub(this.camera.position).normalize().applyQuaternion(inverse);
+        // Preserve roll in the inertial frame as the flight's local horizon turns.
+        const up=this.cameraLockUp??this.camera.up.clone().applyQuaternion(inverse);
+        up.addScaledVector(direction,-up.dot(direction));
+        if(up.lengthSq()<1e-6){
+          up.set(Math.abs(direction.x)<.9?1:0,Math.abs(direction.x)<.9?0:1,0);
+          up.addScaledVector(direction,-up.dot(direction));
+        }
+        this.cameraLockUp=up.normalize();
+        this.camera.up.copy(up).applyQuaternion(frame);
+      }else target.copy(this.camera.position).add(new THREE.Vector3(Math.sin(this.yaw)*Math.cos(this.pitch),Math.sin(this.pitch),Math.cos(this.yaw)*Math.cos(this.pitch)));
     }
-    this.camera.up.copy(observing?orbitUp(this.yaw,this.pitch):orbitUp(cameraYaw,cameraPitch));
     this.camera.lookAt(target);this.camera.updateProjectionMatrix();this.camera.updateMatrixWorld();
     const tanHalfFov=Math.tan(THREE.MathUtils.degToRad(this.perspectiveCamera.fov)/2);
     if(moonPosition){

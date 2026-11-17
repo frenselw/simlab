@@ -180,7 +180,9 @@
 .sky-settings input{min-height:44px;max-width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink)}
 #skyError{color:#9b3022}
 #skyReadout{font-variant-numeric:tabular-nums}
-.camera-controls [data-camera-view="sky"]:disabled{display:none}
+.camera-lock-menu{position:absolute;inset:auto auto calc(100% + 6px) 0;width:min(252px,100%);min-width:min(200px,100%)}
+.camera-lock-menu button{border:1px solid var(--line);background:var(--paper)}
+.camera-lock-menu [data-camera-lock=""]{grid-column:1/-1}
 
 .flight-events{margin:-14px -18px 12px;padding:4px 8px 6px;border-bottom:1px solid var(--line);background:var(--paper)}
 .flight-events h2{margin:0;color:#315650;font-size:12px;white-space:nowrap}
