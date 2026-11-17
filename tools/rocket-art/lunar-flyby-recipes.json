@@ -1,0 +1,35 @@
+[
+  {
+    "isp": 340,
+    "launchTdbSeconds": 3212112.6804642463,
+    "azimuthDegrees": 142.2141656696786,
+    "upperFuelKg": 0,
+    "capsuleFuelKg": 13.940448204644234,
+    "pitchOffsetsDegrees": [
+      -4,
+      -2.5
+    ]
+  },
+  {
+    "isp": 370,
+    "launchTdbSeconds": 3211752.1910561686,
+    "azimuthDegrees": 133.9359154591834,
+    "upperFuelKg": 55.81087150922299,
+    "capsuleFuelKg": 30,
+    "pitchOffsetsDegrees": [
+      -4,
+      -2.5
+    ]
+  },
+  {
+    "isp": 380,
+    "launchTdbSeconds": 3211672.7820503265,
+    "azimuthDegrees": 132.21413789771054,
+    "upperFuelKg": 96.15802529613427,
+    "capsuleFuelKg": 30,
+    "pitchOffsetsDegrees": [
+      -4,
+      -2.5
+    ]
+  }
+]

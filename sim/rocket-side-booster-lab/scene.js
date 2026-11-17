@@ -4,8 +4,11 @@ import {material,dispose,fadeEnvironment,buildRocket,createPad,createLaunchEffec
 import {createContactGround,clipContact,siteSurfaceShader,clipPadSurface} from './contact-ground.js';
 import {createForest} from './forest.js';
 import {createImpactEffects,hullPoints,hullMinimum,hullClearance} from './impact-effects.js';
+import {createLunarGlobe} from './lunar-globe.js';
 const P=window.RocketParts,O=window.RocketOrbit,M=window.RocketModel,S=window.RocketSurface,L=window.RocketLighting,Sky=window.RocketSky;
 const viewAxis=new THREE.Vector3(0,0,1),northAxis=new THREE.Vector3(...S.fromGeocentric(0,0,1));
+const upAxis=new THREE.Vector3(0,1,0);
+const worldVector=q=>new THREE.Vector3(q[1],q[0],q[2]);
 const isOrbitView=view=>view==='orbit'||view==='plane';
 const orbitUp=(yaw,pitch)=>new THREE.Vector3(-Math.sin(yaw)*Math.sin(pitch),Math.cos(pitch),-Math.cos(yaw)*Math.sin(pitch));
 function vectorArrow(color){const group=new THREE.Group(),mat=new THREE.MeshBasicMaterial({color,transparent:true,depthTest:false,depthWrite:false,toneMapped:false}),shaft=new THREE.Mesh(new THREE.CylinderGeometry(.026,.026,.74,8),mat),head=new THREE.Mesh(new THREE.ConeGeometry(.09,.26,10),mat);shaft.position.y=.37;head.position.y=.87;shaft.renderOrder=head.renderOrder=10;group.add(shaft,head);return group;}
@@ -115,6 +118,14 @@ export class RocketScene{
     this.cameraDirty=true;return true;
   }
   rotate(dx,dy,draw=true){
+    if(isOrbitView(this.view)&&this.orbitFrame){
+      this.lockOrbitFrame();
+      const {radius,pixelsPerUnit,target}=this.orbitFrame;
+      // At high magnification, limit how far depth can move the scene per drag pixel.
+      const projectedDepth=(radius+target.length())*pixelsPerUnit;
+      const sensitivity=1/Math.max(1,.005*projectedDepth*(1-1/this.zoom));
+      dx*=sensitivity;dy*=sensitivity;
+    }
     if(this.view==='follow'&&!this.followManual&&(dx||dy)){
       this.pitch=this.followPitch??this.pitch;
       this.followManual=true;
@@ -124,7 +135,7 @@ export class RocketScene{
     this.pitch=this.view==='factory'?THREE.MathUtils.clamp(pitch,-1.5,1.5):O.wrap(pitch+Math.PI)-Math.PI;
     this.cameraDirty=true;if(draw)this.draw();
   }
-  drawSky(frame,space,angle){
+  drawSky(frame,space,rotation){
     const u=this.sky.material.uniforms;
     u.uOrbitSky.value=Number(space);
     const orbitTangent=Math.tan(Math.PI/6),projection=this.camera.projectionMatrix.elements;
@@ -135,24 +146,30 @@ export class RocketScene{
     this.stars.quaternion.identity();
     if(!frame){u.uStarFrame.value.identity();return;}
     const observer=u.uObserver.value,flight=this.data.flight;
-    if(space&&flight)observer.set(flight.state[1],flight.state[0],flight.state[2]).multiplyScalar(.001);
+    if(space&&flight)observer.copy(this.rocket.position).multiplyScalar(P.R/3000);
     else observer.copy(this.camera.position).sub(this.earth.position);
-    const result=Sky.observe(frame,observer.clone().applyAxisAngle(viewAxis,-angle).toArray());
+    const result=Sky.observe(frame,observer.clone().applyQuaternion(rotation.clone().invert()).toArray());
     observer.divideScalar(P.R/1000);
     const vector=new THREE.Vector3();
     for(const [disc,direction,radius]of [[u.uSunDisc,result.sun,result.sunRadius],[u.uMoonDisc,result.moon,result.moonRadius]]){
-      vector.fromArray(direction).applyAxisAngle(viewAxis,angle);
+      vector.fromArray(direction).applyQuaternion(rotation);
       disc.value.set(vector.x,vector.y,vector.z,radius);
     }
-    u.uMoonLight.value.fromArray(result.moonLight).applyAxisAngle(viewAxis,angle);
+    if(this.moonGlobe?.visible)u.uMoonDisc.value.w=0;
+    u.uMoonLight.value.fromArray(result.moonLight).applyQuaternion(rotation);
     // East, up, north reverses the handedness of the Earth-fixed axes.
-    this.stars.quaternion.setFromAxisAngle(viewAxis,angle).multiply(new THREE.Quaternion().setFromAxisAngle(northAxis,frame.angle));
+    if(!space||!flight?.lunar)this.stars.quaternion.copy(rotation).multiply(new THREE.Quaternion().setFromAxisAngle(northAxis,frame.angle));
     u.uStarFrame.value.setFromMatrix4(new THREE.Matrix4().makeRotationFromQuaternion(this.stars.quaternion)).transpose();
   }
   clearSeparation(){if(this.separation){this.scene.remove(this.separation.body);dispose(this.separation.body);this.separation=null;}}
   clearBoosterDrop(){if(this.boosterDrop){this.scene.remove(this.boosterDrop.body);dispose(this.boosterDrop.body);this.boosterDrop=null;}}
   setData(data){
     const previous=this.data?.flight,f=data.flight,craft=JSON.stringify(data.craft),key=JSON.stringify([data.craft,f?.separated,f?.capsule?.detached]);
+    if(previous?.lunar!==f?.lunar){
+      this.cameraViews.delete('orbit');this.cameraViews.delete('plane');
+      this.orbitFocus=null;
+      if(isOrbitView(this.view))this.zoom=1;
+    }
     const other=data.other,otherKey=other?JSON.stringify([other.craft,other.capsule?.detached]):'',oldCapsule=previous?.capsule?.detached?previous:this.data?.other?.capsule?.detached?this.data.other:null,newCapsule=f?.capsule?.detached?f:other?.capsule?.detached?other:null;
     let carriedCanopy=null,carriedLanding=null;
     if((key!==this.craftKey||otherKey!==this.otherKey)&&data.live&&this.data?.live&&oldCapsule&&newCapsule&&newCapsule.t>=oldCapsule.t&&JSON.stringify(oldCapsule.craft)===JSON.stringify(newCapsule.craft)){
@@ -163,12 +180,12 @@ export class RocketScene{
     this.lastChutePhase=chute;
     if(!data.live||!this.data?.live||!f||f.t<(this.lastFlightTime||0)||craft!==this.effectCraft||previous?.source!==f.source){this.clearSeparation();}
     if(!data.live||!this.data?.live||!f||f.t<(this.lastFlightTime||0)||craft!==this.effectCraft){this.launchEffects?.clear();this.launchStarted=Boolean(f&&(f.t>0||f.status!=='pad'));this.launchArmAge=this.launchStarted?1.1:0;this.impacts?.clear();this.impacted=false;this.pendingImpact=false;this.pendingBurnup=false;}
-    if(data.live&&this.data?.live&&key===this.craftKey&&f?.status==='impact'&&this.lastFlightStatus==='flying')this.pendingImpact=true;
+    if(data.live&&this.data?.live&&key===this.craftKey&&f?.status==='impact'&&!f.lunar&&this.lastFlightStatus==='flying')this.pendingImpact=true;
     if(data.live&&this.data?.live&&key===this.craftKey&&f?.status==='destroyed'&&this.lastFlightStatus==='flying')this.pendingBurnup=true;
     if(f?.capsule?.detached&&!previous?.capsule?.detached)this.clearSeparation();
     if(key!==this.craftKey){
       if(this.rocket){
-        if(data.live&&this.data?.live&&f?.separated&&previous&&!previous.separated&&craft===this.effectCraft){
+        if(data.live&&this.data?.live&&f?.separated&&!f.lunar&&previous&&!previous.separated&&craft===this.effectCraft){
           this.clearSeparation();const coast=P.clone(previous);coast.controls.lit=false;coast.state[3]-=1.5*Math.cos(f.attitude);coast.state[4]-=1.5*Math.sin(f.attitude);
           this.separation={body:this.rocket,coast,mass:P.dry(previous.craft.stages[0])+previous.fuel[0]+60,start:f.t,visualAge:0,attitude:f.attitude,join:this.rocket.userData.ranges[1].base,height:this.rocket.userData.height};
           for(const child of this.rocket.children)child.visible=Boolean(child.userData.part&&child.userData.part.part!=='boosters'&&(child.userData.part.stage===0||child.userData.part.part==='separator'));
@@ -178,7 +195,7 @@ export class RocketScene{
       this.canopy=null;this.rocket=buildRocket(data.craft,Boolean(f?.separated),Boolean(f?.capsule?.detached));this.scene.add(this.rocket);this.craftKey=key;
     }
     if(this.boosterDrop&&(!data.live||!f||f.t<this.boosterDrop.start||craft!==this.effectCraft))this.clearBoosterDrop();
-    if(data.live&&this.data?.live&&f?.boosters?.status==='jettisoned'&&['burning','spent'].includes(this.lastBoosterStatus)&&this.rocket){
+    if(data.live&&this.data?.live&&!f?.lunar&&f?.boosters?.status==='jettisoned'&&['burning','spent'].includes(this.lastBoosterStatus)&&this.rocket){
       this.clearBoosterDrop();const body=new THREE.Group(),pieces=[];
       for(const [i,mount]of P.boosterMounts(f.craft.boosters).entries()){
         const piece=this.rocket.userData.boosters.clone(true);for(const child of [...piece.children])if(child.userData.booster!==i)piece.remove(child);
@@ -270,10 +287,11 @@ export class RocketScene{
   }
   drawThermal(rocket,f){
     if(!rocket||!f?.capsule?.detached)return;
-    const shield=rocket.userData.heatShield,e=window.RocketRecovery.reentry(f,M.atmosphere);
+    const shield=rocket.userData.heatShield,e=f.lunar?f.lunar.thermal:window.RocketRecovery.reentry(f,M.atmosphere);
+    if(!e)return;
     const flux=f.status==='flying'&&f.capsule.chute.phase==='stowed'?e.flux:0;
     // The heating proxy is nonzero at speeds that are too low for visible entry glow.
-    const glowSpeed=THREE.MathUtils.smoothstep(Math.hypot(f.state[3],f.state[4]),3000,5000);
+    const glowSpeed=THREE.MathUtils.smoothstep(f.lunar?.air?.speed??Math.hypot(f.state[3],f.state[4]),3000,5000);
     const level=glowSpeed*flux/(.004+flux);
     if(shield){
       const remaining=1-f.capsule.heat;
@@ -287,8 +305,13 @@ export class RocketScene{
     if(!effects)return;
     effects.visible=level>.01;
     const art=effects.userData;
-    art.wakeFrame.rotation.z=f.attitude-Math.atan2(f.state[4],f.state[3])-Math.PI;
-    art.flow.value.set(Math.sin(art.wakeFrame.rotation.z),-Math.cos(art.wakeFrame.rotation.z),0);
+    if(f.lunar){
+      art.flow.value.set(0,-1,0);
+      art.wakeFrame.quaternion.identity();
+    }else{
+      art.wakeFrame.rotation.z=f.attitude-Math.atan2(f.state[4],f.state[3])-Math.PI;
+      art.flow.value.set(Math.sin(art.wakeFrame.rotation.z),-Math.cos(art.wakeFrame.rotation.z),0);
+    }
     // Shape the leading layer around the tilted shield while the trailing gas stays in the airflow.
     const crossflow=art.flow.value.x;
     art.glow.position.set(-.42*crossflow,-.24*Math.max(0,art.flow.value.y)-.18*Math.abs(crossflow),0);
@@ -320,6 +343,28 @@ export class RocketScene{
   }
   drawRecovery(space,f){
     if(!f)return;const other=this.data.other;if(this.data.live&&other?.status==='impact'&&this.lastOtherStatus==='flying')this.impacts.emit(other.state,other.t,.012);
+    if(f.lunar){
+      if(this.otherRocket&&other){
+        const offset=worldVector(other.state).sub(worldVector(f.state)).applyQuaternion(this.worldRotation);
+        this.otherRocket.position.copy(this.rocket.position).addScaledVector(offset,space?3/P.R:.001);
+        this.otherRocket.scale.setScalar(space?16/(this.orbitFrame.pixelsPerUnit*this.otherRocket.userData.height):.001);
+        this.otherRocket.quaternion.setFromUnitVectors(upAxis,worldVector(other.axisSurface).applyQuaternion(this.worldRotation).normalize());
+        this.otherRocket.visible=other.status==='flying';
+        this.drawEngine(this.otherRocket,other);
+      }
+      this.lastOtherStatus=other?.status;
+      if(f.lunar.entry){
+        this.drawThermal(this.rocket,f);
+        const air=f.lunar.air;
+        if(air){
+          const canopy=this.rocket.userData.parachute||createParachute();
+          if(!this.rocket.userData.parachute){this.rocket.userData.parachute=canopy;this.rocket.add(canopy);}
+          canopy.update({...f,attitude:0,state:[P.R+air.altitude,0,0,air.radial,0,0]},this.reducedMotion,this.data.live);
+        }
+        this.rocket.visible=!['destroyed','impact'].includes(f.status);
+      }
+      return;
+    }
     if(this.otherRocket&&other?.status==='destroyed'&&this.lastOtherStatus==='flying'&&this.data.live)this.impacts.emit(other.state,other.t,this.otherRocket.scale.y*this.otherRocket.userData.height*.7,false,this.otherRocket);
     if(this.otherRocket&&other){const theta=space?0:Math.atan2(f.state[1],f.state[0]),dx=other.state[0]-f.state[0],dy=other.state[1]-f.state[1],unit=space?3/P.R:.001;this.otherRocket.position.copy(f.status==='landed'&&!space?this.flightOrigin:this.rocket.position).add(new THREE.Vector3(-Math.sin(theta)*dx+Math.cos(theta)*dy,Math.cos(theta)*dx+Math.sin(theta)*dy,0).multiplyScalar(unit));this.otherRocket.scale.setScalar(space?16/(this.orbitFrame.pixelsPerUnit*this.otherRocket.userData.height):.001);this.otherRocket.rotation.z=theta-other.attitude;this.drawLandingPose(this.otherRocket,other,space);this.otherRocket.visible=!['destroyed','impact'].includes(other.status);this.drawEngine(this.otherRocket,other);this.drawRcs(this.otherRocket,other);}
     this.lastOtherStatus=other?.status;if(f.status==='destroyed')this.rocket.visible=false;
@@ -329,7 +374,30 @@ export class RocketScene{
       this.rocket.visible=!['destroyed','impact'].includes(f.status);
     }
   }
-  setPaths(actual,predicted,planned){this.line('actual',actual,'#ee9674');this.line('predicted',predicted,'#b0e3d4',true);this.line('planned',planned,'#f6ca74',true);}
+  setPaths(actual,predicted,planned,lunar,forecast){
+    this.line('actual',lunar&&actual.length?[...actual,actual.at(-1)]:actual,'#ee9674');
+    this.line('predicted',predicted,'#b0e3d4',true);
+    this.line('planned',planned,'#f6ca74',true);
+    if(lunar&&this.lines.actual)this.lines.actual.frustumCulled=false;
+    this.forecast=forecast;
+    this.forecastPoint=0;
+  }
+  updateLunarPaths(f){
+    const current=this.rocket.position,actual=this.lines.actual?.geometry.attributes.position;
+    if(actual){actual.setXYZ(actual.count-1,current.x,current.y,current.z);actual.needsUpdate=true;}
+    const predicted=this.lines.predicted,times=this.forecast?.times;
+    if(!predicted||!times)return;
+    const geometry=predicted.geometry;
+    while(this.forecastPoint+1<times.length&&times[this.forecastPoint+1]<=f.t)this.forecastPoint++;
+    const index=this.forecastPoint;
+    geometry.setDrawRange(index,times.length-1-index?times.length-index:0);
+    if(index===times.length-1)return;
+    const positions=geometry.attributes.position,distances=geometry.attributes.lineDistance;
+    positions.setXYZ(index,current.x,current.y,current.z);
+    const next=new THREE.Vector3().fromBufferAttribute(positions,index+1);
+    distances.setX(index,distances.getX(index+1)-next.distanceTo(current));
+    positions.needsUpdate=distances.needsUpdate=true;
+  }
   frameOrbit(f,target){
     const {yaw,pitch}=this,aspect=this.perspectiveCamera.aspect;
     const right=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw));
@@ -337,12 +405,20 @@ export class RocketScene{
     let left=-3.05,rightEdge=3.05,bottom=-3.05,top=3.05,range=Math.max(3.05,this.rocket.position.length());
     const include=point=>{const x=point.dot(right),y=point.dot(up);left=Math.min(left,x);rightEdge=Math.max(rightEdge,x);bottom=Math.min(bottom,y);top=Math.max(top,y);};
     include(this.rocket.position);
+    if(f?.lunar){
+      point.fromArray(f.sky.moon).applyQuaternion(this.worldRotation).multiplyScalar(3000/P.R);
+      include(point);range=Math.max(range,point.length());
+    }
     const other=this.data.other;
     if(other?.status==='flying'){
-      point.set(other.state[1]*3/P.R,other.state[0]*3/P.R,0);include(point);range=Math.max(range,point.length());
+      point.copy(worldVector(other.state)).applyQuaternion(this.worldRotation).multiplyScalar(3/P.R);include(point);range=Math.max(range,point.length());
+    }
+    if(f?.lunar&&!this.orbitFocus){
+      const positions=this.lines.actual?.geometry.attributes.position;
+      if(positions)for(let i=0;i<positions.count;i++)include(point.fromBufferAttribute(positions,i));
     }
     const prediction=this.lines.predicted?.geometry;
-    if(prediction&&f&&O.elements(f.state).bound&&!this.orbitFocus){
+    if(prediction&&f&&(f.lunar||O.elements(f.state).bound)&&!this.orbitFocus){
       const positions=prediction.getAttribute('position');
       for(let i=0;i<positions.count;i++)include(point.fromBufferAttribute(positions,i));
     }
@@ -352,7 +428,7 @@ export class RocketScene{
     const fit=this.orbitFocus||{target:right.clone().multiplyScalar((left+rightEdge)/2).addScaledVector(up,(bottom+top)/2),halfHeight:1.2*Math.max((rightEdge-left)/(2*aspect),(top-bottom)/2)};
     target.copy(fit.target);
     const displayHeight=fit.halfHeight/this.zoom;
-    this.orbitFrame={...fit,right,up,pixelsPerUnit:this.host.clientHeight/(2*displayHeight)};
+    this.orbitFrame={...fit,right,up,radius:range,pixelsPerUnit:this.host.clientHeight/(2*displayHeight)};
     Object.assign(this.orbitCamera,{left:-displayHeight*aspect,right:displayHeight*aspect,top:displayHeight,bottom:-displayHeight});
     return Math.max(30,2*range+15,2*displayHeight*Math.hypot(1,aspect));
   }
@@ -409,12 +485,19 @@ export class RocketScene{
     if(!this.data||!this.rocket||this.lost)return;this.cameraDirty=false;if(!this.flightReady){this.drawFactory();return;}const {flight:f,workshop}=this.data,space=isOrbitView(this.view),factory=workshop&&this.view==='factory',height=Math.max(.1,this.rocket.userData.height,f?.capsule?.detached&&this.lastChutePhase!=='stowed'?THREE.MathUtils.lerp(this.rocket.userData.height,16,THREE.MathUtils.smoothstep(this.chuteFrameAge??1.2,0,this.reducedMotion?.25:1.2)):0);
     this.camera=space?this.orbitCamera:this.perspectiveCamera;
     this.rocket.userData.boosters.visible=Boolean(this.data.craft.boosters&&(!f||P.attached(f)));if(f?.boosters?.status==='jettisoned'&&!this.rocket.boosterBoundsRemoved){this.rocket.updateMatrixWorld(true);const inverse=this.rocket.matrixWorld.clone().invert(),bounds=new THREE.Box3();for(const part of this.rocket.userData.parts)if(part!==this.rocket.userData.boosters)bounds.union(new THREE.Box3().setFromObject(part).applyMatrix4(inverse));this.rocket.userData.partBounds=bounds;this.rocket.hullPoints=null;this.rocket.boosterBoundsRemoved=true;}
-    const agl=f?S.clearance(f.state,f.t):0,altitude=f?Math.max(0,O.elements(f.state).height):0,theta=f?Math.atan2(f.state[1],f.state[0]):0;
+    const lunar=f?.lunar,agl=f?S.clearance(f.state,f.t):0,altitude=f?Math.max(0,(f.orbit||O.elements(f.state)).height):0;
+    const theta=f?Math.atan2(f.state[1],f.state[0]):0;
+    const siteDistance=f&&lunar?P.R*Math.atan2(Math.hypot(f.state[1],f.state[2]),f.state[0]):Math.abs(theta)*P.R;
+    const worldRotation=this.worldRotation=new THREE.Quaternion().setFromAxisAngle(viewAxis,space?0:theta);
+    if(lunar&&space){
+      const axes=f.sky.mapBasis.map(axis=>new THREE.Vector3(...axis));
+      worldRotation.setFromRotationMatrix(new THREE.Matrix4().makeBasis(...axes).transpose());
+    }else if(lunar)worldRotation.setFromUnitVectors(worldVector(f.state).normalize(),upAxis);
     if(f&&!space&&altitude<120000)orientGroundSphere(this.earth.userData.nearGeometry,new THREE.Vector3(...S.direction(f.state)));
     this.earth.geometry=f&&!space&&altitude<120000?this.earth.userData.nearGeometry:this.earth.userData.farGeometry;
     const drop=this.separation;if(drop&&f)for(let i=0;i<20000&&drop.coast.t<f.t-1e-8&&!['impact','escaped'].includes(drop.coast.status);i++)M.step(drop.coast,Math.min(O.elements(drop.coast.state).height<120000?.1:2,f.t-drop.coast.t),{mass:drop.mass});
     const separation=this.separation,blend=separation?THREE.MathUtils.smoothstep(separation.visualAge,0,.6):1,displayHeight=separation?THREE.MathUtils.lerp(separation.height,height,blend):height;
-    const localOpacity=(1-THREE.MathUtils.smoothstep(altitude,20000,60000))*(1-THREE.MathUtils.smoothstep(Math.abs(theta)*P.R,300000,600000)),local=Boolean(f&&!space&&localOpacity>0);
+    const localOpacity=(1-THREE.MathUtils.smoothstep(altitude,20000,60000))*(1-THREE.MathUtils.smoothstep(siteDistance,300000,600000)),local=Boolean(f&&!space&&localOpacity>0);
     this.environmentOpacity=localOpacity;this.planetOpacity.value=space?1:1-localOpacity;
     this.studio.visible=factory||local;this.landscape.visible=local;this.earth.visible=space||Boolean(f&&!factory);this.clouds.visible=this.halo.visible=this.earth.visible&&this.planetOpacity.value>0;Object.values(this.lines).forEach(l=>l.visible=space);
     fadeEnvironment(this.studio,factory||!f?1:localOpacity);fadeEnvironment(this.landscape,localOpacity);
@@ -425,25 +508,35 @@ export class RocketScene{
     const target=new THREE.Vector3();let distance;
     if(space){
       this.earth.position.set(0,0,0);this.earth.scale.setScalar(3);this.halo.position.copy(this.earth.position);this.halo.scale.setScalar(3.045);
-      this.rocket.position.set(f?f.state[1]*3/P.R:0,f?f.state[0]*3/P.R:3,0);this.rocket.rotation.z=f?-f.attitude:0;
+      this.rocket.position.set(f?f.state[1]*3/P.R:0,f?f.state[0]*3/P.R:3,lunar?f.state[2]*3/P.R:0).applyQuaternion(worldRotation);this.rocket.rotation.z=f?-f.attitude:0;
+      if(lunar)this.updateLunarPaths(f);
       distance=this.frameOrbit(f,target);
       this.rocket.scale.setScalar(24/(displayHeight*this.orbitFrame.pixelsPerUnit));
     }
     else if(factory||!f)distance=this.frameFactory(target,height);
     else{
       // Leave depth clearance for Float32 rounding at planetary scale.
-      const r=Math.hypot(f.state[0],f.state[1]);this.earth.position.set(0,-r/1000,0);this.earth.scale.setScalar((P.R-5)/1000);this.halo.position.copy(this.earth.position);this.halo.scale.setScalar((P.R+80000)/1000);
+      const r=Math.hypot(...f.state.slice(0,3));this.earth.position.set(0,-r/1000,0);this.earth.scale.setScalar((P.R-5)/1000);this.halo.position.copy(this.earth.position);this.halo.scale.setScalar((P.R+80000)/1000);
       const size=this.rocket.userData.partBounds.getSize(new THREE.Vector3()),width=Math.max(size.x,size.z,f.capsule?.detached&&this.lastChutePhase!=='stowed'?14:0);
       const framing=.001/(2*Math.tan(Math.PI/9)*.36),goal=Math.max(.025,displayHeight*framing,width*framing/this.camera.aspect);
       if(!this.followFrame||this.followFrame.aspect!==this.camera.aspect)this.followFrame={distance:goal,goal,aspect:this.camera.aspect};
       this.followFrame.goal=goal;distance=this.followFrame.distance;
       this.rocket.scale.setScalar(.001);this.rocket.position.set(0,0,0);this.rocket.rotation.z=theta-f.attitude;
       for(const environment of [this.studio,this.landscape,this.relief]){environment.scale.setScalar(.001);environment.position.set(-P.R*Math.sin(theta)/1000,(P.R*Math.cos(theta)-r)/1000,0);environment.rotation.set(0,0,theta,'ZYX');}
+      if(lunar){
+        const pad=new THREE.Vector3(0,P.R/1000,0).applyQuaternion(worldRotation).add(this.earth.position);
+        for(const environment of [this.studio,this.landscape,this.relief]){
+          environment.position.copy(pad);
+          environment.quaternion.copy(worldRotation);
+        }
+      }
     }
+    if(lunar)this.rocket.quaternion.setFromUnitVectors(upAxis,worldVector(f.axisSurface).applyQuaternion(worldRotation).normalize());
+    else if(f)this.rocket.rotation.set(0,0,(space?0:theta)-f.attitude);
     if(space||factory||!f)this.followFrame=null;
-    if(f&&!factory&&!space&&agl<500){const blend=1-THREE.MathUtils.smoothstep(agl,200,500),minimum=hullMinimum(this.rocket,this.rocket.rotation.z);let offset=-minimum*this.rocket.scale.y*blend+Math.max(0,-agl)/1000;if(agl<10){const key=[f.t,f.attitude,this.rocket.scale.y].join(',');if(this.rocket.contactKey!==key){this.rocket.contactKey=key;this.rocket.contactOffset=(Math.max(0,agl)-hullClearance(this.rocket,f,this.rocket.rotation.z))/1000;}offset=this.rocket.contactOffset;}this.rocket.position.y+=offset;}
+    if(f&&!factory&&!space&&agl<500){const blend=1-THREE.MathUtils.smoothstep(agl,200,500),minimum=hullMinimum(this.rocket,this.rocket.rotation.z);let offset=-minimum*this.rocket.scale.y*blend+Math.max(0,-agl)/1000;if(agl<10&&!lunar){const key=[f.t,f.attitude,this.rocket.scale.y].join(',');if(this.rocket.contactKey!==key){this.rocket.contactKey=key;this.rocket.contactOffset=(Math.max(0,agl)-hullClearance(this.rocket,f,this.rocket.rotation.z))/1000;}offset=this.rocket.contactOffset;}this.rocket.position.y+=offset;}
     const landingTarget=f?.status==='landed'&&!space?this.rocket.userData.partBounds.getCenter(new THREE.Vector3()).multiplyScalar(this.rocket.scale.y).applyQuaternion(this.rocket.quaternion).add(this.rocket.position):null;
-    this.flightOrigin=this.rocket.position.clone();this.drawLandingPose(this.rocket,f,space,true);
+    this.flightOrigin=this.rocket.position.clone();if(!lunar)this.drawLandingPose(this.rocket,f,space,true);
     if(separation)this.rocket.position.addScaledVector(new THREE.Vector3(Math.sin(separation.attitude-(space?0:theta)),Math.cos(separation.attitude-(space?0:theta)),0),separation.join*(1-blend)*this.rocket.scale.y);
     if(f&&!factory&&!space){
       this.rocket.userData.partBounds.getCenter(target);
@@ -451,24 +544,25 @@ export class RocketScene{
       if(separation&&blend<1){const initial=separation.body.userData.partBounds.getCenter(new THREE.Vector3());initial.y-=separation.join;target.lerp(initial,1-blend);}
       target.multiplyScalar(this.rocket.scale.y).applyQuaternion(this.rocket.quaternion).add(this.rocket.position);
       if(landingTarget)target.copy(landingTarget);
-      if(this.view==='follow'&&!f.separated&&!f.capsule?.detached&&f.t<8&&Math.abs(theta)*P.R<80){
+      if(this.view==='follow'&&!f.separated&&!f.capsule?.detached&&f.t<8&&siteDistance<80){
         // Reserve room above the rocket even when the player zooms in near the pad.
         const halfFrame=distance*Math.tan(Math.PI/9)/this.zoom;
         const headroom=Math.min(halfFrame*.4,halfFrame*.88-displayHeight*.00055);
         if(headroom>0){
           const release=THREE.MathUtils.smoothstep;
-          const padWeight=(1-release(agl,7,52))*(1-release(f.t,6,8))*(1-release(Math.abs(theta)*P.R,45,80));
+          const padWeight=(1-release(agl,7,52))*(1-release(f.t,6,8))*(1-release(siteDistance,45,80));
           target.y-=headroom*Math.tanh(Math.max(0,agl)*.001/headroom)*padWeight;
         }
       }
     }
-    this.earth.rotation.y=.7;this.earth.rotation.z=space?0:theta;this.clouds.position.copy(this.earth.position);this.clouds.scale.copy(this.earth.scale).multiplyScalar(1.0018);this.clouds.rotation.copy(this.earth.rotation);this.clouds.rotateY(.025);
-    const angle=space?0:theta,{mission,skyStart,skyData}=this.data;
-    this.skyUtc=mission?skyStart+mission.t*1000:null;
-    const skyFrame=!factory&&f?Sky.at(skyData,this.skyUtc):null;
+    this.earth.rotation.set(0,.7,space?0:theta);if(lunar)this.earth.quaternion.copy(worldRotation).multiply(new THREE.Quaternion().setFromAxisAngle(upAxis,.7));
+    this.clouds.position.copy(this.earth.position);this.clouds.scale.copy(this.earth.scale).multiplyScalar(1.0018);this.clouds.rotation.copy(this.earth.rotation);this.clouds.rotateY(.025);
+    const {mission,skyStart,skyData}=this.data;
+    this.skyUtc=mission?(lunar?RocketLunar.flightUtc(f):skyStart+mission.t*1000):null;
+    const skyFrame=!factory&&f?(lunar?RocketLunar.skyFrame(f):Sky.at(skyData,this.skyUtc)):null;
     this.planetSun.fromArray(skyFrame?.sun||L.fixedSun).normalize();
     const worldSun=this.planetSun.toArray();
-    this.planetSun.applyAxisAngle(viewAxis,angle);
+    this.planetSun.applyQuaternion(worldRotation);
     this.lighting=f?L.solar(f.state,worldSun):{daylight:1,sunlight:1,elevation:1};const daylight=factory||!f?1:this.lighting.daylight;this.sky.material.uniforms.uDaylight.value=daylight;this.shadowUniforms.uShadowEnabled.value=Number(Boolean(f&&!factory));this.shadowUniforms.uShadowPlanetRadius.value=space?3:P.R/1000;L.shade(this.studio,this.shadowUniforms);L.shade(this.landscape,this.shadowUniforms);L.shade(this.relief,this.shadowUniforms);L.shade(this.contactGround.rocks,this.shadowUniforms);L.shade(this.rocket,this.shadowUniforms,this.lighting.sunlight);if(this.otherRocket&&this.data.other)L.shade(this.otherRocket,this.shadowUniforms,L.solar(this.data.other.state,worldSun).sunlight);if(this.separation)L.shade(this.separation.body,this.shadowUniforms);if(this.boosterDrop)L.shade(this.boosterDrop.body,this.shadowUniforms);this.oceanDepth.geometry=this.earth.geometry;this.oceanDepth.position.copy(this.earth.position);this.oceanDepth.rotation.copy(this.earth.rotation);this.oceanDepth.scale.copy(this.earth.scale);this.oceanDepth.visible=this.earth.visible;
     this.sunLight.position.copy(factory||!f?new THREE.Vector3(30,40,40):this.planetSun);
     const atmosphere=1-THREE.MathUtils.smoothstep(altitude,0,65000);
@@ -476,7 +570,8 @@ export class RocketScene{
     this.sunLight.color.setRGB(1,.96-.16*lowSun,.86-.27*lowSun);
     this.sunLight.intensity=factory||!f?2.4:1.95;
     this.ambient.intensity=factory||!f?1.65:THREE.MathUtils.lerp(.72,THREE.MathUtils.lerp(.15,1.18,daylight),atmosphere);
-    this.ambient.position.copy(space?this.rocket.position:new THREE.Vector3(0,1,0));this.fillLight.intensity=factory||!f?.6:0;
+    this.ambient.position.copy(space?this.rocket.position:new THREE.Vector3(0,1,0));
+    this.fillLight.intensity=factory||!f ? .6 : lunar?.entry ? .32*(1-daylight) : 0;
     this.renderer.toneMappingExposure=L.exposure(altitude,daylight);
     surfaceUniforms.uAerialDensity.value=f&&!space&&!factory?atmosphere:0;
     if(factory||!f){this.studio.scale.setScalar(1);this.studio.position.set(0,0,0);this.studio.rotation.z=0;}
@@ -509,12 +604,29 @@ export class RocketScene{
     }
     this.camera.near=space?.05:factory||!f?.1:Math.max(.0001,Math.min(distance*.05,cameraClearance*.25));
     this.camera.far=space?Math.max(150,distance*4):factory||!f?500:Math.max(20000,this.camera.position.distanceTo(this.earth.position)+this.halo.scale.x);
+    const moonRadius=lunar?RocketLunar.MOON_RADIUS*(space?3/P.R:.001):0;
+    this.moonTarget=skyFrame?new THREE.Vector3(...skyFrame.moon).applyQuaternion(worldRotation)
+      .multiplyScalar(space?3000/P.R:1).add(this.earth.position):null;
+    const moonPosition=lunar?this.moonTarget:null;
+    if(moonPosition)this.camera.far=Math.max(this.camera.far,this.camera.position.distanceTo(moonPosition)+moonRadius+1);
     if(!space)this.camera.fov=observing?40/Math.sqrt(this.zoom):40;
-    if(observing)target.copy(this.camera.position).add(new THREE.Vector3(Math.sin(this.yaw)*Math.cos(this.pitch),Math.sin(this.pitch),Math.cos(this.yaw)*Math.cos(this.pitch)));
+    if(observing){
+      if(this.trackMoon&&moonPosition)target.copy(moonPosition);
+      else target.copy(this.camera.position).add(new THREE.Vector3(Math.sin(this.yaw)*Math.cos(this.pitch),Math.sin(this.pitch),Math.cos(this.yaw)*Math.cos(this.pitch)));
+    }
     this.camera.up.copy(observing?orbitUp(this.yaw,this.pitch):orbitUp(cameraYaw,cameraPitch));
     this.camera.lookAt(target);this.camera.updateProjectionMatrix();this.camera.updateMatrixWorld();
-    this.drawSky(skyFrame,space,angle);
     const tanHalfFov=Math.tan(THREE.MathUtils.degToRad(this.perspectiveCamera.fov)/2);
+    if(moonPosition){
+      if(!this.moonGlobe){this.moonGlobe=createLunarGlobe();this.scene.add(this.moonGlobe);}
+      const moonDepth=Math.max(moonRadius,this.camera.position.distanceTo(moonPosition));
+      this.moonGlobe.userData.update({position:moonPosition,radius:moonRadius,earth:this.earth.position,
+        north:new THREE.Vector3(...skyFrame.moonNorth).applyQuaternion(worldRotation),
+        sun:new THREE.Vector3(...skyFrame.sun).sub(new THREE.Vector3(...skyFrame.moon)).applyQuaternion(worldRotation),
+        camera:this.camera,pixels:space?2*moonRadius*this.orbitFrame.pixelsPerUnit:
+          moonRadius*this.host.clientHeight/(tanHalfFov*moonDepth),moonAltitude:f.moon.height,refresh:()=>this.draw()});
+    }else if(this.moonGlobe)this.moonGlobe.visible=false;
+    this.drawSky(skyFrame,space,worldRotation);
     const pixelsPerUnit=space?this.orbitFrame.pixelsPerUnit:this.host.clientHeight/(2*tanHalfFov*distance);
     const detailPixels=pixelsPerUnit*(space?this.camera.position.distanceTo(this.earth.position):distance);
     if(space){
@@ -527,7 +639,7 @@ export class RocketScene{
     for(const mesh of this.landscape.landmarks)mesh.visible=Boolean(f&&!space);
     for(const rocket of [this.rocket,this.assemblyPreview])for(const mesh of rocket?.microDetails||[])mesh.visible=pixelsPerUnit*this.rocket.scale.y>18&&this.quality<2;
     this.studio.workshopFixtures.visible=factory||!f;this.studio.launchFixtures.visible=padDetails;this.studio.apron.visible=!factory;this.studio.flameTrench.visible=this.studio.trenchGrates.visible=padDetails;if(!f?.separated)this.studio.launchTower.scale.y=Math.max(.3,height/26);this.siteSurface.uLaunchCut.value=Number(padDetails&&localOpacity>=.999);
-    const atPad=Boolean(f&&this.data.live&&!factory&&['pad','flying'].includes(f.status)&&Math.abs(theta)*P.R<80&&agl<70);
+    const atPad=Boolean(f&&this.data.live&&!factory&&['pad','flying'].includes(f.status)&&siteDistance<80&&agl<70);
     const thrust=f?M.thrust(f):0,emitting=atPad?Math.min(1.65,thrust/600000)*(1-THREE.MathUtils.smoothstep(agl,16,70)):0;
     this.airExhaust=local&&this.data.live&&altitude<18000?THREE.MathUtils.smoothstep(agl,28,55):0;
     if(!this.launchEffects&&(emitting||this.airExhaust&&(thrust>0||this.data.other&&M.coreThrust(this.data.other)>0))){
@@ -560,10 +672,12 @@ export class RocketScene{
     if(this.pendingImpact){this.impacts.emit(f.state,f.t,Math.max(.015,displayHeight*this.rocket.scale.y*.8),true);this.pendingImpact=false;this.impacted=true;this.effectClock=performance.now();}
     if(this.pendingBurnup){this.impacts.emit(f.state,f.t,this.rocket.scale.y*this.rocket.userData.height*.7,true,this.rocket);this.pendingBurnup=false;this.effectClock=performance.now();}
     this.impacts.update(this.contactGround.visible?this.contactGround:this.globalTerrain,this.reducedMotion);if(f?.status==='impact'&&(!this.impacted||this.impacts.mainHidden()||!this.impacts.userData.active))this.rocket.visible=false;
-    this.velocityArrow.visible=Boolean(f&&!['impact','landed'].includes(f.status)&&Math.hypot(f.state[3],f.state[4])>.1);this.thrustArrow.visible=Boolean(f&&M.thrust(f)>0);
+    this.velocityArrow.visible=Boolean(f&&!['impact','landed','pad'].includes(f.status)&&(f.orbit?.speed??Math.hypot(f.state[3],f.state[4]))>.1);this.thrustArrow.visible=Boolean(f&&M.thrust(f)>0);
     if(f){
-      const theta=space?0:Math.atan2(f.state[1],f.state[0]),o=O.elements(f.state),center=this.rocket.localToWorld(new THREE.Vector3(0,height*.5,0)),axis=new THREE.Vector3(0,1,0).applyQuaternion(this.rocket.quaternion),forward=this.camera.getWorldDirection(new THREE.Vector3()),depth=center.clone().sub(this.camera.position).dot(forward),pixelWorld=space?1/pixelsPerUnit:2*depth*tanHalfFov/this.host.clientHeight,reference=pixelWorld*Math.min(90,this.host.clientHeight*.18,this.host.clientWidth*.25)*(space?.5:1),halfHeight=height*this.rocket.scale.y*.5,radius=1.6*this.rocket.scale.x;
-      for(const [arrow,direction,length,sign]of [[this.velocityArrow,new THREE.Vector3(space?f.state[4]:o.tangential,space?f.state[3]:o.radial,0),reference*o.speed/8000,-1],[this.thrustArrow,new THREE.Vector3(Math.sin(f.attitude-theta),Math.cos(f.attitude-theta),0),reference*M.thrust(f)/600000,1]]){
+      const theta=space?0:Math.atan2(f.state[1],f.state[0]),o=f.orbit||O.elements(f.state),center=this.rocket.localToWorld(new THREE.Vector3(0,height*.5,0)),axis=new THREE.Vector3(0,1,0).applyQuaternion(this.rocket.quaternion),forward=this.camera.getWorldDirection(new THREE.Vector3()),depth=center.clone().sub(this.camera.position).dot(forward),pixelWorld=space?1/pixelsPerUnit:2*depth*tanHalfFov/this.host.clientHeight,reference=pixelWorld*Math.min(90,this.host.clientHeight*.18,this.host.clientWidth*.25)*(space?.5:1),halfHeight=height*this.rocket.scale.y*.5,radius=1.6*this.rocket.scale.x;
+      const velocity=lunar?worldVector(f.state.slice(3)).applyQuaternion(worldRotation):new THREE.Vector3(space?f.state[4]:o.tangential,space?f.state[3]:o.radial,0);
+      const thrustDirection=lunar?axis.clone():new THREE.Vector3(Math.sin(f.attitude-theta),Math.cos(f.attitude-theta),0);
+      for(const [arrow,direction,length,sign]of [[this.velocityArrow,velocity,reference*o.speed/8000,-1],[this.thrustArrow,thrustDirection,reference*M.thrust(f)/600000,1]]){
         if(!arrow.visible)continue;direction.normalize();const side=forward.clone().cross(direction);if(side.lengthSq()<1e-8)side.set(1,0,0).applyQuaternion(this.camera.quaternion);side.normalize();const a=side.dot(axis),support=halfHeight*Math.abs(a)+radius*Math.sqrt(Math.max(0,1-a*a)),width=Math.min(pixelWorld*40,length*2);
         // Keep the whole vector outside the rotated rocket's enclosing cylinder.
         arrow.position.copy(center).addScaledVector(side,sign*(support+8*pixelWorld));arrow.scale.set(width,length,width);arrow.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),direction);
@@ -574,6 +688,16 @@ export class RocketScene{
   }
   animateEffects(now){const elapsed=this.effectClock?Math.max(0,(now-this.effectClock)/1000):0,delta=Math.min(.05,elapsed);this.effectClock=now;if(!this.flightReady||this.lost||document.hidden||!this.data?.live)return false;if((this.data.running||this.rocket?.userData.landingMotion?.water)&&!this.reducedMotion&&this.quality<2&&this.data.flight&&O.elements(this.data.flight.state).height<20000)surfaceUniforms.uSurfaceTime.value=(surfaceUniforms.uSurfaceTime.value+delta)%1000;let settling=this.globalTerrain.advanceDetail(now);const frame=this.followFrame;if(frame&&frame.distance!==frame.goal){const difference=frame.goal-frame.distance;frame.distance=Math.abs(difference)<frame.goal*1e-5?frame.goal:frame.distance+difference*(1-Math.exp(-delta/(this.reducedMotion?.06:.25)));settling=true;}if(this.lastChutePhase!=='stowed'&&this.chuteFrameAge<(this.reducedMotion?.25:1.2)){this.chuteFrameAge=Math.min(this.reducedMotion?.25:1.2,this.chuteFrameAge+delta);settling=true;}for(const rocket of [this.rocket,this.otherRocket]){if(rocket?.userData.parachute?.advance(delta))settling=true;const motion=rocket?.userData.landingMotion;if(motion){const limit=this.reducedMotion?.45:6,before=motion.age;motion.age=motion.water&&!this.reducedMotion?motion.age+delta:Math.min(limit,motion.age+delta);const floating=motion.water&&!this.reducedMotion&&rocket===this.rocket&&this.view==='follow';if(before<limit||floating&&now-motion.lastDraw>=1000/(this.quality?20:30)){settling=true;motion.lastDraw=now;}}}if(settling)this.draw();if(this.data.running===false&&!['impact','destroyed'].includes(this.data.flight?.status)&&!['impact','destroyed'].includes(this.data.other?.status))return Boolean(settling);const transition=this.separation,separating=transition&&this.data.running!==false&&transition.visualAge<.6;if(separating)transition.visualAge=Math.min(.6,transition.visualAge+elapsed);const releasing=this.launchStarted&&this.launchArmAge<(this.reducedMotion?.25:1.1);if(releasing)this.launchArmAge+=delta;const vapour=this.launchEffects?.advance(delta,Math.max(this.quality,Number(this.reducedMotion)),this.reducedMotion);if(this.impacts.advance(delta)||separating||releasing||vapour){this.draw();return true;}return false;}
   project(position){const p=position.clone().project(this.camera);const r=this.host.getBoundingClientRect();return {x:(p.x+1)*r.width/2,y:(1-p.y)*r.height/2,visible:p.z>=-1&&p.z<=1&&Math.abs(p.x)<.98&&Math.abs(p.y)<.98};}
+  mapMarkers(){
+    const f=this.data?.flight;
+    if(!f?.lunar||!isOrbitView(this.view)||!this.moonTarget||this.lost)return [];
+    const moon=this.project(this.moonTarget),closest=this.forecast?.closest;
+    if(!closest||closest.height>80000000||closest.t<=f.t)return [moon];
+    const [position]=RocketLunar.trajectory(f,[closest.position]);
+    const encounter=this.project(worldVector(position).multiplyScalar(3/P.R));
+    if(moon.visible&&Math.hypot(moon.x-encounter.x,moon.y-encounter.y)<88)return [moon];
+    return [moon,encounter];
+  }
   slotPoints(part=null,source=null){
     if(!this.rocket)return [];this.rocket.updateMatrixWorld();const engine=part?.startsWith('engine-'),tank=['small','medium','large'].includes(part);
     const point=(stage,y,at,gap=false)=>{const p=this.project(this.rocket.localToWorld(new THREE.Vector3(0,y,0))),bodyX=p.x,bodyY=p.y;if(part)p.x=Math.max(28,Math.min(this.host.clientWidth-28,p.x+(engine||gap?-1:1)*58));else p.x+=48;p.y=Math.max(28,Math.min(this.host.clientHeight-96,p.y));return {...p,bodyX,bodyY,localY:y,stage,at,gap,compatible:!part||source?.stage===stage||P.canFit(this.data.craft,stage,part)};};

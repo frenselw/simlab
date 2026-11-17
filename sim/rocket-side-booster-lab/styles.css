@@ -203,3 +203,19 @@
 .flight-event-announcement{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 .flight-preparation{margin:6px 0}
 .flight-preparation:empty{margin:0}
+.lunar-actions,.lunar-inputs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.lunar-panel{margin:12px 0}
+.lunar-panel form{margin:8px 0 12px}
+.lunar-panel input,.lunar-panel select{min-width:0;width:100%;min-height:44px;font:inherit}
+.lunar-panel label{min-width:0}
+.lunar-panel button,.lunar-actions button{min-height:44px}
+.lunar-transfer-hint{margin:4px 0 10px}
+.lunar-inputs{margin:6px 0 8px}
+@media(max-width:375px){.lunar-inputs{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:719px){.lunar-flight .flight-toolbar .primary-actions{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.map-label{position:absolute;z-index:4;pointer-events:none;white-space:nowrap;color:#fff8df;background:#10232dec;border:1px solid #b6c6c2;border-radius:6px;font-size:12px;line-height:1.2}
+.map-label{padding:3px 5px;transform:translate(-50%,10px)}
+.map-label::before{content:"";position:absolute;top:-8px;left:calc(50% + var(--label-tick,0px));height:7px;border-left:1px solid currentColor}
+.map-label[data-above=true]{transform:translate(-50%,calc(-100% - 9px))}
+.map-label[data-above=true]::before{top:100%}
+.map-label.encounter{color:#b0e3d4}

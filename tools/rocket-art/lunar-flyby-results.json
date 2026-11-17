@@ -1,0 +1,395 @@
+{
+  "model": "P1 offline 3D ascent and flight, prescribed guidance",
+  "frameReference": {
+    "maxPositionM": 276.63934469863324,
+    "maxSpeedMS": 0.015730788399485357
+  },
+  "missions": [
+    {
+      "isp": 340,
+      "launchTdbSeconds": 3212112.6804642463,
+      "azimuthDegrees": 142.2141656696786,
+      "upperFuelKg": 0,
+      "capsuleFuelKg": 13.940448204644234,
+      "pitchOffsetsDegrees": [
+        -4,
+        -2.5
+      ],
+      "launchUtc": "2026-02-07T04:14:03.495+00:00",
+      "capsuleReserveMS": 219.45603712719063,
+      "nominal": {
+        "status": "flyby",
+        "nearest": {
+          "t": 449999.3748862777,
+          "utc": "2026-02-12T09:14:02.870+00:00",
+          "altitudeM": 5449716.872176339,
+          "relativeSpeedMS": 1439.4217245336306,
+          "inertialSpeedMS": 842.6456175671657,
+          "earthAltitudeM": 391169590.7336726
+        },
+        "exit": {
+          "t": 533316.0283927001,
+          "utc": "2026-02-13T08:22:39.523+00:00",
+          "altitudeM": 80000000.0,
+          "relativeSpeedMS": 913.3183776472105,
+          "inertialSpeedMS": 867.6421050775152,
+          "earthAltitudeM": 443670104.54566085
+        },
+        "staging": [
+          {
+            "event": "booster jettison",
+            "t": 61.2915625,
+            "altitudeM": 25842.737999800593,
+            "inertialSpeedMS": 1551.4731876812018
+          },
+          {
+            "event": "core separation",
+            "t": 117.6798,
+            "altitudeM": 73074.6173103815,
+            "inertialSpeedMS": 4045.0989842057716
+          },
+          {
+            "event": "upper cutoff",
+            "t": 305.23198125,
+            "altitudeM": 170577.25634774007,
+            "inertialSpeedMS": 10714.383125878565
+          },
+          {
+            "event": "capsule separation",
+            "t": 305.23198125
+          },
+          {
+            "event": "capsule prograde cutoff",
+            "t": 332.9810216113926,
+            "burnStart": 317.23198125
+          }
+        ],
+        "vacuumStart": {
+          "t": 332.9810216113926,
+          "state": [
+            -61342.754605430084,
+            6009441.007793589,
+            2625265.3182271575,
+            -6521.634977910068,
+            4112.073104079046,
+            -7754.355627915754
+          ]
+        }
+      },
+      "stepHalving": {
+        "nearestAltitudeM": 4.89622029941529,
+        "nearestTimeS": 0.003538206627126783,
+        "exitSpeedMS": 1.1484900824143551e-05
+      },
+      "independentDOP853": {
+        "nearestAltitudeM": 5.297113950364292,
+        "nearestTimeS": 0.003827734966762364,
+        "exitSpeedMS": 1.242451946836809e-05
+      },
+      "sensitivity": [
+        {
+          "event": "launch",
+          "shiftS": -60,
+          "status": "flyby",
+          "nearestAltitudeM": 5533703.507403054
+        },
+        {
+          "event": "launch",
+          "shiftS": -30,
+          "status": "flyby",
+          "nearestAltitudeM": 5490286.815337433
+        },
+        {
+          "event": "launch",
+          "shiftS": 30,
+          "status": "flyby",
+          "nearestAltitudeM": 5411985.40709672
+        },
+        {
+          "event": "launch",
+          "shiftS": 60,
+          "status": "flyby",
+          "nearestAltitudeM": 5377115.10875646
+        },
+        {
+          "event": "cutoff",
+          "shiftS": -1,
+          "status": "earth atmosphere",
+          "nearestAltitudeM": 81173957.75646167
+        },
+        {
+          "event": "cutoff",
+          "shiftS": -0.5,
+          "status": "flyby",
+          "nearestAltitudeM": 41198186.7384626
+        },
+        {
+          "event": "cutoff",
+          "shiftS": 0.5,
+          "status": "flyby",
+          "nearestAltitudeM": 21737597.956714123
+        },
+        {
+          "event": "cutoff",
+          "shiftS": 1,
+          "status": "flyby",
+          "nearestAltitudeM": 52299862.41847846
+        }
+      ]
+    },
+    {
+      "isp": 370,
+      "launchTdbSeconds": 3211752.1910561686,
+      "azimuthDegrees": 133.9359154591834,
+      "upperFuelKg": 55.81087150922299,
+      "capsuleFuelKg": 30,
+      "pitchOffsetsDegrees": [
+        -4,
+        -2.5
+      ],
+      "launchUtc": "2026-02-07T04:08:03.006+00:00",
+      "capsuleReserveMS": 453.5105292983947,
+      "nominal": {
+        "status": "flyby",
+        "nearest": {
+          "t": 450153.10464770923,
+          "utc": "2026-02-12T09:10:36.110+00:00",
+          "altitudeM": 6949906.539872624,
+          "relativeSpeedMS": 1341.5127345351527,
+          "inertialSpeedMS": 711.5235264236488,
+          "earthAltitudeM": 389655649.26467454
+        },
+        "exit": {
+          "t": 535892.6475680737,
+          "utc": "2026-02-13T08:59:35.653+00:00",
+          "altitudeM": 79999999.99999972,
+          "relativeSpeedMS": 888.8882565291616,
+          "inertialSpeedMS": 766.7780191266306,
+          "earthAltitudeM": 438826919.5696191
+        },
+        "staging": [
+          {
+            "event": "booster jettison",
+            "t": 61.2915625,
+            "altitudeM": 25821.263635076582,
+            "inertialSpeedMS": 1578.4235861367542
+          },
+          {
+            "event": "core separation",
+            "t": 117.6798,
+            "altitudeM": 73014.73979262821,
+            "inertialSpeedMS": 4075.1776134762463
+          },
+          {
+            "event": "upper cutoff",
+            "t": 319.2493588407276,
+            "altitudeM": 174829.7153727319,
+            "inertialSpeedMS": 10944.131628552928
+          },
+          {
+            "event": "capsule separation",
+            "t": 319.2493588407276
+          }
+        ],
+        "vacuumStart": {
+          "t": 319.2493588407276,
+          "state": [
+            47402.022233075906,
+            5882953.11399322,
+            2869930.9122853414,
+            -7637.20427349153,
+            3933.4139632153283,
+            -6781.670125363554
+          ]
+        }
+      },
+      "stepHalving": {
+        "nearestAltitudeM": 5.457896014675498,
+        "nearestTimeS": 0.003888382576406002,
+        "exitSpeedMS": 1.7527861132293765e-05
+      },
+      "independentDOP853": {
+        "nearestAltitudeM": 5.682127382606268,
+        "nearestTimeS": 0.004047980182804167,
+        "exitSpeedMS": 1.824828837015957e-05
+      },
+      "sensitivity": [
+        {
+          "event": "launch",
+          "shiftS": -60,
+          "status": "flyby",
+          "nearestAltitudeM": 6997927.889136944
+        },
+        {
+          "event": "launch",
+          "shiftS": -30,
+          "status": "flyby",
+          "nearestAltitudeM": 6972514.784654431
+        },
+        {
+          "event": "launch",
+          "shiftS": 30,
+          "status": "flyby",
+          "nearestAltitudeM": 6930087.777511748
+        },
+        {
+          "event": "launch",
+          "shiftS": 60,
+          "status": "flyby",
+          "nearestAltitudeM": 6913076.558516899
+        },
+        {
+          "event": "cutoff",
+          "shiftS": -1,
+          "status": "earth atmosphere",
+          "nearestAltitudeM": 297259754.56539
+        },
+        {
+          "event": "cutoff",
+          "shiftS": -0.5,
+          "status": "earth atmosphere",
+          "nearestAltitudeM": 222198054.94855312
+        },
+        {
+          "event": "cutoff",
+          "shiftS": 0.5,
+          "status": "no encounter within propagation window",
+          "nearestAltitudeM": 139914266.44810826
+        },
+        {
+          "event": "cutoff",
+          "shiftS": 1,
+          "status": "no encounter within propagation window",
+          "nearestAltitudeM": 187295212.45499647
+        }
+      ]
+    },
+    {
+      "isp": 380,
+      "launchTdbSeconds": 3211672.7820503265,
+      "azimuthDegrees": 132.21413789771054,
+      "upperFuelKg": 96.15802529613427,
+      "capsuleFuelKg": 30,
+      "pitchOffsetsDegrees": [
+        -4,
+        -2.5
+      ],
+      "launchUtc": "2026-02-07T04:06:43.597+00:00",
+      "capsuleReserveMS": 453.5105292983947,
+      "nominal": {
+        "status": "flyby",
+        "nearest": {
+          "t": 450206.01005840325,
+          "utc": "2026-02-12T09:10:09.607+00:00",
+          "altitudeM": 6952904.793426339,
+          "relativeSpeedMS": 1338.8266856102323,
+          "inertialSpeedMS": 710.165607426316,
+          "earthAltitudeM": 389683487.30372083
+        },
+        "exit": {
+          "t": 536274.8868825893,
+          "utc": "2026-02-13T09:04:38.483+00:00",
+          "altitudeM": 80000000.0,
+          "relativeSpeedMS": 885.1240307718999,
+          "inertialSpeedMS": 768.6369703424069,
+          "earthAltitudeM": 438884280.3358252
+        },
+        "staging": [
+          {
+            "event": "booster jettison",
+            "t": 61.2915625,
+            "altitudeM": 25822.095704128966,
+            "inertialSpeedMS": 1583.76809729552
+          },
+          {
+            "event": "core separation",
+            "t": 117.6798,
+            "altitudeM": 73025.42820822261,
+            "inertialSpeedMS": 4082.276195038442
+          },
+          {
+            "event": "upper cutoff",
+            "t": 322.81775028084087,
+            "altitudeM": 175965.49774369504,
+            "inertialSpeedMS": 10943.14991543106
+          },
+          {
+            "event": "capsule separation",
+            "t": 322.81775028084087
+          }
+        ],
+        "vacuumStart": {
+          "t": 322.81775028084087,
+          "state": [
+            30827.29293084726,
+            5880074.236619106,
+            2878634.2161656665,
+            -7850.9550395102515,
+            3835.528001765952,
+            -6589.365961555084
+          ]
+        }
+      },
+      "stepHalving": {
+        "nearestAltitudeM": 5.443273281678557,
+        "nearestTimeS": 0.003972601203713566,
+        "exitSpeedMS": 1.7433325865567895e-05
+      },
+      "independentDOP853": {
+        "nearestAltitudeM": 5.946201786398888,
+        "nearestTimeS": 0.004339378327131271,
+        "exitSpeedMS": 1.9043815314034873e-05
+      },
+      "sensitivity": [
+        {
+          "event": "launch",
+          "shiftS": -60,
+          "status": "flyby",
+          "nearestAltitudeM": 6998188.758009097
+        },
+        {
+          "event": "launch",
+          "shiftS": -30,
+          "status": "flyby",
+          "nearestAltitudeM": 6974155.690038597
+        },
+        {
+          "event": "launch",
+          "shiftS": 30,
+          "status": "flyby",
+          "nearestAltitudeM": 6934419.813098088
+        },
+        {
+          "event": "launch",
+          "shiftS": 60,
+          "status": "flyby",
+          "nearestAltitudeM": 6918719.562594792
+        },
+        {
+          "event": "cutoff",
+          "shiftS": -1,
+          "status": "earth atmosphere",
+          "nearestAltitudeM": 292804005.0475555
+        },
+        {
+          "event": "cutoff",
+          "shiftS": -0.5,
+          "status": "earth atmosphere",
+          "nearestAltitudeM": 215907078.13779062
+        },
+        {
+          "event": "cutoff",
+          "shiftS": 0.5,
+          "status": "no encounter within propagation window",
+          "nearestAltitudeM": 134426027.93158653
+        },
+        {
+          "event": "cutoff",
+          "shiftS": 1,
+          "status": "no encounter within propagation window",
+          "nearestAltitudeM": 181862716.11255538
+        }
+      ]
+    }
+  ]
+}

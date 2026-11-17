@@ -1,0 +1,36 @@
+{
+  "source": "JPL Horizons DE441",
+  "queries": {
+    "moon": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=301&CENTER=500%40399&EPHEM_TYPE=VECTORS&REF_PLANE=FRAME&REF_SYSTEM=ICRF&VEC_CORR=NONE&VEC_TABLE=2&TIME_TYPE=TDB&OUT_UNITS=KM-S&CSV_FORMAT=YES&OBJ_DATA=NO&START_TIME=JD2461041.5&STOP_TIME=JD2461427.5&STEP_SIZE=90+m",
+    "sun": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=10&CENTER=500%40399&EPHEM_TYPE=VECTORS&REF_PLANE=FRAME&REF_SYSTEM=ICRF&VEC_CORR=NONE&VEC_TABLE=2&TIME_TYPE=TDB&OUT_UNITS=KM-S&CSV_FORMAT=YES&OBJ_DATA=NO&START_TIME=JD2461041.5&STOP_TIME=JD2461427.5&STEP_SIZE=90+m"
+  },
+  "checks": {
+    "moon": {
+      "nodes": {
+        "samples": 1545,
+        "maxPositionM": 0.819502358519369,
+        "maxSpeedMS": 8.363755046595262e-05
+      },
+      "withheld": {
+        "samples": 4632,
+        "maxPositionM": 20.103536330646776,
+        "maxSpeedMS": 0.002772431868551847
+      }
+    },
+    "sun": {
+      "nodes": {
+        "samples": 1545,
+        "maxPositionM": 84.4390081490803,
+        "maxSpeedMS": 8.405458140776746e-05
+      },
+      "withheld": {
+        "samples": 4632,
+        "maxPositionM": 77.30564753395335,
+        "maxSpeedMS": 0.010136082669704642
+      }
+    }
+  },
+  "rawBytes": 74160,
+  "gzipBytes": 72240,
+  "sha256": "9c4248f849f8a76a12f63d5b235df9029955222b80f645ffd2b05fbdf6b6ea82"
+}
