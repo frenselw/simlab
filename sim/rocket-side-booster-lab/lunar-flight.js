@@ -10,7 +10,7 @@
   const {norm,dot,cross,add,scale,unit,DEG}=C;
   const LAUNCH=3212112.6804642463,BEARING=142.2141656696786;
   const INSERTION_FUEL=30-13.940448204644234,THRUST=3000,ISP=300;
-  const NEAR=80000000,FORECAST_SPAN=10*C.DAY,TURN_LEAD=16,TURN_THRESHOLD=Math.cos(.15*DEG);
+  const NEAR=80000000,FORECAST_SPAN=10*C.DAY,TURN_LEAD=16.5,TURN_THRESHOLD=Math.cos(.15*DEG);
   const PATH_SWEEP=DEG,MAX_PATH_POINTS=4096;
   const TRANSFER_START=7200,FAST_WARP=10000,ENCOUNTER_WARP_HEIGHT=20000000;
   // Inertial state obtained by shooting backward from the Moon and targeting both Earth passes.
@@ -65,6 +65,22 @@
     body.bodyRight=unit(add(moved,axis,-dot(moved,axis)));
     body.axis=axis;
     return unit(turn);
+  }
+  function capsuleTurn(f,target,dt){
+    const velocity=f.turnVelocity??[0,0,0],normal=cross(f.axis,target);
+    const angle=Math.atan2(norm(normal),dot(f.axis,target));
+    const axis=norm(normal)>1e-10?unit(normal):norm(velocity)>1e-10?unit(velocity):f.bodyRight;
+    const along=dot(velocity,axis),side=add(velocity,axis,-along),sideSpeed=norm(side);
+    const turn={attitude:0,angularVelocity:along,controls:{mode:'tilt',angle:angle/DEG},state:[1,0,0,0,0,0]};
+    // Use the same acceleration, coasting and counterfire controller as Earth flight.
+    R.turn(turn,dt,Math.sqrt(Math.max(0,(12*DEG)**2-sideSpeed**2)));
+    const sideAfter=scale(side,sideSpeed?Math.max(0,1-20*DEG*dt/sideSpeed):0);
+    const displacement=add(scale(axis,Math.atan2(Math.sin(turn.attitude),Math.cos(turn.attitude))),add(side,sideAfter),dt/2);
+    const rotation=norm(displacement),pivot=unit(displacement);
+    const rotate=v=>add(add(scale(v,Math.cos(rotation)),cross(pivot,v),Math.sin(rotation)),pivot,dot(pivot,v)*(1-Math.cos(rotation)));
+    const attitude=unit(rotate(f.axis)),right=unit(rotate(f.bodyRight));
+    return {axis:attitude,right,velocity:add(scale(axis,turn.angularVelocity),sideAfter),
+      torque:add(scale(axis,turn.rcsDirection),unit(side),-Math.min(1,sideSpeed/(20*DEG*dt)))};
   }
   function surfaceVector(frame,v){
     const [east,up,north]=S.fromGeocentric(...C.toColumns(frame,v));
@@ -215,7 +231,8 @@
       const r=q.slice(0,3);
       return f.capsule.chute.phase!=='stowed'?unit(r):unit(add(C.spin(l.pole,r),q.slice(3),-1));
     }
-    if(l.maneuver?.active||l.maneuver?.aligning)return burnAxis(q,l.maneuver.direction);
+    if(l.maneuver?.active)return l.maneuver.axis;
+    if(l.maneuver?.aligning)return burnAxis(q,l.maneuver.direction);
     if(l.returning&&!f.controls.lit&&f.orbit.height<600000){
       return unit(add(C.spin(l.pole,q.slice(0,3)),q.slice(3),-1));
     }
@@ -226,7 +243,7 @@
   }
   function turningCapsule(f,target){
     return f.status==='flying'&&f.capsule.detached&&f.capsule.chute.phase==='stowed'&&
-      !guidanceLocked(f)&&dot(f.axis,target)<TURN_THRESHOLD;
+      !guidanceLocked(f)&&(dot(f.axis,target)<TURN_THRESHOLD||norm(f.turnVelocity??[0,0,0])>1e-8);
   }
   function dynamics(table,l,area,mass,force,axis){
     return (t,q)=>{
@@ -374,7 +391,9 @@
       return 0;
     }
     const guidedInjection=l.guided&&f.capsule.detached&&l.next<l.sequence.length&&f.controls.lit;
-    const nextAxis=slew(f.axis,target,dt);
+    const inertialTurn=f.capsule.detached&&!guidedInjection;
+    const turn=inertialTurn?capsuleTurn(f,target,dt):null;
+    const nextAxis=turn?turn.axis:slew(f.axis,target,dt);
     const axis=guidedAscent||guidedInjection?(time,q)=>guidanceAxis(f,time,q):
       ()=>maneuver?.active?maneuver.axis:unit(add(f.axis,nextAxis));
     const m0=P.mass(f);
@@ -426,10 +445,12 @@
       f.status='flying';
       report?.('liftoff',t+h,f);
     }
+    const actualTurn=inertialTurn?(h===dt?turn:capsuleTurn(f,target,h)):null;
     const attitude=guidedAscent||guidedInjection?axis(t+h,q):h===dt?nextAxis:slew(f.axis,target,h);
-    const torque=pointBody(f,attitude);
+    const torque=actualTurn?actualTurn.torque:pointBody(f,attitude);
+    if(actualTurn){f.axis=actualTurn.axis;f.bodyRight=actualTurn.right;f.turnVelocity=actualTurn.velocity;}
     f.rcsAxes=null;f.rcsDirection=0;
-    if(turning){
+    if(turning&&norm(torque)>1e-8){
       // The scene uses east/up/north. Reverse the axial-vector sign across that reflection.
       const x=dot(torque,f.bodyRight),z=-dot(torque,cross(f.bodyRight,f.axis));
       f.rcsAxes=[x,z];
@@ -574,7 +595,7 @@
     if(f.t<6&&!f.separated)return 1;
     if(f.lunar.entry)return f.capsule.chute.phase==='stowed'?20:100;
     if(f.controls.lit||P.burning(f)||f.orbit.height<120000||f.lunar.maneuver?.aligning)return 20;
-    if(f.controls.mode==='tilt'&&turningCapsule(f,manualAxis(f,f.eci)))return 5;
+    if(f.controls.mode==='tilt'&&turningCapsule(f,manualAxis(f,f.eci))||norm(f.turnVelocity??[0,0,0])>.2*DEG)return 5;
     return f.capsule.detached&&f.orbit.height>=20000000&&f.moon.height>ENCOUNTER_WARP_HEIGHT
       ?FAST_WARP:1000;
   }

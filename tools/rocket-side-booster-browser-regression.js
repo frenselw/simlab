@@ -798,12 +798,11 @@ async function preparation(base,label){
       };`);
     await click('#launchButton');
     await wait(()=>call('return Boolean(window.__resumeRegion);'),'regional texture generation starts');
-    await call('app.view("sky");');
+    await call('app.view("orbit");');
     await wait(()=>call('return window.__regionalAtPad.signal.aborted;'),'leaving the ground view cancels regional texture generation');
     await call('window.__resumeRegion();');
     await click('#igniteButton');
-    await wait(()=>call('return app.getState().flight.status==="flying";'),'liftoff while regional texture is absent');
-    await click('#playButton');
+    assert(await call('RocketRuntime.advanceFrame(app.controller,2,1);app.controller.pause();return app.getState().flight.status==="flying";'));
     assert(await call('return !app.controller.running&&!app.getScene().diagnostics().regionalSurfaceReady;'));
     const probe='const f=app.getState().flight,s=app.getScene();return {flight:f,agl:RocketSurface.clearance(f.state,f.t),position:s.rocket.position.toArray()};';
     await call('app.view("follow");');
@@ -819,6 +818,28 @@ async function preparation(base,label){
     assert.deepEqual(await call('return app.getState();'),M.fresh());
     report.flows.push({label,case:'preparation',trustedDrag:true,httpAndGzipRetry:true,preservedCraft:true,contextRestored:true,visualFallback:true,unchangedFlight:true,noGlobalRequests:true});
   }finally{await cdp.send('Page.removeScriptToEvaluateOnNewDocument',{identifier});}
+  for(const response of ['success','failure']){
+    await open(base);
+    await call(`app.controller.state.craft=${JSON.stringify(T.launched().craft)};app.controller.emit();
+      const fetchOriginal=window.fetch;
+      window.fetch=(input,options)=>{
+        if(!String(input).endsWith('/lunar-ephemeris.bin.gz'))return fetchOriginal(input,options);
+        return new Promise((resolve,reject)=>{
+          window.__releaseLunarRequest=failed=>failed?reject(Error('Delayed unavailable ephemeris')):fetchOriginal(input,options).then(resolve,reject);
+        });
+      };`);
+    await click('#lunarReturn');
+    await wait(()=>call('return Boolean(window.__releaseLunarRequest);'),'delayed lunar request');
+    await click('#launchButton');
+    assert.equal(await call('return app.getState().phase;'),'pad');
+    await click('#returnWorkshop');
+    const retained=await call('return app.getState();');
+    await call(`window.__releaseLunarRequest(${response==='failure'});`);
+    await wait(()=>call('return !d.getElementById("lunarReturn").disabled;'),'obsolete lunar operation settles');
+    assert.deepEqual(await call('return app.getState();'),retained);
+    assert(await call('return !app.controller.running&&app.diagnostics().view==="factory"&&!d.getElementById("lunarTransferHint").textContent.includes("未能");'));
+    report.flows.push({label,case:'lunar-preparation-cancel',response,retainedPhase:retained.phase});
+  }
 }
 async function events(base,label){
   for(const [width,height,touch]of [[1280,900,false],[1100,800,false],[1194,834,true],[834,1194,true],[390,844,true],[320,500,true],[568,320,true]]){
@@ -1187,7 +1208,22 @@ async function lunarTransfer(base,label){
   await click('#returnWorkshop',mobile);
   assert.deepEqual(await call('return app.getState().craft;'),design);
   assert(await call('return [...d.querySelectorAll("[data-time-warp]")].find(b=>b.value==="10000").hidden;'));
-  report.flows.push({case:'lunar-transfer',label,started,alignment,rotation,result});
+  await click('#lunarTransfer',mobile);
+  await wait(()=>call('return app.controller.state.flight?.t===7200&&Boolean(app.getScene().forecast?.closest);'),'fresh transfer forecast');
+  const pulse=await call(`const c=app.controller,s=app.getScene(),f=c.state.flight;
+    window.__beforePulseForecast=s.forecast;
+    const previousHeight=s.forecast.closest.height,beforeFuel=f.capsule.fuel;
+    if(!app.command({type:'lunar-correction',start:f.t+20.05,duration:.1,throttle:1,direction:'prograde'}))throw Error('Cannot schedule brief correction');
+    c.play();c.tick(20,900);RocketRuntime.advanceFrame(c,.02,10000);c.pause();
+    const pending=RocketLunar.forecast(f,c.lunarTable);let next;
+    do{next=pending.next();}while(!next.done);
+    return {previousHeight,expected:next.value.closest.height,beforeFuel,fuel:f.capsule.fuel,t:f.t,lit:f.controls.lit};`);
+  assert(pulse.fuel<pulse.beforeFuel&&!pulse.lit&&pulse.t>7220.15,JSON.stringify(pulse));
+  await wait(()=>call('return app.getScene().forecast!==window.__beforePulseForecast&&Boolean(app.getScene().forecast?.closest);'),'forecast refresh after complete between-frame burn');
+  const refreshed=await call('return app.getScene().forecast.closest.height;');
+  assert(Math.abs(refreshed-pulse.expected)<1&&Math.abs(refreshed-pulse.previousHeight)>100000,JSON.stringify({pulse,refreshed}));
+  await click('#returnWorkshop',mobile);
+  report.flows.push({case:'lunar-transfer',label,started,alignment,rotation,result,pulse,refreshed});
 }
 
 async function lunarReturn(base,label){
@@ -1235,12 +1271,28 @@ async function lunarReturn(base,label){
   assert(sky.lock==='moon'&&sky.visible&&Math.hypot(sky.moon[0]-.45,sky.moon[1]-.38)<.002&&Math.hypot(sky.craft[0],sky.craft[1])<.002,JSON.stringify(sky));
   await assertCruiseSide();
   await shot(label+'-lunar-return-moon-'+width+'x'+height);
+  const lockBasis=()=>call(`const s=app.getScene(),f=app.controller.state.flight;
+    const up=s.camera.up.clone().applyQuaternion(s.worldRotation.clone().invert());
+    const basis=f.sky.mapBasis.map(axis=>s.camera.position.clone().fromArray(axis));
+    basis[2].copy(basis[0]).cross(basis[1]);
+    return {up:basis.map(axis=>up.dot(axis)),unit:s.camera.quaternion.lengthSq(),upLength:up.length(),
+      moon:s.moonTarget.clone().project(s.camera).toArray()};`);
+  let lastLock=await lockBasis();
+  for(let t=365900;t<420000;t+=900){
+    await advance(t);
+    const nextLock=await lockBasis();
+    assert(Math.abs(nextLock.unit-1)<1e-10&&Math.abs(nextLock.upLength-1)<1e-10&&
+      Math.hypot(nextLock.moon[0]-.45,nextLock.moon[1]-.38)<.002&&
+      nextLock.up.reduce((dot,value,i)=>dot+value*lastLock.up[i],0)>.95,JSON.stringify({t,lastLock,nextLock}));
+    lastLock=nextLock;
+  }
+  const lockTime=await call('return app.controller.state.flight.t;');
   await call('app.getScene().renderer.forceContextLoss();');
   await wait(()=>call('return app.getScene().lost;'),'lost lunar WebGL context');
   await call('app.getScene().renderer.forceContextRestore();');
   await wait(()=>call('return !app.getScene().lost;'),'restored lunar WebGL context');
-  assert(await call(`return app.getState().flight.t===${near.t}&&app.getScene().moonGlobe.userData.detailed.value===1;`));
-  await advance(375600);
+  assert(await call(`return app.getState().flight.t===${lockTime}&&app.getScene().moonGlobe.userData.detailed.value===1;`));
+  await advance(420000);
   await assertCruiseSide();
   const entry=await advance(724630);
   assert.equal(entry.view,'follow');assert(entry.thermal.protected&&entry.thermal.flux>.005,JSON.stringify(entry));
@@ -1294,6 +1346,19 @@ async function lunarReturn(base,label){
   await click('#lunarReturn',mobile);
   await wait(()=>call('return app.controller.running&&app.getState().flight?.lunar.freeReturn;'),'manual continuation flight');
   await click('#playButton',mobile);
+  await click('#cameraFollow',mobile);
+  let priorView=null,followSweep=0,maxFollowStep=0;
+  for(let time=7200;time<400000;time+=7200){
+    await advance(time);
+    const orientation=await call('const s=app.getScene();return s.camera.quaternion.clone().invert().multiply(s.rocket.quaternion).toArray();');
+    if(priorView){
+      const cosine=Math.min(1,Math.abs(orientation.reduce((dot,value,i)=>dot+value*priorView[i],0)));
+      const sweep=2*Math.acos(cosine)*180/Math.PI;
+      followSweep+=sweep;maxFollowStep=Math.max(maxFollowStep,sweep);
+    }
+    priorView=orientation;
+  }
+  assert(followSweep<180&&maxFollowStep<45,JSON.stringify({followSweep,maxFollowStep}));
   await advance(400000);
   assert(await call('return app.command({type:"control",key:"mode",value:"radial-out"});'));
   await advance(400020);
@@ -1304,7 +1369,7 @@ async function lunarReturn(base,label){
   await call('d.getElementById("pitchDial").focus();');
   await key('ArrowRight');
   assert(await call('const f=app.controller.state.flight;return f.controls.mode==="tilt"&&RocketRuntime.warpLimit(f)===5;'));
-  const axis=await call('return app.controller.state.flight.axis;');
+  const velocity=await call('return app.controller.state.flight.turnVelocity;');
   const turn=await advance(900000.2);
   const jet=await call('return app.getScene().diagnostics().rcsDirection;');
   assert((jet===1||jet===-1)&&turn.fuel===0);
@@ -1315,11 +1380,28 @@ async function lunarReturn(base,label){
       const force=torque.clone().set(0,-1,0).applyQuaternion(plume.quaternion);
       torque.addScaledVector(plume.position.clone().sub(center).cross(force),plume.material.opacity/plume.userData.baseOpacity);
     }
-    const rotation=C.cross(${JSON.stringify(axis)},f.axis);
+    const rotation=C.add(f.turnVelocity,${JSON.stringify(velocity)},-1);
     const expected=torque.clone().set(-C.dot(rotation,f.bodyRight),0,C.dot(rotation,C.cross(f.bodyRight,f.axis))).normalize();
     return torque.normalize().dot(expected);`);
   assert(jetAlignment>.99,JSON.stringify({jetAlignment}));
   await shot(label+'-lunar-rcs-after-day-ten-'+width+'x'+height);
+  const counterfire=await call(`const c=app.controller,f=c.state.flight,C=RocketCelestial,s=app.getScene();
+    let braking=false,stopped=false;
+    for(let i=0;i<200;i++){
+      const before=f.turnVelocity.slice();
+      c.play();c.tick(.05,1000);c.pause();
+      if(!f.rcsAxes)continue;
+      const [x,z]=f.rcsAxes,torque=C.add(C.scale(f.bodyRight,x),C.cross(f.bodyRight,f.axis),-z);
+      if(C.dot(torque,f.turnVelocity)<-1e-6&&C.norm(f.turnVelocity)<C.norm(before)){
+        const groups=[...s.rocket.userData.rcs,...s.rocket.userData.crossRcs];
+        braking=groups.some(group=>group.visible);
+        stopped=C.norm(f.turnVelocity)<12*C.DEG;
+        break;
+      }
+    }
+    return {braking,slowing:stopped};`);
+  assert(counterfire.braking&&counterfire.slowing,JSON.stringify(counterfire));
+  await shot(label+'-lunar-rcs-counterfire-'+width+'x'+height);
   const settled=await advance(900020);
   assert(settled.phase==='coast'&&settled.fuel===0&&await call('return app.getScene().diagnostics().rcsDirection===0;'));
   await click('#cameraFollow',mobile);await click('[data-camera-lock="moon"]',mobile);
@@ -1332,7 +1414,7 @@ async function lunarReturn(base,label){
       rocketUp:up.clone().applyQuaternion(s.rocket.quaternion).toArray()};`);
   assert.deepEqual(workshop,{phase:'workshop',view:'factory',lock:null,engine:0,floorUp:[0,1,0],rocketUp:[0,1,0]});
   await shot(label+'-lunar-return-workshop-'+width+'x'+height);
-  report.flows.push({case:'lunar-return',label,width,height,cold,early,loaded,near,sky,cruiseSide,contextRestored:true,entry,descent,landing,arrival,fallback,continued,jet,jetAlignment,settled,workshop});
+  report.flows.push({case:'lunar-return',label,width,height,cold,early,loaded,near,sky,cruiseSide,lastLock,contextRestored:true,entry,descent,landing,arrival,fallback,followSweep,maxFollowStep,continued,jet,jetAlignment,counterfire,settled,workshop});
 }
 
 function selection(args){if(args.length>2)throw Error("Expected cases and optional delivery");const cases=args[0]?args[0].split(","):caseNames,delivery=args[1]||null;if(cases.some(name=>!caseNames.includes(name))||new Set(cases).size!==cases.length)throw Error("Unknown or repeated explorer case");if(delivery&&!["source","standalone"].includes(delivery))throw Error("Unknown explorer delivery");return{cases,delivery};}

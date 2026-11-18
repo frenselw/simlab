@@ -55,7 +55,7 @@
     const heave=water?-.55*ramp+(reduced?0:(.06*Math.sin(1.4*t)+.025*Math.sin(2.3*t))*ramp-.55*Math.min(1,(hit.normal||0)/6)*t*Math.exp(-2*t)):reduced||t>=6?0:Math.max(0,Math.sin(5*t))*t*Math.exp(-2*t)*Math.min(6,hit.normal||0)*.035;
     return {angle,heave,tipped:!water&&tipped>.6,water};
   }
-  function turn(f,dt){
+  function turn(f,dt,rateLimit=maxTurnRate){
     const epsilon=1e-9,deadband=.1*Math.PI/180;
     let delta=angleDelta(targetAttitude(f),f.attitude),speed=f.angularVelocity||0,remaining=dt;
     f.rcsDirection=0;
@@ -70,10 +70,10 @@
       }else if(along>epsilon&&Math.abs(delta)<=stopDistance+epsilon){
         acceleration=-direction*turnAcceleration;
         duration=along/turnAcceleration;
-      }else if(along<maxTurnRate-epsilon){
+      }else if(along<rateLimit-epsilon){
         const peak=Math.sqrt(turnAcceleration*Math.abs(delta)+along**2/2);
         acceleration=direction*turnAcceleration;
-        duration=(Math.min(peak,maxTurnRate)-along)/turnAcceleration;
+        duration=(Math.min(peak,rateLimit)-along)/turnAcceleration;
       }else{
         acceleration=0;
         duration=(Math.abs(delta)-stopDistance)/along;

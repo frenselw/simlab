@@ -16,12 +16,14 @@ export function installLunarControls(d,{controller,launchAllowed,command,setView
     const loadout=type==='lunar-loadout',returning=type==='lunar-return';
     if(loading||(!loadout&&!launchAllowed()))return;
     if(type==='launch-lunar'&&!L()?.compatible(controller.state.craft))return;
+    const origin=controller.state;
     loading=true;
     failure=null;
     (returning?d.lunarTransferHint:d.lunarPreparation).textContent=returning?'正在準備自由返回航線…':'正在準備月球飛掠…';
     d.lunarReturn.disabled=d.lunarTransfer.disabled=d.lunarLaunch.disabled=d.lunarLoadout.disabled=true;
     try{
       await loadModules();
+      if(controller.state!==origin)return;
       if(!loadout&&!controller.lunarTable){
         const response=await fetch(ephemerisFile);
         if(!response.ok)throw Error('Geometric ephemeris unavailable');
@@ -29,6 +31,7 @@ export function installLunarControls(d,{controller,launchAllowed,command,setView
         const raw=await RocketSurfaceCodec.gunzip(bytes,RocketCelestial.PACKED_BYTES,true);
         controller.lunarTable=RocketCelestial.ephemeris(raw.buffer);
       }
+      if(controller.state!==origin)return;
       if(!command({type}))throw Error('Lunar entry unavailable');
       if(!loadout){
         d.lunarMessage.textContent='';
@@ -36,7 +39,7 @@ export function installLunarControls(d,{controller,launchAllowed,command,setView
         setView(returning?'orbit':'follow',true);
         if(returning)controller.play();
       }
-    }catch(_){failure=type;}
+    }catch(_){if(controller.state===origin)failure=type;}
     finally{loading=false;controller.emit();}
   }
   d.lunarReturn.addEventListener('click',()=>prepare('lunar-return'));

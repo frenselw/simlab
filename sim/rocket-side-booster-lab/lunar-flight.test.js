@@ -158,16 +158,81 @@ assert.equal(drifting.capsule.fuel,0);
 assert(!drifting.controls.lit&&drifting.orbit.height>100e6);
 assert(offCourse.command({type:'control',key:'angle',value:(drifting.pitch+90)%360}));
 assert.equal(warpLimit(drifting),5);
-const beforeTurn=drifting.axis.slice();
+const beforeTurn=drifting.turnVelocity.slice();
 until(offCourse,900000.2);
 assert(drifting.rcsDirection===1||drifting.rcsDirection===-1);
 const [turnX,turnZ]=drifting.rcsAxes;
 const torque=C.add(C.scale(drifting.bodyRight,turnX),C.cross(drifting.bodyRight,drifting.axis),-turnZ);
-assert(C.dot(C.unit(torque),C.unit(C.cross(beforeTurn,drifting.axis)))>1-1e-8);
+assert(C.dot(C.unit(torque),C.unit(C.add(drifting.turnVelocity,beforeTurn,-1)))>.99);
 until(offCourse,900020);
 assert.equal(drifting.rcsDirection,0);
 assert.equal(drifting.rcsAxes,null);
 assert.equal(drifting.capsule.fuel,0);
+
+const steering=new Controller();
+steering.lunarTable=table;
+assert(steering.command({type:'lunar-return'}));
+const turningShip=steering.state.flight;
+const steeringFuel=turningShip.capsule.fuel;
+assert(steering.command({type:'control',key:'mode',value:'normal'}));
+steering.play();
+const phases=new Set();
+let previousSpeed=0;
+for(let i=0;i<400;i++){
+  steering.tick(.05,1000);
+  const speed=C.norm(turningShip.turnVelocity??[0,0,0]);
+  if(turningShip.rcsAxes){
+    const [x,z]=turningShip.rcsAxes;
+    const torque=C.add(C.scale(turningShip.bodyRight,x),C.cross(turningShip.bodyRight,turningShip.axis),-z);
+    const power=C.dot(torque,turningShip.turnVelocity);
+    if(power>1e-6&&speed>previousSpeed)phases.add('accelerate');
+    if(power<-1e-6&&speed<previousSpeed)phases.add('brake');
+  }else if(speed>.01)phases.add('coast');
+  assert(speed<=12*C.DEG+1e-8);
+  assert(Math.abs(C.dot(turningShip.axis,turningShip.bodyRight))<1e-10);
+  previousSpeed=speed;
+}
+assert.deepEqual([...phases].sort(),['accelerate','brake','coast']);
+assert(C.norm(turningShip.turnVelocity)<1e-8&&turningShip.rcsDirection===0);
+assert.equal(turningShip.capsule.fuel,steeringFuel);
+
+const correctionAlignment=launch();
+until(correctionAlignment,340);
+assert(correctionAlignment.command({type:'lunar-correction',start:360,duration:1000,throttle:.01,direction:'radial-out'}));
+for(const time of [360,860,1359.99]){
+  const body=until(correctionAlignment,time);
+  assert(body.lunar.maneuver.active);
+  assert(C.dot(body.axis,body.lunar.maneuver.axis)>Math.cos(.2*C.DEG));
+}
+
+for(const direction of ['radial-in','retrograde']){
+  const retargeted=new Controller();retargeted.lunarTable=table;
+  assert(retargeted.command({type:'lunar-return'}));
+  assert(retargeted.command({type:'control',key:'mode',value:'normal'}));
+  retargeted.play();
+  for(let i=0;i<100;i++)retargeted.tick(.05,1000);
+  assert(retargeted.command({type:'control',key:'mode',value:direction}));
+  const body=retargeted.state.flight,fuel=body.capsule.fuel;
+  for(let i=0;i<500;i++){
+    retargeted.tick(.05,1000);
+    assert(C.norm(body.turnVelocity)<=12*C.DEG+1e-8);
+    assert(Math.abs(C.dot(body.axis,body.bodyRight))<1e-10);
+  }
+  assert(C.norm(body.turnVelocity)<1e-8);
+  assert.equal(body.capsule.fuel,fuel);
+}
+
+const reversal=new Controller();reversal.lunarTable=table;
+assert(reversal.command({type:'lunar-return'}));
+assert(reversal.command({type:'control',key:'angle',value:140}));
+reversal.play();until(reversal,7220);
+assert(reversal.command({type:'control',key:'angle',value:230}));
+until(reversal,7222.34);
+assert(reversal.command({type:'lunar-correction',start:7239.34,duration:.1,throttle:1,direction:'radial-out'}));
+const igniting=until(reversal,7239.34);
+assert(igniting.lunar.maneuver.active);
+assert(C.dot(igniting.axis,igniting.lunar.maneuver.axis)>Math.cos(.15*C.DEG));
+assert(C.norm(igniting.turnVelocity)<.15*C.DEG);
 
 // Exercise the data boundary without integrating hundreds of demonstration days.
 const end=L.flightLimit(drifting);

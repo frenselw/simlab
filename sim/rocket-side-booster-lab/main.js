@@ -87,10 +87,10 @@ function directReturnCamera(f){
 function updateForecast(){
   const f=controller.state?.flight,l=f?.lunar;
   const active=l&&f.capsule.detached&&!f.controls.lit&&!l.entry&&!l.outcome&&f.orbit.height>=120000;
-  if(!active||forecastJob?.flight!==f){if(forecastJob?.result)lastPaths=-Infinity;forecastJob=null;}
+  if(!active||forecastJob?.flight!==f||forecastJob.fuel!==f.capsule.fuel){if(forecastJob?.result)lastPaths=-Infinity;forecastJob=null;}
   if(!active)return;
   if(!forecastJob||!forecastJob.steps&&f.t-forecastJob.t>=21600){
-    forecastJob={flight:f,t:f.t,steps:RocketLunar.forecast(f,controller.lunarTable),result:forecastJob?.result};
+    forecastJob={flight:f,t:f.t,fuel:f.capsule.fuel,steps:RocketLunar.forecast(f,controller.lunarTable),result:forecastJob?.result};
   }
   if(!forecastJob.steps)return;
   const deadline=performance.now()+3;

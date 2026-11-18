@@ -536,7 +536,17 @@ export class RocketScene{
     if(lunar&&space){
       const axes=f.sky.mapBasis.map(axis=>new THREE.Vector3(...axis));
       worldRotation.setFromRotationMatrix(new THREE.Matrix4().makeBasis(...axes).transpose());
-    }else if(lunar)worldRotation.setFromUnitVectors(worldVector(f.state).normalize(),upAxis);
+    }else if(lunar){
+      const radial=worldVector(f.state).normalize();
+      worldRotation.setFromUnitVectors(radial,upAxis);
+      if(altitude>120000){
+        // Keep deep-space follow anchored to the flight plane as Earth rotates below it.
+        const east=radial.clone().cross(new THREE.Vector3(...f.sky.mapBasis[2])).normalize();
+        const north=east.clone().cross(radial);
+        const frame=new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(east,radial,north).transpose());
+        worldRotation.slerp(frame,THREE.MathUtils.smoothstep(altitude,120000,500000));
+      }
+    }
     if(f&&!space&&altitude<120000)orientGroundSphere(this.earth.userData.nearGeometry,new THREE.Vector3(...S.direction(f.state)));
     this.earth.geometry=f&&!space&&altitude<120000?this.earth.userData.nearGeometry:this.earth.userData.farGeometry;
     const drop=this.separation;if(drop&&f)for(let i=0;i<20000&&drop.coast.t<f.t-1e-8&&!['impact','escaped'].includes(drop.coast.status);i++)M.step(drop.coast,Math.min(O.elements(drop.coast.state).height<120000?.1:2,f.t-drop.coast.t),{mass:drop.mass});
