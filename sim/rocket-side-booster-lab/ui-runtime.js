@@ -20,10 +20,11 @@
           this.emit();
           return true;
         }
-        if(['launch-lunar','lunar-transfer','lunar-return'].includes(action.type)&&this.state.phase==='workshop'&&this.canLaunch()){
-          const transfer=action.type!=='launch-lunar';
+        if(['launch-lunar','lunar-transfer','lunar-return','lunar-return-launch'].includes(action.type)&&this.state.phase==='workshop'&&this.canLaunch()){
+          const groundReturn=action.type==='lunar-return-launch';
+          const transfer=action.type==='lunar-transfer'||action.type==='lunar-return';
           this.state.flight=transfer?lunar().transfer(this.lunarTable,action.type==='lunar-return'):
-            lunar().open(this.state.craft,this.lunarTable);
+            lunar().open(groundReturn?lunar().preset():this.state.craft,this.lunarTable,groundReturn);
           this.state.phase=transfer?'coast':'pad';
           this.running=false;
           this.ignitionHold=0;

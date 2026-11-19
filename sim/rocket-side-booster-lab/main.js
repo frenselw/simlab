@@ -75,12 +75,13 @@ async function prepareFlight(){
 }
 d.retryFlightPreparation.addEventListener('click',prepareFlight);
 function toast(message){d.toast.textContent=message;d.toast.hidden=false;}
-function command(action,options){selectedInstalled=null;interaction?.cancel();const before=controller.state,changed=controller.command(action,options);if(changed)sound.action(action,before,controller.state);if(changed&&action.type==='capsule-separate'){lastPaths=-Infinity;setView('follow');}if(changed&&action.type==='select-body'){d.controlPanel.scrollTop=0;trail=[];trailTime=-1;lastPaths=-Infinity;}if(changed&&['launch-lunar','lunar-transfer','lunar-return'].includes(action.type)){warp=action.type==='launch-lunar'?1:RocketLunar.FAST_WARP;warpSeconds=warpElapsed=0;}if(changed&&['launch','launch-lunar','lunar-transfer','lunar-return','workshop'].includes(action.type)){d.controlPanel.scrollTop=0;trail=[];trailTime=-1;lastPaths=-Infinity;releaseReturnCamera();if(action.type==='lunar-return')returnCamera='outbound';}return changed;}
+function command(action,options){selectedInstalled=null;interaction?.cancel();const before=controller.state,changed=controller.command(action,options);if(changed)sound.action(action,before,controller.state);if(changed&&action.type==='capsule-separate'){lastPaths=-Infinity;setView('follow');}if(changed&&action.type==='select-body'){d.controlPanel.scrollTop=0;trail=[];trailTime=-1;lastPaths=-Infinity;}if(changed&&['launch-lunar','lunar-transfer','lunar-return','lunar-return-launch'].includes(action.type)){warp=action.type==='launch-lunar'?1:RocketLunar.FAST_WARP;warpSeconds=warpElapsed=0;}if(changed&&['launch','launch-lunar','lunar-transfer','lunar-return','lunar-return-launch','workshop'].includes(action.type)){d.controlPanel.scrollTop=0;trail=[];trailTime=-1;lastPaths=-Infinity;releaseReturnCamera();if(action.type==='lunar-return')returnCamera='outbound';else if(action.type==='lunar-return-launch')returnCamera='ascent';}return changed;}
 function setView(next,reset=false,lock=null){interaction?.resetPan();if(['orbit','plane'].includes(next)&&!scene?.flightReady)return;closeCameraLockMenu();if(next!=='follow')followLockReady=false;else if(lock)followLockReady=true;if(controller.state?.flight)flightView=next;view=next;scene?.setView(next,reset,lock);renderScene();}
 function releaseReturnCamera(){returnCamera=null;}
 function directReturnCamera(f){
   if(!returnCamera||!scene||!f?.lunar?.freeReturn)return;
   if(f.lunar.entry){releaseReturnCamera();setView('follow',true);}
+  else if(returnCamera==='ascent'&&f.capsule.detached&&!RocketLunar.guidanceLocked(f)){returnCamera='outbound';setView('orbit',true);}
   else if(returnCamera==='outbound'&&f.moon.height<22000000&&!f.lunar.returning){returnCamera='moon';setView('follow',true,'moon');}
   else if((returnCamera==='moon'||returnCamera==='outbound')&&f.lunar.returning){returnCamera='earth';setView('orbit',true);}
 }

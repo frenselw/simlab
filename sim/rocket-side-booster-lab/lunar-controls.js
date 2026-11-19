@@ -1,5 +1,5 @@
 const ephemerisFile=new URL('./assets/lunar-ephemeris.bin.gz',import.meta.url);
-const transferHint='由奔月途中開始。掠過月球後，借引力返地球並開傘降落。';
+const transferHint='由發射台自動起飛，飛掠月球後自由返回地球，開傘降落陸地。';
 const outcomes={flyby:'已完成月球飛掠','lunar-pass':'已掠過月球，最近高度超出目標範圍',
   'moon-impact':'撞擊月球','earth-impact':'撞擊地球',
   'ephemeris-end':'已到達日月星曆終點',landed:'已安全降落','destroyed':'隔熱防護耗盡'};
@@ -13,14 +13,14 @@ export function installLunarControls(d,{controller,launchAllowed,command,setView
     await import('./lunar-flight.js');
   }
   async function prepare(type){
-    const loadout=type==='lunar-loadout',returning=type==='lunar-return';
+    const loadout=type==='lunar-loadout',groundReturn=type==='lunar-return-launch',returning=type==='lunar-return';
     if(loading||(!loadout&&!launchAllowed()))return;
     if(type==='launch-lunar'&&!L()?.compatible(controller.state.craft))return;
     const origin=controller.state;
     loading=true;
     failure=null;
-    (returning?d.lunarTransferHint:d.lunarPreparation).textContent=returning?'正在準備自由返回航線…':'正在準備月球飛掠…';
-    d.lunarReturn.disabled=d.lunarTransfer.disabled=d.lunarLaunch.disabled=d.lunarLoadout.disabled=true;
+    (groundReturn?d.lunarTransferHint:d.lunarPreparation).textContent=groundReturn||returning?'正在準備自由返回航線…':'正在準備月球飛掠…';
+    d.lunarReturn.disabled=d.lunarReturnShortcut.disabled=d.lunarTransfer.disabled=d.lunarLaunch.disabled=d.lunarLoadout.disabled=true;
     try{
       await loadModules();
       if(controller.state!==origin)return;
@@ -37,12 +37,13 @@ export function installLunarControls(d,{controller,launchAllowed,command,setView
         d.lunarMessage.textContent='';
         d.lunarTiming.open=false;
         setView(returning?'orbit':'follow',true);
-        if(returning)controller.play();
+        if(returning||groundReturn&&command({type:'ignite'}))controller.play();
       }
     }catch(_){if(controller.state===origin)failure=type;}
     finally{loading=false;controller.emit();}
   }
-  d.lunarReturn.addEventListener('click',()=>prepare('lunar-return'));
+  d.lunarReturn.addEventListener('click',()=>prepare('lunar-return-launch'));
+  d.lunarReturnShortcut.addEventListener('click',()=>prepare('lunar-return'));
   d.lunarTransfer.addEventListener('click',()=>prepare('lunar-transfer'));
   d.lunarLoadout.addEventListener('click',()=>prepare('lunar-loadout'));
   d.lunarLaunch.addEventListener('click',()=>prepare('launch-lunar'));
@@ -76,11 +77,12 @@ export function installLunarControls(d,{controller,launchAllowed,command,setView
     const s=controller.state,f=s.flight,l=f?.lunar;
     if(s.phase==='workshop'&&!loading){
       const ready=L()?.compatible(s.craft);
-      d.lunarReturn.disabled=d.lunarTransfer.disabled=!launchAllowed();
-      d.lunarTransferHint.textContent=failure==='lunar-return'?'未能準備自由返回航線。請重試。':transferHint;
+      d.lunarReturn.disabled=d.lunarReturnShortcut.disabled=d.lunarTransfer.disabled=!launchAllowed();
+      d.lunarTransferHint.textContent=failure==='lunar-return-launch'?'未能準備自由返回航線。請重試。':transferHint;
       d.lunarLoadout.disabled=false;
       d.lunarLaunch.disabled=!ready||!launchAllowed();
-      d.lunarPreparation.textContent=failure&&failure!=='lunar-return'?'未能準備月球飛掠。請重試。':ready?'示範火箭已就緒。':'可自行組裝，或載入示範火箭。';
+      d.lunarPreparation.textContent=failure==='lunar-return'?'未能準備自由返回航線。請重試。':
+        failure&&failure!=='lunar-return-launch'?'未能準備月球飛掠。請重試。':ready?'示範火箭已就緒。':'可自行組裝，或載入示範火箭。';
     }
     d.lunarPanel.hidden=!l;
     d.lunarMilestone.hidden=!l?.freeReturn;
@@ -99,11 +101,14 @@ export function installLunarControls(d,{controller,launchAllowed,command,setView
     const entryPhase={'stowed':'再入大氣層','drogue-opening':'張開減速傘',drogue:'減速傘下降',
       'main-opening':'張開主降落傘',main:'主傘下降'}[f.capsule.chute.phase];
     const coast=l.returning?(f.orbit.radial<0?'接近地球':'飛掠後滑行'):'自由返回 · 奔月途中';
-    const phase=outcomes[l.outcome]||(l.entry?entryPhase:l.freeReturn?coast:locked?'示範引導中':'三維飛行');
-    if(l.freeReturn)d.lunarMilestone.textContent=l.outcome||l.entry||l.returning?phase:f.moon.height<=80000000?'距月面 '+distance:'自由返回 · 奔月途中';
+    const ascent=l.groundReturn&&locked?(f.status==='pad'?'發射準備':f.capsule.detached?'奔月點火程序':f.separated?'上級推進':'發射升空'):null;
+    const landing=l.outcome==='landed'&&l.landing;
+    const phase=landing?(landing.water?'已安全濺落':'已安全降落陸地'):
+      outcomes[l.outcome]||(l.entry?entryPhase:ascent||(l.freeReturn?coast:locked?'示範引導中':'三維飛行'));
+    if(l.freeReturn)d.lunarMilestone.textContent=l.outcome||l.entry||l.returning||ascent?phase:f.moon.height<=80000000?'距月面 '+distance:phase;
     d.lunarReadout.textContent=phase+' · 距月面 '+distance+
       ' · 月球相對速率 '+fmt(f.moon.speed/1000,2)+' km/s'+
-      (l.closest?.height<=80000000?' · 最近 '+fmt(l.closest.height/1000,1)+' km':'')+
+      (l.closest?.height<=80000000?' · 最近 '+fmt(l.closest.height/1000,1)+' km · T+'+fmt(l.closest.t/86400,2)+' 日 · '+fmt(l.closest.speed/1000,2)+' km/s':'')+
       ' · 太空艙 '+fmt(f.capsule.fuel,2)+' kg';
     const estimates=[];
     if(forecast?.closest?.height<=80000000)estimates.push('預計最近月面 '+fmt(forecast.closest.height/1000,1)+' km · T+'+fmt(forecast.closest.t/86400,2)+' 日');
@@ -134,8 +139,10 @@ export function installLunarControls(d,{controller,launchAllowed,command,setView
     d.separateButton.disabled ||= locked;
     d.igniteButton.disabled ||= ended||Boolean(l.entry)||locked&&f.status!=='pad'&&!f.controls.lit||Boolean(m&&!m.active);
     d.orbitStatus.textContent=phase;
-    d.flightHint.textContent=l.outcome==='landed'?'安全降落 · 接地速率 '+fmt(Math.hypot(f.capsule.touchdown.normal,f.capsule.touchdown.tangent),1)+' m/s':
-      outcomes[l.outcome]||(l.freeReturn?'航線隨飛行速度和地月引力改變。再入時自動調整隔熱盾及開傘。':
+    const coordinate=(value,positive,negative)=>fmt(Math.abs(value),2)+'°'+(value>=0?positive:negative);
+    d.flightHint.textContent=landing?phase+' · '+coordinate(landing.lat,'N','S')+' '+coordinate(landing.lon,'E','W')+
+        ' · 接觸速率 '+fmt(landing.speed,1)+' m/s · 剩油 '+fmt(f.capsule.fuel,2)+' kg':
+      outcomes[l.outcome]||(l.modified?'已調整示範航線。再入時自動調整隔熱盾及開傘。':l.freeReturn?'航線隨飛行速度和地月引力改變。再入時自動調整隔熱盾及開傘。':
         locked?'示範程序會自動分級、點火及精準關機。':'以發射時間 T+ 預約關機或航線修正。');
   };
 }

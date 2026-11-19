@@ -1,7 +1,7 @@
 'use strict';
 const assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path'),zlib=require('node:zlib');
-const C=require('./celestial'),L=require('./lunar-flight'),P=require('./parts');
+const C=require('./celestial'),L=require('./lunar-flight'),P=require('./parts'),S=require('./surface');
 const {Controller,advanceFrame,warpLimit}=require('./ui-runtime');
 const references=require('../../tools/rocket-art/lunar-flyby-results.json');
 const bytes=zlib.gunzipSync(fs.readFileSync(path.join(__dirname,'assets/lunar-ephemeris.bin.gz')));
@@ -99,6 +99,56 @@ assert(Math.abs(ship.lunar.closest.height-complete.lunar.closest.height)<10);
 assert(Math.abs(ship.capsule.fuel-complete.capsule.fuel)<1e-8);
 assert(shortcut.command({type:'workshop'}));
 assert.deepEqual(shortcut.state.craft,design);
+
+function startGroundReturn(){
+  const controller=new Controller();
+  controller.lunarTable=table;
+  assert(controller.command({type:'part',stage:0,part:'engine',value:2}));
+  assert(controller.command({type:'lunar-return-launch'}));
+  const f=controller.state.flight;
+  assert.deepEqual(f.craft,L.preset());
+  assert.equal(controller.state.craft.stages[0].engine,2);
+  assert.equal(controller.state.phase,'pad');
+  assert.equal(f.t,0);
+  assert(Math.abs(C.norm(f.eci.slice(0,3))-P.R)<1e-6);
+  assert(f.lunar.groundReturn&&f.lunar.freeReturn&&!f.capsule.detached);
+  assert(controller.command({type:'ignite'}));
+  controller.play();
+  return controller;
+}
+
+const inland=startGroundReturn(),ground=inland.state.flight;
+advanceFrame(inland,1,10000);
+assert.equal(ground.t,0);
+assert(warpLimit(ground)===1&&ground.controls.lit);
+advanceFrame(inland,1,10000);
+assert(ground.t>0&&ground.t<1&&ground.status==='flying');
+until(inland,340);
+const departureFuel=ground.capsule.fuel;
+assert(!ground.controls.lit&&ground.controls.mode==='hold'&&ground.capsule.detached);
+assert(Math.abs(departureFuel-12.306618)<.000001);
+until(inland,10*C.DAY);
+const route=ground.lunar;
+assert.equal(route.outcome,'landed');
+assert.equal(ground.capsule.chute.phase,'main');
+assert.equal(ground.capsule.fuel,departureFuel);
+assert(Math.abs(route.closest.height-9339514)<300&&route.closest.farSide>9000000);
+assert(Math.abs(route.entry.speed-10592)<5&&Math.abs(route.entry.angle+6)<.3);
+assert(ground.capsule.heat<.5&&route.landing.speed<8&&Math.abs(S.clearance(ground.state))<.01);
+assert(Math.abs(route.landing.lat-28.11)<.03&&Math.abs(route.landing.lon+2.27)<.03);
+assert.equal(route.landing.water,false);
+assert.deepEqual(route.events.map(e=>e.type),['jettison','separate','capsule-separate','injection','cutoff',
+  'return-coast','return-entry','drogue-opening','main-opening','landed']);
+assert(inland.command({type:'workshop'}));
+assert.equal(inland.state.craft.stages[0].engine,2);
+
+const replay=startGroundReturn();
+for(let frame=0;replay.running&&frame<3000;frame++)advanceFrame(replay,frame%2===0?.073:.137,10000);
+const replayed=replay.state.flight.lunar;
+assert.equal(replayed.outcome,'landed');
+assert.equal(replayed.landing.water,false);
+assert(Math.hypot(replayed.landing.lat-route.landing.lat,replayed.landing.lon-route.landing.lon)<.01);
+assert(Math.abs(replayed.closest.height-route.closest.height)<100);
 
 const demo=new Controller();
 demo.lunarTable=table;
