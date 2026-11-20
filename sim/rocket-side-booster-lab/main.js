@@ -19,7 +19,7 @@ fitViewport();window.addEventListener('resize',fitViewport);window.addEventListe
 const launchAllowed=()=>Boolean(scene?.flightReady&&!scene.lost&&!renderLost);
 const controller=new RocketRuntime.Controller(render,launchAllowed);
 const renderLunar=installLunarControls(d,{controller,launchAllowed,command,setView,fmt});
-let returnCamera=null,forecastJob=null,markerFrame=-1,lastLunarTrailSize=0;
+let returnCamera=null,forecastJob=null,markerFrame=-1,lastLunarTrailSize=0,lastLunarHandoff=null;
 let skyData=null,skyStart=Sky.DEFAULT_START;
 const cameraLockLabels={sun:'太陽',moon:'月球',earth:'地球'};
 let followLockReady=false;
@@ -32,7 +32,7 @@ const wideFlightEvents=matchMedia('(min-width: 1200px) and (not (any-pointer: co
 const eventNames={ignite:'點火',liftoff:'火箭離地','booster-spent':'助推器燃盡',jettison:'助推器分離',separate:'級間分離','capsule-separate':'太空艙分離','drogue-opening':'減速傘開始張開','main-opening':'主傘開始張開',landed:'安全着陸',impact:'撞地',destroyed:'隔熱防護耗盡',
   'lunar-transfer':'進入奔月軌道','lunar-return':'開始自由返回示範','return-coast':'飛掠後繼續滑行','return-entry':'進入地球大氣層',cutoff:'精準關機',injection:'奔月點火','correction-start':'航線修正點火','correction-stop':'航線修正關機',
   'lunar-closest':'最近月球','flyby':'完成月球飛掠','lunar-pass':'飛離近月區域','moon-impact':'撞擊月球',
-  'earth-impact':'撞擊地球','ephemeris-end':'到達日月星曆終點'};
+  'moon-align':'近月轉向','moon-capture':'近月制動點火','moon-cutoff':'制動關機','moon-verify':'確認穩定環月','moon-landed':'安全着陸月面','moon-hard-landing':'月面硬着陸','moon-orbit-failed':'未能確認環月軌道','earth-impact':'撞擊地球','ephemeris-end':'到達日月星曆終點'};
 let renderedEvents=null,eventsExpanded=false;
 function eventText({type,t,body}){
   const name={capsule:'太空艙',upper:'二級',core:'核心級'}[body]||'';
@@ -75,22 +75,31 @@ async function prepareFlight(){
 }
 d.retryFlightPreparation.addEventListener('click',prepareFlight);
 function toast(message){d.toast.textContent=message;d.toast.hidden=false;}
-function command(action,options){selectedInstalled=null;interaction?.cancel();const before=controller.state,changed=controller.command(action,options);if(changed)sound.action(action,before,controller.state);if(changed&&action.type==='capsule-separate'){lastPaths=-Infinity;setView('follow');}if(changed&&action.type==='select-body'){d.controlPanel.scrollTop=0;trail=[];trailTime=-1;lastPaths=-Infinity;}if(changed&&['launch-lunar','lunar-transfer','lunar-return','lunar-return-launch'].includes(action.type)){warp=action.type==='launch-lunar'?1:RocketLunar.FAST_WARP;warpSeconds=warpElapsed=0;}if(changed&&['launch','launch-lunar','lunar-transfer','lunar-return','lunar-return-launch','workshop'].includes(action.type)){d.controlPanel.scrollTop=0;trail=[];trailTime=-1;lastPaths=-Infinity;releaseReturnCamera();if(action.type==='lunar-return')returnCamera='outbound';else if(action.type==='lunar-return-launch')returnCamera='ascent';}return changed;}
+function command(action,options){selectedInstalled=null;interaction?.cancel();const before=controller.state,changed=controller.command(action,options);if(changed)sound.action(action,before,controller.state);if(changed&&action.type==='capsule-separate'){lastPaths=-Infinity;setView('follow');}if(changed&&action.type==='select-body'){d.controlPanel.scrollTop=0;trail=[];trailTime=-1;lastPaths=-Infinity;}if(changed&&['launch-lunar','lunar-transfer','lunar-return','lunar-return-launch','lunar-landing-launch'].includes(action.type)){warp=action.type==='launch-lunar'?1:RocketLunar.FAST_WARP;warpSeconds=warpElapsed=0;}if(changed&&['launch','launch-lunar','lunar-transfer','lunar-return','lunar-return-launch','lunar-landing-launch','workshop'].includes(action.type)){d.controlPanel.scrollTop=0;trail=[];trailTime=-1;lastPaths=-Infinity;releaseReturnCamera();if(action.type==='lunar-landing-launch')returnCamera='ascent';else if(action.type==='lunar-return')returnCamera='outbound';else if(action.type==='lunar-return-launch')returnCamera='ascent';}return changed;}
 function setView(next,reset=false,lock=null){interaction?.resetPan();if(['orbit','plane'].includes(next)&&!scene?.flightReady)return;closeCameraLockMenu();if(next!=='follow')followLockReady=false;else if(lock)followLockReady=true;if(controller.state?.flight)flightView=next;view=next;scene?.setView(next,reset,lock);renderScene();}
 function releaseReturnCamera(){returnCamera=null;}
 function directReturnCamera(f){
-  if(!returnCamera||!scene||!f?.lunar?.freeReturn)return;
+  if(f?.lunar?.handoff==='ready'&&lastLunarHandoff!==f){
+    lastLunarHandoff=f;warp=1;cancelDial();closeWarpMenu();releaseReturnCamera();
+    setControlsCollapsed(false);
+    setView('orbit',true);
+    d.lunarTakeover.hidden=false;
+    d.lunarTakeover.focus({preventScroll:true});
+    d.lunarTakeover.scrollIntoView({block:'nearest'});
+    return;
+  }
+  if(!returnCamera||!scene||!(f?.lunar?.freeReturn||f?.lunar?.landingMission))return;
   if(f.lunar.entry){releaseReturnCamera();setView('follow',true);}
-  else if(returnCamera==='ascent'&&f.capsule.detached&&!RocketLunar.guidanceLocked(f)){returnCamera='outbound';setView('orbit',true);}
-  else if(returnCamera==='outbound'&&f.moon.height<22000000&&!f.lunar.returning){returnCamera='moon';setView('follow',true,'moon');}
+  else if(returnCamera==='ascent'&&(f.lunar.landingMission?f.t>=f.lunar.transferCutoff:f.capsule.detached&&!RocketLunar.guidanceLocked(f))){returnCamera='outbound';setView('orbit',true);}
+  else if(returnCamera==='outbound'&&f.moon.height<22000000&&!f.lunar.returning){returnCamera='moon';setView(f.lunar.landingMission?'orbit':'follow',true,f.lunar.landingMission?null:'moon');}
   else if((returnCamera==='moon'||returnCamera==='outbound')&&f.lunar.returning){returnCamera='earth';setView('orbit',true);}
 }
 function updateForecast(){
   const f=controller.state?.flight,l=f?.lunar;
-  const active=l&&f.capsule.detached&&!f.controls.lit&&!l.entry&&!l.outcome&&f.orbit.height>=120000;
+  const active=l&&(f.capsule.detached||l.landingMission&&f.t>=l.transferCutoff)&&!f.controls.lit&&!l.entry&&!l.outcome&&f.orbit.height>=120000;
   if(!active||forecastJob?.flight!==f||forecastJob.fuel!==f.capsule.fuel){if(forecastJob?.result)lastPaths=-Infinity;forecastJob=null;}
   if(!active)return;
-  if(!forecastJob||!forecastJob.steps&&f.t-forecastJob.t>=21600){
+  if(!forecastJob||!forecastJob.steps&&f.t-forecastJob.t>=(l.landingMission?300:21600)){
     forecastJob={flight:f,t:f.t,fuel:f.capsule.fuel,steps:RocketLunar.forecast(f,controller.lunarTable),result:forecastJob?.result};
   }
   if(!forecastJob.steps)return;
@@ -114,7 +123,7 @@ function updateNavigationMarkers(){
     }
   }
 }
-function orbitHTML(q,o=O.elements(q)){return `<div>近地點 <span class="math"><i>h</i><sub>p</sub></span><b>${o.bound?fmt(o.hp/1000)+' km':'—'}</b></div><div>遠地點 <span class="math"><i>h</i><sub>a</sub></span><b>${o.bound?fmt(o.ha/1000)+' km':'非束縛軌道'}</b></div><div>偏心率 <span class="math"><i>e</i></span><b>${fmt(o.e,3)}</b></div><div>周期 <span class="math"><i>T</i></span><b>${o.bound?fmt(o.period/60)+' min':'—'}</b></div>`;}
+function orbitHTML(q,o=O.elements(q),body='地'){return `<div>近${body}點 <span class="math"><i>h</i><sub>p</sub></span><b>${o.bound?fmt(o.hp/1000)+' km':'—'}</b></div><div>遠${body}點 <span class="math"><i>h</i><sub>a</sub></span><b>${o.bound?fmt(o.ha/1000)+' km':'非束縛軌道'}</b></div><div>偏心率 <span class="math"><i>e</i></span><b>${fmt(o.e,3)}</b></div><div>周期 <span class="math"><i>T</i></span><b>${o.bound?fmt(o.period/60)+' min':'—'}</b></div>`;}
 function selectedFlight(){return RocketRecovery.selected(controller.state?.flight);}
 const assemblyName=index=>controller.state.craft.stages.length===1?'主級':index?'上級':'下級';
 function assemblyHint(message){d.partSelection.hidden=!message;d.partSelection.textContent=message;}
@@ -150,7 +159,7 @@ function render(){
     const warpLabel=visibleWarp+'×',warpName='時間倍率：'+visibleWarp+'倍';if(d.timeWarpLabel.textContent!==warpLabel)d.timeWarpLabel.textContent=warpLabel;if(d.timeWarp.getAttribute('aria-label')!==warpName)d.timeWarp.setAttribute('aria-label',warpName);
     const warpDisabled=!f||!editable||phase==='ended';if(d.timeWarp.disabled!==warpDisabled)d.timeWarp.disabled=warpDisabled;
     for(const option of d.timeWarpMenu.querySelectorAll('[data-time-warp]')){const disabled=warpDisabled||Number(option.value)>limit,label=option.value+'×',pressed=String(Number(option.value)===warp);option.hidden=Number(option.value)>1000&&!f?.lunar;if(option.disabled!==disabled)option.disabled=disabled;if(option.textContent!==label)option.textContent=label;if(option.getAttribute('aria-pressed')!==pressed)option.setAttribute('aria-pressed',pressed);}
-    if(warpDisabled||d.flightDeck.hidden)closeWarpMenu();d.timeWarpHint.textContent=f?.lunar?'深空滑行可選 10000×；接近月球、轉向修正及點火時會自動減速。':'1×至20×適用一般飛行；100×、1000×可於真空關機滑行或開傘後使用。';const warpTitle=f?.lunar?'目前上限 '+limit+'×；深空滑行最高 10000×。':limit===1?'發射初段使用實時 1×。':limit===20?'一般飛行可用1×、5×、10×、20×；100×及1000×可於真空關機滑行或開傘後使用。':'可用全部倍率，最高1000×。';for(const select of [d.timeWarp])if(select.title!==warpTitle)select.title=warpTitle;d.warpStatus.hidden=!f||!editable;if(d.warpStatus.title!==warpTitle)d.warpStatus.title=warpTitle;const warpText=controller.running?'實際 '+fmt(actualWarp,1)+'×':limit===1?'發射 · 1×':limit===20?'上限 20×':'最高 '+limit+'×';if(d.warpStatus.textContent!==warpText)d.warpStatus.textContent=warpText;if(f&&editable){d.timeValue.textContent=fmt(f.t)+' s';const stageLabel=f.capsule?.detached?'太空艙':s.flight?.upperStage?'二級／核心級':f.craft.stages.length===1?'主級':f.active?'上級':'下級';d.playButton.textContent=controller.running?'暫停':'繼續';const flightState=controller.ignitionHold>0&&f.status==='pad'?(controller.running?'點火 · 準備離台':'點火程序已暫停'):phase==='pad'?'待發射 · 點火後開始':phase==='ended'?'試飛已結束':controller.running?'飛行中'+(P.burning(f)?' · 固體燃燒中':!f.controls.lit?' · 主引擎關閉，滑行中':''):'已暫停';d.flightState.textContent=stageLabel+' · '+flightState;d.flightState.title=d.flightState.textContent;d.throttleValue.textContent=fmt(f.controls.throttle*100,0)+'%';d.pitchValue.textContent=fmt(f.controls.mode==='tilt'&&(!f.capsule?.detached||f.capsule.chute.phase==='stowed')?f.controls.angle:RocketRecovery.localAngle(f),0)+'°';d.throttleSlider.value=Math.round(f.controls.throttle*100);d.throttleSlider.style.setProperty('--level',d.throttleSlider.value+'%');if(dialGesture&&(!flightControlAllowed('angle')||dialGesture.body!==(s.flight.controlled||'main')))cancelDial();paintDial(dialGesture?.angle??currentAngle(),Boolean(dialGesture));d.boosterStatus.textContent=f.boosters?({ready:'固體就緒；首次點火會同時點燃助推器。',burning:'固體燃燒中，可提早全部分離；分離後繼續燃燒。',spent:'固體已燃盡，可全部分離；附著乾重 '+(f.craft.boosters*P.BOOSTER.dry)+' kg。',jettisoned:'全部側助推器已分離。'})[f.boosters.status]:'';d.orbitReadout.innerHTML=orbitHTML(f.state,f.orbit);
+    if(warpDisabled||d.flightDeck.hidden)closeWarpMenu();d.timeWarpHint.textContent=f?.lunar?'深空滑行可選 10000×；接近月球、轉向修正及點火時會自動減速。':'1×至20×適用一般飛行；100×、1000×可於真空關機滑行或開傘後使用。';const warpTitle=f?.lunar?'目前上限 '+limit+'×；深空滑行最高 10000×。':limit===1?'發射初段使用實時 1×。':limit===20?'一般飛行可用1×、5×、10×、20×；100×及1000×可於真空關機滑行或開傘後使用。':'可用全部倍率，最高1000×。';for(const select of [d.timeWarp])if(select.title!==warpTitle)select.title=warpTitle;d.warpStatus.hidden=!f||!editable;if(d.warpStatus.title!==warpTitle)d.warpStatus.title=warpTitle;const warpText=controller.running?'實際 '+fmt(actualWarp,1)+'×':limit===1?'發射 · 1×':limit===20?'上限 20×':'最高 '+limit+'×';if(d.warpStatus.textContent!==warpText)d.warpStatus.textContent=warpText;if(f&&editable){d.timeValue.textContent=fmt(f.t)+' s';const stageLabel=f.capsule?.detached?'太空艙':s.flight?.upperStage?'二級／核心級':f.craft.stages.length===1?'主級':f.active?'上級':'下級';d.playButton.textContent=controller.running?'暫停':'繼續';const flightState=controller.ignitionHold>0&&f.status==='pad'?(controller.running?'點火 · 準備離台':'點火程序已暫停'):phase==='pad'?'待發射 · 點火後開始':phase==='ended'?'試飛已結束':controller.running?'飛行中'+(P.burning(f)?' · 固體燃燒中':!f.controls.lit?' · 主引擎關閉，滑行中':''):'已暫停';d.flightState.textContent=stageLabel+' · '+flightState;d.flightState.title=d.flightState.textContent;d.throttleValue.textContent=fmt(f.controls.throttle*100,0)+'%';d.pitchValue.textContent=fmt(f.controls.mode==='tilt'&&(!f.capsule?.detached||f.capsule.chute.phase==='stowed')?f.controls.angle:RocketRecovery.localAngle(f),0)+'°';d.throttleSlider.value=Math.round(f.controls.throttle*100);d.throttleSlider.style.setProperty('--level',d.throttleSlider.value+'%');if(dialGesture&&(!flightControlAllowed('angle')||dialGesture.body!==(s.flight.controlled||'main')))cancelDial();paintDial(dialGesture?.angle??currentAngle(),Boolean(dialGesture));d.boosterStatus.textContent=f.boosters?({ready:'固體就緒；首次點火會同時點燃助推器。',burning:'固體燃燒中，可提早全部分離；分離後繼續燃燒。',spent:'固體已燃盡，可全部分離；附著乾重 '+(f.craft.boosters*P.BOOSTER.dry)+' kg。',jettisoned:'全部側助推器已分離。'})[f.boosters.status]:'';const useMoon=f.lunar?.landingMission&&f.moon.height<20000000;d.orbitReadout.innerHTML=orbitHTML(f.state,useMoon?f.moon:f.orbit,useMoon?'月':'地');
       const o=f.orbit||O.elements(f.state),potential=!f.lunar&&f.status==='flying'&&O.safe(f.state),near=potential&&o.e<=.03+1e-9;
       d.periapsisValue.textContent=o.bound?fmt(o.hp/1000)+' km':'—';d.apoapsisValue.textContent=o.bound?fmt(o.ha/1000)+' km':'非束縛';
       d.orbitStatus.textContent=potential?(near?'安全近圓軌道':'安全軌道 · 待圓化')+(f.controls.lit?' · 推進中':''):'尚未建立安全軌道';d.orbitStatus.dataset.state=near?'near':potential?'safe':'pending';
@@ -179,7 +188,7 @@ function separationAction(f){
   if(f.capsule&&!f.capsule.detached)return {type:'capsule-separate',label:'分離太空艙',enabled:RocketRecovery.canSeparate(f),reason:!flying?base:RocketRecovery.canSeparate(f)?'可分離，毋須入軌':'先關閉引擎'};
   return {type:null,label:'分離完成',enabled:false,reason:f.capsule?'已完成所有分離':'已完成所有分離'};
 }
-function renderCommandZones(f,body){if(!f)return;const phase=EDIT_PHASE(),dead=RocketRecovery.terminal(body),detached=f.capsule?.detached,fuel=body.capsule?.detached?body.capsule.fuel:body.fuel[body.active],mainName=detached?'太空艙':f.craft.stages.length===1?'主級':f.active?'上級':'下級';
+function renderCommandZones(f,body){if(!f)return;const phase=EDIT_PHASE(),dead=RocketRecovery.terminal(body),detached=f.capsule?.detached,fuel=body.capsule?.detached?body.capsule.fuel:body.fuel[body.active],mainName=detached?(f.lunar?.landingMission?'登月艙':'太空艙'):f.craft.stages.length===1?'主級':f.active?'上級':'下級';
   d.bodyControl.hidden=false;const selected=f.controlled||'main',bodyLabel=selected==='upper'?'二級':mainName;d.bodySelect.value=selected;d.bodySelectLabel.textContent=bodyLabel;d.bodySelect.setAttribute('aria-label','操控：'+bodyLabel);d.bodySelect.disabled=!f.upperStage||renderLost;for(const option of d.bodyMenu.querySelectorAll('[data-control-body]')){option.hidden=option.dataset.controlBody==='upper'&&!f.upperStage;option.setAttribute('aria-pressed',String(option.dataset.controlBody===selected));}if(d.bodySelect.disabled)closeBodyMenu();
   d.recoveryControls.hidden=!controller.editable||!detached;
   d.igniteButton.hidden=d.separateButton.hidden=false;
@@ -276,7 +285,7 @@ for(const event of ['pointercancel','lostpointercapture'])d.pitchDial.addEventLi
 document.addEventListener('pointerdown',e=>{if(dialGesture&&e.pointerId!==dialGesture.id)cancelDial();},true);
 d.pitchDial.addEventListener('keydown',e=>{if(e.key==='Escape'&&dialGesture){e.preventDefault();cancelDial();return;}if(!flightControlAllowed('angle'))return;const delta={ArrowRight:10,ArrowUp:10,ArrowLeft:-10,ArrowDown:-10,PageUp:10,PageDown:-10}[e.key];if(delta===undefined&&!['Home','End'].includes(e.key))return;e.preventDefault();cancelDial();controls('angle',e.key==='Home'?0:e.key==='End'?350:((delta>0?Math.floor(currentAngle()/10)+1:Math.ceil(currentAngle()/10)-1)*10+360)%360);});
 // Native step=1 keeps values from the fine-adjustment buttons representable.
-d.throttleSlider.addEventListener('input',()=>{if(!flightControlAllowed('throttle'))return;const value=Math.round(Number(d.throttleSlider.value)/10)*10;d.throttleSlider.value=value;d.throttleSlider.style.setProperty('--level',value+'%');controls('throttle',value/100);});
+d.throttleSlider.addEventListener('input',()=>{if(!flightControlAllowed('throttle'))return;const value=selectedFlight()?.lunar?.landingMission?Number(d.throttleSlider.value):Math.round(Number(d.throttleSlider.value)/10)*10;d.throttleSlider.value=value;d.throttleSlider.style.setProperty('--level',value+'%');controls('throttle',value/100);});
 d.throttleSlider.addEventListener('keydown',e=>{if(!flightControlAllowed('throttle'))return;const direction={ArrowRight:1,ArrowUp:1,ArrowLeft:-1,ArrowDown:-1,PageUp:1,PageDown:-1}[e.key];if(direction===undefined&&!['Home','End'].includes(e.key))return;e.preventDefault();const value=Number(d.throttleSlider.value),next=e.key==='Home'?0:e.key==='End'?100:(direction>0?Math.floor(value/10)+1:Math.ceil(value/10)-1)*10;controls('throttle',Math.max(0,Math.min(100,next))/100);});
 for(const event of ['blur','pagehide'])window.addEventListener(event,cancelDial);d.controlPanel.addEventListener('scroll',cancelDial,{passive:true});document.addEventListener('visibilitychange',()=>{if(document.hidden)cancelDial();});
 document.querySelectorAll('[data-throttle]').forEach(b=>b.addEventListener('click',()=>{if(flightControlAllowed('throttle'))controls('throttle',Math.max(0,Math.min(1,Math.round(RocketRecovery.selected(controller.state.flight).controls.throttle*100+Number(b.dataset.throttle))/100)));}));

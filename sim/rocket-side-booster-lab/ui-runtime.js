@@ -20,16 +20,22 @@
           this.emit();
           return true;
         }
-        if(['launch-lunar','lunar-transfer','lunar-return','lunar-return-launch'].includes(action.type)&&this.state.phase==='workshop'&&this.canLaunch()){
+        if(['launch-lunar','lunar-transfer','lunar-return','lunar-return-launch','lunar-landing-launch'].includes(action.type)&&this.state.phase==='workshop'&&this.canLaunch()){
+          const landing=action.type==='lunar-landing-launch';
           const groundReturn=action.type==='lunar-return-launch';
           const transfer=action.type==='lunar-transfer'||action.type==='lunar-return';
-          this.state.flight=transfer?lunar().transfer(this.lunarTable,action.type==='lunar-return'):
+          this.state.flight=landing?lunar().openLanding(this.lunarTable):transfer?lunar().transfer(this.lunarTable,action.type==='lunar-return'):
             lunar().open(groundReturn?lunar().preset():this.state.craft,this.lunarTable,groundReturn);
           this.state.phase=transfer?'coast':'pad';
           this.running=false;
           this.ignitionHold=0;
           this.events=[];
           this.notice='';
+          if(landing){
+            lunar().command(this.state,{type:'ignite'},this.lunarTable,this.record,true);
+            this.ignitionHold=IGNITION_HOLD;
+            this.running=true;
+          }
           if(transfer)this.record(action.type,this.state.flight.t,this.state.flight);
           this.emit();
           return true;
@@ -63,9 +69,9 @@
     }
     tick(seconds,budget){if(!this.running)return null;const flight=this.state.flight,before=flight?.status,
       result=flight?.lunar?lunar().advance(this.state,seconds,budget,this.lunarTable,this.record):M.advance(this.state,seconds,budget,this.record);
-      if(before==='flying'&&this.state.flight.status==='landed'||this.state.phase==='ended')this.running=false;return result;}
+      if(before==='flying'&&this.state.flight.status==='landed'||this.state.phase==='ended'||flight.lunar?.handoff==='ready')this.running=false;return result;}
     pause(){this.running=false;this.emit();}
-    play(){if(this.state.flight&&!['ended','workshop'].includes(this.state.phase)){this.running=true;this.emit();}}
+    play(){if(this.state.flight&&this.state.flight.lunar?.handoff!=='ready'&&!['ended','workshop'].includes(this.state.phase)){this.running=true;this.emit();}}
   }
   function warpLimit(flight){if(flight.lunar)return lunar().warpLimit(flight);if(flight.capsule?.detached&&flight.status==='flying'&&flight.capsule.chute.phase!=='stowed')return 1000;if(flight.capsule?.detached){const bodies=[flight,flight.upperStage].filter(f=>f&&!['landed','impact','destroyed','escaped'].includes(f.status));return bodies.some(f=>f.controls.lit||O.elements(f.state).height<120000)||['waiting','turning','burning'].includes(flight.upperStage?.auto.mode)?20:1000;}
     const {height}=O.elements(flight.state);
@@ -80,7 +86,7 @@
     }
     while(remaining>1e-9&&steps<800){
       const f=controller.state.flight,o=f.orbit||O.elements(f.state),limit=warpLimit(f),rate=Math.min(warp,limit);let request=remaining*rate;
-      if(limit===1&&warp>1)request=Math.min(request,REALTIME_LAUNCH-f.t);
+      if(limit===1&&warp>1&&f.t<REALTIME_LAUNCH)request=Math.min(request,REALTIME_LAUNCH-f.t);
       // Approach the atmosphere boundary before rechecking the rate for the remaining wall time.
       if(rate>20&&f.status==='flying'&&o.height>120000&&o.radial<0)request=Math.min(request,Math.max(.001,(o.height-120000)/-o.radial));
       const result=controller.tick(request,1);if(!result||result.elapsed<=0||!result.steps)break;

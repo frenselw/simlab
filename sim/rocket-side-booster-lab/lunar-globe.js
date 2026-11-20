@@ -1,5 +1,27 @@
 import * as T from './vendor/three-0.185.1/three.module.min.js';
 
+export function createLunarGround(){
+  const size=128,data=new Uint8Array(size*size*4);
+  let seed=1972;
+  const random=()=>((seed=(Math.imul(seed,1664525)+1013904223)>>>0)/4294967296);
+  for(let i=0;i<data.length;i+=4){
+    const grain=Math.round(138+random()*30+(random()<.035?-46:0));
+    data[i]=grain;data[i+1]=grain-3;data[i+2]=grain-8;data[i+3]=255;
+  }
+  const texture=new T.DataTexture(data,size,size);
+  texture.colorSpace=T.SRGBColorSpace;
+  texture.wrapS=texture.wrapT=T.RepeatWrapping;
+  texture.repeat.setScalar(150);
+  texture.generateMipmaps=true;
+  texture.minFilter=T.LinearMipmapLinearFilter;
+  texture.magFilter=T.LinearFilter;
+  texture.anisotropy=4;
+  texture.needsUpdate=true;
+  const ground=new T.Mesh(new T.PlaneGeometry(2.4,2.4),new T.MeshLambertMaterial({map:texture}));
+  ground.rotation.x=-Math.PI/2;
+  return ground;
+}
+
 export function createLunarGlobe(){
   const light={value:new T.Vector3()},albedo={value:null},detailed={value:0};
   const material=new T.ShaderMaterial({

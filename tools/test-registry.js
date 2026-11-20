@@ -318,6 +318,7 @@ const tests = [...registeredTests, ...extraBrowserEntries];
 const extraBrowserTests=extraBrowserEntries.map(e=>e.file);
 
 const helpers = [
+  {file:"tools/rocket-lunar-landing-browser-cases.js",scope:"rocket-side-booster-lab",consumers:["tools/rocket-side-booster-browser-regression.js"]},
   {file:"tools/rocket-sky-browser-cases.js",scope:"rocket-side-booster-lab",consumers:["tools/rocket-side-booster-browser-regression.js"]},
   {file:"tools/rocket-world-browser-cases.js",scope:"rocket-side-booster-lab",consumers:["tools/rocket-side-booster-browser-regression.js"]},
   {"file":"tools/circuit-ac-audit-browser-cases.js","scope":"circuit-family","consumers":["tools/circuit-ac-browser-regression.js"]},
