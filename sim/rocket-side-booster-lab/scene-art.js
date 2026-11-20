@@ -201,7 +201,11 @@ void main(){
  vec3 ray=normalize(vDirection),star=uStarFrame*ray;
  vec2 uv=vec2(fract(atan(star.z,-star.x)/6.283185307+1.0),1.0-acos(clamp(star.y,-1.0,1.0))/3.141592654);
  vec3 day=mix(vec3(.66,.83,.88),vec3(.19,.48,.68),smoothstep(-.12,.8,ray.y));
- vec3 night=texture2D(uMap,uv).rgb,color=mix(mix(vec3(.0015,.0025,.006)+night*.25,day,uDaylight),night,uSpace);
+ vec3 night=texture2D(uMap,uv).rgb;
+ float latitude=abs(dot(star,vec3(0.0,.94,-.34)));
+ float galaxy=(1.0-smoothstep(.025,.23,latitude))*(.55+.28*sin(uv.x*18.85)+.17*sin(uv.x*69.11+uv.y*26.0));
+ vec3 groundNight=vec3(.004,.007,.015)+night*.42+vec3(.024,.031,.048)*galaxy;
+ vec3 color=mix(mix(groundNight,day,uDaylight),night,uSpace);
  if(uCelestial>.5){
   float sun=discOffset(ray,uSunDisc),moon=discOffset(ray,uMoonDisc);
   float sunEdge=fwidth(sun)*.5,moonEdge=fwidth(moon)*.5;
@@ -333,6 +337,23 @@ export function createPad(){
  pipes.push([20,.4,14,.16,22,.16,Math.PI/2,0,Math.PI/2,'#5f9e9b']);pipes.push([31,.4,20,.16,12,.16,Math.PI/2,0,0,'#5f9e9b']);pipes.push([33,.4,26,.16,4,.16,Math.PI/2,0,Math.PI/2,'#5f9e9b']);pipes.push([35,7,26,.16,14,.16,0,0,0,'#5f9e9b']);
  box(support,0,.05,-27,5,.12,1,'#4c6268');
  instances(launch,boxGeometry,fixtureMaterial,support);instances(launch,cylinderGeometry,fixtureMaterial,pipes);
+ const roadSites=[[17,-1],[41,14]],posts=[],housings=[];
+ for(const [x,z] of roadSites){
+   box(posts,x,2.7,z,.19,5.4,.19,'#769094');
+   box(posts,x,5.4,z-.65,.22,.19,1.45,'#769094');
+   box(housings,x,5.3,z-1.35,.7,.24,.56,'#3a5158');
+ }
+ instances(launch,boxGeometry,fixtureMaterial,posts.concat(housings));
+ instances(tower,boxGeometry,fixtureMaterial,[[1.1,28.7,2.17,1.8,.81,.47,0,0,0,'#3a5158']]);
+ const lampLens=(parent,name,color,x,y,z,w,h,d)=>{
+   const lens=new THREE.Mesh(boxGeometry,material('#b9bcab',{emissive:color,emissiveIntensity:0}));
+   lens.position.set(x,y,z);
+   lens.name=name;lens.scale.set(w,h,d);parent.add(lens);return lens;
+ };
+ group.launchLamps=[
+   lampLens(tower,'tower-floodlight','#cbe8ff',1.1,28.7,2.44,1.62,.64,.09),
+   ...roadSites.map(([x,z])=>lampLens(launch,'road-lamp','#ffdb9a',x,5.16,z-1.35,.61,.08,.48))
+ ];
  const shadowMat=new THREE.MeshBasicMaterial({map:shadow,transparent:true,depthWrite:false});instances(workshop,new THREE.PlaneGeometry(1,1),shadowMat,[[-9,-.77,0,6,4,1,-Math.PI/2],[9.5,-.77,-5.5,5,5,1,-Math.PI/2],[9,-.77,3,4,3,1,-Math.PI/2]]);
  launch.traverse(mesh=>{if(mesh.isMesh)mesh.castShadow=mesh.receiveShadow=true;});
  for(const receiver of [apron,deck,side,grates])receiver.receiveShadow=true;
@@ -355,6 +376,7 @@ export function createLaunchEffects(){
    ctx.globalCompositeOperation='destination-in';ctx.fillStyle=edge;ctx.fillRect(0,0,w,h);
  });
  const mat=new THREE.MeshLambertMaterial({map,transparent:true,depthWrite:false,alphaTest:.015,color:'#ffffff'});
+ mat.userData.vapour=true;
  mat.onBeforeCompile=shader=>{
    shader.vertexShader='attribute float aOpacity; varying float vOpacity,vVapourHeight;\n'+shader.vertexShader.replace('#include <begin_vertex>',`#include <begin_vertex>
      vOpacity=aOpacity;
@@ -486,7 +508,7 @@ function exhaustMaterial(color){
        float along=vExhaust.x, facing=vExhaust.z;
        float stream=.84+.16*sin(along*25.0+sin(vExhaust.y*37.699)*.8-jet.w);
        float hot=pow(1.0-along,1.5)*(.46+.54*facing);
-       vec3 color=mix(edge,vec3(1.0,.81,.52),hot);
+       vec3 color=mix(edge,vec3(1.0,.94,.78),hot);
        float glow=pow(1.0-along,1.08)*(.26+.62*facing)*stream;
        gl_FragColor=vec4(color,glow);
        #include <colorspace_fragment>
@@ -731,7 +753,10 @@ export function buildRocket(c,separated,capsuleOnly=false,lunar=false){
   if(P.hasCapsule(c)){partParent=new THREE.Group();partParent.userData.part={stage:c.stages.length-1,part:'capsule',ordinal:0,index:null};group.add(partParent);parts.push(partParent);
   recessedShell(1.25,1.4,2,10,[[1,capsuleOnly?'upper':null],[8,capsuleOnly?'lower':'upper']],c.boosters&&!separated&&!capsuleOnly?4:0,skin,y+1);
   mesh(new THREE.SphereGeometry(1.25,32,20,hullAzimuth,Math.PI*2,0,Math.PI/2),white,0,y+2,0);const faceY=y+1.1;
-  batch(new THREE.SphereGeometry(1,12,8),dark,[-1,1].map(side=>[side*.4,faceY,1.24,.16,.16,.16]));batch(new THREE.SphereGeometry(1,8,6),material('#ffffff'),[-1,1].map(side=>[side*.4-.03,faceY+.05,1.37,.07,.07,.07]));
+   batch(new THREE.SphereGeometry(1,12,8),dark,[-1,1].map(side=>[side*.4,faceY,1.24,.16,.16,.16]));
+   const eyeLight=material('#ffffff',{emissive:'#fff1c7',emissiveIntensity:0});
+   batch(new THREE.SphereGeometry(1,8,6),eyeLight,[-1,1].map(side=>[side*.4-.03,faceY+.05,1.37,.07,.07,.07])).name='capsule-eye-lights';
+   group.userData.eyeLight=eyeLight;
   const smile=new THREE.TorusGeometry(.24,.035,6,14,Math.PI);const mouth=mesh(smile,dark,0,faceY-.25,1.32);mouth.rotation.z=Math.PI;
   mesh(new THREE.CylinderGeometry(.04,.04,1.1,8),metal,0,y+3.6,0);mesh(new THREE.SphereGeometry(.17,10,8),orange,0,y+4.15,0);
   for(const side of [-1,1]){const angle=side*20*Math.PI/180,pod=mesh(new THREE.SphereGeometry(.22,16,12),white,side*1.39,y+1.12,0);pod.scale.set(.85,1.5,1);pod.name='capsule-engine-pod';

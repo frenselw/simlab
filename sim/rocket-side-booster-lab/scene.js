@@ -28,6 +28,9 @@ export class RocketScene{
     shadow.bias=-.00015;shadow.normalBias=.00035;shadow.radius=1.1;
     this.perspectiveCamera=this.camera;this.orbitCamera=new THREE.OrthographicCamera();this.orbitFocus=null;
     this.studio=createPad();this.scene.add(this.studio);
+    this.localLights=Object.fromEntries(['uTowerLight','uRoadLightA','uRoadLightB','uExhaustLight'].map(name=>[name,{value:new THREE.Vector4(0,0,0,0)}]));
+    this.padLights=[this.localLights.uTowerLight,this.localLights.uRoadLightA,this.localLights.uRoadLightB];
+    this.lightPosition=new THREE.Vector3();
     this.siteSurface={uLaunchCut:{value:0}};
     clipPadSurface(this.studio.padDeck.material,this.siteSurface,true);clipPadSurface(this.studio.apron.material,this.siteSurface);
     this.starPixelRatio={value:this.renderer.getPixelRatio()};
@@ -39,7 +42,7 @@ export class RocketScene{
     if(this.flightReady)return;
     await loadFlightArt();
     const planet=await createPlanet();this.relief=await createRelief(planet.sun);this.landscape=createLandscape();this.sky=createSky();this.sky.renderOrder=-10;
-    this.earth=planet.earth;this.clouds=planet.clouds;this.halo=planet.halo;this.planetSun=planet.sun;this.planetOpacity=planet.opacity;this.earthMap=this.earth.material.uniforms.uMap.value;this.oceanDepth=new THREE.Mesh(this.earth.geometry,new THREE.MeshBasicMaterial({colorWrite:false,depthWrite:true,depthTest:true}));this.oceanDepth.renderOrder=-.5;this.shadowUniforms={uShadowPlanetCenter:{value:this.earth.position},uShadowPlanetRadius:{value:1},uShadowSun:{value:this.planetSun},uShadowEnabled:{value:0}};this.globalTerrain=planet.globalTerrain;this.globalTerrain.onChange=()=>this.draw();this.contactGround=createContactGround(planet.sun,this.globalTerrain.colorAt,this.siteSurface,this.relief,this.globalTerrain);this.forest=createForest(this.relief,this.globalTerrain,this.contactGround,this.landscape.occupied);this.globalTerrain.add(this.forest);const materials=new Set();this.relief.traverse(o=>{if(o.material&&o.geometry?.attributes.landFade)materials.add(o.material);});for(const material of materials)clipContact(material,this.contactGround.clipping,true);clipContact(this.globalTerrain.children[0].material,this.contactGround.clipping);
+    this.earth=planet.earth;this.clouds=planet.clouds;this.halo=planet.halo;this.planetSun=planet.sun;this.planetOpacity=planet.opacity;this.earthMap=this.earth.material.uniforms.uMap.value;this.oceanDepth=new THREE.Mesh(this.earth.geometry,new THREE.MeshBasicMaterial({colorWrite:false,depthWrite:true,depthTest:true}));this.oceanDepth.renderOrder=-.5;this.shadowUniforms={...this.localLights,uNightSkyFill:{value:0},uShadowPlanetCenter:{value:this.earth.position},uShadowPlanetRadius:{value:1},uShadowSun:{value:this.planetSun},uShadowEnabled:{value:0}};this.globalTerrain=planet.globalTerrain;this.globalTerrain.onChange=()=>this.draw();this.contactGround=createContactGround(planet.sun,this.globalTerrain.colorAt,this.siteSurface,this.relief,this.globalTerrain,this.localLights);this.forest=createForest(this.relief,this.globalTerrain,this.contactGround,this.landscape.occupied);this.globalTerrain.add(this.forest);const materials=new Set();this.relief.traverse(o=>{if(o.material&&o.geometry?.attributes.landFade)materials.add(o.material);});for(const material of materials)clipContact(material,this.contactGround.clipping,true);clipContact(this.globalTerrain.children[0].material,this.contactGround.clipping);
     Object.assign(this.earth.material.uniforms,this.contactGround.clipping);this.earth.material.fragmentShader=siteSurfaceShader+'uniform vec3 uContactCenter;uniform float uContactRadius;\n'+this.earth.material.fragmentShader.replace('/* ground-contact-cut */','if(siteOpening(point)||(uContactRadius>0.0&&distance(normalize(point),uContactCenter)<uContactRadius))discard;');
     this.launchArmAge=0;this.launchStarted=false;this.impacts=createImpactEffects();this.effectClock=0;
     const coords=[],starColors=[],sizes=[],rng=(()=>{let t=512;return()=>{t=(t*1664525+1013904223)>>>0;return t/4294967296;};})();
@@ -297,6 +300,27 @@ export class RocketScene{
   }
   drawBoosterJet(flame,height,t){
     this.drawJet(flame,flame.material.uniforms.jet.value,1,.67,8.5,height,t);
+  }
+  updateLaunchLights(padVisible,padDaylight,thrust,agl){
+    const night=1-padDaylight;
+    this.studio.launchLamps.forEach((lens,index)=>{
+      const level=padVisible?night:0;
+      lens.material.emissiveIntensity=level*2;
+      const light=this.padLights[index].value;
+      light.w=0;
+      if(level>0){
+        const {x,y,z}=lens.getWorldPosition(this.lightPosition);
+        light.set(x,y,z,level*(index===0?1.75:1.3));
+      }
+    });
+    // One moving light represents the combined core and booster exhaust near the pad.
+    const exhaust=this.localLights.uExhaustLight.value;
+    exhaust.w=0;
+    if(thrust>0){
+      const {x,y,z}=this.rocket.localToWorld(this.lightPosition.set(0,-5,0));
+      const power=Math.min(2.6,2.4*Math.sqrt(thrust/600000));
+      exhaust.set(x,Math.max(y,this.studio.position.y+.0015),z,power*(.25+.75*night)*(1-THREE.MathUtils.smoothstep(agl,100,650)));
+    }
   }
   drawEngine(rocket,f){
     const flame=rocket.userData.flame;
@@ -621,6 +645,11 @@ export class RocketScene{
     this.lighting=f?L.solar(f.state,worldSun):{daylight:1,sunlight:1,elevation:1};const daylight=factory||!f?1:this.lighting.daylight;this.sky.material.uniforms.uDaylight.value=daylight;this.shadowUniforms.uShadowEnabled.value=Number(Boolean(f&&!factory));this.shadowUniforms.uShadowPlanetRadius.value=space?3:P.R/1000;L.shade(this.studio,this.shadowUniforms);L.shade(this.landscape,this.shadowUniforms);L.shade(this.relief,this.shadowUniforms);L.shade(this.contactGround.rocks,this.shadowUniforms);L.shade(this.rocket,this.shadowUniforms,this.lighting.sunlight);if(this.otherRocket&&this.data.other)L.shade(this.otherRocket,this.shadowUniforms,L.solar(this.data.other.state,worldSun).sunlight);if(this.separation)L.shade(this.separation.body,this.shadowUniforms);if(this.boosterDrop)L.shade(this.boosterDrop.body,this.shadowUniforms);this.oceanDepth.geometry=this.earth.geometry;this.oceanDepth.position.copy(this.earth.position);this.oceanDepth.rotation.copy(this.earth.rotation);this.oceanDepth.scale.copy(this.earth.scale);this.oceanDepth.visible=this.earth.visible;
     this.sunLight.position.copy(factory||!f?new THREE.Vector3(30,40,40):this.planetSun);
     const atmosphere=1-THREE.MathUtils.smoothstep(altitude,0,65000);
+    this.shadowUniforms.uNightSkyFill.value=f&&!factory&&!space?atmosphere:0;
+    for(const [body,light] of [[this.rocket,this.lighting],[this.otherRocket,this.data.other&&L.solar(this.data.other.state,worldSun)]]){
+      const eyes=body?.userData.eyeLight;
+      if(eyes)eyes.emissiveIntensity=f&&!factory&&light?1.7*(1-Math.max(light.daylight,light.sunlight)):0;
+    }
     const lowSun=f&&!factory?atmosphere*(1-THREE.MathUtils.smoothstep(this.lighting.elevation,-.04,.35)):0;
     this.sunLight.color.setRGB(1,.96-.16*lowSun,.86-.27*lowSun);
     this.sunLight.intensity=factory||!f?2.4:1.95;
@@ -700,9 +729,11 @@ export class RocketScene{
     this.studio.workshopFixtures.visible=factory||!f;this.studio.launchFixtures.visible=padDetails;this.studio.apron.visible=!factory;this.studio.flameTrench.visible=this.studio.trenchGrates.visible=padDetails;if(!f?.separated)this.studio.launchTower.scale.y=Math.max(.3,height/26);this.siteSurface.uLaunchCut.value=Number(padDetails&&localOpacity>=.999);
     const atPad=Boolean(f&&this.data.live&&!factory&&['pad','flying'].includes(f.status)&&siteDistance<80&&agl<70);
     const thrust=f?M.thrust(f):0,emitting=atPad?Math.min(1.65,thrust/600000)*(1-THREE.MathUtils.smoothstep(agl,16,70)):0;
+    const exhaustNearPad=local&&siteDistance<2500&&agl<650?thrust:0;
+    this.updateLaunchLights(padDetails,L.solar([P.R,0,0],worldSun).daylight,exhaustNearPad,agl);
     this.airExhaust=local&&this.data.live&&altitude<18000?THREE.MathUtils.smoothstep(agl,28,55):0;
     if(!this.launchEffects&&(emitting||this.airExhaust&&(thrust>0||this.data.other&&M.coreThrust(this.data.other)>0))){
-      this.launchEffects=createLaunchEffects();this.studio.add(this.launchEffects);
+      this.launchEffects=createLaunchEffects();this.studio.add(this.launchEffects);L.shade(this.launchEffects,this.shadowUniforms);
     }
     if(emitting&&!this.launchStarted){this.launchStarted=true;this.effectClock=performance.now();}
     if(this.launchEffects){

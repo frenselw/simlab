@@ -8,7 +8,7 @@ bool siteOpening(vec3 p){if(uLaunchCut<.5||p.y<.99)return false;vec2 m=p.xz*6371
 export function clipPadSurface(material,uniforms,flat=false){
  const compile=material.onBeforeCompile;material.onBeforeCompile=shader=>{compile(shader);Object.assign(shader.uniforms,uniforms);shader.vertexShader='varying vec2 vPadPoint;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvPadPoint='+(flat?'vec2(position.x,-position.y)':'position.xz')+';');shader.fragmentShader=siteSurfaceShader+'varying vec2 vPadPoint;\n'+shader.fragmentShader.replace('#include <clipping_planes_fragment>','#include <clipping_planes_fragment>\nif(siteOpening(vec3(vPadPoint.x/6371000.0,1.0,vPadPoint.y/6371000.0)))discard;');};material.customProgramCacheKey=()=>flat?'rocket-pad-deck-cut':'rocket-pad-apron-cut';
 }
-export function createContactGround(sun,colorAt,site,relief,world){
+export function createContactGround(sun,colorAt,site,relief,world,localLights){
  const group=new THREE.Group(),side=81,spacing=480000/4096,vertices=side*side,positions=new Float32Array(vertices*3),colors=new Float32Array(vertices*3),indices=[];
  for(let j=0;j<side-1;j++)for(let i=0;i<side-1;i++){const a=j*side+i,b=a+side;indices.push(a,b,b+1,a,b+1,a+1);}
  const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.BufferAttribute(positions,3).setUsage(THREE.DynamicDrawUsage));geometry.setAttribute('normal',new THREE.BufferAttribute(new Float32Array(vertices*3),3).setUsage(THREE.DynamicDrawUsage));geometry.setAttribute('color',new THREE.BufferAttribute(colors,3).setUsage(THREE.DynamicDrawUsage));
@@ -17,14 +17,15 @@ export function createContactGround(sun,colorAt,site,relief,world){
  const clipping={uContactCenter:{value:center},uContactRadius:{value:0},...site};
  const material=new THREE.MeshLambertMaterial({vertexColors:true,transparent:true,depthWrite:true});
  material.onBeforeCompile=shader=>{
-  Object.assign(shader.uniforms,surfaceUniforms,clipping,{uSun:{value:sun},uSlopeDetail:terrainSlopeDetail,uGroundOrigin:{value:origin}});
+  Object.assign(shader.uniforms,surfaceUniforms,clipping,localLights,{uSun:{value:sun},uSlopeDetail:terrainSlopeDetail,uGroundOrigin:{value:origin}});
   shader.vertexShader='attribute float surfaceWater;varying float vSurfaceWater;varying vec3 vGroundWorld;\nuniform vec3 uGroundOrigin;varying vec3 vRadial,vSlope,vGroundPoint;\n'+shader.vertexShader.replace('#include <begin_vertex>',`#include <begin_vertex>
    vSurfaceWater=surfaceWater;
    vGroundWorld=(modelMatrix*vec4(position,1.0)).xyz;
    vGroundPoint=position+uGroundOrigin;
    vSlope=normalize(mat3(modelMatrix)*normal);
    vRadial=normalize(mat3(modelMatrix)*normalize(vGroundPoint));`);
-  shader.fragmentShader=siteSurfaceShader+groundLight+'varying float vSurfaceWater;varying vec3 vGroundWorld;\nuniform vec3 uSun,uContactCenter;uniform float uContactRadius;varying vec3 vRadial,vSlope,vGroundPoint;\n'+shader.fragmentShader
+  const launchLight=localLights?'#define LAUNCH_LIGHTING\n'+window.RocketLighting.localLightShader:'';
+  shader.fragmentShader=siteSurfaceShader+launchLight+groundLight+'varying float vSurfaceWater;varying vec3 vGroundWorld;\nuniform vec3 uSun,uContactCenter;uniform float uContactRadius;varying vec3 vRadial,vSlope,vGroundPoint;\n'+shader.fragmentShader
    .replace('#include <shadowmap_pars_fragment>','#include <shadowmap_pars_fragment>\n#include <shadowmask_pars_fragment>')
    .replace('#include <color_fragment>',`#include <color_fragment>
     float coverage=1.0-smoothstep(uContactRadius,2.0*uContactRadius,distance(normalize(vGroundPoint),uContactCenter));

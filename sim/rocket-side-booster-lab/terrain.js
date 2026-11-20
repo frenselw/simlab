@@ -150,7 +150,8 @@ vec3 terrainIrradiance(vec3 normal,vec3 radial,vec3 sun){
  normal=normalize(mix(radial,normal,uSlopeDetail));
  float elevation=dot(radial,sun),day=smoothstep(-.12,.18,elevation);
  float sky=clamp(dot(normal,radial),0.0,1.0);
- vec3 ambient=mix(vec3(.0015,.0025,.005),vec3(.20,.27,.35),day)*mix(.56,1.0,sky*sky);
+ vec3 nightAmbient=vec3(.0015,.0025,.005)+vec3(.010,.017,.028)*uAerialDensity;
+ vec3 ambient=mix(nightAmbient,vec3(.20,.27,.35),day)*mix(.56,1.0,sky*sky);
  float lowSun=1.0-smoothstep(-.04,.35,elevation);
  vec3 sunColor=vec3(1.0,.96-.16*lowSun,.86-.27*lowSun);
  float incidence=dot(normal,sun);
@@ -207,8 +208,13 @@ vec3 shadeSurface(vec3 base,vec3 normal,vec3 radial,vec3 point,vec3 world,vec3 s
   base*=mix(1.0,siteShadow(sitePoint,transpose(uSurfaceRotation)*sun),siteShadowWeight*(1.0-smoothstep(5.0,10.0,footprint)));
  }
  vec3 color=base*terrainIrradiance(normal,radial,sun);
+ #ifdef LAUNCH_LIGHTING
+   vec3 launchLight=base*localIllumination(world,normal,1.0);
+ #else
+   vec3 launchLight=vec3(0.0);
+ #endif
  vec3 toEye=cameraPosition-world;
- if(uSurfaceStrength<=0.0)return aerialColor(color,radial,sun,length(toEye));
+ if(uSurfaceStrength<=0.0)return aerialColor(color+launchLight,radial,sun,length(toEye));
  if(water>.5){
   vec3 n=radial;
   if(detail>.001){
@@ -234,7 +240,7 @@ vec3 shadeSurface(vec3 base,vec3 normal,vec3 radial,vec3 point,vec3 world,vec3 s
   vec3 regionalTint=vec3(1.0)+variation*vec3(.18,.035,-.10)*detail*uSurfaceStrength;
   color*=mix(landTint,regionalTint,regional);
  }
- return aerialColor(color,radial,sun,length(toEye));
+ return aerialColor(color+launchLight,radial,sun,length(toEye));
 }
 `;
 export const terrainLighting='diffuseColor.rgb=shadeSurface(diffuseColor.rgb,normalize(vSlope),normalize(vRadial),vGroundPoint,vGroundWorld,uSun,vSurfaceWater);';

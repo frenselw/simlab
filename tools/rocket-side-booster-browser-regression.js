@@ -212,6 +212,64 @@ async function launchCamera(base,label){
     await shot(label+'-launch-follow-'+width);
     report.flows.push({label,case:'launch-camera',width,height,rows});
   }
+  await viewport(390,844);
+  await open(base,T.singlePad(0,0,4));
+  await wait(()=>call('return Boolean(app.getScene().data.skyData);'),'launch lighting ephemeris');
+  await H.evaluate(cdp,'(async()=>{window.__lightThree=await import("./vendor/three-0.185.1/three.module.min.js");})()');
+  const lighting=await call(`const s=app.getScene(),T=window.__lightThree;
+    s.animateEffects=()=>false;
+    const fixture=structuredClone(app.getState());
+    const show=(hour,state)=>{
+      app.controller.state=state;app.controller.emit();
+      s.setData({...s.data,skyStart:Date.UTC(2026,2,20,hour)});
+    };
+    const sample=()=>({day:s.lighting.daylight,eyes:s.rocket.userData.eyeLight.emissiveIntensity,
+      lamps:s.padLights.map(light=>light.value.w),exhaust:s.localLights.uExhaustLight.value.w});
+    const measure=(lights)=>{
+      const target=new T.WebGLRenderTarget(128,128),previous=s.renderer.getRenderTarget();
+      target.texture.colorSpace=T.SRGBColorSpace;
+      const pixels=new Uint8Array(128*128*4),levels=lights.map(light=>light.w);
+      try{
+        for(const light of lights)light.w=0;
+        s.renderer.setRenderTarget(target);s.renderer.render(s.scene,s.camera);
+        s.renderer.readRenderTargetPixels(target,0,0,128,128,pixels);
+        let luminance=0;
+        for(let i=0;i<128*76*4;i+=4)luminance+=.2126*pixels[i]+.7152*pixels[i+1]+.0722*pixels[i+2];
+        return luminance/(128*76);
+      }finally{
+        lights.forEach((light,i)=>{light.w=levels[i];});
+        s.renderer.setRenderTarget(previous);target.dispose();
+      }
+    };
+    show(21,fixture);const day=sample();
+    show(9,fixture);const night=sample();
+    window.__nightLaunch={show,fixture,sample,measure};
+    const local=s.padLights.map(light=>light.value);
+    return {day,night,padPixelGain:measure([])-measure(local)};
+  `);
+  assert.equal(lighting.day.eyes,0);
+  assert(lighting.day.lamps.every(level=>level===0)&&lighting.night.lamps.every(level=>level>0));
+  assert(lighting.night.eyes>0&&lighting.night.exhaust===0&&lighting.padPixelGain>1,JSON.stringify(lighting));
+  await shot(label+'-night-before-ignition');
+  const ignition=await call(`const s=app.getScene(),{show,fixture,sample,measure}=window.__nightLaunch;
+    const burning=RocketModel.change(fixture,{type:'ignite'});show(9,burning);
+    for(let i=0;i<30;i++){
+      RocketModel.advance(burning,.05);
+      s.launchEffects.advance(.05,s.quality,true);
+    }
+    show(9,burning);window.__nightLaunch.burning=burning;
+    const exhaust=s.localLights.uExhaustLight.value;
+    return {...sample(),vapour:s.launchEffects.userData.active,scenePixelGain:measure([])-measure([exhaust])};
+  `);
+  assert(ignition.exhaust>0&&ignition.vapour>0&&ignition.scenePixelGain>5,JSON.stringify(ignition));
+  await shot(label+'-night-ignition');
+  const departure=await call(`const {show,sample,burning}=window.__nightLaunch;
+    for(let i=0;i<300&&burning.flight.state[0]-RocketParts.R<650;i++)RocketModel.advance(burning,.05);
+    show(9,burning);return {...sample(),altitude:burning.flight.state[0]-RocketParts.R};
+  `);
+  assert(departure.altitude>=650&&departure.exhaust===0,JSON.stringify(departure));
+  await shot(label+'-night-departure');
+  report.flows.push({label,case:'night-launch-lighting',lighting,ignition,departure});
 }
 
 async function propulsionArt(base,label){

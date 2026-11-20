@@ -11,6 +11,23 @@
   const space=smooth(8000,95000,altitude);
   return 1.15-.13*space+.10*(1-space)*(1-daylight);
  }
+ const localLightShader=`
+ uniform vec4 uTowerLight,uRoadLightA,uRoadLightB,uExhaustLight;
+ vec3 lightPool(vec4 lamp,vec3 point,vec3 normal,float range,vec3 tint,float surface){
+   if(lamp.w<=0.0)return vec3(0.0);
+   vec3 offset=(lamp.xyz-point)*1000.0;
+   float distanceMetres=length(offset);
+   if(distanceMetres>=range)return vec3(0.0);
+   float incidence=max(0.0,dot(offset,normal)/max(distanceMetres,0.1));
+   float falloff=1.0-smoothstep(0.0,range,distanceMetres);
+   return tint*(lamp.w*falloff*falloff*mix(1.0,.12+.88*incidence,surface));
+ }
+ vec3 localIllumination(vec3 point,vec3 normal,float surface){
+   return lightPool(uTowerLight,point,normal,48.0,vec3(.73,.87,1.0),surface)
+        + lightPool(uRoadLightA,point,normal,21.0,vec3(1.0,.79,.51),surface)
+        + lightPool(uRoadLightB,point,normal,21.0,vec3(1.0,.79,.51),surface)
+        + lightPool(uExhaustLight,point,normal,110.0,vec3(1.0,.48,.16),surface);
+ }`;
  const shaded=new WeakMap();
  function shade(group,uniforms,bodyVisibility=-1){
   const seen=new Set();group?.traverse(object=>{for(const material of [].concat(object.material||[])){
@@ -23,13 +40,16 @@
  shadowPoint=instanceMatrix*shadowPoint;
  #endif
  vShadowWorld=(modelMatrix*shadowPoint).xyz;
- #include <project_vertex>`);shader.fragmentShader='varying vec3 vShadowWorld;uniform vec3 uShadowPlanetCenter,uShadowSun;uniform float uShadowPlanetRadius,uShadowEnabled,uBodySunVisibility;\n'+shader.fragmentShader.replace('#include <opaque_fragment>',`float solarVisibility=1.0;
+ #include <project_vertex>`);shader.fragmentShader=localLightShader+'varying vec3 vShadowWorld;uniform vec3 uShadowPlanetCenter,uShadowSun;uniform float uShadowPlanetRadius,uShadowEnabled,uBodySunVisibility,uNightSkyFill;\n'+shader.fragmentShader.replace('#include <opaque_fragment>',`float solarVisibility=1.0;
  if(uShadowEnabled>.5){solarVisibility=uBodySunVisibility;if(solarVisibility<0.0){vec3 point=vShadowWorld-uShadowPlanetCenter;float r=max(length(point),.000001);float horizon=-sqrt(max(0.0,1.0-pow(uShadowPlanetRadius/r,2.0)));solarVisibility=smoothstep(horizon-.005,horizon+.005,dot(point/r,uShadowSun));}}
- outgoingLight=mix(diffuseColor.rgb*vec3(.020,.028,.045)+totalEmissiveRadiance,outgoingLight,solarVisibility);
+ vec3 worldNormal=normalize(normal*mat3(viewMatrix));
+ vec3 skyFill=vec3(.036,.056,.095)*uNightSkyFill*(.4+.6*max(0.0,worldNormal.y));
+ outgoingLight=mix(diffuseColor.rgb*(vec3(.020,.028,.045)+skyFill)+totalEmissiveRadiance,outgoingLight,solarVisibility);
+ outgoingLight+=diffuseColor.rgb*localIllumination(vShadowWorld,worldNormal,${material.userData?.vapour?'0.0':'1.0'});
  #include <opaque_fragment>`);};material.customProgramCacheKey=()=>key.call(material)+'-planet-shadow';material.needsUpdate=true;
    }
    visibility.value=bodyVisibility;
   }});
  }
- return Object.freeze({solar,exposure,shade,fixedSun});
+ return Object.freeze({solar,exposure,shade,fixedSun,localLightShader});
 });
