@@ -103,3 +103,13 @@ Node 已重播自由返回預測、兩次制動、交接、兩條下降路徑、
 Chrome 157 使用 390×844 觸控源碼、1000×700 滑鼠獨立封裝。各由實際按鈕啟動登月和自由返回，合計四個流程。登月流程核對鎖定、穩定環月暫停與接手按鈕，以生產控制器及手動指令完成下降。已核對源碼與 ZIP 每個 runtime 檔案一致，瀏覽器無 JavaScript 或 HTTP 錯誤。交付包在 `output/packages/rocket-explorer-standalone.zip`，瀏覽器紀錄在 `output/playwright/rocket-side-booster-lab/lunar-landing-report.json`。
 
 測試選擇器由基線比較本地工作樹，因目錄項改動選出完整 309 項，包含火箭瀏覽器套件。記錄在 `output/reports/rocket-lunar-landing-selection.json`。提交範圍選擇預覽、完整 CI、實體手機及網站部署另記實際證據。[產物規則](../docs/simulation-scorm-production-guide.md#generated-output-and-cleanup)
+
+## 9. 月面平原與撞擊坑
+
+2026-11-21 · 改動前提交 `08655e69`。低空跟隨及着陸畫面以固定月面座標生成多尺度撞擊坑、坑緣、噴出物與平原。示範落點保留平緩地形。月面網格、油門操作讀數及腳墊接觸採同一個高度模型。月面為程序生成的示意地形，遠處月相與月面影像沿用原有素材。
+
+下載上限以基線計算。新增素材及請求數為零，修改的常用程式碼未壓縮增量以 12 KiB 為上限，並記錄 gzip 和獨立 ZIP 的實際增量。生成有限範圍的網格，低空移動超過門檻才重建，地表近細遠疏。以既有月球任務瀏覽器個案驗證兩種交付的着陸、平原及撞擊坑畫面，並核對場景請求。物理測試補上坑底、坑緣及平地高度的區分。
+
+資產清單仍為 5,343 項。與基線逐檔比較，執行程式增加 **8,077 bytes**，各檔 gzip 後合計增加 **2,788 bytes**。獨立 ZIP 由 126,648,191 bytes 增至 126,650,979 bytes。沒有新增圖像或地形資料，近景的網格和月壤紋理均在本機運算。量測記錄在 `output/reports/rocket-lunar-terrain-budget.json`。Node 重播驗證示範落點保持平坦，降至坑底前可以穿過平均半徑而繼續飛行。
+
+Chrome 驗證源碼 390×844 觸控與解壓 ZIP 1000×700 滑鼠，兩版均成功登月及完成原有自由返回，合計 4 個流程。兩版登月流程共載入各自 43 個本機資源，回應內容均為 6,301,895 bytes，按同一資源清單與基線逐檔比較增加 **0.13%**。落點附近 750 m 的網格樣本由平均月面以下 43.10 m 至以上 12.40 m。報告見 `output/playwright/rocket-side-booster-lab/lunar-terrain-report.json`。航線測試、`check`、`check:tests` 通過。提交選測預覽見 `output/reports/rocket-lunar-terrain-selection.json`。

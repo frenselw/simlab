@@ -344,13 +344,28 @@ for(const hover of [false,true]){
   console.log('Lunar landing',JSON.stringify({handoffTime,hover,held,fuel,touchdown}));
 }
 const verifiedOrbit=launchLander(580).controller.state;
+const delayedPilot=new Controller();
+delayedPilot.state=structuredClone(verifiedOrbit);
+delayedPilot.lunarTable=table;
+assert(delayedPilot.command({type:'moon-takeover'}));
+delayedPilot.play();
+delayedPilot.tick(.1,1000);
+assert.equal(lunarPilot(delayedPilot,L).outcome,'moon-landed');
+const landingMap=[3.038304*L.MOON_RADIUS,.2368043*L.MOON_RADIUS];
+const craterMap=[landingMap[0]-115,landingMap[1]-145];
+const floor=C.moonTerrain(...craterMap),shoulder=C.moonTerrain(craterMap[0]-71,craterMap[1]);
+assert(C.moonTerrain(...landingMap)===0);
+assert(floor<-7&&shoulder-floor>8);
+const seam=[C.moonTerrain(-Math.PI*L.MOON_RADIUS,420000),C.moonTerrain(Math.PI*L.MOON_RADIUS,420000)];
+assert(Math.abs(seam[0]-seam[1])<1e-8);
 for(const [down,horizontal,outcome] of [
   [1,0,'moon-landed'],[3,0,'moon-hard-landing'],[1,5,'moon-impact'],[12,0,'moon-impact']
 ]){
   const state=structuredClone(verifiedOrbit),f=state.flight;
   assert(L.command(state,{type:'moon-takeover'},table));
   const moon=table.body(f.lunar.epoch+f.t,0);
-  const up=C.unit(C.add(f.eci,moon,-1).slice(0,3));
+  const lon=landingMap[0]/L.MOON_RADIUS,lat=landingMap[1]/L.MOON_RADIUS;
+  const up=C.fromColumns(C.moonFrame(moon),[Math.cos(lat)*Math.cos(lon),Math.sin(lat),Math.cos(lat)*Math.sin(lon)]);
   const right=C.unit(C.cross(up,[0,0,1]));
   const position=C.scale(up,L.MOON_RADIUS+.65);
   const spin=C.scale(C.cross(moon.slice(0,3),moon.slice(3)),1/C.norm(moon.slice(0,3))**2);
@@ -371,3 +386,15 @@ for(const [down,horizontal,outcome] of [
   L.advance(state,1,1000,table);
   assert.equal(f.lunar.outcome,outcome);
 }
+// A descending craft can cross the mean-radius sphere above a crater floor.
+const craterFlight=structuredClone(verifiedOrbit);
+assert(L.command(craterFlight,{type:'moon-takeover'},table));
+const craterShip=craterFlight.flight,craterMoon=table.body(craterShip.lunar.epoch+craterShip.t,0);
+const lon=craterMap[0]/L.MOON_RADIUS,lat=craterMap[1]/L.MOON_RADIUS;
+const up=C.fromColumns(C.moonFrame(craterMoon),[Math.cos(lat)*Math.cos(lon),Math.sin(lat),Math.cos(lat)*Math.sin(lon)]);
+craterShip.eci=[...C.add(craterMoon.slice(0,3),up,L.MOON_RADIUS+1),...C.add(craterMoon.slice(3),up,-4)];
+craterShip.axis=up;
+craterShip.bodyRight=C.unit(C.cross(up,[0,0,1]));
+L.advance(craterFlight,.40,1000,table);
+assert(craterShip.moon.height<0&&craterShip.moon.surface.height>4);
+assert.equal(craterShip.lunar.outcome,null);

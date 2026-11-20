@@ -76,7 +76,10 @@ async function prepareFlight(){
 d.retryFlightPreparation.addEventListener('click',prepareFlight);
 function toast(message){d.toast.textContent=message;d.toast.hidden=false;}
 function command(action,options){selectedInstalled=null;interaction?.cancel();const before=controller.state,changed=controller.command(action,options);if(changed)sound.action(action,before,controller.state);if(changed&&action.type==='capsule-separate'){lastPaths=-Infinity;setView('follow');}if(changed&&action.type==='select-body'){d.controlPanel.scrollTop=0;trail=[];trailTime=-1;lastPaths=-Infinity;}if(changed&&['launch-lunar','lunar-transfer','lunar-return','lunar-return-launch','lunar-landing-launch'].includes(action.type)){warp=action.type==='launch-lunar'?1:RocketLunar.FAST_WARP;warpSeconds=warpElapsed=0;}if(changed&&['launch','launch-lunar','lunar-transfer','lunar-return','lunar-return-launch','lunar-landing-launch','workshop'].includes(action.type)){d.controlPanel.scrollTop=0;trail=[];trailTime=-1;lastPaths=-Infinity;releaseReturnCamera();if(action.type==='lunar-landing-launch')returnCamera='ascent';else if(action.type==='lunar-return')returnCamera='outbound';else if(action.type==='lunar-return-launch')returnCamera='ascent';}return changed;}
-function setView(next,reset=false,lock=null){interaction?.resetPan();if(['orbit','plane'].includes(next)&&!scene?.flightReady)return;closeCameraLockMenu();if(next!=='follow')followLockReady=false;else if(lock)followLockReady=true;if(controller.state?.flight)flightView=next;view=next;scene?.setView(next,reset,lock);renderScene();}
+function setView(next,reset=false,lock=null){interaction?.resetPan();if(['orbit','plane'].includes(next)&&!scene?.flightReady)return;closeCameraLockMenu();if(next!=='follow')followLockReady=false;else if(lock)followLockReady=true;if(controller.state?.flight)flightView=next;view=next;scene?.setView(next,reset,lock);renderScene();
+  const f=controller.state?.flight;
+  if(f?.lunar?.landingMission)renderLunar(forecastJob?.flight===f?forecastJob.result:null);
+}
 function releaseReturnCamera(){returnCamera=null;}
 function directReturnCamera(f){
   if(f?.lunar?.handoff==='ready'&&lastLunarHandoff!==f){

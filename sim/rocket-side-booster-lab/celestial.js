@@ -32,6 +32,60 @@
     return [[1,0,0],[0,1,0],[0,0,1]].map(v=>rz(ry(rz(v,gmst-z),theta),-zeta));
   }
   const spin=(pole,r)=>scale(cross(pole,r),OMEGA);
+  const MOON_RELIEF_LIMIT=120;
+  const moonFrame=state=>{
+    const r=state.slice(0,3),prime=scale(unit(r),-1),north=unit(cross(r,state.slice(3)));
+    return [prime,north,cross(north,prime)];
+  };
+  const moonMap=([x,y,z])=>[
+    MOON_RADIUS*Math.atan2(z,x),MOON_RADIUS*Math.atan2(y,Math.hypot(x,z))
+  ];
+  const moonSmooth=t=>{const x=Math.max(0,Math.min(1,t));return x*x*(3-2*x);};
+  const moonWidth=2*Math.PI*MOON_RADIUS;
+  const landingLatitude=.2368043,landingLongitude=3.038304;
+  const landingEast=landingLongitude*MOON_RADIUS,landingNorth=landingLatitude*MOON_RADIUS;
+  const craterGrids=[67,238,860].map(size=>Math.round(moonWidth/size));
+  function moonRandom(x,y,seed){
+    let value=Math.imul(x,374761393)+Math.imul(y,668265263)+Math.imul(seed,1442695041);
+    value=Math.imul(value^(value>>>13),1274126177);
+    return ((value^(value>>>16))>>>0)/4294967296;
+  }
+  function moonTerrain(east,north,appearance){
+    let height=0,tint=0;
+    const crater=(dx,dz,r)=>{
+      const distance=Math.hypot(dx,dz)/r;
+      if(distance>=1.55)return;
+      const bowl=1-moonSmooth((distance-.22)/.73);
+      const rim=1-moonSmooth(Math.abs(distance-.98)/.32);
+      height+=r*(.040*rim-.143*bowl);
+      tint+=.044*rim-.043*bowl+.016*(1-moonSmooth((distance-1)/.55));
+    };
+    for(let level=0;level<craterGrids.length;level++){
+      const count=craterGrids[level],size=moonWidth/count,i=Math.floor(east/size),j=Math.floor(north/size);
+      for(let row=j-1;row<=j+1;row++)for(let col=i-1;col<=i+1;col++){
+        const wrap=(col%count+count)%count;
+        if(moonRandom(wrap,row,level*7+1)<.26)continue;
+        const x=(col+.22+.56*moonRandom(wrap,row,level*7+2))*size;
+        const z=(row+.22+.56*moonRandom(wrap,row,level*7+3))*size;
+        const radius=(.15+.20*moonRandom(wrap,row,level*7+4))*size;
+        if(Math.abs(east-x)<radius*1.55&&Math.abs(north-z)<radius*1.55)crater(east-x,north-z,radius);
+      }
+    }
+    const x=east-landingEast-Math.round((east-landingEast)/moonWidth)*moonWidth,z=north-landingNorth,near=Math.hypot(x,z);
+    if(near<1400){
+      crater(x+115,z+145,73);
+      crater(x+244,z+109,47);
+      crater(x-180,z+210,108);
+      crater(x-87,z-76,34);
+    }
+    const longitude=east/MOON_RADIUS;
+    const mare=.5+.28*Math.sin(1911*longitude+north*.0023)+.19*Math.sin(north*.0041-1564*longitude);
+    // Give the demonstration approach a plain along its ground track.
+    const along=Math.max(-530,Math.min(22,x)),plain=Math.hypot(x-along,z+along*.11);
+    height=(height+5*(mare-.5))*moonSmooth((plain-47)/65);
+    if(appearance)appearance.shade=.24+.075*mare+tint+.018*Math.sin(128568*longitude+north*.043)*Math.sin(north*.067-36485*longitude);
+    return Math.max(-MOON_RELIEF_LIMIT,Math.min(MOON_RELIEF_LIMIT,height));
+  }
   function ephemeris(buffer){
     if(buffer.byteLength!==PACKED_BYTES)throw Error('Invalid geometric ephemeris length');
     const bytes=new DataView(buffer),samples=new Float64Array(COUNT*12);
@@ -71,5 +125,5 @@
     return q.map((v,i)=>v+h/6*(a[i]+2*b[i]+2*c[i]+d[i]));
   }
   return Object.freeze({DAY,MAX_TIME,MOON_RADIUS,PACKED_BYTES,DEG,norm,dot,cross,scale,add,unit,fromColumns,toColumns,
-    utc,earthFrame,spin,ephemeris,gravity,rk4});
+    utc,earthFrame,spin,moonFrame,moonMap,moonTerrain,MOON_RELIEF_LIMIT,ephemeris,gravity,rk4});
 });

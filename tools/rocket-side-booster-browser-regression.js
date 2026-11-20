@@ -1604,7 +1604,7 @@ async function lunarLanding(base,label){
       render(controller);
     };`);
   await click('#lunarLandingLaunch',mobile);
-  await wait(()=>call('return Boolean(window.moonStarted&&!app.controller.running);'),'landing mission starts at pad');
+  await H.waitForCondition(()=>call('return Boolean(window.moonStarted&&!app.controller.running);'),'landing mission starts at pad',60000);
   assert.deepEqual(await call('return {trusted:window.launchTrusted,...window.moonStarted};'),{trusted:true,t:0,lit:true,running:true,pad:true});
   await shot(label+'-lunar-landing-launch');
   const orbit=await call(`const c=app.controller,f=c.state.flight;
@@ -1625,20 +1625,44 @@ async function lunarLanding(base,label){
   assert(orbit.protectedStates>100&&orbit.handoff==='ready'&&orbit.captures===2&&orbit.hp>=80000&&orbit.ha<=120000);
   assert(!orbit.running&&orbit.disabled&&orbit.view==='orbit');
   await shot(label+'-lunar-landing-handoff');
+  await call(`const c=app.controller,render=c.render;
+    c.render=controller=>{
+      if(c.state.flight.lunar.handoff==='manual'){
+        c.render=render;
+        queueMicrotask(()=>c.pause());
+      }
+      render(controller);
+    };`);
   await click('#lunarTakeover',mobile);
+  await wait(()=>call('return !app.controller.running;'),'manual handoff paused for reproducible terrain replay');
   const manual=await call(`const f=app.controller.state.flight;
     return {handoff:f.lunar.handoff,lit:f.controls.lit,throttle:f.controls.throttle,enabled:!d.getElementById('igniteButton').disabled};`);
   assert.deepEqual(manual,{handoff:'manual',lit:false,throttle:0,enabled:true});
   const result=await call(`const c=app.controller,render=c.render;
-    try{c.render=()=>{};return (${lunarPilot})(c,RocketLunar);}
+    try{
+      c.render=()=>{};
+      return (${lunarPilot})(c,RocketLunar,event=>{
+        if(event==='low-pass')window.__lunarLowPass=structuredClone({state:c.state,events:c.events});
+      });
+    }
     finally{c.render=render;app.view('follow',true);c.emit();}`);
   assert.equal(result.outcome,'moon-landed');
   assert(result.touchdown.vertical>=-2&&result.fuel>10);
-  assert(await call('return app.getScene().moonGround.visible&&app.getScene().rocket.getObjectsByProperty("name","lunar-landing-foot").length===4;'));
+  const terrain=await call(`const s=app.getScene();
+    return {visible:s.moonGround.visible,feet:s.rocket.getObjectsByProperty('name','lunar-landing-foot').length,
+      relief:s.moonGround.userData.relief};`);
+  assert(terrain.visible&&terrain.feet===4&&terrain.relief.low<-7&&terrain.relief.high>4&&terrain.relief.vertices<40000);
   await shot(label+'-lunar-landing-touchdown');
+  await call(`const c=app.controller;
+    window.__lunarFinished={state:c.state,events:c.events};
+    Object.assign(c,window.__lunarLowPass);app.view('follow',true);c.emit();`);
+  await shot(label+'-lunar-craters-low-pass');
+  await call(`const c=app.controller;Object.assign(c,window.__lunarFinished);app.view('follow',true);c.emit();`);
+  terrain.resources=await call(`return performance.getEntriesByType('resource').filter(x=>new URL(x.name).origin===location.origin)
+    .map(x=>[new URL(x.name).pathname,x.encodedBodySize]);`);
   await click('#returnWorkshop',mobile);
   assert.deepEqual(await call('return app.getState().craft;'),design);
-  report.flows.push({case:'lunar-landing',label,width,height,orbit,manual,result});
+  report.flows.push({case:'lunar-landing',label,width,height,orbit,manual,result,terrain});
 }
 
 function selection(args){if(args.length>2)throw Error("Expected cases and optional delivery");const cases=args[0]?args[0].split(","):caseNames,delivery=args[1]||null;if(cases.some(name=>!caseNames.includes(name))||new Set(cases).size!==cases.length)throw Error("Unknown or repeated explorer case");if(delivery&&!["source","standalone"].includes(delivery))throw Error("Unknown explorer delivery");return{cases,delivery};}

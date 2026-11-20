@@ -39,9 +39,10 @@ function pilot(controller,L,update=()=>{},hover=false){
   update('braked',f);
   let held=0;
   const max=24000;
-  let count=0;
+  let count=0,lowPass=false;
   while(controller.state.phase!=='ended'&&count++<max){
     const {height,vertical,horizontal}=f.moon.surface, acceleration=3;
+    if(!lowPass&&height<145){lowPass=true;update('low-pass',f);}
     const remaining=hover&&held<20;
     const targetAltitude=remaining?32:0;
     const descSpeed=Math.sqrt(1.1**2+2*acceleration*Math.max(0,height-targetAltitude));

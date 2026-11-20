@@ -114,16 +114,31 @@
     const r=relative.slice(0,3),up=unit(r),centerPosition=center.slice(0,3);
     const spin=scale(cross(centerPosition,center.slice(3)),1/norm(centerPosition)**2);
     const velocity=add(relative.slice(3),cross(spin,r),-1);
-    return {r,up,velocity};
+    return {r,up,velocity,center};
   }
   function moonSurface(table,f,t,q){
-    const {r,up,velocity}=moonMotion(table,f,t,q);
-    const vertical=dot(up,velocity),horizontal=norm(add(velocity,up,-vertical));
-    const tilt=Math.acos(Math.max(-1,Math.min(1,dot(f.axis,up))))/DEG;
+    const {r,up,velocity,center}=moonMotion(table,f,t,q);
+    const close=norm(r)-C.MOON_RADIUS<1800,basis=close?C.moonFrame(center):null;
+    const fixed=close?C.toColumns(basis,up):null;
+    let normal=up,slope=0;
+    if(close){
+      const [east,north]=C.moonMap(fixed),cosLat=Math.max(.01,Math.hypot(fixed[0],fixed[2]));
+      const eastward=unit([-fixed[2],0,fixed[0]]),northward=unit(cross(eastward,fixed));
+      const dx=(C.moonTerrain(east+1/cosLat,north)-C.moonTerrain(east-1/cosLat,north))/2;
+      const dz=(C.moonTerrain(east,north+1)-C.moonTerrain(east,north-1))/2;
+      normal=unit(C.fromColumns(basis,add(add(fixed,eastward,-dx),northward,-dz)));
+      slope=Math.atan(Math.hypot(dx,dz))/DEG;
+    }
+    const vertical=dot(normal,velocity),horizontal=norm(add(velocity,normal,-vertical));
+    const tilt=Math.acos(Math.max(-1,Math.min(1,dot(f.axis,normal))))/DEG;
+    const clearanceAt=position=>{
+      const elevation=close?C.moonTerrain(...C.moonMap(C.toColumns(basis,position))):0;
+      return norm(position)-C.MOON_RADIUS-elevation;
+    };
     const base=add(r,f.axis,-FOOT_HEIGHT),crossbar=cross(f.axis,f.bodyRight);
     const clearance=Math.min(...[-1,1].flatMap(a=>[-1,1].map(b=>
-      norm(add(add(base,f.bodyRight,a*FOOT_SPREAD),crossbar,b*FOOT_SPREAD))-C.MOON_RADIUS)));
-    return {height:Math.max(0,clearance),clearance,vertical,horizontal,tilt};
+      clearanceAt(add(add(base,f.bodyRight,a*FOOT_SPREAD),crossbar,b*FOOT_SPREAD)))));
+    return {height:Math.max(0,clearance),clearance,vertical,horizontal,tilt,slope};
   }
   function sync(f,table){
     const frame=C.earthFrame(epoch(f)+f.t);
@@ -561,13 +576,13 @@
       const direction=S.direction(surfaceVector(C.earthFrame(epoch(f)+t+h),state.slice(0,3)));
       const [lon,lat]=S.geographic(...direction);
       l.landing={lon,lat,speed:contact.speed,water:S.waterAt(...direction)};
-    }else if(l.handoff==='manual'&&after.height<FOOT_SPREAD*2+FOOT_HEIGHT&&moonSurface(table,f,t+dt,q).clearance<=0){
+    }else if(l.handoff==='manual'&&after.height<C.MOON_RELIEF_LIMIT+FOOT_SPREAD*2+FOOT_HEIGHT&&moonSurface(table,f,t+dt,q).clearance<=0){
       h=locate((state,time)=>moonSurface(table,f,t+time,state).clearance<=0);
       const contact=moonSurface(table,f,t+h,at(h));
       l.touchdown=contact;
-      reason=contact.vertical>=-2&&contact.horizontal<=1&&contact.tilt<=10?'moon-landed':
-        contact.vertical>=-5&&contact.horizontal<=3&&contact.tilt<=20?'moon-hard-landing':'moon-impact';
-    }else if(after.height<=0){
+      reason=contact.vertical>=-2&&contact.horizontal<=1&&contact.tilt<=10&&contact.slope<=12?'moon-landed':
+        contact.vertical>=-5&&contact.horizontal<=3&&contact.tilt<=20&&contact.slope<=22?'moon-hard-landing':'moon-impact';
+    }else if(l.handoff!=='manual'&&after.height<=0){
       h=locate((state,time)=>lunarDistance(table,f,t+time,state).height<=0);
       reason='moon-impact';
     }else if(!l.landingMission&&!l.entry&&f.capsule.detached&&height>120000&&norm(q.slice(0,3))-P.R<=120000){

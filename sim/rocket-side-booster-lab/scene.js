@@ -705,6 +705,13 @@ export class RocketScene{
     this.moonTarget=skyFrame?new THREE.Vector3(...skyFrame.moon).applyQuaternion(worldRotation)
       .multiplyScalar(space?3000/P.R:1).add(this.earth.position):null;
     const moonPosition=lunar?this.moonTarget:null;
+    let moonBasis=null;
+    if(moonLocal&&f.moon.height<1800){
+      const prime=this.earth.position.clone().sub(moonPosition).normalize();
+      const north=new THREE.Vector3(...skyFrame.moonNorth).applyQuaternion(worldRotation);
+      const east=prime.clone().cross(north).normalize();
+      moonBasis=[prime,east.clone().cross(prime),east];
+    }
     const lockedBody=!f?null:this.cameraLock==='earth'?this.earth.position:this.cameraLock==='moon'?this.moonTarget:
       this.cameraLock==='sun'&&skyFrame?new THREE.Vector3(...skyFrame.sun).applyQuaternion(worldRotation).add(this.earth.position):null;
     const positionCamera=(pitch,yaw=cameraYaw)=>this.camera.position.copy(target).add(new THREE.Vector3(Math.sin(yaw)*Math.cos(pitch)*distance,Math.sin(pitch)*distance,Math.cos(yaw)*Math.cos(pitch)*distance));
@@ -715,7 +722,11 @@ export class RocketScene{
     if(!space){
       const inverse=this.globalTerrain.matrixWorld.clone().invert(),point=new THREE.Vector3(),margin=factory||!f?.2:.002;
       const clearance=()=>{
-        if(moonLocal&&moonPosition)return this.camera.position.distanceTo(moonPosition)-moonRadius;
+        if(moonLocal&&moonPosition){
+          point.copy(this.camera.position).sub(moonPosition);
+          const h=moonBasis?RocketCelestial.moonTerrain(...RocketCelestial.moonMap(moonBasis.map(axis=>point.dot(axis))))*.001:0;
+          return point.length()-moonRadius-h;
+        }
         if(factory||!f)return this.camera.position.y+.8;
         point.copy(this.camera.position).applyMatrix4(inverse);
         const radius=point.length();point.divideScalar(radius);
@@ -751,20 +762,20 @@ export class RocketScene{
         camera:this.camera,pixels:space?2*moonRadius*this.orbitFrame.pixelsPerUnit:
         moonRadius*this.host.clientHeight/(tanHalfFov*moonDepth),moonAltitude:f.moon.height,refresh:()=>this.draw()});
     }else if(this.moonGlobe)this.moonGlobe.visible=false;
-    if(moonLocal&&f.moon.height<250){
+    if(moonBasis){
       if(!this.moonGround){
         this.moonGround=createLunarGround();
         this.scene.add(this.moonGround);
       }
-      this.moonGround.position.set(0,-f.moon.height/1000,0);
+      const up=new THREE.Vector3(...moonBasis.map(axis=>-moonPosition.dot(axis))).normalize();
+      this.moonGround.userData.update(up,moonBasis,moonPosition,Math.max(0,f.moon.height));
       this.moonGround.visible=true;
-      const center=new THREE.Vector3(...f.sky.moon),up=worldVector(f.state).addScaledVector(center,-1000).normalize();
-      const prime=center.normalize().negate(),side=prime.clone().cross(new THREE.Vector3(...f.sky.moonNorth)).normalize();
-      const latitude=Math.asin(THREE.MathUtils.clamp(up.dot(side.clone().cross(prime)),-1,1));
-      const longitude=Math.atan2(up.dot(side),up.dot(prime));
-      const repeat=RocketLunar.MOON_RADIUS/16;
-      this.moonGround.material.map.offset.set((-longitude*Math.cos(latitude)*repeat)%1,(latitude*repeat)%1);
-    }else if(this.moonGround)this.moonGround.visible=false;
+      const radial=this.moonGround.position.clone().sub(moonPosition).normalize();
+      this.moonGlobe.userData.terrainCut.value.set(radial.x,radial.y,radial.z,Math.cos(61000/RocketLunar.MOON_RADIUS));
+    }else{
+      if(this.moonGround)this.moonGround.visible=false;
+      if(this.moonGlobe)this.moonGlobe.userData.terrainCut.value.w=2;
+    }
     this.drawSky(skyFrame,space,worldRotation);
     const pixelsPerUnit=space?this.orbitFrame.pixelsPerUnit:this.host.clientHeight/(2*tanHalfFov*distance);
     const detailPixels=pixelsPerUnit*(space?this.camera.position.distanceTo(this.earth.position):distance);
