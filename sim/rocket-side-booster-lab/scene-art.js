@@ -476,10 +476,10 @@ export function createLaunchEffects(){
 function exhaustGeometry(){
  return new THREE.LatheGeometry([[.025,-1],[.22,-.89],[.62,-.67],[1,-.43],[.97,-.24],[.76,-.09],[.66,0]].map(([r,y])=>new THREE.Vector2(r,y)),16);
 }
-function exhaustMaterial(color){
+function exhaustMaterial(color,brightness=1.12){
  return new THREE.ShaderMaterial({
    transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false,
-   uniforms:{edge:{value:new THREE.Color(color)},jet:{value:new THREE.Vector4(1,5,0,0)}},
+   uniforms:{edge:{value:new THREE.Color(color)},brightness:{value:brightness},jet:{value:new THREE.Vector4(1,5,0,0)}},
    vertexShader:`
      #include <common>
      #include <logdepthbuf_pars_vertex>
@@ -502,19 +502,60 @@ function exhaustMaterial(color){
      #include <common>
      #include <logdepthbuf_pars_fragment>
      uniform vec3 edge;
+     uniform float brightness;
      uniform vec4 jet;
      varying vec3 vExhaust;
      void main(){
        #include <logdepthbuf_fragment>
        float along=vExhaust.x, facing=vExhaust.z;
-       float stream=.84+.16*sin(along*25.0+sin(vExhaust.y*37.699)*.8-jet.w);
-       float hot=pow(1.0-along,1.5)*(.46+.54*facing);
-       vec3 color=mix(edge,vec3(1.0,.94,.78),hot);
-       float glow=pow(1.0-along,1.08)*(.26+.62*facing)*stream;
-       gl_FragColor=vec4(color,glow);
+       float stream=.9+.1*sin(along*25.0+sin(vExhaust.y*37.699)*.8-jet.w);
+       float remaining=clamp(1.0-along,0.0,1.0);
+       float hot=pow(remaining,.75)*(.38+.62*facing)*brightness;
+       vec3 color=mix(edge,vec3(1.0,.98,.93),smoothstep(.30,.96,hot));
+       float glow=pow(remaining,.8)*(.34+.58*facing)*stream*brightness;
+       gl_FragColor=vec4(color,min(1.0,glow));
        #include <colorspace_fragment>
      }`
  });
+}
+
+function headlightMaterial(opacity,side=THREE.FrontSide){
+ return new THREE.ShaderMaterial({
+   side,forceSinglePass:true,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false,
+   uniforms:{level:{value:0}},
+   vertexShader:`
+     #include <common>
+     #include <logdepthbuf_pars_vertex>
+     varying vec2 vLampUv;
+     void main(){
+       vLampUv=uv;
+       gl_Position=projectionMatrix*modelViewMatrix*instanceMatrix*vec4(position,1.0);
+       #include <logdepthbuf_vertex>
+     }`,
+   fragmentShader:`
+     #include <common>
+     #include <logdepthbuf_pars_fragment>
+     uniform float level;
+     varying vec2 vLampUv;
+     void main(){
+       #include <logdepthbuf_fragment>
+       gl_FragColor=vec4(1.0,.88,.64,level*(${opacity}));
+       #include <colorspace_fragment>
+     }`
+ });
+}
+
+function createCapsuleHeadlights(group,lenses){
+ const halo=instances(group,new THREE.PlaneGeometry(1,1),headlightMaterial(
+   'exp(-10.0*dot(vLampUv-.5,vLampUv-.5)*4.0)*(1.0-smoothstep(.32,.5,length(vLampUv-.5)))'
+ ),lenses.map(([x,y,z])=>[x,y,z+.105,1.05,1.05,1]));
+ const beamLength=8;
+ const beam=instances(group,new THREE.CylinderGeometry(.09,1.35,beamLength,16,1,true).rotateX(-Math.PI/2),
+   headlightMaterial('.14*pow(vLampUv.y,2.5)',THREE.DoubleSide),
+   lenses.map(([x,y,z])=>[x,y,z+beamLength/2,1,1,1]));
+ halo.name='capsule-headlight-halos';beam.name='capsule-headlight-beams';
+ halo.visible=beam.visible=false;
+ return {halo,beam};
 }
 
 export function createLandscape(){
@@ -697,7 +738,7 @@ function rcsShell(top,bottom,height,rows,portRows,offset,crossJets){
   return {shell,recess,mouths};
 }
 
-export function buildRocket(c,separated,capsuleOnly=false,lunar=false){
+export function buildRocket(c,separated,capsuleOnly=false,lunar=false,lander=false){
   const group=new THREE.Group(),white=material('#edf1eb',{roughness:.42}),skin=material('#ffffff',{map:surface('payload'),roughness:.5}),shell=material('#ffffff',{map:surface('separator'),roughness:.55,metalness:.25}),dark=material('#4b535c',{map:surface('metal'),metalness:.78,roughness:.36,side:THREE.DoubleSide}),metal=material('#a2b3b9',{map:surface('metal'),metalness:.7,roughness:.38}),mint=material('#318d84',{metalness:.3}),orange=material('#d59257',{metalness:.3}),slots=[],parts=[],ranges=[],capsulePorts=[];let y=0,partParent=group,separatorY=null;
   const mesh=(geometry,mat,x,yy,z,parent=partParent)=>{const m=new THREE.Mesh(geometry,mat);m.position.set(x,yy,z);parent.add(m);return m;};
   const rcsMouths=[],hasCapsule=P.hasCapsule(c),activeTanks=c.stages.flatMap((s,i)=>capsuleOnly||separated&&i===0?[]:P.tanks(s).map((_,j)=>[i,j]));
@@ -755,9 +796,11 @@ export function buildRocket(c,separated,capsuleOnly=false,lunar=false){
   recessedShell(1.25,1.4,2,10,[[1,capsuleOnly?'upper':null],[8,capsuleOnly?'lower':'upper']],c.boosters&&!separated&&!capsuleOnly?4:0,skin,y+1);
   mesh(new THREE.SphereGeometry(1.25,32,20,hullAzimuth,Math.PI*2,0,Math.PI/2),white,0,y+2,0);const faceY=y+1.1;
    batch(new THREE.SphereGeometry(1,12,8),dark,[-1,1].map(side=>[side*.4,faceY,1.24,.16,.16,.16]));
-   const eyeLight=material('#ffffff',{emissive:'#fff1c7',emissiveIntensity:0});
-   batch(new THREE.SphereGeometry(1,8,6),eyeLight,[-1,1].map(side=>[side*.4-.03,faceY+.05,1.37,.07,.07,.07])).name='capsule-eye-lights';
+   const eyeLight=material('#ffffff',{emissive:'#fff2d5',emissiveIntensity:0});
+   const lenses=[-1,1].map(side=>[side*.4-.03,faceY+.05,1.37,.10,.10,.10]);
+   batch(new THREE.SphereGeometry(1,12,8),eyeLight,lenses).name='capsule-eye-lights';
    group.userData.eyeLight=eyeLight;
+   group.userData.eyeEffects=createCapsuleHeadlights(group,lenses);
   const smile=new THREE.TorusGeometry(.24,.035,6,14,Math.PI);const mouth=mesh(smile,dark,0,faceY-.25,1.32);mouth.rotation.z=Math.PI;
   mesh(new THREE.CylinderGeometry(.04,.04,1.1,8),metal,0,y+3.6,0);mesh(new THREE.SphereGeometry(.17,10,8),orange,0,y+4.15,0);
   for(const side of [-1,1]){const angle=side*20*Math.PI/180,pod=mesh(new THREE.SphereGeometry(.22,16,12),white,side*1.39,y+1.12,0);pod.scale.set(.85,1.5,1);pod.name='capsule-engine-pod';
@@ -765,28 +808,52 @@ export function buildRocket(c,separated,capsuleOnly=false,lunar=false){
   }
   partParent=group;
   if(capsuleOnly){const underside=parts.find(p=>p.userData.part.part==='capsule'),shield=mesh(new THREE.CylinderGeometry(1.4,1.3,.25,48),material('#40382f',{roughness:.96,metalness:0,emissive:'#ff6622',emissiveIntensity:0}),0,.05,0,underside);shield.name='capsule-heat-shield';group.userData.heatShield=shield;}
+  if(lander&&capsuleOnly){
+    const cabin=parts.find(p=>p.userData.part.part==='capsule');
+    const shoe=new THREE.CylinderGeometry(.35,.39,.13,16);
+    for(const x of [-1.85,1.85])for(const z of [-1.85,1.85]){
+      const foot=mesh(shoe,metal,x,-.485,z,cabin);
+      foot.name='lunar-landing-foot';
+      const anchor=new THREE.Vector3(x*.44,.58,z*.44),end=new THREE.Vector3(x,-.43,z);
+      const brace=mesh(new THREE.CylinderGeometry(.09,.12,anchor.distanceTo(end),8),metal,
+        (anchor.x+end.x)/2,(anchor.y+end.y)/2,(anchor.z+end.z)/2,cabin);
+      brace.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),anchor.sub(end).normalize());
+    }
+  }
   const rcs=[new THREE.Group(),new THREE.Group()],crossRcs=capsuleOnly&&lunar?[new THREE.Group(),new THREE.Group()]:[];
+  const translateRcs=lander&&capsuleOnly?Array.from({length:2},()=>Array.from({length:2},()=>new THREE.Group())):[];
   for(const {position,station,crossJet}of rcsMouths){
     if(!station)continue;
     const side=Math.sign(crossJet?-position.z:position.x),direction=station==='upper'?-side:side;
     const jets=(crossJet?crossRcs:rcs)[direction===1?1:0];
+    const sideJets=translateRcs[crossJet?1:0]?.[(crossJet?side:-side)===1?1:0];
     for(const [radius,length,opacity,color]of [[.18,1.65,.45,'#7bc9ff'],[.085,1.05,.9,'#e1f6ff']]){
       const geometry=new THREE.LatheGeometry([[.037,0],[radius,length*.28],[radius*.5,length*.68],[0,length]].map(([r,h])=>new THREE.Vector2(r,h)),10).translate(0,-length/2,0);
       const plume=mesh(geometry,new THREE.MeshBasicMaterial({color,transparent:true,opacity,blending:THREE.AdditiveBlending,depthWrite:false,toneMapped:false}),
         position.x+(crossJet?0:side*length/2),position.y,position.z-(crossJet?side*length/2:0),jets);
       plume.rotation[crossJet?'x':'z']=-side*Math.PI/2;plume.userData.baseOpacity=opacity;
+      if(sideJets){
+        const lateral=plume.clone();
+        lateral.material=plume.material.clone();
+        lateral.material.color.set(radius>.1?'#8be4ff':'#effdff');
+        lateral.scale.setScalar(1.18);
+        sideJets.add(lateral);
+      }
     }
   }
-  for(const jets of [...rcs,...crossRcs]){jets.visible=false;group.add(jets);}
+  for(const jets of translateRcs.flat())jets.name='lunar-translation-rcs';
+  for(const jets of [...rcs,...crossRcs,...translateRcs.flat()]){jets.visible=false;group.add(jets);}
   group.userData.crossRcs=crossRcs;
+  group.userData.translateRcs=translateRcs;
   const flame=new THREE.Group(),clustered=capsuleOnly||c.stages[separated?1:0].engine===0,exits=capsuleOnly?capsulePorts:clustered?[[-.61,-.61],[-.61,.61],[.61,-.61],[.61,.61]]:[[0,0]];flame.position.y=capsuleOnly?0:-.04;flame.userData.ports=capsuleOnly?capsulePorts:null;
   if(capsuleOnly){
-    for(const [radius,length,color,opacity]of [[.13,.65,'#58b9ec',.5],[.085,.42,'#a9e7ff',.65],[.045,.24,'#fff4d8',.9]]){
+    for(const [radius,length,color,opacity]of [[.14,.80,'#6fcdff',.64],[.095,.55,'#a9e7ff',.85],[.055,.34,'#fff9ef',1]]){
       const plume=instances(flame,new THREE.ConeGeometry(radius,length,20).rotateZ(Math.PI),new THREE.MeshBasicMaterial({color,transparent:true,opacity,blending:radius>.1?THREE.NormalBlending:THREE.AdditiveBlending,depthWrite:false,toneMapped:false}),exits.map(([x,y,z,angle])=>[x+Math.sin(angle)*length/2,y-Math.cos(angle)*length/2,z,1,1,1,0,0,angle]));
       plume.computeBoundingSphere();
     }
   }else{
-    const plume=instances(flame,exhaustGeometry(),exhaustMaterial(clustered?'#ffa74b':'#72b5ed'),exits.map(([x,z])=>[x,0,z,1,1,1]));
+    const edge=clustered?'#ff9a38':separated?'#74c2ff':'#73b8ed';
+    const plume=instances(flame,exhaustGeometry(),exhaustMaterial(edge,separated?1.55:1.23),exits.map(([x,z])=>[x,0,z,1,1,1]));
     plume.frustumCulled=false;
     flame.userData.jet=plume.material.uniforms.jet.value;
     flame.userData.clustered=clustered;

@@ -33,6 +33,8 @@ The teaching tools listed below comprise **three teacher workbenches and 25 asse
 
 Catalogue links point to entry files in this repository. A source-hosting website displays their source; use a local static server or a deployed URL for interactive use.
 
+To open Little Astronaut locally with Python, run `python3 -m http.server 8734 --bind 127.0.0.1 --directory sim` from the repository root, then open [Little Astronaut](http://127.0.0.1:8734/rocket-side-booster-lab/index.html). For an extracted standalone ZIP, run the command from the extracted folder and omit `--directory sim`.
+
 Refreshing a student activity in standalone mode starts a fresh practice session. Moodle restores work within the same attempt. Submitted attempts are review-only, and pending submissions stay locked for retry. All three teacher workbenches also start fresh on refresh; export JSON before leaving and import it explicitly to reopen a circuit. See the [refresh and resume contract](docs/simulation-scorm-production-guide.md#standalone-refresh-and-moodle-resume).
 
 ### Set up development tools

@@ -12,6 +12,18 @@
   const INSERTION_FUEL=30-13.940448204644234,THRUST=3000,ISP=300;
   // Launch guidance targeted offline for a far-side flyby and an inland touchdown.
   const GROUND_RETURN={epoch:3210876.071472819,bearing:148.1440749642866,fuel:17.693382291934025,pitchTrim:3.3915660663192986};
+  const LANDER={dry:220,fuel:260,thrust:3000,isp:300};
+  const LANDER_RCS={thrust:320,isp:240};
+  const LANDING_LAUNCHER={scale:3,upper:{dry:1400,fuel:14000,thrust:240000,isp:410}};
+  const MOON_MU=4.902800118e12,ORBIT_LOW=80000,ORBIT_HIGH=120000,ORBIT_SETTLE=60;
+  const LANDING_FUEL_MIN=250,FOOT_HEIGHT=.55,FOOT_SPREAD=1.85;
+  const SURVEY_HEIGHT=C.MOON_RELIEF_LIMIT+45;
+  const clamp=(value,min,max)=>Math.max(min,Math.min(max,value));
+  const landingApproach=l=>l.handoff==='manual'||l.handoff==='auto';
+  const LANDING_PROFILE={
+    epoch:3211006.4838839234,bearing:151.61767998629648,cutoff:338.1127358466407,
+    capture:417710.5728963027,stop:417758.16972739715,circularize:438803.03194553684,orbit:438823.94045052305
+  };
   const NEAR=80000000,FORECAST_SPAN=10*C.DAY,TURN_LEAD=16.5,TURN_THRESHOLD=Math.cos(.15*DEG);
   const PATH_SWEEP=DEG,MAX_PATH_POINTS=4096;
   const TRANSFER_START=7200,FAST_WARP=10000,ENCOUNTER_WARP_HEIGHT=20000000;
@@ -28,6 +40,7 @@
   const OFFSET=[[0,0],[60,-4],[120,-2.5],[230,0]];
   const RETURN_PITCH_TRIM=[[60,0],[120,1],[230,1],[270,0]];
   const DIRECTIONS=['prograde','retrograde','radial-out','radial-in','normal','antinormal'];
+  const separations=new Set(['jettison','separate','capsule-separate']);
   const station=[0,1,2].map(i=>S.fromGeocentric(...[0,1,2].map(j=>Number(i===j)))[1]);
   const preset=()=>({payload:0,stages:[{engine:0,small:0,large:4},{engine:1,small:1,medium:1,large:0}],separator:true,boosters:4});
   function compatible(c){
@@ -89,14 +102,48 @@
     const [east,up,north]=S.fromGeocentric(...C.toColumns(frame,v));
     return [up,east,north];
   }
-  function elements(q){
+  function elements(q,mu=P.MU,surface=P.R){
     const r=q.slice(0,3),v=q.slice(3,6),radius=norm(r),speed=norm(v);
-    const momentum=cross(r,v),energy=speed*speed/2-P.MU/radius;
-    const eccentricity=norm(add(scale(cross(v,momentum),1/P.MU),unit(r),-1));
-    const a=energy<0?-P.MU/(2*energy):null;
-    return {height:radius-P.R,speed,radial:dot(r,v)/radius,tangential:norm(momentum)/radius,
-      bound:a!==null,hp:a===null?null:a*(1-eccentricity)-P.R,ha:a===null?null:a*(1+eccentricity)-P.R,
-      period:a===null?null:2*Math.PI*Math.sqrt(a**3/P.MU),e:eccentricity};
+    const momentum=cross(r,v),energy=speed*speed/2-mu/radius;
+    const eccentricity=norm(add(scale(cross(v,momentum),1/mu),unit(r),-1));
+    const a=energy<0?-mu/(2*energy):null;
+    return {height:radius-surface,speed,radial:dot(r,v)/radius,tangential:norm(momentum)/radius,
+      bound:a!==null,hp:a===null?null:a*(1-eccentricity)-surface,ha:a===null?null:a*(1+eccentricity)-surface,
+      period:a===null?null:2*Math.PI*Math.sqrt(a**3/mu),e:eccentricity};
+  }
+  const moonRelative=(table,f,t,q)=>add(q,table.body(epoch(f)+t,0),-1);
+  const moonOrbit=(table,f,t,q)=>elements(moonRelative(table,f,t,q),MOON_MU,C.MOON_RADIUS);
+  const stable=o=>o.bound&&o.hp>=ORBIT_LOW&&o.ha<=ORBIT_HIGH;
+  function moonMotion(table,f,t,q){
+    const center=table.body(epoch(f)+t,0),relative=add(q,center,-1);
+    const r=relative.slice(0,3),up=unit(r),centerPosition=center.slice(0,3);
+    const spin=scale(cross(centerPosition,center.slice(3)),1/norm(centerPosition)**2);
+    const velocity=add(relative.slice(3),cross(spin,r),-1);
+    return {r,up,velocity,center};
+  }
+  function moonSurface(table,f,t,q){
+    const {r,up,velocity,center}=moonMotion(table,f,t,q);
+    const close=norm(r)-C.MOON_RADIUS<1800,basis=close?C.moonFrame(center):null;
+    const fixed=close?C.toColumns(basis,up):null;
+    let normal=up,slope=0;
+    if(close){
+      const [east,north]=C.moonMap(fixed),cosLat=Math.max(.01,Math.hypot(fixed[0],fixed[2]));
+      const eastward=unit([-fixed[2],0,fixed[0]]),northward=unit(cross(eastward,fixed));
+      const dx=(C.moonTerrain(east+1/cosLat,north)-C.moonTerrain(east-1/cosLat,north))/2;
+      const dz=(C.moonTerrain(east,north+1)-C.moonTerrain(east,north-1))/2;
+      normal=unit(C.fromColumns(basis,add(add(fixed,eastward,-dx),northward,-dz)));
+      slope=Math.atan(Math.hypot(dx,dz))/DEG;
+    }
+    const vertical=dot(normal,velocity),horizontal=norm(add(velocity,normal,-vertical));
+    const tilt=Math.acos(Math.max(-1,Math.min(1,dot(f.axis,normal))))/DEG;
+    const clearanceAt=position=>{
+      const elevation=close?C.moonTerrain(...C.moonMap(C.toColumns(basis,position))):0;
+      return norm(position)-C.MOON_RADIUS-elevation;
+    };
+    const base=add(r,f.axis,-FOOT_HEIGHT),crossbar=cross(f.axis,f.bodyRight);
+    const clearance=Math.min(...[-1,1].flatMap(a=>[-1,1].map(b=>
+      clearanceAt(add(add(base,f.bodyRight,a*FOOT_SPREAD),crossbar,b*FOOT_SPREAD)))));
+    return {height:Math.max(0,clearance),clearance,vertical,horizontal,tilt,slope};
   }
   function sync(f,table){
     const frame=C.earthFrame(epoch(f)+f.t);
@@ -111,7 +158,8 @@
       const position=surfaceVector(frame,r),velocity=surfaceVector(frame,v),axis=surfaceVector(frame,body.axis);
       body.state=[...position,...velocity];
       body.attitude=Math.atan2(axis[1],axis[0]);
-      body.pitch=Math.acos(Math.max(-1,Math.min(1,dot(unit(r),body.axis))))/DEG;
+      const vertical=body===f&&f.lunar.landingMission&&f.capsule.detached?moonMotion(table,f,f.t,f.eci).up:unit(r);
+      body.pitch=Math.acos(Math.max(-1,Math.min(1,dot(vertical,body.axis))))/DEG;
       body.axisSurface=axis;
       body.rightSurface=surfaceVector(frame,body.bodyRight);
       body.orbit=elements(body.eci);
@@ -126,9 +174,15 @@
     f.sky.mapBasis=f.lunar.mapAxes.map(axis=>S.fromGeocentric(...C.toColumns(frame,axis)));
     const sample=lunarDistance(table,f,f.t,f.eci);
     f.moon={height:sample.height,speed:sample.speed};
+    if(f.lunar.landingMission){
+      Object.assign(f.moon,moonOrbit(table,f,f.t,f.eci));
+      if(f.capsule.detached)f.moon.surface=f.lunar.touchdown??moonSurface(table,f,f.t,f.eci);
+    }
   }
   const flow=(force,isp)=>force/(P.G0*isp);
   const boostEnd=P.BOOSTER.fuel/flow(P.BOOSTER.thrust,P.BOOSTER.isp);
+  const landingCapacity=f=>({lower:P.capacity(f.craft.stages[0])*LANDING_LAUNCHER.scale,
+    upper:LANDING_LAUNCHER.upper.fuel,booster:P.BOOSTER.fuel*LANDING_LAUNCHER.scale});
   function open(craft,table,groundReturn=false){
     if(!compatible(craft))throw Error('The lunar demonstrator requires the reference rocket');
     const f=M.flight(craft);
@@ -149,6 +203,26 @@
     sync(f,table);
     return f;
   }
+  function openLanding(table,profile=LANDING_PROFILE){
+    const f=open(preset(),table);
+    const frame=C.earthFrame(profile.epoch),up=C.fromColumns(frame,station),r=scale(up,P.R);
+    f.eci=[...r,...C.spin(frame[2],r)];
+    f.axis=up;
+    f.bodyRight=unit(cross(frame[2],up));
+    const lower=P.ENGINES[0],stage=P.capacity(f.craft.stages[0])/flow(lower.thrust,lower.isp);
+    const capacity=landingCapacity(f);
+    f.fuel=[capacity.lower,capacity.upper];
+    f.boosters.fuel=capacity.booster;
+    f.capsule.fuel=LANDER.fuel;
+    Object.assign(f.lunar,{landingMission:true,epoch:profile.epoch,pole:frame[2],mapAxes:null,bearing:profile.bearing,
+      transferCutoff:profile.cutoff,trail:[r],handoff:null,
+      sequence:[[boostEnd,'jettison'],[stage,'separate'],[profile.cutoff,'cutoff'],
+        [profile.capture-20,'moon-align'],[profile.capture,'moon-capture'],[profile.stop,'moon-cutoff'],
+        [profile.circularize-20,'moon-align'],[profile.circularize,'moon-capture'],[profile.orbit,'moon-cutoff'],
+        [profile.orbit+20,'capsule-separate'],[profile.orbit+20+ORBIT_SETTLE,'moon-verify']]});
+    sync(f,table);
+    return f;
+  }
   function lunarDistance(table,f,t,q){
     const moon=table.body(epoch(f)+t,0);
     const dr=add(q.slice(0,3),moon.slice(0,3),-1),dv=add(q.slice(3,6),moon.slice(3,6),-1);
@@ -165,32 +239,49 @@
     f.lunar.events.push({type,t:f.t,altitude:f.orbit?.height, fuel:f.capsule.fuel,...extra});
   }
   function coreSettings(f){
-    const engine=f.capsule.detached?{thrust:THRUST,isp:ISP}:P.ENGINES[f.craft.stages[f.active].engine];
+    const landing=f.lunar.landingMission;
+    const engine=f.capsule.detached?(landing?LANDER:{thrust:THRUST,isp:ISP}):
+      landing&&f.active===1?LANDING_LAUNCHER.upper:P.ENGINES[f.craft.stages[f.active].engine];
     const fuel=f.capsule.detached?f.capsule.fuel:f.fuel[f.active];
-    const force=f.controls.lit&&fuel>0&&!f.lunar.entry?engine.thrust*f.controls.throttle:0;
+    const multiplier=landing&&!f.capsule.detached&&f.active===0?LANDING_LAUNCHER.scale:1;
+    const force=f.controls.lit&&fuel>0&&!f.lunar.entry?multiplier*engine.thrust*f.controls.throttle:0;
     return {force,fuel,flow:flow(force,engine.isp)};
   }
+  function flightMass(f){
+    if(!f.lunar.landingMission)return P.mass(f);
+    const spec=LANDING_LAUNCHER,lander=LANDER.dry+f.capsule.fuel;
+    if(f.capsule.detached)return lander;
+    const upper=spec.upper.dry+f.fuel[1];
+    if(f.separated)return upper+lander;
+    const booster=P.attached(f)?f.craft.boosters*(P.BOOSTER.dry*spec.scale+f.boosters.fuel):0;
+    return upper+lander+spec.scale*(P.dry(f.craft.stages[0])+60)+f.fuel[0]+booster;
+  }
+  const canSeparate=(f,type)=>type==='jettison'?P.attached(f):
+    type==='separate'?f.active===0&&!P.attached(f):type==='capsule-separate'&&R.canSeparate(f);
+  const canRequestSeparation=(f,type)=>f.status==='flying'&&!guidanceLocked(f)&&!f.lunar.maneuver&&!f.lunar.entry&&canSeparate(f,type);
+  const nextSeparation=f=>f.lunar.guided?f.lunar.sequence.find(([time,type])=>time>f.t+1e-8&&separations.has(type))?.[0]:undefined;
   function separate(f,type){
-    const b=f.boosters;
-    if(type==='jettison'&&P.attached(f)){
+    if(!canSeparate(f,type))return false;
+    const b=f.boosters,launcher=f.lunar.landingMission?LANDING_LAUNCHER:null,mult=launcher?.scale??1;
+    if(type==='jettison'){
       const lateral=unit(cross(f.axis,f.lunar.pole)),side=cross(f.axis,lateral);
       for(const [x,y] of P.boosterMounts(f.craft.boosters)){
         const out=add(scale(lateral,x),side,y),q=f.eci.slice();
         for(let i=0;i<3;i++){q[i]+=2.4*out[i]+3.6*f.axis[i];q[i+3]+=2*out[i];}
-        f.lunar.drops.push({eci:q,axis:f.axis,out,start:f.t,kind:'booster',dry:P.BOOSTER.dry,
-          fuel:b.fuel,area:Math.PI*.65**2});
+        f.lunar.drops.push({eci:q,axis:f.axis,out,start:f.t,kind:'booster',dry:P.BOOSTER.dry*mult,
+          fuel:b.fuel,area:Math.PI*.65**2*mult**(2/3),thrust:P.BOOSTER.thrust*mult});
       }
       b.status='jettisoned';
-    }else if(type==='separate'&&f.active===0&&!P.attached(f)){
-      f.lunar.drops.push({eci:f.eci.slice(),kind:'lower',dry:P.dry(f.craft.stages[0])+60,
+    }else if(type==='separate'){
+      f.lunar.drops.push({eci:f.eci.slice(),kind:'lower',dry:(P.dry(f.craft.stages[0])+60)*mult,
         fuel:f.fuel[0],area:P.CORE_DRAG_AREA,start:f.t});
       f.active=1;
       f.separated=true;
       f.fuel[0]=0;
       f.controls.lit=false;
-    }else if(type==='capsule-separate'&&R.canSeparate(f)){
+    }else{
       const stage=f.craft.stages[f.active],fuel=f.fuel[f.active];
-      const mass=P.dry(stage)+fuel,body=M.flight({payload:0,capsule:false,stages:[P.clone(stage)],separator:false});
+      const mass=(launcher?.upper.dry??P.dry(stage))+fuel,body=M.flight({payload:0,capsule:false,stages:[P.clone(stage)],separator:false});
       body.capsule=null;
       body.eci=f.eci.slice();
       body.axis=f.axis;
@@ -199,7 +290,8 @@
       body.status='flying';
       body.fuel=[fuel,null];
       body.auto={mode:'manual'};
-      const gap=R.stageHeight(body)+.3, fraction=mass/(mass+R.mass(f));
+      const gap=R.stageHeight(body)+.3, fraction=mass/(mass+(launcher?LANDER.dry+f.capsule.fuel:R.mass(f)));
+      if(launcher)body.dry=launcher.upper.dry;
       for(let i=0;i<3;i++){
         f.eci[i]+=gap*f.axis[i];
         f.eci[i+3]+=fraction*f.axis[i];
@@ -209,14 +301,36 @@
       f.fuel=f.fuel.map(value=>value===null?null:0);
       f.capsule.detached=true;
       f.controls={mode:'hold',angle:0,throttle:1,lit:false};
-    }else return false;
+    }
     return true;
   }
   function plannedEvent(s,type,table,report){
     const f=s.flight;
+    const l=f.lunar;
+    if(type==='moon-align')l.capturePhase='align';
+    if(type==='moon-capture'){
+      l.capturePhase='burn';
+      f.controls.lit=true;
+      f.controls.throttle=.2;
+    }
+    if(type==='moon-cutoff'){
+      l.capturePhase='settle';
+      f.controls.lit=false;
+      f.controls.throttle=1;
+    }
+    if(type==='moon-verify'){
+      if(!f.capsule.detached||f.controls.lit||l.unstable||f.capsule.fuel<LANDING_FUEL_MIN||
+        !verifyMoonOrbit(f,table)){
+        finish(s,'moon-orbit-failed',report);
+        return;
+      }
+      l.handoff='ready';
+      f.controls.throttle=0;
+      f.controls.mode='hold';
+    }
     if(type==='capsule-separate'||type==='cutoff')f.controls.lit=false;
     if(type==='cutoff'&&f.lunar.groundReturn)f.controls.mode='hold';
-    if(['jettison','separate','capsule-separate'].includes(type)){
+    if(separations.has(type)){
       if(!separate(f,type))throw Error('Invalid guidance separation');
       if(type==='separate')f.controls.lit=true;
       sync(f,table);
@@ -225,10 +339,14 @@
     log(f,type);
     report?.(type,f.t,f);
   }
-  function guidanceAxis(f,t,q){
+  function guidanceAxis(f,t,q,table){
     const l=f.lunar;
+    if(l.landingMission){
+      if(l.capturePhase==='align'||l.capturePhase==='burn')return burnAxis(moonRelative(table,f,t,q),'retrograde');
+      if(t>=l.transferCutoff)return f.axis;
+    }
     if(l.guided&&!f.capsule.detached){
-      const trim=l.groundReturn?GROUND_RETURN.pitchTrim*interp(t,RETURN_PITCH_TRIM):0;
+      const trim=(l.landingMission?2:l.groundReturn?GROUND_RETURN.pitchTrim:0)*interp(t,RETURN_PITCH_TRIM);
       return localAxis(q.slice(0,3),l.pole,interp(t,PITCH)+interp(t,OFFSET)+trim,l.bearing);
     }
     if(l.guided&&f.controls.lit)return burnAxis(q,'prograde');
@@ -250,9 +368,140 @@
     if(DIRECTIONS.includes(mode))return burnAxis(q,mode);
     return f.axis;
   }
+  function lunarManualAxis(f,table,q){
+    const relative=moonRelative(table,f,f.t,q),mode=f.controls.mode;
+    if(mode==='tilt'){
+      const {up,velocity}=moonMotion(table,f,f.t,q),along=add(velocity,up,-dot(up,velocity));
+      const horizontal=norm(along)>.05?unit(along):unit(add(f.bodyRight,up,-dot(up,f.bodyRight)));
+      return unit(add(scale(up,Math.cos(f.controls.angle*DEG)),horizontal,Math.sin(f.controls.angle*DEG)));
+    }
+    return DIRECTIONS.includes(mode)?burnAxis(relative,mode):f.axis;
+  }
+  const moonElevation=point=>C.moonTerrain(...C.moonMap(point));
+  function hoverAltitude(origin,site){
+    if(!site)return moonElevation(origin)+55;
+    const segments=Math.max(1,Math.ceil(site.distance/5));
+    let height=Math.max(moonElevation(origin),site.elevation)+55;
+    for(let i=1;i<segments;i++){
+      const point=unit(add(scale(origin,1-i/segments),site.point,i/segments));
+      height=Math.max(height,moonElevation(point)+40);
+    }
+    return height;
+  }
+  function surveyMoon(origin){
+    const east=unit(cross(origin,Math.abs(origin[1])<.999999?[0,1,0]:[1,0,0]));
+    const north=cross(east,origin);
+    const direction=angle=>add(scale(east,Math.cos(angle)),north,Math.sin(angle));
+    const sample=(point,bearing,distance)=>{
+      const radial=add(bearing,point,-dot(bearing,point));
+      return unit(add(point,unit(radial),distance/C.MOON_RADIUS));
+    };
+    const bearings=Array.from({length:16},(_,i)=>direction(i*Math.PI/8));
+    const footprint=bearings.filter((_,i)=>i%2===0);
+    const maxGrade=Math.tan(6*DEG);
+    const check=point=>{
+      const elevation=moonElevation(point);
+      const feet=[point,...footprint.map(b=>sample(point,b,3.5))];
+      if(feet.some(foot=>{
+        const height=moonElevation(foot);
+        return footprint.some(b=>Math.abs(moonElevation(sample(foot,b,1))-height)>maxGrade);
+      }))return null;
+      // A flat crater floor can still sit inside a raised rim.
+      for(const radius of [26,62,115,225]){
+        const ring=footprint.map(b=>moonElevation(sample(point,b,radius)));
+        if(ring.reduce((sum,h)=>sum+h-elevation,0)/ring.length>Math.max(2.5,radius*.037))return null;
+      }
+      return elevation;
+    };
+    const local=check(origin);
+    if(local!==null)return {point:origin,elevation:local,distance:0};
+    for(const distance of [16,32,48,72,100,140,190,260,350,480]){
+      for(const bearing of bearings){
+        const point=sample(origin,bearing,distance),elevation=check(point);
+        if(elevation!==null)return {point,elevation,distance};
+      }
+    }
+    return null;
+  }
+  function autoLanding(s,table,report){
+    const f=s.flight,l=f.lunar,a=l.auto;
+    const {r,up,velocity,center}=moonMotion(table,f,f.t,f.eci);
+    const radius=C.MOON_RADIUS+f.moon.height,vertical=dot(velocity,up);
+    const horizontal=add(velocity,up,-vertical),speed=norm(horizontal),mass=flightMass(f);
+    const gravity=MOON_MU/radius**2-speed**2/radius;
+    const thrust=LANDER.thrust/mass;
+    let axis=up,acceleration=0,lateral=null;
+    const phase=next=>{
+      a.phase=next;a.since=f.t;
+      const type='moon-auto-'+next;
+      log(f,type);report?.(type,f.t,f);
+    };
+    if(a.phase==='deorbit'&&f.moon.hp<=18000)phase('coast');
+    if(a.phase==='coast'&&f.moon.height<=19200&&vertical<0)phase('brake');
+    if(a.phase==='brake'&&speed<.6)phase('descent');
+    if(a.phase==='descent'&&f.moon.height<244){
+      const frame=C.moonFrame(center);
+      a.origin=C.toColumns(frame,up);
+      a.site=surveyMoon(a.origin);
+      a.hoverAltitude=hoverAltitude(a.origin,a.site);
+      phase('survey');
+    }
+    if(a.phase==='deorbit'){
+      axis=burnAxis(moonRelative(table,f,f.t,f.eci),'retrograde');
+      if(dot(axis,f.axis)>.9998)acceleration=thrust;
+    }else if(a.phase==='coast'||a.phase==='brake'){
+      const radial=clamp(gravity+(-39-vertical)/4,0,thrust*.92);
+      const reverse=Math.min(speed/1.25,.97*Math.sqrt(thrust**2-radial**2));
+      const command=add(scale(up,radial),unit(horizontal),-reverse);
+      axis=norm(command)>1e-8?unit(command):up;
+      if(a.phase==='brake'&&dot(axis,f.axis)>.965)acceleration=norm(command);
+    }else{
+      const positionError=f.moon.height-(a.hoverAltitude??SURVEY_HEIGHT);
+      const descentLimit=Math.sqrt(5*Math.max(0,positionError));
+      let descent=-Math.min(180,descentLimit);
+      let feedForward=descentLimit>0&&descentLimit<180?clamp(-2.5*vertical/descentLimit,0,4):0;
+      if(a.phase==='survey'||a.phase==='translate'){
+        descent=clamp(-positionError*.34,-12,12);
+        feedForward=0;
+        if(a.phase==='survey'){
+          if(Math.abs(positionError)<1&&Math.abs(vertical)<.4&&speed<.4){
+            a.hoverSince??=f.t;
+            if(f.t-a.hoverSince>=3){
+              if(!a.site){
+                phase('no-site');l.handoff='manual';
+                f.controls.mode='radial-out';
+              }else phase(a.site.distance?'translate':'final');
+            }
+          }else{
+            a.hoverSince=null;
+          }
+        }
+      }
+      if(a.phase==='final'){
+        const speedLimit=Math.sqrt(.75**2+2.1*f.moon.surface.height);
+        descent=-Math.min(12,speedLimit);
+        feedForward=speedLimit<12?clamp(-1.05*vertical/speedLimit,0,2):0;
+      }
+      acceleration=clamp(gravity+feedForward+(descent-vertical)/(a.phase==='final'?.65:1.4),0,thrust);
+      if(a.origin){
+        const site=a.phase==='survey'||a.phase==='no-site'?a.origin:a.site.point;
+        const offset=add(C.fromColumns(C.moonFrame(center),scale(site,C.MOON_RADIUS)),r,-1);
+        const error=add(offset,up,-dot(offset,up)),distance=norm(error);
+        const limit=LANDER_RCS.thrust/mass;
+        const targetSpeed=Math.min(a.phase==='final'?1.5:7,distance*.7,Math.sqrt(distance*limit));
+        const command=scale(add(scale(unit(error),targetSpeed),horizontal,-1),.9);
+        lateral=scale(unit(command),Math.min(limit,norm(command))*mass);
+        a.offset=distance;
+        if(a.phase==='translate'&&distance<.45&&speed<.22)phase('final');
+      }
+    }
+    f.controls.throttle=acceleration/thrust;
+    f.controls.lit=acceleration>1e-7&&f.capsule.fuel>1e-8;
+    return {axis,lateral:f.capsule.fuel>1e-8?lateral:null};
+  }
   function turningCapsule(f,target){
     return f.status==='flying'&&f.capsule.detached&&f.capsule.chute.phase==='stowed'&&
-      !guidanceLocked(f)&&(dot(f.axis,target)<TURN_THRESHOLD||norm(f.turnVelocity??[0,0,0])>1e-8);
+      (!guidanceLocked(f)||f.lunar.handoff==='auto')&&(dot(f.axis,target)<TURN_THRESHOLD||norm(f.turnVelocity??[0,0,0])>1e-8);
   }
   function updateTurnCap(f){
     if(!f.capsule.detached)return;
@@ -264,7 +513,7 @@
     l.turnCapped=(tilt&&dot(f.axis,manualAxis(f,f.eci))<angleLimit)||
       ((!tilt||l.turnCapped)&&norm(f.turnVelocity??[0,0,0])>rateLimit);
   }
-  function dynamics(table,l,area,mass,force,axis){
+  function dynamics(table,l,area,mass,force,axis,lateral){
     return (t,q)=>{
       const r=q.slice(0,3),v=q.slice(3,6),air=add(v,C.spin(l.pole,r),-1);
       const density=M.atmosphere(norm(r)-P.R);
@@ -277,6 +526,7 @@
         const direction=axis(t,q),a=force/mass(t);
         for(let i=0;i<3;i++)acceleration[i]+=a*direction[i];
       }
+      if(lateral)for(let i=0;i<3;i++)acceleration[i]+=lateral[i]/mass(t);
       return [...v,...acceleration];
     };
   }
@@ -285,8 +535,8 @@
     for(const body of [...l.drops,f.upperStage].filter(Boolean)){
       if(body.status==='impact')continue;
       const booster=body.kind==='booster',fuel=body.kind?body.fuel:body.fuel[0];
-      const dry=body.kind?body.dry:P.dry(body.craft.stages[0]);
-      const force=booster&&fuel>0?P.BOOSTER.thrust:0,rate=flow(force,P.BOOSTER.isp);
+      const dry=body.dry??P.dry(body.craft.stages[0]);
+      const force=booster&&fuel>0?body.thrust??P.BOOSTER.thrust:0,rate=flow(force,P.BOOSTER.isp);
       const burning=force?Math.min(dt,fuel/rate):0;
       if(burning>0){
         const axis=time=>{
@@ -313,12 +563,34 @@
   function finish(s,reason,report){
     const f=s.flight;
     f.controls.lit=false;
+    f.rcsTranslation=null;
     f.lunar.outcome=reason;
     f.lunar.maneuver=null;
-    f.status=reason==='moon-impact'||reason==='earth-impact'?'impact':reason==='landed'||reason==='destroyed'?reason:'completed';
+    f.status=['moon-impact','earth-impact','moon-hard-landing'].includes(reason)?'impact':
+      reason==='moon-landed'?'landed':reason==='landed'||reason==='destroyed'?reason:'completed';
     s.phase='ended';
     log(f,reason);
     report?.(reason,f.t,f);
+  }
+  function verifyMoonOrbit(f,table){
+    let t=f.t,q=f.eci;
+    const start=moonOrbit(table,f,t,q);
+    if(!stable(start))return false;
+    const initial=unit(moonRelative(table,f,t,q).slice(0,3));
+    let last=initial,sweep=0;
+    const drift=(time,state)=>[...state.slice(3),...C.gravity(table,epoch(f)+time,state.slice(0,3))];
+    const end=t+1.02*start.period;
+    if(end>=flightLimit(f))return false;
+    while(t<end&&sweep<2*Math.PI){
+      const step=Math.min(10,end-t);
+      q=C.rk4(drift,t,q,step);
+      t+=step;
+      if(!stable(moonOrbit(table,f,t,q)))return false;
+      const radial=unit(moonRelative(table,f,t,q).slice(0,3));
+      sweep+=Math.atan2(norm(cross(last,radial)),dot(last,radial));
+      last=radial;
+    }
+    return sweep>=2*Math.PI;
   }
   function returnAir(f,q){
     const r=q.slice(0,3),v=add(q.slice(3),C.spin(f.lunar.pole,r),-1);
@@ -359,6 +631,7 @@
     const f=s.flight,l=f.lunar;
     while(l.guided&&l.sequence[l.next]?.[0]<=f.t+1e-8){
       plannedEvent(s,l.sequence[l.next++][1],table,report);
+      if(l.handoff||s.phase==='ended')return;
     }
     if(l.cutoff!==null&&l.cutoff<=f.t+1e-8){
       l.cutoff=null;
@@ -391,38 +664,46 @@
   function step(s,request,table,report){
     const f=s.flight,l=f.lunar,t=f.t,end=flightLimit(f);
     processEvents(s,table,report);
-    const core=coreSettings(f),booster=P.burning(f)?P.BOOSTER.thrust*f.craft.boosters:0;
+    if(s.phase==='ended')return 0;
+    const auto=l.handoff==='auto'?autoLanding(s,table,report):null;
+    const lateral=auto?.lateral;
+    const lateralFlow=lateral?flow(norm(lateral),LANDER_RCS.isp):0;
+    const mult=l.landingMission?LANDING_LAUNCHER.scale:1;
+    const core=coreSettings(f),booster=P.burning(f)?mult*P.BOOSTER.thrust*f.craft.boosters:0;
     const boostFlow=flow(booster,P.BOOSTER.isp);
     const before=lunarDistance(table,f,t,f.eci);
     const radius=norm(f.eci.slice(0,3)),height=radius-P.R;
     const maneuver=l.maneuver,planned=l.guided?(l.sequence[l.next]?.[0]??Infinity):Infinity;
     const cut=l.cutoff??Infinity,deadline=maneuver?(maneuver.active?maneuver.end:maneuver.aligning?maneuver.start:maneuver.start-TURN_LEAD):Infinity;
-    const guidedAscent=l.guided&&!f.capsule.detached;
+    const guidedAscent=l.guided&&!f.capsule.detached&&(!l.landingMission||t<l.transferCutoff);
     // A pitch slope changes at each knot. Sampling across a knot makes insertion depend on frame timing.
     const pitchKnot=guidedAscent?(PITCH.find(point=>point[0]>t+1e-8)?.[0]??Infinity):Infinity;
     const trimEnd=RETURN_PITCH_TRIM.at(-1)[0];
-    const knot=guidedAscent&&l.groundReturn&&t<trimEnd-1e-8?Math.min(pitchKnot,trimEnd):pitchKnot;
+    const knot=guidedAscent&&(l.groundReturn||l.landingMission)&&t<trimEnd-1e-8?Math.min(pitchKnot,trimEnd):pitchKnot;
     const nearEarth=radius<=20000000;
-    const target=manualAxis(f,f.eci),turning=turningCapsule(f,target);
-    const fine=core.force>0||booster>0||height<120000||maneuver?.aligning||turning||f.upperStage?.status==='flying'&&f.upperStage.orbit?.height<120000;
+    const capture=l.capturePhase==='burn',align=l.capturePhase==='align';
+    const target=auto?.axis??(l.landingMission?(align||capture?guidanceAxis(f,t,f.eci,table):l.handoff==='manual'?lunarManualAxis(f,table,f.eci):f.axis):manualAxis(f,f.eci));
+    const turning=turningCapsule(f,target);
+    const fine=core.force>0||booster>0||height<120000||maneuver?.aligning||turning||align||
+      landingApproach(l)&&before.height<3000||f.upperStage?.status==='flying'&&f.upperStage.orbit?.height<120000;
     const maxStep=fine?.1:nearEarth?2:before.height<=NEAR?5:60;
     const dt=Math.min(request,maxStep,planned-t,cut-t,deadline-t,knot-t,
-      core.flow?core.fuel/core.flow:Infinity,boostFlow?f.boosters.fuel*f.craft.boosters/boostFlow:Infinity,end-t);
+      core.flow+lateralFlow?core.fuel/(core.flow+lateralFlow):Infinity,boostFlow?f.boosters.fuel*f.craft.boosters/boostFlow:Infinity,end-t);
     if(dt<=1e-9){
       if(t>=end-1e-8)finish(s,'ephemeris-end',report);
       return 0;
     }
-    const guidedInjection=l.guided&&f.capsule.detached&&l.next<l.sequence.length&&f.controls.lit;
+    const guidedInjection=!l.landingMission&&l.guided&&f.capsule.detached&&l.next<l.sequence.length&&f.controls.lit;
     const inertialTurn=f.capsule.detached&&!guidedInjection;
     const turn=inertialTurn?capsuleTurn(f,target,dt):null;
     const nextAxis=turn?turn.axis:slew(f.axis,target,dt);
-    const axis=guidedAscent||guidedInjection?(time,q)=>guidanceAxis(f,time,q):
+    const axis=guidedAscent||guidedInjection||capture?(time,q)=>guidanceAxis(f,time,q,table):
       ()=>maneuver?.active?maneuver.axis:unit(add(f.axis,nextAxis));
-    const m0=P.mass(f);
-    const m=time=>m0-(core.flow+boostFlow)*(time-t);
+    const m0=flightMass(f);
+    const m=time=>m0-(core.flow+boostFlow+lateralFlow)*(time-t);
     const area=l.entry?recoveryArea(f,returnAir(f,f.eci)):
-      f.capsule.detached?1.5:P.CORE_DRAG_AREA+(P.attached(f)?.35*f.craft.boosters*Math.PI*.65**2:0);
-    const derivative=dynamics(table,l,area,m,core.force+booster,axis);
+      f.capsule.detached?1.5:(P.CORE_DRAG_AREA+(P.attached(f)?.35*f.craft.boosters*Math.PI*.65**2:0))*mult**(2/3);
+    const derivative=dynamics(table,l,area,m,core.force+booster,axis,lateral);
     const at=duration=>C.rk4(derivative,t,f.eci,duration);
     let h=dt,q=at(dt),after=lunarDistance(table,f,t+dt,q),reason;
     const locate=predicate=>{
@@ -442,10 +723,16 @@
       const direction=S.direction(surfaceVector(C.earthFrame(epoch(f)+t+h),state.slice(0,3)));
       const [lon,lat]=S.geographic(...direction);
       l.landing={lon,lat,speed:contact.speed,water:S.waterAt(...direction)};
-    }else if(after.height<=0){
+    }else if(landingApproach(l)&&after.height<C.MOON_RELIEF_LIMIT+FOOT_SPREAD*2+FOOT_HEIGHT&&moonSurface(table,f,t+dt,q).clearance<=0){
+      h=locate((state,time)=>moonSurface(table,f,t+time,state).clearance<=0);
+      const contact=moonSurface(table,f,t+h,at(h));
+      l.touchdown=contact;
+      reason=contact.vertical>=-2&&contact.horizontal<=1&&contact.tilt<=10&&contact.slope<=12?'moon-landed':
+        contact.vertical>=-5&&contact.horizontal<=3&&contact.tilt<=20&&contact.slope<=22?'moon-hard-landing':'moon-impact';
+    }else if(!landingApproach(l)&&after.height<=0){
       h=locate((state,time)=>lunarDistance(table,f,t+time,state).height<=0);
       reason='moon-impact';
-    }else if(!l.entry&&f.capsule.detached&&height>120000&&norm(q.slice(0,3))-P.R<=120000){
+    }else if(!l.landingMission&&!l.entry&&f.capsule.detached&&height>120000&&norm(q.slice(0,3))-P.R<=120000){
       h=locate(state=>norm(state.slice(0,3))-P.R<=120000);
       reason='return-entry';
     }else if(f.status!=='pad'&&norm(q.slice(0,3))<P.R){
@@ -460,7 +747,7 @@
         l.closest={...sample,t:t+time,fuel:f.capsule.fuel-core.flow*time,farSide};
         if(sample.height<=NEAR)report?.('lunar-closest',t+time,f);
       }
-    }else if(!l.returning&&l.closest?.height<=NEAR&&before.height<=NEAR&&after.height>NEAR){
+    }else if(!l.landingMission&&!l.returning&&l.closest?.height<=NEAR&&before.height<=NEAR&&after.height>NEAR){
       h=locate((state,time)=>lunarDistance(table,f,t+time,state).height>NEAR);
       reason=l.freeReturn?'return-coast':l.closest.height>=3000000&&l.closest.height<=10000000?'flyby':'lunar-pass';
     }
@@ -473,9 +760,13 @@
       report?.('liftoff',t+h,f);
     }
     const actualTurn=inertialTurn?(h===dt?turn:capsuleTurn(f,target,h)):null;
-    const attitude=guidedAscent||guidedInjection?axis(t+h,q):h===dt?nextAxis:slew(f.axis,target,h);
+    const attitude=guidedAscent||guidedInjection||capture?axis(t+h,q):h===dt?nextAxis:slew(f.axis,target,h);
     const torque=actualTurn?actualTurn.torque:pointBody(f,attitude);
     if(actualTurn){f.axis=actualTurn.axis;f.bodyRight=actualTurn.right;f.turnVelocity=actualTurn.velocity;}
+    f.rcsTranslation=lateral?[
+      dot(lateral,f.bodyRight)/LANDER_RCS.thrust,
+      -dot(lateral,cross(f.bodyRight,f.axis))/LANDER_RCS.thrust
+    ]:null;
     f.rcsAxes=null;f.rcsDirection=0;
     if(turning&&norm(torque)>1e-8){
       // The scene uses east/up/north. Reverse the axial-vector sign across that reflection.
@@ -495,7 +786,7 @@
       l.lastTrail=f.t;
     }
     f.maxHeight=Math.max(f.maxHeight,norm(q.slice(0,3))-P.R);
-    const fuel=Math.max(0,core.fuel-core.flow*h);
+    const fuel=Math.max(0,core.fuel-(core.flow+lateralFlow)*h);
     if(f.capsule.detached)f.capsule.fuel=fuel;
     else f.fuel[f.active]=fuel;
     if(fuel<=1e-8){
@@ -513,6 +804,7 @@
     }
     sync(f,table);
     updateTurnCap(f);
+    if(l.landingMission&&l.capturePhase==='settle'&&f.capsule.detached&&!l.handoff&&!stable(f.moon))l.unstable=true;
     if(reason==='return-entry'||reason==='return-coast'){
       if(reason==='return-entry'){
         const air=returnAir(f,f.eci);
@@ -533,8 +825,10 @@
     if(reason)finish(s,reason,report);
     else{
       processEvents(s,table,report);
-      if(t+h>=end-1e-8)finish(s,'ephemeris-end',report);
-      else if(f.status!=='pad')s.phase=f.controls.lit||P.burning(f)?'ascent':'coast';
+      if(s.phase!=='ended'){
+        if(t+h>=end-1e-8)finish(s,'ephemeris-end',report);
+        else if(f.status!=='pad')s.phase=f.controls.lit||P.burning(f)?'ascent':'coast';
+      }
     }
     return h;
   }
@@ -573,13 +867,28 @@
     f.lunar.shortcut=true;
     return f;
   }
-  const guidanceLocked=f=>f.lunar.guided&&f.lunar.next<f.lunar.sequence.length;
-  const canTakeOver=f=>!f.lunar.entry&&!f.lunar.outcome&&!f.lunar.maneuver&&
+  const guidanceLocked=f=>f.lunar.landingMission?f.lunar.handoff!=='manual':f.lunar.guided&&f.lunar.next<f.lunar.sequence.length;
+  const canTakeOver=f=>!f.lunar.landingMission&&!f.lunar.entry&&!f.lunar.outcome&&!f.lunar.maneuver&&
     (guidanceLocked(f)||f.lunar.freeReturn&&!f.lunar.manual);
-  function command(s,action,table,report){
+  function command(s,action,table,report,automatic=false){
     const f=s.flight,l=f.lunar;
     if(s.phase==='ended'||l.entry)return false;
     const type=action.type,value=action.value;
+    if(l.landingMission){
+      if(l.handoff==='ready'&&(type==='moon-takeover'||type==='moon-auto-land')){
+        l.handoff=type==='moon-takeover'?'manual':'auto';
+        l.guided=false;
+        l.capturePhase=null;
+        if(l.handoff==='auto'){
+          l.auto={phase:'deorbit',since:f.t};
+          log(f,'moon-auto-deorbit');
+          report?.('moon-auto-deorbit',f.t,f);
+        }
+        return true;
+      }
+      if(l.handoff!=='manual'&&!(automatic&&type==='ignite'&&f.status==='pad'))return false;
+      if(l.handoff==='manual'&&!['ignite','stop','control'].includes(type))return false;
+    }
     if(type==='manual'&&canTakeOver(f)){
       l.guided=false;
       l.manual=true;
@@ -614,7 +923,7 @@
         start+duration>flightLimit(f)||!Number.isFinite(throttle)||throttle<.01||throttle>1||!DIRECTIONS.includes(direction)||
         flow(THRUST*throttle,ISP)*duration>f.capsule.fuel||norm(burnAxis(f.eci,direction))<.5)return false;
       l.maneuver={start,end:start+duration,direction,throttle,previousThrottle:f.controls.throttle};
-    }else if(!guidanceLocked(f)&&f.status==='flying'&&!l.maneuver&&separate(f,type)){
+    }else if(canRequestSeparation(f,type)&&separate(f,type)){
       l.cutoff=null;
       log(f,type);
       report?.(type,f.t,f);
@@ -625,6 +934,17 @@
     return true;
   }
   function warpLimit(f){
+    if(f.lunar.landingMission){
+      if(f.lunar.handoff==='ready')return 100;
+      if(f.lunar.handoff==='manual'&&f.moon.surface.height<1000)return 1;
+      if(f.lunar.handoff==='auto'){
+        if(['survey','translate','final'].includes(f.lunar.auto.phase)||f.moon.height<244)return 1;
+        if(f.moon.height<1200)return 5;
+        return f.lunar.auto.phase==='coast'?1000:20;
+      }
+      if(['align','burn'].includes(f.lunar.capturePhase))return 20;
+      if(!f.controls.lit&&f.orbit.height>20000000&&f.moon.height>ENCOUNTER_WARP_HEIGHT)return FAST_WARP;
+    }
     if(f.t<6&&!f.separated)return 1;
     if(f.lunar.entry)return f.capsule.chute.phase==='stowed'||f.lunar.groundReturn&&f.lunar.air?.agl<150?20:100;
     if(f.controls.lit||P.burning(f)||f.orbit.height<120000||f.lunar.maneuver?.aligning)return 20;
@@ -633,6 +953,22 @@
       ?FAST_WARP:1000;
   }
   function* forecast(f,table){
+    if(f.lunar.landingMission&&f.moon.bound&&f.moon.height<300000&&f.moon.ha<500000){
+      const points=[],times=[];
+      let t=f.t,q=f.eci;
+      const end=Math.min(t+1.02*f.moon.period,flightLimit(f));
+      const drift=(time,state)=>[...state.slice(3),...C.gravity(table,epoch(f)+time,state.slice(0,3))];
+      for(let index=0;t<end;index++){
+        const point=moonRelative(table,f,t,q).slice(0,3);
+        points.push(point);times.push(t);
+        if(norm(point)<=C.MOON_RADIUS)break;
+        const dt=Math.min(10,end-t);
+        q=C.rk4(drift,t,q,dt);
+        t+=dt;
+        if(index%48===47)yield;
+      }
+      return {points,times,localMoon:true};
+    }
     const start=f.t,l=f.lunar,end=Math.min(start+(l.groundReturn?14*C.DAY:FORECAST_SPAN),flightLimit(f)),position=q=>q.slice(0,3);
     const derivative=(t,q)=>[...q.slice(3),...C.gravity(table,epoch(f)+t,position(q))];
     let t=start,q=f.eci.slice(),moon=lunarDistance(table,f,t,q),closest=null,entry=null;
@@ -674,7 +1010,7 @@
         const minimum={...lunarDistance(table,f,t+hi,nearest),t:t+hi,position:position(nearest)};
         if(!closest||minimum.height<closest.height)closest=minimum;
       }
-      const ends=!l.freeReturn&&closest?.height<=NEAR&&moon.height<=NEAR&&sample.height>NEAR;
+      const ends=!l.freeReturn&&!l.landingMission&&closest?.height<=NEAR&&moon.height<=NEAR&&sample.height>NEAR;
       t+=dt;q=next;moon=sample;
       if(ends||t>=end||pathSampleDue(q,moon,points.at(-1),t-sampled,900,stride))record(q,t);
       if(ends)break;
@@ -688,5 +1024,5 @@
     return [up,right,depth];
   });}
   const flightUtc=f=>C.utc(epoch(f)+f.t);
-  return Object.freeze({LAUNCH,FAST_WARP,MOON_RADIUS:C.MOON_RADIUS,utc:C.utc,flightUtc,flightLimit,preset,compatible,open,transfer,advance,command,warpLimit,guidanceLocked,canTakeOver,skyFrame,trajectory,forecast});
+  return Object.freeze({LAUNCH,FAST_WARP,MOON_RADIUS:C.MOON_RADIUS,LANDER,utc:C.utc,flightUtc,flightLimit,preset,compatible,open,openLanding,landingCapacity,transfer,advance,command,warpLimit,guidanceLocked,canTakeOver,canRequestSeparation,nextSeparation,skyFrame,trajectory,forecast});
 });

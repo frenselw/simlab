@@ -4,7 +4,7 @@ import {material,dispose,fadeEnvironment,buildRocket,createPad,createLaunchEffec
 import {createContactGround,clipContact,siteSurfaceShader,clipPadSurface} from './contact-ground.js';
 import {createForest} from './forest.js';
 import {createImpactEffects,hullPoints,hullMinimum,hullClearance} from './impact-effects.js';
-import {createLunarGlobe} from './lunar-globe.js';
+import {createLunarGlobe,createLunarGround} from './lunar-globe.js';
 const P=window.RocketParts,O=window.RocketOrbit,M=window.RocketModel,S=window.RocketSurface,L=window.RocketLighting,Sky=window.RocketSky;
 const viewAxis=new THREE.Vector3(0,0,1),northAxis=new THREE.Vector3(...S.fromGeocentric(0,0,1));
 const upAxis=new THREE.Vector3(0,1,0);
@@ -235,7 +235,7 @@ export class RocketScene{
           this.rocket.hullPoints=null;
         }else{this.scene.remove(this.rocket);dispose(this.rocket);}
       }
-      this.canopy=null;this.rocket=buildRocket(data.craft,Boolean(f?.separated),Boolean(f?.capsule?.detached),Boolean(f?.lunar));this.scene.add(this.rocket);this.craftKey=key;
+      this.canopy=null;this.rocket=buildRocket(data.craft,Boolean(f?.separated),Boolean(f?.capsule?.detached),Boolean(f?.lunar),Boolean(f?.lunar?.landingMission));this.scene.add(this.rocket);this.craftKey=key;
     }
     if(this.boosterDrop&&(!data.live||!f||f.t<this.boosterDrop.start||craft!==this.effectCraft))this.clearBoosterDrop();
     if(data.live&&this.data?.live&&!f?.lunar&&f?.boosters?.status==='jettisoned'&&['burning','spent'].includes(this.lastBoosterStatus)&&this.rocket){
@@ -329,7 +329,8 @@ export class RocketScene{
     const throttle=f.controls.throttle,{jet,clustered,ports}=flame.userData;
     if(jet){
       const height=Math.hypot(f.state[0],f.state[1],f.state[2])-P.R;
-      this.drawJet(flame,jet,throttle,clustered?.46:.92,clustered?10:13,height,f.t);
+      const upperScale=f.separated?1.2:1;
+      this.drawJet(flame,jet,throttle,(clustered?.46:.92)*upperScale,(clustered?10:13)*upperScale,height,f.t);
       return;
     }
     const width=.35+.65*throttle,length=(.2+.8*throttle)*(this.reducedMotion?.9:.9+.03*Math.sin(f.t*16));
@@ -345,7 +346,10 @@ export class RocketScene{
     const direction=this.data.live?RocketRecovery.rcsDirection(f):0;
     if(rocket===this.rocket)this.rcsDirection=direction;
     const [x,z]=direction?(f.rcsAxes??[0,direction]):[0,0];
-    for(const [groups,amount]of [[rocket.userData.rcs,z],[rocket.userData.crossRcs,x]]){
+    const translation=this.data.live?f?.rcsTranslation:null;
+    const [sideX,sideZ]=rocket.userData.translateRcs;
+    for(const [groups,amount]of [[rocket.userData.rcs,z],[rocket.userData.crossRcs,x],[sideX,translation?.[0]??0],[sideZ,translation?.[1]??0]]){
+      if(!groups)continue;
       for(const [i,jets]of groups.entries()){
         const strength=amount*(i?1:-1);
         jets.visible=strength>1e-4;
@@ -457,21 +461,35 @@ export class RocketScene{
     if(actual){actual.setXYZ(actual.count-1,current.x,current.y,current.z);actual.needsUpdate=true;}
     const predicted=this.lines.predicted,times=this.forecast?.times;
     if(!predicted||!times)return;
+    if(this.forecast.localMoon){
+      predicted.position.fromArray(f.sky.moon).applyQuaternion(this.worldRotation).multiplyScalar(3000/P.R);
+    }
     const geometry=predicted.geometry;
     while(this.forecastPoint+1<times.length&&times[this.forecastPoint+1]<=f.t)this.forecastPoint++;
     const index=this.forecastPoint;
     geometry.setDrawRange(index,times.length-1-index?times.length-index:0);
     if(index===times.length-1)return;
     const positions=geometry.attributes.position,distances=geometry.attributes.lineDistance;
-    positions.setXYZ(index,current.x,current.y,current.z);
+    const start=current.clone().sub(predicted.position);
+    positions.setXYZ(index,start.x,start.y,start.z);
     const next=new THREE.Vector3().fromBufferAttribute(positions,index+1);
-    distances.setX(index,distances.getX(index+1)-next.distanceTo(current));
+    distances.setX(index,distances.getX(index+1)-next.distanceTo(start));
     positions.needsUpdate=distances.needsUpdate=true;
   }
   frameOrbit(f,target){
     const {yaw,pitch}=this,aspect=this.perspectiveCamera.aspect;
     const right=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw));
     const up=orbitUp(yaw,pitch),point=new THREE.Vector3();
+    if(f?.lunar?.landingMission&&f.moon.height<300000){
+      const center=point.fromArray(f.sky.moon).applyQuaternion(this.worldRotation).multiplyScalar(3000/P.R);
+      const radius=RocketLunar.MOON_RADIUS*3/P.R;
+      const fit=this.orbitFocus||{target:center,halfHeight:1.26*radius/Math.min(1,aspect)};
+      target.copy(fit.target);
+      const height=fit.halfHeight/this.zoom;
+      this.orbitFrame={...fit,right,up,radius,pixelsPerUnit:this.host.clientHeight/(2*height)};
+      Object.assign(this.orbitCamera,{left:-height*aspect,right:height*aspect,top:height,bottom:-height});
+      return Math.max(8,4*height);
+    }
     let left=-3.05,rightEdge=3.05,bottom=-3.05,top=3.05,range=Math.max(3.05,this.rocket.position.length());
     const include=point=>{const x=point.dot(right),y=point.dot(up);left=Math.min(left,x);rightEdge=Math.max(rightEdge,x);bottom=Math.min(bottom,y);top=Math.max(top,y);};
     include(this.rocket.position);
@@ -556,7 +574,8 @@ export class RocketScene{
     if(!this.data||!this.rocket||this.lost)return;this.cameraDirty=false;if(!this.flightReady){this.drawFactory();return;}const {flight:f,workshop}=this.data,space=isOrbitView(this.view),factory=workshop&&this.view==='factory',height=Math.max(.1,this.rocket.userData.height,f?.capsule?.detached&&this.lastChutePhase!=='stowed'?THREE.MathUtils.lerp(this.rocket.userData.height,16,THREE.MathUtils.smoothstep(this.chuteFrameAge??1.2,0,this.reducedMotion?.25:1.2)):0);
     this.camera=space?this.orbitCamera:this.perspectiveCamera;
     this.rocket.userData.boosters.visible=Boolean(this.data.craft.boosters&&(!f||P.attached(f)));if(f?.boosters?.status==='jettisoned'&&!this.rocket.boosterBoundsRemoved){this.rocket.updateMatrixWorld(true);const inverse=this.rocket.matrixWorld.clone().invert(),bounds=new THREE.Box3();for(const part of this.rocket.userData.parts)if(part!==this.rocket.userData.boosters)bounds.union(new THREE.Box3().setFromObject(part).applyMatrix4(inverse));this.rocket.userData.partBounds=bounds;this.rocket.hullPoints=null;this.rocket.boosterBoundsRemoved=true;}
-    const lunar=f?.lunar,agl=f?S.clearance(f.state,f.t):0,altitude=f?Math.max(0,(f.orbit||O.elements(f.state)).height):0;
+    const lunar=f?.lunar,moonLocal=Boolean(lunar?.landingMission&&f.capsule.detached&&!space);
+    const agl=f?S.clearance(f.state,f.t):0,altitude=f?Math.max(0,(f.orbit||O.elements(f.state)).height):0;
     const theta=f?Math.atan2(f.state[1],f.state[0]):0;
     const siteDistance=f&&lunar?P.R*Math.atan2(Math.hypot(f.state[1],f.state[2]),f.state[0]):Math.abs(theta)*P.R;
     const worldRotation=this.worldRotation=new THREE.Quaternion().setFromAxisAngle(viewAxis,space?0:theta);
@@ -564,11 +583,13 @@ export class RocketScene{
       const axes=f.sky.mapBasis.map(axis=>new THREE.Vector3(...axis));
       worldRotation.setFromRotationMatrix(new THREE.Matrix4().makeBasis(...axes).transpose());
     }else if(lunar){
-      const radial=worldVector(f.state).normalize();
+      const radial=worldVector(f.state);
+      if(moonLocal)radial.addScaledVector(new THREE.Vector3(...f.sky.moon),-1000);
+      radial.normalize();
       worldRotation.setFromUnitVectors(radial,upAxis);
       if(altitude>120000){
         // Keep deep-space follow anchored to the flight plane as Earth rotates below it.
-        const east=radial.clone().cross(new THREE.Vector3(...f.sky.mapBasis[2])).normalize();
+        const east=radial.clone().cross(new THREE.Vector3(...(moonLocal?f.sky.moonNorth:f.sky.mapBasis[2]))).normalize();
         const north=east.clone().cross(radial);
         const frame=new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(east,radial,north).transpose());
         worldRotation.slerp(frame,THREE.MathUtils.smoothstep(altitude,120000,500000));
@@ -598,6 +619,10 @@ export class RocketScene{
     else{
       // Leave depth clearance for Float32 rounding at planetary scale.
       const r=Math.hypot(...f.state.slice(0,3));this.earth.position.set(0,-r/1000,0);this.earth.scale.setScalar((P.R-5)/1000);this.halo.position.copy(this.earth.position);this.halo.scale.setScalar((P.R+80000)/1000);
+      if(moonLocal){
+        this.earth.position.copy(worldVector(f.state)).applyQuaternion(worldRotation).multiplyScalar(-.001);
+        this.halo.position.copy(this.earth.position);
+      }
       const size=this.rocket.userData.partBounds.getSize(new THREE.Vector3()),width=Math.max(size.x,size.z,f.capsule?.detached&&this.lastChutePhase!=='stowed'?14:0);
       if(this.cameraLock)rocketRadius=size.length()*.0005;
       const framing=.001/(2*Math.tan(Math.PI/9)*.36),goal=Math.max(.025,displayHeight*framing,width*framing/this.camera.aspect);
@@ -645,18 +670,32 @@ export class RocketScene{
     this.planetSun.fromArray(skyFrame?.sun||L.fixedSun).normalize();
     const worldSun=this.planetSun.toArray();
     this.planetSun.applyQuaternion(worldRotation);
-    this.lighting=f?L.solar(f.state,worldSun):{daylight:1,sunlight:1,elevation:1};const daylight=factory||!f?1:this.lighting.daylight;this.sky.material.uniforms.uDaylight.value=daylight;this.shadowUniforms.uShadowEnabled.value=Number(Boolean(f&&!factory));this.shadowUniforms.uShadowPlanetRadius.value=space?3:P.R/1000;L.shade(this.studio,this.shadowUniforms);L.shade(this.landscape,this.shadowUniforms);L.shade(this.relief,this.shadowUniforms);L.shade(this.contactGround.rocks,this.shadowUniforms);L.shade(this.rocket,this.shadowUniforms,this.lighting.sunlight);if(this.otherRocket&&this.data.other)L.shade(this.otherRocket,this.shadowUniforms,L.solar(this.data.other.state,worldSun).sunlight);if(this.separation)L.shade(this.separation.body,this.shadowUniforms);if(this.boosterDrop)L.shade(this.boosterDrop.body,this.shadowUniforms);this.oceanDepth.geometry=this.earth.geometry;this.oceanDepth.position.copy(this.earth.position);this.oceanDepth.rotation.copy(this.earth.rotation);this.oceanDepth.scale.copy(this.earth.scale);this.oceanDepth.visible=this.earth.visible;
+    const moonSun=lunar?new THREE.Vector3(...skyFrame.sun).sub(new THREE.Vector3(...skyFrame.moon)).normalize():null;
+    const moonRelative=moonLocal?[1,0,2].map((index,i)=>f.state[i]-skyFrame.moon[index]*1000):null;
+    this.lighting=moonLocal?L.solar(moonRelative,moonSun.toArray(),RocketLunar.MOON_RADIUS):
+      f?L.solar(f.state,worldSun):{daylight:1,sunlight:1,elevation:1};
+    const daylight=factory||!f?1:this.lighting.daylight;this.sky.material.uniforms.uDaylight.value=daylight;this.shadowUniforms.uShadowEnabled.value=Number(Boolean(f&&!factory));this.shadowUniforms.uShadowPlanetRadius.value=space?3:P.R/1000;L.shade(this.studio,this.shadowUniforms);L.shade(this.landscape,this.shadowUniforms);L.shade(this.relief,this.shadowUniforms);L.shade(this.contactGround.rocks,this.shadowUniforms);L.shade(this.rocket,this.shadowUniforms,this.lighting.sunlight);if(this.otherRocket&&this.data.other)L.shade(this.otherRocket,this.shadowUniforms,L.solar(this.data.other.state,worldSun).sunlight);if(this.separation)L.shade(this.separation.body,this.shadowUniforms);if(this.boosterDrop)L.shade(this.boosterDrop.body,this.shadowUniforms);this.oceanDepth.geometry=this.earth.geometry;this.oceanDepth.position.copy(this.earth.position);this.oceanDepth.rotation.copy(this.earth.rotation);this.oceanDepth.scale.copy(this.earth.scale);this.oceanDepth.visible=this.earth.visible;
     this.sunLight.position.copy(factory||!f?new THREE.Vector3(30,40,40):this.planetSun);
     const atmosphere=1-THREE.MathUtils.smoothstep(altitude,0,65000);
     this.shadowUniforms.uNightSkyFill.value=f&&!factory&&!space?atmosphere:0;
-    for(const [body,light] of [[this.rocket,this.lighting],[this.otherRocket,this.data.other&&L.solar(this.data.other.state,worldSun)]]){
-      const eyes=body?.userData.eyeLight;
-      if(eyes)eyes.emissiveIntensity=f&&!factory&&light?1.7*(1-Math.max(light.daylight,light.sunlight)):0;
+    for(const [body,flight] of [[this.rocket,f],[this.otherRocket,this.data.other]]){
+      if(!body?.userData.eyeLight)continue;
+      const {eyeLight,eyeEffects:{halo,beam}}=body.userData;
+      const light=flight&&body===this.otherRocket?L.solar(flight.state,worldSun):this.lighting;
+      const level=flight&&!factory?1-Math.max(light.daylight,light.sunlight):0;
+      const height=flight&&flight!==f?Math.hypot(...flight.state.slice(0,3))-P.R:altitude;
+      const beamLevel=level*Math.sqrt(M.atmosphere(height)/1.225);
+      eyeLight.emissiveIntensity=5.6*level;
+      halo.material.uniforms.level.value=level;
+      beam.material.uniforms.level.value=beamLevel;
+      halo.visible=level>.01;
+      beam.visible=beamLevel>.01;
     }
     const lowSun=f&&!factory?atmosphere*(1-THREE.MathUtils.smoothstep(this.lighting.elevation,-.04,.35)):0;
     this.sunLight.color.setRGB(1,.96-.16*lowSun,.86-.27*lowSun);
     this.sunLight.intensity=factory||!f?2.4:1.95;
-    this.ambient.intensity=factory||!f?1.65:THREE.MathUtils.lerp(.72,THREE.MathUtils.lerp(.15,1.18,daylight),atmosphere);
+    this.ambient.intensity=moonLocal?THREE.MathUtils.lerp(.16,.72,daylight):
+      factory||!f?1.65:THREE.MathUtils.lerp(.72,THREE.MathUtils.lerp(.15,1.18,daylight),atmosphere);
     this.ambient.position.copy(space?this.rocket.position:new THREE.Vector3(0,1,0));
     this.fillLight.intensity=factory||!f ? .6 : lunar?.entry ? .32*(1-daylight) : 0;
     this.renderer.toneMappingExposure=L.exposure(altitude,daylight);
@@ -667,7 +706,7 @@ export class RocketScene{
     const cameraYaw=this.yaw;
     let cameraPitch=this.pitch;
     if(f&&this.view==='follow'&&!this.followManual){
-      const earthRadius=Math.asin(P.R/(P.R+altitude));
+      const earthRadius=moonLocal?Math.asin(RocketLunar.MOON_RADIUS/(RocketLunar.MOON_RADIUS+Math.max(0,f.moon.height))):Math.asin(P.R/(P.R+altitude));
       // Keep the limb below the craft as the globe recedes.
       cameraPitch=Math.max(cameraPitch,Math.PI/2-earthRadius-THREE.MathUtils.degToRad(7));
     }
@@ -677,6 +716,46 @@ export class RocketScene{
     this.moonTarget=skyFrame?new THREE.Vector3(...skyFrame.moon).applyQuaternion(worldRotation)
       .multiplyScalar(space?3000/P.R:1).add(this.earth.position):null;
     const moonPosition=lunar?this.moonTarget:null;
+    let moonBasis=null;
+    if(moonLocal&&f.moon.height<1800){
+      const prime=this.earth.position.clone().sub(moonPosition).normalize();
+      const north=new THREE.Vector3(...skyFrame.moonNorth).applyQuaternion(worldRotation);
+      const east=prime.clone().cross(north).normalize();
+      moonBasis=[prime,east.clone().cross(prime),east];
+    }
+    const landingSite=moonBasis&&lunar.handoff==='auto'&&f.status==='flying'?lunar.auto.site:null;
+    if(landingSite){
+      if(!this.lunarLandingMarker){
+        const ring=new THREE.RingGeometry(.004,.0052,40).rotateX(-Math.PI/2);
+        const material=new THREE.MeshBasicMaterial({color:'#81e9ed',transparent:true,opacity:.82,depthWrite:false,toneMapped:false});
+        this.lunarLandingMarker=new THREE.Mesh(ring,material);
+        this.lunarLandingMarker.name='lunar-landing-target';
+        this.scene.add(this.lunarLandingMarker);
+      }
+      const marker=this.lunarLandingMarker,up=new THREE.Vector3();
+      moonBasis.forEach((axis,i)=>up.addScaledVector(axis,landingSite.point[i]));
+      marker.position.copy(moonPosition).addScaledVector(up,moonRadius+(landingSite.elevation+1)*.001);
+      marker.quaternion.setFromUnitVectors(upAxis,up);
+      marker.visible=true;
+      if(!this.lunarSurveyLight){
+        this.lunarSurveyLight=new THREE.SpotLight('#e9efff',.009,.15,.64,.8);
+        this.scene.add(this.lunarSurveyLight,this.lunarSurveyLight.target);
+      }
+      const light=this.lunarSurveyLight;
+      light.position.copy(this.rocket.position).addScaledVector(up,.002);
+      light.target.position.copy(light.position).addScaledVector(up,-.1);
+      light.intensity=.009*(1-daylight);
+      light.visible=light.intensity>.00005;
+      if(this.view==='follow'&&!this.cameraLock&&!this.followManual){
+        const span=this.rocket.position.distanceTo(marker.position);
+        target.lerp(marker.position,.44*THREE.MathUtils.smoothstep(span,.025,.08));
+        const framing=2*Math.tan(THREE.MathUtils.degToRad(this.camera.fov*.5))*.72;
+        distance=Math.max(distance,span/(framing*Math.min(1,this.camera.aspect)*this.zoom));
+      }
+    }else if(this.lunarLandingMarker){
+      this.lunarLandingMarker.visible=false;
+      this.lunarSurveyLight.visible=false;
+    }
     const lockedBody=!f?null:this.cameraLock==='earth'?this.earth.position:this.cameraLock==='moon'?this.moonTarget:
       this.cameraLock==='sun'&&skyFrame?new THREE.Vector3(...skyFrame.sun).applyQuaternion(worldRotation).add(this.earth.position):null;
     const positionCamera=(pitch,yaw=cameraYaw)=>this.camera.position.copy(target).add(new THREE.Vector3(Math.sin(yaw)*Math.cos(pitch)*distance,Math.sin(pitch)*distance,Math.cos(yaw)*Math.cos(pitch)*distance));
@@ -686,7 +765,17 @@ export class RocketScene{
     let cameraClearance=Infinity;
     if(!space){
       const inverse=this.globalTerrain.matrixWorld.clone().invert(),point=new THREE.Vector3(),margin=factory||!f?.2:.002;
-      const clearance=()=>{if(factory||!f)return this.camera.position.y+.8;point.copy(this.camera.position).applyMatrix4(inverse);const radius=point.length();point.divideScalar(radius);return (radius*(P.R-5)-P.R-S.heightAt(point.x,point.y,point.z))/1000;};
+      const clearance=()=>{
+        if(moonLocal&&moonPosition){
+          point.copy(this.camera.position).sub(moonPosition);
+          const h=moonBasis?RocketCelestial.moonTerrain(...RocketCelestial.moonMap(moonBasis.map(axis=>point.dot(axis))))*.001:0;
+          return point.length()-moonRadius-h;
+        }
+        if(factory||!f)return this.camera.position.y+.8;
+        point.copy(this.camera.position).applyMatrix4(inverse);
+        const radius=point.length();point.divideScalar(radius);
+        return (radius*(P.R-5)-P.R-S.heightAt(point.x,point.y,point.z))/1000;
+      };
       cameraClearance=clearance();
       if(cameraClearance<margin){
         if(factory||!f||lockedBody){
@@ -698,7 +787,7 @@ export class RocketScene{
         }
         else{
           // Lift both the eye and its target out of terrain without clamping the viewing angle.
-          const correction=this.camera.position.clone().sub(this.earth.position).setLength(margin-cameraClearance);
+          const correction=this.camera.position.clone().sub(moonLocal?moonPosition:this.earth.position).setLength(margin-cameraClearance);
           this.camera.position.add(correction);target.add(correction);cameraClearance=margin;
         }
       }
@@ -713,10 +802,24 @@ export class RocketScene{
       const moonDepth=Math.max(moonRadius,this.camera.position.distanceTo(moonPosition));
       this.moonGlobe.userData.update({position:moonPosition,radius:moonRadius,earth:this.earth.position,
         north:new THREE.Vector3(...skyFrame.moonNorth).applyQuaternion(worldRotation),
-        sun:new THREE.Vector3(...skyFrame.sun).sub(new THREE.Vector3(...skyFrame.moon)).applyQuaternion(worldRotation),
+        sun:moonSun.applyQuaternion(worldRotation),
         camera:this.camera,pixels:space?2*moonRadius*this.orbitFrame.pixelsPerUnit:
-          moonRadius*this.host.clientHeight/(tanHalfFov*moonDepth),moonAltitude:f.moon.height,refresh:()=>this.draw()});
+        moonRadius*this.host.clientHeight/(tanHalfFov*moonDepth),moonAltitude:f.moon.height,refresh:()=>this.draw()});
     }else if(this.moonGlobe)this.moonGlobe.visible=false;
+    if(moonBasis){
+      if(!this.moonGround){
+        this.moonGround=createLunarGround();
+        this.scene.add(this.moonGround);
+      }
+      const up=new THREE.Vector3(...moonBasis.map(axis=>-moonPosition.dot(axis))).normalize();
+      this.moonGround.userData.update(up,moonBasis,moonPosition,Math.max(0,f.moon.height));
+      this.moonGround.visible=true;
+      const radial=this.moonGround.position.clone().sub(moonPosition).normalize();
+      this.moonGlobe.userData.terrainCut.value.set(radial.x,radial.y,radial.z,Math.cos(61000/RocketLunar.MOON_RADIUS));
+    }else{
+      if(this.moonGround)this.moonGround.visible=false;
+      if(this.moonGlobe)this.moonGlobe.userData.terrainCut.value.w=2;
+    }
     this.drawSky(skyFrame,space,worldRotation);
     const pixelsPerUnit=space?this.orbitFrame.pixelsPerUnit:this.host.clientHeight/(2*tanHalfFov*distance);
     const detailPixels=pixelsPerUnit*(space?this.camera.position.distanceTo(this.earth.position):distance);

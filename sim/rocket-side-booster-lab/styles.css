@@ -281,3 +281,7 @@
 .map-label[data-above=true]{transform:translate(-50%,calc(-100% - 9px))}
 .map-label[data-above=true]::before{top:100%}
 .map-label.encounter{color:#b0e3d4}
+#app[hidden]{display:none}
+.local-file-help{max-width:38rem;margin:clamp(1rem,8vh,5rem) auto;padding:1.25rem;color:var(--ink);background:#fffefa;border:1px solid var(--line);border-radius:12px;line-height:1.6}
+.local-file-help a{color:var(--teal);font-weight:650}
+.local-file-help pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:.9rem}

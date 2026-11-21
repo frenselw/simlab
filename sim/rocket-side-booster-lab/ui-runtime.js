@@ -1,11 +1,23 @@
 (function(root,factory){const node=typeof module==='object'&&module.exports,api=factory(node?require('./parts.js'):root.RocketParts,node?require('./model.js'):root.RocketModel,node?require('./orbit.js'):root.RocketOrbit,node?()=>require('./lunar-flight.js'):()=>root.RocketLunar);if(node)module.exports=api;root.RocketRuntime=api;})(typeof window==='undefined'?globalThis:window,function(P,M,O,lunar){
   'use strict';
   const IGNITION_HOLD=1.5, REALTIME_LAUNCH=6;
+  const SEPARATION_LEAD=2, SEPARATION_TAIL=6;
+  const separations=new Set(['jettison','separate','capsule-separate']);
+  function separationPlayback(f){
+    if(!f)return {active:false,boundary:Infinity};
+    const scheduled=f.lunar?lunar().nextSeparation(f):undefined;
+    if(f.pendingSeparation)return {active:true,boundary:f.pendingSeparation.at};
+    if(f.t<(f.separationUntil??0)-1e-8)return {active:true,boundary:f.separationUntil};
+    if(scheduled===undefined)return {active:false,boundary:Infinity};
+    const start=scheduled-SEPARATION_LEAD,active=f.t>=start-1e-8;
+    return {active,boundary:active?scheduled:start};
+  }
   class Controller{
     constructor(render=()=>{},canLaunch=()=>true){
       this.render=render;this.canLaunch=canLaunch;this.state=M.fresh();this.running=false;this.notice='';this.events=[];this.ignitionHold=0;
       this.record=(type,t,f)=>{
         const mission=this.state.flight;
+        if(separations.has(type))mission.separationUntil=t+SEPARATION_TAIL;
         const body=f===mission.upperStage?(mission.craft.stages.length===1?'core':'upper'):f.capsule?.detached?'capsule':f.separated?'upper':'rocket';
         this.events=[{type,t,body},...this.events].sort((a,b)=>b.t-a.t).slice(0,2);
       };
@@ -13,6 +25,16 @@
     get editable(){return true;}
     emit(){this.render(this);}
     start(){this.state=M.fresh();this.events=[];this.running=false;this.notice='';this.ignitionHold=0;this.emit();}
+    queueSeparation(type){
+      const f=this.state.flight;
+      if(!f||f.pendingSeparation||!separations.has(type)||this.state.phase==='ended')return false;
+      const possible=f.lunar?lunar().canRequestSeparation(f,type):
+        JSON.stringify(M.change(this.state,{type}))!==JSON.stringify(this.state);
+      if(!possible)return false;
+      f.pendingSeparation={type,at:f.t+SEPARATION_LEAD};
+      this.play();
+      return true;
+    }
     command(action){
       try{
         if(action.type==='lunar-loadout'&&this.state.phase==='workshop'){
@@ -20,16 +42,22 @@
           this.emit();
           return true;
         }
-        if(['launch-lunar','lunar-transfer','lunar-return','lunar-return-launch'].includes(action.type)&&this.state.phase==='workshop'&&this.canLaunch()){
+        if(['launch-lunar','lunar-transfer','lunar-return','lunar-return-launch','lunar-landing-launch'].includes(action.type)&&this.state.phase==='workshop'&&this.canLaunch()){
+          const landing=action.type==='lunar-landing-launch';
           const groundReturn=action.type==='lunar-return-launch';
           const transfer=action.type==='lunar-transfer'||action.type==='lunar-return';
-          this.state.flight=transfer?lunar().transfer(this.lunarTable,action.type==='lunar-return'):
+          this.state.flight=landing?lunar().openLanding(this.lunarTable):transfer?lunar().transfer(this.lunarTable,action.type==='lunar-return'):
             lunar().open(groundReturn?lunar().preset():this.state.craft,this.lunarTable,groundReturn);
           this.state.phase=transfer?'coast':'pad';
           this.running=false;
           this.ignitionHold=0;
           this.events=[];
           this.notice='';
+          if(landing){
+            lunar().command(this.state,{type:'ignite'},this.lunarTable,this.record,true);
+            this.ignitionHold=IGNITION_HOLD;
+            this.running=true;
+          }
           if(transfer)this.record(action.type,this.state.flight.t,this.state.flight);
           this.emit();
           return true;
@@ -61,13 +89,25 @@
         this.emit();return true;
       }catch(_){this.notice='這個操作未能完成，請再試一次。';this.emit();return false;}
     }
-    tick(seconds,budget){if(!this.running)return null;const flight=this.state.flight,before=flight?.status,
-      result=flight?.lunar?lunar().advance(this.state,seconds,budget,this.lunarTable,this.record):M.advance(this.state,seconds,budget,this.record);
-      if(before==='flying'&&this.state.flight.status==='landed'||this.state.phase==='ended')this.running=false;return result;}
+    tick(seconds,budget){
+      if(!this.running)return null;
+      const flight=this.state.flight,before=flight?.status,pending=flight?.pendingSeparation;
+      const duration=pending?Math.min(seconds,Math.max(0,pending.at-flight.t)):seconds;
+      const result=flight?.lunar?lunar().advance(this.state,duration,budget,this.lunarTable,this.record):M.advance(this.state,duration,budget,this.record);
+      if(before==='flying'&&this.state.flight.status==='landed'||this.state.phase==='ended')this.running=false;
+      if(pending&&(!this.running||flight.t>=pending.at-1e-8)){
+        delete flight.pendingSeparation;
+        if(this.running&&!this.command({type:pending.type})){
+          this.notice='飛行狀態已改變，未能分離。';
+          this.emit();
+        }
+      }
+      return result;
+    }
     pause(){this.running=false;this.emit();}
     play(){if(this.state.flight&&!['ended','workshop'].includes(this.state.phase)){this.running=true;this.emit();}}
   }
-  function warpLimit(flight){if(flight.lunar)return lunar().warpLimit(flight);if(flight.capsule?.detached&&flight.status==='flying'&&flight.capsule.chute.phase!=='stowed')return 1000;if(flight.capsule?.detached){const bodies=[flight,flight.upperStage].filter(f=>f&&!['landed','impact','destroyed','escaped'].includes(f.status));return bodies.some(f=>f.controls.lit||O.elements(f.state).height<120000)||['waiting','turning','burning'].includes(flight.upperStage?.auto.mode)?20:1000;}
+  function warpLimit(flight,playback=separationPlayback(flight)){if(playback.active)return 1;if(flight.lunar)return lunar().warpLimit(flight);if(flight.capsule?.detached&&flight.status==='flying'&&flight.capsule.chute.phase!=='stowed')return 1000;if(flight.capsule?.detached){const bodies=[flight,flight.upperStage].filter(f=>f&&!['landed','impact','destroyed','escaped'].includes(f.status));return bodies.some(f=>f.controls.lit||O.elements(f.state).height<120000)||['waiting','turning','burning'].includes(flight.upperStage?.auto.mode)?20:1000;}
     const {height}=O.elements(flight.state);
     if(flight.source==='own'&&!flight.separated&&flight.t<REALTIME_LAUNCH-1e-8&&height<20000&&['pad','flying'].includes(flight.status))return 1;
     return flight.controls.lit||P.burning(flight)||height<120000?20:1000;}
@@ -78,9 +118,11 @@
       const held=Math.min(remaining,controller.ignitionHold);
       controller.ignitionHold-=held;remaining-=held;
     }
-    while(remaining>1e-9&&steps<800){
-      const f=controller.state.flight,o=f.orbit||O.elements(f.state),limit=warpLimit(f),rate=Math.min(warp,limit);let request=remaining*rate;
-      if(limit===1&&warp>1)request=Math.min(request,REALTIME_LAUNCH-f.t);
+    while(controller.running&&remaining>1e-9&&steps<800){
+      const f=controller.state.flight,o=f.orbit||O.elements(f.state),playback=separationPlayback(f);
+      const limit=warpLimit(f,playback),rate=Math.min(warp,limit);
+      let request=Math.min(remaining*rate,playback.boundary-f.t);
+      if(limit===1&&warp>1&&f.t<REALTIME_LAUNCH)request=Math.min(request,REALTIME_LAUNCH-f.t);
       // Approach the atmosphere boundary before rechecking the rate for the remaining wall time.
       if(rate>20&&f.status==='flying'&&o.height>120000&&o.radial<0)request=Math.min(request,Math.max(.001,(o.height-120000)/-o.radial));
       const result=controller.tick(request,1);if(!result||result.elapsed<=0||!result.steps)break;
@@ -88,5 +130,5 @@
     }
     return seconds>0?elapsed/seconds:0;
   }
-  return Object.freeze({Controller,warpLimit,advanceFrame});
+  return Object.freeze({Controller,separationPlayback,warpLimit,advanceFrame});
 });
