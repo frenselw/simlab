@@ -2,6 +2,7 @@ import * as THREE from './vendor/three-0.185.1/three.module.min.js';
 import {createTerrain,groundLight,orbitalLighting,terrainSlopeDetail,surfaceUniforms,surfaceTextureBytes,regionalSurfaceTexture,createRegionalSurfaceTexture,createWorldSurfaceTexture,launchFacilities,launchRoads} from './terrain.js';
 import {createGlobalTerrain} from './global-terrain.js';
 import {createTerrainDetail} from './terrain-detail.js';
+import {moonLighting} from './lunar-globe.js';
 const P=window.RocketParts,cache=new Map(),canvasMaps=new Map(),lostCanvases=new Set();
 export const artRecovery=new EventTarget();
 export function artTexturesReady(){return lostCanvases.size===0&&[...canvasMaps.keys()].every(c=>!c.getContext('2d')?.isContextLost?.());}
@@ -197,6 +198,7 @@ uniform vec3 uMoonLight,uObserver;
 uniform mat3 uStarFrame;
 varying vec3 vDirection;
 ${skyDisc}
+${moonLighting}
 void main(){
  vec3 ray=normalize(vDirection),star=uStarFrame*ray;
  vec2 uv=vec2(fract(atan(star.z,-star.x)/6.283185307+1.0),1.0-acos(clamp(star.y,-1.0,1.0))/3.141592654);
@@ -215,9 +217,8 @@ void main(){
    if(uMoonDisc.w>0.0&&moon<uMoonDisc.w+moonEdge){
     vec3 offset=(ray-dot(ray,uMoonDisc.xyz)*uMoonDisc.xyz)/uMoonDisc.w;
     vec3 normal=offset-uMoonDisc.xyz*sqrt(max(0.0,1.0-dot(offset,offset)));
-    float diffuse=max(0.0,dot(normal,uMoonLight));
-    vec3 lunar=vec3(.80,.78,.72)*sqrt(diffuse)+vec3(.006);
-    lunar=mix(lunar,mix(color,max(lunar,color),.56),uDaylight*(1.0-uSpace));
+    vec3 lunar=shadeMoon(moonGray,dot(normal,uMoonLight));
+    lunar=mix(lunar,color+lunar*.85,uDaylight*(1.0-uSpace));
     color=mix(color,lunar,1.0-smoothstep(uMoonDisc.w-moonEdge,uMoonDisc.w+moonEdge,moon));
    }
    if(sun<.025){

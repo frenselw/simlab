@@ -72,6 +72,25 @@ assert(!cut.controls.lit&&P.burning(cut));
 assert.equal(cut.lunar.events.at(-1).type,'cutoff');
 assert(Math.abs(cut.lunar.events.at(-1).t-12.27)<1e-8);
 
+const takeover=new Controller();
+takeover.lunarTable=table;
+assert(takeover.command({type:'lunar-return'}));
+const handover=takeover.state.flight;
+const beforeHandover=structuredClone({position:handover.eci,axis:handover.axis,fuel:handover.capsule.fuel});
+assert(takeover.command({type:'manual'}),'Free-return flight allows manual takeover after injection');
+assert.equal(handover.controls.mode,'hold');
+assert.deepEqual({position:handover.eci,axis:handover.axis,fuel:handover.capsule.fuel},beforeHandover);
+assert(!takeover.command({type:'manual'}));
+assert(takeover.command({type:'control',key:'angle',value:(handover.pitch+100)%360}));
+assert.equal(warpLimit(handover),5);
+takeover.play();
+until(takeover,handover.t+40);
+assert(warpLimit(handover)>=1000,'Warp can recover once the turn settles');
+assert(takeover.command({type:'control',key:'angle',value:(handover.controls.angle+.4)%360}));
+until(takeover,handover.t+.1);
+assert(warpLimit(handover)>=1000,'Small tracking corrections do not toggle the cap');
+assert.equal(handover.capsule.fuel,beforeHandover.fuel);
+
 const shortcut=new Controller();
 shortcut.lunarTable=table;
 assert(shortcut.command({type:'part',stage:0,part:'engine',value:2}));

@@ -242,7 +242,7 @@
     }
     if(l.maneuver?.active)return l.maneuver.axis;
     if(l.maneuver?.aligning)return burnAxis(q,l.maneuver.direction);
-    if(l.returning&&!f.controls.lit&&f.orbit.height<600000){
+    if(l.returning&&!l.manual&&!f.controls.lit&&f.orbit.height<600000){
       return unit(add(C.spin(l.pole,q.slice(0,3)),q.slice(3),-1));
     }
     if(l.guided&&f.capsule.detached&&l.next<l.sequence.length)return burnAxis(q,'prograde');
@@ -253,6 +253,16 @@
   function turningCapsule(f,target){
     return f.status==='flying'&&f.capsule.detached&&f.capsule.chute.phase==='stowed'&&
       !guidanceLocked(f)&&(dot(f.axis,target)<TURN_THRESHOLD||norm(f.turnVelocity??[0,0,0])>1e-8);
+  }
+  function updateTurnCap(f){
+    if(!f.capsule.detached)return;
+    const l=f.lunar;
+    // Hysteresis keeps small tracking corrections from repeatedly changing the time cap.
+    const angleLimit=Math.cos((l.turnCapped ? .25 : 1)*DEG);
+    const rateLimit=(l.turnCapped ? .15 : .6)*DEG;
+    const tilt=f.controls.mode==='tilt';
+    l.turnCapped=(tilt&&dot(f.axis,manualAxis(f,f.eci))<angleLimit)||
+      ((!tilt||l.turnCapped)&&norm(f.turnVelocity??[0,0,0])>rateLimit);
   }
   function dynamics(table,l,area,mass,force,axis){
     return (t,q)=>{
@@ -502,6 +512,7 @@
       if(!reason)reason=thermalReason;
     }
     sync(f,table);
+    updateTurnCap(f);
     if(reason==='return-entry'||reason==='return-coast'){
       if(reason==='return-entry'){
         const air=returnAir(f,f.eci);
@@ -563,13 +574,16 @@
     return f;
   }
   const guidanceLocked=f=>f.lunar.guided&&f.lunar.next<f.lunar.sequence.length;
+  const canTakeOver=f=>!f.lunar.entry&&!f.lunar.outcome&&!f.lunar.maneuver&&
+    (guidanceLocked(f)||f.lunar.freeReturn&&!f.lunar.manual);
   function command(s,action,table,report){
     const f=s.flight,l=f.lunar;
     if(s.phase==='ended'||l.entry)return false;
     const type=action.type,value=action.value;
-    if(type==='manual'&&guidanceLocked(f)){
+    if(type==='manual'&&canTakeOver(f)){
       l.guided=false;
-      f.controls.angle=f.pitch;
+      l.manual=true;
+      Object.assign(f.controls,{mode:'hold',angle:f.pitch});
     }else if(type==='ignite'&&(!guidanceLocked(f)||f.status==='pad')&&!f.controls.lit&&coreSettings(f).fuel>0&&!l.maneuver){
       f.controls.lit=true;
       if(f.boosters?.status==='ready')f.boosters.status='burning';
@@ -607,13 +621,14 @@
     }else return false;
     if(l.groundReturn&&(type==='manual'||type==='stop'||type==='ignite'&&f.t>0))l.modified=true;
     sync(f,table);
+    updateTurnCap(f);
     return true;
   }
   function warpLimit(f){
     if(f.t<6&&!f.separated)return 1;
     if(f.lunar.entry)return f.capsule.chute.phase==='stowed'||f.lunar.groundReturn&&f.lunar.air?.agl<150?20:100;
     if(f.controls.lit||P.burning(f)||f.orbit.height<120000||f.lunar.maneuver?.aligning)return 20;
-    if(f.controls.mode==='tilt'&&turningCapsule(f,manualAxis(f,f.eci))||norm(f.turnVelocity??[0,0,0])>.2*DEG)return 5;
+    if(f.lunar.turnCapped)return 5;
     return f.capsule.detached&&f.orbit.height>=20000000&&f.moon.height>ENCOUNTER_WARP_HEIGHT
       ?FAST_WARP:1000;
   }
@@ -673,5 +688,5 @@
     return [up,right,depth];
   });}
   const flightUtc=f=>C.utc(epoch(f)+f.t);
-  return Object.freeze({LAUNCH,FAST_WARP,MOON_RADIUS:C.MOON_RADIUS,utc:C.utc,flightUtc,flightLimit,preset,compatible,open,transfer,advance,command,warpLimit,guidanceLocked,skyFrame,trajectory,forecast});
+  return Object.freeze({LAUNCH,FAST_WARP,MOON_RADIUS:C.MOON_RADIUS,utc:C.utc,flightUtc,flightLimit,preset,compatible,open,transfer,advance,command,warpLimit,guidanceLocked,canTakeOver,skyFrame,trajectory,forecast});
 });

@@ -104,18 +104,18 @@ export function installLunarControls(d,{controller,launchAllowed,command,setView
     const ascent=l.groundReturn&&locked?(f.status==='pad'?'發射準備':f.capsule.detached?'奔月點火程序':f.separated?'上級推進':'發射升空'):null;
     const landing=l.outcome==='landed'&&l.landing;
     const phase=landing?(landing.water?'已安全濺落':'已安全降落陸地'):
-      outcomes[l.outcome]||(l.entry?entryPhase:ascent||(l.freeReturn?coast:locked?'示範引導中':'三維飛行'));
+      outcomes[l.outcome]||(l.entry?entryPhase:ascent||(l.manual?'手動飛行':l.freeReturn?coast:locked?'示範引導中':'三維飛行'));
     if(l.freeReturn)d.lunarMilestone.textContent=l.outcome||l.entry||l.returning||ascent?phase:f.moon.height<=80000000?'距月面 '+distance:phase;
     d.lunarReadout.textContent=phase+' · 距月面 '+distance+
       ' · 月球相對速率 '+fmt(f.moon.speed/1000,2)+' km/s'+
       (l.closest?.height<=80000000?' · 最近 '+fmt(l.closest.height/1000,1)+' km · T+'+fmt(l.closest.t/86400,2)+' 日 · '+fmt(l.closest.speed/1000,2)+' km/s':'')+
-      ' · 太空艙 '+fmt(f.capsule.fuel,2)+' kg';
+      (f.capsule.detached?' · 太空艙 '+fmt(f.capsule.fuel,2)+' kg':'');
     const estimates=[];
     if(forecast?.closest?.height<=80000000)estimates.push('預計最近月面 '+fmt(forecast.closest.height/1000,1)+' km · T+'+fmt(forecast.closest.t/86400,2)+' 日');
     if(forecast?.entry)estimates.push('預計返抵大氣層 T+'+fmt(forecast.entry.t/86400,2)+' 日');
-    d.lunarForecast.hidden=ended||Boolean(l.entry)||f.controls.lit||!f.capsule.detached;
+    d.lunarForecast.hidden=ended||Boolean(l.entry)||f.controls.lit||RocketParts.burning(f)||locked||f.orbit.height<120000;
     d.lunarForecast.textContent=estimates.length?estimates.join('；')+'（關機滑行）':forecast?'預測範圍內暫無近月或再入事件。':'正在預測關機後路徑…';
-    d.lunarManual.hidden=!locked||ended;
+    d.lunarManual.hidden=ended||!L().canTakeOver(f);
     d.lunarBearingRow.hidden=locked||ended||Boolean(l.entry);
     if(document.activeElement!==d.lunarBearing)d.lunarBearing.value=l.bearing.toFixed(2);
     d.lunarCutoffButton.disabled=ended||locked||!f.controls.lit||Boolean(m);

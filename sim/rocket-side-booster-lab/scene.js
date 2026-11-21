@@ -444,11 +444,13 @@ export class RocketScene{
   }
   setPaths(actual,predicted,planned,lunar,forecast){
     this.line('actual',lunar&&actual.length?[...actual,actual.at(-1)]:actual,'#ee9674');
-    this.line('predicted',predicted,'#b0e3d4',true);
+    if(!lunar||!forecast||this.forecast!==forecast){
+      this.line('predicted',predicted,'#b0e3d4',true);
+      this.forecastPoint=0;
+    }
     this.line('planned',planned,'#f6ca74',true);
     if(lunar&&this.lines.actual)this.lines.actual.frustumCulled=false;
     this.forecast=forecast;
-    this.forecastPoint=0;
   }
   updateLunarPaths(f){
     const current=this.rocket.position,actual=this.lines.actual?.geometry.attributes.position;
@@ -478,7 +480,7 @@ export class RocketScene{
       include(point);range=Math.max(range,point.length());
     }
     const other=this.data.other;
-    if(other?.status==='flying'){
+    if(!f?.lunar&&other?.status==='flying'){
       point.copy(worldVector(other.state)).applyQuaternion(this.worldRotation).multiplyScalar(3/P.R);include(point);range=Math.max(range,point.length());
     }
     if(f?.lunar&&!this.orbitFocus){
@@ -486,11 +488,12 @@ export class RocketScene{
       if(positions)for(let i=0;i<positions.count;i++)include(point.fromBufferAttribute(positions,i));
     }
     const prediction=this.lines.predicted?.geometry;
-    if(prediction&&f&&(f.lunar||O.elements(f.state).bound)&&!this.orbitFocus){
+    if(prediction&&f&&!f.lunar&&O.elements(f.state).bound&&!this.orbitFocus){
       const positions=prediction.getAttribute('position');
       for(let i=0;i<positions.count;i++)include(point.fromBufferAttribute(positions,i));
     }
-    for(const {geometry} of Object.values(this.lines)){
+    for(const [name,{geometry}] of Object.entries(this.lines)){
+      if(f?.lunar&&name==='predicted')continue;
       const sphere=geometry.boundingSphere;range=Math.max(range,sphere.center.length()+sphere.radius);
     }
     const fit=this.orbitFocus||{target:right.clone().multiplyScalar((left+rightEdge)/2).addScaledVector(up,(bottom+top)/2),halfHeight:1.2*Math.max((rightEdge-left)/(2*aspect),(top-bottom)/2)};

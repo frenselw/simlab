@@ -150,13 +150,25 @@
 /* Share the unused title row with secondary controls instead of adding a third row. */
 .primary-actions{display:contents}
 @media(max-width:719px){
- .sim-header:has(.flight-toolbar:not([hidden])){grid-template-columns:minmax(0,1fr) 56px 44px 52px 44px 44px;grid-template-rows:44px 44px;gap:3px;padding:2px 8px 4px!important}
+ .sim-header:has(.flight-toolbar:not([hidden])){grid-template-columns:minmax(0,1fr) 56px 44px 52px 44px 44px;grid-template-rows:44px 44px;gap:2px;padding:1px 8px!important}
  .sim-header:has(.flight-toolbar:not([hidden])) .identity{grid-column:1;grid-row:1;min-height:44px;align-items:center;padding:0!important}
  .sim-header:has(.flight-toolbar:not([hidden])) .theme-subtitle,.flight-toolbar .body-select-prefix{display:none}
  .flight-toolbar{display:contents}.flight-toolbar .body-control{grid-column:2;grid-row:1}.flight-toolbar #playButton{grid-column:3;grid-row:1}.flight-toolbar .time-warp-control{grid-column:4;grid-row:1;min-width:0}
  .flight-toolbar #bodySelect,.flight-toolbar #timeWarp,.flight-toolbar #playButton{width:100%;min-width:0;padding:4px 2px;font-size:12px}.flight-toolbar #bodySelect{gap:2px}
  .flight-toolbar .primary-actions{display:grid;grid-column:1/-1;grid-row:2;grid-template-columns:repeat(4,minmax(0,1fr));gap:3px}
  .flight-toolbar .primary-actions>button,.flight-toolbar :is(#igniteButton,#separateButton){width:100%;min-width:44px;padding-inline:2px;font-size:clamp(11px,3.25vw,12px)}
+ /* Keep the entire 44px row tappable around each shorter visible button. */
+ .flight-toolbar :is(#bodySelect,#playButton,#timeWarp,#igniteButton,#separateButton,#chuteArm,#toggleFlightControls){
+   position:relative;isolation:isolate;background:none;border-color:transparent
+ }
+ .flight-toolbar :is(#bodySelect,#playButton,#timeWarp,#igniteButton,#separateButton,#chuteArm,#toggleFlightControls)::before{
+   content:'';position:absolute;inset:4px 0;z-index:-1;border-radius:6px;
+   background:var(--button-face,var(--paper));border:1px solid var(--button-edge,var(--line))
+ }
+ .flight-toolbar #igniteButton{--button-face:var(--teal);--button-edge:var(--teal)}
+ .flight-toolbar #separateButton{--button-face:#fff9ef;--button-edge:#dfc5a4}
+ .flight-toolbar #chuteArm{--button-face:#f0f6fa;--button-edge:#9bb9ca}
+ .sim-app:not(.controls-collapsed) .workspace:has(.stage.is-flight){grid-template-rows:minmax(0,1fr) minmax(132px,.45fr)}
  .sim-header:has(.flight-toolbar:not([hidden]))>.sound-control{position:relative;top:auto;right:auto;grid-column:5;grid-row:1;align-self:center}
  .sim-header:has(.flight-toolbar:not([hidden]))>#fullscreenButton{position:static;grid-column:6;grid-row:1;align-self:center}
  .sim-header:has(.flight-toolbar:not([hidden]))>#fullscreenStatus{grid-row:3}
@@ -215,6 +227,54 @@
 .lunar-inputs{margin:6px 0 8px}
 @media(max-width:375px){.lunar-inputs{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:719px){.lunar-flight .flight-toolbar .primary-actions{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:719px),(max-width:959px) and (max-height:519px){
+ .flight-readouts{inset:5px 5px auto}
+ .flight-readouts .telemetry{gap:6px}
+ .flight-readouts .telemetry>.flight-metrics,.flight-readouts .telemetry>.fuel-metrics{
+   padding:3px 5px;border-radius:7px
+ }
+ .flight-metrics .altitude-metric,.flight-metrics .velocity-metrics{
+   display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:1px 5px
+ }
+ .flight-metrics .altitude-metric .metric-label{max-width:none}
+ .flight-readouts .metric-label{font-size:10px}
+ .flight-metrics .metric-value{font-size:16px;gap:2px;line-height:1.1}
+ .flight-metrics .surface-altitude{flex-basis:100%;font-size:10px;margin:0}
+ .flight-metrics .surface-altitude:empty{display:none}
+ .flight-metrics .velocity-metrics{margin-top:2px;padding-top:2px!important}
+ .flight-metrics .speed-components,.flight-metrics .speed-components b{font-size:11px}
+ .flight-metrics .speed-components small,.flight-metrics .metric-value small{font-size:10px}
+ .flight-readouts .telemetry>.fuel-metrics{gap:3px;max-width:44%}
+ .fuel-stage{font-size:11px;column-gap:4px;row-gap:1px}
+ .fuel-stage .fuel-track{height:3px;width:100%;min-width:58px}
+ .stage.is-flight .stage-footer{bottom:4px;gap:4px}
+ .stage.is-flight .camera-controls{position:relative;isolation:isolate;border:0;background:none}
+ .stage.is-flight .camera-controls::before{
+   content:'';position:absolute;inset:6px 2px;z-index:-1;pointer-events:none;
+   border:1px solid #c9dcd3;border-radius:6px;background:#fffefaed
+ }
+ .stage.is-flight .camera-controls [data-camera-view]{
+   position:relative;isolation:isolate;font-size:11px;padding:2px;background:none
+ }
+ .stage.is-flight .camera-controls [data-camera-view][aria-pressed=true]::before{
+   content:'';position:absolute;inset:7px 3px;z-index:-1;pointer-events:none;
+   border-radius:5px;background:#dcece4
+ }
+ .stage.is-flight .camera-lock-menu{width:min(252px,calc(100vw - 80px));min-width:0}
+ .stage.is-flight .direction-legend{font-size:10px;gap:1px;padding:3px 4px}
+ .stage.is-flight .direction-legend .math{font-size:11px}
+ .stage.is-flight .scroll-strip>span{bottom:5px;height:43px;width:22px}
+ .stage.is-flight .scroll-strip.right>span{right:0}
+ .stage.is-flight .scroll-strip svg{width:11px;height:28px}
+ .stage.is-flight .orbit-legend{bottom:46px;font-size:10px;gap:4px}
+ .mission-readouts{padding:2px 5px}
+ .mission-readouts .deck-readouts{gap:4px}
+ .mission-readouts .deck-readouts>.orbit-strip{gap:3px;font-size:10px}
+ .mission-readouts .orbit-strip b,.mission-readouts .flight-clock output{font-size:11px;line-height:16px}
+ .mission-readouts .orbit-strip>span{padding-inline:3px}
+ .flight-events{margin-bottom:4px;padding-block:2px}
+ .flight-events h2,.flight-event{font-size:11px}
+}
 .map-label{position:absolute;z-index:4;pointer-events:none;white-space:nowrap;color:#fff8df;background:#10232dec;border:1px solid #b6c6c2;border-radius:6px;font-size:12px;line-height:1.2}
 .map-label{padding:3px 5px;transform:translate(-50%,10px)}
 .map-label::before{content:"";position:absolute;top:-8px;left:calc(50% + var(--label-tick,0px));height:7px;border-left:1px solid currentColor}
