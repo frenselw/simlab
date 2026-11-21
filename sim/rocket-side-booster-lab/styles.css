@@ -97,6 +97,10 @@
 
 /* In-page warp choices avoid opening the iPad native select picker in fullscreen. */
 .time-warp-control{margin-left:auto;flex:none}
+#timeWarp{display:flex;align-items:center;justify-content:center;gap:2px}
+.time-warp-display{display:grid;justify-items:center;line-height:1.1}
+#timeWarpLimit{font-size:10px;font-weight:600;color:#725021}
+#timeWarp:has(#timeWarpLimit:not([hidden]))>span[aria-hidden]{display:none}
 
 .time-warp-menu{position:fixed;z-index:50;width:min(272px,calc(100vw - 16px));max-height:calc(100dvh - 16px);overflow-y:auto;display:grid;grid-template-columns:repeat(3,minmax(44px,1fr));gap:6px;padding:10px;border:1px solid #799e95;border-radius:10px;background:var(--paper);box-shadow:0 5px 20px #183e4533;touch-action:pan-y}
 .time-warp-menu button{min-width:44px;min-height:44px;font-size:15px;padding:6px}

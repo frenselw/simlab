@@ -1398,6 +1398,12 @@ async function lunarManual(base,label){
   await click('#timeWarp',mobile);await click('[data-time-warp="10000"]',mobile);
   assert(await call(`return d.getElementById('timeWarp').value==='10000'&&
     d.getElementById('warpStatus').textContent.includes('暫限 1000×');`));
+  await click('#toggleFlightControls',mobile);
+  const capped=await call(`const limit=d.getElementById('timeWarpLimit'),button=d.getElementById('timeWarp');
+    const label=limit.getBoundingClientRect(),box=button.getBoundingClientRect();
+    return {text:limit.textContent,visible:!limit.hidden&&label.width>0,fits:label.left>=box.left&&label.right<=box.right};`);
+  assert.deepEqual(capped,{text:'限 1000×',visible:true,fits:true});
+  await click('#toggleFlightControls',mobile);
   await wait(()=>call('return Boolean(app.getScene().forecast);'),'manual coast forecast');
   for(const view of ['orbit','plane']){
     await click('[data-camera-view="'+view+'"]',mobile);
@@ -1737,14 +1743,15 @@ async function lunarLanding(base,label){
     c.play();
     while(c.running&&f.t<split-2-1e-8)c.tick(Math.min(1200,split-2-f.t),900);
     c.emit();
-    const before={t:f.t,label:d.getElementById('timeWarpLabel').textContent,view:app.diagnostics().view,detached:f.capsule.detached};
+    const before={t:f.t,label:d.getElementById('timeWarpLabel').textContent,limit:d.getElementById('timeWarpLimit').textContent,
+      view:app.diagnostics().view,detached:f.capsule.detached};
     RocketRuntime.advanceFrame(c,2.5,10000);c.pause();
-    return {split,before,after:{t:f.t,label:d.getElementById('timeWarpLabel').textContent,detached:f.capsule.detached,
+    return {split,before,after:{t:f.t,label:d.getElementById('timeWarpLabel').textContent,limit:d.getElementById('timeWarpLimit').textContent,detached:f.capsule.detached,
       upperVisible:app.getScene().otherRocket.visible}};`);
   assert(Math.abs(separation.before.t-separation.split+2)<1e-7);
-  assert.deepEqual({...separation.before,t:0},{t:0,label:'1×',view:'follow',detached:false});
+  assert.deepEqual({...separation.before,t:0},{t:0,label:'10000×',limit:'限 1×',view:'follow',detached:false});
   assert(Math.abs(separation.after.t-separation.split-.5)<1e-7);
-  assert(separation.after.label==='1×'&&separation.after.detached&&separation.after.upperVisible);
+  assert(separation.after.label==='10000×'&&separation.after.limit==='限 1×'&&separation.after.detached&&separation.after.upperVisible);
   await shot(label+'-lunar-separation-realtime');
   const orbit=await call(`const c=app.controller,f=c.state.flight;
     let protectedStates=0;
@@ -1862,10 +1869,12 @@ async function lunarLanding(base,label){
   await click('[data-time-warp="20"]',mobile);
   await click('#separateButton',mobile);
   const manualSeparation=await call(`const c=app.controller,f=c.state.flight;
-    const before={queued:Boolean(f.pendingSeparation),detached:f.capsule.detached,label:d.getElementById('timeWarpLabel').textContent};
+    const before={queued:Boolean(f.pendingSeparation),detached:f.capsule.detached,label:d.getElementById('timeWarpLabel').textContent,
+      limit:d.getElementById('timeWarpLimit').textContent};
     RocketRuntime.advanceFrame(c,8.5,20);c.pause();
-    return {before,detached:c.state.flight.capsule.detached,label:d.getElementById('timeWarpLabel').textContent};`);
-  assert.deepEqual(manualSeparation,{before:{queued:true,detached:false,label:'1×'},detached:true,label:'20×'});
+    return {before,detached:c.state.flight.capsule.detached,label:d.getElementById('timeWarpLabel').textContent,
+      limited:!d.getElementById('timeWarpLimit').hidden};`);
+  assert.deepEqual(manualSeparation,{before:{queued:true,detached:false,label:'20×',limit:'限 1×'},detached:true,label:'20×',limited:false});
   report.flows.push({case:'lunar-landing',label,width,height,separation,orbit,manual,result,terrain,departure,diversion,automatic,manualSeparation});
 }
 
