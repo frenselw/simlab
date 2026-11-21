@@ -940,7 +940,7 @@
       if(f.lunar.handoff==='auto'){
         if(['survey','translate','final'].includes(f.lunar.auto.phase)||f.moon.height<244)return 1;
         if(f.moon.height<1200)return 5;
-        return f.lunar.auto.phase==='coast'?1000:20;
+        return f.lunar.auto.phase==='coast'?30:20;
       }
       if(['align','burn'].includes(f.lunar.capturePhase))return 20;
       if(!f.controls.lit&&f.orbit.height>20000000&&f.moon.height>ENCOUNTER_WARP_HEIGHT)return FAST_WARP;

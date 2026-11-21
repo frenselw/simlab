@@ -50,7 +50,7 @@ export function installLunarControls(d,{controller,launchAllowed,command,setView
   d.lunarLandingLaunch.addEventListener('click',()=>prepare('lunar-landing-launch'));
   d.lunarTakeover.addEventListener('click',()=>{if(command({type:'moon-takeover'}))controller.play();});
   d.lunarAutoLand.addEventListener('click',()=>{
-    if(command({type:'moon-auto-land'})){setView('follow',true);controller.play();}
+    if(command({type:'moon-auto-land'}))controller.play();
   });
   d.lunarOrientation.addEventListener('click',event=>{
     const button=event.target.closest('[data-moon-mode]');
@@ -145,21 +145,11 @@ export function installLunarControls(d,{controller,launchAllowed,command,setView
       d.flightHint.textContent=manual&&!ended?
         l.auto?.phase==='no-site'?'附近未找到安全落點。登月艙正維持推力，請手動選擇落點。':'離軌時選月球逆行並點火。接近月面時，調姿和油門以降低下降及橫移速度。':status;
       if(nearMoon){
-        const altitude=f.moon.surface?.height??f.moon.height;
-        d.heightValue.textContent=fmt(altitude>=1000?altitude/1000:altitude,1);
-        d.heightUnit.textContent=altitude>=1000?'km':'m';
-        d.surfaceAltitude.textContent='距月面';
         d.periapsisValue.textContent=f.moon.bound?fmt(f.moon.hp/1000)+' km':'—';
         d.apoapsisValue.textContent=f.moon.bound?fmt(f.moon.ha/1000)+' km':'非束縛';
         d.periapsisValue.title='近月點';
         d.apoapsisValue.title='遠月點';
         d.orbitStatus.textContent=status;
-        const surface=f.moon.surface,vertical=surface?.vertical??f.moon.radial,horizontal=surface?.horizontal??f.moon.tangential;
-        for(const [id,value] of [['totalSpeed',Math.hypot(vertical,horizontal)],['verticalSpeed',Math.abs(vertical)],['speed',horizontal]]){
-          const km=value>=1000;
-          d[id+'Value'].textContent=fmt(km?value/1000:value,km?2:1);
-          d[id+'Unit'].textContent=km?'km/s':'m/s';
-        }
       }
       return;
     }

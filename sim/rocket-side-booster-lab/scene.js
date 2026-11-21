@@ -16,7 +16,8 @@ function lunarPose(rocket,body,rotation){
   rocket.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(right,up,depth));
 }
 const isOrbitView=view=>view==='orbit'||view==='plane';
-const orbitUp=(yaw,pitch)=>new THREE.Vector3(-Math.sin(yaw)*Math.sin(pitch),Math.cos(pitch),-Math.cos(yaw)*Math.sin(pitch));
+const rightAxis=new THREE.Vector3(1,0,0);
+const orbitAttitude=(yaw,pitch)=>new THREE.Quaternion().setFromEuler(new THREE.Euler(-pitch,yaw,0,'YXZ'));
 function vectorArrow(color){const group=new THREE.Group(),mat=new THREE.MeshBasicMaterial({color,transparent:true,depthTest:false,depthWrite:false,toneMapped:false}),shaft=new THREE.Mesh(new THREE.CylinderGeometry(.026,.026,.74,8),mat),head=new THREE.Mesh(new THREE.ConeGeometry(.09,.26,10),mat);shaft.position.y=.37;head.position.y=.87;shaft.renderOrder=head.renderOrder=10;group.add(shaft,head);return group;}
 export class RocketScene{
   constructor(host,onFault){
@@ -100,10 +101,12 @@ export class RocketScene{
   setView(view,reset=false,lock=null){
     if(view==='factory'&&reset)this.factoryHeight=13;
     if(view==='follow'&&reset)this.followManual=false;
-    this.cameraViews.set(this.view,{yaw:this.yaw,pitch:this.pitch,zoom:this.zoom,orbitFocus:this.orbitFocus});
+    this.cameraViews.set(this.view,{yaw:this.yaw,pitch:this.pitch,zoom:this.zoom,orbitFocus:this.orbitFocus,
+      orbitOrientation:this.orbitOrientation,followManual:this.followManual});
     const saved=!reset&&this.cameraViews.get(view);this.view=view;this.orbitFrame=null;
     this.cameraLock=view==='follow'?lock:null;this.cameraLockUp=null;
-    Object.assign(this,saved||{yaw:view==='plane'?0:view==='orbit'?.45:view==='follow'?-.65:.55,pitch:view==='plane'?0:view==='orbit'?.32:.18,zoom:1,orbitFocus:null});
+    Object.assign(this,saved||{yaw:view==='plane'?0:view==='orbit'?.45:view==='follow'?-.65:.55,pitch:view==='plane'?0:view==='orbit'?.32:.18,
+      zoom:1,orbitFocus:null,orbitOrientation:null,followManual:false});
     this.draw();
   }
   setCameraLock(lock){
@@ -141,7 +144,11 @@ export class RocketScene{
     if(Number.isFinite(value)){
       const max=this.orbitFrame?Math.max(32,this.orbitFrame.halfHeight/.4):2.5;
       const next=THREE.MathUtils.clamp(value,this.orbitFrame ? .05 : .4,max);
-      if(next!==this.zoom){this.lockOrbitFrame();this.zoom=next;this.cameraDirty=true;}
+      if(next!==this.zoom){
+        this.lockOrbitFrame();
+        if(this.orbitFocus)this.orbitFocus.rotationDepthSet=false;
+        this.zoom=next;this.cameraDirty=true;
+      }
     }
     return this.zoom;
   }
@@ -156,25 +163,40 @@ export class RocketScene{
     const x=canvas.left+canvas.width/2,y=canvas.top+canvas.height/2;
     const before=2*halfHeight/(canvas.height*this.zoom),after=2*halfHeight/(canvas.height*this.setZoom(this.zoom*factor));
     target.addScaledVector(right,(from.x-x)*before-(to.x-x)*after).addScaledVector(up,(to.y-y)*after-(from.y-y)*before);
+    this.orbitFocus.rotationDepthSet=false;
     this.cameraDirty=true;return true;
   }
   rotate(dx,dy,draw=true){
-    if(this.cameraLock)return false;
-    if(isOrbitView(this.view)&&this.orbitFrame){
-      this.lockOrbitFrame();
-      const {radius,pixelsPerUnit,target}=this.orbitFrame;
-      // At high magnification, limit how far depth can move the scene per drag pixel.
-      const projectedDepth=(radius+target.length())*pixelsPerUnit;
-      const sensitivity=1/Math.max(1,.005*projectedDepth*(1-1/this.zoom));
-      dx*=sensitivity;dy*=sensitivity;
+    if(this.cameraLock||!(dx||dy))return false;
+    if(this.view==='factory'){
+      this.yaw=O.wrap(this.yaw+dx*.008);
+      this.pitch=THREE.MathUtils.clamp(this.pitch+dy*.006,-1.5,1.5);
+    }else{
+      const pitch=this.view==='follow'?this.followPitch??this.pitch:this.pitch;
+      const orientation=this.orbitOrientation??=orbitAttitude(this.yaw,pitch);
+      if(isOrbitView(this.view)&&this.orbitFrame){
+        this.lockOrbitFrame();
+        if(this.zoom>2&&!this.orbitFocus.rotationDepthSet){
+          // Set the rotation centre at the focused object's depth without shifting its screen position.
+          const {target}=this.orbitFocus,{right,up}=this.orbitFrame;
+          const depth=viewAxis.clone().applyQuaternion(orientation),offset=new THREE.Vector3();
+          let nearest=Infinity,plane=0;
+          for(const body of [this.rocket,this.moonGlobe,this.earth]){
+            if(!body?.visible)continue;
+            offset.copy(body.position).sub(target);
+            const radius=body===this.rocket?0:body.scale.x;
+            const gap=Math.max(0,Math.hypot(offset.dot(right),offset.dot(up))-radius);
+            if(gap<nearest){nearest=gap;plane=offset.dot(depth);}
+          }
+          target.addScaledVector(depth,plane);
+          this.orbitFocus.rotationDepthSet=true;
+        }
+        const sensitivity=1/Math.sqrt(Math.max(1,this.zoom));
+        dx*=sensitivity;dy*=sensitivity;
+      }
+      orientation.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-dy*.006,dx*.008,0,'YXZ'))).normalize();
+      if(this.view==='follow')this.followManual=true;
     }
-    if(this.view==='follow'&&!this.followManual&&(dx||dy)){
-      this.pitch=this.followPitch??this.pitch;
-      this.followManual=true;
-    }
-    this.yaw=O.wrap(this.yaw+dx*.008);
-    const pitch=this.pitch+dy*.006;
-    this.pitch=this.view==='factory'?THREE.MathUtils.clamp(pitch,-1.5,1.5):O.wrap(pitch+Math.PI)-Math.PI;
     this.cameraDirty=true;if(draw)this.draw();
     return true;
   }
@@ -478,15 +500,16 @@ export class RocketScene{
   }
   frameOrbit(f,target){
     const {yaw,pitch}=this,aspect=this.perspectiveCamera.aspect;
-    const right=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw));
-    const up=orbitUp(yaw,pitch),point=new THREE.Vector3();
+    const orientation=this.orbitOrientation??orbitAttitude(yaw,pitch);
+    const right=rightAxis.clone().applyQuaternion(orientation);
+    const up=upAxis.clone().applyQuaternion(orientation),point=new THREE.Vector3();
     if(f?.lunar?.landingMission&&f.moon.height<300000){
       const center=point.fromArray(f.sky.moon).applyQuaternion(this.worldRotation).multiplyScalar(3000/P.R);
       const radius=RocketLunar.MOON_RADIUS*3/P.R;
       const fit=this.orbitFocus||{target:center,halfHeight:1.26*radius/Math.min(1,aspect)};
       target.copy(fit.target);
       const height=fit.halfHeight/this.zoom;
-      this.orbitFrame={...fit,right,up,radius,pixelsPerUnit:this.host.clientHeight/(2*height)};
+      this.orbitFrame={...fit,right,up,pixelsPerUnit:this.host.clientHeight/(2*height)};
       Object.assign(this.orbitCamera,{left:-height*aspect,right:height*aspect,top:height,bottom:-height});
       return Math.max(8,4*height);
     }
@@ -517,7 +540,7 @@ export class RocketScene{
     const fit=this.orbitFocus||{target:right.clone().multiplyScalar((left+rightEdge)/2).addScaledVector(up,(bottom+top)/2),halfHeight:1.2*Math.max((rightEdge-left)/(2*aspect),(top-bottom)/2)};
     target.copy(fit.target);
     const displayHeight=fit.halfHeight/this.zoom;
-    this.orbitFrame={...fit,right,up,radius:range,pixelsPerUnit:this.host.clientHeight/(2*displayHeight)};
+    this.orbitFrame={...fit,right,up,pixelsPerUnit:this.host.clientHeight/(2*displayHeight)};
     Object.assign(this.orbitCamera,{left:-displayHeight*aspect,right:displayHeight*aspect,top:displayHeight,bottom:-displayHeight});
     return Math.max(30,2*range+15,2*displayHeight*Math.hypot(1,aspect));
   }
@@ -746,12 +769,6 @@ export class RocketScene{
       light.target.position.copy(light.position).addScaledVector(up,-.1);
       light.intensity=.009*(1-daylight);
       light.visible=light.intensity>.00005;
-      if(this.view==='follow'&&!this.cameraLock&&!this.followManual){
-        const span=this.rocket.position.distanceTo(marker.position);
-        target.lerp(marker.position,.44*THREE.MathUtils.smoothstep(span,.025,.08));
-        const framing=2*Math.tan(THREE.MathUtils.degToRad(this.camera.fov*.5))*.72;
-        distance=Math.max(distance,span/(framing*Math.min(1,this.camera.aspect)*this.zoom));
-      }
     }else if(this.lunarLandingMarker){
       this.lunarLandingMarker.visible=false;
       this.lunarSurveyLight.visible=false;
@@ -759,9 +776,10 @@ export class RocketScene{
     const lockedBody=!f?null:this.cameraLock==='earth'?this.earth.position:this.cameraLock==='moon'?this.moonTarget:
       this.cameraLock==='sun'&&skyFrame?new THREE.Vector3(...skyFrame.sun).applyQuaternion(worldRotation).add(this.earth.position):null;
     const positionCamera=(pitch,yaw=cameraYaw)=>this.camera.position.copy(target).add(new THREE.Vector3(Math.sin(yaw)*Math.cos(pitch)*distance,Math.sin(pitch)*distance,Math.cos(yaw)*Math.cos(pitch)*distance));
-    this.camera.up.copy(orbitUp(cameraYaw,cameraPitch));
+    const orientation=this.orbitOrientation??orbitAttitude(cameraYaw,cameraPitch);
+    this.camera.up.copy(upAxis).applyQuaternion(orientation);
     if(lockedBody)distance=this.placeLockedCamera(target,lockedBody,distance,rocketRadius,worldRotation,skyFrame,lunar?f.sky.mapBasis:null);
-    else positionCamera(cameraPitch);
+    else this.camera.position.copy(viewAxis).applyQuaternion(orientation).multiplyScalar(distance).add(target);
     let cameraClearance=Infinity;
     if(!space){
       const inverse=this.globalTerrain.matrixWorld.clone().invert(),point=new THREE.Vector3(),margin=factory||!f?.2:.002;

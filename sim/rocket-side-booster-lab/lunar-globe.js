@@ -6,7 +6,47 @@ export const moonLighting=`
     return vec3(reflectance*(.009+1.15*pow(max(0.0,sunlight),.72)));
   }
 `;
-const maxDetailAltitude=80000000,fadeMilliseconds=900;
+const maxDetailAltitude=80000000,minDetailPixels=64,fadeMilliseconds=500;
+const mapWidth=2048,mapHeight=1024,heightWidth=1024,heightHeight=512;
+
+function createLunarRelief(image){
+  const canvas=document.createElement('canvas');
+  canvas.width=heightWidth;canvas.height=heightHeight;
+  const context=canvas.getContext('2d',{willReadFrequently:true});
+  context.drawImage(image,0,0,heightWidth,heightHeight,0,0,heightWidth,heightHeight);
+  const heights=context.getImageData(0,0,heightWidth,heightHeight).data;
+  // The alpha channel carries the measured elevations in 140 m steps.
+  const elevation=(x,y)=>heights[4*(y*heightWidth+(x+heightWidth)%heightWidth)+3]*140-23500;
+  const sample=(x,y)=>{
+    y=T.MathUtils.clamp(y,0,heightHeight-1);
+    const left=Math.floor(x),top=Math.floor(y),bottom=Math.min(top+1,heightHeight-1);
+    const a=T.MathUtils.lerp(elevation(left,top),elevation(left+1,top),x-left);
+    const b=T.MathUtils.lerp(elevation(left,bottom),elevation(left+1,bottom),x-left);
+    return T.MathUtils.lerp(a,b,y-top);
+  };
+  const radius=RocketCelestial.MOON_RADIUS,spacing=2*Math.PI*radius/heightWidth;
+  const geometry=new T.SphereGeometry(1,512,256);
+  const {position,uv}=geometry.attributes,terrain=new Float32Array(position.count*4);
+  const radial=new T.Vector3(),east=new T.Vector3(),north=new T.Vector3(),normal=new T.Vector3();
+  for(let i=0;i<position.count;i++){
+    const x=uv.getX(i)*heightWidth-.5,y=(1-uv.getY(i))*heightHeight-.5;
+    radial.fromBufferAttribute(position,i);
+    east.set(radial.z,0,-radial.x);
+    const cosLatitude=east.length();
+    normal.copy(radial);
+    if(cosLatitude>.01){
+      east.multiplyScalar(1/cosLatitude);
+      north.crossVectors(radial,east);
+      // Use the measured slope at map resolution, including relief between mesh vertices.
+      normal.addScaledVector(east,(sample(x-1,y)-sample(x+1,y))/(2*spacing*cosLatitude));
+      normal.addScaledVector(north,(sample(x,y+1)-sample(x,y-1))/(2*spacing)).normalize();
+    }
+    terrain.set([normal.x,normal.y,normal.z,sample(x,y)/radius],4*i);
+  }
+  geometry.setAttribute('terrain',new T.BufferAttribute(terrain,4));
+  geometry.boundingSphere=new T.Sphere(new T.Vector3(),1.007);
+  return geometry;
+}
 
 export function createLunarGround(){
   const C=window.RocketCelestial,radius=C.MOON_RADIUS;
@@ -94,19 +134,21 @@ export function createLunarGround(){
 }
 
 export function createLunarGlobe(){
-  const light={value:new T.Vector3()},albedo={value:null},detailBlend={value:0};
+  const light={value:new T.Vector3()},albedo={value:null},detailBlend={value:0},reliefBlend={value:0};
   const terrainCut={value:new T.Vector4(0,0,0,2)};
   const material=new T.ShaderMaterial({
-    uniforms:{light,albedo,detailBlend,terrainCut},
+    uniforms:{light,albedo,detailBlend,terrainCut,reliefBlend},
     vertexShader:`
+      uniform float reliefBlend;
+      attribute vec4 terrain;
       varying vec3 lunarNormal;
       varying vec2 lunarUv;
       #include <common>
       #include <logdepthbuf_pars_vertex>
       void main(){
-        lunarNormal=normalize(mat3(modelMatrix)*normal);
+        lunarNormal=normalize(mat3(modelMatrix)*mix(normal,terrain.xyz,reliefBlend));
         lunarUv=uv;
-        gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);
+        gl_Position=projectionMatrix*modelViewMatrix*vec4(position*(1.0+terrain.w*reliefBlend),1.0);
         #include <logdepthbuf_vertex>
       }`,
     fragmentShader:`
@@ -124,27 +166,33 @@ export function createLunarGlobe(){
         if(dot(n,terrainCut.xyz)>terrainCut.w)discard;
         float gray=moonGray;
         if(detailBlend>0.0){
-          float surface=dot(texture2D(albedo,lunarUv).rgb,vec3(.2126,.7152,.0722));
-          gray+=(surface-.52)*.32*detailBlend;
+          float surface=texture2D(albedo,lunarUv).r;
+          gray+=(surface-.52)*.42*detailBlend;
         }
         gl_FragColor=vec4(shadeMoon(gray,dot(n,light)),1.0);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
       }`
   });
-  const globe=new T.Mesh(new T.SphereGeometry(1,64,40),material);
+  const sphere=new T.SphereGeometry(1,64,40);
+  sphere.setAttribute('terrain',new T.BufferAttribute(new Float32Array(sphere.attributes.position.count*4),4));
+  const globe=new T.Mesh(sphere,material);
   globe.visible=false;
-  let requested=false,timer=null,loadedAt=0;
+  let requested=false,timer=null,loadedAt=0,relief;
   async function load(refresh){
-    const response=await fetch(new URL('./assets/moon-albedo-2k.jpg',import.meta.url));
+    const response=await fetch(new URL('./assets/moon-surface.webp',import.meta.url));
     if(!response.ok)return;
     const bytes=await RocketSurfaceCodec.readBytes(response.body,500000);
-    const uri=URL.createObjectURL(new Blob([bytes],{type:'image/jpeg'}));
+    const uri=URL.createObjectURL(new Blob([bytes],{type:'image/webp'}));
     try{
-      const texture=await new T.TextureLoader().loadAsync(uri);
-      if(texture.image.width!==2048||texture.image.height!==1024){texture.dispose();return;}
+      const image=await new T.ImageLoader().loadAsync(uri);
+      if(image.width!==mapWidth||image.height!==mapHeight)return;
+      relief=createLunarRelief(image);
+      const texture=new T.Texture(image);
       texture.colorSpace=T.SRGBColorSpace;
+      texture.wrapS=T.RepeatWrapping;
       texture.anisotropy=4;
+      texture.needsUpdate=true;
       albedo.value=texture;
       loadedAt=performance.now();
       function fade(now){
@@ -165,10 +213,14 @@ export function createLunarGlobe(){
     globe.visible=true;
     detailBlend.value=albedo.value?
       (1-T.MathUtils.smoothstep(moonAltitude,20000000,maxDetailAltitude))*
-      T.MathUtils.smoothstep(pixels,96,240)*
+      T.MathUtils.smoothstep(pixels,minDetailPixels,160)*
       T.MathUtils.smoothstep(performance.now()-loadedAt,0,fadeMilliseconds):0;
+    // Let the established landing mesh take over as the spacecraft approaches touchdown.
+    reliefBlend.value=detailBlend.value*T.MathUtils.smoothstep(moonAltitude,8000,50000)*
+      (1-T.MathUtils.smoothstep(moonAltitude,850000,2500000));
+    globe.geometry=reliefBlend.value>0?relief:sphere;
     if(requested)return;
-    if(moonAltitude>=maxDetailAltitude||pixels<96||!new T.Frustum().setFromProjectionMatrix(
+    if(moonAltitude>=maxDetailAltitude||pixels<minDetailPixels||!new T.Frustum().setFromProjectionMatrix(
       new T.Matrix4().multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse)
     ).intersectsSphere(new T.Sphere(position,radius))){
       clearTimeout(timer);timer=null;return;
@@ -178,7 +230,7 @@ export function createLunarGlobe(){
       if(!globe.visible||document.hidden)return;
       requested=true;
       load(refresh).catch(()=>{});
-    },1000);
+    },250);
   }
   globe.userData.update=update;
   globe.userData.detailBlend=detailBlend;

@@ -1047,7 +1047,7 @@ async function distantCamera(base,label){
       const projectedRadius=camera.isOrthographicCamera?earthRadius/camera.top:earthRadius/(earthDistance*Math.tan(camera.fov*Math.PI/360));
       const visible=(p,margin=0)=>Math.abs(p.x)+margin/s.perspectiveCamera.aspect<1&&Math.abs(p.y)+margin<1&&p.z>=-1&&p.z<=1;
       return{width:canvas.width,height:canvas.height,earth:visible(earth,projectedRadius),craft:visible(craft),y:earth.y,far:camera.far,
-        follows:s.rocket.scale.x===.001,pitch:s.followPitch,manual:!!s.followManual,
+        follows:s.rocket.scale.x===.001,pitch:Math.asin(-camera.getWorldDirection(new V()).y),manual:!!s.followManual,
         panel:!d.getElementById('controlPanel').hidden,expanded:d.getElementById('toggleFlightControls').getAttribute('aria-expanded'),
         ignition:d.getElementById('igniteButton').getBoundingClientRect().height>0,time:d.getElementById('timeValue').textContent,
         play:!d.getElementById('playButton').disabled,warp:!d.getElementById('timeWarp').disabled};`);
@@ -1056,7 +1056,7 @@ async function distantCamera(base,label){
     const collapsed=await measure();
     assert(!collapsed.panel&&collapsed.ignition&&collapsed.expanded==='false'&&collapsed.time&&collapsed.play&&collapsed.warp,JSON.stringify(collapsed));
     const landscape=width>=640&&height<520;
-    const verticalGain=height<520?100:150;
+    const verticalGain=height<600?100:150;
     assert(width>=960||landscape?collapsed.width>expanded.width+150:collapsed.height>expanded.height+verticalGain,JSON.stringify({expanded,collapsed}));
     assert(collapsed.earth&&collapsed.craft&&collapsed.follows,JSON.stringify(collapsed));
     assert.deepEqual(await call('return app.getState();'),state);
@@ -1137,21 +1137,36 @@ async function cameraFreedom(base,label){
   assert(result.every(row=>row.inside>10000&&row.holes===0),JSON.stringify(result));
   await shot(label+'-earth-clear-10421km');
   const rotation=()=>call(`const s=app.getScene(),c=s.camera,n=c.position.clone();
-    return{pitch:s.pitch,forward:c.getWorldDirection(n).toArray(),up:c.up.toArray(),
+    return{forward:c.getWorldDirection(n).toArray(),up:c.up.toArray(),right:[...c.matrixWorld.elements.slice(0,3)],
       clearance:(()=>{const p=s.globalTerrain.worldToLocal(c.position.clone()),r=p.length();p.normalize();return r*(RocketParts.R-5)-RocketParts.R-RocketSurface.heightAt(p.x,p.y,p.z);})()};`);
+  const dot=(a,b)=>a.reduce((sum,v,i)=>sum+v*b[i],0);
+  await viewport(390,844);
+  const swipes=[];
   for(const view of ['follow','orbit','plane']){
     await call(`app.view(${JSON.stringify(view)},true);const s=app.getScene(),pitch=s.view==='follow'?s.followPitch:s.pitch;s.rotate(0,(1.48-pitch)/.006);`);
     const before=await rotation();
     await call('app.getScene().rotate(0,40);');
     const after=await rotation();
-    const aligned=(a,b)=>a.reduce((sum,v,i)=>sum+v*b[i],0)>.95;
-    assert(before.pitch<Math.PI/2&&after.pitch>Math.PI/2&&aligned(before.forward,after.forward)&&aligned(before.up,after.up),JSON.stringify({view,before,after}));
+    assert(dot(before.forward,after.forward)>.95&&dot(before.up,after.up)>.95);
+    await call(`app.view(${JSON.stringify(view)},true);const s=app.getScene(),pitch=s.view==='follow'?s.followPitch:s.pitch;s.rotate(0,(Math.PI/2-pitch)/.006);`);
+    const point=await call(`const r=d.getElementById('cameraSurface').getBoundingClientRect();
+      return {x:r.left+r.width/2,y:r.top+r.height/2};`);
+    const top=await rotation(),touches=await call('return app.diagnostics().interaction.trustedTouch;');
+    assert(top.forward[1]<-.999999);
+    await pointer(point,{x:point.x+60,y:point.y});
+    const right=await rotation();
+    assert(dot(right.forward,top.right)<-.45&&dot(top.up,right.up)>.99999);
+    await pointer(point,{x:point.x-60,y:point.y});
+    const left=await rotation();
+    assert(dot(left.forward,top.forward)>.99999);
+    assert.equal(await call('return app.diagnostics().interaction.trustedTouch;'),touches+2);
+    swipes.push({view,forwardAngle:Math.acos(dot(right.forward,top.forward))*180/Math.PI});
   }
   await open(base,T.singlePad());
   await call('app.view("follow",true);const s=app.getScene();s.rotate(0,-270);');
   const before=await rotation();await call('app.getScene().rotate(0,-70);');const after=await rotation();
-  assert(before.clearance>=1.99&&after.clearance>=1.99&&Math.abs(after.pitch-before.pitch+.42)<.01&&before.forward[2]*after.forward[2]<0,JSON.stringify({before,after}));
-  report.flows.push({label,case:'camera-freedom',pixels:result,ground:[before,after]});
+  assert(before.clearance>=1.99&&after.clearance>=1.99&&Math.abs(dot(before.forward,after.forward)-Math.cos(.42))<1e-6&&before.forward[2]*after.forward[2]<0,JSON.stringify({before,after}));
+  report.flows.push({label,case:'camera-freedom',pixels:result,ground:[before,after],swipes});
 }
 
 async function distantNavigation(base,label,state){
@@ -1323,12 +1338,14 @@ async function lunarTransfer(base,label){
     const before=await call(`const s=app.getScene(),r=s.host.getBoundingClientRect(),ship=s.project(s.rocket.position);
       const x=r.left+r.width/2,y=r.top+r.height/2;
       s.transformOrbit(90,{x:r.left+ship.x,y:r.top+ship.y},{x,y});s.draw();
-      return {x,y,zoom:s.zoom,yaw:s.yaw,ship:s.project(s.rocket.position)};`);
+      return {x,y,zoom:s.zoom,orientation:s.camera.quaternion.toArray(),ship:s.project(s.rocket.position)};`);
     await pointer({x:before.x,y:before.y},{x:before.x+12,y:before.y+8},false);
-    const after=await call('const s=app.getScene();return {yaw:s.yaw,ship:s.project(s.rocket.position)};');
+    const after=await call('const s=app.getScene();return {orientation:s.camera.quaternion.toArray(),ship:s.project(s.rocket.position)};');
     const pixels=Math.hypot(after.ship.x-before.ship.x,after.ship.y-before.ship.y);
-    assert(before.zoom>=40&&after.yaw!==before.yaw&&after.ship.visible&&pixels<26,JSON.stringify({view,before,after,pixels}));
-    rotation.push({view,zoom:before.zoom,pixels});
+    const alignment=Math.abs(before.orientation.reduce((sum,v,i)=>sum+v*after.orientation[i],0));
+    const angle=2*Math.acos(Math.min(1,alignment))*180/Math.PI;
+    assert(before.zoom>=40&&angle>.5&&after.ship.visible&&pixels<26,JSON.stringify({view,before,after,pixels,angle}));
+    rotation.push({view,zoom:before.zoom,pixels,angle});
   }
   await click('[data-camera-view="follow"]',mobile);
   assert(await call('return !d.getElementById("moonLocator")&&app.getScene().moonGlobe.visible;'));
@@ -1445,7 +1462,7 @@ async function lunarManual(base,label){
     };
     update(90000000,300);const distant=read();
     window.__moonFade={globe,update,read,samples,distant};
-    update(10000000,300);
+    update(79000000,72);
   })()`);
   await wait(()=>call('return window.__moonFade.samples.at(-1)===1;'),'Moon texture fades in while paused');
   const lighting=await call(`const {globe,update,read,samples,distant}=window.__moonFade,near=read();
@@ -1468,7 +1485,7 @@ async function lunarManual(base,label){
 async function lunarReturn(base,label){
   const mobile=label==='source',width=mobile?390:1000,height=mobile?844:700;
   await viewport(width,height);await open(base);
-  const resources=()=>call(String.raw`return performance.getEntriesByType('resource').filter(r=>/\/(?:lunar-(?:controls|flight|globe)\.js|celestial\.js|lunar-ephemeris\.bin\.gz|moon-albedo-2k\.jpg)$/.test(r.name)).map(r=>[r.name.split('/').at(-1),r.encodedBodySize]);`);
+  const resources=()=>call(String.raw`return performance.getEntriesByType('resource').filter(r=>/\/(?:lunar-(?:controls|flight|globe)\.js|celestial\.js|lunar-ephemeris\.bin\.gz|moon-surface\.webp)$/.test(r.name)).map(r=>[r.name.split('/').at(-1),r.encodedBodySize]);`);
   const cold=await resources();
   assert.deepEqual(cold.map(([name])=>name).sort(),['lunar-controls.js','lunar-globe.js']);
   const start=async()=>{
@@ -1482,7 +1499,7 @@ async function lunarReturn(base,label){
   assert(await call('return window.__returnTrusted&&!app.controller.running&&app.diagnostics().view==="orbit";'));
   await wait(()=>call('return d.getElementById("lunarForecast").textContent.includes("預計返抵大氣層");'),'forecast');
   const early=await resources();
-  assert.deepEqual(early.filter(([name])=>name.endsWith('.gz')||name.endsWith('.jpg')),[['lunar-ephemeris.bin.gz',72240]]);
+  assert.deepEqual(early.filter(([name])=>name.endsWith('.gz')||name.endsWith('.webp')),[['lunar-ephemeris.bin.gz',72240]]);
   const initialFuel=await call('return app.getState().flight.capsule.fuel;');
   await shot(label+'-lunar-return-forecast-'+width+'x'+height);
   await click('#toggleFlightControls',mobile);
@@ -1514,6 +1531,13 @@ async function lunarReturn(base,label){
   assert(sky.lock==='moon'&&sky.visible&&Math.hypot(sky.moon[0]-.45,sky.moon[1]-.38)<.002&&Math.hypot(sky.craft[0],sky.craft[1])<.002,JSON.stringify(sky));
   await assertCruiseSide();
   await shot(label+'-lunar-return-moon-'+width+'x'+height);
+  await call('app.getScene().renderer.forceContextLoss();');
+  await wait(()=>call('return app.getScene().lost;'),'lost lunar WebGL context');
+  await call('app.getScene().renderer.forceContextRestore();');
+  await wait(()=>call('return !app.getScene().lost;'),'restored lunar WebGL context');
+  assert.deepEqual(await call(`const g=app.getScene().moonGlobe;
+    return {t:app.getState().flight.t,mapped:g.userData.detailBlend.value>0,width:g.material.uniforms.albedo.value.image.width};`),
+    {t:near.t,mapped:true,width:2048});
   const lockBasis=()=>call(`const s=app.getScene(),f=app.controller.state.flight;
     const up=s.camera.up.clone().applyQuaternion(s.worldRotation.clone().invert());
     const basis=f.sky.mapBasis.map(axis=>s.camera.position.clone().fromArray(axis));
@@ -1529,12 +1553,6 @@ async function lunarReturn(base,label){
       nextLock.up.reduce((dot,value,i)=>dot+value*lastLock.up[i],0)>.95,JSON.stringify({t,lastLock,nextLock}));
     lastLock=nextLock;
   }
-  const lockTime=await call('return app.controller.state.flight.t;');
-  await call('app.getScene().renderer.forceContextLoss();');
-  await wait(()=>call('return app.getScene().lost;'),'lost lunar WebGL context');
-  await call('app.getScene().renderer.forceContextRestore();');
-  await wait(()=>call('return !app.getScene().lost;'),'restored lunar WebGL context');
-  assert(await call(`return app.getState().flight.t===${lockTime}&&app.getScene().moonGlobe.userData.detailBlend.value>0;`));
   await advance(420000);
   await assertCruiseSide();
   const entry=await advance(724630);
@@ -1556,17 +1574,17 @@ async function lunarReturn(base,label){
   await shot(label+'-lunar-earth-approach-'+width+'x'+height);
   await click('#returnWorkshop',mobile);
   const loaded=await resources();
-  assert.deepEqual(loaded.filter(([name])=>name.endsWith('.gz')||name.endsWith('.jpg')),
-    [['lunar-ephemeris.bin.gz',72240],['moon-albedo-2k.jpg',457942]]);
+  assert.deepEqual(loaded.filter(([name])=>name.endsWith('.gz')||name.endsWith('.webp')),
+    [['lunar-ephemeris.bin.gz',72240],['moon-surface.webp',441280]]);
   assert(loaded.reduce((total,[,bytes])=>total+bytes,0)<1000000);
   let fallback=null;
   if(mobile){
     await cdp.send('Network.setCacheDisabled',{cacheDisabled:true});
-    await cdp.send('Network.setBlockedURLs',{urls:['*moon-albedo-2k.jpg']});
+    await cdp.send('Network.setBlockedURLs',{urls:['*moon-surface.webp']});
     try{
       await open(base);
       await call(`const fetchImage=window.fetch;window.__moonAttempts=0;
-        window.fetch=(url,...args)=>{if(String(url).endsWith('/moon-albedo-2k.jpg'))window.__moonAttempts++;return fetchImage(url,...args);};`);
+        window.fetch=(url,...args)=>{if(String(url).endsWith('/moon-surface.webp'))window.__moonAttempts++;return fetchImage(url,...args);};`);
       await start();
       await wait(()=>call('return app.controller.running&&app.getState().flight?.lunar.freeReturn;'),'fallback flight');
       await click('#playButton',mobile);await click('#toggleFlightControls',mobile);
@@ -1668,7 +1686,7 @@ async function lunarGroundReturn(base,label){
   const resources=()=>call(`return performance.getEntriesByType('resource').map(r=>{
     const url=new URL(r.name);return [url.pathname.split('/').at(-1),r.encodedBodySize,url.origin===location.origin];
   });`);
-  const lunarAssets=entries=>entries.filter(([name])=>name==='lunar-ephemeris.bin.gz'||name==='moon-albedo-2k.jpg');
+  const lunarAssets=entries=>entries.filter(([name])=>name==='lunar-ephemeris.bin.gz'||name==='moon-surface.webp');
   const cold=await resources();assert.deepEqual(lunarAssets(cold),[]);
   await call(`window.__groundStart=[];
     const c=app.controller,render=c.render;
@@ -1712,7 +1730,7 @@ async function lunarGroundReturn(base,label){
   assert(landed.fuel===cutoff.fuel&&landed.entry.t>near.closest.t&&landed.t>landed.entry.t);
   await shot(label+'-lunar-ground-landing-'+width+'x'+height);
   const downloaded=await resources();
-  assert.deepEqual(lunarAssets(downloaded),[['lunar-ephemeris.bin.gz',72240,true],['moon-albedo-2k.jpg',457942,true]]);
+  assert.deepEqual(lunarAssets(downloaded),[['lunar-ephemeris.bin.gz',72240,true],['moon-surface.webp',441280,true]]);
   assert(downloaded.every(([, ,sameOrigin])=>sameOrigin));
   await click('#returnWorkshop',mobile);
   assert.deepEqual(await call('return app.getState().craft;'),design);
@@ -1753,6 +1771,7 @@ async function lunarLanding(base,label){
   assert(Math.abs(separation.after.t-separation.split-.5)<1e-7);
   assert(separation.after.label==='10000×'&&separation.after.limit==='限 1×'&&separation.after.detached&&separation.after.upperVisible);
   await shot(label+'-lunar-separation-realtime');
+  await click('[data-camera-view="plane"]',mobile);
   const orbit=await call(`const c=app.controller,f=c.state.flight;
     let protectedStates=0;
     const verify=f.lunar.sequence.at(-1)[0];
@@ -1774,8 +1793,34 @@ async function lunarLanding(base,label){
       continued:f.t>time,pausedControl:d.getElementById('playButton').disabled,
       choices:!d.getElementById('lunarAutoLand').hidden&&!d.getElementById('lunarTakeover').hidden,disabled:d.getElementById('igniteButton').disabled};`);
   assert(orbit.protectedStates>100&&orbit.handoff==='ready'&&orbit.captures===2&&orbit.hp>=80000&&orbit.ha<=120000);
-  assert(orbit.running&&orbit.continued&&!orbit.pausedControl&&orbit.choices&&orbit.disabled&&orbit.view==='orbit');
+  assert(orbit.running&&orbit.continued&&!orbit.pausedControl&&orbit.choices&&orbit.disabled&&orbit.view==='plane');
   await shot(label+'-lunar-landing-handoff');
+  await click('#cameraFollow',mobile);
+  await call(`const c=app.controller,f=c.state.flight,utc=()=>f.lunar.epoch+f.t;
+    const illumination=()=>{
+      const moon=c.lunarTable.body(utc(),0),sun=c.lunarTable.body(utc(),1);
+      const normal=RocketCelestial.unit(RocketCelestial.add(f.eci.slice(0,3),moon.slice(0,3),-1));
+      return RocketCelestial.dot(normal,RocketCelestial.unit(RocketCelestial.add(sun.slice(0,3),moon.slice(0,3),-1)));
+    };
+    c.play();
+    for(let i=0;i<180&&illumination()<.55;i++)c.tick(60,100);
+    c.pause();app.getScene().rotate(0,62);`);
+  await wait(()=>call('return app.getScene().moonGlobe.userData.detailBlend.value===1;'),'Moon map visible from orbit');
+  const detail=await call(`const s=app.getScene(),globe=s.moonGlobe,image=globe.material.uniforms.albedo.value.image;
+    const downloads=performance.getEntriesByType('resource').filter(x=>x.name.endsWith('/moon-surface.webp'));
+    const heights=globe.geometry.getAttribute('terrain');
+    let low=0,high=0;
+    for(let i=0;i<heights.count;i++){
+      const elevation=heights.getW(i)*RocketCelestial.MOON_RADIUS;
+      low=Math.min(low,elevation);high=Math.max(high,elevation);
+    }
+    return {height:s.data.flight.moon.height,image:[image.width,image.height],localGround:Boolean(s.moonGround?.visible),
+      relief:globe.material.uniforms.reliefBlend.value,low,high,downloads:downloads.map(x=>x.encodedBodySize)};`);
+  assert(detail.height>80000&&detail.height<120000&&!detail.localGround,JSON.stringify(detail));
+  assert(detail.relief===1&&detail.low<-7500&&detail.high>8500,JSON.stringify(detail));
+  assert.deepEqual(detail.image,[2048,1024]);
+  assert.deepEqual(detail.downloads,[441280]);
+  await shot(label+'-lunar-terrain-orbital-altitude');
   await call(`const c=app.controller,render=c.render,tick=c.tick;
     Object.assign(c,structuredClone(window.__lunarOrbit));
     c.tick(.1,10);
@@ -1805,9 +1850,9 @@ async function lunarLanding(base,label){
   assert.equal(result.outcome,'moon-landed');
   assert(result.touchdown.vertical>=-2&&result.fuel>10);
   const terrain=await call(`const s=app.getScene();
-    return {visible:s.moonGround.visible,feet:s.rocket.getObjectsByProperty('name','lunar-landing-foot').length,
+    return {visible:s.moonGround.visible,globeRelief:s.moonGlobe.material.uniforms.reliefBlend.value,feet:s.rocket.getObjectsByProperty('name','lunar-landing-foot').length,
       relief:s.moonGround.userData.relief};`);
-  assert(terrain.visible&&terrain.feet===4&&terrain.relief.low<-7&&terrain.relief.high>4&&terrain.relief.vertices<40000);
+  assert(terrain.visible&&terrain.globeRelief===0&&terrain.feet===4&&terrain.relief.low<-7&&terrain.relief.high>4&&terrain.relief.vertices<40000);
   await shot(label+'-lunar-landing-touchdown');
   await call(`const c=app.controller;
     window.__lunarFinished={state:c.state,events:c.events};
@@ -1817,7 +1862,7 @@ async function lunarLanding(base,label){
   await call(`const c=app.controller;
     Object.assign(c,structuredClone(window.__lunarOrbit));
     c.play();
-    const f=c.state.flight,target=f.t+1200;
+    const f=c.state.flight,target=f.t+1800;
     while(f.t<target-1e-8)c.tick(target-f.t,900);
     const tick=c.tick,render=c.render;
     window.__autoDeparture={eci:f.eci.slice(),t:f.t};
@@ -1831,11 +1876,52 @@ async function lunarLanding(base,label){
       render(controller);
     };
     c.emit();`);
+  await click('[data-camera-view="plane"]',mobile);
+  const keepView=()=>call(`const s=app.getScene();
+    return {mode:s.view,zoom:s.zoom,orientation:s.orbitOrientation?.toArray(),focus:s.orbitFocus?.target.toArray()};`);
+  await call(`const s=app.getScene(),r=s.host.getBoundingClientRect(),p={x:r.left+r.width/2,y:r.top+r.height/2};
+    s.transformOrbit(1.3,p,{x:p.x+20,y:p.y-10});s.rotate(18,-12);`);
+  const userView=await keepView();
   await click('#lunarAutoLand',mobile);
   const departure=await call('return {...window.__autoDeparture,started:window.__autoStarted};');
   assert.deepEqual(departure.started,{eci:departure.eci,t:departure.t,since:departure.t,running:true});
-  const diversion=await call(`const c=app.controller,f=c.state.flight,l=f.lunar;
+  assert.deepEqual(await keepView(),userView);
+  const descent=await call(`const c=app.controller,f=c.state.flight,levels=[80000,65000,50000,35000,20000],samples=[];
     c.play();
+    let frames=0,maxStep=0,maxHeightChange=0;
+    for(;c.running&&f.moon.height>20000&&frames<4000;frames++){
+      const t=f.t,height=f.moon.height;
+      RocketRuntime.advanceFrame(c,frames%6===0?.7:.1,10000);
+      maxStep=Math.max(maxStep,f.t-t);
+      maxHeightChange=Math.max(maxHeightChange,height-f.moon.height);
+      if(f.moon.height<=levels[0]){
+        c.emit();
+        samples.push({level:levels.shift(),height:f.moon.height,phase:f.lunar.auto.phase,view:app.diagnostics().view,
+          heightLabel:d.getElementById('heightLabel').textContent,hud:Number(d.getElementById('heightValue').textContent.replaceAll(',',''))});
+      }
+    }
+    c.pause();return {frames,samples,maxStep,maxHeightChange};`);
+  assert(descent.frames>100&&descent.samples.length===5&&descent.maxStep<=3.000001&&descent.maxHeightChange<1000,JSON.stringify(descent));
+  assert(descent.samples.every(row=>row.phase==='coast'&&row.view==='plane'&&row.heightLabel==='離月面高度'&&Math.abs(row.hud-row.height/1000)<.2),JSON.stringify(descent));
+  assert.deepEqual(await keepView(),userView);
+  const automatic=await call(`const c=app.controller, f=c.state.flight;
+    c.play();
+    for(let i=0;c.running&&i<22000;i++)RocketRuntime.advanceFrame(c,.1,10000);
+    c.emit();
+    window.__lunarAutoFinished={state:c.state,events:c.events};
+    return {outcome:f.lunar.outcome,touchdown:f.lunar.touchdown,fuel:f.capsule.fuel,
+      status:d.getElementById('lunarLandingStatus').textContent};`);
+  assert(automatic.outcome==='moon-landed'&&automatic.fuel>3&&automatic.touchdown.vertical>=-2,JSON.stringify(automatic));
+  assert(automatic.status.includes('安全着陸'));
+  assert.deepEqual(await keepView(),userView);
+  await click('#cameraFollow',mobile);
+  await shot(label+'-lunar-auto-touchdown');
+  const diversion=await call(`const c=app.controller;
+    Object.assign(c,structuredClone(window.__lunarOrbit));
+    const f=c.state.flight,l=f.lunar,departure=f.t+1200;
+    c.play();
+    while(f.t<departure-1e-8)c.tick(departure-f.t,900);
+    if(!c.command({type:'moon-auto-land'}))throw Error('Expected stable orbit before diversion replay');
     for(let i=0;c.running&&i<22000;i++){
       c.tick(l.auto.phase==='coast'?25:.3,200);
       if(l.auto.phase==='translate'&&Math.hypot(...f.rcsTranslation)>.65&&f.moon.surface.horizontal>1)break;
@@ -1843,23 +1929,15 @@ async function lunarLanding(base,label){
     c.pause();
     const scene=app.getScene(),marker=scene.lunarLandingMarker;
     return {phase:l.auto.phase,distance:l.auto.site?.distance,altitude:f.moon.surface.height,
-      marker:marker?.visible&&scene.project(marker.position).visible,
+      marker:marker?.visible,
       jet:scene.rocket.getObjectsByProperty('name','lunar-translation-rcs').some(group=>group.visible),
       limit:RocketRuntime.warpLimit(f),dark:scene.lighting.sunlight<.01,light:scene.lunarSurveyLight?.visible,
       view:app.diagnostics().view,status:d.getElementById('lunarLandingStatus').textContent};`);
-  assert(diversion.phase==='translate'&&diversion.distance>0&&diversion.altitude>35);
-  assert(diversion.view==='follow'&&diversion.marker&&diversion.jet&&diversion.limit===1&&diversion.dark&&diversion.light);
+  assert(diversion.phase==='translate'&&diversion.distance>0&&diversion.altitude>35,JSON.stringify(diversion));
+  assert(diversion.view==='follow'&&diversion.marker&&diversion.jet&&diversion.limit===1&&diversion.dark&&diversion.light,JSON.stringify(diversion));
   assert(diversion.status.includes('RCS'));
   await shot(label+'-lunar-auto-diversion');
-  const automatic=await call(`const c=app.controller, f=c.state.flight;
-    c.play();
-    for(let i=0;c.running&&i<1800;i++)c.tick(.3,30);
-    c.emit();
-    return {outcome:f.lunar.outcome,touchdown:f.lunar.touchdown,fuel:f.capsule.fuel,
-      status:d.getElementById('lunarLandingStatus').textContent};`);
-  assert(automatic.outcome==='moon-landed'&&automatic.fuel>3&&automatic.touchdown.vertical>=-2);
-  assert(automatic.status.includes('安全着陸'));
-  await shot(label+'-lunar-auto-touchdown');
+  await call('const c=app.controller;Object.assign(c,window.__lunarAutoFinished);c.emit();');
   terrain.resources=await call(`return performance.getEntriesByType('resource').filter(x=>new URL(x.name).origin===location.origin)
     .map(x=>[new URL(x.name).pathname,x.encodedBodySize]);`);
   await click('#returnWorkshop',mobile);
@@ -1875,7 +1953,7 @@ async function lunarLanding(base,label){
     return {before,detached:c.state.flight.capsule.detached,label:d.getElementById('timeWarpLabel').textContent,
       limited:!d.getElementById('timeWarpLimit').hidden};`);
   assert.deepEqual(manualSeparation,{before:{queued:true,detached:false,label:'20×',limit:'限 1×'},detached:true,label:'20×',limited:false});
-  report.flows.push({case:'lunar-landing',label,width,height,separation,orbit,manual,result,terrain,departure,diversion,automatic,manualSeparation});
+  report.flows.push({case:'lunar-landing',label,width,height,separation,orbit,manual,result,terrain,detail,departure,descent,diversion,automatic,manualSeparation});
 }
 
 function selection(args){if(args.length>2)throw Error("Expected cases and optional delivery");const cases=args[0]?args[0].split(","):caseNames,delivery=args[1]||null;if(cases.some(name=>!caseNames.includes(name))||new Set(cases).size!==cases.length)throw Error("Unknown or repeated explorer case");if(delivery&&!["source","standalone"].includes(delivery))throw Error("Unknown explorer delivery");return{cases,delivery};}

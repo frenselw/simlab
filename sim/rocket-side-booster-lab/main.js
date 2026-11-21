@@ -96,7 +96,7 @@ function command(action,options){
   if(['launch','launch-lunar','lunar-transfer','lunar-return','lunar-return-launch','lunar-landing-launch','workshop'].includes(action.type)){
     d.controlPanel.scrollTop=0;trail=[];trailTime=-1;lastPaths=-Infinity;releaseReturnCamera();
     separationCamera=null;
-    if(['lunar-landing-launch','lunar-return-launch'].includes(action.type))returnCamera='ascent';
+    if(action.type==='lunar-return-launch')returnCamera='ascent';
     else if(action.type==='lunar-return')returnCamera='outbound';
   }
   return true;
@@ -107,6 +107,15 @@ function setView(next,reset=false,lock=null){interaction?.resetPan();if(['orbit'
 }
 function releaseReturnCamera(){returnCamera=null;if(separationCamera)separationCamera.restore=false;}
 function directReturnCamera(f){
+  if(f?.lunar?.landingMission){
+    if(f.lunar.handoff==='ready'&&lastLunarHandoff!==f){
+      lastLunarHandoff=f;cancelDial();closeWarpMenu();
+      setControlsCollapsed(false);
+      d.lunarAutoLand.focus({preventScroll:true});
+      d.lunarAutoLand.scrollIntoView({block:'nearest'});
+    }
+    return;
+  }
   if(f&&controller.state.phase!=='ended'&&RocketRuntime.separationPlayback(f).active){
     if(!separationCamera){
       separationCamera={view,lock:scene?.cameraLock,restore:view!=='follow'||Boolean(scene?.cameraLock)};
@@ -119,19 +128,11 @@ function directReturnCamera(f){
     separationCamera=null;
     if(camera.restore&&f&&controller.state.phase!=='ended')setView(camera.view,true,camera.lock);
   }
-  if(f?.lunar?.handoff==='ready'&&lastLunarHandoff!==f){
-    lastLunarHandoff=f;cancelDial();closeWarpMenu();releaseReturnCamera();
-    setControlsCollapsed(false);
-    setView('orbit',true);
-    d.lunarAutoLand.focus({preventScroll:true});
-    d.lunarAutoLand.scrollIntoView({block:'nearest'});
-    return;
-  }
-  if(!returnCamera||!scene||!(f?.lunar?.freeReturn||f?.lunar?.landingMission))return;
+  if(!returnCamera||!scene||!f?.lunar?.freeReturn)return;
   if(f.lunar.manual){releaseReturnCamera();return;}
   if(f.lunar.entry){releaseReturnCamera();setView('follow',true);}
-  else if(returnCamera==='ascent'&&(f.lunar.landingMission?f.t>=f.lunar.transferCutoff:f.capsule.detached&&!RocketLunar.guidanceLocked(f))){returnCamera='outbound';setView('orbit',true);}
-  else if(returnCamera==='outbound'&&f.moon.height<22000000&&!f.lunar.returning){returnCamera='moon';setView(f.lunar.landingMission?'orbit':'follow',true,f.lunar.landingMission?null:'moon');}
+  else if(returnCamera==='ascent'&&f.capsule.detached&&!RocketLunar.guidanceLocked(f)){returnCamera='outbound';setView('orbit',true);}
+  else if(returnCamera==='outbound'&&f.moon.height<22000000&&!f.lunar.returning){returnCamera='moon';setView('follow',true,'moon');}
   else if((returnCamera==='moon'||returnCamera==='outbound')&&f.lunar.returning){returnCamera='earth';setView('orbit',true);}
 }
 const forecastFuel=f=>f.capsule.detached?f.capsule.fuel:f.fuel[f.active];
@@ -324,7 +325,25 @@ function renderScene(){
   renderCameraLock(f);
   d.skyReadout.hidden=!f||!skyData&&!f.lunar;
   if(!d.skyReadout.hidden){const value=new Date(f.lunar?RocketLunar.flightUtc(f):skyStart+s.flight.t*1000).toISOString().slice(0,19).replace('T',' ')+' UTC';if(d.skyUtc.textContent!==value)d.skyUtc.textContent=value;}
-  if(f){const o=f.orbit||O.elements(f.state);const air=f.lunar?.air,landed=f.lunar?.outcome==='landed';const agl=landed?0:Math.max(0,RocketSurface.clearance(f.state,f.t));d.heightValue.textContent=fmt(agl<1000?agl:agl/1000,agl>=10000000?0:1);d.heightUnit.textContent=agl<1000?'m':'km';d.surfaceAltitude.textContent=agl<10000?'海拔 '+fmt(Math.abs(o.height)<.05?0:o.height)+' m':'';for(const [id,value]of [['totalSpeed',landed?0:air?.speed??o.speed],['verticalSpeed',landed?0:Math.abs(air?.radial??o.radial)],['speed',landed?0:air?Math.sqrt(Math.max(0,air.speed**2-air.radial**2)):Math.abs(o.tangential)]]){const shown=value,km=shown>=1000;d[id+'Value'].textContent=fmt(km?shown/1000:shown,km?2:1);d[id+'Unit'].textContent=km?'km/s':'m/s';}renderFuel(f);}
+  if(f){
+    const moon=f.lunar?.landingMission&&f.moon.height<20000000?f.moon:null;
+    const orbit=moon??f.orbit??O.elements(f.state),surface=moon?.surface,air=f.lunar?.air;
+    const landed=['landed','moon-landed'].includes(f.lunar?.outcome);
+    const agl=landed?0:Math.max(0,moon?(surface?.height??moon.height):RocketSurface.clearance(f.state,f.t));
+    d.heightLabel.textContent=moon?'離月面高度':'離地高度';
+    d.heightValue.textContent=fmt(agl<1000?agl:agl/1000,agl>=10000000?0:1);
+    d.heightUnit.textContent=agl<1000?'m':'km';
+    d.surfaceAltitude.textContent=!moon&&agl<10000?'海拔 '+fmt(Math.abs(orbit.height)<.05?0:orbit.height)+' m':'';
+    const radial=surface?.vertical??air?.radial??orbit.radial;
+    const horizontal=surface?.horizontal??(air?Math.sqrt(Math.max(0,air.speed**2-radial**2)):orbit.tangential);
+    const speed=surface?Math.hypot(radial,horizontal):air?.speed??orbit.speed;
+    for(const [id,value] of [['totalSpeed',speed],['verticalSpeed',Math.abs(radial)],['speed',Math.abs(horizontal)]]){
+      const shown=landed?0:value,km=shown>=1000;
+      d[id+'Value'].textContent=fmt(km?shown/1000:shown,km?2:1);
+      d[id+'Unit'].textContent=km?'km/s':'m/s';
+    }
+    renderFuel(f);
+  }
   const lunarTrail=f?.lunar?.trail,flushTrail=lunarTrail&&!controller.running&&lunarTrail.length!==lastLunarTrailSize;
   const forecast=currentForecast(f);
   if(scene){

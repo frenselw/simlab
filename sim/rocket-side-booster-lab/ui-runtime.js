@@ -113,7 +113,9 @@
     return flight.controls.lit||P.burning(flight)||height<120000?20:1000;}
   function advanceFrame(controller,seconds,warp){
     if(!controller.running)return 0;
-    let remaining=seconds,elapsed=0,steps=0;
+    // Leave time to display the descent even after a slow frame.
+    let remaining=controller.state.flight.lunar?.handoff==='auto'?Math.min(seconds,.1):seconds;
+    let elapsed=0,steps=0;
     if(controller.ignitionHold>0&&controller.state.flight.status==='pad'){
       const held=Math.min(remaining,controller.ignitionHold);
       controller.ignitionHold-=held;remaining-=held;
