@@ -2,6 +2,7 @@
 const assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path'),zlib=require('node:zlib');
 const C=require('./celestial'),L=require('./lunar-flight'),P=require('./parts'),S=require('./surface');
+const M=require('./model');
 const {Controller,advanceFrame,warpLimit}=require('./ui-runtime');
 const references=require('../../tools/rocket-art/lunar-flyby-results.json');
 const bytes=zlib.gunzipSync(fs.readFileSync(path.join(__dirname,'assets/lunar-ephemeris.bin.gz')));
@@ -309,7 +310,7 @@ function launchLander(stepSeconds){
   const blocked=[
     {type:'ignite'},{type:'stop'},{type:'control',key:'throttle',value:.5},{type:'control',key:'angle',value:90},
     {type:'separate'},{type:'capsule-separate'},{type:'select-body',value:'upper'},
-    {type:'lunar-correction'},{type:'manual'},{type:'moon-takeover'}
+    {type:'lunar-correction'},{type:'manual'},{type:'moon-takeover'},{type:'moon-auto-land'}
   ];
   const snapshot=JSON.stringify(f);
   for(const action of blocked)assert(!controller.command(action));
@@ -322,17 +323,52 @@ function launchLander(stepSeconds){
   do{next=prediction.next();}while(!next.done);
   assert(Math.abs(next.value.closest.height-8500000)<1000);
   assert(Math.abs(next.value.entry.t-738461)<8);
-  while(controller.running)controller.tick(stepSeconds,1600);
+  const verifyAt=f.lunar.sequence.at(-1)[0];
+  while(controller.running&&!f.lunar.handoff&&f.t<verifyAt-1e-8){
+    assert(controller.tick(Math.min(stepSeconds,verifyAt-f.t),1600).elapsed>0);
+  }
   const handoffTime=f.t;
   assert.equal(f.lunar.handoff,'ready');
   assert.equal(f.lunar.events.filter(event=>event.type==='moon-capture').length,2);
   assert(f.moon.hp>=80000&&f.moon.ha<=120000&&f.capsule.detached);
   assert(f.capsule.fuel===260&&!f.controls.lit&&f.controls.throttle===0);
-  controller.play();
-  assert(!controller.running&&!controller.tick(1000,1000)&&f.t===handoffTime);
+  assert(controller.running);
   assert(!controller.command({type:'ignite'}));
   return {controller,design,handoffTime};
 }
+const separationDemo=new Controller();
+separationDemo.lunarTable=table;
+assert(separationDemo.command({type:'lunar-landing-launch'}));
+separationDemo.ignitionHold=0;
+const separating=separationDemo.state.flight;
+for(const [time,type] of separating.lunar.sequence.filter(([,type])=>['jettison','separate','capsule-separate'].includes(type))){
+  const lead=time-2;
+  until(separationDemo,lead-.5);
+  const previousRate=warpLimit(separating);
+  assert(previousRate>1);
+  advanceFrame(separationDemo,.5,10000);
+  assert(warpLimit(separating)===1&&Math.abs(separating.t-(lead+.5-.5/previousRate))<1e-6);
+  assert(!separating.lunar.events.some(event=>event.type===type));
+  advanceFrame(separationDemo,time-separating.t+.2,10000);
+  assert(Math.abs(separating.t-time-.2)<1e-6&&warpLimit(separating)===1);
+  assert(Math.abs(separating.lunar.events.find(event=>event.type===type).t-time)<1e-8);
+  advanceFrame(separationDemo,5.85,10000);
+  assert(warpLimit(separating)>1&&separating.t>time+6.05);
+}
+const separationManual=new Controller();
+separationManual.state.flight=M.flight(L.preset(),'own',[P.R+300000,0,0,0,7600,0]);
+separationManual.state.phase='coast';
+Object.assign(separationManual.state.flight,{status:'flying',t:100});
+separationManual.state.flight.boosters.status='spent';
+assert(separationManual.queueSeparation('jettison'));
+assert(!separationManual.queueSeparation('jettison'));
+assert.equal(advanceFrame(separationManual,1,20),1);
+assert.equal(separationManual.state.flight.boosters.status,'spent');
+assert.equal(advanceFrame(separationManual,2,20),1);
+assert.equal(separationManual.state.flight.boosters.status,'jettisoned');
+assert.equal(separationManual.events[0].t,102);
+assert(advanceFrame(separationManual,5.1,20)>1);
+
 for(const hover of [false,true]){
   const {controller,design,handoffTime}=launchLander(hover?383.75:21600);
   const {outcome,held,fuel,touchdown}=lunarPilot(controller,L,undefined,hover);
@@ -344,6 +380,48 @@ for(const hover of [false,true]){
   console.log('Lunar landing',JSON.stringify({handoffTime,hover,held,fuel,touchdown}));
 }
 const verifiedOrbit=launchLander(580).controller.state;
+const landingCoverage=new Set();
+for(const wait of [0,600,1200,1800,2400,3000,3600,4200,4800,5400,6000,6600,7100,12000,84000]){
+  const controller=new Controller();
+  controller.state=structuredClone(verifiedOrbit);
+  controller.lunarTable=table;
+  const f=controller.state.flight,l=f.lunar;
+  controller.play();
+  if(wait){
+    const before=f.eci.slice(),fuel=f.capsule.fuel;
+    until(controller,f.t+wait);
+    assert(C.norm(C.add(f.eci.slice(0,3),before,-1))>1&&f.lunar.handoff==='ready'&&f.capsule.fuel===fuel&&!f.controls.lit);
+  }
+  const start=f.t,departure=f.eci.slice();
+  assert(controller.command({type:'moon-auto-land'}));
+  assert.deepEqual(f.eci,departure);
+  assert(f.t===start&&l.auto.since===start);
+  assert(!controller.command({type:'moon-takeover'})&&!controller.command({type:'ignite'}));
+  let pushed=false,braked=false;
+  for(let i=0;controller.running&&i<24000;i++){
+    const a=l.auto,offset=a.offset;
+    const speed=f.moon.surface.horizontal;
+    const sample=a.phase==='translate'?f.rcsTranslation:null;
+    const {elapsed}=controller.tick(a.phase==='coast'?25:.3,200);
+    assert(elapsed>0);
+    if(sample&&a.phase==='translate'&&Math.hypot(...sample)>.1&&a.offset<offset){
+      if(f.moon.surface.horizontal>speed+.01)pushed=true;
+      if(f.moon.surface.horizontal<speed-.01)braked=true;
+    }
+  }
+  const {site,hoverSince}=l.auto;
+  const moon=table.body(l.epoch+f.t,0).slice(0,3),sun=table.body(l.epoch+f.t,1).slice(0,3);
+  const sunElevation=C.dot(C.unit(C.add(f.eci.slice(0,3),moon,-1)),C.unit(C.add(sun,moon,-1)));
+  if(sunElevation<-.1)landingCoverage.add('night');
+  if(sunElevation>.1)landingCoverage.add('day');
+  landingCoverage.add(site?.distance?'diverted':'direct');
+  console.log('Automatic landing',JSON.stringify({wait,site:site?.distance,sunElevation,fuel:f.capsule.fuel,contact:l.touchdown,outcome:l.outcome}));
+  assert.equal(l.outcome,'moon-landed','Autopilot departure delay '+wait);
+  assert(l.events.find(event=>event.type==='moon-auto-final').t>=hoverSince+3);
+  if(site.distance)assert(pushed&&braked,'RCS acceleration and counterthrust at '+wait);
+  assert(f.capsule.fuel>3&&l.touchdown.slope<8,JSON.stringify({wait,fuel:f.capsule.fuel,slope:l.touchdown.slope}));
+}
+assert.deepEqual(landingCoverage,new Set(['night','day','diverted','direct']));
 const delayedPilot=new Controller();
 delayedPilot.state=structuredClone(verifiedOrbit);
 delayedPilot.lunarTable=table;

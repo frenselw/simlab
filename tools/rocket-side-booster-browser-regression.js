@@ -465,7 +465,12 @@ async function parachuteWarp(base,label){
   const state=M.change(T.reachOrbit(),{type:'capsule-separate'}),f=state.flight,q=T.remoteHill(),theta=Math.atan2(q[1],q[0]),ground=require('../sim/rocket-side-booster-lab/surface').radius(q,f.t);f.state=[(ground+1000)*Math.cos(theta),(ground+1000)*Math.sin(theta),0,-5.2*Math.cos(theta),-5.2*Math.sin(theta),0];f.attitude=theta;f.capsule.chute={armed:true,phase:'main',since:f.t-5};f.upperStage.status='impact';f.upperStage.controls.lit=false;f.upperStage.auto.mode='done';
   for(const [width,height]of [[390,844],[1024,768]]){
     await viewport(width,height);await open(base,state);
-    for(const phase of ['drogue-opening','drogue','main-opening','main']){await call('app.controller.state.flight.capsule.chute.phase='+JSON.stringify(phase)+';app.controller.emit();');await click('#timeWarp');assert(await call('return [...d.querySelectorAll("[data-time-warp]")].every(e=>!e.disabled);'));await click('#timeWarp');}
+    for(const phase of ['drogue-opening','drogue','main-opening','main']){
+      await call('app.controller.state.flight.capsule.chute.phase='+JSON.stringify(phase)+';app.controller.emit();');
+      await click('#timeWarp');
+      assert(await call('const options=[...d.querySelectorAll("[data-time-warp]:not([hidden])")];return options.length===6&&options.every(e=>!e.disabled);'));
+      await click('#timeWarp');
+    }
     for(const rate of [1,5,10,20,100,1000]){await click('#timeWarp');await click('[data-time-warp="'+rate+'"]');assert.equal(await call('return d.getElementById("timeWarp").value;'),String(rate));}
     const speeds=[];
     for(const rate of [100,1000]){await open(base,state);await click('#timeWarp');await click('[data-time-warp="'+rate+'"]');const start=await call('return app.getState().flight.t;');await click('#playButton');await wait(()=>call('const f=app.getState().flight;return f.status==="landed"||f.t-'+start+'>='+rate*.1+';'),'parachute '+rate+'x advances');await call('app.controller.pause();');const elapsed=await call('return app.getState().flight.t;')-start;assert(elapsed>0);assert.equal(await call('return d.getElementById("timeWarp").value;'),String(rate));assert(['flying','landed'].includes(await call('return app.getState().flight.status;')));speeds.push({rate,elapsed});}
@@ -1607,32 +1612,56 @@ async function lunarLanding(base,label){
   await H.waitForCondition(()=>call('return Boolean(window.moonStarted&&!app.controller.running);'),'landing mission starts at pad',60000);
   assert.deepEqual(await call('return {trusted:window.launchTrusted,...window.moonStarted};'),{trusted:true,t:0,lit:true,running:true,pad:true});
   await shot(label+'-lunar-landing-launch');
+  const separation=await call(`const c=app.controller,f=c.state.flight;
+    const split=f.lunar.sequence.find(([,type])=>type==='capsule-separate')[0];
+    c.play();
+    while(c.running&&f.t<split-2-1e-8)c.tick(Math.min(1200,split-2-f.t),900);
+    c.emit();
+    const before={t:f.t,label:d.getElementById('timeWarpLabel').textContent,view:app.diagnostics().view,detached:f.capsule.detached};
+    RocketRuntime.advanceFrame(c,2.5,10000);c.pause();
+    return {split,before,after:{t:f.t,label:d.getElementById('timeWarpLabel').textContent,detached:f.capsule.detached,
+      upperVisible:app.getScene().otherRocket.visible}};`);
+  assert(Math.abs(separation.before.t-separation.split+2)<1e-7);
+  assert.deepEqual({...separation.before,t:0},{t:0,label:'1×',view:'follow',detached:false});
+  assert(Math.abs(separation.after.t-separation.split-.5)<1e-7);
+  assert(separation.after.label==='1×'&&separation.after.detached&&separation.after.upperVisible);
+  await shot(label+'-lunar-separation-realtime');
   const orbit=await call(`const c=app.controller,f=c.state.flight;
     let protectedStates=0;
+    const verify=f.lunar.sequence.at(-1)[0];
     c.play();
-    for(let step=0;step<2000&&c.running;step++){
+    for(let step=0;step<2000&&c.running&&f.t<verify-1e-8;step++){
       const before=JSON.stringify(f.controls);
       if(c.command({type:'ignite'})||c.command({type:'stop'})||
-          c.command({type:'control',key:'throttle',value:.1})||c.command({type:'moon-takeover'})||
+          c.command({type:'control',key:'throttle',value:.1})||c.command({type:'moon-takeover'})||c.command({type:'moon-auto-land'})||
           before!==JSON.stringify(f.controls))throw Error('Premature flight authority');
       protectedStates++;
-      c.tick(1200,900);
+      c.tick(Math.min(.25,verify-f.t),100);
     }
     c.emit();
+    window.__lunarOrbit=structuredClone({state:c.state,events:c.events});
+    const time=f.t;
+    c.tick(.1,10);
     return {protectedStates,handoff:f.lunar.handoff,captures:f.lunar.events.filter(e=>e.type==='moon-capture').length,
       hp:f.moon.hp,ha:f.moon.ha,running:c.running,view:app.diagnostics().view,
-      disabled:d.getElementById('igniteButton').disabled};`);
+      continued:f.t>time,pausedControl:d.getElementById('playButton').disabled,
+      choices:!d.getElementById('lunarAutoLand').hidden&&!d.getElementById('lunarTakeover').hidden,disabled:d.getElementById('igniteButton').disabled};`);
   assert(orbit.protectedStates>100&&orbit.handoff==='ready'&&orbit.captures===2&&orbit.hp>=80000&&orbit.ha<=120000);
-  assert(!orbit.running&&orbit.disabled&&orbit.view==='orbit');
+  assert(orbit.running&&orbit.continued&&!orbit.pausedControl&&orbit.choices&&orbit.disabled&&orbit.view==='orbit');
   await shot(label+'-lunar-landing-handoff');
-  await call(`const c=app.controller,render=c.render;
+  await call(`const c=app.controller,render=c.render,tick=c.tick;
+    Object.assign(c,structuredClone(window.__lunarOrbit));
+    c.tick(.1,10);
+    c.tick=()=>null;
     c.render=controller=>{
       if(c.state.flight.lunar.handoff==='manual'){
         c.render=render;
+        c.tick=tick;
         queueMicrotask(()=>c.pause());
       }
       render(controller);
-    };`);
+    };
+    c.emit();`);
   await click('#lunarTakeover',mobile);
   await wait(()=>call('return !app.controller.running;'),'manual handoff paused for reproducible terrain replay');
   const manual=await call(`const f=app.controller.state.flight;
@@ -1658,11 +1687,66 @@ async function lunarLanding(base,label){
     Object.assign(c,window.__lunarLowPass);app.view('follow',true);c.emit();`);
   await shot(label+'-lunar-craters-low-pass');
   await call(`const c=app.controller;Object.assign(c,window.__lunarFinished);app.view('follow',true);c.emit();`);
+  await call(`const c=app.controller;
+    Object.assign(c,structuredClone(window.__lunarOrbit));
+    c.play();
+    const f=c.state.flight,target=f.t+1200;
+    while(f.t<target-1e-8)c.tick(target-f.t,900);
+    const tick=c.tick,render=c.render;
+    window.__autoDeparture={eci:f.eci.slice(),t:f.t};
+    c.tick=()=>null;
+    c.render=controller=>{
+      if(f.lunar.handoff==='auto'){
+        window.__autoStarted={eci:f.eci.slice(),t:f.t,running:c.running,since:f.lunar.auto.since};
+        c.render=render;c.tick=tick;
+        queueMicrotask(()=>c.pause());
+      }
+      render(controller);
+    };
+    c.emit();`);
+  await click('#lunarAutoLand',mobile);
+  const departure=await call('return {...window.__autoDeparture,started:window.__autoStarted};');
+  assert.deepEqual(departure.started,{eci:departure.eci,t:departure.t,since:departure.t,running:true});
+  const diversion=await call(`const c=app.controller,f=c.state.flight,l=f.lunar;
+    c.play();
+    for(let i=0;c.running&&i<22000;i++){
+      c.tick(l.auto.phase==='coast'?25:.3,200);
+      if(l.auto.phase==='translate'&&Math.hypot(...f.rcsTranslation)>.65&&f.moon.surface.horizontal>1)break;
+    }
+    c.pause();
+    const scene=app.getScene(),marker=scene.lunarLandingMarker;
+    return {phase:l.auto.phase,distance:l.auto.site?.distance,altitude:f.moon.surface.height,
+      marker:marker?.visible&&scene.project(marker.position).visible,
+      jet:scene.rocket.getObjectsByProperty('name','lunar-translation-rcs').some(group=>group.visible),
+      limit:RocketRuntime.warpLimit(f),dark:scene.lighting.sunlight<.01,light:scene.lunarSurveyLight?.visible,
+      view:app.diagnostics().view,status:d.getElementById('lunarLandingStatus').textContent};`);
+  assert(diversion.phase==='translate'&&diversion.distance>0&&diversion.altitude>35);
+  assert(diversion.view==='follow'&&diversion.marker&&diversion.jet&&diversion.limit===1&&diversion.dark&&diversion.light);
+  assert(diversion.status.includes('RCS'));
+  await shot(label+'-lunar-auto-diversion');
+  const automatic=await call(`const c=app.controller, f=c.state.flight;
+    c.play();
+    for(let i=0;c.running&&i<1800;i++)c.tick(.3,30);
+    c.emit();
+    return {outcome:f.lunar.outcome,touchdown:f.lunar.touchdown,fuel:f.capsule.fuel,
+      status:d.getElementById('lunarLandingStatus').textContent};`);
+  assert(automatic.outcome==='moon-landed'&&automatic.fuel>3&&automatic.touchdown.vertical>=-2);
+  assert(automatic.status.includes('安全着陸'));
+  await shot(label+'-lunar-auto-touchdown');
   terrain.resources=await call(`return performance.getEntriesByType('resource').filter(x=>new URL(x.name).origin===location.origin)
     .map(x=>[new URL(x.name).pathname,x.encodedBodySize]);`);
   await click('#returnWorkshop',mobile);
   assert.deepEqual(await call('return app.getState().craft;'),design);
-  report.flows.push({case:'lunar-landing',label,width,height,orbit,manual,result,terrain});
+  await open(base,T.reachOrbit());
+  await click('#timeWarp',mobile);
+  await click('[data-time-warp="20"]',mobile);
+  await click('#separateButton',mobile);
+  const manualSeparation=await call(`const c=app.controller,f=c.state.flight;
+    const before={queued:Boolean(f.pendingSeparation),detached:f.capsule.detached,label:d.getElementById('timeWarpLabel').textContent};
+    RocketRuntime.advanceFrame(c,8.5,20);c.pause();
+    return {before,detached:c.state.flight.capsule.detached,label:d.getElementById('timeWarpLabel').textContent};`);
+  assert.deepEqual(manualSeparation,{before:{queued:true,detached:false,label:'1×'},detached:true,label:'20×'});
+  report.flows.push({case:'lunar-landing',label,width,height,separation,orbit,manual,result,terrain,departure,diversion,automatic,manualSeparation});
 }
 
 function selection(args){if(args.length>2)throw Error("Expected cases and optional delivery");const cases=args[0]?args[0].split(","):caseNames,delivery=args[1]||null;if(cases.some(name=>!caseNames.includes(name))||new Set(cases).size!==cases.length)throw Error("Unknown or repeated explorer case");if(delivery&&!["source","standalone"].includes(delivery))throw Error("Unknown explorer delivery");return{cases,delivery};}

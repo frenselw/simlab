@@ -820,19 +820,30 @@ export function buildRocket(c,separated,capsuleOnly=false,lunar=false,lander=fal
     }
   }
   const rcs=[new THREE.Group(),new THREE.Group()],crossRcs=capsuleOnly&&lunar?[new THREE.Group(),new THREE.Group()]:[];
+  const translateRcs=lander&&capsuleOnly?Array.from({length:2},()=>Array.from({length:2},()=>new THREE.Group())):[];
   for(const {position,station,crossJet}of rcsMouths){
     if(!station)continue;
     const side=Math.sign(crossJet?-position.z:position.x),direction=station==='upper'?-side:side;
     const jets=(crossJet?crossRcs:rcs)[direction===1?1:0];
+    const sideJets=translateRcs[crossJet?1:0]?.[(crossJet?side:-side)===1?1:0];
     for(const [radius,length,opacity,color]of [[.18,1.65,.45,'#7bc9ff'],[.085,1.05,.9,'#e1f6ff']]){
       const geometry=new THREE.LatheGeometry([[.037,0],[radius,length*.28],[radius*.5,length*.68],[0,length]].map(([r,h])=>new THREE.Vector2(r,h)),10).translate(0,-length/2,0);
       const plume=mesh(geometry,new THREE.MeshBasicMaterial({color,transparent:true,opacity,blending:THREE.AdditiveBlending,depthWrite:false,toneMapped:false}),
         position.x+(crossJet?0:side*length/2),position.y,position.z-(crossJet?side*length/2:0),jets);
       plume.rotation[crossJet?'x':'z']=-side*Math.PI/2;plume.userData.baseOpacity=opacity;
+      if(sideJets){
+        const lateral=plume.clone();
+        lateral.material=plume.material.clone();
+        lateral.material.color.set(radius>.1?'#8be4ff':'#effdff');
+        lateral.scale.setScalar(1.18);
+        sideJets.add(lateral);
+      }
     }
   }
-  for(const jets of [...rcs,...crossRcs]){jets.visible=false;group.add(jets);}
+  for(const jets of translateRcs.flat())jets.name='lunar-translation-rcs';
+  for(const jets of [...rcs,...crossRcs,...translateRcs.flat()]){jets.visible=false;group.add(jets);}
   group.userData.crossRcs=crossRcs;
+  group.userData.translateRcs=translateRcs;
   const flame=new THREE.Group(),clustered=capsuleOnly||c.stages[separated?1:0].engine===0,exits=capsuleOnly?capsulePorts:clustered?[[-.61,-.61],[-.61,.61],[.61,-.61],[.61,.61]]:[[0,0]];flame.position.y=capsuleOnly?0:-.04;flame.userData.ports=capsuleOnly?capsulePorts:null;
   if(capsuleOnly){
     for(const [radius,length,color,opacity]of [[.14,.80,'#6fcdff',.64],[.095,.55,'#a9e7ff',.85],[.055,.34,'#fff9ef',1]]){

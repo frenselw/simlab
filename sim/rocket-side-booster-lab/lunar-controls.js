@@ -1,6 +1,8 @@
 const ephemerisFile=new URL('./assets/lunar-ephemeris.bin.gz',import.meta.url);
 const transferHint='由發射台自動起飛，飛掠月球後自由返回地球，開傘降落陸地。';
-const landingHint='由地球自動發射，穩定環月後由你接手登月。';
+const landingHint='由地球自動發射，穩定環月後可選自動或手動登月。';
+const landingPhases={deorbit:'自動離軌',coast:'滑向月面',brake:'主引擎制動',descent:'自動下降',
+  survey:'懸停勘察落點',translate:'側向 RCS 避開隕石坑或斜坡',final:'垂直下降着陸'};
 const outcomes={flyby:'已完成月球飛掠','lunar-pass':'已掠過月球，最近高度超出目標範圍',
   'moon-impact':'撞擊月球','earth-impact':'撞擊地球',
   'ephemeris-end':'已到達日月星曆終點',landed:'已安全降落','destroyed':'隔熱防護耗盡'};
@@ -47,6 +49,9 @@ export function installLunarControls(d,{controller,launchAllowed,command,setView
   }
   d.lunarLandingLaunch.addEventListener('click',()=>prepare('lunar-landing-launch'));
   d.lunarTakeover.addEventListener('click',()=>{if(command({type:'moon-takeover'}))controller.play();});
+  d.lunarAutoLand.addEventListener('click',()=>{
+    if(command({type:'moon-auto-land'})){setView('follow',true);controller.play();}
+  });
   d.lunarOrientation.addEventListener('click',event=>{
     const button=event.target.closest('[data-moon-mode]');
     if(button)command({type:'control',key:'mode',value:button.dataset.moonMode});
@@ -119,23 +124,26 @@ export function installLunarControls(d,{controller,launchAllowed,command,setView
         'moon-landed':'已安全着陸月面','moon-hard-landing':'月面硬着陸','moon-impact':'撞擊月球',
         'earth-impact':'撞擊地球','moon-orbit-failed':'未能確認穩定環月，控制仍鎖定',
         'ephemeris-end':'已到達日月星曆終點'
-      }[l.outcome]||(ready?'已穩定環月，可以接手':manual?'手動操控登月艙':
+      }[l.outcome]||(ready?'穩定環月中 · 選擇登月方式':manual?'手動操控登月艙':
+        l.handoff==='auto'?landingPhases[l.auto.phase]:
         l.capturePhase==='align'?'自動轉向':l.capturePhase==='burn'?'自動制動入軌':
         l.capturePhase==='settle'?'環月滑行及軌道核對':f.t>=l.transferCutoff?'自由返回航線 · 奔月途中':'自動發射及奔月點火');
       d.lunarMilestone.textContent=status;
       if(d.lunarLandingStatus.textContent!==status)d.lunarLandingStatus.textContent=status;
-      d.lunarLandingTelemetry.textContent=f.moon.surface?
+      const readout=f.moon.surface?
         '離月面 '+distance(f.moon.surface.height)+' · 垂直速度 '+fmt(f.moon.surface.vertical,1)+' m/s · 橫移 '+fmt(f.moon.surface.horizontal,1)+' m/s · 傾角 '+fmt(f.moon.surface.tilt,0)+'° · 餘油 '+fmt(f.capsule.fuel,1)+' kg':
         '距月面 '+fmt(f.moon.height/1000,0)+' km';
-      d.lunarTakeover.hidden=!ready;
+      const offset=l.auto?.phase==='translate'?' · 距落點 '+distance(l.auto.offset):'';
+      d.lunarLandingTelemetry.textContent=readout+offset;
+      d.lunarAutoLand.hidden=d.lunarTakeover.hidden=!ready;
       d.lunarOrientation.hidden=!manual||ended;
       for(const button of d.lunarOrientation.querySelectorAll('button'))button.setAttribute('aria-pressed',String(f.controls.mode===button.dataset.moonMode));
       d.lunarManual.hidden=d.lunarBearingRow.hidden=d.lunarForecast.hidden=true;
       d.chuteArm.hidden=d.recoveryControls.hidden=d.reentryGauge.hidden=true;
       d.separateButton.disabled=d.bodySelect.disabled=true;
       if(!manual)d.igniteButton.disabled=true;
-      if(ready)d.playButton.disabled=true;
-      d.flightHint.textContent=manual&&!ended?'離軌時選月球逆行並點火。接近月面時，調姿和油門以降低下降及橫移速度。':status;
+      d.flightHint.textContent=manual&&!ended?
+        l.auto?.phase==='no-site'?'附近未找到安全落點。登月艙正維持推力，請手動選擇落點。':'離軌時選月球逆行並點火。接近月面時，調姿和油門以降低下降及橫移速度。':status;
       if(nearMoon){
         const altitude=f.moon.surface?.height??f.moon.height;
         d.heightValue.textContent=fmt(altitude>=1000?altitude/1000:altitude,1);

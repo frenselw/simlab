@@ -1,10 +1,10 @@
 (function(root,factory){const api=factory(typeof module==='object'&&module.exports?require('./parts.js'):root.RocketParts);if(typeof module==='object'&&module.exports)module.exports=api;root.RocketLighting=api;})(typeof window==='undefined'?globalThis:window,function(P){
  'use strict';
  const norm=Math.hypot(-.5,.3,1),fixedSun=Object.freeze([-.5/norm,.3/norm,1/norm]),smooth=(a,b,x)=>{const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t);};
- function solar(q,sun=fixedSun){
+ function solar(q,sun=fixedSun,planetRadius=P.R){
   if(!Array.isArray(q)||q.length<2||!q.slice(0,3).every(Number.isFinite))throw Error('Invalid lighting position');
   const radius=Math.hypot(q[0],q[1],q[2]||0);if(radius<1)throw Error('Invalid lighting radius');
-  const elevation=(sun[0]*q[1]+sun[1]*q[0]+sun[2]*(q[2]||0))/radius,horizon=-Math.sqrt(Math.max(0,1-(P.R/radius)**2));
+  const elevation=(sun[0]*q[1]+sun[1]*q[0]+sun[2]*(q[2]||0))/radius,horizon=-Math.sqrt(Math.max(0,1-(planetRadius/radius)**2));
   return {elevation,daylight:smooth(-.12,.18,elevation),sunlight:smooth(horizon-.005,horizon+.005,elevation),horizon};
  }
  function exposure(altitude,daylight){
