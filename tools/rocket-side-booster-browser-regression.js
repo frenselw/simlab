@@ -1163,10 +1163,52 @@ async function cameraFreedom(base,label){
     swipes.push({view,forwardAngle:Math.acos(dot(right.forward,top.forward))*180/Math.PI});
   }
   await open(base,T.singlePad());
-  await call('app.view("follow",true);const s=app.getScene();s.rotate(0,-270);');
-  const before=await rotation();await call('app.getScene().rotate(0,-70);');const after=await rotation();
-  assert(before.clearance>=1.99&&after.clearance>=1.99&&Math.abs(dot(before.forward,after.forward)-Math.cos(.42))<1e-6&&before.forward[2]*after.forward[2]<0,JSON.stringify({before,after}));
-  report.flows.push({label,case:'camera-freedom',pixels:result,ground:[before,after],swipes});
+  const reset=()=>call('app.view("follow",true);');
+  const point=await call(`const r=d.getElementById('cameraSurface').getBoundingClientRect(),stage=d.getElementById('stage').getBoundingClientRect();
+    return {x:r.left+r.width/2,y:r.top+r.height/2,edge:stage.right-3};`);
+  const drag=(dx,dy)=>pointer({x:point.x,y:point.y},{x:point.x+dx,y:point.y+dy});
+  const level=pose=>Math.abs(pose.right[1])<1e-6&&pose.up[1]>0&&pose.clearance>=1.99;
+  await reset();await drag(0,90);
+  const inclined=await rotation(),turns=[];
+  for(let i=0;i<3;i++){
+    await drag(95,0);
+    const pose=await rotation();
+    assert(level(pose)&&Math.abs(pose.forward[1]-inclined.forward[1])<1e-6&&
+      dot(pose.forward,turns.at(-1)?.forward??inclined.forward)<.9,JSON.stringify(pose));
+    turns.push(pose);
+  }
+  await reset();
+  const start=await rotation();
+  for(let i=0;i<3;i++)for(const [dx,dy] of [[85,0],[0,80],[-85,0],[0,-80]]){
+    await drag(dx,dy);assert(level(await rotation()));
+  }
+  assert(dot(start.forward,(await rotation()).forward)>.999999);
+  const poles=[];
+  for(const sign of [-1,1]){
+    await reset();
+    const elevations=[];
+    for(let i=0;i<4;i++){
+      await drag(0,107*sign);
+      const pose=await rotation();
+      assert(level(pose));
+      elevations.push(Math.asin(-pose.forward[1])*sign);
+    }
+    assert(elevations[3]>elevations[2]&&elevations[3]<Math.PI/2&&elevations[3]-elevations[2]<.04);
+    await drag(0,-45*sign);
+    const back=await rotation();
+    assert(level(back)&&elevations[3]-Math.asin(-back.forward[1])*sign>.25);
+    poles.push(elevations);
+  }
+  await reset();
+  const touchStats=()=>call('return app.diagnostics().interaction;');
+  const stats=await touchStats();
+  await drag(point.edge-point.x,0);
+  const edgeDrag=await rotation(),captured=await touchStats();
+  assert(level(edgeDrag)&&dot(start.forward,edgeDrag.forward)<.65&&captured.up===stats.up+1&&captured.cancel===stats.cancel);
+  await pointer({x:point.edge,y:point.y},{x:point.edge,y:point.y+72});
+  assert.equal((await touchStats()).trustedTouch,captured.trustedTouch);
+  assert(dot(edgeDrag.forward,(await rotation()).forward)>.999999);
+  report.flows.push({label,case:'camera-freedom',pixels:result,ground:{turns,poles,edgeDrag},swipes});
 }
 
 async function distantNavigation(base,label,state){
@@ -1909,10 +1951,21 @@ async function lunarLanding(base,label){
     for(let i=0;c.running&&i<22000;i++)RocketRuntime.advanceFrame(c,.1,10000);
     c.emit();
     window.__lunarAutoFinished={state:c.state,events:c.events};
+    const s=app.getScene(),track=f.lunar.moonTrail,line=s.lines.actual;
+    const positions=line.geometry.attributes.position;
+    const endpoint=line.localToWorld(line.position.clone().fromBufferAttribute(positions,positions.count-1));
+    const radius=s.moonGlobe.scale.x;
+    let depth=0;
+    for(let i=0;i<positions.count;i++)depth=Math.max(depth,radius-line.position.clone().fromBufferAttribute(positions,i).length());
     return {outcome:f.lunar.outcome,touchdown:f.lunar.touchdown,fuel:f.capsule.fuel,
+      track:{local:s.actualLocalMoon,center:line.position.distanceTo(s.moonGlobe.position),depth,end:endpoint.distanceTo(s.rocket.position),
+        lastTime:track.lastTime,time:f.t,count:positions.count,loggedCount:track.points.length,forecast:Boolean(s.lines.predicted)},
       status:d.getElementById('lunarLandingStatus').textContent};`);
   assert(automatic.outcome==='moon-landed'&&automatic.fuel>3&&automatic.touchdown.vertical>=-2,JSON.stringify(automatic));
   assert(automatic.status.includes('安全着陸'));
+  const track=automatic.track;
+  assert(track.local&&track.center<1e-9&&track.depth<120*3/P.R&&track.end<1e-6&&
+    track.lastTime===track.time&&track.count===track.loggedCount+1&&!track.forecast,JSON.stringify(track));
   assert.deepEqual(await keepView(),userView);
   await click('#cameraFollow',mobile);
   await shot(label+'-lunar-auto-touchdown');

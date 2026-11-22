@@ -25,7 +25,7 @@
     capture:417710.5728963027,stop:417758.16972739715,circularize:438803.03194553684,orbit:438823.94045052305
   };
   const NEAR=80000000,FORECAST_SPAN=10*C.DAY,TURN_LEAD=16.5,TURN_THRESHOLD=Math.cos(.15*DEG);
-  const PATH_SWEEP=DEG,MAX_PATH_POINTS=4096;
+  const PATH_SWEEP=DEG,MAX_PATH_POINTS=4096,MOON_MAP_HEIGHT=300000;
   const TRANSFER_START=7200,FAST_WARP=10000,ENCOUNTER_WARP_HEIGHT=20000000;
   // Inertial state obtained by shooting backward from the Moon and targeting both Earth passes.
   const RETURN_EPOCH=3285490.002632308;
@@ -234,6 +234,15 @@
     if(elapsed>=Math.min(maximum,PATH_SWEEP/moonRate)*stride)return true;
     const r=q.slice(0,3),sweep=PATH_SWEEP*stride;
     return sweep<Math.PI&&dot(last,r)<norm(last)*norm(r)*Math.cos(sweep);
+  }
+  function firstCrossing(duration,crossed,iterations=27){
+    let lo=0,hi=duration;
+    for(let i=0;i<iterations;i++){
+      const middle=(lo+hi)/2;
+      if(crossed(middle))hi=middle;
+      else lo=middle;
+    }
+    return hi;
   }
   function log(f,type,extra){
     f.lunar.events.push({type,t:f.t,altitude:f.orbit?.height, fuel:f.capsule.fuel,...extra});
@@ -706,15 +715,7 @@
     const derivative=dynamics(table,l,area,m,core.force+booster,axis,lateral);
     const at=duration=>C.rk4(derivative,t,f.eci,duration);
     let h=dt,q=at(dt),after=lunarDistance(table,f,t+dt,q),reason;
-    const locate=predicate=>{
-      let lo=0,hi=dt;
-      for(let i=0;i<27;i++){
-        const middle=(lo+hi)/2;
-        if(predicate(at(middle),middle))hi=middle;
-        else lo=middle;
-      }
-      return hi;
-    };
+    const locate=predicate=>firstCrossing(dt,time=>predicate(at(time),time));
     if(l.entry&&returnClearance(f,q,t+dt)<=0){
       h=locate((state,time)=>returnClearance(f,state,t+time)<=0);
       const state=at(h),contact=returnAir(f,state);
@@ -785,6 +786,18 @@
       l.trail.push(q.slice(0,3));
       l.lastTrail=f.t;
     }
+    if(l.landingMission&&after.height<MOON_MAP_HEIGHT){
+      const track=l.moonTrail??={points:[],lastTime:f.t,stride:1};
+      const relative=moonRelative(table,f,f.t,q).slice(0,3);
+      if(reason||!track.points.length||pathSampleDue(relative,after,track.points.at(-1),f.t-track.lastTime,30,track.stride)){
+        if(track.points.length>=MAX_PATH_POINTS){
+          track.points=track.points.filter((_,i)=>i%2===0);
+          track.stride*=2;
+        }
+        track.points.push(relative);
+        track.lastTime=f.t;
+      }
+    }else if(l.moonTrail)l.moonTrail=null;
     f.maxHeight=Math.max(f.maxHeight,norm(q.slice(0,3))-P.R);
     const fuel=Math.max(0,core.fuel-(core.flow+lateralFlow)*h);
     if(f.capsule.detached)f.capsule.fuel=fuel;
@@ -953,18 +966,25 @@
       ?FAST_WARP:1000;
   }
   function* forecast(f,table){
-    if(f.lunar.landingMission&&f.moon.bound&&f.moon.height<300000&&f.moon.ha<500000){
+    if(f.lunar.landingMission&&f.moon.bound&&f.moon.height<MOON_MAP_HEIGHT&&f.moon.ha<500000){
       const points=[],times=[];
       let t=f.t,q=f.eci;
       const end=Math.min(t+1.02*f.moon.period,flightLimit(f));
       const drift=(time,state)=>[...state.slice(3),...C.gravity(table,epoch(f)+time,state.slice(0,3))];
+      const hits=(time,state)=>lunarDistance(table,f,time,state).height<=C.MOON_RELIEF_LIMIT+FOOT_SPREAD*2+FOOT_HEIGHT&&
+        moonSurface(table,f,time,state).clearance<=0;
       for(let index=0;t<end;index++){
         const point=moonRelative(table,f,t,q).slice(0,3);
+        if(hits(t,q))break;
         points.push(point);times.push(t);
-        if(norm(point)<=C.MOON_RADIUS)break;
         const dt=Math.min(10,end-t);
-        q=C.rk4(drift,t,q,dt);
-        t+=dt;
+        const at=h=>C.rk4(drift,t,q,h),next=at(dt);
+        if(hits(t+dt,next)){
+          const hit=firstCrossing(dt,h=>hits(t+h,at(h)),22);
+          points.push(moonRelative(table,f,t+hit,at(hit)).slice(0,3));times.push(t+hit);
+          break;
+        }
+        q=next;t+=dt;
         if(index%48===47)yield;
       }
       return {points,times,localMoon:true};
@@ -987,16 +1007,10 @@
       const at=h=>C.rk4(derivative,t,q,h),next=at(dt);
       const sample=lunarDistance(table,f,t+dt,next);
       if(norm(position(next))-P.R<=120000||sample.height<=0){
-        if(sample.height>0){
-          let lo=0,hi=dt;
-          for(let i=0;i<22;i++){
-            const mid=(lo+hi)/2;
-            if(norm(position(at(mid)))-P.R<=120000)hi=mid;
-            else lo=mid;
-          }
-          entry={t:t+hi};
-          record(at(hi),entry.t);
-        }else record(next,t+dt);
+        const moonContact=sample.height<=0;
+        const hit=firstCrossing(dt,h=>moonContact?lunarDistance(table,f,t+h,at(h)).height<=0:norm(position(at(h)))-P.R<=120000,22);
+        if(!moonContact)entry={t:t+hit};
+        record(at(hit),t+hit);
         break;
       }
       if(moon.rate<0&&sample.rate>=0){
@@ -1024,5 +1038,5 @@
     return [up,right,depth];
   });}
   const flightUtc=f=>C.utc(epoch(f)+f.t);
-  return Object.freeze({LAUNCH,FAST_WARP,MOON_RADIUS:C.MOON_RADIUS,LANDER,utc:C.utc,flightUtc,flightLimit,preset,compatible,open,openLanding,landingCapacity,transfer,advance,command,warpLimit,guidanceLocked,canTakeOver,canRequestSeparation,nextSeparation,skyFrame,trajectory,forecast});
+  return Object.freeze({LAUNCH,FAST_WARP,MOON_RADIUS:C.MOON_RADIUS,MOON_MAP_HEIGHT,LANDER,utc:C.utc,flightUtc,flightLimit,preset,compatible,open,openLanding,landingCapacity,transfer,advance,command,warpLimit,guidanceLocked,canTakeOver,canRequestSeparation,nextSeparation,skyFrame,trajectory,forecast});
 });

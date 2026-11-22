@@ -411,18 +411,21 @@ for(const wait of [0,600,1200,1800,2400,3000,3600,4200,4800,5400,6000,6600,7100,
     until(controller,f.t+wait);
     assert(C.norm(C.add(f.eci.slice(0,3),before,-1))>1&&f.lunar.handoff==='ready'&&f.capsule.fuel===fuel&&!f.controls.lit);
   }
-  const start=f.t,departure=f.eci.slice();
+  const start=f.t,departure=f.eci.slice(),initialFuel=f.capsule.fuel,initialPeriapsis=f.moon.hp;
   assert(controller.command({type:'moon-auto-land'}));
   assert.deepEqual(f.eci,departure);
   assert(f.t===start&&l.auto.since===start);
+  assert.equal(f.moon.hp,initialPeriapsis);
+  assert.equal(f.capsule.fuel,initialFuel);
   assert(!controller.command({type:'moon-takeover'})&&!controller.command({type:'ignite'}));
-  let pushed=false,braked=false;
+  let pushed=false,braked=false,cutoff;
   for(let i=0;controller.running&&i<24000;i++){
     const a=l.auto,offset=a.offset;
     const speed=f.moon.surface.horizontal;
     const sample=a.phase==='translate'?f.rcsTranslation:null;
     const {elapsed}=controller.tick(a.phase==='coast'?25:.3,200);
     assert(elapsed>0);
+    if(a.phase==='coast'&&!cutoff)cutoff={fuel:f.capsule.fuel,periapsis:f.moon.hp};
     if(sample&&a.phase==='translate'&&Math.hypot(...sample)>.1&&a.offset<offset){
       if(f.moon.surface.horizontal>speed+.01)pushed=true;
       if(f.moon.surface.horizontal<speed-.01)braked=true;
@@ -436,6 +439,9 @@ for(const wait of [0,600,1200,1800,2400,3000,3600,4200,4800,5400,6000,6600,7100,
   landingCoverage.add(site?.distance?'diverted':'direct');
   console.log('Automatic landing',JSON.stringify({wait,site:site?.distance,sunElevation,fuel:f.capsule.fuel,contact:l.touchdown,outcome:l.outcome}));
   assert.equal(l.outcome,'moon-landed','Autopilot departure delay '+wait);
+  assert(cutoff?.fuel<initialFuel&&initialPeriapsis>=80000&&cutoff.periapsis<18100,JSON.stringify(cutoff));
+  assert.equal(l.moonTrail.lastTime,f.t);
+  assert.deepEqual(l.moonTrail.points.at(-1),C.add(f.eci.slice(0,3),moon,-1));
   assert(l.events.find(event=>event.type==='moon-auto-final').t>=hoverSince+3);
   if(site.distance)assert(pushed&&braked,'RCS acceleration and counterthrust at '+wait);
   assert(f.capsule.fuel>3&&l.touchdown.slope<8,JSON.stringify({wait,fuel:f.capsule.fuel,slope:l.touchdown.slope}));
@@ -495,3 +501,9 @@ craterShip.bodyRight=C.unit(C.cross(up,[0,0,1]));
 L.advance(craterFlight,.40,1000,table);
 assert(craterShip.moon.height<0&&craterShip.moon.surface.height>4);
 assert.equal(craterShip.lunar.outcome,null);
+let impactForecast=L.forecast(craterShip,table),impactPath;
+do{impactPath=impactForecast.next();}while(!impactPath.done);
+assert(impactPath.value.localMoon&&impactPath.value.points.length===2);
+L.advance(craterFlight,10,200,table);
+assert(['moon-hard-landing','moon-impact'].includes(craterShip.lunar.outcome));
+assert(Math.abs(impactPath.value.times.at(-1)-craterShip.t)<.01);

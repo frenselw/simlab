@@ -344,17 +344,19 @@ function renderScene(){
     }
     renderFuel(f);
   }
-  const lunarTrail=f?.lunar?.trail,flushTrail=lunarTrail&&!controller.running&&lunarTrail.length!==lastLunarTrailSize;
+  const moonTrail=f?.lunar?.moonTrail?.points,localMoon=Boolean(moonTrail?.length);
+  const lunarTrail=localMoon?moonTrail:f?.lunar?.trail;
+  const flushTrail=lunarTrail&&!controller.running&&lunarTrail.length!==lastLunarTrailSize;
   const forecast=currentForecast(f);
   if(scene){
-    if(flushTrail||scene.forecast!==forecast||performance.now()-lastPaths>900){
+    if(flushTrail||Boolean(scene.actualLocalMoon)!==localMoon||scene.forecast!==forecast||performance.now()-lastPaths>900){
       let prediction=[];
       if(f&&!f.lunar){
         if(O.elements(f.state).height>=120000)prediction=O.path(f.state);
         if(!prediction.length)prediction=coastPath(f);
       }else if(forecast&&scene.forecast!==forecast)prediction=RocketLunar.trajectory(f,forecast.points);
       scene.setPaths(f?.lunar?RocketLunar.trajectory(f,lunarTrail):trail,prediction,
-        !f?.lunar&&other?.status==='flying'?O.path(other.state):[],f?.lunar,forecast);
+        !f?.lunar&&other?.status==='flying'?O.path(other.state):[],f?.lunar,forecast,localMoon);
       lastPaths=performance.now();lastLunarTrailSize=lunarTrail?.length??0;
     }
     scene.setData({craft:workshop?s.craft:f?.craft||s?.craft||P.emptyCraft(s?.variant||0),flight:f,other,workshop,mission:s?.flight,skyStart,skyData,running:controller.running,live:controller.editable});positionTargets(workshop);
