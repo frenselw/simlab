@@ -1214,57 +1214,76 @@ async function cameraFreedom(base,label){
   await pointer({x:point.edge,y:point.y},{x:point.edge,y:point.y+72});
   assert.equal((await touchStats()).trustedTouch,captured.trustedTouch);
   assert(dot(edgeDrag.forward,(await rotation()).forward)>.999999);
-  const pin=await followPivotGestures();
-  report.flows.push({label,case:'camera-freedom',pixels:result,ground:{turns,poles,edgeDrag,pin},deepTurn,swipes});
+  const touch=await followTouchGestures(),mouse=await followMouseGestures();
+  report.flows.push({label,case:'camera-freedom',pixels:result,ground:{turns,poles,edgeDrag,touch,mouse},deepTurn,swipes});
 }
 
-async function followPivotGestures(){
-  const prepare=()=>call(`app.view('follow',true);const s=app.getScene(),r=d.getElementById('cameraSurface').getBoundingClientRect();
-    const point={x:r.left+r.width*.35,y:r.top+r.height*.5},pin=s.followPivot(point);
-    window.__cameraPin=pin;
-    const host=s.host.getBoundingClientRect();return {point,x:point.x-host.left,y:point.y-host.top,zoom:s.zoom};`);
-  const state=()=>call(`const s=app.getScene(),camera=s.camera;
-    return {pin:s.project(window.__cameraPin),roll:camera.matrixWorld.elements[1],zoom:s.zoom,
-      forward:camera.getWorldDirection(camera.position.clone()).toArray(),mode:d.getElementById('cameraSurface').classList.contains('camera-pivot')};`);
-  const check=(start,before,after)=>{
-    assert(Math.hypot(start.x-after.pin.x,start.y-after.pin.y)<1.5&&Math.abs(after.roll)<1e-6&&after.zoom===start.zoom,JSON.stringify({start,after}));
-    const angle=before.forward.reduce((sum,value,i)=>sum+value*after.forward[i],0);
-    assert(angle<.93,JSON.stringify({before,after}));
-    return {pinError:Math.hypot(start.x-after.pin.x,start.y-after.pin.y),heading:Math.acos(angle)};
-  };
-  const touch=[];
-  for(const movingFirst of [false,true]){
-    const start=await prepare(),before=await state(),{x,y}=start.point,first=touchId++,second=touchId++;
-    const pair=angle=>{
-      const fixed={x,y,id:movingFirst?second:first},moving={x:x+60*Math.cos(angle),y:y+60*Math.sin(angle),id:movingFirst?first:second};
-      return movingFirst?[moving,fixed]:[fixed,moving];
-    };
-    await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:pair(0)});
-    for(let i=1;i<=6;i++)await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:pair(i*.09)});
-    await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
-    touch.push(check(start,before,await state()));
+async function followPose(){
+  return call(`const s=app.getScene(),camera=s.camera,r=s.host.getBoundingClientRect();
+    const center=s.rocket.userData.partBounds.getCenter(s.rocket.position.clone());
+    const craft=s.project(s.rocket.localToWorld(center)),forward=camera.getWorldDirection(center).toArray();
+    return {x:craft.x/r.width,y:craft.y/r.height,roll:camera.matrixWorld.elements[1],zoom:s.zoom,forward,
+      interaction:app.diagnostics().interaction};`);
+}
+function checkFollowTurn(before,after,minTurn){
+  assert(Math.abs(after.x-.5)<.01&&Math.abs(after.y-.5)<.01&&Math.abs(after.roll)<1e-6,JSON.stringify(after));
+  const dot=before.forward.reduce((sum,v,i)=>sum+v*after.forward[i],0);
+  const turn=Math.acos(Math.max(-1,Math.min(1,dot)));
+  assert(turn>=minTurn,JSON.stringify({before,after,turn}));
+  return turn;
+}
+async function followTouchGestures(){
+  await call(`app.view('follow',true)`);
+  const {x,y}=await call(`const r=d.getElementById('cameraSurface').getBoundingClientRect();
+    return {x:r.left+r.width*.75,y:r.top+r.height*.45};`);
+  const start=await followPose(),turns=[];
+  for(let gesture=0;gesture<3;gesture++){
+    const fixed={x,y,id:touchId++},id=touchId++;
+    const moving=(radius,angle)=>({x:x-radius*Math.cos(angle),y:y-radius*Math.sin(angle),id});
+    const pair=(radius,angle)=>gesture%2?[moving(radius,angle),fixed]:[fixed,moving(radius,angle)];
+    const send=(type,touchPoints)=>cdp.send('Input.dispatchTouchEvent',{type,touchPoints});
+    await send('touchStart',pair(50,0));
+    if(gesture===0)await send('touchMove',pair(60,0));
+    for(let step=1;step<=6;step++)await send('touchMove',pair(gesture===0?60:50,step*Math.PI/18));
+    const before=turns.at(-1)??start;
+    await wait(async()=>{
+      const {forward}=await followPose();
+      return forward.reduce((sum,v,i)=>sum+v*before.forward[i],0)<Math.cos(.96);
+    },'two-finger follow turn');
+    const after=await followPose();
+    checkFollowTurn(before,after,.96);
+    assert(Math.abs(after.zoom-1.2)<.015,JSON.stringify(after));
+    turns.push(after);
+    if(gesture===2){
+      await send('touchEnd',[moving(50,Math.PI/3)]);
+      const handoff=await followPose();
+      assert.equal(handoff.interaction.touchCount,1);
+      assert(!handoff.interaction.pinching&&handoff.forward.every((v,i)=>Math.abs(v-after.forward[i])<1e-6));
+      await send('touchMove',[{...fixed,x:x-42}]);
+      await wait(async()=>{const p=await followPose();return p.forward.some((v,i)=>Math.abs(v-after.forward[i])>.1);},'remaining finger continues dragging');
+      turns.push(await followPose());
+      checkFollowTurn(handoff,turns.at(-1),.3);
+    }
+    await send('touchEnd',[]);
   }
-  const {point:{x,y}}=await prepare(),spread=r=>[{x:x-r,y,id:touchId},{x:x+r,y,id:touchId+1}];
-  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:spread(25)});
-  await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:spread(40)});
-  await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
-  touchId+=2;
-  assert((await state()).zoom>1.35);
+  assert.equal((await followPose()).interaction.touchCount,0);
+  return turns;
+}
+async function followMouseGestures(){
   await viewport(1100,765);
   await wait(()=>call(`const s=app.getScene(),r=s.host.getBoundingClientRect();
     return Math.abs(s.perspectiveCamera.aspect-r.width/r.height)<1e-6;`),'desktop camera projection resize');
-  const start=await prepare(),before=await state(),anchor=start.point;
-  await pointer(anchor,anchor,false);await pointer(anchor,anchor,false);
-  assert((await state()).mode);
-  await pointer({x:anchor.x+60,y:anchor.y},{x:anchor.x+52,y:anchor.y+33},false);
-  const mouse=check(start,before,await state());
-  await key('Escape');assert(!(await state()).mode);
-  const held=await prepare(),heldBefore=await state();
-  await pointer(held.point,held.point,false);
-  await pointer(held.point,{x:held.point.x+64,y:held.point.y},false);
-  assert((await state()).mode);
-  const doubleDrag=check(held,heldBefore,await state());
-  return {touch,mouse,doubleDrag};
+  await call(`app.view('follow',true)`);
+  const start=await followPose(),anchor=await call(`const r=d.getElementById('cameraSurface').getBoundingClientRect();
+    return {x:r.left+r.width*.35,y:r.top+r.height*.5};`);
+  await pointer(anchor,anchor,false);
+  await pointer(anchor,{x:anchor.x+64,y:anchor.y},false);
+  const doubleDrag=await followPose();
+  checkFollowTurn(start,doubleDrag,.45);
+  await pointer(anchor,{x:anchor.x-64,y:anchor.y},false);
+  const plainDrag=await followPose();
+  assert(plainDrag.forward.every((v,i)=>Math.abs(v-start.forward[i])<1e-6),JSON.stringify(plainDrag));
+  return {doubleDrag,plainDrag};
 }
 
 async function distantNavigation(base,label,state){
@@ -1894,6 +1913,9 @@ async function lunarLanding(base,label){
   assert(orbit.running&&orbit.continued&&!orbit.pausedControl&&orbit.choices&&orbit.disabled&&orbit.view==='plane');
   await shot(label+'-lunar-landing-handoff');
   await click('#cameraFollow',mobile);
+  await call('app.controller.pause();');
+  const followTouch=await followTouchGestures();
+  await call("app.view('follow',true);");
   await call(`const c=app.controller,f=c.state.flight,utc=()=>f.lunar.epoch+f.t;
     const illumination=()=>{
       const moon=c.lunarTable.body(utc(),0),sun=c.lunarTable.body(utc(),1);
@@ -2062,7 +2084,7 @@ async function lunarLanding(base,label){
     return {before,detached:c.state.flight.capsule.detached,label:d.getElementById('timeWarpLabel').textContent,
       limited:!d.getElementById('timeWarpLimit').hidden};`);
   assert.deepEqual(manualSeparation,{before:{queued:true,detached:false,label:'20×',limit:'限 1×'},detached:true,label:'20×',limited:false});
-  report.flows.push({case:'lunar-landing',label,width,height,separation,orbit,manual,result,terrain,detail,departure,descent,diversion,automatic,manualSeparation});
+  report.flows.push({case:'lunar-landing',label,width,height,separation,orbit,manual,result,terrain,detail,departure,descent,diversion,automatic,manualSeparation,followTouch});
 }
 
 function selection(args){if(args.length>2)throw Error("Expected cases and optional delivery");const cases=args[0]?args[0].split(","):caseNames,delivery=args[1]||null;if(cases.some(name=>!caseNames.includes(name))||new Set(cases).size!==cases.length)throw Error("Unknown or repeated explorer case");if(delivery&&!["source","standalone"].includes(delivery))throw Error("Unknown explorer delivery");return{cases,delivery};}

@@ -19,7 +19,7 @@ const isOrbitView=view=>view==='orbit'||view==='plane';
 const rightAxis=new THREE.Vector3(1,0,0);
 const orbitAttitude=(yaw,pitch)=>new THREE.Quaternion().setFromEuler(new THREE.Euler(-pitch,yaw,0,'YXZ'));
 const followPitchLimit=THREE.MathUtils.degToRad(86),followPitchEase=THREE.MathUtils.degToRad(14);
-function levelFollowDrag(orientation,dx,dy){
+function levelFollowDrag(orientation,turn,dy){
   const eye=viewAxis.clone().applyQuaternion(orientation),right=rightAxis.clone().applyQuaternion(orientation);
   const yaw=Math.hypot(eye.x,eye.z)>1e-6?Math.atan2(eye.x,eye.z):Math.atan2(-right.z,right.x);
   let pitch=THREE.MathUtils.clamp(Math.asin(THREE.MathUtils.clamp(eye.y,-1,1)),-followPitchLimit,followPitchLimit);
@@ -29,7 +29,7 @@ function levelFollowDrag(orientation,dx,dy){
     // Only slow movement towards the limit, so reversing the drag responds immediately.
     pitch+=direction*(direct-(room-direct)*Math.expm1(-(amount-direct)/followPitchEase));
   }
-  return orbitAttitude(yaw+dx*.008,pitch);
+  return orbitAttitude(yaw+turn,pitch);
 }
 function vectorArrow(color){const group=new THREE.Group(),mat=new THREE.MeshBasicMaterial({color,transparent:true,depthTest:false,depthWrite:false,toneMapped:false}),shaft=new THREE.Mesh(new THREE.CylinderGeometry(.026,.026,.74,8),mat),head=new THREE.Mesh(new THREE.ConeGeometry(.09,.26,10),mat);shaft.position.y=.37;head.position.y=.87;shaft.renderOrder=head.renderOrder=10;group.add(shaft,head);return group;}
 export class RocketScene{
@@ -115,11 +115,11 @@ export class RocketScene{
     if(view==='factory'&&reset)this.factoryHeight=13;
     if(view==='follow'&&reset)this.followManual=false;
     this.cameraViews.set(this.view,{yaw:this.yaw,pitch:this.pitch,zoom:this.zoom,orbitFocus:this.orbitFocus,
-      orbitOrientation:this.orbitOrientation,followManual:this.followManual,followOffset:this.followOffset});
+      orbitOrientation:this.orbitOrientation,followManual:this.followManual});
     const saved=!reset&&this.cameraViews.get(view);this.view=view;this.orbitFrame=null;
     this.cameraLock=view==='follow'?lock:null;this.cameraLockUp=null;
     Object.assign(this,saved||{yaw:view==='plane'?0:view==='orbit'?.45:view==='follow'?-.65:.55,pitch:view==='plane'?0:view==='orbit'?.32:.18,
-      zoom:1,orbitFocus:null,orbitOrientation:null,followManual:false,followOffset:null});
+      zoom:1,orbitFocus:null,orbitOrientation:null,followManual:false});
     this.draw();
   }
   setCameraLock(lock){
@@ -179,8 +179,8 @@ export class RocketScene{
     this.orbitFocus.rotationDepthSet=false;
     this.cameraDirty=true;return true;
   }
-  rotate(dx,dy,draw=true){
-    if(this.cameraLock||!(dx||dy))return false;
+  rotate(dx,dy,draw=true,turn=dx*.008){
+    if(this.cameraLock||!(dx||dy||turn))return false;
     if(this.view==='factory'){
       this.yaw=O.wrap(this.yaw+dx*.008);
       this.pitch=THREE.MathUtils.clamp(this.pitch+dy*.006,-1.5,1.5);
@@ -209,32 +209,10 @@ export class RocketScene{
       }
       if(this.view==='follow'){
         this.followManual=true;
-        orientation.copy(levelFollowDrag(orientation,dx,dy));
+        orientation.copy(levelFollowDrag(orientation,turn,dy));
       }else orientation.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-dy*.006,dx*.008,0,'YXZ'))).normalize();
     }
     this.cameraDirty=true;if(draw)this.draw();
-    return true;
-  }
-  followPivot(point){
-    if(this.view!=='follow'||this.cameraLock||!this.followTarget)return null;
-    const bounds=this.host.getBoundingClientRect(),camera=this.camera;
-    const ray=new THREE.Raycaster();
-    ray.setFromCamera(new THREE.Vector2((point.x-bounds.left)/bounds.width*2-1,1-(point.y-bounds.top)/bounds.height*2),camera);
-    const forward=camera.getWorldDirection(new THREE.Vector3());
-    const rocket=this.rocket.visible&&ray.intersectObjects(this.rocket.userData.parts,true)[0];
-    if(rocket)return rocket.point;
-    const plane=new THREE.Plane().setFromNormalAndCoplanarPoint(forward,this.followTarget);
-    return ray.ray.intersectPlane(plane,new THREE.Vector3());
-  }
-  rotateFollowPivot(angle,pivot){
-    if(this.view!=='follow'||this.cameraLock||!this.followTarget||!pivot||!angle)return false;
-    const turn=new THREE.Quaternion().setFromAxisAngle(upAxis,angle);
-    const orientation=this.orbitOrientation??=orbitAttitude(this.yaw,this.followPitch??this.pitch);
-    orientation.premultiply(turn);
-    const delta=this.followTarget.clone().sub(pivot).applyQuaternion(turn).add(pivot).sub(this.followTarget);
-    (this.followOffset??=new THREE.Vector3()).add(delta);
-    this.followTarget.add(delta);
-    this.followManual=true;this.cameraDirty=true;
     return true;
   }
   drawSky(frame,space,rotation){
@@ -817,7 +795,6 @@ export class RocketScene{
     }
     const lockedBody=!f?null:this.cameraLock==='earth'?this.earth.position:this.cameraLock==='moon'?this.moonTarget:
       this.cameraLock==='sun'&&skyFrame?new THREE.Vector3(...skyFrame.sun).applyQuaternion(worldRotation).add(this.earth.position):null;
-    if(this.view==='follow'&&!lockedBody&&this.followOffset)target.add(this.followOffset);
     const positionCamera=(pitch,yaw=cameraYaw)=>this.camera.position.copy(target).add(new THREE.Vector3(Math.sin(yaw)*Math.cos(pitch)*distance,Math.sin(pitch)*distance,Math.cos(yaw)*Math.cos(pitch)*distance));
     const orientation=this.orbitOrientation??orbitAttitude(cameraYaw,cameraPitch);
     this.camera.up.copy(upAxis).applyQuaternion(orientation);
@@ -857,7 +834,6 @@ export class RocketScene{
     this.camera.far=space?Math.max(150,distance*4):factory||!f?500:Math.max(20000,this.camera.position.distanceTo(this.earth.position)+this.halo.scale.x);
     if(moonPosition)this.camera.far=Math.max(this.camera.far,this.camera.position.distanceTo(moonPosition)+moonRadius+1);
     this.camera.lookAt(target);this.camera.updateProjectionMatrix();this.camera.updateMatrixWorld();
-    this.followTarget=this.view==='follow'&&!lockedBody?target:null;
     const tanHalfFov=Math.tan(THREE.MathUtils.degToRad(this.perspectiveCamera.fov)/2);
     if(moonPosition){
       if(!this.moonGlobe){this.moonGlobe=createLunarGlobe();this.scene.add(this.moonGlobe);}
