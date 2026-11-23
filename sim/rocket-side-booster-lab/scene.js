@@ -115,11 +115,11 @@ export class RocketScene{
     if(view==='factory'&&reset)this.factoryHeight=13;
     if(view==='follow'&&reset)this.followManual=false;
     this.cameraViews.set(this.view,{yaw:this.yaw,pitch:this.pitch,zoom:this.zoom,orbitFocus:this.orbitFocus,
-      orbitOrientation:this.orbitOrientation,followManual:this.followManual});
+      orbitOrientation:this.orbitOrientation,followManual:this.followManual,followOffset:this.followOffset});
     const saved=!reset&&this.cameraViews.get(view);this.view=view;this.orbitFrame=null;
     this.cameraLock=view==='follow'?lock:null;this.cameraLockUp=null;
     Object.assign(this,saved||{yaw:view==='plane'?0:view==='orbit'?.45:view==='follow'?-.65:.55,pitch:view==='plane'?0:view==='orbit'?.32:.18,
-      zoom:1,orbitFocus:null,orbitOrientation:null,followManual:false});
+      zoom:1,orbitFocus:null,orbitOrientation:null,followManual:false,followOffset:null});
     this.draw();
   }
   setCameraLock(lock){
@@ -207,20 +207,34 @@ export class RocketScene{
         const sensitivity=1/Math.sqrt(Math.max(1,this.zoom));
         dx*=sensitivity;dy*=sensitivity;
       }
-      let horizon=0;
       if(this.view==='follow'){
         this.followManual=true;
-        const f=this.data?.flight;
-        if(f){
-          const altitude=f.lunar?.landingMission&&f.capsule.detached?f.moon.height:(f.orbit??O.elements(f.state)).height;
-          horizon=1-THREE.MathUtils.smoothstep(altitude,100000,250000);
-        }
-      }
-      const level=horizon>0?levelFollowDrag(orientation,dx,dy):null;
-      if(horizon<1)orientation.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-dy*.006,dx*.008,0,'YXZ'))).normalize();
-      if(level)orientation.slerp(level,horizon);
+        orientation.copy(levelFollowDrag(orientation,dx,dy));
+      }else orientation.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-dy*.006,dx*.008,0,'YXZ'))).normalize();
     }
     this.cameraDirty=true;if(draw)this.draw();
+    return true;
+  }
+  followPivot(point){
+    if(this.view!=='follow'||this.cameraLock||!this.followTarget)return null;
+    const bounds=this.host.getBoundingClientRect(),camera=this.camera;
+    const ray=new THREE.Raycaster();
+    ray.setFromCamera(new THREE.Vector2((point.x-bounds.left)/bounds.width*2-1,1-(point.y-bounds.top)/bounds.height*2),camera);
+    const forward=camera.getWorldDirection(new THREE.Vector3());
+    const rocket=this.rocket.visible&&ray.intersectObjects(this.rocket.userData.parts,true)[0];
+    if(rocket)return rocket.point;
+    const plane=new THREE.Plane().setFromNormalAndCoplanarPoint(forward,this.followTarget);
+    return ray.ray.intersectPlane(plane,new THREE.Vector3());
+  }
+  rotateFollowPivot(angle,pivot){
+    if(this.view!=='follow'||this.cameraLock||!this.followTarget||!pivot||!angle)return false;
+    const turn=new THREE.Quaternion().setFromAxisAngle(upAxis,angle);
+    const orientation=this.orbitOrientation??=orbitAttitude(this.yaw,this.followPitch??this.pitch);
+    orientation.premultiply(turn);
+    const delta=this.followTarget.clone().sub(pivot).applyQuaternion(turn).add(pivot).sub(this.followTarget);
+    (this.followOffset??=new THREE.Vector3()).add(delta);
+    this.followTarget.add(delta);
+    this.followManual=true;this.cameraDirty=true;
     return true;
   }
   drawSky(frame,space,rotation){
@@ -803,6 +817,7 @@ export class RocketScene{
     }
     const lockedBody=!f?null:this.cameraLock==='earth'?this.earth.position:this.cameraLock==='moon'?this.moonTarget:
       this.cameraLock==='sun'&&skyFrame?new THREE.Vector3(...skyFrame.sun).applyQuaternion(worldRotation).add(this.earth.position):null;
+    if(this.view==='follow'&&!lockedBody&&this.followOffset)target.add(this.followOffset);
     const positionCamera=(pitch,yaw=cameraYaw)=>this.camera.position.copy(target).add(new THREE.Vector3(Math.sin(yaw)*Math.cos(pitch)*distance,Math.sin(pitch)*distance,Math.cos(yaw)*Math.cos(pitch)*distance));
     const orientation=this.orbitOrientation??orbitAttitude(cameraYaw,cameraPitch);
     this.camera.up.copy(upAxis).applyQuaternion(orientation);
@@ -842,6 +857,7 @@ export class RocketScene{
     this.camera.far=space?Math.max(150,distance*4):factory||!f?500:Math.max(20000,this.camera.position.distanceTo(this.earth.position)+this.halo.scale.x);
     if(moonPosition)this.camera.far=Math.max(this.camera.far,this.camera.position.distanceTo(moonPosition)+moonRadius+1);
     this.camera.lookAt(target);this.camera.updateProjectionMatrix();this.camera.updateMatrixWorld();
+    this.followTarget=this.view==='follow'&&!lockedBody?target:null;
     const tanHalfFov=Math.tan(THREE.MathUtils.degToRad(this.perspectiveCamera.fov)/2);
     if(moonPosition){
       if(!this.moonGlobe){this.moonGlobe=createLunarGlobe();this.scene.add(this.moonGlobe);}

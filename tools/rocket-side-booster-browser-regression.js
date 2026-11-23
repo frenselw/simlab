@@ -1142,7 +1142,13 @@ async function cameraFreedom(base,label){
   const dot=(a,b)=>a.reduce((sum,v,i)=>sum+v*b[i],0);
   await viewport(390,844);
   const swipes=[];
-  for(const view of ['follow','orbit','plane']){
+  await call('app.view("follow",true);');
+  const deepFollow=await rotation();
+  await call('app.getScene().rotate(95,0);');
+  const deepTurn=await rotation();
+  assert(Math.abs(deepTurn.right[1])<1e-6&&Math.abs(deepTurn.forward[1]-deepFollow.forward[1])<1e-6&&
+    dot(deepTurn.forward,deepFollow.forward)<.999,JSON.stringify({deepFollow,deepTurn}));
+  for(const view of ['orbit','plane']){
     await call(`app.view(${JSON.stringify(view)},true);const s=app.getScene(),pitch=s.view==='follow'?s.followPitch:s.pitch;s.rotate(0,(1.48-pitch)/.006);`);
     const before=await rotation();
     await call('app.getScene().rotate(0,40);');
@@ -1208,7 +1214,57 @@ async function cameraFreedom(base,label){
   await pointer({x:point.edge,y:point.y},{x:point.edge,y:point.y+72});
   assert.equal((await touchStats()).trustedTouch,captured.trustedTouch);
   assert(dot(edgeDrag.forward,(await rotation()).forward)>.999999);
-  report.flows.push({label,case:'camera-freedom',pixels:result,ground:{turns,poles,edgeDrag},swipes});
+  const pin=await followPivotGestures();
+  report.flows.push({label,case:'camera-freedom',pixels:result,ground:{turns,poles,edgeDrag,pin},deepTurn,swipes});
+}
+
+async function followPivotGestures(){
+  const prepare=()=>call(`app.view('follow',true);const s=app.getScene(),r=d.getElementById('cameraSurface').getBoundingClientRect();
+    const point={x:r.left+r.width*.35,y:r.top+r.height*.5},pin=s.followPivot(point);
+    window.__cameraPin=pin;
+    const host=s.host.getBoundingClientRect();return {point,x:point.x-host.left,y:point.y-host.top,zoom:s.zoom};`);
+  const state=()=>call(`const s=app.getScene(),camera=s.camera;
+    return {pin:s.project(window.__cameraPin),roll:camera.matrixWorld.elements[1],zoom:s.zoom,
+      forward:camera.getWorldDirection(camera.position.clone()).toArray(),mode:d.getElementById('cameraSurface').classList.contains('camera-pivot')};`);
+  const check=(start,before,after)=>{
+    assert(Math.hypot(start.x-after.pin.x,start.y-after.pin.y)<1.5&&Math.abs(after.roll)<1e-6&&after.zoom===start.zoom,JSON.stringify({start,after}));
+    const angle=before.forward.reduce((sum,value,i)=>sum+value*after.forward[i],0);
+    assert(angle<.93,JSON.stringify({before,after}));
+    return {pinError:Math.hypot(start.x-after.pin.x,start.y-after.pin.y),heading:Math.acos(angle)};
+  };
+  const touch=[];
+  for(const movingFirst of [false,true]){
+    const start=await prepare(),before=await state(),{x,y}=start.point,first=touchId++,second=touchId++;
+    const pair=angle=>{
+      const fixed={x,y,id:movingFirst?second:first},moving={x:x+60*Math.cos(angle),y:y+60*Math.sin(angle),id:movingFirst?first:second};
+      return movingFirst?[moving,fixed]:[fixed,moving];
+    };
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:pair(0)});
+    for(let i=1;i<=6;i++)await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:pair(i*.09)});
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    touch.push(check(start,before,await state()));
+  }
+  const {point:{x,y}}=await prepare(),spread=r=>[{x:x-r,y,id:touchId},{x:x+r,y,id:touchId+1}];
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:spread(25)});
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:spread(40)});
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  touchId+=2;
+  assert((await state()).zoom>1.35);
+  await viewport(1100,765);
+  await wait(()=>call(`const s=app.getScene(),r=s.host.getBoundingClientRect();
+    return Math.abs(s.perspectiveCamera.aspect-r.width/r.height)<1e-6;`),'desktop camera projection resize');
+  const start=await prepare(),before=await state(),anchor=start.point;
+  await pointer(anchor,anchor,false);await pointer(anchor,anchor,false);
+  assert((await state()).mode);
+  await pointer({x:anchor.x+60,y:anchor.y},{x:anchor.x+52,y:anchor.y+33},false);
+  const mouse=check(start,before,await state());
+  await key('Escape');assert(!(await state()).mode);
+  const held=await prepare(),heldBefore=await state();
+  await pointer(held.point,held.point,false);
+  await pointer(held.point,{x:held.point.x+64,y:held.point.y},false);
+  assert((await state()).mode);
+  const doubleDrag=check(held,heldBefore,await state());
+  return {touch,mouse,doubleDrag};
 }
 
 async function distantNavigation(base,label,state){
