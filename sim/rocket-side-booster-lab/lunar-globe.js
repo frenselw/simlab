@@ -6,6 +6,154 @@ export const moonLighting=`
     return vec3(reflectance*(.009+1.15*pow(max(0.0,sunlight),.72)));
   }
 `;
+
+export function lunarImpactSize(impact){
+  const energy=.5*impact.mass*impact.speed**2;
+  // shortcut: crater scale is illustrative, calibrate with lunar impact data if size becomes a learning outcome.
+  return T.MathUtils.clamp(1.6+.32*Math.log1p(energy/400),1.6,13);
+}
+
+export function createLunarEffects(){
+  const C=window.RocketCelestial,radius=C.MOON_RADIUS;
+  const count=128,positions=new Float32Array(count*3),styles=new Float32Array(count*2);
+  const particles=Array.from({length:count},()=>({age:0,life:0,point:new T.Vector3(),up:new T.Vector3(),velocity:new T.Vector3()}));
+  const geometry=new T.BufferGeometry();
+  geometry.setAttribute('position',new T.BufferAttribute(positions,3));
+  geometry.setAttribute('style',new T.BufferAttribute(styles,2));
+  const material=new T.ShaderMaterial({
+    transparent:true,depthWrite:false,
+    vertexShader:`attribute vec2 style;
+      varying vec2 particleStyle;
+      #include <common>
+      #include <logdepthbuf_pars_vertex>
+      void main(){
+        particleStyle=style;
+        gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);
+        gl_PointSize=abs(style.y);
+        #include <logdepthbuf_vertex>
+      }`,
+    fragmentShader:`varying vec2 particleStyle;
+      #include <logdepthbuf_pars_fragment>
+      void main(){
+        #include <logdepthbuf_fragment>
+        float edge=1.-smoothstep(.12,.5,length(gl_PointCoord-.5));
+        vec3 gray=particleStyle.y>0.?vec3(.72,.68,.61):vec3(.48,.42,.35);
+        gl_FragColor=vec4(gray,edge*particleStyle.x);
+      }`
+  });
+  const effect=new T.Group(),dust=new T.Points(geometry,material);
+  dust.name='lunar-dust-and-ejecta';
+  dust.frustumCulled=false;
+  const glow=document.createElement('canvas');
+  glow.width=glow.height=64;
+  const ctx=glow.getContext('2d'),gradient=ctx.createRadialGradient(32,32,0,32,32,32);
+  gradient.addColorStop(0,'#fff7d9');
+  gradient.addColorStop(.18,'#ffba68');
+  gradient.addColorStop(.45,'rgba(255,135,54,.48)');
+  gradient.addColorStop(1,'rgba(255,99,24,0)');
+  ctx.fillStyle=gradient;
+  ctx.fillRect(0,0,64,64);
+  const flash=new T.Sprite(new T.SpriteMaterial({
+    map:new T.CanvasTexture(glow),transparent:true,depthWrite:false,toneMapped:false,blending:T.AdditiveBlending
+  }));
+  flash.name='lunar-impact-flash';
+  effect.add(dust,flash);
+  let impact=null,age=0,lastFlight=null,source=null,remainder=0,cursor=0,reduced=false,quality=0;
+  const position=new T.Vector3(),world=new T.Vector3();
+  const elevation=point=>C.moonTerrain(...C.moonMap(point.toArray()));
+  function worldPoint(point,basis,center){
+    world.copy(center);
+    basis.forEach((axis,i)=>world.addScaledVector(axis,point.getComponent(i)*.001));
+    return world;
+  }
+  function emit(point,ejecta=false){
+    const p=particles[cursor++%count],up=p.up.copy(point).normalize();
+    const tangent=new T.Vector3(-up.z,0,up.x);
+    if(tangent.lengthSq()<1e-9)tangent.set(1,0,0);
+    tangent.normalize();
+    const angle=cursor*2.399963,spread=(cursor%11)/10;
+    const speed=ejecta?(1+spread)*lunarImpactSize(impact)*1.7:2+13*spread;
+    p.velocity.copy(tangent).multiplyScalar(Math.cos(angle)*speed)
+      .addScaledVector(new T.Vector3().crossVectors(up,tangent),Math.sin(angle)*speed)
+      .addScaledVector(up,ejecta?1.6+spread*4:.24+speed*.06);
+    p.point.copy(point);
+    p.age=0;
+    p.life=ejecta?.65+spread*1.15:.35+spread*.63;
+    p.ejecta=ejecta;
+  }
+  effect.update=(f,basis,center,craft,motion,level)=>{
+    reduced=motion;quality=level;
+    if(f!==lastFlight){
+      lastFlight=f;impact=null;remainder=cursor=0;
+      for(const p of particles)p.life=0;
+    }
+    effect.visible=Boolean(basis);
+    source=null;
+    if(!basis)return;
+    if(f.lunar.impact&&f.lunar.impact!==impact){
+      impact=f.lunar.impact;age=0;
+      const up=new T.Vector3(...impact.point);
+      const point=up.clone().multiplyScalar(radius+elevation(up)+.35);
+      for(let i=0;i<(reduced?9:quality?38:66);i++)emit(point,true);
+    }
+    if(f.status==='flying'&&f.controls.lit&&f.controls.throttle>0&&f.moon.surface?.height<34){
+      const axis=new T.Vector3(0,1,0).applyQuaternion(craft.quaternion);
+      const nozzle=craft.position.clone().sub(center).addScaledVector(axis,-.0002);
+      const fixed=new T.Vector3(...basis.map(vector=>1000*vector.dot(nozzle)));
+      const exhaust=new T.Vector3(...basis.map(vector=>-vector.dot(axis)));
+      if(exhaust.dot(fixed.clone().normalize())<-.24){
+        let low=0,high=42;
+        const gap=distance=>{
+          position.copy(fixed).addScaledVector(exhaust,distance);
+          return position.length()-radius-elevation(position.normalize());
+        };
+        if(gap(high)<=0){
+          for(let i=0;i<8;i++){
+            const mid=(low+high)*.5;
+            if(gap(mid)>0)low=mid;else high=mid;
+          }
+          const point=fixed.addScaledVector(exhaust,high).normalize();
+          source={point:point.clone().multiplyScalar(radius+elevation(point)+.22),
+            strength:f.controls.throttle*(1-T.MathUtils.smoothstep(high,5,42))};
+        }
+      }
+    }
+    let visible=0;
+    for(const p of particles){
+      if(p.age>=p.life)continue;
+      const a=p.age;
+      position.copy(p.point).addScaledVector(p.velocity,a).addScaledVector(p.up,-.81*a*a);
+      const ground=radius+elevation(position.clone().normalize());
+      if(position.length()<ground)continue;
+      worldPoint(position,basis,center).toArray(positions,visible*3);
+      styles[visible*2]=(1-a/p.life)*(p.ejecta?.9:.8);
+      styles[visible*2+1]=p.ejecta?-(2+p.life):4+a*10;
+      visible++;
+    }
+    geometry.setDrawRange(0,visible);
+    for(const attribute of Object.values(geometry.attributes))attribute.needsUpdate=true;
+    flash.visible=Boolean(impact&&age<.36&&!reduced);
+    if(flash.visible){
+      const up=new T.Vector3(...impact.point);
+      flash.position.copy(worldPoint(up.clone().multiplyScalar(radius+elevation(up)+1.2),basis,center));
+      flash.scale.setScalar(.002*lunarImpactSize(impact)*(.55+age*4));
+      flash.material.opacity=.95*(1-age/.36);
+    }
+    effect.userData={particles:visible,strength:source?.strength??0,impactAge:impact?age:null};
+  };
+  effect.advance=(dt,running)=>{
+    if(!effect.visible||!running&&!impact)return false;
+    const active=particles.some(p=>p.age<p.life)||Boolean(impact&&age<.36);
+    age+=dt;
+    for(const p of particles)if(p.age<p.life)p.age+=dt;
+    if(source&&running){
+      remainder+=dt*source.strength*(reduced?13:quality?48:82);
+      while(remainder>=1){emit(source.point);remainder--;}
+    }
+    return active||Boolean(source&&running);
+  };
+  return effect;
+}
 const maxDetailAltitude=80000000,minDetailPixels=64,fadeMilliseconds=500;
 const mapWidth=2048,mapHeight=1024,heightWidth=1024,heightHeight=512;
 
@@ -82,7 +230,10 @@ export function createLunarGround(){
   for(let m=120;m<=480;m+=12)offsets.push(m);
   for(let m=530;m<78000;m*=1.16)offsets.push(m);
   offsets.push(78000);
-  const coordinates=[...offsets.slice(1).reverse().map(m=>-m),...offsets],width=coordinates.length;
+  const mirrored=values=>[...values.slice(1).reverse().map(m=>-m),...values];
+  const coordinates=mirrored(offsets),width=coordinates.length;
+  const impactCoordinates=mirrored([0,...Array.from({length:12},(_,i)=>(i+1)*.5),
+    ...Array.from({length:10},(_,i)=>i+7),32,48,64,80,96,112,...offsets.slice(29)]);
   const positions=new Float32Array(width*width*3),colors=new Float32Array(positions.length),uv=new Float32Array(width*width*2);
   const index=[];
   for(let row=0;row<width-1;row++)for(let col=0;col<width-1;col++){
@@ -97,22 +248,31 @@ export function createLunarGround(){
   const ground=new T.Mesh(geometry,new T.MeshLambertMaterial({map:texture,vertexColors:true}));
   ground.name='moon-plains-and-impact-craters';
   ground.frustumCulled=false;
-  let anchor,east,north;
+  let anchor,east,north,previousImpact;
   const relative=new T.Vector3(),direction=new T.Vector3(),appearance={shade:0};
   const rotate=(axis,basis)=>new T.Vector3().addScaledVector(basis[0],axis.x)
     .addScaledVector(basis[1],axis.y).addScaledVector(basis[2],axis.z);
-  function rebuild(up){
+  function rebuild(up,impact){
     anchor=up.clone();
     east=new T.Vector3(-anchor.z,0,anchor.x).normalize();
     if(east.lengthSq()<.5)east.set(0,0,1);
     north=new T.Vector3().crossVectors(east,anchor).normalize();
     const [tileEast,tileNorth]=C.moonMap(anchor.toArray());
     const uvEast=(tileEast*Math.hypot(anchor.x,anchor.z)%19)/19,uvNorth=(tileNorth%19)/19;
+    const crater=impact?lunarImpactSize(impact):0;
+    const grid=impact?impactCoordinates:coordinates;
     let low=0,high=0;
     for(let row=0;row<width;row++)for(let col=0;col<width;col++){
-      const i=row*width+col,x=coordinates[col],z=coordinates[row];
+      const i=row*width+col,x=grid[col],z=grid[row];
       direction.copy(anchor).addScaledVector(east,x/radius).addScaledVector(north,z/radius).normalize();
-      const elevation=C.moonTerrain(...C.moonMap(direction.toArray()),appearance);
+      let elevation=C.moonTerrain(...C.moonMap(direction.toArray()),appearance);
+      const range=crater?Math.hypot(x,z)/crater:Infinity;
+      if(range<1.2){
+        const bowl=1-T.MathUtils.smoothstep(range,.12,.84);
+        const rim=1-T.MathUtils.smoothstep(Math.abs(range-.87),0,.28);
+        elevation+=crater*(.14*rim-.34*bowl);
+        appearance.shade*=1-.35*bowl+.18*rim;
+      }
       relative.copy(direction).multiplyScalar(radius+elevation);
       positions.set([relative.dot(east)*.001,(relative.dot(anchor)-radius)*.001,relative.dot(north)*.001],3*i);
       const gray=appearance.shade;
@@ -123,9 +283,14 @@ export function createLunarGround(){
     for(const attribute of Object.values(geometry.attributes))attribute.needsUpdate=true;
     geometry.computeVertexNormals();
     ground.userData.relief={low,high,vertices:width*width};
+    ground.userData.impactCrater=crater||null;
   }
-  ground.userData.update=(up,basis,center,altitude)=>{
-    if(!anchor||anchor.distanceTo(up)*radius>Math.min(625,Math.max(35,altitude*.35)))rebuild(up);
+  ground.userData.update=(up,basis,center,altitude,impact)=>{
+    if(impact)up=new T.Vector3(...impact.point);
+    if(!anchor||impact!==previousImpact||anchor.distanceTo(up)*radius>Math.min(625,Math.max(35,altitude*.35))){
+      rebuild(up,impact);
+      previousImpact=impact;
+    }
     const upWorld=rotate(anchor,basis);
     ground.position.copy(center).addScaledVector(upWorld,radius*.001);
     ground.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(rotate(east,basis),upWorld,rotate(north,basis)));

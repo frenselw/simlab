@@ -89,11 +89,11 @@ function command(action,options){
     releaseReturnCamera();warp=actualWarp=1;warpSeconds=warpElapsed=0;render();
   }
   if(action.type==='select-body'){d.controlPanel.scrollTop=0;trail=[];trailTime=-1;lastPaths=-Infinity;}
-  if(['launch-lunar','lunar-transfer','lunar-return','lunar-return-launch','lunar-landing-launch'].includes(action.type)){
-    warp=action.type==='launch-lunar'?1:RocketLunar.FAST_WARP;
+  if(['launch-lunar','lunar-transfer','lunar-return','lunar-return-launch','lunar-landing-launch','lunar-orbit-start'].includes(action.type)){
+    warp=action.type==='launch-lunar'?1:action.type==='lunar-orbit-start'?100:RocketLunar.FAST_WARP;
     warpSeconds=warpElapsed=0;
   }
-  if(['launch','launch-lunar','lunar-transfer','lunar-return','lunar-return-launch','lunar-landing-launch','workshop'].includes(action.type)){
+  if(['launch','launch-lunar','lunar-transfer','lunar-return','lunar-return-launch','lunar-landing-launch','lunar-orbit-start','workshop'].includes(action.type)){
     d.controlPanel.scrollTop=0;trail=[];trailTime=-1;lastPaths=-Infinity;releaseReturnCamera();
     separationCamera=null;
     if(action.type==='lunar-return-launch')returnCamera='ascent';
@@ -240,13 +240,13 @@ function render(){
     if(d.warpStatus.textContent!==warpText)d.warpStatus.textContent=warpText;
     if(f&&editable){d.timeValue.textContent=fmt(f.t)+' s';const stageLabel=f.capsule?.detached?'太空艙':s.flight?.upperStage?'二級／核心級':f.craft.stages.length===1?'主級':f.active?'上級':'下級';d.playButton.textContent=controller.running?'暫停':'繼續';const flightState=controller.ignitionHold>0&&f.status==='pad'?(controller.running?'點火 · 準備離台':'點火程序已暫停'):phase==='pad'?'待發射 · 點火後開始':phase==='ended'?'試飛已結束':controller.running?'飛行中'+(P.burning(f)?' · 固體燃燒中':!f.controls.lit?' · 主引擎關閉，滑行中':''):'已暫停';d.flightState.textContent=stageLabel+' · '+flightState;d.flightState.title=d.flightState.textContent;d.throttleValue.textContent=fmt(f.controls.throttle*100,0)+'%';d.pitchValue.textContent=fmt(f.controls.mode==='tilt'&&(!f.capsule?.detached||f.capsule.chute.phase==='stowed')?f.controls.angle:RocketRecovery.localAngle(f),0)+'°';d.throttleSlider.value=Math.round(f.controls.throttle*100);d.throttleSlider.style.setProperty('--level',d.throttleSlider.value+'%');if(dialGesture&&(!flightControlAllowed('angle')||dialGesture.body!==(s.flight.controlled||'main')))cancelDial();paintDial(dialGesture?.angle??currentAngle(),Boolean(dialGesture));d.boosterStatus.textContent=f.boosters?({ready:'固體就緒；首次點火會同時點燃助推器。',burning:'固體燃燒中，可提早全部分離；分離後繼續燃燒。',spent:'固體已燃盡，可全部分離；附著乾重 '+(f.craft.boosters*P.BOOSTER.dry)+' kg。',jettisoned:'全部側助推器已分離。'})[f.boosters.status]:'';const useMoon=f.lunar?.landingMission&&f.moon.height<20000000;d.orbitReadout.innerHTML=orbitHTML(f.state,useMoon?f.moon:f.orbit,useMoon?'月':'地');
       const o=f.orbit||O.elements(f.state),potential=!f.lunar&&f.status==='flying'&&O.safe(f.state),near=potential&&o.e<=.03+1e-9;
-      d.periapsisValue.textContent=o.bound?fmt(o.hp/1000)+' km':'—';d.apoapsisValue.textContent=o.bound?fmt(o.ha/1000)+' km':'非束縛';
+      const readoutOrbit=useMoon?f.moon:o;d.periapsisValue.textContent=readoutOrbit.bound?fmt(readoutOrbit.hp/1000)+' km':'—';d.apoapsisValue.textContent=readoutOrbit.bound?fmt(readoutOrbit.ha/1000)+' km':'非束縛';
       d.orbitStatus.textContent=potential?(near?'安全近圓軌道':'安全軌道 · 待圓化')+(f.controls.lit?' · 推進中':''):'尚未建立安全軌道';d.orbitStatus.dataset.state=near?'near':potential?'safe':'pending';
       d.flightHint.textContent=f.status==='impact'?'火箭已撞毀。可以返回工廠，調整設計或發射路線再試。':f.status==='escaped'?'飛船已離開模擬範圍，可以返回工廠重新出發。':f.status==='pad'?(controller.ignitionHold>0?'引擎已點火，火箭準備離台。':'先點火；升空後逐漸轉向，讓水平速度增加。'):near?'已進入接近圓形的軌道！可以關機觀察，或練習分艙返航。':potential?'目前軌道已避開稠密大氣層；可關機觀察，或繼續圓化。':!o.bound?'目前路徑未形成束縛軌道；留意速度，避免離開地球。':o.hp<150000-1?'近地點仍低於 150 km。除了升高，也要增加水平速度。':'留意軌道最高點與最低點，逐步調整水平速度。';}
 
 
   }
-  directReturnCamera(s?.flight);renderFlightEvents();renderRecovery();renderScene();renderLunar(currentForecast(s?.flight));
+  renderFlightEvents();renderRecovery();renderScene();renderLunar(currentForecast(s?.flight));directReturnCamera(s?.flight);
 }
 
 function renderRecovery(){const f=controller.state?.flight,c=f?.capsule,detached=c?.detached,body=RocketRecovery.selected(f),editable=controller.editable;

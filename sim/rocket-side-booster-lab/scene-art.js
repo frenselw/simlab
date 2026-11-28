@@ -811,13 +811,24 @@ export function buildRocket(c,separated,capsuleOnly=false,lunar=false,lander=fal
   if(lander&&capsuleOnly){
     const cabin=parts.find(p=>p.userData.part.part==='capsule');
     const shoe=new THREE.CylinderGeometry(.35,.39,.13,16);
+    const legs=group.userData.lunarLegs=[];
+    const up=new THREE.Vector3(0,1,0);
     for(const x of [-1.85,1.85])for(const z of [-1.85,1.85]){
       const foot=mesh(shoe,metal,x,-.485,z,cabin);
       foot.name='lunar-landing-foot';
       const anchor=new THREE.Vector3(x*.44,.58,z*.44),end=new THREE.Vector3(x,-.43,z);
-      const brace=mesh(new THREE.CylinderGeometry(.09,.12,anchor.distanceTo(end),8),metal,
-        (anchor.x+end.x)/2,(anchor.y+end.y)/2,(anchor.z+end.z)/2,cabin);
-      brace.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),anchor.sub(end).normalize());
+      const brace=mesh(new THREE.CylinderGeometry(.09,.12,1,8),metal,0,0,0,cabin);
+      const direction=new THREE.Vector3();
+      const compress=travel=>{
+        foot.position.y=-.485+travel;
+        end.y=-.43+travel;
+        brace.position.copy(anchor).lerp(end,.5);
+        direction.subVectors(anchor,end);
+        brace.scale.y=direction.length();
+        brace.quaternion.setFromUnitVectors(up,direction.normalize());
+      };
+      legs.push(compress);
+      compress(0);
     }
   }
   const rcs=[new THREE.Group(),new THREE.Group()],crossRcs=capsuleOnly&&lunar?[new THREE.Group(),new THREE.Group()]:[];

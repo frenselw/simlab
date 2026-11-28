@@ -355,6 +355,27 @@ function launchLander(stepSeconds){
   assert(!controller.command({type:'ignite'}));
   return {controller,design,handoffTime};
 }
+const orbitStart=new Controller();
+orbitStart.lunarTable=table;
+const originalCraft=structuredClone(orbitStart.state.craft);
+assert(orbitStart.command({type:'lunar-orbit-start'}));
+assert(!orbitStart.command({type:'lunar-orbit-start'}));
+const direct=orbitStart.state.flight;
+const referenceOrbit=launchLander(21600).controller.state.flight;
+assert.equal(direct.t,referenceOrbit.t);
+assert.deepEqual(direct.eci,referenceOrbit.eci);
+assert.deepEqual(direct.controls,referenceOrbit.controls);
+assert.equal(direct.lunar.handoff,'ready');
+assert.equal(direct.lunar.events.length,0);
+orbitStart.play();
+const period=direct.moon.period;
+for(let elapsed=0;elapsed<period;elapsed+=60){
+  orbitStart.tick(Math.min(60,period-elapsed),100);
+  assert(direct.moon.hp>=80000&&direct.moon.ha<=120000);
+}
+assert(direct.t>=referenceOrbit.t+period-1e-6);
+assert(orbitStart.command({type:'workshop'}));
+assert.deepEqual(orbitStart.state.craft,originalCraft);
 const separationDemo=new Controller();
 separationDemo.lunarTable=table;
 assert(separationDemo.command({type:'lunar-landing-launch'}));
@@ -402,8 +423,9 @@ const verifiedOrbit=launchLander(580).controller.state;
 const landingCoverage=new Set();
 for(const wait of [0,600,1200,1800,2400,3000,3600,4200,4800,5400,6000,6600,7100,12000,84000]){
   const controller=new Controller();
-  controller.state=structuredClone(verifiedOrbit);
   controller.lunarTable=table;
+  if(wait===0)assert(controller.command({type:'lunar-orbit-start'}));
+  else controller.state=structuredClone(verifiedOrbit);
   const f=controller.state.flight,l=f.lunar;
   controller.play();
   if(wait){
@@ -448,8 +470,8 @@ for(const wait of [0,600,1200,1800,2400,3000,3600,4200,4800,5400,6000,6600,7100,
 }
 assert.deepEqual(landingCoverage,new Set(['night','day','diverted','direct']));
 const delayedPilot=new Controller();
-delayedPilot.state=structuredClone(verifiedOrbit);
 delayedPilot.lunarTable=table;
+assert(delayedPilot.command({type:'lunar-orbit-start'}));
 assert(delayedPilot.command({type:'moon-takeover'}));
 delayedPilot.play();
 delayedPilot.tick(.1,1000);
@@ -488,6 +510,13 @@ for(const [down,horizontal,outcome] of [
   }
   L.advance(state,1,1000,table);
   assert.equal(f.lunar.outcome,outcome);
+  assert.equal(f.lunar.touchdown.feet.length,4);
+  assert(Math.abs(Math.min(...f.lunar.touchdown.feet))<1e-5);
+  assert(Math.abs(C.norm(f.lunar.touchdown.point)-1)<1e-9);
+  if(outcome==='moon-impact'){
+    assert.deepEqual(f.lunar.impact.point,f.lunar.touchdown.point);
+    assert(f.lunar.impact.mass>0&&f.lunar.impact.speed>0);
+  }else assert.equal(f.lunar.impact,undefined);
 }
 // A descending craft can cross the mean-radius sphere above a crater floor.
 const craterFlight=structuredClone(verifiedOrbit);

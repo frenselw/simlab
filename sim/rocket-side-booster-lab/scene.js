@@ -4,7 +4,7 @@ import {material,dispose,fadeEnvironment,buildRocket,createPad,createLaunchEffec
 import {createContactGround,clipContact,siteSurfaceShader,clipPadSurface} from './contact-ground.js';
 import {createForest} from './forest.js';
 import {createImpactEffects,hullPoints,hullMinimum,hullClearance} from './impact-effects.js';
-import {createLunarGlobe,createLunarGround} from './lunar-globe.js';
+import {createLunarGlobe,createLunarGround,createLunarEffects} from './lunar-globe.js';
 const P=window.RocketParts,O=window.RocketOrbit,M=window.RocketModel,S=window.RocketSurface,L=window.RocketLighting,Sky=window.RocketSky;
 const viewAxis=new THREE.Vector3(0,0,1),northAxis=new THREE.Vector3(...S.fromGeocentric(0,0,1));
 const upAxis=new THREE.Vector3(0,1,0);
@@ -617,7 +617,7 @@ export class RocketScene{
     if(!this.data||!this.rocket||this.lost)return;this.cameraDirty=false;if(!this.flightReady){this.drawFactory();return;}const {flight:f,workshop}=this.data,space=isOrbitView(this.view),factory=workshop&&this.view==='factory',height=Math.max(.1,this.rocket.userData.height,f?.capsule?.detached&&this.lastChutePhase!=='stowed'?THREE.MathUtils.lerp(this.rocket.userData.height,16,THREE.MathUtils.smoothstep(this.chuteFrameAge??1.2,0,this.reducedMotion?.25:1.2)):0);
     this.camera=space?this.orbitCamera:this.perspectiveCamera;
     this.rocket.userData.boosters.visible=Boolean(this.data.craft.boosters&&(!f||P.attached(f)));if(f?.boosters?.status==='jettisoned'&&!this.rocket.boosterBoundsRemoved){this.rocket.updateMatrixWorld(true);const inverse=this.rocket.matrixWorld.clone().invert(),bounds=new THREE.Box3();for(const part of this.rocket.userData.parts)if(part!==this.rocket.userData.boosters)bounds.union(new THREE.Box3().setFromObject(part).applyMatrix4(inverse));this.rocket.userData.partBounds=bounds;this.rocket.hullPoints=null;this.rocket.boosterBoundsRemoved=true;}
-    const lunar=f?.lunar,moonLocal=Boolean(lunar?.landingMission&&f.capsule.detached&&!space);
+    const lunar=f?.lunar,moonLocal=Boolean(lunar?.landingMission&&(f.capsule.detached||lunar.impact)&&!space);
     const agl=f?S.clearance(f.state,f.t):0,altitude=f?Math.max(0,(f.orbit||O.elements(f.state)).height):0;
     const theta=f?Math.atan2(f.state[1],f.state[0]):0;
     const siteDistance=f&&lunar?P.R*Math.atan2(Math.hypot(f.state[1],f.state[2]),f.state[0]):Math.abs(theta)*P.R;
@@ -687,6 +687,25 @@ export class RocketScene{
     if(f&&!factory&&!space&&agl<500){const blend=1-THREE.MathUtils.smoothstep(agl,200,500),minimum=hullMinimum(this.rocket,this.rocket.rotation.z);let offset=-minimum*this.rocket.scale.y*blend+Math.max(0,-agl)/1000;if(agl<10&&!lunar){const key=[f.t,f.attitude,this.rocket.scale.y].join(',');if(this.rocket.contactKey!==key){this.rocket.contactKey=key;this.rocket.contactOffset=(Math.max(0,agl)-hullClearance(this.rocket,f,this.rocket.rotation.z))/1000;}offset=this.rocket.contactOffset;}this.rocket.position.y+=offset;}
     const landingTarget=f?.status==='landed'&&!space?this.rocket.userData.partBounds.getCenter(new THREE.Vector3()).multiplyScalar(this.rocket.scale.y).applyQuaternion(this.rocket.quaternion).add(this.rocket.position):null;
     this.flightOrigin=this.rocket.position.clone();if(!lunar)this.drawLandingPose(this.rocket,f,space,true);
+    const legs=this.rocket.userData.lunarLegs,contact=lunar?.touchdown;
+    if(contact!==this.lunarContact){
+      this.lunarContact=contact;
+      this.lunarContactAge=0;
+    }
+    if(legs){
+      const settling=contact?.feet&&!lunar.impact;
+      let travel=0;
+      if(settling&&moonLocal){
+        const progress=Math.min(1,this.lunarContactAge/.55);
+        const maximum=THREE.MathUtils.clamp(-contact.vertical*.16,.025,.55);
+        const rest=lunar.outcome==='moon-hard-landing'?.23:.08;
+        travel=maximum*(this.reducedMotion?rest:rest*progress+Math.sin(Math.PI*progress)**2*(1-rest));
+        const suspensionAxis=upAxis.clone().applyQuaternion(this.rocket.quaternion);
+        this.rocket.position.addScaledVector(suspensionAxis,-travel*.001);
+      }
+      const normalFactor=settling?Math.max(.5,Math.cos(contact.tilt*Math.PI/180)):1;
+      legs.forEach((compress,i)=>compress(settling?Math.max(0,travel-Math.max(0,contact.feet[i])/normalFactor):0));
+    }
     if(separation)this.rocket.position.addScaledVector(new THREE.Vector3(Math.sin(separation.attitude-(space?0:theta)),Math.cos(separation.attitude-(space?0:theta)),0),separation.join*(1-blend)*this.rocket.scale.y);
     if(f&&!factory&&!space){
       this.rocket.userData.partBounds.getCenter(target);
@@ -850,14 +869,19 @@ export class RocketScene{
         this.scene.add(this.moonGround);
       }
       const up=new THREE.Vector3(...moonBasis.map(axis=>-moonPosition.dot(axis))).normalize();
-      this.moonGround.userData.update(up,moonBasis,moonPosition,Math.max(0,f.moon.height));
+      this.moonGround.userData.update(up,moonBasis,moonPosition,Math.max(0,f.moon.height),lunar.impact);
       this.moonGround.visible=true;
+      if(!this.lunarEffects){
+        this.lunarEffects=createLunarEffects();
+        this.scene.add(this.lunarEffects);
+      }
       const radial=this.moonGround.position.clone().sub(moonPosition).normalize();
       this.moonGlobe.userData.terrainCut.value.set(radial.x,radial.y,radial.z,Math.cos(61000/RocketLunar.MOON_RADIUS));
     }else{
       if(this.moonGround)this.moonGround.visible=false;
       if(this.moonGlobe)this.moonGlobe.userData.terrainCut.value.w=2;
     }
+    this.lunarEffects?.update(f,moonBasis,moonPosition,this.rocket,this.reducedMotion,this.quality);
     this.drawSky(skyFrame,space,worldRotation);
     const pixelsPerUnit=space?this.orbitFrame.pixelsPerUnit:this.host.clientHeight/(2*tanHalfFov*distance);
     const detailPixels=pixelsPerUnit*(space?this.camera.position.distanceTo(this.earth.position):distance);
@@ -905,7 +929,8 @@ export class RocketScene{
     this.drawEffects(f,space,theta);
     if(this.pendingImpact){this.impacts.emit(f.state,f.t,Math.max(.015,displayHeight*this.rocket.scale.y*.8),true);this.pendingImpact=false;this.impacted=true;this.effectClock=performance.now();}
     if(this.pendingBurnup){this.impacts.emit(f.state,f.t,this.rocket.scale.y*this.rocket.userData.height*.7,true,this.rocket);this.pendingBurnup=false;this.effectClock=performance.now();}
-    this.impacts.update(this.contactGround.visible?this.contactGround:this.globalTerrain,this.reducedMotion);if(f?.status==='impact'&&(!this.impacted||this.impacts.mainHidden()||!this.impacts.userData.active))this.rocket.visible=false;
+    this.impacts.update(this.contactGround.visible?this.contactGround:this.globalTerrain,this.reducedMotion);
+    if(f?.status==='impact'&&lunar?.outcome!=='moon-hard-landing'&&(!this.impacted||this.impacts.mainHidden()||!this.impacts.userData.active))this.rocket.visible=false;
     this.velocityArrow.visible=Boolean(f&&!['impact','landed','pad'].includes(f.status)&&(f.orbit?.speed??Math.hypot(f.state[3],f.state[4]))>.1);this.thrustArrow.visible=Boolean(f&&M.thrust(f)>0);
     if(f){
       const theta=space?0:Math.atan2(f.state[1],f.state[0]),o=f.orbit||O.elements(f.state),center=this.rocket.localToWorld(new THREE.Vector3(0,height*.5,0)),axis=new THREE.Vector3(0,1,0).applyQuaternion(this.rocket.quaternion),forward=this.camera.getWorldDirection(new THREE.Vector3()),depth=center.clone().sub(this.camera.position).dot(forward),pixelWorld=space?1/pixelsPerUnit:2*depth*tanHalfFov/this.host.clientHeight,reference=pixelWorld*Math.min(90,this.host.clientHeight*.18,this.host.clientWidth*.25)*(space?.5:1),halfHeight=height*this.rocket.scale.y*.5,radius=1.6*this.rocket.scale.x;
@@ -920,7 +945,14 @@ export class RocketScene{
     this.launchEffects?.update(this.camera);
     this.renderFrame(space,f);
   }
-  animateEffects(now){const elapsed=this.effectClock?Math.max(0,(now-this.effectClock)/1000):0,delta=Math.min(.05,elapsed);this.effectClock=now;if(!this.flightReady||this.lost||document.hidden||!this.data?.live)return false;if((this.data.running||this.rocket?.userData.landingMotion?.water)&&!this.reducedMotion&&this.quality<2&&this.data.flight&&O.elements(this.data.flight.state).height<20000)surfaceUniforms.uSurfaceTime.value=(surfaceUniforms.uSurfaceTime.value+delta)%1000;let settling=this.globalTerrain.advanceDetail(now);const frame=this.followFrame;if(frame&&frame.distance!==frame.goal){const difference=frame.goal-frame.distance;frame.distance=Math.abs(difference)<frame.goal*1e-5?frame.goal:frame.distance+difference*(1-Math.exp(-delta/(this.reducedMotion?.06:.25)));settling=true;}if(this.lastChutePhase!=='stowed'&&this.chuteFrameAge<(this.reducedMotion?.25:1.2)){this.chuteFrameAge=Math.min(this.reducedMotion?.25:1.2,this.chuteFrameAge+delta);settling=true;}for(const rocket of [this.rocket,this.otherRocket]){if(rocket?.userData.parachute?.advance(delta))settling=true;const motion=rocket?.userData.landingMotion;if(motion){const limit=this.reducedMotion?.45:6,before=motion.age;motion.age=motion.water&&!this.reducedMotion?motion.age+delta:Math.min(limit,motion.age+delta);const floating=motion.water&&!this.reducedMotion&&rocket===this.rocket&&this.view==='follow';if(before<limit||floating&&now-motion.lastDraw>=1000/(this.quality?20:30)){settling=true;motion.lastDraw=now;}}}if(settling)this.draw();if(this.data.running===false&&!['impact','destroyed'].includes(this.data.flight?.status)&&!['impact','destroyed'].includes(this.data.other?.status))return Boolean(settling);const transition=this.separation,separating=transition&&this.data.running!==false&&transition.visualAge<.6;if(separating)transition.visualAge=Math.min(.6,transition.visualAge+elapsed);const releasing=this.launchStarted&&this.launchArmAge<(this.reducedMotion?.25:1.1);if(releasing)this.launchArmAge+=delta;const vapour=this.launchEffects?.advance(delta,Math.max(this.quality,Number(this.reducedMotion)),this.reducedMotion);if(this.impacts.advance(delta)||separating||releasing||vapour){this.draw();return true;}return false;}
+  animateEffects(now){const elapsed=this.effectClock?Math.max(0,(now-this.effectClock)/1000):0,delta=Math.min(.05,elapsed);this.effectClock=now;if(!this.flightReady||this.lost||document.hidden||!this.data?.live)return false;if((this.data.running||this.rocket?.userData.landingMotion?.water)&&!this.reducedMotion&&this.quality<2&&this.data.flight&&O.elements(this.data.flight.state).height<20000)surfaceUniforms.uSurfaceTime.value=(surfaceUniforms.uSurfaceTime.value+delta)%1000;let settling=this.globalTerrain.advanceDetail(now);
+    const lunar=this.data.flight?.lunar;
+    if(this.lunarContact&&!lunar?.impact&&this.lunarContactAge<.55){
+      this.lunarContactAge=Math.min(.55,this.lunarContactAge+delta);
+      settling=true;
+    }
+    if(this.lunarEffects?.advance(delta,this.data.running||Boolean(lunar?.outcome)))settling=true;
+    const frame=this.followFrame;if(frame&&frame.distance!==frame.goal){const difference=frame.goal-frame.distance;frame.distance=Math.abs(difference)<frame.goal*1e-5?frame.goal:frame.distance+difference*(1-Math.exp(-delta/(this.reducedMotion?.06:.25)));settling=true;}if(this.lastChutePhase!=='stowed'&&this.chuteFrameAge<(this.reducedMotion?.25:1.2)){this.chuteFrameAge=Math.min(this.reducedMotion?.25:1.2,this.chuteFrameAge+delta);settling=true;}for(const rocket of [this.rocket,this.otherRocket]){if(rocket?.userData.parachute?.advance(delta))settling=true;const motion=rocket?.userData.landingMotion;if(motion){const limit=this.reducedMotion?.45:6,before=motion.age;motion.age=motion.water&&!this.reducedMotion?motion.age+delta:Math.min(limit,motion.age+delta);const floating=motion.water&&!this.reducedMotion&&rocket===this.rocket&&this.view==='follow';if(before<limit||floating&&now-motion.lastDraw>=1000/(this.quality?20:30)){settling=true;motion.lastDraw=now;}}}if(settling)this.draw();if(this.data.running===false&&!['impact','destroyed'].includes(this.data.flight?.status)&&!['impact','destroyed'].includes(this.data.other?.status))return Boolean(settling);const transition=this.separation,separating=transition&&this.data.running!==false&&transition.visualAge<.6;if(separating)transition.visualAge=Math.min(.6,transition.visualAge+elapsed);const releasing=this.launchStarted&&this.launchArmAge<(this.reducedMotion?.25:1.1);if(releasing)this.launchArmAge+=delta;const vapour=this.launchEffects?.advance(delta,Math.max(this.quality,Number(this.reducedMotion)),this.reducedMotion);if(this.impacts.advance(delta)||separating||releasing||vapour){this.draw();return true;}return false;}
   project(position){const p=position.clone().project(this.camera);const r=this.host.getBoundingClientRect();return {x:(p.x+1)*r.width/2,y:(1-p.y)*r.height/2,visible:p.z>=-1&&p.z<=1&&Math.abs(p.x)<.98&&Math.abs(p.y)<.98};}
   mapMarkers(){
     const f=this.data?.flight;

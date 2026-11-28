@@ -1,6 +1,7 @@
 const ephemerisFile=new URL('./assets/lunar-ephemeris.bin.gz',import.meta.url);
 const transferHint='由發射台自動起飛，飛掠月球後自由返回地球，開傘降落陸地。';
 const landingHint='由地球自動發射，穩定環月後可選自動或手動登月。';
+const orbitHint='從環月軌道開始，可觀察月球或立即選擇登月方式。';
 const landingPhases={deorbit:'自動離軌',coast:'滑向月面',brake:'主引擎制動',descent:'自動下降',
   survey:'懸停勘察落點',translate:'側向 RCS 避開隕石坑或斜坡',final:'垂直下降着陸'};
 const outcomes={flyby:'已完成月球飛掠','lunar-pass':'已掠過月球，最近高度超出目標範圍',
@@ -18,14 +19,16 @@ export function installLunarControls(d,{controller,launchAllowed,command,setView
   async function prepare(type){
     const loadout=type==='lunar-loadout',groundReturn=type==='lunar-return-launch',returning=type==='lunar-return';
     const lunarLanding=type==='lunar-landing-launch';
+    const orbit=type==='lunar-orbit-start';
     if(loading||(!loadout&&!launchAllowed()))return;
     if(type==='launch-lunar'&&!L()?.compatible(controller.state.craft))return;
     const origin=controller.state;
     loading=true;
     failure=null;
     if(lunarLanding)d.lunarLandingHint.textContent='正在準備登月航線…';
-    (groundReturn?d.lunarTransferHint:d.lunarPreparation).textContent=groundReturn||returning?'正在準備自由返回航線…':'正在準備月球飛掠…';
-    d.lunarLandingLaunch.disabled=d.lunarReturn.disabled=d.lunarReturnShortcut.disabled=d.lunarTransfer.disabled=d.lunarLaunch.disabled=d.lunarLoadout.disabled=true;
+    if(orbit)d.lunarOrbitHint.textContent='正在準備環月軌道…';
+    else if(!lunarLanding)(groundReturn?d.lunarTransferHint:d.lunarPreparation).textContent=groundReturn||returning?'正在準備自由返回航線…':'正在準備月球飛掠…';
+    d.lunarOrbitStart.disabled=d.lunarLandingLaunch.disabled=d.lunarReturn.disabled=d.lunarReturnShortcut.disabled=d.lunarTransfer.disabled=d.lunarLaunch.disabled=d.lunarLoadout.disabled=true;
     try{
       await loadModules();
       if(controller.state!==origin)return;
@@ -41,13 +44,14 @@ export function installLunarControls(d,{controller,launchAllowed,command,setView
       if(!loadout){
         d.lunarMessage.textContent='';
         d.lunarTiming.open=false;
-        setView(returning?'orbit':'follow',true);
-        if(returning||groundReturn&&command({type:'ignite'}))controller.play();
+        setView(orbit||returning?'orbit':'follow',true);
+        if(orbit||returning||groundReturn&&command({type:'ignite'}))controller.play();
       }
     }catch(_){if(controller.state===origin)failure=type;}
     finally{loading=false;controller.emit();}
   }
   d.lunarLandingLaunch.addEventListener('click',()=>prepare('lunar-landing-launch'));
+  d.lunarOrbitStart.addEventListener('click',()=>prepare('lunar-orbit-start'));
   d.lunarTakeover.addEventListener('click',()=>{if(command({type:'moon-takeover'}))controller.play();});
   d.lunarAutoLand.addEventListener('click',()=>{
     if(command({type:'moon-auto-land'}))controller.play();
@@ -92,13 +96,14 @@ export function installLunarControls(d,{controller,launchAllowed,command,setView
     if(s.phase==='workshop'&&!loading){
       const ready=L()?.compatible(s.craft);
       d.lunarReturn.disabled=d.lunarReturnShortcut.disabled=d.lunarTransfer.disabled=!launchAllowed();
-      d.lunarLandingLaunch.disabled=!launchAllowed();
+      d.lunarOrbitStart.disabled=d.lunarLandingLaunch.disabled=!launchAllowed();
       d.lunarLandingHint.textContent=failure==='lunar-landing-launch'?'未能準備登月航線。請重試。':landingHint;
+      d.lunarOrbitHint.textContent=failure==='lunar-orbit-start'?'未能準備環月軌道。請重試。':orbitHint;
       d.lunarTransferHint.textContent=failure==='lunar-return-launch'?'未能準備自由返回航線。請重試。':transferHint;
       d.lunarLoadout.disabled=false;
       d.lunarLaunch.disabled=!ready||!launchAllowed();
       d.lunarPreparation.textContent=failure==='lunar-return'?'未能準備自由返回航線。請重試。':
-        failure&&failure!=='lunar-return-launch'?'未能準備月球飛掠。請重試。':ready?'示範火箭已就緒。':'可自行組裝，或載入示範火箭。';
+        failure&&!['lunar-return-launch','lunar-orbit-start','lunar-landing-launch'].includes(failure)?'未能準備月球飛掠。請重試。':ready?'示範火箭已就緒。':'可自行組裝，或載入示範火箭。';
     }
     d.lunarPanel.hidden=!l||Boolean(l.landingMission);
     d.lunarMilestone.hidden=!l?.freeReturn&&!l?.landingMission;
@@ -114,7 +119,7 @@ export function installLunarControls(d,{controller,launchAllowed,command,setView
       if(element.textContent!==value)element.textContent=value;
     }
     for(const value of [d.periapsisValue,d.apoapsisValue]){
-      value.title=l?'按目前地心狀態估算的瞬時二體軌道數值':'';
+      value.title=nearMoon?'按目前月心狀態估算的瞬時二體軌道數值':l?'按目前地心狀態估算的瞬時二體軌道數值':'';
     }
     if(!l)return;
     if(l.landingMission){

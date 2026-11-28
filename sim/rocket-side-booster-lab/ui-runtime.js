@@ -42,13 +42,14 @@
           this.emit();
           return true;
         }
-        if(['launch-lunar','lunar-transfer','lunar-return','lunar-return-launch','lunar-landing-launch'].includes(action.type)&&this.state.phase==='workshop'&&this.canLaunch()){
+        if(['launch-lunar','lunar-transfer','lunar-return','lunar-return-launch','lunar-landing-launch','lunar-orbit-start'].includes(action.type)&&this.state.phase==='workshop'&&this.canLaunch()){
           const landing=action.type==='lunar-landing-launch';
+          const orbit=action.type==='lunar-orbit-start';
           const groundReturn=action.type==='lunar-return-launch';
           const transfer=action.type==='lunar-transfer'||action.type==='lunar-return';
-          this.state.flight=landing?lunar().openLanding(this.lunarTable):transfer?lunar().transfer(this.lunarTable,action.type==='lunar-return'):
+          this.state.flight=orbit?lunar().openMoonOrbit(this.lunarTable):landing?lunar().openLanding(this.lunarTable):transfer?lunar().transfer(this.lunarTable,action.type==='lunar-return'):
             lunar().open(groundReturn?lunar().preset():this.state.craft,this.lunarTable,groundReturn);
-          this.state.phase=transfer?'coast':'pad';
+          this.state.phase=transfer||orbit?'coast':'pad';
           this.running=false;
           this.ignitionHold=0;
           this.events=[];

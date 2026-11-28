@@ -121,7 +121,7 @@
     const velocity=add(relative.slice(3),cross(spin,r),-1);
     return {r,up,velocity,center};
   }
-  function moonSurface(table,f,t,q){
+  function moonSurface(table,f,t,q,touchdown=false){
     const {r,up,velocity,center}=moonMotion(table,f,t,q);
     const close=norm(r)-C.MOON_RADIUS<1800,basis=close?C.moonFrame(center):null;
     const fixed=close?C.toColumns(basis,up):null;
@@ -141,9 +141,15 @@
       return norm(position)-C.MOON_RADIUS-elevation;
     };
     const base=add(r,f.axis,-FOOT_HEIGHT),crossbar=cross(f.axis,f.bodyRight);
-    const clearance=Math.min(...[-1,1].flatMap(a=>[-1,1].map(b=>
-      clearanceAt(add(add(base,f.bodyRight,a*FOOT_SPREAD),crossbar,b*FOOT_SPREAD)))));
-    return {height:Math.max(0,clearance),clearance,vertical,horizontal,tilt,slope};
+    const feet=[-1,1].flatMap(a=>[-1,1].map(b=>
+      add(add(base,f.bodyRight,a*FOOT_SPREAD),crossbar,b*FOOT_SPREAD)));
+    const gaps=feet.map(clearanceAt),clearance=Math.min(...gaps);
+    const surface={height:Math.max(0,clearance),clearance,vertical,horizontal,tilt,slope};
+    if(touchdown){
+      surface.feet=gaps;
+      surface.point=unit(C.toColumns(basis,feet[gaps.indexOf(clearance)]));
+    }
+    return surface;
   }
   function sync(f,table){
     const frame=C.earthFrame(epoch(f)+f.t);
@@ -221,6 +227,29 @@
         [profile.circularize-20,'moon-align'],[profile.circularize,'moon-capture'],[profile.orbit,'moon-cutoff'],
         [profile.orbit+20,'capsule-separate'],[profile.orbit+20+ORBIT_SETTLE,'moon-verify']]});
     sync(f,table);
+    return f;
+  }
+  function openMoonOrbit(table){
+    const f=openLanding(table), l=f.lunar;
+    // Verified lander handoff from the reference launch, in Earth-centred inertial coordinates.
+    f.t=l.sequence.at(-1)[0];
+    f.eci=[-50433310.582501136,-349484740.6380154,-190890423.7230005,
+      2446.4444129059775,-691.920569726776,-394.7769228749897];
+    f.axis=[-.931618151451103,.29417404436904554,.2134227061640541];
+    f.bodyRight=[.1601290807523741,.8594004545377023,-.48558164734449166];
+    f.status='flying';
+    f.separated=f.capsule.detached=true;
+    f.active=1;
+    f.fuel=[0,0];
+    f.boosters={status:'jettisoned',fuel:0};
+    f.controls={mode:'hold',angle:0,throttle:0,lit:false};
+    l.sequence=[];
+    l.guided=false;
+    l.handoff='ready';
+    l.trail=[f.eci.slice(0,3)];
+    l.lastTrail=f.t;
+    sync(f,table);
+    if(!stable(f.moon))throw Error('Lunar orbit outside the handoff window');
     return f;
   }
   function lunarDistance(table,f,t,q){
@@ -726,7 +755,7 @@
       l.landing={lon,lat,speed:contact.speed,water:S.waterAt(...direction)};
     }else if(landingApproach(l)&&after.height<C.MOON_RELIEF_LIMIT+FOOT_SPREAD*2+FOOT_HEIGHT&&moonSurface(table,f,t+dt,q).clearance<=0){
       h=locate((state,time)=>moonSurface(table,f,t+time,state).clearance<=0);
-      const contact=moonSurface(table,f,t+h,at(h));
+      const contact=moonSurface(table,f,t+h,at(h),true);
       l.touchdown=contact;
       reason=contact.vertical>=-2&&contact.horizontal<=1&&contact.tilt<=10&&contact.slope<=12?'moon-landed':
         contact.vertical>=-5&&contact.horizontal<=3&&contact.tilt<=20&&contact.slope<=22?'moon-hard-landing':'moon-impact';
@@ -778,6 +807,14 @@
     advanceDrops(f,table,t,h);
     f.eci=q;
     f.t=t+h;
+    if(reason==='moon-impact'&&l.landingMission){
+      if(l.touchdown){
+        l.impact={point:l.touchdown.point,speed:Math.hypot(l.touchdown.vertical,l.touchdown.horizontal),mass:flightMass(f)};
+      }else{
+        const {up,center,velocity}=moonMotion(table,f,f.t,q);
+        l.impact={point:C.toColumns(C.moonFrame(center),up),speed:norm(velocity),mass:flightMass(f)};
+      }
+    }
     if(reason||pathSampleDue(q,after,l.trail.at(-1),f.t-l.lastTrail,f.t<1000?5:1400,l.trailStride??1)){
       if(l.trail.length>=MAX_PATH_POINTS){
         l.trail=l.trail.filter((_,i)=>i%2===0);
@@ -1038,5 +1075,5 @@
     return [up,right,depth];
   });}
   const flightUtc=f=>C.utc(epoch(f)+f.t);
-  return Object.freeze({LAUNCH,FAST_WARP,MOON_RADIUS:C.MOON_RADIUS,MOON_MAP_HEIGHT,LANDER,utc:C.utc,flightUtc,flightLimit,preset,compatible,open,openLanding,landingCapacity,transfer,advance,command,warpLimit,guidanceLocked,canTakeOver,canRequestSeparation,nextSeparation,skyFrame,trajectory,forecast});
+  return Object.freeze({LAUNCH,FAST_WARP,MOON_RADIUS:C.MOON_RADIUS,MOON_MAP_HEIGHT,LANDER,utc:C.utc,flightUtc,flightLimit,preset,compatible,open,openLanding,openMoonOrbit,landingCapacity,transfer,advance,command,warpLimit,guidanceLocked,canTakeOver,canRequestSeparation,nextSeparation,skyFrame,trajectory,forecast});
 });

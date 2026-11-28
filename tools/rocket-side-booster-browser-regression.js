@@ -1859,6 +1859,37 @@ async function lunarLanding(base,label){
   await viewport(width,height);
   await open(base);
   const design=await call('return app.getState().craft;');
+  await call(`const fetchAsset=window.fetch;
+    window.fetch=(url,options)=>{
+      if(!String(url).endsWith('/lunar-ephemeris.bin.gz'))return fetchAsset(url,options);
+      window.fetch=fetchAsset;
+      return Promise.reject(new Error('Simulated ephemeris load failure'));
+    };`);
+  await click('#lunarOrbitStart',mobile);
+  await wait(()=>call(`return !d.getElementById('lunarOrbitStart').disabled&&
+    d.getElementById('lunarOrbitHint').textContent.includes('請重試')&&!app.controller.state.flight;`),'lunar orbit load can be retried');
+  await call(`d.getElementById('lunarOrbitStart').addEventListener('click',e=>{window.orbitTrusted=e.isTrusted;});`);
+  await click('#lunarOrbitStart',mobile);
+  await H.waitForCondition(()=>call(`const c=app.controller,f=c.state.flight;
+    return c.running&&f?.lunar.handoff==='ready'&&app.diagnostics().view==='orbit'&&app.getScene().forecast?.localMoon;`),
+    'direct lunar orbit and its predicted path',60000);
+  const shortcut=await call(`const c=app.controller,f=c.state.flight;
+    c.pause();
+    window.shortcutOrbit=structuredClone(c.state);
+    return {trusted:window.orbitTrusted, hp:f.moon.hp,ha:f.moon.ha,fuel:f.capsule.fuel,
+      choices:!d.getElementById('lunarAutoLand').hidden&&!d.getElementById('lunarTakeover').hidden,
+      events:f.lunar.events.length,detached:f.capsule.detached,lit:f.controls.lit};`);
+  assert(shortcut.trusted&&shortcut.hp>80000&&shortcut.ha<120000&&shortcut.fuel===260&&shortcut.choices);
+  assert(shortcut.events===0&&shortcut.detached&&!shortcut.lit);
+  await shot(label+'-lunar-direct-orbit');
+  if(mobile){
+    await viewport(844,390);
+    assert(await call(`return !d.getElementById('lunarTakeover').hidden&&app.diagnostics().view==='orbit';`));
+    await shot(label+'-lunar-direct-orbit-landscape');
+    await viewport(width,height);
+  }
+  await click('#returnWorkshop',mobile);
+  assert.deepEqual(await call('return app.getState().craft;'),design);
   await call(`const c=app.controller,render=c.render;
     d.getElementById('lunarLandingLaunch').addEventListener('click',e=>{window.launchTrusted=e.isTrusted;});
     c.render=controller=>{
@@ -2071,6 +2102,70 @@ async function lunarLanding(base,label){
   await call('const c=app.controller;Object.assign(c,window.__lunarAutoFinished);c.emit();');
   terrain.resources=await call(`return performance.getEntriesByType('resource').filter(x=>new URL(x.name).origin===location.origin)
     .map(x=>[new URL(x.name).pathname,x.encodedBodySize]);`);
+  await call(`const c=app.controller,C=RocketCelestial;
+    window.nearSurface=(altitude,down,tilt=0)=>{
+      c.state=structuredClone(window.shortcutOrbit);
+      c.events=[];
+      c.pause();
+      c.command({type:'moon-takeover'});
+      const f=c.state.flight,moon=c.lunarTable.body(f.lunar.epoch+f.t,0);
+      const lon=3.038304,lat=.2368043;
+      const up=C.fromColumns(C.moonFrame(moon),[Math.cos(lat)*Math.cos(lon),Math.sin(lat),Math.cos(lat)*Math.sin(lon)]);
+      const right=C.unit(C.cross(up,[0,0,1]));
+      const position=C.scale(up,C.MOON_RADIUS+altitude);
+      const spin=C.scale(C.cross(moon.slice(0,3),moon.slice(3)),1/C.norm(moon.slice(0,3))**2);
+      f.eci=[...C.add(moon.slice(0,3),position),...C.add(moon.slice(3),C.add(C.cross(spin,position),up,-down))];
+      f.axis=C.unit(C.add(up,right,tilt));f.bodyRight=C.unit(C.add(right,up,-tilt));
+      app.view('follow',true);
+      return f;
+    };
+    window.footTravel=()=>app.getScene().rocket.getObjectsByProperty('name','lunar-landing-foot').map(p=>p.position.y+.485);
+    window.nearSurface(5,0);
+    RocketLunar.advance(c.state,.01,100,c.lunarTable);
+    c.emit();`);
+  const dust=await call(`const c=app.controller,s=app.getScene(),f=c.state.flight;
+    const sample=throttle=>{
+      c.command({type:'control',key:'throttle',value:throttle});s.draw();
+      return s.lunarEffects.userData.strength;
+    };
+    c.command({type:'ignite'});
+    const weak=sample(.25),strong=sample(.9),effects=s.lunarEffects;
+    const before=performance.now(),idleDrawCalls=s.renderer.info.render.calls;
+    for(let i=0;i<12;i++){effects.advance(.05,true);s.draw();}
+    const thrustDrawMs=(performance.now()-before)/12;
+    const particles=effects.userData.particles;
+    return {weak,strong,particles,idleDrawCalls,drawCalls:s.renderer.info.render.calls,thrustDrawMs};`);
+  assert(dust.weak>0&&dust.strong>dust.weak&&dust.particles>0,JSON.stringify(dust));
+  await shot(label+'-lunar-engine-dust');
+  dust.shutdown=await call(`const c=app.controller,s=app.getScene(),e=s.lunarEffects;
+    c.command({type:'stop'});s.draw();
+    const remaining=e.userData.particles;
+    e.advance(1.1,true);s.draw();
+    return {remaining,after:e.userData.particles,strength:e.userData.strength};`);
+  assert(dust.shutdown.remaining>0&&dust.shutdown.after===0&&dust.shutdown.strength===0,JSON.stringify(dust));
+  const contacts=[];
+  for(const [speed,tilt,outcome] of [[1,0,'moon-landed'],[3,.03,'moon-hard-landing'],[24,0,'moon-impact']]){
+    const visual=await call(`const c=app.controller,s=app.getScene(),f=window.nearSurface(.85,${speed},${tilt});
+      RocketLunar.advance(c.state,1,100,c.lunarTable,c.record);
+      c.emit();
+      s.lunarContactAge=.28;s.draw();
+      return {outcome:f.lunar.outcome,feet:window.footTravel(),rocket:s.rocket.visible,
+        crater:s.moonGround.userData.impactCrater,flash:s.lunarEffects.getObjectByName('lunar-impact-flash').visible};`);
+    assert.equal(visual.outcome,outcome,JSON.stringify(visual));
+    if(outcome==='moon-impact')assert(visual.crater>1&&visual.flash&&!visual.rocket,JSON.stringify(visual));
+    else assert(visual.rocket&&Math.max(...visual.feet)>.04&&!visual.crater,JSON.stringify(visual));
+    contacts.push(visual);
+    await shot(label+'-lunar-'+outcome);
+  }
+  assert(Math.max(...contacts[1].feet)>Math.max(...contacts[0].feet));
+  const crater=await call(`const s=app.getScene(),f=app.controller.state.flight,point=f.lunar.impact.point.slice();
+    s.lunarEffects.advance(2,true);
+    app.view('orbit',true);app.view('follow',true);
+    s.rotate(25,-8);s.draw();
+    return {point,crater:s.moonGround.userData.impactCrater,age:s.lunarEffects.userData.impactAge,
+      particles:s.lunarEffects.userData.particles};`);
+  assert(crater.age>=2&&crater.crater===contacts[2].crater&&crater.particles===0);
+  await shot(label+'-lunar-impact-crater');
   await click('#returnWorkshop',mobile);
   assert.deepEqual(await call('return app.getState().craft;'),design);
   await open(base,T.reachOrbit());
@@ -2084,7 +2179,7 @@ async function lunarLanding(base,label){
     return {before,detached:c.state.flight.capsule.detached,label:d.getElementById('timeWarpLabel').textContent,
       limited:!d.getElementById('timeWarpLimit').hidden};`);
   assert.deepEqual(manualSeparation,{before:{queued:true,detached:false,label:'20×',limit:'限 1×'},detached:true,label:'20×',limited:false});
-  report.flows.push({case:'lunar-landing',label,width,height,separation,orbit,manual,result,terrain,detail,departure,descent,diversion,automatic,manualSeparation,followTouch});
+  report.flows.push({case:'lunar-landing',label,width,height,shortcut,separation,orbit,manual,result,terrain,detail,departure,descent,diversion,automatic,dust,contacts,crater,manualSeparation,followTouch});
 }
 
 function selection(args){if(args.length>2)throw Error("Expected cases and optional delivery");const cases=args[0]?args[0].split(","):caseNames,delivery=args[1]||null;if(cases.some(name=>!caseNames.includes(name))||new Set(cases).size!==cases.length)throw Error("Unknown or repeated explorer case");if(delivery&&!["source","standalone"].includes(delivery))throw Error("Unknown explorer delivery");return{cases,delivery};}
